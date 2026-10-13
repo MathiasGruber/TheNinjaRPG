@@ -58,6 +58,11 @@ import {
 } from "@/libs/overworldAi";
 import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import {
+  getIsolatedPyramid,
+  hasQuestContentChanged,
+  isBetweenPyramidBattles,
+} from "@/libs/questRun";
+import {
   buildRewardChoiceCards,
   getFixedChoiceRewards,
   getRewardPickCount,
@@ -79,6 +84,7 @@ import {
   getStrucBoost,
   type SectorVillage,
 } from "@/utils/village";
+import type { ZodAllTags } from "@/validators/combat";
 import type {
   AllObjectivesType,
   AllObjectiveTask,
@@ -100,10 +106,11 @@ import { getQuestCounterFieldName } from "@/validators/user";
 /**
  * Get currently active quests for a user
  */
+/** Select playable definitions; raw history remains available for isolation and recovery controls. */
 export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
-      .filter((uq) => !!uq.quest)
+      .filter((uq) => !!uq.quest && !hasQuestContentChanged(uq))
       .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user, true).check)
       .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
   return userQuests;
@@ -718,16 +725,25 @@ export type QuestConsequence = {
   scaleStats?: boolean;
   scaleGains?: number;
   forceKeepPools?: boolean;
+  /** Owning battle objective, carried through consequences into battle progress attribution. */
+  questId?: string;
+  objectiveId?: string;
+  /** Optional shared HP/CP/SP starting percentage; absence preserves carried pools. */
+  givePools?: number;
+  /** Fully configured player tags whose duration includes the opening round. */
+  startingEffects?: ZodAllTags[];
   /** Expanded NPC template IDs for combat consequences; duplicates request separate allies. */
   allyAiIds?: string[];
 };
 
 /**
- * Battle context for gating "war-context" kill objectives. Supplied only from the combat path.
+ * Combat-only context for war kill eligibility and managed-run objective attribution.
  */
 export type CombatQuestContext = {
   inWarTornSector: boolean;
   isWarParticipant: boolean;
+  /** Prevent unrelated fights from advancing ticketed or versioned run objectives. */
+  questBattleSource?: { questId: string; objectiveId: string };
 };
 
 /**
@@ -1174,7 +1190,9 @@ export const getNewTrackers = (
             if (
               opponentIds.length > 0 &&
               "opponentAIs" in objective &&
-              user.status === "AWAKE"
+              (user.status === "AWAKE" ||
+                (isBetweenPyramidBattles(user) &&
+                  getIsolatedPyramid(user)?.questId === quest.id))
             ) {
               notifications.push(
                 `Attacking ${opponentIds.length} target${opponentIds.length > 1 ? "s" : ""} for ${quest.name}.`,
@@ -1192,6 +1210,13 @@ export const getNewTrackers = (
                 scaleStats: objective.opponent_scaled_to_user,
                 scaleGains: objective.scaleGains,
                 forceKeepPools: objective.keepOriginalPools ?? false,
+                questId: quest.id,
+                objectiveId: objective.id,
+                givePools: objective.givePools,
+                startingEffects: [
+                  ...(objective.applyBuffs ?? []),
+                  ...(objective.applyDebuffs ?? []),
+                ],
               });
             }
           };
@@ -1440,6 +1465,13 @@ export const getNewTrackers = (
               ) {
                 if (
                   killCounts &&
+                  (!(
+                    quest.content.entryItems?.length ||
+                    quest.content.isolated ||
+                    (quest.questType === "battlepyramid" && quest.questVersion)
+                  ) ||
+                    (combatContext?.questBattleSource?.questId === quest.id &&
+                      combatContext.questBattleSource.objectiveId === objective.id)) &&
                   taskUpdate.text &&
                   opponentIds.includes(taskUpdate.contentId || "1337")
                 ) {
@@ -1512,6 +1544,21 @@ export const getNewTrackers = (
       return undefined;
     })
     .filter((q): q is QuestTrackerType => !!q);
+
+  // Hidden Pyramids pause without losing their checkpoint; never evaluate their objectives.
+  trackers.push(
+    ...questData.filter((tracker) =>
+      user.userQuests.some(
+        (entry) =>
+          entry.questId === tracker.id &&
+          entry.questType === "battlepyramid" &&
+          entry.quest?.hidden &&
+          !entry.completed &&
+          !entry.endAt &&
+          !hasQuestContentChanged(entry),
+      ),
+    ),
+  );
 
   return {
     trackers: getUnique(trackers, "id"),
@@ -1735,6 +1782,9 @@ export const mockAchievementHistoryEntries = (
       periodCompletes: 0,
       periodStartAt: null,
       pendingRewardChoice: null,
+      entryPaid: false,
+      isolated: false,
+      questVersion: null,
       quest: a,
       endAt: null,
       startedAt: new Date(),

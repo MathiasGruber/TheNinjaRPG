@@ -1,5 +1,6 @@
 import type { ExecutedQuery } from "@planetscale/database";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { after } from "next/server";
 import {
   MEDNIN_EXP_CAP,
@@ -29,7 +30,8 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
-import { claimUserSnapshot } from "@/server/utils/concurrency";
+import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { pushActivityUpdate } from "@/server/utils/push/liveActivity";
 import { findRelationship } from "@/utils/alliance";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
@@ -95,7 +97,7 @@ export const hospitalRouter = createTRPCRouter({
         orderBy: [asc(userData.updatedAt), asc(userData.userId)],
       });
     }),
-  // Let users heal other users if they are GENIN or above
+  /** Deliver allowed healing pools with their chakra payment and medical progress. */
   userHeal: protectedProcedure
     .meta({ mcp: { description: "Heal another user using chakra" } })
     .input(userHealInputSchema)
@@ -209,89 +211,90 @@ export const hospitalRouter = createTRPCRouter({
             )
           : u.regenAt,
       };
-      const healerClaim = await claimUserSnapshot({
-        client: ctx.drizzle,
-        userId: u.userId,
-        updatedAt: u.updatedAt,
-        where: [eq(userData.status, "AWAKE"), gte(userData.curChakra, chakraCost)],
-        set: {
-          medicalExperience: sql`LEAST(${userData.medicalExperience} + ${expGain}, ${MEDNIN_EXP_CAP})`,
-          curChakra: sql`${userData.curChakra} - ${chakraCost}`,
-          ...(isSelfHeal && pools.includes("Health")
-            ? {
-                curHealth: sql`LEAST(${userData.curHealth} + ${toHeal}, ${t.maxHealth})`,
-              }
-            : {}),
-          ...(isSelfHeal && pools.includes("Stamina")
-            ? {
-                curStamina: sql`LEAST(${userData.curStamina} + ${toHeal}, ${t.maxStamina})`,
-              }
-            : {}),
-          ...(isSelfHeal
-            ? {
-                curEnergy: sql`LEAST(${u.maxEnergy}, ${userData.curEnergy} + ${u.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${healedAt})) / ${REGEN_SECONDS * 1_000_000}))`,
-                maxEnergy: u.maxEnergy,
-                regenAt: healer.regenAt,
-              }
-            : {}),
-          questData: questDataForDb,
-        },
-      });
-      if (!healerClaim.success) {
-        return errorResponse("Could not heal — your state changed, please try again");
+      let healSucceeded: boolean;
+      if (isSelfHeal) {
+        const claim = await claimUserSnapshot({
+          client: ctx.drizzle,
+          userId: u.userId,
+          updatedAt: u.updatedAt,
+          where: [eq(userData.status, "AWAKE"), gte(userData.curChakra, chakraCost)],
+          set: {
+            medicalExperience: sql`LEAST(${userData.medicalExperience} + ${expGain}, ${MEDNIN_EXP_CAP})`,
+            curChakra: sql`${userData.curChakra} - ${chakraCost}`,
+            ...(pools.includes("Health")
+              ? {
+                  curHealth: sql`LEAST(${userData.curHealth} + ${toHeal}, ${t.maxHealth})`,
+                }
+              : {}),
+            ...(pools.includes("Stamina")
+              ? {
+                  curStamina: sql`LEAST(${userData.curStamina} + ${toHeal}, ${t.maxStamina})`,
+                }
+              : {}),
+            curEnergy: sql`LEAST(${u.maxEnergy}, ${userData.curEnergy} + ${u.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${healedAt})) / ${REGEN_SECONDS * 1_000_000}))`,
+            maxEnergy: u.maxEnergy,
+            regenAt: healer.regenAt,
+            questData: questDataForDb,
+          },
+        });
+        healSucceeded = claim.success;
+      } else {
+        const recipient = alias(userData, "recipient");
+        // Drizzle has no multi-table UPDATE builder. A joined write delivers healing and
+        // claims the healer's payment, experience and trackers together. Recipient status
+        // guards a player who enters battle after the initial read; rejection changes
+        // neither account and cannot award student shares. Energy is settled before
+        // resetting the hospital admission/regen clock; checkout remains manual.
+        const result = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(sql`
+            UPDATE ${userData}
+            INNER JOIN ${userData} AS recipient ON ${recipient.userId} = ${t.userId}
+            SET ${userData.updatedAt} = ${getNextUserSnapshotAt(u.updatedAt, healedAt)},
+                ${userData.medicalExperience} = LEAST(${userData.medicalExperience} + ${expGain}, ${MEDNIN_EXP_CAP}),
+                ${userData.curChakra} = ${userData.curChakra} - ${chakraCost},
+                ${userData.questData} = CAST(${JSON.stringify(questDataForDb)} AS JSON),
+                ${pools.includes("Health") ? sql`${recipient.curHealth} = LEAST(${recipient.curHealth} + ${toHeal}, ${recipient.maxHealth}),` : sql``}
+                ${pools.includes("Chakra") ? sql`${recipient.curChakra} = LEAST(${recipient.curChakra} + ${toHeal}, ${recipient.maxChakra}),` : sql``}
+                ${pools.includes("Stamina") ? sql`${recipient.curStamina} = LEAST(${recipient.curStamina} + ${toHeal}, ${recipient.maxStamina}),` : sql``}
+                ${recipient.curEnergy} = LEAST(${t.maxEnergy}, ${recipient.curEnergy} + ${t.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${recipient.regenAt}, NOW(3))) / ${REGEN_SECONDS * 1_000_000})),
+                ${recipient.maxEnergy} = ${t.maxEnergy},
+                ${recipient.regenAt} = ${
+                  t.status === "HOSPITALIZED"
+                    ? sql`NOW(3)`
+                    : sql`TIMESTAMPADD(SECOND, FLOOR(GREATEST(0, TIMESTAMPDIFF(SECOND, ${recipient.regenAt}, NOW(3))) / ${REGEN_SECONDS}) * ${REGEN_SECONDS}, ${recipient.regenAt})`
+                },
+                ${recipient.updatedAt} = GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${recipient.updatedAt}))
+            WHERE ${and(
+              eq(userData.userId, u.userId),
+              eq(userData.updatedAt, u.updatedAt),
+              eq(userData.status, "AWAKE"),
+              gte(userData.curChakra, chakraCost),
+              inArray(recipient.status, MEDNIN_HEALABLE_STATES),
+            )}
+          `),
+        );
+        // MySQL may count both changed accounts for this single delivery.
+        healSucceeded = result.rowsAffected > 0;
       }
-      // Potential student exp share
+      if (!healSucceeded) {
+        return errorResponse(
+          "Could not heal — your state or target changed, please try again",
+        );
+      }
+      // Student shares follow successful delivery, so a rejected heal grants no experience.
       const shareExp = Math.floor((expGain * SENSEI_GENIN_MED_EXP_SHARE_PERC) / 100);
-      const targetUpdate = isSelfHeal
-        ? Promise.resolve({ rowsAffected: 1 })
-        : ctx.drizzle
-            .update(userData)
-            .set({
-              ...(pools.includes("Health")
-                ? {
-                    curHealth: sql`LEAST(${userData.curHealth} + ${toHeal}, ${userData.maxHealth})`,
-                  }
-                : {}),
-              ...(pools.includes("Chakra")
-                ? {
-                    curChakra: sql`LEAST(${userData.curChakra} + ${toHeal}, ${userData.maxChakra})`,
-                  }
-                : {}),
-              ...(pools.includes("Stamina")
-                ? {
-                    curStamina: sql`LEAST(${userData.curStamina} + ${toHeal}, ${userData.maxStamina})`,
-                  }
-                : {}),
-              // Settle Energy before resetting the hospital admission/regen clock.
-              curEnergy: sql`LEAST(${t.maxEnergy}, ${userData.curEnergy} + ${t.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, NOW(3))) / ${REGEN_SECONDS * 1_000_000}))`,
-              maxEnergy: t.maxEnergy,
-              regenAt:
-                t.status === "HOSPITALIZED"
-                  ? sql`NOW(3)`
-                  : sql`TIMESTAMPADD(SECOND, FLOOR(GREATEST(0, TIMESTAMPDIFF(SECOND, ${userData.regenAt}, NOW(3))) / ${REGEN_SECONDS}) * ${REGEN_SECONDS}, ${userData.regenAt})`,
-              updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
-              // Don't change status - users must check out manually at the hospital
-              // unless they pay to be healed at the hospital while hospitalized
-            })
-            .where(eq(userData.userId, t.userId));
-      const [tResult] = await Promise.all([
-        targetUpdate,
-        shareExp > 0
-          ? ctx.drizzle
-              .update(userData)
-              .set({
-                medicalExperience: sql`LEAST(${userData.medicalExperience} + ${shareExp}, ${MEDNIN_EXP_CAP})`,
-              })
-              .where(
-                and(
-                  eq(userData.senseiId, u.userId),
-                  lte(userData.level, SENSEI_MAX_STUDENT_LEVEL),
-                ),
-              )
-          : null,
-      ]);
-      if (tResult.rowsAffected !== 1) {
-        return { success: false, message: "Could not heal target" };
+      if (shareExp > 0) {
+        await ctx.drizzle
+          .update(userData)
+          .set({
+            medicalExperience: sql`LEAST(${userData.medicalExperience} + ${shareExp}, ${MEDNIN_EXP_CAP})`,
+          })
+          .where(
+            and(
+              eq(userData.senseiId, u.userId),
+              lte(userData.level, SENSEI_MAX_STUDENT_LEVEL),
+            ),
+          );
       }
       if (!isSelfHeal) {
         void pusher.trigger(t.userId, "event", {

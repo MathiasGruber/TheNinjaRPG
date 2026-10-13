@@ -43,6 +43,7 @@ export type CombatProfileUpdate = {
   baseline: CombatCacheBaseline;
   userDelta: UserDelta;
   userPatch: {
+    status: "AWAKE" | "BATTLE";
     curHealth: number;
     curStamina: number;
     curChakra: number;
@@ -164,7 +165,6 @@ export const combatProfilePatch = (
     ...update.userPatch,
     items,
     battleId: null,
-    status: "AWAKE" as const,
     stealthActive: false,
     stealthActivatedAt: null,
     maxEnergy: update.userPatch.maxEnergy,

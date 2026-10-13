@@ -17,6 +17,7 @@ import { ActiveSessionBoundary } from "@/layout/ActiveSessionBoundary";
 import ActivityStreakPopup from "@/layout/ActivityStreakPopup";
 import { ExperimentSpeedInsights } from "@/layout/ExperimentSpeedInsights";
 import LayoutSwitcher from "@/layout/LayoutSwitcher";
+import { PyramidRunBoundary } from "@/layout/PyramidRunBoundary";
 import { RewardChoiceModal } from "@/layout/RewardChoice";
 import StructuredData from "@/layout/StructuredData";
 import { WebAnalytics } from "@/layout/WebAnalytics";
@@ -145,7 +146,7 @@ export default async function RootLayout({
                     initialLayout={initialLayout}
                     wallpaper={variant.wallpaper}
                   >
-                    {children}
+                    <PyramidRunBoundary>{children}</PyramidRunBoundary>
                   </LayoutSwitcher>
                   <Toaster />
                   <AcceptWarning />

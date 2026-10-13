@@ -28,7 +28,7 @@ const fixture = () => {
   const items = [{ ...baseline.items[0]!, durability: 0 }];
   const update: CombatProfileUpdate = { userId: raw.userId, battleId: "fight", baseline, items,
     userDelta: { money: 20, experience: 30, offence: 2, ninjutsuMastery: 5, dailyArenaFights: 1 },
-    userPatch: { curHealth: 90, curChakra: 80, curStamina: 70, curEnergy: 12, regenAt: new Date("2026-01-01T00:00:10Z"), stealthCooldownAt: new Date(), pvpStreak: 0, pveFights: 11, questData: [],
+    userPatch: { status: "AWAKE", curHealth: 90, curChakra: 80, curStamina: 70, curEnergy: 12, regenAt: new Date("2026-01-01T00:00:10Z"), stealthCooldownAt: new Date(), pvpStreak: 0, pveFights: 11, questData: [],
       ...combatCacheDerived(snapshot, items, { ninjutsuMastery: 5 }) },
   };
   const current = { ...raw, status: "BATTLE", battleId: "fight", money: 100, experience: 200, dailyArenaFights: 0, maxEnergy: calcMaxEnergy(raw), userQuests: [], questData: [] } as unknown as NonNullable<UserWithRelations>;
@@ -36,6 +36,11 @@ const fixture = () => {
 };
 
 describe("confirmed combat profile reconciliation", () => {
+  it("preserves BATTLE between isolated Pyramid floors while clearing the settled battle", () => {
+    const { current, update } = fixture();
+    update.userPatch.status = "BATTLE";
+    expect(combatProfilePatch(current, update)).toMatchObject({ status: "BATTLE", battleId: null });
+  });
   it("applies one normal equipped fight without fetching and refuses replay", async () => {
     const { current, update } = fixture();
     const client = new QueryClient();

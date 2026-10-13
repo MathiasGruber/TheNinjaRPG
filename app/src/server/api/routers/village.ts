@@ -240,11 +240,17 @@ export const villageRouter = createTRPCRouter({
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          money: user.money - cost,
+          money: sql`${userData.money} - ${cost}`,
           curStamina: newStamina,
           curChakra: newChakra,
         })
-        .where(and(eq(userData.userId, ctx.userId), gte(userData.money, cost)));
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            eq(userData.status, "AWAKE"),
+            gte(userData.money, cost),
+          ),
+        );
       if (result.rowsAffected === 0) {
         return errorResponse("Error trying to buy food. Try again.");
       } else {

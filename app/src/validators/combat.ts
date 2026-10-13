@@ -1090,6 +1090,82 @@ export const tagTypes = AllTags.options
     return literal.value as string;
   })
   .filter((t): t is string => t !== "unknown" && t !== undefined);
+/** Persistent player effects supported at the start of an authored battle. */
+export const questBuffTypes = [
+  "absorb",
+  "debuffprevent",
+  "decreasedamagetaken",
+  "decreasepoolcost",
+  "heal",
+  "increasedamagegiven",
+  "increaseheal",
+  "increasepotency",
+  "increasemaxpools",
+  "increasestat",
+  "increasemastery",
+  "increaserange",
+  "decreasecooldown",
+  "lifesteal",
+  "onehitkillprevent",
+  "reflect",
+  "robprevent",
+  "sealprevent",
+  "shield",
+  "stealth",
+  "stunprevent",
+  "immunity",
+  "summonprevent",
+] as const;
+/** Player debuffs whose existing handlers support authored starting effects. */
+export const questDebuffTypes = [
+  "afterburn",
+  "buffprevent",
+  "decreasedamagegiven",
+  "decreaseheal",
+  "decreasepotency",
+  "decreasestat",
+  "decreasemastery",
+  "decreasemaxpools",
+  "disarm",
+  "drain",
+  "elementalseal",
+  "fleeprevent",
+  "healprevent",
+  "increasedamagetaken",
+  "increasepoolcost",
+  "increasecooldown",
+  "moveprevent",
+  "poison",
+  "recoil",
+  "seal",
+  "stun",
+  "weakness",
+  "wound",
+] as const;
+
+/** Validate full combat tags against the permitted list and require an opening-round duration. */
+export const questStartingEffectsSchema = (types: readonly string[]) =>
+  z
+    .array(AllTags)
+    .superRefine((effects, ctx) => {
+      effects.forEach((effect, i) => {
+        if (!types.includes(effect.type))
+          ctx.addIssue({
+            code: "custom",
+            path: [i, "type"],
+            message: "Select a supported starting player effect",
+          });
+        if (effect.rounds === undefined || effect.rounds < 1)
+          ctx.addIssue({
+            code: "custom",
+            path: [i, "rounds"],
+            message:
+              "Starting effects require a duration of at least one round, including the opening round",
+          });
+      });
+    })
+    .prefault([]);
+
 export const effectFilters = tagTypes;
 export type EffectType = (typeof effectFilters)[number];
 

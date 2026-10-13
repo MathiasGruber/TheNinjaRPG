@@ -431,6 +431,8 @@ export type ExtraState = {
   preBattleGearModifiers?: Record<string, PreBattleGearModifiers>;
   settings?: GameSetting[];
   initialDurability?: Record<string, Record<string, number>>; // userId -> userItemId -> durability
+  /** Owning quest/objective; ticketed or versioned runs ignore kills from unrelated battles. */
+  questBattleSource?: { questId: string; objectiveId: string };
   // Raid-specific data
   raidQuestId?: string; // The quest ID for raid battles
   raidInitialBossHp?: number; // Initial boss HP at start of raid battle
@@ -650,7 +652,8 @@ export type BattleEffect = ZodAllTags & {
     | "ranked"
     | "sageMode"
     | "sageModeAfter"
-    | "elementalMastery";
+    | "elementalMastery"
+    | "quest";
   targetType?: "user" | "barrier";
   power?: number;
   highestGenerals?: (typeof GenNames)[number][];

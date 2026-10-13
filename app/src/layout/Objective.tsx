@@ -17,6 +17,7 @@ import {
   getObjectiveImage,
   isObjectiveComplete,
 } from "@/libs/objectives";
+import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { collapseRewards } from "@/libs/rewards";
 import { showMutationToast } from "@/libs/toast";
 import { parseHtml } from "@/utils/parse";
@@ -55,7 +56,9 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
   const status = tracker?.goals.find((g) => g.id === objective.id);
   const goalTarget = status?.target ?? ("value" in parsed ? parsed.value : undefined);
   const canRetryBattle =
-    objective.task === "start_battle" && canRetryQuestBattle(status);
+    objective.task === "start_battle" &&
+    canRetryQuestBattle(status) &&
+    !props.grayedOut;
 
   // Retry battle mutation
   const { mutate: retryBattle, isPending: isRetrying } =
@@ -100,7 +103,11 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
         <>
           <Check className="h-10 w-10 stroke-green-500" />
           {hasReward(parsed) &&
-            (canCollect && userData?.status === "AWAKE" ? (
+            (canCollect &&
+            !props.grayedOut &&
+            (userData?.status === "AWAKE" ||
+              (isBetweenPyramidBattles(userData) &&
+                getIsolatedPyramid(userData)?.questId === tracker.id)) ? (
               <Gift
                 className="h-7 w-7 cursor-pointer hover:text-orange-500"
                 onClick={checkRewards}

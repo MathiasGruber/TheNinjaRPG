@@ -47,6 +47,7 @@ for (const type of CovertTrainingTypes) {
       };
       const writes: Record<string, unknown>[] = [];
       const database = {
+        query: { questHistory: { findFirst: async () => undefined } },
         update: () => ({
           set: (values: Record<string, unknown>) => {
             writes.push(values);

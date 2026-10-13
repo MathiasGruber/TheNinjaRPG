@@ -2,7 +2,7 @@ import { Client as PlanetScaleClient } from "@planetscale/database";
 import * as Sentry from "@sentry/nextjs";
 import type { inferRouterOutputs } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { after } from "next/server";
 import { z } from "zod";
@@ -408,10 +408,23 @@ export const staffRouter = createTRPCRouter({
             `Cleared queue entries: mpvpBattleUser=${queueEntry ? "yes" : "no"}`,
           ],
         }),
-        ctx.drizzle
-          .update(userData)
-          .set({ status: "AWAKE", travelFinishAt: null, battleId: null })
-          .where(eq(userData.userId, targetUser.userId)),
+        // Drizzle has no joined UPDATE builder. Cancel the run and release its status
+        // together; LEFT JOIN also recovers players without any Pyramid history.
+        // Advance the live snapshot so in-flight objectives cannot restart the cancelled run.
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          LEFT JOIN ${questHistory} ON ${and(
+            eq(questHistory.userId, userData.userId),
+            eq(questHistory.questType, "battlepyramid"),
+            eq(questHistory.completed, 0),
+            isNull(questHistory.endAt),
+          )}
+          SET ${userData.status} = 'AWAKE', ${userData.travelFinishAt} = NULL,
+              ${userData.battleId} = NULL, ${questHistory.completed} = 0,
+              ${questHistory.endAt} = ${new Date()},
+              ${userData.updatedAt} = GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))
+          WHERE ${userData.userId} = ${targetUser.userId}
+        `),
         // Clean up raid/clan/shrine battle queue
         ctx.drizzle
           .delete(mpvpBattleUser)

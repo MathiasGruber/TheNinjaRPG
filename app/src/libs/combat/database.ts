@@ -77,6 +77,7 @@ import {
   getNewTrackers,
   getPublicQuestUser,
 } from "@/libs/quest";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import {
   getRaidChatConversationId,
   prepareExclusiveRaidActivation,
@@ -1429,6 +1430,9 @@ export const updateUser = async (
 
     // Single call to getNewTrackers with all tasks
     const hydratedUser = hydrateUserForQuests(curBattle, user);
+    // An isolated defeat stays in the run so its authored checkpoint remains playable.
+    if (getIsolatedPyramid(hydratedUser))
+      result.curHealth = Math.max(1, result.curHealth);
     const previouslyDoneGoals = new Set(
       hydratedUser.questData.flatMap((tracker) =>
         tracker.goals
@@ -1442,6 +1446,7 @@ export const updateUser = async (
       {
         inWarTornSector: isInWarTornSector,
         isWarParticipant: isWarBattleParticipant,
+        questBattleSource: curBattle.extraState.questBattleSource,
       },
     );
     updatedQuestIds.push(...questIdsUpdated);
@@ -1768,7 +1773,8 @@ export const updateUser = async (
                 rank: sql`CASE WHEN ${userData.rank} = 'ELDER' THEN 'JONIN' ELSE ${userData.rank} END`,
               }
             : {}),
-          ...(!curBattle.forceKeepPools &&
+          ...(!getIsolatedPyramid(hydratedUser) &&
+          !curBattle.forceKeepPools &&
           result.curHealth <= 0 &&
           !["SPARRING", "RANKED_PVP", "RANKED_SPARRING"].includes(curBattle.battleType)
             ? {
@@ -1783,7 +1789,7 @@ export const updateUser = async (
                     ? sql`NOW() + INTERVAL 1 MINUTE`
                     : sql`immunityUntil`,
               }
-            : { status: "AWAKE" }),
+            : { status: getIsolatedPyramid(hydratedUser) ? "BATTLE" : "AWAKE" }),
           // Deactivate stealth and set cooldown after leaving combat (20 seconds)
           stealthActive: false,
           stealthActivatedAt: null,
@@ -1855,6 +1861,7 @@ export const updateUser = async (
         baseline: cacheBaseline,
         userDelta,
         userPatch: {
+          status: getIsolatedPyramid(hydratedUser) ? "BATTLE" : "AWAKE",
           curHealth: Math.round(result.curHealth),
           curStamina: Math.round(result.curStamina),
           curChakra: Math.round(result.curChakra),

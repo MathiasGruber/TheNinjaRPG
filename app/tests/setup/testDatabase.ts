@@ -290,4 +290,20 @@ export const callerForDatabase = <Context, Caller>(
   router: { createCaller: (context: Context) => Caller },
   userId: string,
   database: DrizzleClient,
-): Caller => router.createCaller({ drizzle: database, userId } as Context);
+): Caller => router.createCaller({ drizzle: withEmptyIsolationHistory(database), userId } as Context);
+
+/** Partial test clients default to no isolated run; supplied history stubs and real clients stay intact. */
+export const withEmptyIsolationHistory = <Client extends object>(database: Client): Client => {
+  const partial = database as Client & { query?: { questHistory?: { findFirst?: unknown } } };
+  if (typeof partial.query?.questHistory?.findFirst === "function") return database;
+  return {
+    ...database,
+    query: {
+      ...partial.query,
+      questHistory: {
+        ...partial.query?.questHistory,
+        findFirst: async () => undefined,
+      },
+    },
+  };
+};

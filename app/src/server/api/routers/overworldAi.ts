@@ -5,6 +5,7 @@ import {
   OVERWORLD_QUEST_ROLLS_PER_DAY,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
+import type { UserQuest } from "@/drizzle/schema";
 import {
   overworldAiPlacement,
   overworldAiPlacementQuest,
@@ -53,6 +54,7 @@ import type { DrizzleClient } from "@/server/db";
 import { claimActiveNpcQuest, clearActiveNpcQuest } from "@/server/utils/concurrency";
 import { fetchPublishedSectorMap } from "@/server/utils/sectorMap";
 import { canChangeContent } from "@/utils/permissions";
+import type { ZodAllTags } from "@/validators/combat";
 import { idSchema } from "@/validators/misc";
 import { OverworldPlacementSchema } from "@/validators/overworldAi";
 
@@ -355,8 +357,8 @@ export const overworldAiRouter = createTRPCRouter({
       // userData when forceRegen is true, which would add a DB write to EVERY overworld
       // click (including plain HOSTILE fights). We only need the in-memory user + quest
       // relations + settings. The battle snapshot is re-fetched/regenerated inside
-      // initiateBattle, and the reward paths use atomic SQL increments, so none of the
-      // paths below depend on persisted regen.
+      // initiateBattle, reward paths use atomic SQL increments, and isolated quest
+      // assignment settles pending pools in its guarded entry write.
       const [placement, { user: activeUser, settings }, useritems] = await Promise.all([
         fetchPlacement(ctx.drizzle, input.placementId),
         fetchUpdatedUser({
@@ -434,6 +436,22 @@ export const overworldAiRouter = createTRPCRouter({
             userId: ctx.userId,
             scaleTarget,
             scaleGains,
+            questBattleSource: { questId: bound.questId, objectiveId: full.id },
+            givePools: "givePools" in full ? full.givePools : undefined,
+            startingEffects:
+              "applyBuffs" in full
+                ? [...(full.applyBuffs ?? []), ...(full.applyDebuffs ?? [])]
+                : [],
+            forceKeepPools:
+              "keepOriginalPools" in full ? full.keepOriginalPools : false,
+            // Pyramid lifecycle/version guards apply even when the floor needs no ticket.
+            questAttempt: activeUser.userQuests.find(
+              (entry) =>
+                entry.questId === bound.questId &&
+                !entry.endAt &&
+                (entry.questType === "battlepyramid" ||
+                  !!entry.quest.content.entryItems?.length),
+            ),
             allyAiIds:
               "allyAIs" in full
                 ? full.allyAIs.flatMap((ally) =>
@@ -838,6 +856,11 @@ const startOverworldBattle = (opts: {
   scaleTarget: boolean;
   scaleGains: number;
   allyAiIds?: string[];
+  givePools?: number;
+  startingEffects?: ZodAllTags[];
+  questAttempt?: UserQuest;
+  questBattleSource?: { questId: string; objectiveId: string };
+  forceKeepPools?: boolean;
 }) =>
   initiateBattle(
     {
@@ -847,6 +870,11 @@ const startOverworldBattle = (opts: {
       userIds: [opts.userId],
       targetIds: [opts.placement.aiTemplateUserId],
       allyAiIds: opts.allyAiIds,
+      givePools: opts.givePools,
+      startingEffects: opts.startingEffects,
+      questAttempt: opts.questAttempt,
+      questBattleSource: opts.questBattleSource,
+      forceKeepPools: opts.forceKeepPools,
       client: opts.client,
       scaleTarget: opts.scaleTarget,
       biome: "default",

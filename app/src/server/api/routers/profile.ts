@@ -14,6 +14,7 @@ import {
   lt,
   lte,
   ne,
+  notExists,
   notInArray,
   or,
   sql,
@@ -151,6 +152,7 @@ import {
   questHasOverworldObjectives,
   snapQuestTargetsToReachable,
 } from "@/libs/quest";
+import { getIsolatedPyramid } from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   getRaidObjectiveData,
@@ -192,6 +194,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
@@ -3113,7 +3116,11 @@ export const fetchUpdatedUser = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         completedQuests: {
-          columns: { id: true, questId: true, completed: true },
+          columns: {
+            id: true,
+            questId: true,
+            completed: true,
+          },
           where: gte(questHistory.completed, 1),
         },
         votes: true,
@@ -3187,13 +3194,100 @@ export const fetchUpdatedUser = async (props: {
   let progressionQuestCandidates: NonNullable<typeof user>["userQuests"] = [];
   // Add in achievements (in-memory placeholders: `id === questId` until `QuestHistory` exists).
   if (user) {
+    const orphanedIsolatedIds = user.userQuests
+      .filter(
+        (entry) => !entry.quest && entry.isolated && !entry.endAt && !entry.completed,
+      )
+      .map((entry) => entry.id);
+    if (orphanedIsolatedIds.length > 0) {
+      // Persist retirement so middleware and mutation CAS guards release deleted runs too.
+      // A restored definition or a different live run must survive a stale profile read.
+      await retryOnDeadlock(() =>
+        client
+          .update(questHistory)
+          .set({ endAt: now })
+          .where(
+            and(
+              inArray(questHistory.id, orphanedIsolatedIds),
+              eq(questHistory.userId, userId),
+              eq(questHistory.isolated, true),
+              eq(questHistory.completed, 0),
+              isNull(questHistory.endAt),
+              notExists(
+                client
+                  .select({ one: sql`1` })
+                  .from(quest)
+                  .where(eq(quest.id, questHistory.questId)),
+              ),
+            ),
+          ),
+      );
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
+    }
     // Deleted quests can leave history behind; progression candidates need live definitions.
     user.userQuests = user.userQuests.filter((entry) => entry.quest);
     user.userQuests.push(...mockAchievementHistoryEntries(achievements, user));
     progressionQuestCandidates = [...user.userQuests];
+    // Retain paused/invalid run history so isolation and abandonment stay accessible.
     user.userQuests = user.userQuests.filter(
-      (q) => isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
+      (q) =>
+        ((q.questType === "battlepyramid" || q.isolated) && !q.endAt && !q.completed) ||
+        isAvailableUserQuests({ ...q.quest, ...q }, user, true).check,
     );
+    // Retired or deleted content cannot leave a player between floors indefinitely.
+    // Recheck persisted isolation with the status claim so a fresh run wins the race.
+    if (user.status === "BATTLE" && !user.battleId && !getIsolatedPyramid(user)) {
+      const regeneration = calcActiveUserRegen(user, settings);
+      const maxEnergy = calcMaxEnergy(user);
+      const energy = Math.min(
+        maxEnergy,
+        user.curEnergy +
+          regeneration *
+            Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
+      );
+      const claim = await claimUserSnapshot({
+        client,
+        userId,
+        updatedAt: user.updatedAt,
+        where: [
+          eq(userData.status, "BATTLE"),
+          isNull(userData.battleId),
+          notExists(
+            client
+              .select({ one: sql`1` })
+              .from(questHistory)
+              .innerJoin(quest, eq(quest.id, questHistory.questId))
+              .where(
+                and(
+                  eq(questHistory.userId, userId),
+                  eq(questHistory.isolated, true),
+                  eq(questHistory.completed, 0),
+                  isNull(questHistory.endAt),
+                ),
+              ),
+          ),
+        ],
+        set: {
+          status: "AWAKE",
+          curEnergy: sql`LEAST(${maxEnergy}, ${userData.curEnergy} + ${regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000}))`,
+          regenAt: now,
+        },
+      });
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
+      if (claim.success)
+        Object.assign(user, {
+          status: "AWAKE",
+          updatedAt: claim.claimedAt,
+          regenAt: now,
+          curEnergy: energy,
+        });
+      else {
+        const freshUser = await queryUpdatedUser();
+        if (freshUser) Object.assign(user, freshUser);
+      }
+    }
   }
 
   // Filter and attach active wars for enemy_village sector type resolution

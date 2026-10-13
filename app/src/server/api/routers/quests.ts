@@ -10,6 +10,8 @@ import {
   isNull,
   like,
   lte,
+  ne,
+  notExists,
   or,
   sql,
 } from "drizzle-orm";
@@ -26,6 +28,7 @@ import {
   MEDNIN_EXP_CAP,
   NPC_ONLY_QUEST_TYPES,
   QuestTypes,
+  REGEN_SECONDS,
   SAGE_MASTERY_EXP_CAP,
   SENSEI_STUDENT_RYO_PER_MISSION,
   TUTORIAL_GENIN_EXAM_QUEST_ID,
@@ -103,6 +106,12 @@ import {
   rollObjectiveAttackers,
   verifyQuestContentForSave,
 } from "@/libs/quest";
+import {
+  getIsolatedPyramid,
+  getQuestEntryRequirements,
+  hasQuestContentChanged,
+  isBetweenPyramidBattles,
+} from "@/libs/questRun";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   buildRewardChoiceCards,
@@ -142,7 +151,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import { claimUserSnapshot } from "@/server/utils/concurrency";
+import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import {
@@ -166,7 +175,12 @@ import {
   canOnlyEditSelf,
   canPlayHiddenQuests,
 } from "@/utils/permissions";
-import { periodStart, secondsFromNow } from "@/utils/time";
+import {
+  periodStart,
+  secondsFromDate,
+  secondsFromNow,
+  secondsPassed,
+} from "@/utils/time";
 import type { QueryCondition } from "@/utils/typeutils";
 import { canAccessStructure } from "@/utils/village";
 import { idSchema } from "@/validators/misc";
@@ -372,7 +386,7 @@ export const questsRouter = createTRPCRouter({
         return [];
       }
       // Query
-      const [{ user }, quests] = await Promise.all([
+      const [{ user }, quests, inventory] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
           userId: ctx.userId,
@@ -381,12 +395,41 @@ export const questsRouter = createTRPCRouter({
           questTypes: [input.questType],
           level: input.level,
         }),
+        ctx.drizzle.query.userItem.findMany({
+          where: and(
+            eq(userItem.userId, ctx.userId),
+            eq(userItem.storedAtHome, false),
+            eq(userItem.isInAuction, false),
+            or(
+              isNull(userItem.craftingFinishedAt),
+              lte(userItem.craftingFinishedAt, new Date()),
+            ),
+            gt(userItem.quantity, 0),
+          ),
+          columns: { itemId: true, quantity: true },
+          with: { item: { columns: { name: true } } },
+        }),
       ]);
       if (!user) return [];
       quests.forEach((r) => {
         controlShownQuestLocationInformation(r);
       });
-      return quests.filter((e) => isAvailableUserQuests(e, user, true).check);
+      return quests
+        .filter((e) => isAvailableUserQuests(e, user, true).check)
+        .map((entry) => ({
+          ...entry,
+          entryRequirements: getQuestEntryRequirements(entry.content).map(
+            (required) => ({
+              ...required,
+              name:
+                inventory.find((row) => row.itemId === required.itemId)?.item.name ??
+                required.itemId,
+              owned: inventory
+                .filter((row) => row.itemId === required.itemId)
+                .reduce((sum, row) => sum + row.quantity, 0),
+            }),
+          ),
+        }));
     }),
   startRandom: protectedProcedure
     .meta({ mcp: { description: "Start a random mission or errand" } })
@@ -431,6 +474,9 @@ export const questsRouter = createTRPCRouter({
             historyStartedAt: questHistory.startedAt,
             historyEndAt: questHistory.endAt,
             historyPendingRewardChoice: questHistory.pendingRewardChoice,
+            historyEntryPaid: questHistory.entryPaid,
+            historyIsolated: questHistory.isolated,
+            historyQuestVersion: questHistory.questVersion,
           })
           .from(quest)
           .leftJoin(
@@ -542,6 +588,9 @@ export const questsRouter = createTRPCRouter({
               periodCompletes: result.periodCompletes ?? 0,
               periodStartAt: result.periodStartAt,
               pendingRewardChoice: result.historyPendingRewardChoice,
+              entryPaid: result.historyEntryPaid ?? false,
+              isolated: result.historyIsolated ?? false,
+              questVersion: result.historyQuestVersion,
             }
           : null;
 
@@ -656,34 +705,77 @@ export const questsRouter = createTRPCRouter({
       ) {
         return errorResponse(`Cannot abandon ${current.questType} quest type.`);
       }
+      if (
+        user.status === "BATTLE" &&
+        (user.battleId ||
+          getIsolatedPyramid(user)?.id !== current.id ||
+          !current.isolated)
+      )
+        return errorResponse(
+          "Finish or flee your current battle before abandoning this run.",
+        );
       // Derived
       const questData = filterQuestTrackersForDbPersist(
         user.questData?.filter((q) => q.id !== input.id) ?? [],
         user,
       );
-      // Mutate
-      await Promise.all([
-        ctx.drizzle
-          .update(questHistory)
-          .set({ completed: 0, endAt: new Date() })
-          .where(
-            and(
-              eq(questHistory.questId, input.id),
-              eq(questHistory.userId, ctx.userId),
+      const managedRun =
+        current.questType === "battlepyramid" ||
+        current.isolated ||
+        !!current.quest.content.entryItems?.length;
+      if (managedRun) {
+        const now = new Date();
+        // Drizzle has no multi-table UPDATE builder. One joined write releases the run
+        // and its account/NPC state together; a combat or snapshot race changes neither.
+        const result = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(sql`
+            UPDATE ${userData}
+            INNER JOIN ${questHistory}
+              ON ${questHistory.userId} = ${userData.userId}
+            SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+                ${userData.questFinishAt} = ${now},
+                ${userData.questData} = CAST(${JSON.stringify(questData)} AS JSON),
+                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${user.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000})), ${userData.curEnergy}),
+                ${userData.regenAt} = IF(${questHistory.isolated}, ${now}, ${userData.regenAt}),
+                ${userData.status} = IF(${questHistory.isolated}, 'AWAKE', ${userData.status}),
+                ${userData.activeNpcQuestId} = IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId}),
+                ${questHistory.completed} = 0,
+                ${questHistory.endAt} = ${now}
+            WHERE ${userData.userId} = ${ctx.userId}
+              AND ${userData.updatedAt} = ${user.updatedAt}
+              AND (${userData.status} <> 'BATTLE' OR (${questHistory.isolated} = TRUE AND ${userData.battleId} IS NULL))
+              AND ${questHistory.id} = ${current.id}
+              AND ${questHistory.endAt} IS NULL
+              AND ${questHistory.completed} = 0
+          `),
+        );
+        // MySQL counts both changed tables, so a successful joined claim can affect two rows.
+        if (result.rowsAffected === 0)
+          return errorResponse(
+            "The run changed or entered combat. Finish or flee the battle, then try again.",
+          );
+      } else {
+        await Promise.all([
+          ctx.drizzle
+            .update(questHistory)
+            .set({ completed: 0, endAt: new Date() })
+            .where(
+              and(
+                eq(questHistory.id, current.id),
+                isNull(questHistory.endAt),
+                eq(questHistory.completed, 0),
+              ),
             ),
-          ),
-        ctx.drizzle
-          .update(userData)
-          .set({
-            questFinishAt: new Date(),
-            questData: questData,
-            // If the abandoned quest held the single active-NPC-mission slot, free it in the same
-            // write (questId-scoped so a concurrent grant of a different quest is never cleared).
-            // Otherwise the slot stays stale and blocks the next overworld NPC interaction.
-            activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
-          })
-          .where(eq(userData.userId, ctx.userId)),
-      ]);
+          ctx.drizzle
+            .update(userData)
+            .set({
+              questFinishAt: new Date(),
+              questData,
+              activeNpcQuestId: sql`IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId})`,
+            })
+            .where(eq(userData.userId, ctx.userId)),
+        ]);
+      }
       return { success: true, message: `Quest abandoned` };
     }),
   getQuestHistory: protectedProcedure
@@ -874,9 +966,38 @@ export const questsRouter = createTRPCRouter({
           );
         }
 
-        // Update database
+        const parsedPrevious = QuestValidator.safeParse(entry);
+        const isVisibilityOnlyChange =
+          parsedPrevious.success &&
+          calculateContentDiff(
+            { ...parsedPrevious.data, hidden: input.data.hidden },
+            input.data,
+          ).length === 0;
+        const updatedAt = new Date(Math.max(Date.now(), entry.updatedAt.getTime() + 1));
+        // Publish visibility and accepted run versions together so another quest's
+        // tracker persistence cannot discard a checkpoint during a split revision.
+        // Drizzle cannot express a multi-table UPDATE; authored edits use its builder.
+        const definitionWrite = isVisibilityOnlyChange
+          ? await retryOnDeadlock(() =>
+              ctx.drizzle.execute(sql`
+                UPDATE ${quest}
+                LEFT JOIN ${questHistory}
+                  ON ${questHistory.questId} = ${quest.id}
+                  AND ${questHistory.questVersion} = ${entry.updatedAt}
+                SET ${quest.hidden} = ${input.data.hidden},
+                    ${quest.updatedAt} = ${updatedAt},
+                    ${questHistory.questVersion} = ${updatedAt}
+                WHERE ${quest.id} = ${entry.id}
+                  AND ${quest.updatedAt} = ${entry.updatedAt}
+              `),
+            )
+          : await ctx.drizzle
+              .update(quest)
+              .set({ ...input.data, updatedAt })
+              .where(and(eq(quest.id, entry.id), eq(quest.updatedAt, entry.updatedAt)));
+        if (definitionWrite.rowsAffected === 0)
+          return errorResponse("Quest changed while saving. Refresh and try again.");
         await Promise.all([
-          ctx.drizzle.update(quest).set(input.data).where(eq(quest.id, entry.id)),
           // Village Missions retire personal attempts without granting completions
           // or reclassifying completed history as collective progress.
           data.questType === "village_mission"
@@ -892,7 +1013,16 @@ export const questsRouter = createTRPCRouter({
                 )
             : ctx.drizzle
                 .update(questHistory)
-                .set({ questType: input.data.questType })
+                .set({
+                  questType: input.data.questType,
+                  ...(entry.questType === "battlepyramid" &&
+                  input.data.questType !== "battlepyramid"
+                    ? {
+                        // Retire open runs without rewriting completed or abandoned history.
+                        endAt: sql`IF(${questHistory.endAt} IS NULL AND ${questHistory.completed} = 0, ${updatedAt}, ${questHistory.endAt})`,
+                      }
+                    : {}),
+                })
                 .where(eq(questHistory.questId, entry.id)),
           ctx.drizzle.insert(actionLog).values({
             id: nanoid(),
@@ -1102,7 +1232,7 @@ export const questsRouter = createTRPCRouter({
     .input(z.object({ questId: z.string(), nextObjectiveId: z.string().optional() }))
     .output(userDeltaResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      // Resolved path: questHistory CAS → snapshot claim → updateRewards (SQL deltas on userdata).
+      // Reward payout follows the history/account claim; isolated runs publish both together.
       const [
         {
           user,
@@ -1130,9 +1260,25 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         return errorResponse("User does not exist");
       }
-      if (user.status !== "AWAKE") {
+      const isolatedRun = getIsolatedPyramid(user);
+      if (
+        user.status !== "AWAKE" &&
+        !(isBetweenPyramidBattles(user) && isolatedRun?.questId === input.questId)
+      ) {
         return errorResponse("Must be awake to finish quests");
       }
+
+      const activeAttempt = user.userQuests.find(
+        (entry) => entry.questId === input.questId && !entry.endAt,
+      );
+      if (
+        activeAttempt &&
+        (hasQuestContentChanged(activeAttempt) ||
+          (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
+      )
+        return errorResponse(
+          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+        );
 
       // Figure out if any finished quests & get rewards
       const {
@@ -1145,9 +1291,7 @@ export const questsRouter = createTRPCRouter({
         rewardChoice,
       } = getReward(user, input.questId, input.nextObjectiveId, settings);
 
-      // Persist completion before snapshot CAS so we cannot commit questData/updatedAt and then
-      // lose the completion race; if snapshot claim fails, revert completion below. Shared with
-      // the overworld friendly objective-target path so reward effects stay in one place.
+      // Share completion claims and reward effects with overworld objective interactions.
       const claim = await commitQuestObjectiveRewards({
         client: ctx.drizzle,
         userId: ctx.userId,
@@ -1160,6 +1304,14 @@ export const questsRouter = createTRPCRouter({
         consequences,
         existingHistory: questHistoryPrefetch ?? null,
         rewardChoice,
+        ...(resolved && isolatedRun?.questId === input.questId
+          ? {
+              postClaimUserDataPatch: {
+                // A delayed payout must not unlock a different run or a claimed battle.
+                status: sql`CASE WHEN ${userData.battleId} IS NULL AND NOT EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.userId} = ${ctx.userId} AND ${questHistory.isolated} = TRUE AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL) THEN 'AWAKE' ELSE ${userData.status} END`,
+              },
+            }
+          : {}),
       });
 
       if (claim.outcome === "already_completed") {
@@ -1552,6 +1704,23 @@ export const questsRouter = createTRPCRouter({
       if (!tracker?.goals.some((goal) => canRetryQuestBattle(goal))) {
         return errorResponse("There is no lost battle to retry in this quest");
       }
+      if (
+        user.status === "BATTLE" &&
+        (!isBetweenPyramidBattles(user) ||
+          getIsolatedPyramid(user)?.questId !== input.questId)
+      )
+        return errorResponse("Finish your current battle before retrying a quest");
+      const activeAttempt = user.userQuests.find(
+        (entry) => entry.questId === input.questId && !entry.endAt,
+      );
+      if (
+        activeAttempt &&
+        (hasQuestContentChanged(activeAttempt) ||
+          (activeAttempt.quest.hidden && !canPlayHiddenQuests(user.role)))
+      )
+        return errorResponse(
+          "This Pyramid is paused or changed. Return to the Battle Arena to resume or abandon it.",
+        );
       // Get updated quest information with start_battle task and retry flag
       const { notifications, consequences } = getNewTrackers(user, [
         { task: "start_battle", text: "retry" },
@@ -2497,6 +2666,7 @@ export const upsertQuestEntries = async (
   }
 };
 
+/** Increment the SQL counter and the supplied user projection together. */
 export const incrementDailyQuestCounter = async (
   client: DrizzleClient,
   user: UserData,
@@ -2682,6 +2852,12 @@ export const assignQuestToUser = async (args: {
     );
   }
 
+  if (
+    (questData.questType === "battlepyramid" || questData.content.entryItems?.length) &&
+    user.status !== "AWAKE"
+  )
+    return errorResponse("You must be awake and outside combat to start this run.");
+
   // Per-type concurrent-limit guard (pure, no DB)
   const block = questTypeConcurrentBlockMessage(questData, user);
   if (block) return errorResponse(block);
@@ -2706,7 +2882,7 @@ export const assignQuestToUser = async (args: {
 
   // Insert quest entry; for war quests guard the daily limit with a CAS counter update.
   // CAS runs first so that a user at the daily limit is rejected before any quest entry
-  // is written. PlanetScale has no transactions, so this ordering means a crash between
+  // is written. This deliberately nontransactional flow means a crash between
   // the CAS success and the upsert burns one daily slot without delivering the quest
   // (acceptable), whereas the reverse order would deliver a quest when the limit is reached
   // (unacceptable — creates orphaned quest entries the user cannot access). The
@@ -2740,6 +2916,61 @@ export const assignQuestToUser = async (args: {
       source,
       prevAttempt ?? null,
     );
+  } else if (
+    questData.questType === "battlepyramid" ||
+    questData.content.entryItems?.length
+  ) {
+    // Publish the account claim and new history together: another request must not see
+    // a fresh account stamp before the active Pyramid row. A joined UPDATE cannot insert
+    // missing history or commit its tracker and initial recovery with that insertion.
+    const assigned = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const database = tx as unknown as DrizzleClient;
+        const claim = await claimUserSnapshot({
+          client: database,
+          userId: user.userId,
+          updatedAt: user.updatedAt,
+          where: [
+            eq(userData.status, "AWAKE"),
+            ...(questData.questType === "battlepyramid"
+              ? [
+                  notExists(
+                    database
+                      .select({ one: sql`1` })
+                      .from(questHistory)
+                      .where(
+                        and(
+                          eq(questHistory.userId, user.userId),
+                          eq(questHistory.questType, "battlepyramid"),
+                          isNull(questHistory.endAt),
+                          eq(questHistory.completed, 0),
+                        ),
+                      ),
+                  ),
+                ]
+              : []),
+          ],
+        });
+        if (!claim.success) return undefined;
+        const claimedUser = { ...user, updatedAt: claim.claimedAt };
+        const result = await upsertQuestEntry(
+          database,
+          claimedUser,
+          questData,
+          source,
+          prevAttempt ?? null,
+          true,
+        );
+        await incrementDailyQuestCounter(database, claimedUser, questData.questType);
+        return { result, user: claimedUser };
+      }),
+    );
+    if (!assigned)
+      return errorResponse(
+        "Your account changed or another Pyramid started. Refresh and try again.",
+      );
+    Object.assign(user, assigned.user);
+    assignment = assigned.result;
   } else {
     [assignment] = await Promise.all([
       upsertQuestEntry(client, user, questData, source, prevAttempt ?? null),
@@ -2763,6 +2994,9 @@ export const assignQuestToUser = async (args: {
  * {@link commitQuestObjectiveRewards} uses. The insert branch is idempotent on the
  * `(userId, questId)` unique key, so a stale `null` that races a concurrent insert restarts
  * the existing row rather than throwing.
+ *
+ * @param inTransaction - The caller owns a PlanetScale session and awaits statements in order;
+ * fresh isolated story grants open their own transaction when this is false.
  */
 export const upsertQuestEntry = async (
   client: DrizzleClient,
@@ -2770,7 +3004,11 @@ export const upsertQuestEntry = async (
   quest: Quest,
   source: QuestAcquisitionSource,
   prevEntry?: Awaited<ReturnType<typeof fetchUserQuestByQuestId>> | null,
-) => {
+  inTransaction = false,
+): Promise<{
+  entry: NonNullable<Awaited<ReturnType<typeof fetchUserQuestByQuestId>>>;
+  userCacheEligible: boolean;
+}> => {
   if (isNpcOnlyQuestType(quest.questType) && source !== "overworld_npc") {
     throw serverError(
       "PRECONDITION_FAILED",
@@ -2804,6 +3042,56 @@ export const upsertQuestEntry = async (
   // A genuine restart always arrives with the row closed: completed, or ended by the daily reset
   // or abandon.
   const isOpenAttempt = !!entry && entry.completed === 0 && entry.endAt === null;
+  const settleRecovery =
+    !isOpenAttempt && quest.content.isolated && !getIsolatedPyramid(user);
+  // Story grants also enter through this helper. History may need insertion, so a joined
+  // UPDATE cannot publish isolation and earned recovery together. Keep this transaction short;
+  // the UI/NPC assignment already supplies a transaction and its claimed account snapshot.
+  if (settleRecovery && !inTransaction) {
+    const assigned = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const claimedUser = { ...user };
+        const result = await upsertQuestEntry(
+          tx as unknown as DrizzleClient,
+          claimedUser,
+          quest,
+          source,
+          entry ?? null,
+          true,
+        );
+        return { result, user: claimedUser };
+      }),
+    );
+    Object.assign(user, assigned.user);
+    return assigned.result;
+  }
+  const ticks = settleRecovery
+    ? Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS))
+    : 0;
+  const regen = user.regeneration * ticks;
+  // Energy shares regenAt, so preserve its earned recovery before advancing that clock too.
+  const recovery = settleRecovery
+    ? {
+        curHealth: Math.round(Math.min(user.curHealth + regen, user.maxHealth)),
+        curChakra: Math.round(Math.min(user.curChakra + regen, user.maxChakra)),
+        curStamina: Math.round(Math.min(user.curStamina + regen, user.maxStamina)),
+        curEnergy: Math.min(user.curEnergy + regen, user.maxEnergy),
+        regenAt: secondsFromDate(ticks * REGEN_SECONDS, user.regenAt),
+      }
+    : {};
+  // Use the persisted pools/clock: a competing account write must not replay recovery
+  // or overwrite the pools after the story's quest tracker has already been claimed.
+  const recoveryTicks = sql`FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${new Date(Date.now())})) / ${REGEN_SECONDS * 1_000_000})`;
+  const poolRecovery = sql`${user.regeneration} * ${recoveryTicks}`;
+  const recoveryUpdate = settleRecovery
+    ? {
+        curHealth: sql`ROUND(LEAST(${userData.curHealth} + ${poolRecovery}, ${userData.maxHealth}))`,
+        curChakra: sql`ROUND(LEAST(${userData.curChakra} + ${poolRecovery}, ${userData.maxChakra}))`,
+        curStamina: sql`ROUND(LEAST(${userData.curStamina} + ${poolRecovery}, ${userData.maxStamina}))`,
+        curEnergy: sql`LEAST(${userData.curEnergy} + ${poolRecovery}, ${user.maxEnergy})`,
+        regenAt: sql`TIMESTAMPADD(SECOND, ${recoveryTicks} * ${REGEN_SECONDS}, ${userData.regenAt})`,
+      }
+    : {};
   if (!isOpenAttempt) {
     user.questData = removeQuestTrackerByQuestId(user.questData, quest.id);
   }
@@ -2820,6 +3108,13 @@ export const upsertQuestEntry = async (
           // Atomic increment so a concurrent restart of the same row can't lose a count to a
           // stale JS-side base; matches the insert branch's onDuplicateKeyUpdate below.
           previousAttempts: sql`${questHistory.previousAttempts} + 1`,
+          ...(!isOpenAttempt
+            ? {
+                entryPaid: false,
+                isolated: quest.content.isolated ?? false,
+                questVersion: quest.updatedAt,
+              }
+            : {}),
         })
         .where(eq(questHistory.id, entry.id)),
     );
@@ -2829,6 +3124,13 @@ export const upsertQuestEntry = async (
       endAt: null,
       completed: 0,
       previousAttempts: entry.previousAttempts + 1,
+      ...(!isOpenAttempt
+        ? {
+            entryPaid: false,
+            isolated: quest.content.isolated ?? false,
+            questVersion: quest.updatedAt,
+          }
+        : {}),
     };
   } else {
     entry = {
@@ -2844,6 +3146,9 @@ export const upsertQuestEntry = async (
       periodCompletes: 0,
       periodStartAt: null,
       pendingRewardChoice: null,
+      entryPaid: false,
+      isolated: quest.content.isolated ?? false,
+      questVersion: quest.updatedAt,
     };
     // Idempotent on the (userId, questId) unique key: if a concurrent start (double-tap, or a
     // UI + overworld race, possibly past a stale `prevEntry`) already inserted the row, restart
@@ -2860,6 +3165,9 @@ export const upsertQuestEntry = async (
             endAt: null,
             completed: 0,
             previousAttempts: sql`${questHistory.previousAttempts} + 1`,
+            entryPaid: false,
+            isolated: quest.content.isolated ?? false,
+            questVersion: quest.updatedAt,
           },
         }),
     );
@@ -2869,7 +3177,8 @@ export const upsertQuestEntry = async (
     ...user.userQuests.filter((row) => row.questId !== quest.id),
     { ...entry, quest },
   ];
-  const trackerUser = await hydrateQuestCollections(client, user);
+  if (entry.isolated) user.status = "BATTLE";
+  const trackerUser = await hydrateQuestCollections(client, user, inTransaction);
   const { trackers, consequences, notifications } = getNewTrackers(trackerUser, [
     { task: "any" },
   ]);
@@ -2878,11 +3187,18 @@ export const upsertQuestEntry = async (
       .update(userData)
       .set({
         questData: filterQuestTrackersForDbPersist(trackers, user),
+        ...recoveryUpdate,
+        ...(entry.isolated ? { status: "BATTLE" as const } : {}),
       })
       .where(eq(userData.userId, user.userId)),
   );
-  // Execute promises
-  await Promise.all(promises);
+  // Drizzle builders are lazy; await them in order on PlanetScale's shared transaction session.
+  if (inTransaction) {
+    for (const promise of promises) await promise;
+  } else {
+    await Promise.all(promises);
+  }
+  Object.assign(user, recovery);
   user.questData = trackers;
   user.completedQuests = user.completedQuests.filter((row) => row.questId !== quest.id);
   // Instant objectives may become done before a later pass can recover their side effects.
@@ -3010,11 +3326,10 @@ type CommitQuestObjectiveRewardsResult =
 /**
  * Shared post-`getReward` reward-claim sequence used by both `checkRewards` and the
  * overworld friendly objective-target path. Encapsulates, in order:
- *   1. The completion compare-and-swap (when `resolved`): insert a `completed=0` history row
- *      if none exists, then atomically flip it to `completed=1` so a parallel claim cannot
- *      double-pay the quest-level reward.
- *   2. `handleQuestConsequences` with `alwaysClaimUserState`, reverting the completion if the
- *      snapshot claim is lost.
+ *   1. The completion compare-and-swap (when `resolved`): insert history if needed, then
+ *      claim its completion. Isolated runs combine this with the account snapshot claim.
+ *   2. `handleQuestConsequences` with `alwaysClaimUserState`, reverting a separate completion
+ *      CAS if its account snapshot claim loses.
  *   3. Restoring the full trackers, the sensei +ryo mission bonus, the tier-bootstrap /
  *      repeatable-achievement re-arm prep, and `updateRewards` (run together).
  * Returns a discriminated outcome; the raw bytes of the reward names are mapped onto
@@ -3062,6 +3377,20 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "not_found" };
   }
   const rewardChoice = resolved ? (info.rewardChoice ?? null) : null;
+  const isolatedRun = getIsolatedPyramid(user);
+  // A loaded reward must still belong to playable content when its write claims.
+  // Visibility-only saves keep history valid, but any in-flight claim retries on
+  // their new version; authored edits require the versioned run to restart.
+  const liveQuestCondition = userQuest
+    ? sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${and(
+        eq(quest.id, userQuest.questId),
+        ne(quest.questType, "village_mission"),
+        canPlayHiddenQuests(user.role) ? undefined : eq(quest.hidden, false),
+        userQuest.quest.questType === "battlepyramid" || userQuest.isolated
+          ? eq(quest.updatedAt, userQuest.quest.updatedAt)
+          : undefined,
+      )})`
+    : undefined;
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"
       ? user.senseiId
@@ -3090,6 +3419,8 @@ export const commitQuestObjectiveRewards = async (info: {
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
     consequences.every((entry) => entry.type === "update_user") &&
+    // Terminal isolation release is conditional on the current run at payout time.
+    !(resolved && isolatedRun) &&
     !(resolved && userQuest?.quest.questType === "achievement") &&
     !(resolved && info.existingHistory === null);
 
@@ -3099,9 +3430,11 @@ export const commitQuestObjectiveRewards = async (info: {
     user.questData = removeQuestTrackerByQuestId(user.questData, userQuest.questId);
   }
 
-  // Persist completion before snapshot CAS so we cannot commit questData/updatedAt and then
-  // lose the completion race; if snapshot claim fails, revert completion below.
+  // Isolated completion publishes history and the account snapshot together, so a failed
+  // request cannot leave terminal history holding a player between floors indefinitely.
+  // Other completions retain their history CAS and revert it if the snapshot claim loses.
   let resolvedCompletionCommitted = false;
+  let claimIsolatedCompletion: typeof claimUserSnapshot | undefined;
   // The exact endAt stamped by the completion CAS, reused to anchor the revert below.
   let completedEndAt: Date | null = null;
   // Whether the completion CAS wrote the period counter (only for retryDelay !== "none"); the
@@ -3137,56 +3470,91 @@ export const commitQuestObjectiveRewards = async (info: {
     }
 
     const retryDelay = userQuest?.quest?.retryDelay ?? "none";
-    completedEndAt = new Date();
+    completedEndAt = getNextUserSnapshotAt(user.updatedAt);
     const cps =
       retryDelay === "none" ? undefined : periodStart(retryDelay, completedEndAt);
     periodCounterWritten = !!cps;
 
-    const questCompletionResult = await client
-      .update(questHistory)
-      .set({
-        completed: 1,
-        previousCompletes: sql`${questHistory.previousCompletes} + 1`,
-        endAt: completedEndAt,
-        ...(rewardChoice ? { pendingRewardChoice: rewardChoice } : {}),
-        // Reset the period counter when this completion opens a new period, else increment.
-        ...(cps
-          ? {
-              periodCompletes: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN 1 ELSE ${questHistory.periodCompletes} + 1 END`,
-              periodStartAt: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN ${cps} ELSE ${questHistory.periodStartAt} END`,
-            }
-          : {}),
-      })
-      .where(
-        and(
-          eq(questHistory.questId, userQuest?.questId ?? ""),
-          eq(questHistory.userId, userId),
-          eq(questHistory.completed, 0),
-          isNull(questHistory.endAt),
-          // Content conversion can retire a personal attempt after its reward snapshot was loaded.
-          sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${questHistory.questId} AND ${quest.questType} != 'village_mission')`,
-          ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
-        ),
-      );
+    const completionConditions = and(
+      eq(questHistory.questId, userQuest?.questId ?? ""),
+      eq(questHistory.userId, userId),
+      eq(questHistory.completed, 0),
+      isNull(questHistory.endAt),
+      liveQuestCondition,
+      ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
+    );
+    if (isolatedRun) {
+      const completedAt = completedEndAt;
+      // Joined UPDATE assignment order is unspecified, so decide period rollover from
+      // the loaded history and guard those values instead of rereading a changed column.
+      const startsNewPeriod =
+        cps && (!isolatedRun.periodStartAt || isolatedRun.periodStartAt < cps);
+      claimIsolatedCompletion = async ({ set, where = [] }) => {
+        // Drizzle has no joined UPDATE builder. This single guarded write closes the run
+        // and removes its tracker atomically; no payout can precede a successful claim.
+        const result = await retryOnDeadlock(() =>
+          client.execute(sql`
+            UPDATE ${userData}
+            INNER JOIN ${questHistory} ON ${questHistory.userId} = ${userData.userId}
+            SET ${userData.updatedAt} = ${completedAt},
+                ${userData.questData} = CAST(${JSON.stringify(set?.questData ?? [])} AS JSON),
+                ${questHistory.completed} = 1,
+                ${questHistory.previousCompletes} = ${questHistory.previousCompletes} + 1,
+                ${questHistory.endAt} = ${completedAt}
+                ${rewardChoice ? sql`, ${questHistory.pendingRewardChoice} = CAST(${JSON.stringify(rewardChoice)} AS JSON)` : sql``}
+                ${
+                  cps
+                    ? sql`, ${questHistory.periodCompletes} = ${startsNewPeriod ? 1 : sql`${questHistory.periodCompletes} + 1`},
+                  ${questHistory.periodStartAt} = ${startsNewPeriod ? cps : sql`${questHistory.periodStartAt}`}`
+                    : sql``
+                }
+            WHERE ${userData.userId} = ${userId}
+              AND ${userData.updatedAt} = ${user.updatedAt}
+              AND ${questHistory.id} = ${isolatedRun.id}
+              AND ${completionConditions}
+              ${cps ? sql`AND ${questHistory.periodCompletes} = ${isolatedRun.periodCompletes} AND ${questHistory.periodStartAt} <=> ${isolatedRun.periodStartAt}` : sql``}
+              AND ${and(...where.filter(Boolean)) ?? sql`TRUE`}
+          `),
+        );
+        return { success: result.rowsAffected > 0, claimedAt: completedAt };
+      };
+    } else {
+      const questCompletionResult = await client
+        .update(questHistory)
+        .set({
+          completed: 1,
+          previousCompletes: sql`${questHistory.previousCompletes} + 1`,
+          endAt: completedEndAt,
+          ...(rewardChoice ? { pendingRewardChoice: rewardChoice } : {}),
+          // Reset the period counter when this completion opens a new period, else increment.
+          ...(cps
+            ? {
+                periodCompletes: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN 1 ELSE ${questHistory.periodCompletes} + 1 END`,
+                periodStartAt: sql`CASE WHEN ${questHistory.periodStartAt} IS NULL OR ${questHistory.periodStartAt} < ${cps} THEN ${cps} ELSE ${questHistory.periodStartAt} END`,
+              }
+            : {}),
+        })
+        .where(completionConditions);
 
-    if (questCompletionResult.rowsAffected === 0) {
-      const historyRow = await fetchUserQuestByQuestId(
-        client,
-        userId,
-        userQuest?.questId ?? "",
-      );
-      if (historyRow && historyRow.completed >= 1) {
-        return { outcome: "already_completed" };
+      if (questCompletionResult.rowsAffected === 0) {
+        const historyRow = await fetchUserQuestByQuestId(
+          client,
+          userId,
+          userQuest?.questId ?? "",
+        );
+        if (historyRow && historyRow.completed >= 1) {
+          return { outcome: "already_completed" };
+        }
+        if (!historyRow) {
+          return { outcome: "not_found" };
+        }
+        if (rewardChoice && historyRow.pendingRewardChoice) {
+          return { outcome: "choice_pending" };
+        }
+        return { outcome: "state_changed" };
       }
-      if (!historyRow) {
-        return { outcome: "not_found" };
-      }
-      if (rewardChoice && historyRow.pendingRewardChoice) {
-        return { outcome: "choice_pending" };
-      }
-      return { outcome: "state_changed" };
+      resolvedCompletionCommitted = true;
     }
-    resolvedCompletionCommitted = true;
   }
 
   const { notifications: postNotifications, claimed } = await handleQuestConsequences(
@@ -3196,22 +3564,34 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     {
       alwaysClaimUserState: true,
+      claimUserState: claimIsolatedCompletion,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
-      claimConditions:
-        !resolved && userQuest
+      claimConditions: [
+        liveQuestCondition,
+        ...(isolatedRun
           ? [
-              sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${quest.id} = ${userQuest.questId} AND ${quest.questType} != 'village_mission')`,
-              ...(userQuest.quest.questType === "achievement"
-                ? []
-                : [
-                    sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
-                  ]),
+              eq(userData.status, "BATTLE"),
+              isNull(userData.battleId),
+              isolatedRun.questId === userQuest?.questId ? undefined : sql`FALSE`,
             ]
-          : [],
+          : []),
+        ...(!resolved && userQuest && userQuest.quest.questType !== "achievement"
+          ? [
+              sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.questId} = ${userQuest.questId} AND ${questHistory.userId} = ${userId} AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL)`,
+            ]
+          : []),
+      ],
     },
   );
 
   if (!claimed) {
+    if (claimIsolatedCompletion && userQuest) {
+      const history = await fetchUserQuestByQuestId(client, userId, userQuest.questId);
+      if (!history) return { outcome: "not_found" };
+      if (history.completed >= 1) return { outcome: "already_completed" };
+      if (rewardChoice && history.pendingRewardChoice)
+        return { outcome: "choice_pending" };
+    }
     if (resolvedCompletionCommitted && userQuest && completedEndAt) {
       await revertQuestCompletionAfterFailedClaim(
         client,
@@ -3258,11 +3638,21 @@ export const commitQuestObjectiveRewards = async (info: {
       : undefined;
   const energyReward =
     resolved && userQuest ? (ENERGY_QUEST_REWARDS[userQuest.quest.questType] ?? 0) : 0;
+  const releaseIsolation =
+    resolved &&
+    isolatedRun?.questId === userQuest?.questId &&
+    !!info.postClaimUserDataPatch?.status;
+  const releasedAt = new Date();
+  const energyRecovery = releaseIsolation
+    ? user.regeneration *
+      Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS))
+    : 0;
   const energyPatch =
-    energyReward > 0
+    energyReward > 0 || releaseIsolation
       ? {
           maxEnergy: user.maxEnergy,
-          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward})`,
+          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward} + ${releaseIsolation ? sql`${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${releasedAt})) / ${REGEN_SECONDS * 1_000_000})` : sql`0`})`,
+          ...(releaseIsolation ? { regenAt: releasedAt } : {}),
           // Invalidate passive-regeneration snapshots taken between the claim and payout.
           updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
         }
@@ -3339,6 +3729,10 @@ export const commitQuestObjectiveRewards = async (info: {
       : []),
   ]);
   const { items, jutsus, bloodlines, badges, sageModes } = rewardResult;
+  if (releaseIsolation) {
+    user.status = "AWAKE";
+    user.regenAt = releasedAt;
+  }
   if (userDelta) {
     user.money += userDelta.money ?? 0;
     user.seichiSilver += userDelta.seichiSilver ?? 0;
@@ -3379,8 +3773,11 @@ export const commitQuestObjectiveRewards = async (info: {
   );
   if (questCounterField) user[questCounterField] += 1;
   if (questCounterField) user.questFinishAt = farmRewardAt;
-  if (energyReward > 0)
-    user.curEnergy = Math.min(user.maxEnergy, user.curEnergy + energyReward);
+  if (energyReward > 0 || releaseIsolation)
+    user.curEnergy = Math.min(
+      user.maxEnergy,
+      user.curEnergy + energyReward + energyRecovery,
+    );
 
   if (energyReward > 0) {
     postNotifications.push(`Energy reward: ${energyReward} (restored up to capacity).`);
@@ -3444,7 +3841,23 @@ const executeClaimedQuestConsequences = async ({
 }) => {
   user.updatedAt = claimedAt;
   const collectedItems = collected.flatMap(({ ids }) => ids);
+  const closeQuests =
+    endedQuestIds.length > 0
+      ? client
+          .update(questHistory)
+          .set({ completed: 0, endAt: new Date() })
+          .where(
+            and(
+              inArray(questHistory.questId, endedQuestIds),
+              eq(questHistory.userId, user.userId),
+            ),
+          )
+      : undefined;
+  // Ending a run frees its Pyramid slot before a replacement can claim it. Completed
+  // history may already be closed while the caller's quest projection is still open.
+  if (startedQuestIds.length > 0) await closeQuests;
   await Promise.all([
+    startedQuestIds.length === 0 ? closeQuests : undefined,
     ...(startedQuestIds.length > 0
       ? [
           (async () => {
@@ -3460,30 +3873,65 @@ const executeClaimedQuestConsequences = async ({
                 q.questType !== "village_mission" &&
                 !(q.questType === "mission" && q.questRank === "S"),
             );
-            if (startable.length > 0) {
-              notifications.push(
-                `Started new quest: ${startable.map((q) => q.name).join(", ")}`,
-              );
+            // Assignments share trackers. Isolated grants use their publication transaction
+            // to claim the Pyramid slot before inserting history, even with a stale projection.
+            for (const nextQuest of startable) {
+              if (
+                nextQuest.questType === "battlepyramid" &&
+                nextQuest.content.isolated
+              ) {
+                const assigned = await retryOnDeadlock(() =>
+                  client.transaction(async (tx) => {
+                    const database = tx as unknown as DrizzleClient;
+                    const claim = await claimUserSnapshot({
+                      client: database,
+                      userId: user.userId,
+                      updatedAt: user.updatedAt,
+                      where: [
+                        inArray(userData.status, ["AWAKE", "BATTLE"]),
+                        isNull(userData.battleId),
+                        notExists(
+                          database
+                            .select({ one: sql`1` })
+                            .from(questHistory)
+                            .where(
+                              and(
+                                eq(questHistory.userId, user.userId),
+                                eq(questHistory.questType, "battlepyramid"),
+                                ne(questHistory.questId, nextQuest.id),
+                                eq(questHistory.completed, 0),
+                                isNull(questHistory.endAt),
+                              ),
+                            ),
+                        ),
+                      ],
+                    });
+                    if (!claim.success) return undefined;
+                    const claimedUser = { ...user, updatedAt: claim.claimedAt };
+                    await upsertQuestEntry(
+                      database,
+                      claimedUser,
+                      nextQuest,
+                      "quest_objective",
+                      undefined,
+                      true,
+                    );
+                    return claimedUser;
+                  }),
+                );
+                if (!assigned) {
+                  notifications.push(
+                    `Could not start ${nextQuest.name}: your account changed or another Pyramid is active.`,
+                  );
+                  continue;
+                }
+                Object.assign(user, assigned);
+              } else {
+                await upsertQuestEntry(client, user, nextQuest, "quest_objective");
+              }
+              notifications.push(`Started new quest: ${nextQuest.name}`);
             }
-            await Promise.all(
-              startable.map((quest) =>
-                upsertQuestEntry(client, user, quest, "quest_objective"),
-              ),
-            );
           })(),
-        ]
-      : []),
-    ...(endedQuestIds.length > 0
-      ? [
-          client
-            .update(questHistory)
-            .set({ completed: 0, endAt: new Date() })
-            .where(
-              and(
-                inArray(questHistory.questId, endedQuestIds),
-                eq(questHistory.userId, user.userId),
-              ),
-            ),
         ]
       : []),
     ...(collectedItems.length > 0
@@ -3528,6 +3976,21 @@ const executeClaimedQuestConsequences = async ({
                 scaleTarget: !!opponent.scaleStats,
                 biome: "default",
                 forceKeepPools: opponent.forceKeepPools ?? false,
+                questBattleSource:
+                  opponent.questId && opponent.objectiveId
+                    ? { questId: opponent.questId, objectiveId: opponent.objectiveId }
+                    : undefined,
+                givePools: opponent.givePools,
+                startingEffects: opponent.startingEffects,
+                questAttempt: opponent.questId
+                  ? user.userQuests.find(
+                      (entry) =>
+                        entry.questId === opponent.questId &&
+                        !entry.endAt &&
+                        (entry.questType === "battlepyramid" ||
+                          !!entry.quest.content.entryItems?.length),
+                    )
+                  : undefined,
                 // Honour the player's stored preference here too. Without it the
                 // tutorial teaches auto combat in the arena and then hands the
                 // player a manual quest fight, which reads as the setting having
@@ -3559,6 +4022,8 @@ export const handleQuestConsequences = async (
   notifications: string[],
   options?: {
     alwaysClaimUserState?: boolean;
+    /** Isolated terminal runs claim history and the account in one joined statement. */
+    claimUserState?: typeof claimUserSnapshot;
     /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
     claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
@@ -3623,7 +4088,7 @@ export const handleQuestConsequences = async (
     consequences.length > 0;
 
   if (shouldClaimUserState) {
-    const claimResult = await claimUserSnapshot({
+    const claimResult = await (options?.claimUserState ?? claimUserSnapshot)({
       client,
       userId: user.userId,
       updatedAt: user.updatedAt,

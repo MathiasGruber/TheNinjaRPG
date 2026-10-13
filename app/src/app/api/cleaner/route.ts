@@ -82,7 +82,7 @@ export async function GET(request: Request) {
           LIMIT ${rangeCleanupBatchSize}`,
     );
 
-    // Step 2: Update users who are in battle where the battle no longer exists to be awake and not in battle
+    // Step 2: Release missing fights while preserving an open isolated Pyramid run.
     await drizzleDB
       .update(userData)
       .set({
@@ -91,7 +91,7 @@ export async function GET(request: Request) {
         regenAt: sql`CASE WHEN ${userData.status} = 'BATTLE' THEN NOW(3) ELSE ${userData.regenAt} END`,
         updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
         battleId: null,
-        status: "AWAKE",
+        status: sql`CASE WHEN EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.userId} = ${userData.userId} AND ${questHistory.isolated} = TRUE AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL) THEN 'BATTLE' ELSE 'AWAKE' END`,
         travelFinishAt: null,
       })
       .where(

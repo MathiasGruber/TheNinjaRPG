@@ -795,7 +795,14 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
   const firstObjective = objectives.find((obj) => !findPredecessor(objectives, obj.id));
 
   // Check for invalid objective types
-  const allowedTypes = ["dialog", "start_battle", "reset_quest"];
+  const allowedTypes = [
+    "dialog",
+    "start_battle",
+    "defeat_opponents",
+    "reset_quest",
+    "win_quest",
+    "fail_quest",
+  ];
   const invalidObjectives = objectives.filter(
     (obj) => !allowedTypes.includes(obj.task),
   );
@@ -814,6 +821,14 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
         <HelpCircle className="h-4 w-4" />
         <AlertDescription>
           <strong>Battle Pyramid Quest Tips:</strong>
+          <p>
+            Entry items are consumed once at the first battle of each run. Checkpoint
+            resets keep the paid entry. Isolated runs keep players in combat and block
+            outside activities until completion or abandonment. Set Starting pools to
+            refill a checkpoint; leave it empty for attrition. Starting effects apply to
+            the player, and their duration includes the opening round. Hidden runs
+            pause; content edits require abandonment and a fresh run.
+          </p>
         </AlertDescription>
       </Alert>
 
@@ -838,10 +853,12 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
             <h4 className="mb-2 font-medium text-red-900">⚠️ Invalid Objective Types</h4>
             <p className="text-red-800">
               Battle pyramid quests should only contain{" "}
-              <code className="rounded bg-red-100 px-1">dialog</code>,
-              <code className="rounded bg-red-100 px-1">start_battle</code>, or
-              <code className="rounded bg-red-100 px-1">reset_quest</code> objectives.
-              Found invalid types:{" "}
+              {allowedTypes.map((task) => (
+                <code key={task} className="mx-1 inline-block rounded bg-red-100 px-1">
+                  {task}
+                </code>
+              ))}{" "}
+              objectives. Found invalid types:{" "}
               {invalidObjectives.map((obj) => (
                 <code key={obj.id} className="mx-1 rounded bg-red-100 px-1">
                   {obj.task}
