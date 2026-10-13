@@ -4238,19 +4238,21 @@ export const handleQuestConsequences = async (
     });
 
     if (claimResult.success) {
-      if (
-        resetQuests.some((reset) => reset.ids.includes(user.questParty?.questId ?? ""))
-      )
-        await resetQuestPartyProgress(client, user);
       try {
+        if (
+          resetQuests.some((reset) =>
+            reset.ids.includes(user.questParty?.questId ?? ""),
+          )
+        )
+          await resetQuestPartyProgress(client, user);
         await publishQuestPartyProgress(
           client,
           user,
           options?.partyTrackers ?? user.questData ?? [],
         );
       } catch (error) {
-        // The guarded member snapshot retains progress for the next sync. Publication
-        // failure must not interrupt this claim's consequences or reward payout.
+        // Personal progress is already guarded; defer shared reset/publication failures
+        // so they cannot interrupt this claim's consequences or reward payout.
         Sentry.captureException(error, {
           level: "warning",
           tags: { source: "publishQuestPartyProgress" },

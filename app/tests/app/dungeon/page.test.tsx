@@ -59,12 +59,12 @@ const mount = (status: RunStatus | null, availableFn: () => Promise<Available>, 
     } },
   });
   vi.spyOn(navigation, "useRouter").mockReturnValue({ push: vi.fn() } as never);
-  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: { userId: "a", sector: 1 } } as never);
+  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: { userId: "a", sector: 1 }, timeDiff: 1234 } as never);
   vi.spyOn(ContentBox, "default").mockImplementation(({ children }: { children: ReactNode }) => <div>{children}</div>);
   vi.spyOn(Loader, "default").mockImplementation(({ explanation }: { explanation?: string }) => <div>{explanation}</div>);
-  vi.spyOn(Countdown, "default").mockImplementation(() => <span>30 minutes</span>);
+  const countdown = vi.spyOn(Countdown, "default").mockImplementation(() => <span>30 minutes</span>);
   const view = render(<QueryClientProvider client={queryClient}><DungeonPage /></QueryClientProvider>);
-  return { view, queryClient, stateQuery, actCall, createCall, claimCall };
+  return { view, queryClient, stateQuery, actCall, createCall, claimCall, countdown };
 };
 
 const scenarios = [
@@ -72,6 +72,15 @@ const scenarios = [
   { status: "BETWEEN", label: "Enter next floor", command: "start" },
   { status: "PAUSED", label: "Resume and ready up", command: "resume" },
 ] as const;
+
+it("uses the shared account clock across dungeon response updates", async () => {
+  const { view, queryClient, countdown } = mount("PAUSED", async () => []);
+  await waitFor(() => expect(view.getByRole("button", { name: "Resume and ready up" })).toBeDefined());
+  expect(countdown.mock.calls.at(-1)?.[0].timeDiff).toBe(1234);
+  await act(async () => { queryClient.setQueryData(["state"], { ...partyState("PAUSED"), serverTime: new Date(Date.now() - 60000) }); });
+  expect(countdown.mock.calls.at(-1)?.[0].timeDiff).toBe(1234);
+});
+
 for (const scenario of scenarios) {
   it(`keeps ${scenario.status} controls usable when entrance lookup fails`, async () => {
     const { view, queryClient, actCall } = mount(scenario.status, async () => { throw new Error("Entrance lookup failed"); });

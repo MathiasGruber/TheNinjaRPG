@@ -25,7 +25,8 @@ import { getSearchValidator } from "@/validators/register";
 
 /** Show invitations, party readiness and completion claims through the authenticated dungeon router. */
 export default function DungeonPage() {
-  const { data: user } = useRequiredUserData();
+  // Reuse the account's calibrated server clock for deadlines, as other game timers do.
+  const { data: user, timeDiff } = useRequiredUserData();
   const router = useRouter();
   const utils = api.useUtils();
   const [message, setMessage] = useState("");
@@ -144,9 +145,7 @@ export default function DungeonPage() {
                   Time remaining:{" "}
                   <Countdown
                     targetDate={current.expiresAt}
-                    timeDiff={
-                      Date.now() - (state.data?.serverTime.getTime() ?? Date.now())
-                    }
+                    timeDiff={timeDiff}
                     onFinish={() => void state.refetch()}
                   />
                 </>

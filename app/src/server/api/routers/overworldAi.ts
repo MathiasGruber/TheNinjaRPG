@@ -432,7 +432,6 @@ export const overworldAiRouter = createTRPCRouter({
             });
           if (
             bound.objective.task === "dialog" &&
-            input.dialogContentId &&
             activeUser.questParty.leaderId !== ctx.userId
           )
             return errorResponse("The quest team leader chooses dialog branches");

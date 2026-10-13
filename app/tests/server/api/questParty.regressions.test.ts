@@ -848,7 +848,68 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     });
   }
 
+  it("rejects nonleader overworld dialog before returning branches", async () => {
+    const client = await getTestDatabase();
+    await insertUsers([{ userId: "guide", username: "guide", isAi: true }]);
+    await client.insert(overworldAiPlacement).values({ id: "guide-npc", aiTemplateUserId: "guide", interactionType: "FRIENDLY", sectorList: [], sector: 50, longitude: 10, latitude: 10, positionVersion: 0 });
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, retryDelay: "none", content: { objectives: [
+      AllObjectives.parse({ id: "choice", task: "dialog", overworldPlacementId: "guide-npc", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "goal" }] }),
+      AllObjectives.parse({ id: "goal", task: "stats_trained", value: 10 }),
+    ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    const input = { placementId: "guide-npc", positionVersion: 0 };
+    const member = await callerFor(overworldAiRouter, "helper");
+    for (const dialogContentId of [undefined, "goal"]) {
+      const result = await member.interactWithOverworldAi({ ...input, dialogContentId });
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("The quest team leader chooses dialog branches");
+      expect(result.dialog).toBeUndefined();
+    }
+    expect((await (await callerFor(overworldAiRouter, "leader")).interactWithOverworldAi(input)).dialog?.branches).toHaveLength(1);
+  });
+
   for (const failure of ["CAS misses", "database error"] as const) {
+    it(`finishes a claimed reward after a shared reset ${failure}`, async () => {
+      const client = await getTestDatabase();
+      const reported = vi.spyOn(Sentry, "captureException").mockReturnValue("reported");
+      await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: false, retryDelay: "none", content: { objectives: [
+        AllObjectives.parse({ id: "goal", task: "stats_trained", value: 10 }),
+        AllObjectives.parse({ id: "pending", task: "stats_trained", value: 1000 }),
+      ], reward: ObjectiveReward.parse({ reward_money: 100 }), sceneBackground: "", sceneCharacters: [] } }]);
+      expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+      const { user } = await fetchUpdatedUser({ client, userId: "leader" });
+      if (!user) throw new Error("Missing reset fixture");
+      user.questData = getNewTrackers(user, [{ task: "stats_trained", increment: 1000 }]).trackers;
+      const reward = getReward(user, "team-quest");
+      expect(reward.resolved).toBe(true);
+      reward.consequences.push({ type: "reset_quest", ids: ["team-quest"], info: "pending" });
+      let failedWrites = 0;
+      // Fail only shared publication; personal receipt and reward writes still use real SQL.
+      const injected = new Proxy(client, {
+        get(target, property, receiver) {
+          if (property === "update") return (table: unknown) => table === questParty ? {
+            set: () => ({ where: async () => {
+              failedWrites++;
+              if (failure === "database error") throw new Error("Injected reset failure");
+              return { rowsAffected: 0 };
+            } }),
+          } : target.update(table as typeof userData);
+          return Reflect.get(target, property, receiver);
+        },
+      }) as DrizzleClient;
+      const result = await commitQuestObjectiveRewards({ client: injected, userId: "leader", user, ...reward });
+      expect(result.outcome).toBe("claimed");
+      expect(result).toMatchObject({ postNotifications: expect.arrayContaining(["Quest team progress will update on your next request."]) });
+      expect(failedWrites).toBe(failure === "CAS misses" ? 5 : 1);
+      expect(reported).toHaveBeenCalledTimes(1);
+      expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.money).toBe(200);
+      expect((await client.query.questHistory.findFirst({ where: eq(questHistory.questId, "team-quest") }))?.completed).toBe(1);
+      expect((await commitQuestObjectiveRewards({ client, userId: "leader", user, ...reward })).outcome).toBe("already_completed");
+      expect((await client.query.userData.findFirst({ where: eq(userData.userId, "leader") }))?.money).toBe(200);
+    });
+
     it(`finishes a claimed payout and consequences and recovers terminal progress after party publication ${failure}`, async () => {
       const client = await getTestDatabase();
       const reported = vi.spyOn(Sentry, "captureException").mockReturnValue("reported");
