@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { DUNGEON_PARTY_SIZE, DUNGEON_RUN_SECONDS } from "@/drizzle/constants";
+import { DUNGEON_RUN_SECONDS } from "@/drizzle/constants";
 import {
   actionLog,
   battle,
@@ -287,7 +287,7 @@ export const dungeonRouter = createTRPCRouter({
           readyIds: [],
           floor: 0,
           clearedFloors: [],
-          message: `Invite ${DUNGEON_PARTY_SIZE - 1} players to begin.`,
+          message: "Invite teammates, then have everyone ready up.",
         },
       });
       try {
