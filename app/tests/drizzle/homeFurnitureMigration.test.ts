@@ -119,7 +119,7 @@ describeWithDatabase("home furniture inventory migration", () => {
       expect(definitions.find((row) => row.id === "home-rug")).toMatchObject({
         name: "Staff Rug",
         cost: 33333,
-        furnitureData: { action: null, width: 25, groundAnchor: 88.5, isFloor: true },
+        furnitureData: { action: null, width: 25, groundAnchor: 88.5417, isFloor: true },
       });
       expect(definitions.filter((row) => row.cost === 0)).toHaveLength(4);
       expect(
