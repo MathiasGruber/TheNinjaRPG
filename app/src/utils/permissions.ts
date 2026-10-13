@@ -45,12 +45,7 @@ export const isStaffRole = (role?: UserRole | null) => {
 };
 
 export const canSuggestContent = (role?: UserRole | null) => {
-  return (
-    isStaffRole(role) &&
-    !["MODERATOR", "MODERATOR-ADMIN", "HEAD_MODERATOR", "JR_MODERATOR"].includes(
-      role ?? "USER",
-    )
-  );
+  return canAccessHiddenSkillTree(role);
 };
 
 export const canAccessHiddenSkillTree = (role?: UserRole | null) => {
