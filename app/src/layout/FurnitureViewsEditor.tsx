@@ -20,6 +20,7 @@ import ContentImageSelector from "@/layout/ContentImageSelector";
 import Image from "@/layout/Image";
 import { getHomeFurnitureView } from "@/libs/home";
 import { FURNITURE_IMAGE_PROMPT, furnitureViewPrompt } from "@/libs/imagePrompts";
+import { clamp } from "@/utils/math";
 import type {
   FurnitureGeometry,
   FurnitureImageBounds,
@@ -194,9 +195,10 @@ export function FurnitureViewsEditor({
       ...framing.geometry,
       footprint: {
         ...footprint,
-        [field]: Math.min(
+        [field]: clamp(
+          value,
+          field === "width" || field === "height" ? 0.01 : 0,
           limit,
-          Math.max(field === "width" || field === "height" ? 0.01 : 0, value),
         ),
       },
     };
@@ -451,15 +453,13 @@ const matchingViewWidth = (
   if (!original) return width;
   const extent = (view: FurnitureGeometry) =>
     Math.max(view.visibleBounds.width, view.visibleBounds.height / view.aspectRatio);
-  return Math.min(
+  return clamp(
+    (width *
+      extent(original) *
+      (rotation === 1 || rotation === 3 ? HOME_FURNITURE_FLOOR_DEPTH_RATIO : 1)) /
+      extent(next),
+    HOME_FURNITURE_MIN_WIDTH,
     HOME_FURNITURE_MAX_WIDTH,
-    Math.max(
-      HOME_FURNITURE_MIN_WIDTH,
-      (width *
-        extent(original) *
-        (rotation === 1 || rotation === 3 ? HOME_FURNITURE_FLOOR_DEPTH_RATIO : 1)) /
-        extent(next),
-    ),
   );
 };
 
