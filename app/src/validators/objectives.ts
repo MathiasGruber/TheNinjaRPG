@@ -670,6 +670,7 @@ export const BloodlineCollection = z.object({
   ...baseObjectiveFields,
   task: z.literal("bloodline_collection"),
   bloodlineRank: z.enum(["ALL", ...LetterRanks]).prefault("ALL"),
+  /** Exclude S only from ALL; omitted values keep existing objectives inclusive. */
   excludeSRank: z.boolean().prefault(false),
   ...questRewardFields,
 });

@@ -1500,6 +1500,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>
               PVE Fights: {`${profile.pveFights} (+${profile.battleHistory.length})`}
             </p>
+            {/* Self-view honors the display preference; staff can still inspect private records. */}
             {(profile.showPvpRecord || canSeeSecrets) &&
               profile.pvpWins != null &&
               profile.pvpLosses != null && (

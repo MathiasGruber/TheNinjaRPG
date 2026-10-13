@@ -298,7 +298,7 @@ export const contentReviewRouter = createTRPCRouter({
       };
     }),
 
-  /** Send a staff suggestion from a manual editor to the review queue. */
+  /** Send an eligible staff suggestion, enforcing the manual editor's shared permission. */
   create: protectedProcedure
     .input(staffCreateProposalSchema)
     .output(baseServerResponse)

@@ -2393,6 +2393,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
 
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
+    // Explicit rank objectives must include their chosen rank in the collection.
     .filter(
       (value) =>
         (value as string) !== "excludeSRank" || watchAll.bloodlineRank === "ALL",

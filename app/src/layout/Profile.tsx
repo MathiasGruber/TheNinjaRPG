@@ -306,6 +306,7 @@ function CharacterProfile() {
             <p>PvE Fights: {userData.pveFights}</p>
             <p>PvP Fights: {userData.pvpFights}</p>
             <p>PvP Streak: {userData.pvpStreak}</p>
+            {/* The profile owner uses the same display preference as public viewers. */}
             {userData.showPvpRecord && (
               <>
                 <p>PvP Wins: {userData.pvpWins}</p>
