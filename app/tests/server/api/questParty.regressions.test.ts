@@ -752,6 +752,30 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     });
   }
 
+  it("explains rank rejection to completed helpers and releases membership for a later retry", async () => {
+    const client = await getTestDatabase();
+    await client.update(userData).set({ rank: "GENIN" }).where(eq(userData.userId, "helper"));
+    await insertQuests([{ id: "team-quest", questType: "event", questRank: "C", teamEnabled: true, hidden: false, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [AllObjectives.parse({ id: "goal", task: "stats_trained", value: 100 })], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    const endAt = new Date("2026-10-01T00:00:00Z");
+    await insertQuestHistory([{ id: "receipt", userId: "helper", questId: "team-quest", questType: "event", completed: 1, previousCompletes: 1, previousAttempts: 1, endAt }]);
+    const receipt = await client.query.questHistory.findFirst({ where: eq(questHistory.id, "receipt") });
+    // Content changes can make a formerly completed quest exceed a helper's rank.
+    await client.update(quest).set({ questRank: "A" }).where(eq(quest.id, "team-quest"));
+    const leader = await callerFor(questPartyRouter, "leader");
+    const helper = await callerFor(questPartyRouter, "helper");
+    expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect(await helper.join({ partyId: party.id })).toEqual({ success: false, message: "Rank GENIN not allowed" });
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.id, "receipt") })).toEqual(receipt);
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBeNull();
+    expect(await client.query.questParty.findFirst()).toMatchObject({ memberIds: ["leader"], battleId: null });
+    expect(await client.query.user2conversation.findFirst({ where: eq(user2conversation.userId, "helper") })).toBeUndefined();
+    await client.update(quest).set({ questRank: "C" }).where(eq(quest.id, "team-quest"));
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    expect(await client.query.questHistory.findFirst({ where: eq(questHistory.id, "receipt") })).toMatchObject({ completed: 1, previousCompletes: 1, previousAttempts: 2, endAt });
+    expect((await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))?.questPartyId).toBe(party.id);
+  });
+
   it("keeps lifetime-completed helpers active across profile reads and encounter preload without reopening or paying their receipt", async () => {
     const client = await getTestDatabase();
     await insertUsers([{ userId: "enemy", username: "enemy", isAi: true, level: 10, rank: "GENIN" }]);

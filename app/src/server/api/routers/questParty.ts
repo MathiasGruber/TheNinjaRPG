@@ -525,7 +525,9 @@ const acceptTeamQuest = async (
       questUiAccessBlockMessage(definition, user, sectorVillage) ??
       questTypeConcurrentBlockMessage(definition, user);
     if (!availability.check || guard || !isQuestRankAllowed(definition, user))
-      return errorResponse(guard ?? availability.message ?? "Rank not allowed");
+      return errorResponse(
+        guard || availability.message || `Rank ${user.rank} not allowed`,
+      );
     if (history?.pendingRewardChoice)
       return errorResponse("Claim your pending quest reward choice first");
     await Promise.all([
