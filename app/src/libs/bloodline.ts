@@ -15,23 +15,21 @@ import type {
 } from "@/drizzle/schema";
 
 export type BloodlineCollectionProgress = {
-  rank: LetterRank | "ALL";
+  rank: LetterRank;
   collected: number;
   total: number;
 }[];
 
-/** Count distinct visible bloodlines; H rank has its own collection and is exempt from ALL. */
+/** Count distinct visible ownership for each rank so objectives can select any combination. */
 export const buildBloodlineCollectionProgress = (
   bloodlines: readonly Pick<Bloodline, "id" | "rank" | "hidden">[],
   ownedIds: readonly string[],
 ): BloodlineCollectionProgress => {
   const owned = new Set(ownedIds);
   const visible = bloodlines.filter((line) => !line.hidden);
-  return (["ALL", ...LetterRanks] as const).map((rank) => {
+  return LetterRanks.map((rank) => {
     const eligible = new Set(
-      visible
-        .filter((line) => (rank === "ALL" ? line.rank !== "H" : line.rank === rank))
-        .map((line) => line.id),
+      visible.filter((line) => line.rank === rank).map((line) => line.id),
     );
     return {
       rank,

@@ -166,7 +166,7 @@ describe("assignQuestToUser compatibility", () => {
       content: {
         ...quest.content,
         objectives: [
-          { id: "collect", task: "bloodline_collection", bloodlineRank: "A" },
+          { id: "collect", task: "bloodline_collection", bloodlineRanks: ["A"] },
         ],
       },
     };

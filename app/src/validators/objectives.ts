@@ -669,9 +669,11 @@ export const DamageDealt = z.object({
 export const BloodlineCollection = z.object({
   ...baseObjectiveFields,
   task: z.literal("bloodline_collection"),
-  bloodlineRank: z.enum(["ALL", ...LetterRanks]).prefault("ALL"),
-  /** Exclude S only from ALL; omitted values keep existing objectives inclusive. */
-  excludeSRank: z.boolean().prefault(false),
+  /** Collect every visible bloodline in the selected ranks, including H when selected. */
+  bloodlineRanks: z
+    .array(z.enum(LetterRanks))
+    .min(1)
+    .prefault([...LetterRanks]),
   ...questRewardFields,
 });
 
