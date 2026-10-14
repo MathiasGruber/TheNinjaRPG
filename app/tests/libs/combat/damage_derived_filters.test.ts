@@ -8,7 +8,7 @@ import {
   reflect,
   wound,
 } from "@/libs/combat/tags";
-import type { Consequence } from "@/libs/combat/types";
+import type { Consequence, UserEffect } from "@/libs/combat/types";
 import { getStatTypeLabels } from "@/libs/combat/util";
 import { getTagSchema } from "@/validators/combat";
 import { makeBattleUser, makeDamageEffect, makeEffect } from "./helpers/battleScenario";
@@ -41,24 +41,17 @@ describe("damage-derived tag filters", () => {
     "%s ignores saved stat filters during combat and display",
     (type) => {
       const effect = {
-        ...makeEffect(type, { elements: ["Fire"], generalTypes: ["Strength"] }),
+        ...makeEffect(type, { generalTypes: ["Strength"] }),
         statTypes: ["Ninjutsu" as const],
       };
       const damage = makeDamageEffect({
         statTypes: ["Ninjutsu"],
         generalTypes: ["Intelligence"],
-        elements: ["Wind"],
       });
       expect(getEfficiencyRatio(damage, effect)).toBe(0);
       expect(getStatTypeLabels(effect)).toEqual([]);
-      expect(getEfficiencyRatio(makeDamageEffect({ elements: ["Fire"] }), effect)).toBe(
-        1,
-      );
       expect(
-        getEfficiencyRatio(
-          makeDamageEffect({ generalTypes: ["Strength"], elements: ["Wind"] }),
-          effect,
-        ),
+        getEfficiencyRatio(makeDamageEffect({ generalTypes: ["Strength"] }), effect),
       ).toBe(1);
     },
   );
@@ -72,13 +65,75 @@ describe("damage-derived tag filters", () => {
     },
   );
 
-  it.each([...tagTypes])("%s preserves an explicit None element filter", (type) => {
-    const effect = makeEffect(type, { elements: ["None"] });
-    expect(getEfficiencyRatio(makeDamageEffect({ elements: ["Fire"] }), effect)).toBe(
-      0,
-    );
-    expect(getEfficiencyRatio(makeDamageEffect({ elements: [] }), effect)).toBe(1);
+  it.each([...tagTypes])(
+    "%s treats elements as a jutsu lock rather than a damage filter",
+    (type) => {
+      // e.g. Abyssal Surge: absorb tagged Water so only Water users can learn it.
+      const effect = {
+        ...makeEffect(type, { elements: ["Water"] }),
+        statTypes: ["Bukijutsu", "Genjutsu", "Ninjutsu", "Taijutsu"] as const,
+      } as unknown as UserEffect;
+      for (const elements of [["Water"], ["Fire"], ["None"], []] as const) {
+        expect(
+          getEfficiencyRatio(makeDamageEffect({ elements: [...elements] }), effect),
+        ).toBe(1);
+      }
+      expect(
+        getEfficiencyRatio(
+          makeDamageEffect({ elements: ["Fire"] }),
+          makeEffect(type, { elements: ["None"] }),
+        ),
+      ).toBe(1);
+    },
+  );
+
+  it.each([...tagTypes])("%s keeps general filters alongside elements", (type) => {
+    const effect = makeEffect(type, { elements: ["Fire"], generalTypes: ["Strength"] });
+    expect(
+      getEfficiencyRatio(
+        makeDamageEffect({ generalTypes: ["Strength"], elements: ["Wind"] }),
+        effect,
+      ),
+    ).toBe(1);
+    expect(
+      getEfficiencyRatio(
+        makeDamageEffect({ generalTypes: ["Intelligence"], elements: ["Fire"] }),
+        effect,
+      ),
+    ).toBe(0);
+    expect(
+      getEfficiencyRatio(
+        makeEffect("pierce", { generalTypes: ["Intelligence"] }),
+        effect,
+      ),
+    ).toBe(1);
   });
+
+  it.each([
+    ["afterburn", afterburn, "afterburn", "defender"],
+    ["lifesteal", lifesteal, "lifesteal_hp", "attacker"],
+    ["recoil", recoil, "recoil", "attacker"],
+    ["absorb", absorb, "absorb_hp", "defender"],
+    ["reflect", reflect, "reflect", "defender"],
+  ] as const)(
+    "%s converts damage of any element despite an element lock",
+    (type, handler, field, targetId) => {
+      const damage = makeDamageEffect({ elements: ["Fire"] });
+      const effect = makeEffect(type, { power: 20, elements: ["Water"] }, { targetId });
+      const consequence: Consequence = {
+        userId: "attacker",
+        targetId: "defender",
+        damage: 100,
+      };
+      handler(
+        effect,
+        [damage, effect],
+        new Map([[damage.id, consequence]]),
+        makeBattleUser(targetId),
+      );
+      expect(consequence[field]).toBe(20);
+    },
+  );
 
   it.each([
     ["afterburn", afterburn, "afterburn", "defender"],
