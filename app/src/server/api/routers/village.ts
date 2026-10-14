@@ -5,6 +5,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNull,
   ne,
   or,
   sql,
@@ -51,6 +52,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { canAlly, canEnemy, canSurrender, findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
@@ -649,19 +651,67 @@ export const villageRouter = createTRPCRouter({
         return errorResponse("Cannot clear sector with village/town/hideout in it");
       }
 
-      // Mutate
-      await Promise.all([
-        ctx.drizzle.delete(sector).where(eq(sector.sector, input.sector)),
-        ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "war",
-          changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
-          relatedId: villageId,
-          relatedMsg: `Released sector ${input.sector}`,
-          relatedImage: IMG_AVATAR_DEFAULT,
+      // Share the village lock with declarations so a selected objective cannot be abandoned.
+      const released = await retryOnDeadlock(() =>
+        ctx.drizzle.transaction(async (tx) => {
+          const [currentVillage] = await tx
+            .select()
+            .from(village)
+            .where(eq(village.id, villageId))
+            .for("update");
+          if (currentVillage?.kageId !== ctx.userId)
+            return errorResponse("You are not in charge");
+          const [currentSector, activeWars] = await Promise.all([
+            tx.query.sector.findFirst({ where: eq(sector.sector, input.sector) }),
+            tx.query.war.findMany({
+              where: and(
+                eq(war.status, "ACTIVE"),
+                isNull(war.endedAt),
+                or(
+                  eq(war.attackerVillageId, villageId),
+                  eq(war.defenderVillageId, villageId),
+                ),
+              ),
+            }),
+          ]);
+          if (currentSector?.villageId !== villageId)
+            return errorResponse("Sector ownership changed. Refresh and try again.");
+          if (
+            activeWars.some(
+              (w) =>
+                w.rules &&
+                w.objectiveState?.objectives.some(
+                  (objective) =>
+                    objective.sector === input.sector &&
+                    objective.villageId === villageId &&
+                    !objective.destroyed,
+                ),
+            )
+          ) {
+            return errorResponse(
+              "Cannot release an active village war objective sector",
+            );
+          }
+          const result = await tx
+            .delete(sector)
+            .where(
+              and(eq(sector.sector, input.sector), eq(sector.villageId, villageId)),
+            );
+          return result.rowsAffected > 0
+            ? { success: true, message: "You have released the sector" }
+            : errorResponse("Sector ownership changed. Refresh and try again.");
         }),
-      ]);
+      );
+      if (!released.success) return released;
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        tableName: "war",
+        changes: [`Released sector ${input.sector} from ${sectorData.village.name}`],
+        relatedId: villageId,
+        relatedMsg: `Released sector ${input.sector}`,
+        relatedImage: IMG_AVATAR_DEFAULT,
+      });
 
       // Return
       return { success: true, message: "You have released the sector" };

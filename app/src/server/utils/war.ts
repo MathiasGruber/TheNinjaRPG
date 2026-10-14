@@ -29,6 +29,7 @@ import {
   OBJECTIVE_WAR_DEFEAT_PENALTY_LEVELS,
   OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS,
   TERR_BOT_ID,
+  VILLAGE_SYNDICATE_ID,
   WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
   WAR_DECLARATION_COST,
   WAR_DEFEAT_STRUCTURE_PENALTY_DAYS,
@@ -66,6 +67,7 @@ import {
 import { selectWarObjectives } from "@/libs/objectiveWar";
 import {
   getRaidDeclarationBlock,
+  getShrineHpByLevel,
   isFactionVillage,
   isVillageInvolvedInAnyWar,
   shouldEndRaid,
@@ -596,6 +598,95 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
     logError(error, "Failed to finish war settlement delivery", { warId: endedWar.id });
   }
 };
+
+/** Serialize sector declarations with objective selection and charge only committed wars. */
+export const startSectorWar = async (
+  client: DrizzleClient,
+  declaration: {
+    id: string;
+    attackerVillageId: string;
+    defenderVillageId: string;
+    initiatedByUserId: string;
+    sectorId: number;
+  },
+) =>
+  retryOnDeadlock(() =>
+    client.transaction(async (tx) => {
+      // Share declaration/settlement locks so objective selection cannot race a new sector war.
+      const villageIds = [
+        declaration.attackerVillageId,
+        declaration.defenderVillageId,
+      ].sort();
+      const lockedVillages = await tx
+        .select()
+        .from(village)
+        .where(inArray(village.id, villageIds))
+        .orderBy(asc(village.id))
+        .for("update");
+      const attacker = lockedVillages.find(
+        (v) => v.id === declaration.attackerVillageId,
+      );
+      if (
+        lockedVillages.length !== 2 ||
+        attacker?.kageId !== declaration.initiatedByUserId
+      )
+        return false;
+      const [activeWars, targetSector] = await Promise.all([
+        tx.query.war.findMany({
+          where: eq(war.status, "ACTIVE"),
+          with: { warAllies: { where: activeWarAllyWhere() } },
+        }),
+        tx.query.sector.findFirst({ where: eq(sector.sector, declaration.sectorId) }),
+      ]);
+      if (
+        (targetSector?.villageId ?? VILLAGE_SYNDICATE_ID) !==
+          declaration.defenderVillageId ||
+        (targetSector &&
+          attacker.warExhaustionEndedAt &&
+          attacker.warExhaustionEndedAt > new Date()) ||
+        villageIds.some((id) =>
+          isVillageInvolvedInAnyWar(activeWars, id, undefined, [
+            "VILLAGE_WAR",
+            "WAR_RAID",
+          ]),
+        ) ||
+        activeWars.some(
+          (w) =>
+            w.type === "SECTOR_WAR" &&
+            (w.attackerVillageId === attacker.id ||
+              w.defenderVillageId === attacker.id),
+        )
+      )
+        return false;
+      const charge = await tx
+        .update(village)
+        .set({ tokens: sql`${village.tokens} - ${WAR_DECLARATION_COST}` })
+        .where(
+          and(eq(village.id, attacker.id), gte(village.tokens, WAR_DECLARATION_COST)),
+        );
+      if (charge.rowsAffected === 0) return false;
+      await tx.insert(war).values({
+        id: declaration.id,
+        attackerVillageId: attacker.id,
+        defenderVillageId: declaration.defenderVillageId,
+        status: "ACTIVE",
+        type: "SECTOR_WAR",
+        sector: declaration.sectorId,
+        attackerShrineHp: 0,
+        attackerShrineMaxHp: 0,
+        attackerShrineStatus: "CAPTURED",
+        defenderShrineHp: getShrineHpByLevel(targetSector?.shrineLevel),
+        defenderShrineMaxHp: getShrineHpByLevel(targetSector?.shrineLevel),
+        defenderShrineStatus: "ACTIVE",
+      });
+      if (!targetSector)
+        await tx.insert(sector).values({
+          sector: declaration.sectorId,
+          villageId: declaration.defenderVillageId,
+        });
+      return true;
+    }),
+  );
 
 /**
  * Start an approved declaration only while both villages remain available and the

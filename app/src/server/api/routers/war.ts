@@ -53,7 +53,6 @@ import { findActiveExclusiveRaidForSector } from "@/libs/raids";
 import {
   canJoinWar,
   getRaidDeclarationBlock,
-  getShrineHpByLevel,
   isFactionVillage,
   isVillageInvolvedInAnyWar,
 } from "@/libs/war";
@@ -81,6 +80,7 @@ import {
   handleWarEnd,
   liftBracketImmunitySql,
   startDeclaredWar,
+  startSectorWar,
 } from "@/server/utils/war";
 import {
   acceptWarAllyOffer,
@@ -854,47 +854,19 @@ export const warRouter = createTRPCRouter({
         );
       }
 
-      // Re-check just before creation to avoid races
-      if (
-        isVillageInvolvedInAnyWar(activeWars, attackerVillage.id, undefined, [
-          "VILLAGE_WAR",
-          "WAR_RAID",
-        ]) ||
-        isVillageInvolvedInAnyWar(activeWars, defenderVillageId, undefined, [
-          "VILLAGE_WAR",
-          "WAR_RAID",
-        ])
-      ) {
-        return errorResponse("A village is now already involved in an active war");
+      const started = await startSectorWar(ctx.drizzle, {
+        id: nanoid(),
+        attackerVillageId: user.villageId,
+        defenderVillageId,
+        initiatedByUserId: user.userId,
+        sectorId: input.sectorId,
+      });
+      if (!started) {
+        return errorResponse(
+          "Village availability, sector ownership or tokens changed. Refresh and try again.",
+        );
       }
-
-      // Create war and deduct tokens
-      const warId = nanoid();
-      const [updateResult] = await Promise.all([
-        ctx.drizzle
-          .update(village)
-          .set({ tokens: attackerVillage.tokens - WAR_DECLARATION_COST })
-          .where(
-            and(
-              eq(village.id, user.villageId),
-              gte(village.tokens, WAR_DECLARATION_COST),
-            ),
-          ),
-        ctx.drizzle.insert(war).values({
-          id: warId,
-          attackerVillageId: user.villageId,
-          defenderVillageId: defenderVillageId,
-          status: "ACTIVE",
-          type: "SECTOR_WAR",
-          sector: input.sectorId,
-          // Sector wars only have a defender shrine (the sector's shrine)
-          attackerShrineHp: 0,
-          attackerShrineMaxHp: 0,
-          attackerShrineStatus: "CAPTURED",
-          defenderShrineHp: getShrineHpByLevel(targetSector?.shrineLevel),
-          defenderShrineMaxHp: getShrineHpByLevel(targetSector?.shrineLevel),
-          defenderShrineStatus: "ACTIVE",
-        }),
+      await Promise.all([
         ctx.drizzle.insert(notification).values({
           userId: user.userId,
           content: `${attackerVillage?.name} has declared a sector war in sector ${input.sectorId}`,
@@ -908,19 +880,7 @@ export const warRouter = createTRPCRouter({
               [user.villageId, defenderVillageId].filter((v) => v),
             ),
           ),
-        ...(!targetSector
-          ? [
-              ctx.drizzle.insert(sector).values({
-                sector: input.sectorId,
-                villageId: defenderVillageId,
-              }),
-            ]
-          : []),
       ]);
-      if (updateResult.rowsAffected === 0) {
-        await ctx.drizzle.delete(war).where(eq(war.id, warId));
-        return errorResponse("Not enough tokens to declare sector war");
-      }
       return {
         success: true,
         message: "Sector war declared successfully",
