@@ -879,7 +879,13 @@ export const questsRouter = createTRPCRouter({
         if (!check) {
           return { success: false, message: `Objective flow invalid: ${message}` };
         }
-        // Shared Village Mission progress has no quest scenes to populate.
+        // Shared Village Missions and concurrent war missions progress outside quest scenes.
+        const isConcurrentWarMission =
+          input.data.questType === "war" &&
+          input.data.content.objectives.some(
+            (objective) =>
+              objective.task === "espionage" || objective.task === "sabotage",
+          );
         const hasMainSceneCharacters = input.data.content.sceneCharacters.length > 0;
         const allObjectivesHaveSceneCharacters = input.data.content.objectives.every(
           (objective) =>
@@ -888,6 +894,7 @@ export const questsRouter = createTRPCRouter({
         if (
           !input.data.hidden &&
           input.data.questType !== "village_mission" &&
+          !isConcurrentWarMission &&
           !hasMainSceneCharacters &&
           !allObjectivesHaveSceneCharacters
         ) {
