@@ -9,11 +9,13 @@ import { showMutationToast } from "@/libs/toast";
 
 interface MergeAllStacksButtonProps {
   storedAtHome: boolean;
+  compact?: boolean;
   onMerged?: () => void;
 }
 
 export const MergeAllStacksButton: React.FC<MergeAllStacksButtonProps> = ({
   storedAtHome,
+  compact = false,
   onMerged,
 }) => {
   const utils = api.useUtils();
@@ -47,9 +49,20 @@ export const MergeAllStacksButton: React.FC<MergeAllStacksButtonProps> = ({
       isValid={!isPending}
       disabled={isPending}
       button={
-        <Button type="button" variant="outline" size="sm" disabled={isPending}>
-          <Merge className="mr-2 h-4 w-4" />
-          {isPending ? "Merging..." : "Merge all stacks"}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={compact ? "h-8 w-8 px-0 sm:w-auto sm:gap-1.5 sm:px-2" : "gap-1.5"}
+          aria-label={isPending ? "Merging all stacks" : "Merge all stacks"}
+          hoverText="Merge all stacks"
+          disabled={isPending}
+          aria-busy={isPending}
+        >
+          <Merge className="h-4 w-4" />
+          <span className={compact ? "hidden sm:inline" : undefined}>
+            {isPending ? "Merging..." : compact ? "Merge" : "Merge stacks"}
+          </span>
         </Button>
       }
       onAccept={(e) => {

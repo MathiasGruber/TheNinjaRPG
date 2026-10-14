@@ -594,9 +594,13 @@ export default function HomePage() {
             setIsOpen={setIsStorageOpen}
             returnFocusRef={storageTriggerRef}
             className="sm:max-w-4xl"
-          >
-            {homeData && !isItemsError && !missingFurnitureIds && (
-              <div className="flex justify-end">
+            footerExtra={
+              homeData &&
+              !isHomeLoading &&
+              !isItemsLoading &&
+              !isHomeError &&
+              !isItemsError &&
+              !missingFurnitureIds && (
                 <MergeAllStacksButton
                   storedAtHome={true}
                   onMerged={() => {
@@ -604,8 +608,9 @@ export default function HomePage() {
                     setIsModalOpen(false);
                   }}
                 />
-              </div>
-            )}
+              )
+            }
+          >
             {isHomeLoading ||
             isItemsLoading ||
             (missingFurnitureIds && isItemsFetching) ? (
