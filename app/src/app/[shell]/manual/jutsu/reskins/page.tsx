@@ -31,19 +31,32 @@ export default function ManualJutsuReskins() {
   const allReskins = reskins?.pages.flatMap((page) => page.data);
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
-  // Transform reskin data to jutsu-like objects for ItemWithEffects
-  const transformedReskins = allReskins?.map((reskin) => ({
-    ...reskin.jutsu,
-    id: reskin.id,
-    name: reskin.name,
-    description: reskin.description,
-    battleDescription: reskin.battleDescription,
-    createdAt: reskin.createdAt,
-    updatedAt: reskin.updatedAt,
-    createdBy: reskin.user.username,
-    originalJutsuName: reskin.jutsu.name,
-    isReskin: true,
-  }));
+  // Transform reskin data to jutsu-like objects for ItemWithEffects. Reskins whose
+  // base jutsu was deleted have no mechanics to show; staff re-point them from the
+  // edit page.
+  const transformedReskins = allReskins?.map((reskin) => {
+    const cosmetics = {
+      id: reskin.id,
+      name: reskin.name,
+      description: reskin.description,
+      createdAt: reskin.createdAt,
+      updatedAt: reskin.updatedAt,
+      createdBy: reskin.user.username,
+    };
+    if (!reskin.jutsu) {
+      return { item: { ...cosmetics, image: reskin.image }, isOrphaned: true };
+    }
+    return {
+      item: {
+        ...reskin.jutsu,
+        ...cosmetics,
+        battleDescription: reskin.battleDescription,
+        originalJutsuName: reskin.jutsu.name,
+        isReskin: true,
+      },
+      isOrphaned: false,
+    };
+  });
 
   const totalLoading = isFetching;
 
@@ -76,12 +89,18 @@ export default function ManualJutsuReskins() {
           </div>
         }
       >
-        {transformedReskins?.map((reskin, i) => (
+        {transformedReskins?.map(({ item, isOrphaned }, i) => (
           <div
-            key={reskin.id}
+            key={item.id}
             ref={i === transformedReskins.length - 1 ? setLastElement : null}
           >
-            <ItemWithEffects item={reskin} showEdit="jutsu/reskins" />
+            {isOrphaned && (
+              <p role="alert" className="font-bold text-red-500">
+                Orphaned: the base jutsu of this reskin was deleted. Edit it to assign
+                another base jutsu.
+              </p>
+            )}
+            <ItemWithEffects item={item} showEdit="jutsu/reskins" />
           </div>
         ))}
         {!totalLoading && transformedReskins?.length === 0 && (
