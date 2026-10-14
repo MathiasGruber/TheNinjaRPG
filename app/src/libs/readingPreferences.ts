@@ -1,0 +1,84 @@
+export const READING_PREFERENCES_STORAGE_KEY = "tnr_reading_preferences";
+
+/** Single allowlist for settings controls, stored values, and the first-paint script. */
+export const READING_OPTIONS = {
+  font: [
+    { value: "default", label: "Game default" },
+    { value: "atkinson", label: "Atkinson Hyperlegible" },
+    { value: "sans", label: "Helvetica / Arial" },
+    { value: "comic", label: "Comic Sans" },
+  ],
+  spacing: [
+    { value: "default", label: "Game default" },
+    { value: "wide", label: "Wide" },
+    { value: "wider", label: "Extra wide" },
+  ],
+  lineHeight: [
+    { value: "default", label: "Game default" },
+    { value: "relaxed", label: "Relaxed (1.75)" },
+    { value: "spacious", label: "Spacious (2)" },
+  ],
+  palette: [
+    { value: "default", label: "Game default" },
+    { value: "cream", label: "Cream" },
+    { value: "grey", label: "Light grey" },
+    { value: "yellow", label: "Pale yellow" },
+  ],
+} as const;
+
+/** Supported browser-local values; "default" preserves the game's existing styles. */
+export type ReadingPreferences = {
+  [Key in keyof typeof READING_OPTIONS]: (typeof READING_OPTIONS)[Key][number]["value"];
+};
+
+export const DEFAULT_READING_PREFERENCES: ReadingPreferences = {
+  font: "default",
+  spacing: "default",
+  lineHeight: "default",
+  palette: "default",
+};
+
+export const READING_ATTRIBUTES = {
+  font: "data-reading-font",
+  spacing: "data-reading-spacing",
+  lineHeight: "data-reading-line-height",
+  palette: "data-reading-palette",
+} as const;
+
+/** Restores each supported field independently; malformed storage uses game defaults. */
+export const parseReadingPreferences = (stored: string | null): ReadingPreferences => {
+  const preferences = { ...DEFAULT_READING_PREFERENCES };
+  try {
+    const parsed: unknown = JSON.parse(stored ?? "null");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return preferences;
+    }
+    for (const key of Object.keys(READING_OPTIONS) as (keyof ReadingPreferences)[]) {
+      const value = (parsed as Record<string, unknown>)[key];
+      if (READING_OPTIONS[key].some((option) => option.value === value)) {
+        Object.assign(preferences, { [key]: value });
+      }
+    }
+  } catch {
+    // Malformed browser preferences fall back to the game defaults.
+  }
+  return preferences;
+};
+
+/** Sets opt-in styles on the document; default values restore the component's own CSS. */
+export const applyReadingPreferences = (preferences: ReadingPreferences) => {
+  for (const key of Object.keys(READING_ATTRIBUTES) as (keyof ReadingPreferences)[]) {
+    if (preferences[key] === "default") {
+      document.documentElement.removeAttribute(READING_ATTRIBUTES[key]);
+    } else {
+      document.documentElement.setAttribute(READING_ATTRIBUTES[key], preferences[key]);
+    }
+  }
+};
+
+/**
+ * Applies saved, allowlisted styles before first paint without changing server markup.
+ * Configuration comes from HTML-escaped data attributes, keeping executable code static.
+ * Inaccessible or malformed storage leaves game defaults; the provider takes over on mount.
+ */
+export const READING_PREFERENCES_SCRIPT = `(function(){try{var s=document.currentScript;var p=JSON.parse(localStorage.getItem(s.getAttribute("data-storage-key")));if(!p||typeof p!=="object"||Array.isArray(p))return;var o=JSON.parse(s.getAttribute("data-options")),a=JSON.parse(s.getAttribute("data-attributes"));Object.keys(a).forEach(function(k){if(p[k]!=="default"&&o[k].some(function(v){return v.value===p[k]}))document.documentElement.setAttribute(a[k],p[k])})}catch(e){}})()`;

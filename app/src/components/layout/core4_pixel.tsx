@@ -152,6 +152,7 @@ const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
                       <House className={PIXEL_MOBILE_HEADER_ICON_STYLE} />
                     </SheetTrigger>
                     <SheetContent
+                      data-reading-surface
                       side="left"
                       className="w-[min(88vw,360px)] border-sky-200/20 bg-slate-950/95 p-4 text-slate-50 backdrop-blur-md"
                       onInteractOutside={(event) => {
@@ -219,6 +220,7 @@ const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
                       <Earth className={PIXEL_MOBILE_HEADER_ICON_STYLE} />
                     </SheetTrigger>
                     <SheetContent
+                      data-reading-surface
                       className="w-[min(88vw,360px)] border-sky-200/20 bg-slate-950/95 p-4 text-slate-50 backdrop-blur-md"
                       onInteractOutside={(event) => {
                         if (isClerkElement(event.target)) event.preventDefault();
@@ -306,6 +308,7 @@ const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
               )}
             >
               <div
+                data-reading-surface
                 className={cn(
                   "flex min-h-[200px] w-full grow flex-col overflow-x-scroll",
                   isAnonymousLayout

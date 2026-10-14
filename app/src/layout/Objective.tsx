@@ -158,7 +158,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
                   setIsOpen={() => setModalOpen(false)}
                   isOpen={modalOpen}
                 >
-                  {parseHtml(objective.description)}
+                  <div data-reading-text>{parseHtml(objective.description)}</div>
                 </Modal>
               )}
             </>

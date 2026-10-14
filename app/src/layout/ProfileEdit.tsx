@@ -100,6 +100,7 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import NindoChange from "@/layout/NindoChange";
 import { ParentalControls } from "@/layout/ParentalControls";
+import { ReadingSettings } from "@/layout/ReadingSettings";
 import { CurrentSageMode } from "@/layout/SageMode";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
@@ -415,8 +416,8 @@ export function ProfileEdit() {
         <Accordion
           title="Display Settings"
           selectedTitle={activeElement}
-          unselectedSubtitle="Adjust text size for accessibility"
-          selectedSubtitle="Choose your preferred text size"
+          unselectedSubtitle="Adjust text size, fonts, spacing, and reading colors"
+          selectedSubtitle="Choose comfortable reading preferences"
           icon={Settings}
           onClick={setActiveElement}
         >
@@ -3289,6 +3290,7 @@ const FontScaleSettings: React.FC = () => {
         <p className="font-bold">Preview</p>
         <p>This is how your text will appear throughout the game.</p>
       </div>
+      <ReadingSettings />
     </div>
   );
 };

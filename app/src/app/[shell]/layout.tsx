@@ -12,6 +12,7 @@ import PWAManager from "@/components/pwa/PWAManager";
 import { Toaster } from "@/components/ui/toaster";
 import { env } from "@/env/server.mjs";
 import { InstallPromptProvider } from "@/hooks/useInstallPrompt";
+import { ReadingPreferencesProvider } from "@/hooks/useReadingPreferences";
 import AcceptWarning from "@/layout/AcceptWarning";
 import { ActiveSessionBoundary } from "@/layout/ActiveSessionBoundary";
 import ActivityStreakPopup from "@/layout/ActivityStreakPopup";
@@ -28,6 +29,12 @@ import {
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
 } from "@/libs/layoutPreference";
+import {
+  READING_ATTRIBUTES,
+  READING_OPTIONS,
+  READING_PREFERENCES_SCRIPT,
+  READING_PREFERENCES_STORAGE_KEY,
+} from "@/libs/readingPreferences";
 import {
   absoluteUrl,
   OG_IMAGE_PATH,
@@ -96,6 +103,13 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}
         <script dangerouslySetInnerHTML={{ __html: LIGHT_LAYOUT_SCRIPT }} />
+        <script
+          data-storage-key={READING_PREFERENCES_STORAGE_KEY}
+          data-options={JSON.stringify(READING_OPTIONS)}
+          data-attributes={JSON.stringify(READING_ATTRIBUTES)}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static script; configuration is HTML-escaped in data attributes.
+          dangerouslySetInnerHTML={{ __html: READING_PREFERENCES_SCRIPT }}
+        />
       </head>
       <body className="h-full">
         <StructuredData />
@@ -141,13 +155,15 @@ export default async function RootLayout({
                     process.env.NODE_ENV === "production" && (
                       <WebAnalytics gtmId={env.NEXT_PUBLIC_MEASUREMENT_ID} />
                     )}
-                  <LayoutSwitcher
-                    initialIsSignedIn={initialIsSignedIn}
-                    initialLayout={initialLayout}
-                    wallpaper={variant.wallpaper}
-                  >
-                    <PyramidRunBoundary>{children}</PyramidRunBoundary>
-                  </LayoutSwitcher>
+                  <ReadingPreferencesProvider>
+                    <LayoutSwitcher
+                      initialIsSignedIn={initialIsSignedIn}
+                      initialLayout={initialLayout}
+                      wallpaper={variant.wallpaper}
+                    >
+                      <PyramidRunBoundary>{children}</PyramidRunBoundary>
+                    </LayoutSwitcher>
+                  </ReadingPreferencesProvider>
                   <Toaster />
                   <AcceptWarning />
                   <ActivityStreakPopup />

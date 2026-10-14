@@ -241,6 +241,7 @@ const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
                 style={{ backgroundImage: `url(${IMG_LAYOUT_SIDESCROLL})` }}
               ></div>
               <div
+                data-reading-surface
                 className="flex min-h-[200px] w-full grow flex-col overflow-x-scroll bg-background"
                 onWheel={forwardVerticalWheelToDocumentScroll}
               >

@@ -3,7 +3,38 @@
 @import "uploadthing/tw/v4";
 @source "../../node_modules/@uploadthing/react/dist";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Soft reading palettes use light component variants even in the Pixel shell. */
+@custom-variant dark (&:where(.dark:not([data-reading-palette]), .dark:not([data-reading-palette]) *));
+
+/* Self-hosted, loaded only when selected. See fonts/atkinson/OFL.txt. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson/AtkinsonHyperlegible-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson/AtkinsonHyperlegible-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson/AtkinsonHyperlegible-Italic.woff2") format("woff2");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  src: url("/fonts/atkinson/AtkinsonHyperlegible-BoldItalic.woff2") format("woff2");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
 
 @theme {
   --color-border: hsl(var(--border));
@@ -701,9 +732,9 @@
     );
   }
 
-  .tnr-pixel-game [data-content-box] h1,
-  .tnr-pixel-game [data-content-box] h2,
-  .tnr-pixel-game [data-content-box] h3 {
+  html:not([data-reading-palette]) .tnr-pixel-game [data-content-box] h1,
+  html:not([data-reading-palette]) .tnr-pixel-game [data-content-box] h2,
+  html:not([data-reading-palette]) .tnr-pixel-game [data-content-box] h3 {
     color: rgb(248 250 252) !important;
   }
 
@@ -712,7 +743,7 @@
     padding-inline: 0 !important;
   }
 
-  .tnr-pixel-game [data-content-box-inner] {
+  html:not([data-reading-palette]) .tnr-pixel-game [data-content-box-inner] {
     border-color: rgb(125 211 252 / 0.28) !important;
     background:
       linear-gradient(180deg, rgb(15 23 42 / 0.9), rgb(7 12 22 / 0.88)),
@@ -923,4 +954,92 @@
   display: block;
   width: 100% !important;
   height: 100% !important;
+}
+
+/* Opt-in rules override utility and rich-text styles, including portalled dialogs.
+   Removing the attributes restores each component's original typography. */
+html[data-reading-font="atkinson"] {
+  --reading-font: "Atkinson Hyperlegible", Arial, sans-serif;
+}
+html[data-reading-font="sans"] {
+  --reading-font: Helvetica, Arial, sans-serif;
+}
+html[data-reading-font="comic"] {
+  --reading-font: "Comic Sans MS", "Comic Sans", "Atkinson Hyperlegible", sans-serif;
+}
+html[data-reading-font] body,
+html[data-reading-font] body :where(*):not(:where(pre, code, pre *, code *)) {
+  font-family: var(--reading-font) !important;
+}
+
+html[data-reading-spacing="wide"] {
+  --reading-spacing: 0.05em;
+}
+html[data-reading-spacing="wider"] {
+  --reading-spacing: 0.1em;
+}
+html[data-reading-spacing] body,
+html[data-reading-spacing] body * {
+  letter-spacing: var(--reading-spacing) !important;
+}
+
+html[data-reading-line-height="relaxed"] {
+  --reading-line-height: 1.75;
+}
+html[data-reading-line-height="spacious"] {
+  --reading-line-height: 2;
+}
+/* data-reading-text marks rich descriptions that may contain bare text or inline tags.
+   Keep fixed-height navigation and icon buttons intact while opening up reading text. */
+html[data-reading-line-height] :where(p, li, blockquote, dd, dt, td, th, textarea, [contenteditable="true"], [data-reading-text], [data-reading-text] *),
+html[data-reading-line-height] :where(p, li, blockquote, dd, dt, td, th) :where(span, a, strong, em, b, i) {
+  line-height: var(--reading-line-height) !important;
+}
+
+/* Semantic colors cover shared components; surface/heading markers below also cover
+   shell containers and headings whose utility classes specify their own colors. */
+html[data-reading-palette="cream"] {
+  --reading-background: 42 50% 91%;
+  --reading-card: 42 55% 94%;
+}
+html[data-reading-palette="grey"] {
+  --reading-background: 210 9% 89%;
+  --reading-card: 210 9% 93%;
+}
+html[data-reading-palette="yellow"] {
+  --reading-background: 53 65% 88%;
+  --reading-card: 53 65% 92%;
+}
+html[data-reading-palette] {
+  --background: var(--reading-background);
+  --card: var(--reading-card);
+  --popover: var(--reading-card);
+  --poppopover: var(--reading-background);
+  --accent: var(--reading-background);
+  --muted: var(--reading-background);
+  --foreground: 220 15% 20%;
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+  --poppopover-foreground: var(--foreground);
+  --accent-foreground: var(--foreground);
+  --muted-foreground: 220 12% 35%;
+  --border: 220 12% 45%;
+  --input: 220 12% 45%;
+  --ring: 220 15% 20%;
+}
+html[data-reading-palette] [data-reading-surface] {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+html[data-reading-palette] [data-reading-surface] [data-reading-heading] {
+  color: hsl(var(--foreground)) !important;
+}
+html[data-reading-palette] .tnr-pixel-game [data-content-box-inner] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: none !important;
+}
+html[data-reading-palette] .tnr-pixel-game [data-content-box] :where(h1, h2, h3) {
+  color: hsl(var(--foreground)) !important;
 }

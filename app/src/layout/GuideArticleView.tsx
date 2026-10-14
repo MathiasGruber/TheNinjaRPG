@@ -77,7 +77,10 @@ export const GuideArticleView: React.FC<GuideArticleViewProps> = ({
           </details>
         )}
         <div className="lg:grid lg:grid-cols-[1fr_13rem] lg:items-start lg:gap-6">
-          <article className="min-w-0 space-y-3 [&_a]:font-bold [&_a]:text-orange-500 [&_a]:hover:text-orange-700 [&_h2]:mt-5 [&_h2]:scroll-mt-24 [&_h2]:font-bold [&_h2]:text-xl [&_h3]:mt-4 [&_h3]:scroll-mt-24 [&_h3]:font-semibold [&_h3]:text-lg [&_ul]:ml-5 [&_ul]:list-disc">
+          <article
+            data-reading-text
+            className="min-w-0 space-y-3 [&_a]:font-bold [&_a]:text-orange-500 [&_a]:hover:text-orange-700 [&_h2]:mt-5 [&_h2]:scroll-mt-24 [&_h2]:font-bold [&_h2]:text-xl [&_h3]:mt-4 [&_h3]:scroll-mt-24 [&_h3]:font-semibold [&_h3]:text-lg [&_ul]:ml-5 [&_ul]:list-disc"
+          >
             {parseHtml(html)}
           </article>
           {headings.length > 1 && (
