@@ -40,6 +40,7 @@ import {
   warRouter,
 } from "@/server/api/routers/war";
 import type { DrizzleClient } from "@/server/db";
+import { defaultWarRules } from "@/validators/war";
 import { handleWarEnd } from "@/server/utils/war";
 import { acceptWarAllyOffer, withdrawWarAlly } from "@/server/utils/warAlly";
 import { insertUsers } from "../../setup/factories";
@@ -180,6 +181,33 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     );
   });
   afterEach(resetServerModuleStubs);
+
+  it("settles overdue objective wars at the deadline with final decay, camps and allied bonuses", async () => {
+    const db = await seed();
+    await addAlly(db);
+    const start = new Date(Date.now() - 8 * 86400000);
+    await db.update(war).set({ rules: { ...defaultWarRules, enabled: true }, combatStartedAt: start, lastTokenReductionAt: start, attackerWarHealth: 10000, defenderWarHealth: 9500 }).where(eq(war.id, warId));
+    await db.insert(villageStructure).values({ id: "ally-extra", name: "extra", route: "/townhall", image: "", villageId: "ally" });
+    const ended = await handleWarEnd(await snapshot(db), db);
+    expect(ended.status).toBe("ATTACKER_VICTORY");
+    expect(ended.endedAt!.getTime()).toBe(start.getTime() + 7 * 86400000);
+    expect(ended.attackerWarHealth).toBe(7900);
+    expect(ended.defenderWarHealth).toBe(7400);
+    expect(await balance(db, "ally")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
+    const allyVillage = (await db.query.village.findFirst({ where: eq(village.id, "ally") }))!;
+    expect(allyVillage.lastWarEndedAt!.getTime()).toBe(ended.endedAt!.getTime());
+    const allyStructure = (await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "ally-extra") }))!;
+    expect(allyStructure.temporaryLevelBonus).toBe(3);
+    expect(allyStructure.temporaryLevelBonusExpiresAt!.getTime()).toBe(ended.endedAt!.getTime() + 5 * 86400000);
+    const boosts = await db.query.gameSetting.findMany();
+    expect(boosts.find((b) => b.name === "war-ally-train")!.value).toBe(20);
+    expect(boosts.find((b) => b.name === "war-ally-regen")!.value).toBe(40);
+    const loser = (await db.query.village.findFirst({ where: eq(village.id, "defender") }))!;
+    expect(loser.warExhaustionEndedAt!.getTime()).toBe(ended.endedAt!.getTime() + 4 * 86400000);
+    const loserStructure = (await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "defender/townhall") }))!;
+    expect(loserStructure.temporaryLevelBonus).toBe(-2);
+    expect(loserStructure.temporaryLevelBonusExpiresAt!.getTime()).toBe(ended.endedAt!.getTime() + 3 * 86400000);
+  });
 
   it("withdrawal overlapping settlement either leaves before rewards or loses its claim", async () => {
     const db = await seed();

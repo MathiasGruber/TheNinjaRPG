@@ -88,7 +88,7 @@ import { calculateLpEloChange } from "@/libs/ranked_pvp";
 import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import { randomInt, round, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
-import { getShrineBoost, getStrucBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost, getStrucBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
 import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
@@ -1994,7 +1994,7 @@ export const calcBattleResult = (
 
       // Check if we have a shrine boost - look up village from staticData
       const village = getVillage(battle, user.villageId);
-      const sectors = village?.sectors?.length || 0;
+      const sectors = countBoostingShrines(village?.sectors);
       const shrineBoost = getShrineBoost(sectors, "PVP", village);
       const shrineBoostFactor = shrineBoost ? 1 + shrineBoost : 1;
 
@@ -2248,6 +2248,7 @@ export const calcBattleResult = (
         targets.forEach((target) => {
           const wars = getOpposingBattleWars(battle, user, target);
           wars.forEach(({ war, sideVillageId }) => {
+            if (war.rules) return;
             const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
             // Get the names of the village
             const userVillageName = isUserOnAttackerSide
@@ -2466,6 +2467,7 @@ export const calcBattleResult = (
           userWars
             .filter(({ war }) => ["VILLAGE_WAR", "WAR_RAID"].includes(war.type))
             .forEach(({ war, sideVillageId }) => {
+              if (war.rules) return;
               const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
               const isUserOnDefenderSide = !isUserOnAttackerSide;
 

@@ -235,3 +235,20 @@ export const getRaidStructureMultiplier = (
   structure.raidBoostExpiresAt && new Date(structure.raidBoostExpiresAt) > now
     ? 1 + FACTION_RAID_BOOST_PERCENT / 100
     : 1;
+
+/** Locked reserve shrines retain ownership but provide no shrine boosts. */
+export const countBoostingShrines = (
+  sectors:
+    | {
+        sector?: number;
+        boostLockedUntil?: Date | string | null;
+        shrineLevel?: number;
+      }[]
+    | undefined,
+  now = new Date(),
+) =>
+  sectors?.filter(
+    (sector) =>
+      (sector.shrineLevel === undefined || sector.shrineLevel > 0) &&
+      (!sector.boostLockedUntil || new Date(sector.boostLockedUntil) <= now),
+  ).length ?? 0;

@@ -75,6 +75,19 @@ const makeUserFilteringSchema = () =>
           Boolean((ctx as { aiToggles?: boolean } | undefined)?.aiToggles),
       },
       {
+        id: "isWarCamp",
+        label: "War Camp Status",
+        type: "tri-state",
+        defaultValue: undefined,
+        triStateLabels: {
+          labelActive: "War Camp Only",
+          labelInactive: "Non-War Camp Only",
+          labelAll: "All War Camps",
+        },
+        visibleIf: (ctx) =>
+          Boolean((ctx as { aiToggles?: boolean } | undefined)?.aiToggles),
+      },
+      {
         id: "isSummon",
         label: "Summon Status",
         type: "tri-state",
@@ -151,6 +164,7 @@ export const useFiltering = () => {
     setVillage: cf.setters.village,
     setEffect: cf.setters.effect,
     setIsEvent: cf.setters.isEvent,
+    setIsWarCamp: cf.setters.isWarCamp,
     setIsSummon: cf.setters.isSummon,
     setInArena: cf.setters.inArena,
     setInShrines: cf.setters.inShrines,

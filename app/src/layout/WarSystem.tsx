@@ -71,6 +71,7 @@ import Loader from "@/layout/Loader";
 import MapError from "@/layout/MapError";
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
+import { ObjectiveWarPanel } from "@/layout/ObjectiveWarPanel";
 import StatusBar from "@/layout/StatusBar";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
@@ -1184,16 +1185,22 @@ export const DeclareEnemyDialogContent: React.FC<DialogContentProps> = (props) =
 export const InitiateVillageWarDialogContent: React.FC<DialogContentProps> = (
   props,
 ) => {
+  const { data: rules } = api.war.getRules.useQuery();
   if (!props.sectorVillage) return null;
   return (
     <div className="relative rounded-lg border p-4 text-center">
       <SectorVillageDialogContent {...props} />
       <p>
         You are about to declare war on {props.sectorVillage.name}. Are you sure? The
-        cost of declaring war is {WAR_DECLARATION_COST.toLocaleString()} Village Tokens.
-        Each day at war reduces your tokens by {WAR_DAILY_TOKEN_DECAY_PERCENT_BASE}%
-        (increasing to {WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5}% after 5 days and{" "}
-        {WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_8}% after 8 days).
+        cost of declaring war is{" "}
+        {(rules?.enabled
+          ? rules.declarationCost
+          : WAR_DECLARATION_COST
+        ).toLocaleString()}{" "}
+        Village Tokens.
+        {rules?.enabled
+          ? ` After elder approval, there is a ${rules.noticeHours}-hour notice period. The war lasts ${rules.durationDays} days, with ${rules.dailyDecay} townhall health lost each day.`
+          : ` Each day at war reduces your tokens by ${WAR_DAILY_TOKEN_DECAY_PERCENT_BASE}% (increasing to ${WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5}% after 5 days and ${WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_8}% after 8 days).`}
       </p>
     </div>
   );
@@ -1279,7 +1286,7 @@ const WarSideTownHall: React.FC<{
         <div className="mb-2 w-full">
           <StatusBar
             title="HP"
-            tooltip="War Health - Depletes from PvP kills"
+            tooltip="Townhall health — affected by war victories, objectives, camps and daily decay"
             color="bg-red-500"
             showText={true}
             current={warHealth}
@@ -1404,15 +1411,20 @@ export const VillageWar: React.FC<{
   >("totalKills");
 
   // Add query for war kills
+  const { data: objectiveInfo } = api.war.getObjectiveWarInfo.useQuery(
+    { warId: war.id },
+    { enabled: !!war.rules, refetchInterval: 10000 },
+  );
+  const healthSnapshot = objectiveInfo?.war ?? war;
   const { data: warKills } = api.war.getWarKills.useQuery(
     { warId: war.id },
-    { enabled: showKills },
+    { enabled: showKills && !war.rules },
   );
 
   // Add query for war kill stats
   const { data: warKillStats } = api.war.getWarKillStats.useQuery(
     { warId: war.id, aggregateBy: selectedStat },
-    { enabled: showStats },
+    { enabled: showStats && !war.rules },
   );
 
   // Transform war kills data for table
@@ -1908,6 +1920,7 @@ export const VillageWar: React.FC<{
             variant="outline"
             size="icon"
             disabled={isSurrendering || isAdminEnding}
+            className={war.rules ? "hidden" : undefined}
             onClick={() => setShowKills(true)}
           >
             <Swords className="h-5 w-5" />
@@ -1916,6 +1929,7 @@ export const VillageWar: React.FC<{
             variant="outline"
             size="icon"
             disabled={isSurrendering || isAdminEnding}
+            className={war.rules ? "hidden" : undefined}
             onClick={() => setShowStats(true)}
           >
             <Trophy className="h-5 w-5" />
@@ -2112,7 +2126,7 @@ export const VillageWar: React.FC<{
       {/* Add dialog for war kills */}
       <Modal
         title={`War Kills - ${war.attackerVillage.name} vs ${war.defenderVillage.name}`}
-        isOpen={showKills}
+        isOpen={showKills && !war.rules}
         setIsOpen={setShowKills}
         className="max-w-[99%]"
       >
@@ -2138,7 +2152,7 @@ export const VillageWar: React.FC<{
       {/* Add dialog for war kill stats */}
       <Modal
         title={`War Statistics - ${war.attackerVillage.name} vs ${war.defenderVillage.name}`}
-        isOpen={showStats}
+        isOpen={showStats && !war.rules}
         setIsOpen={setShowStats}
         className="max-w-[99%]"
       >
@@ -2197,7 +2211,9 @@ export const VillageWar: React.FC<{
             structure={isAttacker ? attackerStructure : defenderStructure}
             village={isAttacker ? war.attackerVillage : war.defenderVillage}
             warStatus={war.status}
-            warHealth={isAttacker ? war.attackerWarHealth : war.defenderWarHealth}
+            warHealth={
+              isAttacker ? war.attackerWarHealth : healthSnapshot.defenderWarHealth
+            }
             warHealthMax={
               isAttacker ? war.attackerWarHealthMax : war.defenderWarHealthMax
             }
@@ -2206,7 +2222,9 @@ export const VillageWar: React.FC<{
             structure={isAttacker ? defenderStructure : attackerStructure}
             village={isAttacker ? war.defenderVillage : war.attackerVillage}
             warStatus={war.status}
-            warHealth={isAttacker ? war.defenderWarHealth : war.attackerWarHealth}
+            warHealth={
+              isAttacker ? war.defenderWarHealth : healthSnapshot.attackerWarHealth
+            }
             warHealthMax={
               isAttacker ? war.defenderWarHealthMax : war.attackerWarHealthMax
             }
@@ -2214,95 +2232,98 @@ export const VillageWar: React.FC<{
         </div>
       </div>
 
+      {war.rules && <ObjectiveWarPanel warId={war.id} />}
       {/* Shrines Section */}
-      {["VILLAGE_WAR", "WAR_RAID"].includes(war.type) && war.status === "ACTIVE" && (
-        <div className="mt-4 rounded-lg border border-border p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <WarSideShrine
-              village={isAttacker ? war.attackerVillage : war.defenderVillage}
-              shrineHp={isAttacker ? war.attackerShrineHp : war.defenderShrineHp}
-              shrineMaxHp={
-                isAttacker ? war.attackerShrineMaxHp : war.defenderShrineMaxHp
-              }
-              shrineStatus={
-                isAttacker ? war.attackerShrineStatus : war.defenderShrineStatus
-              }
-            />
-            <WarSideShrine
-              village={isAttacker ? war.defenderVillage : war.attackerVillage}
-              shrineHp={isAttacker ? war.defenderShrineHp : war.attackerShrineHp}
-              shrineMaxHp={
-                isAttacker ? war.defenderShrineMaxHp : war.attackerShrineMaxHp
-              }
-              shrineStatus={
-                isAttacker ? war.defenderShrineStatus : war.attackerShrineStatus
-              }
-            />
+      {!war.rules &&
+        ["VILLAGE_WAR", "WAR_RAID"].includes(war.type) &&
+        war.status === "ACTIVE" && (
+          <div className="mt-4 rounded-lg border border-border p-4">
+            <div className="grid grid-cols-2 gap-4">
+              <WarSideShrine
+                village={isAttacker ? war.attackerVillage : war.defenderVillage}
+                shrineHp={isAttacker ? war.attackerShrineHp : war.defenderShrineHp}
+                shrineMaxHp={
+                  isAttacker ? war.attackerShrineMaxHp : war.defenderShrineMaxHp
+                }
+                shrineStatus={
+                  isAttacker ? war.attackerShrineStatus : war.defenderShrineStatus
+                }
+              />
+              <WarSideShrine
+                village={isAttacker ? war.defenderVillage : war.attackerVillage}
+                shrineHp={isAttacker ? war.defenderShrineHp : war.attackerShrineHp}
+                shrineMaxHp={
+                  isAttacker ? war.defenderShrineMaxHp : war.attackerShrineMaxHp
+                }
+                shrineStatus={
+                  isAttacker ? war.defenderShrineStatus : war.attackerShrineStatus
+                }
+              />
+            </div>
+            <div className="mt-3 flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isSurrendering || isAdminEnding}
+                onClick={() => setShowShrineMechanics(true)}
+              >
+                <Info className="mr-1 h-4 w-4" />
+                Shrine Mechanics
+              </Button>
+              <Modal
+                title="Shrine Mechanics"
+                isOpen={showShrineMechanics}
+                setIsOpen={setShowShrineMechanics}
+              >
+                <div className="space-y-4">
+                  <p className="text-muted-foreground text-sm">
+                    The shrine is a key objective in village wars. Its HP determines
+                    control of the shrine.
+                  </p>
+                  <div className="space-y-2">
+                    <h6 className="font-semibold">Attack (Enemy Shrine):</h6>
+                    <p className="text-muted-foreground text-sm">
+                      When you win shrine combat against an enemy at their shrine, you{" "}
+                      <span className="font-semibold text-red-500">reduce</span> their
+                      shrine&apos;s HP.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <h6 className="font-semibold">Defend (Your Shrine):</h6>
+                    <p className="text-muted-foreground text-sm">
+                      When you win shrine combat against an enemy at your own shrine,
+                      you <span className="font-semibold text-green-500">restore</span>{" "}
+                      your shrine&apos;s HP.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <h6 className="font-semibold">Capture (HP reaches 0):</h6>
+                    <p className="text-muted-foreground text-sm">
+                      When the shrine HP reaches 0, it is captured. This deals{" "}
+                      <span className="font-semibold text-red-500">
+                        -{WAR_SHRINE_CAPTURE_WARHEALTH_DMG} HP
+                      </span>{" "}
+                      to the defender&apos;s war health.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <h6 className="font-semibold">
+                      Recapture (HP exceeds {WAR_RECAPTURE_THRESHOLD * 100}%):
+                    </h6>
+                    <p className="text-muted-foreground text-sm">
+                      When defenders recapture the shrine by raising its HP above{" "}
+                      {WAR_RECAPTURE_THRESHOLD * 100}%, they heal{" "}
+                      <span className="font-semibold text-green-500">
+                        +{WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} HP
+                      </span>{" "}
+                      to their war health.
+                    </p>
+                  </div>
+                </div>
+              </Modal>
+            </div>
           </div>
-          <div className="mt-3 flex justify-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isSurrendering || isAdminEnding}
-              onClick={() => setShowShrineMechanics(true)}
-            >
-              <Info className="mr-1 h-4 w-4" />
-              Shrine Mechanics
-            </Button>
-            <Modal
-              title="Shrine Mechanics"
-              isOpen={showShrineMechanics}
-              setIsOpen={setShowShrineMechanics}
-            >
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-sm">
-                  The shrine is a key objective in village wars. Its HP determines
-                  control of the shrine.
-                </p>
-                <div className="space-y-2">
-                  <h6 className="font-semibold">Attack (Enemy Shrine):</h6>
-                  <p className="text-muted-foreground text-sm">
-                    When you win shrine combat against an enemy at their shrine, you{" "}
-                    <span className="font-semibold text-red-500">reduce</span> their
-                    shrine&apos;s HP.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h6 className="font-semibold">Defend (Your Shrine):</h6>
-                  <p className="text-muted-foreground text-sm">
-                    When you win shrine combat against an enemy at your own shrine, you{" "}
-                    <span className="font-semibold text-green-500">restore</span> your
-                    shrine&apos;s HP.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h6 className="font-semibold">Capture (HP reaches 0):</h6>
-                  <p className="text-muted-foreground text-sm">
-                    When the shrine HP reaches 0, it is captured. This deals{" "}
-                    <span className="font-semibold text-red-500">
-                      -{WAR_SHRINE_CAPTURE_WARHEALTH_DMG} HP
-                    </span>{" "}
-                    to the defender&apos;s war health.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <h6 className="font-semibold">
-                    Recapture (HP exceeds {WAR_RECAPTURE_THRESHOLD * 100}%):
-                  </h6>
-                  <p className="text-muted-foreground text-sm">
-                    When defenders recapture the shrine by raising its HP above{" "}
-                    {WAR_RECAPTURE_THRESHOLD * 100}%, they heal{" "}
-                    <span className="font-semibold text-green-500">
-                      +{WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} HP
-                    </span>{" "}
-                    to their war health.
-                  </p>
-                </div>
-              </div>
-            </Modal>
-          </div>
-        </div>
-      )}
+        )}
 
       {/* Supporting Forces Section */}
       {war.type === "VILLAGE_WAR" && (

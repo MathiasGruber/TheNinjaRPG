@@ -211,7 +211,7 @@ export const PLAYER_LEVEL_XP_HIGH_FACTOR = 950;
 export const PLAYER_LEVEL_XP_HIGH_THRESHOLD = 80;
 
 /** How long (seconds) a player's bracket immunity is lifted after they initiate any attack */
-export const BRACKET_IMMUNITY_LIFT_SECS = 300; // 5 minutes
+export const BRACKET_IMMUNITY_LIFT_SECS = 1800; // Active time outside combat
 
 /** How long (seconds) a player is flagged as a war participant after a war kill or war-quest acceptance */
 export const WAR_PARTICIPANT_SECS = 7200; // 2 hours
@@ -3673,3 +3673,37 @@ export const STORE_FEDERAL_ENTITLEMENT = "federal";
 
 export const SkillTreePathTypes = ["SKILL", "BLOODRIGHT"] as const;
 export const MAX_BLOODRIGHT_TIERS = 5;
+
+/** Defaults are snapshotted when an objective village war is approved. */
+export const OBJECTIVE_WAR_DEFAULTS = {
+  enabled: false,
+  townhallHp: 10000,
+  shrineHp: 5000,
+  declarationCost: 500000,
+  noticeHours: 24,
+  durationDays: 7,
+  dailyDecay: 300,
+  guardianDamage: 350,
+  objectiveDamage: 1500,
+  campDamage: 300,
+  regularDamage: 10, regularRecovery: 7,
+  anbuDamage: 15, anbuRecovery: 10,
+  assassinDamage: 15, assassinRecovery: 10,
+  elderDamage: 20, elderRecovery: 15,
+  coleaderDamage: 20, coleaderRecovery: 15,
+  leaderDamage: 40, leaderRecovery: 30,
+} as const;
+export const WAR_ESPIONAGE_TARGET = 100;
+export const WAR_PVP_ESPIONAGE_POINTS = 3;
+export const WAR_OBJECTIVES_PER_SIDE = 2;
+export const WAR_CAMP_INTERVAL_HOURS = 3;
+export const WAR_CAMP_DURATION_HOURS = 1;
+export const WAR_CAMP_SCORE_PER_WIN = 10;
+export const WAR_POINT_PRESTIGE_RATE = 10;
+export const WAR_POINT_CONVERSION_DAYS = 3;
+export const WAR_RESERVE_LOCKOUT_DAYS = 7;
+export const OBJECTIVE_WAR_ATTACKER_COOLDOWN_DAYS = 2;
+export const OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS = 4;
+export const OBJECTIVE_WAR_DEFEAT_PENALTY_LEVELS = 2;
+export const OBJECTIVE_WAR_DEFEAT_PENALTY_DAYS = 3;
+export const WAR_DRAW_PENALTY_LEVELS = 1;

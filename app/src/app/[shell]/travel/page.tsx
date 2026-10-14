@@ -88,6 +88,7 @@ import Loader from "@/layout/Loader";
 import MapError from "@/layout/MapError";
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
+import { WarFieldActions } from "@/layout/WarFieldActions";
 import { nonCombatConsume } from "@/libs/item";
 import {
   getQuestTargetSectorsToCheck,
@@ -949,6 +950,7 @@ function Travel() {
   // Render
   return (
     <>
+      <WarFieldActions />
       {locationRequest && (
         <Modal
           title="Auto Travel"

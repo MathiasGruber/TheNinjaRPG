@@ -43,6 +43,7 @@ import {
   village,
   war,
 } from "@/drizzle/schema";
+import { maskWarObjectives } from "@/libs/objectiveWar";
 import { placementToSectorUser } from "@/libs/overworldAi";
 import { calcActiveUserRegen, calcLevel, calcMaxEnergy } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
@@ -408,10 +409,22 @@ export const travelRouter = createTRPCRouter({
             where: eq(war.status, "ACTIVE"),
             with: {
               attackerVillage: {
-                columns: { name: true, id: true, villageGraphic: true, sector: true },
+                columns: {
+                  name: true,
+                  id: true,
+                  villageGraphic: true,
+                  sector: true,
+                  kageId: true,
+                },
               },
               defenderVillage: {
-                columns: { name: true, id: true, villageGraphic: true, sector: true },
+                columns: {
+                  name: true,
+                  id: true,
+                  villageGraphic: true,
+                  sector: true,
+                  kageId: true,
+                },
               },
               warAllies: {
                 where: activeWarAllyWhere(),
@@ -496,7 +509,16 @@ export const travelRouter = createTRPCRouter({
         users: processedUsers,
         village: villageData,
         sectorData,
-        warData,
+        warData: warData.map((w) =>
+          maskWarObjectives(
+            w,
+            user.villageId,
+            user.rank === "ELDER" ||
+              [w.attackerVillage?.kageId, w.defenderVillage?.kageId].includes(
+                user.userId,
+              ),
+          ),
+        ),
         overworldAis,
       };
     }),
@@ -600,6 +622,7 @@ export const travelRouter = createTRPCRouter({
       const result = await ctx.drizzle
         .update(userData)
         .set({
+          warMission: null,
           sector: input.sector,
           longitude: destination.x,
           latitude: destination.y,
@@ -892,6 +915,7 @@ export const travelRouter = createTRPCRouter({
         ctx.drizzle
           .update(userData)
           .set({
+            ...(targetSector !== originalUser.sector ? { warMission: null } : {}),
             sector: targetSector,
             longitude: destination.x,
             latitude: destination.y,

@@ -176,7 +176,11 @@ import {
 } from "@/server/utils/questParty";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
-import { extendWarParticipantSql, warRaidCombatGuard } from "@/server/utils/war";
+import {
+  extendWarParticipantSql,
+  liftBracketImmunitySql,
+  warRaidCombatGuard,
+} from "@/server/utils/war";
 import { chunkArray, getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {
@@ -2968,6 +2972,8 @@ export const assignQuestToUser = async (args: {
       .set({
         dailyWarMissions: sql`${userData.dailyWarMissions} + 1`,
         warParticipantUntil: extendWarParticipantSql(),
+        bracketImmunityLiftedUntil: liftBracketImmunitySql(),
+        immunityUntil: new Date(0),
       })
       .where(
         and(

@@ -56,7 +56,7 @@ import {
 import { getQueueTotalCapacity } from "@/utils/paypal";
 import { canChangeContent } from "@/utils/permissions";
 import { formatSecondsToTimeDisplay, getSecondPrecisionDate } from "@/utils/time";
-import { getShrineBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost } from "@/utils/village";
 import {
   type CraftingQueueMaterial,
   cancelQueuedJobInputSchema,
@@ -261,7 +261,7 @@ export const occupationRouter = createTRPCRouter({
       }
 
       // See if we have a shrine boost, add it to crafting time in case
-      const sectors = user.village?.sectors?.length || 0;
+      const sectors = countBoostingShrines(user.village?.sectors);
       const shrineBoost = getShrineBoost(sectors, "Crafting", user.village);
       const shrineBoostFactor = shrineBoost ? 1 - shrineBoost : 1;
       // Clan crafting time reduction (percentage stored in clan object)

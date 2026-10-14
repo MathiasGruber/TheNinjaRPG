@@ -44,6 +44,7 @@ import {
   warKill,
 } from "@/drizzle/schema";
 import { stillInBattle } from "@/libs/combat/actions";
+import { settleObjectiveWarCombat } from "@/libs/combat/objectiveWar";
 import { areBattleAllies } from "@/libs/combat/participants";
 import type { ActionEffect, CombatResult, CompleteBattle } from "@/libs/combat/types";
 import {
@@ -90,6 +91,7 @@ import { settleDungeonBattle } from "@/server/utils/dungeon";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import { masteryGainUpdates } from "@/server/utils/masteryProgression";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { purgeRaidChatMembership } from "@/server/utils/raidChat";
 import {
   applyVillageMissionShrineDamage,
@@ -296,6 +298,8 @@ export const updateBattle = async (
             const released = await client
               .update(userData)
               .set({
+                bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+                bracketImmunityPausedAt: null,
                 battleId: null,
                 updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
                 curEnergy: combatEnergyRecoverySql(newBattle, teammate.userId),
@@ -729,6 +733,7 @@ export const updateWars = async (
 
   warResults.forEach((warResult) => {
     warResult.wars.forEach(({ war: w, sideVillageId: killerSideVillageId }) => {
+      if (w.rules) return;
       // Village missions belong to a participating village, even when battle
       // teammates from unrelated factions share the team's war/shrine credit.
       const canCreditVillageMission =
@@ -988,7 +993,7 @@ export const updateWars = async (
 
       // Find the war from user's wars
       const w = userWars.find((war) => war.id === warId);
-      if (!w || !["VILLAGE_WAR", "WAR_RAID"].includes(w.type)) continue;
+      if (!w || w.rules || !["VILLAGE_WAR", "WAR_RAID"].includes(w.type)) continue;
 
       processedShrineWarIds.add(warId);
 
@@ -1102,7 +1107,11 @@ export const updateWars = async (
   }
 
   // Run all promises in parallel - shrine updates are processed independently to avoid race conditions
-  await Promise.all([...otherPromises, ...shrineUpdatePromises]);
+  await Promise.all([
+    ...otherPromises,
+    ...shrineUpdatePromises,
+    settleObjectiveWarCombat(client, curBattle, result, user),
+  ]);
 
   // Broadcast pusher notifications after mutations complete
   await Promise.all(
@@ -1788,6 +1797,8 @@ export const updateUser = async (
           dailyArenaFights: sql`dailyArenaFights + ${curBattle.battleType === "ARENA" ? 1 : 0}`,
           dailySageActivations: sql`dailySageActivations + ${user.sageModeUsedThisBattle ? 1 : 0}`,
           questData: updatedQuestData,
+          bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+          bracketImmunityPausedAt: null,
           battleId: null,
           // Only Energy recovers in combat; reset the shared clock for other pools.
           regenAt: settledAt,

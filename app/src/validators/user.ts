@@ -141,6 +141,7 @@ export const getPublicUsersSchema = z.object({
   recruiterId: z.string().optional(),
   inArena: z.boolean().optional(),
   isEvent: z.boolean().optional(),
+  isWarCamp: z.boolean().optional(),
   isSummon: z.boolean().optional(),
   inShrines: z.boolean().optional(),
 });

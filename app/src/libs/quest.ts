@@ -83,6 +83,7 @@ import { capitalizeFirstLetter } from "@/utils/string";
 import { periodStart, secondsPassed } from "@/utils/time";
 import {
   canAccessStructure,
+  countBoostingShrines,
   getShrineBoost,
   getStrucBoost,
   type SectorVillage,
@@ -409,7 +410,7 @@ export const getReward = (
   }
   if (userQuest && !userQuest.completed && userQuest?.quest && !isCompletedHelper) {
     // See if we have a shrine boost
-    const sectors = user.village?.sectors?.length || 0;
+    const sectors = countBoostingShrines(user.village?.sectors);
     const errandsBoost = getShrineBoost(sectors, "Errands", user.village);
     const missionBoost = getShrineBoost(sectors, "Mission", user.village);
     // Village mission hall boost (percentage as decimal), applies to missions and errands
@@ -2162,7 +2163,8 @@ export const controlShownQuestLocationInformation = (
  */
 export const isAvailableUserQuests = (
   questAndUserQuestInfo: MasteryRequirementFields & {
-    content?: Pick<QuestContentType, "reward" | "rewardMode">;
+    content?: Pick<QuestContentType, "reward" | "rewardMode"> &
+      Partial<Pick<QuestContentType, "objectives">>;
     hidden: boolean;
     maxAttempts: number;
     maxCompletes: number;
@@ -2191,7 +2193,18 @@ export const isAvailableUserQuests = (
     completedQuests: { id: string; questId: string; completed?: number }[];
   },
   ignorePreviousAttempts = false,
+  isConcurrentWarMission = false,
 ) => {
+  if (
+    !isConcurrentWarMission &&
+    questAndUserQuestInfo.content?.objectives?.some(
+      (o) => o.task === "espionage" || o.task === "sabotage",
+    )
+  )
+    return {
+      check: false,
+      message: "Start this concurrent war mission from the townhall war objectives",
+    };
   // Derived Data
   const maxAttempts = questAndUserQuestInfo.maxAttempts;
   const maxCompletes = questAndUserQuestInfo.maxCompletes;

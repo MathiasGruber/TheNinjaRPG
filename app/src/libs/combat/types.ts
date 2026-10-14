@@ -77,7 +77,7 @@ export type CombatQueryUserJutsu = UserJutsu & {
  */
 export type CombatQueryVillage = Village & {
   structures?: VillageStructure[];
-  sectors?: { sector: number }[];
+  sectors?: { sector: number; shrineLevel?: number; boostLockedUntil?: Date | null }[];
 };
 
 /**
@@ -399,6 +399,17 @@ export type ExtraState = {
   encounter?: import("@/libs/combat/encounters").EncounterWaveState;
   /** Private run/wave snapshot used by combat actions and atomic party settlement. */
   dungeon?: import("@/libs/dungeon").DungeonBattleState;
+  warCamp?: {
+    id: string;
+    warId: string;
+    guardianId: string;
+    sector: number;
+    startsAt: Date;
+    endsAt: Date;
+    attackerScore: number;
+    defenderScore: number;
+    resolvedAt: Date | null;
+  };
   /** Definitions of publicly performed actions, retained after their caster despawns. */
   revealedActions?: { jutsuIds: string[]; itemIds: string[] };
   /** Persisted, unscaled player state for confirmed completion responses; never sent to opponents. */

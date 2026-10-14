@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gt, gte, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
@@ -25,6 +37,11 @@ import {
   userData,
   village,
 } from "@/drizzle/schema";
+import {
+  areWarObjectivesRevealed,
+  getWarSide,
+  isObjectiveWarActive,
+} from "@/libs/objectiveWar";
 import { getServerPusher } from "@/libs/pusher";
 import { initiateBattle } from "@/routers/combat";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
@@ -801,6 +818,23 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Already in a battle queue");
       }
 
+      const objectiveWar = activeWars.find(
+        (w) =>
+          w.rules &&
+          w.objectiveState?.objectives.some((o) => o.sector === input.sectorNumber),
+      );
+      if (objectiveWar) {
+        const side = getWarSide(objectiveWar, user.villageId);
+        if (
+          !side ||
+          !isObjectiveWarActive(objectiveWar) ||
+          !areWarObjectivesRevealed(objectiveWar, side)
+        )
+          return errorResponse(
+            "This objective shrine is hidden until active combat and completed espionage",
+          );
+      }
+
       // Create new shrine battle queue with rollback on failure
       const shrineBattleId = nanoid();
       const result = await ctx.drizzle
@@ -1303,7 +1337,13 @@ const hasLevel3Shrine = async (
   const rows = await client
     .select({ id: sector.id })
     .from(sector)
-    .where(and(eq(sector.villageId, villageId), eq(sector.shrineLevel, 3)))
+    .where(
+      and(
+        eq(sector.villageId, villageId),
+        eq(sector.shrineLevel, 3),
+        or(isNull(sector.boostLockedUntil), lte(sector.boostLockedUntil, new Date())),
+      ),
+    )
     .limit(1);
   return rows.length > 0;
 };

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -18,6 +18,8 @@ import {
   WAR_FACTION_MAX_SECTORS,
   WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
+  WAR_POINT_CONVERSION_DAYS,
+  WAR_POINT_PRESTIGE_RATE,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
   WAR_VILLAGE_MAX_SECTORS,
 } from "@/drizzle/constants";
@@ -25,17 +27,28 @@ import type { Village, VillageStructure, War, WarAlly } from "@/drizzle/schema";
 import {
   actionLog,
   clan,
+  gameSetting,
   notification,
   quest,
+  questHistory,
   sector,
   userData,
   village,
   villageElderVote,
   war,
   warAlly,
+  warCamp,
+  warContribution,
   warKill,
 } from "@/drizzle/schema";
 import { castElderVoteEntry, fetchElderVote, fetchElderVotes } from "@/libs/elder";
+import {
+  areWarObjectivesRevealed,
+  getWarSide,
+  isObjectiveWarActive,
+  maskWarObjectives,
+} from "@/libs/objectiveWar";
+import { isAvailableUserQuests } from "@/libs/quest";
 import { findActiveExclusiveRaidForSector } from "@/libs/raids";
 import {
   canJoinWar,
@@ -44,6 +57,7 @@ import {
   isFactionVillage,
   isVillageInvolvedInAnyWar,
 } from "@/libs/war";
+import { initiateBattle } from "@/routers/combat";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchRequest, fetchRequests, insertRequest } from "@/routers/sparring";
 import {
@@ -61,7 +75,13 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import { handleWarEnd, startDeclaredWar } from "@/server/utils/war";
+import { applyObjectiveWarAction, fetchWarRules } from "@/server/utils/objectiveWar";
+import {
+  extendWarParticipantSql,
+  handleWarEnd,
+  liftBracketImmunitySql,
+  startDeclaredWar,
+} from "@/server/utils/war";
 import {
   acceptWarAllyOffer,
   activeWarAllyWhere,
@@ -70,11 +90,421 @@ import {
 } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
-import { canAdministrateWars, canSeeSecretData } from "@/utils/permissions";
+import {
+  canAdministrateWars,
+  canModifyCombatSettings,
+  canSeeSecretData,
+} from "@/utils/permissions";
 import { secondsFromNow } from "@/utils/time";
-import { declareVillageWarSchema, raidOptionsSchema } from "@/validators/war";
+import {
+  completeWarMissionSchema,
+  declareVillageWarSchema,
+  raidOptionsSchema,
+  startWarMissionSchema,
+  warCampSchema,
+  warIdSchema,
+  warRulesSchema,
+} from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  getRules: protectedProcedure.query(({ ctx }) => fetchWarRules(ctx.drizzle)),
+  setRules: protectedProcedure
+    .input(warRulesSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!canModifyCombatSettings(user.role)) return errorResponse("Not allowed");
+      // One upsert prevents declarations seeing a partially saved configuration.
+      await ctx.drizzle
+        .insert(gameSetting)
+        .values(
+          Object.entries(input).map(([key, value]) => ({
+            id: `OBJECTIVE_WAR_${key}`,
+            name: `OBJECTIVE_WAR_${key}`,
+            value: typeof value === "boolean" ? Number(value) : value,
+            time: new Date(),
+          })),
+        )
+        .onDuplicateKeyUpdate({
+          set: { value: sql`VALUES(value)`, time: sql`VALUES(time)` },
+        });
+      return {
+        success: true,
+        message: "War settings saved. Changes apply to newly approved wars.",
+      };
+    }),
+  getObjectiveWarInfo: protectedProcedure
+    .input(warIdSchema)
+    .query(async ({ ctx, input }) => {
+      const [
+        activeWar,
+        user,
+        missions,
+        camps,
+        contributions,
+        completedQuests,
+        ownVillage,
+      ] = await Promise.all([
+        ctx.drizzle.query.war.findFirst({
+          where: eq(war.id, input.warId),
+          with: {
+            attackerVillage: { columns: { name: true, sector: true } },
+            defenderVillage: { columns: { name: true, sector: true } },
+            warAllies: { where: activeWarAllyWhere() },
+          },
+        }),
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.quest.findMany({
+          where: and(eq(quest.questType, "war"), eq(quest.hidden, false)),
+        }),
+        ctx.drizzle.query.warCamp.findMany({
+          where: and(eq(warCamp.warId, input.warId), isNull(warCamp.resolvedAt)),
+        }),
+        ctx.drizzle
+          .select({
+            userId: warContribution.userId,
+            username: userData.username,
+            damage: warContribution.damage,
+            recovery: warContribution.recovery,
+            convertedAt: warContribution.convertedAt,
+            expiredAt: warContribution.expiredAt,
+          })
+          .from(warContribution)
+          .leftJoin(userData, eq(userData.userId, warContribution.userId))
+          .where(eq(warContribution.warId, input.warId)),
+        ctx.drizzle.query.questHistory.findMany({
+          columns: { id: true, questId: true, completed: true },
+          where: and(
+            eq(questHistory.userId, ctx.userId),
+            eq(questHistory.completed, 1),
+          ),
+        }),
+        ctx.drizzle
+          .select({ kageId: village.kageId })
+          .from(village)
+          .innerJoin(userData, eq(userData.villageId, village.id))
+          .where(eq(userData.userId, ctx.userId)),
+      ]);
+      if (!activeWar?.rules || !getWarSide(activeWar, user.villageId)) return null;
+      const side = getWarSide(activeWar, user.villageId)!;
+      return {
+        war: maskWarObjectives(
+          activeWar,
+          user.villageId,
+          user.rank === "ELDER" || ownVillage[0]?.kageId === user.userId,
+        ),
+        missions: missions
+          .filter(
+            (q) =>
+              isAvailableUserQuests(q, { ...user, completedQuests }, true, true).check,
+          )
+          .flatMap((q) =>
+            q.content.objectives
+              .filter(
+                (o) =>
+                  (o.task === "espionage" &&
+                    !areWarObjectivesRevealed(activeWar, side)) ||
+                  (o.task === "sabotage" && areWarObjectivesRevealed(activeWar, side)),
+              )
+              .map((o) => ({ questId: q.id, name: q.name, objective: o })),
+          ),
+        camps,
+        contributions,
+        attempt: user.warMission,
+      };
+    }),
+  startWarMission: protectedProcedure
+    .input(startWarMissionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [activeWar, user, mission, completedQuests] = await Promise.all([
+        ctx.drizzle.query.war.findFirst({
+          where: eq(war.id, input.warId),
+          with: { warAllies: { where: activeWarAllyWhere() } },
+        }),
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.quest.findFirst({ where: eq(quest.id, input.questId) }),
+        ctx.drizzle.query.questHistory.findMany({
+          columns: { id: true, questId: true, completed: true },
+          where: and(
+            eq(questHistory.userId, ctx.userId),
+            eq(questHistory.completed, 1),
+          ),
+        }),
+      ]);
+      const side = activeWar ? getWarSide(activeWar, user.villageId) : null;
+      const objective = mission?.content.objectives.find(
+        (o) => o.id === input.objectiveId,
+      );
+      if (
+        !activeWar?.rules ||
+        activeWar.endedAt ||
+        !side ||
+        !user.villageId ||
+        !mission ||
+        mission.hidden ||
+        mission.questType !== "war" ||
+        !objective ||
+        (objective.task !== "espionage" && objective.task !== "sabotage") ||
+        !("durationSeconds" in objective) ||
+        objective.value <= 0
+      )
+        return errorResponse("This war mission is unavailable");
+      const eligibility = isAvailableUserQuests(
+        mission,
+        { ...user, completedQuests },
+        true,
+        true,
+      );
+      if (!eligibility.check) return errorResponse(eligibility.message);
+      if (user.isBanned || user.status !== "AWAKE" || user.warMission)
+        return errorResponse("You must be awake with no pending war mission");
+      const enemyId =
+        side === activeWar.attackerVillageId
+          ? activeWar.defenderVillageId
+          : activeWar.attackerVillageId;
+      const target = await ctx.drizzle.query.village.findFirst({
+        where: eq(village.id, enemyId),
+        columns: { sector: true },
+      });
+      if (objective.task === "espionage" && user.sector !== target?.sector)
+        return errorResponse("Travel to the enemy village to conduct espionage");
+      if (
+        objective.task === "sabotage" &&
+        (!areWarObjectivesRevealed(activeWar, side) ||
+          !activeWar.objectiveState?.objectives.some(
+            (o) => o.sector === user.sector && o.villageId === enemyId && !o.destroyed,
+          ))
+      )
+        return errorResponse(
+          "Travel to a revealed enemy objective shrine to sabotage it",
+        );
+      if (objective.task === "espionage" && areWarObjectivesRevealed(activeWar, side))
+        return errorResponse("Your espionage counter is already full");
+      const attempt = {
+        id: nanoid(),
+        warId: activeWar.id,
+        questId: mission.id,
+        objectiveId: objective.id,
+        sideVillageId: side,
+        villageId: user.villageId,
+        sector: user.sector,
+        task: objective.task,
+        value: objective.value,
+        endsAt: secondsFromNow(objective.durationSeconds).toISOString(),
+      };
+      const saved = await ctx.drizzle
+        .update(userData)
+        .set({
+          warMission: attempt,
+          immunityUntil: new Date(0),
+          bracketImmunityLiftedUntil: liftBracketImmunitySql(),
+          warParticipantUntil: extendWarParticipantSql(),
+        })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            eq(userData.status, "AWAKE"),
+            isNull(userData.warMission),
+            eq(userData.villageId, user.villageId),
+            eq(userData.sector, user.sector),
+            eq(userData.isBanned, false),
+            sql`EXISTS (SELECT 1 FROM War currentWar WHERE currentWar.id = ${activeWar.id} AND currentWar.endedAt IS NULL AND currentWar.status = 'ACTIVE'
+              AND currentWar.attackerWarHealth > 0 AND currentWar.defenderWarHealth > 0
+              AND SYSDATE(3) < DATE_ADD(currentWar.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(currentWar.rules, '$.durationDays') AS UNSIGNED) DAY)
+              AND (${userData.villageId} = ${side} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = currentWar.id AND membership.villageId = ${userData.villageId} AND membership.supportVillageId = ${side} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)))`,
+          ),
+        );
+      if (!saved.rowsAffected)
+        return errorResponse("Your situation changed. Refresh and try again.");
+      return {
+        success: true,
+        message: "War mission started. Remain in this sector until completion.",
+      };
+    }),
+  completeWarMission: protectedProcedure
+    .input(completeWarMissionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const attempt = user.warMission;
+      if (!attempt || attempt.id !== input.attemptId)
+        return errorResponse("No matching war mission");
+      const activeWar = await ctx.drizzle.query.war.findFirst({
+        where: eq(war.id, attempt.warId),
+        with: { warAllies: { where: activeWarAllyWhere() } },
+      });
+      if (
+        !activeWar?.rules ||
+        activeWar.endedAt ||
+        user.isBanned ||
+        user.status !== "AWAKE" ||
+        user.villageId !== attempt.villageId ||
+        getWarSide(activeWar, user.villageId) !== attempt.sideVillageId ||
+        user.sector !== attempt.sector
+      )
+        return errorResponse(
+          "This mission cannot be completed from your current location or village",
+        );
+      if (new Date(attempt.endsAt) > new Date())
+        return errorResponse("The mission timer has not finished");
+      const objectiveIndex =
+        activeWar.objectiveState?.objectives.findIndex(
+          (o) =>
+            o.sector === attempt.sector &&
+            o.villageId !== attempt.sideVillageId &&
+            !o.destroyed,
+        ) ?? -1;
+      if (
+        attempt.task === "sabotage" &&
+        (objectiveIndex < 0 ||
+          !areWarObjectivesRevealed(activeWar, attempt.sideVillageId))
+      )
+        return errorResponse("The sabotage target is no longer available");
+      const applied = await applyObjectiveWarAction(ctx.drizzle, activeWar, {
+        allowDuringNotice: true,
+        id: attempt.id,
+        userId: user.userId,
+        sideVillageId: attempt.sideVillageId,
+        ...(attempt.task === "espionage"
+          ? { espionage: attempt.value }
+          : { objectiveIndex, shrineDamage: attempt.value }),
+        claim: async (tx) => {
+          const result = await tx
+            .update(userData)
+            .set({ warMission: null })
+            .where(
+              and(
+                eq(userData.userId, user.userId),
+                eq(userData.status, "AWAKE"),
+                eq(userData.villageId, attempt.villageId),
+                eq(userData.sector, attempt.sector),
+                sql`JSON_UNQUOTE(JSON_EXTRACT(${userData.warMission}, '$.id')) = ${attempt.id}`,
+                sql`SYSDATE(3) >= ${new Date(attempt.endsAt)}`,
+              ),
+            );
+          return result.rowsAffected > 0;
+        },
+      });
+      return applied
+        ? { success: true, message: "War objective completed" }
+        : errorResponse(
+            "The war or mission changed before completion. Refresh to continue.",
+          );
+    }),
+  cancelWarMission: protectedProcedure
+    .input(completeWarMissionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      await ctx.drizzle
+        .update(userData)
+        .set({ warMission: null })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            sql`JSON_UNQUOTE(JSON_EXTRACT(${userData.warMission}, '$.id')) = ${input.attemptId}`,
+          ),
+        );
+      return { success: true, message: "War mission cancelled" };
+    }),
+  attackWarCamp: protectedProcedure
+    .input(warCampSchema)
+    .mutation(async ({ ctx, input }) => {
+      const [camp, user] = await Promise.all([
+        ctx.drizzle.query.warCamp.findFirst({ where: eq(warCamp.id, input.campId) }),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      if (
+        !camp ||
+        camp.resolvedAt ||
+        camp.startsAt > new Date() ||
+        camp.endsAt <= new Date()
+      )
+        return errorResponse("War camp is closed");
+      const activeWar = await ctx.drizzle.query.war.findFirst({
+        where: eq(war.id, camp.warId),
+        with: { warAllies: { where: activeWarAllyWhere() } },
+      });
+      const side = activeWar ? getWarSide(activeWar, user.villageId) : null;
+      if (
+        !activeWar ||
+        !side ||
+        !isObjectiveWarActive(activeWar) ||
+        user.isBanned ||
+        user.sector !== camp.sector ||
+        user.status !== "AWAKE"
+      )
+        return errorResponse("Travel to the camp as an active war participant");
+      return initiateBattle(
+        {
+          userIds: [user.userId],
+          targetIds: [camp.guardianId],
+          client: ctx.drizzle,
+          sector: camp.sector,
+          forceDefenderVillageId:
+            side === activeWar.attackerVillageId
+              ? activeWar.defenderVillageId
+              : activeWar.attackerVillageId,
+          warCamp: camp,
+        },
+        "SHRINE_WAR",
+      );
+    }),
+  getWarCampNotices: protectedProcedure.query(async ({ ctx }) => {
+    const user = await fetchUser(ctx.drizzle, ctx.userId);
+    return ctx.drizzle
+      .select({ id: warCamp.id, sector: warCamp.sector, endsAt: warCamp.endsAt })
+      .from(warCamp)
+      .innerJoin(war, eq(war.id, warCamp.warId))
+      .where(
+        and(
+          isNull(war.endedAt),
+          isNull(warCamp.resolvedAt),
+          sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
+          or(
+            eq(war.attackerVillageId, user.villageId ?? ""),
+            eq(war.defenderVillageId, user.villageId ?? ""),
+            sql`EXISTS (SELECT 1 FROM WarAlly WHERE warId = ${war.id} AND villageId = ${user.villageId} AND acceptedAt IS NOT NULL AND endedAt IS NULL)`,
+          ),
+        ),
+      );
+  }),
+  getWarPointClaims: protectedProcedure.query(({ ctx }) =>
+    ctx.drizzle
+      .select({
+        warId: warContribution.warId,
+        points: warContribution.damage,
+        endedAt: war.endedAt,
+      })
+      .from(warContribution)
+      .innerJoin(war, eq(war.id, warContribution.warId))
+      .where(
+        and(
+          eq(warContribution.userId, ctx.userId),
+          gt(warContribution.damage, 0),
+          isNull(warContribution.convertedAt),
+          isNull(warContribution.expiredAt),
+          sql`${war.endedAt} IS NOT NULL AND DATE_ADD(${war.endedAt}, INTERVAL ${WAR_POINT_CONVERSION_DAYS} DAY) > SYSDATE(3)`,
+        ),
+      ),
+  ),
+  convertWarPoints: protectedProcedure
+    .input(warIdSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const saved = await ctx.drizzle.execute(sql`
+      UPDATE ${warContribution} INNER JOIN ${war} ON ${war.id} = ${warContribution.warId}
+      INNER JOIN ${userData} ON ${userData.userId} = ${warContribution.userId}
+      SET ${userData.villagePrestige} = ${userData.villagePrestige} + ${warContribution.damage} * ${WAR_POINT_PRESTIGE_RATE},
+        ${warContribution.convertedAt} = SYSDATE(3)
+      WHERE ${warContribution.warId} = ${input.warId} AND ${warContribution.userId} = ${ctx.userId}
+        AND ${warContribution.damage} > 0 AND ${warContribution.convertedAt} IS NULL AND ${warContribution.expiredAt} IS NULL
+        AND ${war.endedAt} IS NOT NULL AND DATE_ADD(${war.endedAt}, INTERVAL ${WAR_POINT_CONVERSION_DAYS} DAY) > SYSDATE(3)
+    `);
+      return saved.rowsAffected > 0
+        ? { success: true, message: "All war points converted to prestige" }
+        : errorResponse("No unclaimed war points remain in the conversion window");
+    }),
   /** Preview structure eligibility; declaration rechecks membership, funds and cooldowns under lock. */
   getRaidOptions: protectedProcedure
     .input(raidOptionsSchema)
@@ -117,7 +547,22 @@ export const warRouter = createTRPCRouter({
     })
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
-      return await fetchActiveWars(ctx.drizzle, input.villageId);
+      const [wars, viewer] = await Promise.all([
+        fetchActiveWars(ctx.drizzle, input.villageId),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
+      return wars.map((w) =>
+        maskWarObjectives(
+          w,
+          viewer.villageId,
+          viewer.rank === "ELDER" ||
+            wars.some((w) =>
+              [w.attackerVillage.kageId, w.defenderVillage.kageId].includes(
+                viewer.userId,
+              ),
+            ),
+        ),
+      );
     }),
 
   // Get ended wars for a village
@@ -554,7 +999,12 @@ export const warRouter = createTRPCRouter({
         defenderVillage?.type || "",
       );
       const isRaid = !!attackerVillage && isFactionVillage(attackerVillage);
-      const declarationCost = isRaid ? FACTION_RAID_COST : WAR_DECLARATION_COST;
+      const configuredRules = !isRaid ? await fetchWarRules(ctx.drizzle) : null;
+      const declarationCost = isRaid
+        ? FACTION_RAID_COST
+        : configuredRules?.enabled
+          ? configuredRules.declarationCost
+          : WAR_DECLARATION_COST;
       const warType = isRaid ? "WAR_RAID" : "VILLAGE_WAR";
       const relationshipStatus = isRaid ? "ENEMY" : relationship?.status;
       const structure = structures.find((s) => s.route === input.targetStructureRoute);
@@ -1433,7 +1883,7 @@ export const warRouter = createTRPCRouter({
         }
 
         // Start the war and deduct tokens
-        if (!attackerVillage || attackerVillage.tokens < WAR_DECLARATION_COST) {
+        if (!attackerVillage) {
           await Promise.all([
             ctx.drizzle
               .update(villageElderVote)
@@ -1481,7 +1931,7 @@ export const warRouter = createTRPCRouter({
         }
         return {
           success: true,
-          message: "War declaration approved. War has started!",
+          message: "War declaration approved!",
         };
       }
 

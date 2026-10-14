@@ -54,7 +54,7 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
-import type { WarSettlement } from "@/validators/war";
+import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
 
 /** Staff-authored definitions; each lobby captures its own immutable content snapshot. */
@@ -2570,6 +2570,8 @@ export const userData = mysqlTable(
     isAi: boolean("isAi").default(false).notNull(),
     isSummon: boolean("isSummon").default(false).notNull(),
     isEvent: boolean("isEvent").default(false).notNull(),
+    isWarCamp: boolean("isWarCamp").default(false).notNull(),
+    warMission: json("warMission").$type<WarMissionAttempt>(),
     inShrines: boolean("inShrines").default(false).notNull(),
     inArena: boolean("inArena").default(false).notNull(),
     inboxNews: int("inboxNews").default(0).notNull(),
@@ -2588,6 +2590,8 @@ export const userData = mysqlTable(
     })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
+    // Drizzle emits SET in schema order: restore the lift before clearing its pause.
+    bracketImmunityPausedAt: datetime("bracketImmunityPausedAt", { mode: "date", fsp: 3 }),
     warParticipantUntil: datetime("warParticipantUntil", {
       mode: "date",
       fsp: 3,
@@ -2790,6 +2794,8 @@ export const userData = mysqlTable(
 );
 export const insertAiSchema = createInsertSchema(userData)
   .omit({
+    warMission: true,
+    bracketImmunityPausedAt: true,
     homeFurnitureRevision: true,
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
@@ -3560,6 +3566,7 @@ export const sector = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     shrineLevel: tinyint("shrineLevel").default(1).notNull(),
+    boostLockedUntil: datetime("boostLockedUntil", { mode: "date", fsp: 3 }),
     capturedAt: datetime("capturedAt", { mode: "date", fsp: 3 }),
     nextMaintainanceDueDate: datetime("nextMaintainanceDueDate", {
       mode: "date",
@@ -4722,6 +4729,9 @@ export const war = mysqlTable(
       .notNull(),
     endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
     settlement: json("settlement").$type<WarSettlement>(),
+    rules: json("rules").$type<WarRules>(),
+    objectiveState: json("objectiveState").$type<ObjectiveWarState>(),
+    combatStartedAt: datetime("combatStartedAt", { mode: "date", fsp: 3 }),
     settlementPending: boolean("settlementPending").default(false).notNull(),
     status: mysqlEnum("status", consts.WAR_STATES).notNull(),
     type: mysqlEnum("type", consts.WAR_TYPES).notNull(),
@@ -6620,3 +6630,37 @@ export const parentalControl = mysqlTable("ParentalControl", {
   version: int("version").default(0).notNull(),
 });
 export type ParentalControl = InferSelectModel<typeof parentalControl>;
+
+
+/** Personal historical contributions survive conversion and balance expiry. */
+export const warContribution = mysqlTable("WarContribution", {
+  warId: varchar("warId", { length: 191 }).notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  damage: int("damage").default(0).notNull(),
+  recovery: int("recovery").default(0).notNull(),
+  convertedAt: datetime("convertedAt", { mode: "date", fsp: 3 }),
+  expiredAt: datetime("expiredAt", { mode: "date", fsp: 3 }),
+}, (table) => ({ pk: primaryKey({ columns: [table.warId, table.userId] }), userClaimsIdx: index("WarContribution_user_claim_idx").on(table.userId, table.convertedAt, table.expiredAt) }));
+
+/** A unique combat/mission receipt makes retrying strategic effects harmless. */
+export const warActionReceipt = mysqlTable("WarActionReceipt", {
+  applied: boolean("applied").default(false).notNull(),
+  damage: int("damage").default(0).notNull(),
+  recovery: int("recovery").default(0).notNull(),
+  shrineDamage: int("shrineDamage").default(0).notNull(),
+  captured: boolean("captured").default(false).notNull(),
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  warId: varchar("warId", { length: 191 }).notNull(),
+});
+export const warCamp = mysqlTable("WarCamp", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  warId: varchar("warId", { length: 191 }).notNull(),
+  sector: smallint("sector").notNull(),
+  guardianId: varchar("guardianId", { length: 191 }).notNull(),
+  startsAt: datetime("startsAt", { mode: "date", fsp: 3 }).notNull(),
+  endsAt: datetime("endsAt", { mode: "date", fsp: 3 }).notNull(),
+  attackerScore: int("attackerScore").default(0).notNull(),
+  defenderScore: int("defenderScore").default(0).notNull(),
+  resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
+}, (table) => ({ warIdx: index("WarCamp_warId_idx").on(table.warId), unresolvedIdx: index("WarCamp_unresolved_idx").on(table.resolvedAt, table.endsAt) }));
+export type WarCamp = InferSelectModel<typeof warCamp>;

@@ -12,6 +12,7 @@ import {
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 
 /**
  * Claim and credit a shared victory atomically, so participant reports and retries pay once.
@@ -127,6 +128,8 @@ export const clearClanCombat = async (client: DrizzleClient, battleId: string) =
     .update(userData)
     .set({
       status: sql`CASE WHEN ${userData.status} = 'BATTLE' THEN 'AWAKE' ELSE ${userData.status} END`,
+      bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+      bracketImmunityPausedAt: null,
       battleId: null,
     })
     .where(eq(userData.battleId, battleId));

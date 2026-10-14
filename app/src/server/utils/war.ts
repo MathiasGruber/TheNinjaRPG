@@ -24,12 +24,18 @@ import {
   FACTION_RAID_REWARD,
   FACTION_RAID_STRUCTURE_HP,
   FACTION_RAID_TARGET_COOLDOWN_HOURS,
+  OBJECTIVE_WAR_ATTACKER_COOLDOWN_DAYS,
+  OBJECTIVE_WAR_DEFEAT_PENALTY_DAYS,
+  OBJECTIVE_WAR_DEFEAT_PENALTY_LEVELS,
+  OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS,
   TERR_BOT_ID,
   WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
   WAR_DECLARATION_COST,
   WAR_DEFEAT_STRUCTURE_PENALTY_DAYS,
   WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
+  WAR_DRAW_PENALTY_LEVELS,
   WAR_LOSING_COOLDOWN_DAYS,
+  WAR_OBJECTIVES_PER_SIDE,
   WAR_PARTICIPANT_SECS,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
   WAR_RAID_SHRINE_HP,
@@ -57,6 +63,7 @@ import {
   war,
   warAlly,
 } from "@/drizzle/schema";
+import { selectWarObjectives } from "@/libs/objectiveWar";
 import {
   getRaidDeclarationBlock,
   isFactionVillage,
@@ -66,6 +73,11 @@ import {
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import {
+  applyObjectiveWarDecay,
+  fetchWarRules,
+  settleDueWarCamps,
+} from "@/server/utils/objectiveWar";
 import { logError } from "@/server/utils/sentry";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { DAY_S, secondsFromDate } from "@/utils/time";
@@ -101,6 +113,20 @@ export const handleWarEnd = async (
   } = {},
 ): Promise<FetchActiveWarsReturnType> => {
   let current = activeWar;
+  if (
+    current.rules &&
+    !current.endedAt &&
+    current.combatStartedAt &&
+    (Date.now() >=
+      current.combatStartedAt.getTime() + current.rules.durationDays * DAY_S * 1000 ||
+      Date.now() >= current.lastTokenReductionAt.getTime() + DAY_S * 1000)
+  ) {
+    await Promise.all([
+      applyObjectiveWarDecay(client, current),
+      settleDueWarCamps(client, current.id),
+    ]);
+    current = (await fetchSettlementWar(client, current.id)) ?? current;
+  }
   for (let attempt = 0; attempt < 4; attempt++) {
     if (current.status !== "ACTIVE" || current.endedAt) {
       await finishWarSettlement(client, current);
@@ -115,7 +141,12 @@ export const handleWarEnd = async (
     )
       return current;
 
-    const endedAt = new Date();
+    const now = new Date();
+    const deadline =
+      current.rules && current.combatStartedAt
+        ? current.combatStartedAt.getTime() + current.rules.durationDays * DAY_S * 1000
+        : now.getTime();
+    const endedAt = new Date(Math.min(now.getTime(), deadline));
     const isRaid = current.type === "WAR_RAID";
     const canSurrenderRaid = isRaid && !shouldEndRaid(current, endedAt);
     const losingVillageId =
@@ -126,8 +157,14 @@ export const handleWarEnd = async (
       !options.losingVillageId &&
       !options.shrineBuilderId &&
       !options.resolveByHealth &&
-      current.attackerVillage.tokens > 0 &&
-      current.defenderVillage.tokens > 0 &&
+      !(
+        current.rules &&
+        current.combatStartedAt &&
+        Date.now() >=
+          current.combatStartedAt.getTime() + current.rules.durationDays * DAY_S * 1000
+      ) &&
+      (current.rules || current.attackerVillage.tokens > 0) &&
+      (current.rules || current.defenderVillage.tokens > 0) &&
       current.attackerWarHealth > 0 &&
       current.defenderWarHealth > 0
     )
@@ -136,12 +173,12 @@ export const handleWarEnd = async (
     const isSector = current.type === "SECTOR_WAR";
     const attackerLost =
       losingVillageId === current.attackerVillageId ||
-      (!isRaid && current.attackerVillage.tokens <= 0) ||
+      (!isRaid && !current.rules && current.attackerVillage.tokens <= 0) ||
       current.attackerWarHealth <= 0;
     const defenderLost =
       !!options.shrineBuilderId ||
       losingVillageId === current.defenderVillageId ||
-      (!isRaid && current.defenderVillage.tokens <= 0) ||
+      (!isRaid && !current.rules && current.defenderVillage.tokens <= 0) ||
       current.defenderWarHealth <= 0;
     const isDraw =
       !isRaid &&
@@ -231,20 +268,34 @@ export const handleWarEnd = async (
       structuresDelivered: isRaid || isSector,
       notified: false,
     };
-    const attackerCooldown = secondsFromDate(
-      (status === "ATTACKER_VICTORY"
-        ? WAR_WINNING_COOLDOWN_DAYS
-        : WAR_LOSING_COOLDOWN_DAYS) *
-        DAY_S *
-        WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
-      endedAt,
-    );
-    const defenderCooldown = secondsFromDate(
-      (status === "DEFENDER_VICTORY"
-        ? WAR_WINNING_COOLDOWN_DAYS
-        : WAR_LOSING_COOLDOWN_DAYS) * DAY_S,
-      endedAt,
-    );
+    const attackerCooldown = current.rules
+      ? secondsFromDate(
+          (status === "ATTACKER_VICTORY"
+            ? WAR_WINNING_COOLDOWN_DAYS
+            : OBJECTIVE_WAR_ATTACKER_COOLDOWN_DAYS) * DAY_S,
+          endedAt,
+        )
+      : secondsFromDate(
+          (status === "ATTACKER_VICTORY"
+            ? WAR_WINNING_COOLDOWN_DAYS
+            : WAR_LOSING_COOLDOWN_DAYS) *
+            DAY_S *
+            WAR_ATTACKER_EXHAUSTION_MULTIPLIER,
+          endedAt,
+        );
+    const defenderCooldown = current.rules
+      ? secondsFromDate(
+          (status === "DEFENDER_VICTORY"
+            ? WAR_WINNING_COOLDOWN_DAYS
+            : OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS) * DAY_S,
+          endedAt,
+        )
+      : secondsFromDate(
+          (status === "DEFENDER_VICTORY"
+            ? WAR_WINNING_COOLDOWN_DAYS
+            : WAR_LOSING_COOLDOWN_DAYS) * DAY_S,
+          endedAt,
+        );
     const recipient = alias(village, "recipient");
     const attacker = alias(village, "attacker");
     const defender = alias(village, "defender");
@@ -308,7 +359,7 @@ export const handleWarEnd = async (
             WHEN ${recipient.id} = ${current.attackerVillageId} THEN ${attackerCooldown}
             WHEN ${recipient.id} = ${current.defenderVillageId} THEN ${defenderCooldown}
             ELSE ${recipient.warExhaustionEndedAt} END,
-            ${recipient.lastWarEndedAt} = CASE WHEN ${inArray(recipient.id, [winnerId, loserId])} THEN ${endedAt} ELSE ${recipient.lastWarEndedAt} END`
+            ${recipient.lastWarEndedAt} = CASE WHEN ${inArray(recipient.id, current.rules ? villageIds : [winnerId, loserId])} THEN GREATEST(COALESCE(${recipient.lastWarEndedAt}, ${endedAt}), ${endedAt}) ELSE ${recipient.lastWarEndedAt} END`
                 : sql`,
             ${winnerId !== current.defenderVillageId ? sql`${sector.villageId} = ${winnerId}, ${sector.shrineLevel} = 1, ${sector.capturedAt} = ${endedAt},` : sql``}
             ${villageStructure.curSp} = GREATEST(${villageStructure.curSp} - ${WAR_SECTOR_LOSS_TOWNHALL_DAMAGE}, 0),
@@ -384,7 +435,9 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
     endedAt,
   );
   const penaltyEnd = secondsFromDate(
-    WAR_DEFEAT_STRUCTURE_PENALTY_DAYS * DAY_S,
+    (endedWar.rules
+      ? OBJECTIVE_WAR_DEFEAT_PENALTY_DAYS
+      : WAR_DEFEAT_STRUCTURE_PENALTY_DAYS) * DAY_S,
     endedAt,
   );
   const stepGuard = (
@@ -406,13 +459,44 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
         ),
   );
   try {
+    if (endedWar.rules && !receipt.boostsDelivered) {
+      const names = [
+        ...winningIds.map((id) => `war-${id}-regen`),
+        ...(endedWar.rules ? winningIds : [winnerId]).map((id) => `war-${id}-train`),
+      ];
+      const existing = await client.query.gameSetting.findMany({
+        where: inArray(gameSetting.name, names),
+        columns: { name: true },
+      });
+      const missing = names.filter(
+        (name) => !existing.some((row) => row.name === name),
+      );
+      if (missing.length)
+        await client
+          .insert(gameSetting)
+          .ignore()
+          .values(
+            missing.map((name) => ({ id: name, name, value: 0, time: new Date(0) })),
+          );
+    }
     await Promise.all([
+      endedWar.rules
+        ? client
+            .update(userData)
+            .set({ warMission: null })
+            .where(
+              sql`JSON_UNQUOTE(JSON_EXTRACT(${userData.warMission}, '$.warId')) = ${endedWar.id}`,
+            )
+        : Promise.resolve(),
       !receipt.boostsDelivered
         ? retryOnDeadlock(() =>
             client.execute(sql`
-        UPDATE ${war} LEFT JOIN ${gameSetting} ON ${inArray(gameSetting.name, [...winningIds.map((id) => `war-${id}-regen`), `war-${winnerId}-train`])}
+        UPDATE ${war} LEFT JOIN ${gameSetting} ON ${inArray(gameSetting.name, [...winningIds.map((id) => `war-${id}-regen`), ...(endedWar.rules ? winningIds : [winnerId]).map((id) => `war-${id}-train`)])}
         SET ${gameSetting.value} = CASE WHEN ${gameSetting.time} < ${boostEnd}
-          THEN CASE WHEN ${gameSetting.name} = ${`war-${winnerId}-train`} THEN ${WAR_WINNING_BOOST_TRAINING_PERC} ELSE ${WAR_WINNING_BOOST_REGEN_PERC} END ELSE ${gameSetting.value} END,
+          THEN CASE WHEN ${inArray(
+            gameSetting.name,
+            (endedWar.rules ? winningIds : [winnerId]).map((id) => `war-${id}-train`),
+          )} THEN ${WAR_WINNING_BOOST_TRAINING_PERC} ELSE ${WAR_WINNING_BOOST_REGEN_PERC} END ELSE ${gameSetting.value} END,
             ${gameSetting.time} = GREATEST(${gameSetting.time}, ${boostEnd}),
             ${war.settlement} = ${stepReceipt("boostsDelivered")}
         WHERE ${stepGuard("boostsDelivered")}
@@ -424,11 +508,11 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
             client.execute(sql`
         UPDATE ${war} LEFT JOIN ${villageStructure} ON
           ((${villageStructure.villageId} = ${loserId} ${endedWar.type === "WAR_RAID" ? sql`AND ${villageStructure.route} = ${endedWar.targetStructureRoute}` : sql``})
-          OR (${villageStructure.villageId} = ${winnerId} ${isDraw ? (endedWar.type === "WAR_RAID" ? sql`AND ${villageStructure.route} = ${endedWar.targetStructureRoute}` : sql``) : sql`AND ${inArray(villageStructure.route, [...WAR_VICTORY_BOOSTED_STRUCTURES])}`}))
+          OR (${endedWar.rules && !isDraw ? inArray(villageStructure.villageId, winningIds) : eq(villageStructure.villageId, winnerId)} ${isDraw ? (endedWar.type === "WAR_RAID" ? sql`AND ${villageStructure.route} = ${endedWar.targetStructureRoute}` : sql``) : endedWar.rules ? sql`` : sql`AND ${inArray(villageStructure.route, [...WAR_VICTORY_BOOSTED_STRUCTURES])}`}))
         LEFT JOIN ${village} ON ${village.id} = ${villageStructure.villageId}
         SET ${villageStructure.temporaryLevelBonus} = CASE
               WHEN ${village.lastWarEndedAt} IS NULL OR ${village.lastWarEndedAt} <= ${endedAt}
-              THEN CASE WHEN ${isDraw} OR ${villageStructure.villageId} = ${loserId} THEN ${-WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS} ELSE ${WAR_VICTORY_STRUCTURE_BOOST_LEVELS} END
+              THEN CASE WHEN ${isDraw} OR ${villageStructure.villageId} = ${loserId} THEN ${-(endedWar.rules ? (isDraw ? WAR_DRAW_PENALTY_LEVELS : OBJECTIVE_WAR_DEFEAT_PENALTY_LEVELS) : WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS)} ELSE ${WAR_VICTORY_STRUCTURE_BOOST_LEVELS} END
               ELSE ${villageStructure.temporaryLevelBonus} END,
             ${villageStructure.temporaryLevelBonusExpiresAt} = CASE
               WHEN ${village.lastWarEndedAt} IS NULL OR ${village.lastWarEndedAt} <= ${endedAt}
@@ -538,6 +622,9 @@ export const startDeclaredWar = async (
     targetStructureRoute: string;
   },
 ) => {
+  const configuredRules =
+    declaration.warType === "VILLAGE_WAR" ? await fetchWarRules(client) : null;
+  const rules = configuredRules?.enabled ? configuredRules : null;
   const started = await retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       // Lock settlements before any consistent read so a waiting declaration sees the preceding commit. Sorted locks avoid inversion.
@@ -556,15 +643,54 @@ export const startDeclaredWar = async (
       const activeWars = await tx.query.war.findMany({
         where: and(
           eq(war.status, "ACTIVE"),
-          inArray(war.type, ["VILLAGE_WAR", "WAR_RAID"]),
+          inArray(
+            war.type,
+            rules
+              ? ["VILLAGE_WAR", "WAR_RAID", "SECTOR_WAR"]
+              : ["VILLAGE_WAR", "WAR_RAID"],
+          ),
         ),
         with: { warAllies: { where: activeWarAllyWhere() } },
       });
-      if (villageIds.some((id) => isVillageInvolvedInAnyWar(activeWars, id)))
+      if (
+        villageIds.some((id) =>
+          isVillageInvolvedInAnyWar(
+            activeWars.filter((w) => w.type !== "SECTOR_WAR"),
+            id,
+          ),
+        )
+      )
         return false;
 
       const isRaid = declaration.warType === "WAR_RAID";
-      const cost = isRaid ? FACTION_RAID_COST : WAR_DECLARATION_COST;
+      const cost = isRaid
+        ? FACTION_RAID_COST
+        : (rules?.declarationCost ?? WAR_DECLARATION_COST);
+      const now = new Date();
+      const combatStartedAt = rules
+        ? secondsFromDate(rules.noticeHours * 3600, now)
+        : null;
+      const sectors = rules
+        ? await tx.query.sector.findMany({
+            where: inArray(sector.villageId, villageIds),
+          })
+        : [];
+      const objectives = rules
+        ? lockedVillages.flatMap((v) =>
+            selectWarObjectives(
+              sectors.filter(
+                (s) =>
+                  !activeWars.some(
+                    (w) => w.type === "SECTOR_WAR" && w.sector === s.sector,
+                  ),
+              ),
+              v.id,
+              v.sector,
+              rules,
+            ),
+          )
+        : [];
+      if (rules && objectives.length !== WAR_OBJECTIVES_PER_SIDE * 2) return false;
       if (isRaid) {
         const attacker = lockedVillages.find(
           (v) => v.id === declaration.attackerVillageId,
@@ -613,7 +739,23 @@ export const startDeclaredWar = async (
         defenderVillageId: declaration.defenderVillageId,
         status: "ACTIVE",
         type: declaration.warType,
-        targetStructureRoute: declaration.targetStructureRoute,
+        rules,
+        combatStartedAt,
+        ...(rules
+          ? {
+              attackerWarHealth: rules.townhallHp,
+              defenderWarHealth: rules.townhallHp,
+              attackerWarHealthMax: rules.townhallHp,
+              defenderWarHealthMax: rules.townhallHp,
+              lastTokenReductionAt: combatStartedAt!,
+              objectiveState: {
+                objectives,
+                attackerEspionage: 0,
+                defenderEspionage: 0,
+              },
+            }
+          : {}),
+        targetStructureRoute: rules ? "/townhall" : declaration.targetStructureRoute,
         ...(isRaid
           ? {
               attackerWarHealth: FACTION_RAID_STRUCTURE_HP,

@@ -64,7 +64,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { isInArray } from "@/utils/array";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { secondsFromDate, secondsPassed } from "@/utils/time";
-import { getShrineBoost, getStrucBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost, getStrucBoost } from "@/utils/village";
 import type {
   EnergyTrainingQueueEntry,
   MasteryTrainingQueueEntry,
@@ -960,7 +960,7 @@ export const trainingBoost = (
   kind: "STATS" | "MASTERY" = "STATS",
   now = new Date(),
 ) => {
-  const sectors = user.village?.sectors?.length ?? 0;
+  const sectors = countBoostingShrines(user.village?.sectors);
   const shrineBoost = getShrineBoost(sectors, "Training", user.village);
   const trainSetting = getGameSettingBoost("trainingGainMultiplier", settings);
   const warSetting = getGameSettingBoost(`war-${user.villageId}-train`, settings);

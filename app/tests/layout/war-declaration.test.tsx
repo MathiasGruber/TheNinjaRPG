@@ -139,6 +139,7 @@ beforeEach(() => {
       declareEnemy,
     },
     war: {
+      getRules: { useQuery: () => ({ data: undefined }) },
       getRaidOptions: {
         useQuery: () => ({ data: [], isFetching: false }),
       },
@@ -310,6 +311,7 @@ describe("paid sector shrine claims", () => {
             targetStructureRoute: "/townhall",
             settlement: null,
             settlementPending: false,
+            rules: null, objectiveState: null, combatStartedAt: null,
           } satisfies FetchActiveWarsReturnType
         }
       />,

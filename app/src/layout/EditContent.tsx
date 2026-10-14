@@ -2396,6 +2396,11 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     .filter((value) => value !== "reward_packages")
     .filter(
       (value) =>
+        String(value) !== "durationSeconds" ||
+        ["espionage", "sabotage"].includes(watchTask),
+    )
+    .filter(
+      (value) =>
         ![
           "applyBuffs",
           "applyDebuffs",

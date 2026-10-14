@@ -1,6 +1,10 @@
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
-import { WAR_LOSING_COOLDOWN_DAYS } from "@/drizzle/constants";
+import {
+  OBJECTIVE_WAR_ATTACKER_COOLDOWN_DAYS,
+  OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS,
+  WAR_LOSING_COOLDOWN_DAYS,
+} from "@/drizzle/constants";
 import { userRequest, village, war, warAlly } from "@/drizzle/schema";
 import { errorResponse } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
@@ -122,7 +126,7 @@ export const withdrawWarAlly = async (
     UPDATE ${warAlly} wa
     INNER JOIN ${war} w ON ${activeWar.id} = ${membership.warId}
     INNER JOIN ${village} v ON ${withdrawing.id} = ${membership.villageId}
-    SET ${membership.endedAt} = ${endedAt}, ${withdrawing.warExhaustionEndedAt} = ${cooldown}, ${withdrawing.lastWarEndedAt} = ${endedAt}
+    SET ${membership.endedAt} = ${endedAt}, ${withdrawing.warExhaustionEndedAt} = CASE WHEN ${activeWar.rules} IS NOT NULL THEN DATE_ADD(${endedAt}, INTERVAL (CASE WHEN ${membership.supportVillageId} = ${activeWar.attackerVillageId} THEN ${OBJECTIVE_WAR_ATTACKER_COOLDOWN_DAYS} ELSE ${OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS} END) DAY) ELSE ${cooldown} END, ${withdrawing.lastWarEndedAt} = ${endedAt}
     WHERE ${membership.warId} = ${warId} AND ${membership.villageId} = ${villageId}
       AND ${membership.acceptedAt} IS NOT NULL AND ${membership.endedAt} IS NULL
       AND ${activeWar.status} = 'ACTIVE' AND ${activeWar.endedAt} IS NULL AND ${withdrawing.kageId} = ${userId}
