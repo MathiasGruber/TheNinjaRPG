@@ -6,6 +6,7 @@ import { dungeonBattleOutcome, dungeonNextState } from "@/libs/dungeon";
 import type { DrizzleClient } from "@/server/db";
 import { cleanupCoopBattleStart } from "@/server/utils/coop";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 
 /** Compensate every committed sibling write before reopening a failed floor start. */
 export const rollbackDungeonStart = (
@@ -94,6 +95,8 @@ export const settleDungeonBattle = async (
         .set({
           status: "AWAKE",
           battleId: null,
+          bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+          bracketImmunityPausedAt: null,
           curHealth: sql`${userData.maxHealth}`,
           curChakra: sql`${userData.maxChakra}`,
           curStamina: sql`${userData.maxStamina}`,
@@ -165,6 +168,8 @@ export const expireDungeonRun = async (
           .set({
             status: "AWAKE",
             battleId: null,
+            bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+            bracketImmunityPausedAt: null,
             curHealth: sql`${userData.maxHealth}`,
             curChakra: sql`${userData.maxChakra}`,
             curStamina: sql`${userData.maxStamina}`,

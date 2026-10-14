@@ -223,8 +223,14 @@ describeWithDatabase("Dungeon parties and settlement", () => {
   it("settles a party floor once, revives everyone and preserves incomplete reward gates", async () => {
     const db = await getTestDatabase();
     const meta = dungeonBattleState();
+    const immunityAt = Date.now();
+    const pausedAt = new Date(immunityAt - 3600000);
+    const liftedUntil = new Date(immunityAt - 1800000);
+    const unpausedUntil = new Date(immunityAt + 3600000);
     await db.insert(dungeonRun).values({id: "run", dungeonId: "definition", leaderId: "a", content: dungeonContent(), state: meta.runState, status: "FIGHTING", version: 1, battleId: "fight", expiresAt: new Date(meta.expiresAt), createdAt: new Date()});
     await db.update(userData).set({status: "BATTLE", battleId: "fight", curHealth: 0, curEnergy:0, maxEnergy:100, regeneration:1, regenAt:new Date(Date.now()-180000)}).where(eq(userData.villageId, "village"));
+    await db.update(userData).set({bracketImmunityPausedAt: pausedAt, bracketImmunityLiftedUntil: liftedUntil}).where(eq(userData.villageId, "village"));
+    await db.update(userData).set({bracketImmunityPausedAt: null, bracketImmunityLiftedUntil: unpausedUntil}).where(eq(userData.userId, "c"));
     const fight = makeCompleteBattle({id: "fight", battleType: "QUEST", version: 0, round: 0, width: 12, height: 10, rewardScaling: 0, forceKeepPools: true, activeUserId: "a", createdAt: new Date(), updatedAt: new Date(), roundStartAt: new Date(), background: "default", usersState: [makeUser({userId: "a", direction: "left"}), makeUser({userId: "b", direction: "left", curHealth: 0}), makeUser({userId: "c", direction: "left"}), makeUser({userId: "enemy", direction: "right", isAi: true, curHealth: 0})], extraState: {dungeon: meta, energyRegeneration:{a:2,b:3,c:4},energyCapacity:{a:100,b:100,c:100}}});
     await db.insert(battle).values(fight);
     const results = await Promise.all([settleDungeonBattle(db, structuredClone(fight), 0), settleDungeonBattle(db, structuredClone(fight), 0)]);
@@ -232,13 +238,27 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await db.query.dungeonRun.findFirst())?.state.floor).toBe(1);
     const users = await db.query.userData.findMany({where: eq(userData.battleId, "fight")}); expect(users).toHaveLength(1); // Unrelated accounts are never released.
     const revived = await db.query.userData.findFirst({where: eq(userData.userId, "b")}); expect(revived?.status).toBe("AWAKE"); expect(revived?.curHealth).toBe(revived?.maxHealth); expect(revived?.curEnergy).toBeGreaterThanOrEqual(9); expect(revived?.curEnergy).toBeLessThan(9.1);
+    for (const user of await db.query.userData.findMany({where: inArray(userData.userId, ["a", "b"])})) {
+      expect(user.bracketImmunityPausedAt).toBeNull();
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeGreaterThan(1790000);
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeLessThan(1810000);
+    }
+    expect(await db.query.userData.findFirst({where: eq(userData.userId, "c")})).toMatchObject({bracketImmunityPausedAt: null, bracketImmunityLiftedUntil: unpausedUntil});
+    expect(await db.query.userData.findFirst({where: eq(userData.userId, "outsider")})).toMatchObject({bracketImmunityPausedAt: pausedAt, bracketImmunityLiftedUntil: liftedUntil});
   });
   it("compensates competing partial starts without transactions and reopens once", async () => {
     const {db, original} = await interruptedStart();
+    const immunityAt = Date.now();
+    await db.update(userData).set({bracketImmunityPausedAt: new Date(immunityAt - 3600000), bracketImmunityLiftedUntil: new Date(immunityAt - 1800000)}).where(inArray(userData.userId, original.state.memberIds));
     await Promise.all([rollbackDungeonStart(withoutTransactions(db),original,"partial",1), rollbackDungeonStart(withoutTransactions(db),original,"partial",1)]);
     expect(await db.query.battle.findMany()).toHaveLength(0);expect(await db.query.battleHistory.findMany()).toHaveLength(0);
     const restored=await db.query.dungeonRun.findFirst();expect(restored?.status).toBe("LOBBY");expect(restored?.expiresAt).toBeNull();expect(restored?.version).toBe(2);
     expect((await db.query.userData.findMany({where: inArray(userData.userId, original.state.memberIds)})).every(user => user.status === "AWAKE" && user.battleId === null)).toBe(true);
+    for (const user of await db.query.userData.findMany({where: inArray(userData.userId, original.state.memberIds)})) {
+      expect(user.bracketImmunityPausedAt).toBeNull();
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeGreaterThan(1790000);
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeLessThan(1810000);
+    }
   });
   it("cannot reopen or wake players from a newer battle using stale rollback state", async () => {
     const {db, original} = await interruptedStart();
@@ -276,6 +296,25 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     await Promise.all([expireDungeonRun(db, run), expireDungeonRun(db, run)]);
     expect((await db.query.dungeonRun.findFirst())?.status).toBe("ENDED");
     expect((await db.query.dungeonMember.findFirst())?.activeUserId).toBeNull();
+  });
+  it("resumes immunity once when an active dungeon expires and preserves a newer battle", async () => {
+    const {db} = await interruptedStart();
+    const immunityAt = Date.now();
+    const pausedAt = new Date(immunityAt - 3600000);
+    const liftedUntil = new Date(immunityAt - 1800000);
+    await db.update(userData).set({bracketImmunityPausedAt: pausedAt, bracketImmunityLiftedUntil: liftedUntil}).where(inArray(userData.userId, ["a", "b", "c"]));
+    await db.update(userData).set({battleId: "newer"}).where(eq(userData.userId, "b"));
+    await db.update(dungeonRun).set({expiresAt: new Date(0)}).where(eq(dungeonRun.id, "run"));
+    const run = await db.query.dungeonRun.findFirst();
+    if (!run) throw Error("Missing run");
+    await Promise.all([expireDungeonRun(db, run), expireDungeonRun(db, run)]);
+    for (const user of await db.query.userData.findMany({where: inArray(userData.userId, ["a", "c"])})) {
+      expect(user.status).toBe("AWAKE");
+      expect(user.bracketImmunityPausedAt).toBeNull();
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeGreaterThan(1790000);
+      expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeLessThan(1810000);
+    }
+    expect(await db.query.userData.findFirst({where: eq(userData.userId, "b")})).toMatchObject({status: "BATTLE", battleId: "newer", bracketImmunityPausedAt: pausedAt, bracketImmunityLiftedUntil: liftedUntil});
   });
 });
 

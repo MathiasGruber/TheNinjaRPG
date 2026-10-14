@@ -1,6 +1,6 @@
 import { advanceEncounterWave } from "@/libs/combat/encounters";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   aiProfile,
   battle,
@@ -53,9 +53,10 @@ describeWithDatabase("dungeon wave preparation", () => {
     });
     const content = dungeonContent();
     const waves = [{ aiIds: [OPENER], delayRounds: 0 }];
+    const liftedUntil = new Date(Date.now() + 1800000);
     content.tiers[0]![0]!.waves = waves;
     await insertUsers([
-      ...MEMBERS.map((userId) => ({ userId, username: userId, status: "AWAKE" as const, level: 50, rank: "JONIN" as const })),
+      ...MEMBERS.map((userId) => ({ userId, username: userId, status: "AWAKE" as const, level: 50, rank: "JONIN" as const, bracketImmunityLiftedUntil: liftedUntil })),
       { userId: OPENER, username: "Enemy", isAi: true, level: 50, rank: "JONIN" as const },
     ]);
     await client.insert(aiProfile).values({ id: "Default", userId: OPENER, rules: [] });
@@ -71,6 +72,7 @@ describeWithDatabase("dungeon wave preparation", () => {
       coop: { kind: "dungeon", ...meta, battleId: "wave-fight", waves },
     }, "QUEST")).success).toBe(true);
     const initial = (await client.query.battle.findFirst())!;
+    expect((await client.query.userData.findFirst({where: eq(userData.userId, MEMBERS[0]!)}))?.bracketImmunityPausedAt).not.toBeNull();
     expect(initial.round).toBe(1);
     expect(initial.extraState.dungeon?.lastActionRound).toEqual(Object.fromEntries(MEMBERS.map((id) => [id, 0])));
     const caller = await callerFor(combatRouter, MEMBERS[0]!);
@@ -90,6 +92,10 @@ describeWithDatabase("dungeon wave preparation", () => {
     expect(Object.values(missed)).toEqual([3, 3, 3]);
     expect(outcome?.result?.notifications).toEqual([expect.stringContaining("took no actions for 3 rounds")]);
     expect((await client.query.dungeonRun.findFirst())?.status).toBe("ENDED");
+    for (const member of await client.query.userData.findMany({where: inArray(userData.userId, MEMBERS)})) {
+      expect(member.bracketImmunityPausedAt).toBeNull();
+      expect(member.bracketImmunityLiftedUntil.getTime()).toBeGreaterThanOrEqual(liftedUntil.getTime());
+    }
   });
 
   it.each(["distinct", "equal"] as const)(
