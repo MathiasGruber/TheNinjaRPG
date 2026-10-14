@@ -544,7 +544,10 @@ const Sector: React.FC<SectorProps> = (props) => {
           await updateUser({ questData: result.questData, updatedAt: result.updateAt });
         }
         // Invalidate user items
-        await utils.item.getUserItems.invalidate();
+        await Promise.all([
+          utils.item.getUserItems.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
+        ]);
       }
       // If there are any quest ids that have been updated,
       // let's see if we should show a modal with new objective for consecutive quests

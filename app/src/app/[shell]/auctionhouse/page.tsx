@@ -1439,7 +1439,9 @@ export const NewAuctionListingDialog: React.FC<{
   defaultListingType?: CreateAuctionListingSchema["listingType"];
   onCreated?: () => void;
 }> = ({ defaultListingType = "AUCTION", onCreated }) => {
-  const { data: userItems } = api.item.getUserItems.useQuery();
+  const { data: userItems } = api.item.getUserItems.useQuery(undefined, {
+    refetchOnMount: "always",
+  });
   const ignoreNextPopoverOpenRef = useRef(false);
   const itemSearchInputRef = useRef<HTMLInputElement>(null);
 
@@ -1596,6 +1598,9 @@ export const NewAuctionListingDialog: React.FC<{
       onOpenChange={(open) => {
         setIsOpen(open);
         if (open) {
+          // Inventory can change while this page stays mounted (e.g. unequipping in
+          // another tab), so re-read it whenever the picker is opened.
+          void utils.item.getUserItems.invalidate();
           // Show the item search dropdown when opening the dialog,
           // then let `autoFocus` handle focusing the actual CommandInput.
           setItemSearchTerm("");

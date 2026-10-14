@@ -95,6 +95,9 @@ export default function MyItems() {
     isFetching,
   } = api.item.getUserItemsWithVariants.useQuery(undefined, {
     enabled: !!userData,
+    // Items are granted by many flows (quests, battles, queued jobs, other players' trades)
+    // that cannot all invalidate this cache, so re-read the inventory on every visit.
+    refetchOnMount: "always",
   });
 
   // Mutations
@@ -125,7 +128,10 @@ export default function MyItems() {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.item.getUserItemsWithVariants.invalidate();
+          await Promise.all([
+            utils.item.getUserItemsWithVariants.invalidate(),
+            utils.item.getUserItems.invalidate(),
+          ]);
         }
       },
     });
@@ -166,6 +172,7 @@ export default function MyItems() {
         if (!data.success) return;
         await Promise.all([
           utils.item.getUserItemsWithVariants.invalidate(),
+          utils.item.getUserItems.invalidate(),
           updateUser(data.userPatch, { revision, delta: data.userDelta }),
           utils.item.getItemLoadouts.invalidate(),
         ]);
@@ -839,7 +846,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.item.getUserItemsWithVariants.invalidate();
+        await Promise.all([
+          utils.item.getUserItemsWithVariants.invalidate(),
+          utils.item.getUserItems.invalidate(),
+        ]);
       }
     },
     onSettled,
@@ -849,7 +859,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.item.getUserItemsWithVariants.invalidate();
+        await Promise.all([
+          utils.item.getUserItemsWithVariants.invalidate(),
+          utils.item.getUserItems.invalidate(),
+        ]);
       }
     },
     onSettled,
@@ -1410,7 +1423,10 @@ const Character: React.FC<CharacterProps> = (props) => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.item.getUserItemsWithVariants.invalidate();
+        await Promise.all([
+          utils.item.getUserItemsWithVariants.invalidate(),
+          utils.item.getUserItems.invalidate(),
+        ]);
       }
     },
     onSettled: () => {
