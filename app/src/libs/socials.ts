@@ -12,6 +12,14 @@ const TWITTER_CHARACTER_LIMIT = 280;
 const TWITTER_FORMATTING_BUFFER = 5; // For "\n\n" and buffer
 
 /**
+ * `bun test` forces NODE_ENV=test but still auto-loads app/.env, which holds the real Discord
+ * webhooks and social credentials. Router suites that drive real content mutations would
+ * otherwise post their fixtures to the production channels, so every outbound post is a no-op
+ * under the test runner.
+ */
+export const isExternalPostingDisabled = () => process.env.NODE_ENV === "test";
+
+/**
  * Validates that a webhook URL is a legitimate Discord webhook.
  * Prevents data exfiltration if environment variables are accidentally set to attacker-controlled URLs.
  */
@@ -50,6 +58,7 @@ export const callDiscordContent = async (
   diff: string[],
   image_url?: string | null,
 ) => {
+  if (isExternalPostingDisabled()) return;
   const webhookUrl = process.env.DISCORD_CONTENT_UPDATES;
   if (!isValidDiscordWebhook(webhookUrl)) {
     console.error("[Discord] Invalid webhook URL for content updates");
@@ -71,6 +80,7 @@ export const callDiscordNews = async (
   content: string,
   image_url?: string | null,
 ) => {
+  if (isExternalPostingDisabled()) return;
   const webhookUrl = process.env.DISCORD_NEWS_UPDATES;
   if (!isValidDiscordWebhook(webhookUrl)) {
     console.error("[Discord] Invalid webhook URL for news updates");
@@ -88,6 +98,7 @@ export const callDiscordNews = async (
 };
 
 export const callFacebookNews = async (title: string, content: string) => {
+  if (isExternalPostingDisabled()) return;
   const pageId = process.env.FACEBOOK_PAGE_ID;
   const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
@@ -120,6 +131,7 @@ export const callInstagramNews = async (
   content: string,
   imageUrl: string,
 ) => {
+  if (isExternalPostingDisabled()) return;
   const instagramAccountId = process.env.INSTAGRAM_BUSINESS_ACCOUNT_ID;
   const accessToken = process.env.FACEBOOK_PAGE_ACCESS_TOKEN;
 
@@ -169,6 +181,7 @@ export const callInstagramNews = async (
  * Creates a text post (self post) in the configured subreddit.
  */
 export const callRedditNews = async (title: string, content: string) => {
+  if (isExternalPostingDisabled()) return;
   const oauthClientIdentifier = process.env.REDDIT_CLIENT_ID;
   const oauthClientSecret = process.env.REDDIT_CLIENT_SECRET;
   const oauthRefreshToken = process.env.REDDIT_REFRESH_TOKEN;
@@ -286,6 +299,7 @@ const generateOAuth1Signature = (
  * Creates a tweet with the news title and a truncated preview.
  */
 export const callTwitterNews = async (title: string, content: string) => {
+  if (isExternalPostingDisabled()) return;
   const apiKey = process.env.TWITTER_API_KEY;
   const apiSecret = process.env.TWITTER_API_SECRET;
   const accessToken = process.env.TWITTER_ACCESS_TOKEN;
@@ -355,6 +369,7 @@ export const callDiscordTicket = async (
   type: TicketType,
   user: UserData,
 ) => {
+  if (isExternalPostingDisabled()) return;
   const webhookUrl = process.env.DISCORD_TICKETS;
   if (!isValidDiscordWebhook(webhookUrl)) {
     console.error("[Discord] Invalid webhook URL for tickets");
