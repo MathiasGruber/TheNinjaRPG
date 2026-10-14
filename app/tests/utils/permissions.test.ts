@@ -5,6 +5,7 @@ import {
   canApproveApplications,
   canAwardReputation,
   canChangeContent,
+  canSuggestContent,
   canDeleteConceptArt,
   canDeletePollOptions,
   canEditSeichiSilver,
@@ -151,4 +152,13 @@ test("seichi silver + bloodline-pool admin actions gate to their own admin role 
     expect(canEditSeichiSilver(role)).toBe(false);
     expect(canRemoveBloodlineFromPool(role)).toBe(false);
   }
+});
+
+test("moderation roles cannot suggest content while other staff retain access", () => {
+  const denied: UserRole[] = ["USER", "MODERATOR", "MODERATOR-ADMIN", "HEAD_MODERATOR", "JR_MODERATOR"];
+  for (const role of UserRoles) {
+    expect(canSuggestContent(role)).toBe(!denied.includes(role));
+  }
+  expect(canSuggestContent(undefined)).toBe(false);
+  expect(canSuggestContent(null)).toBe(false);
 });

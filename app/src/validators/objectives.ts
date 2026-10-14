@@ -666,12 +666,25 @@ export const DamageDealt = z.object({
   ...questRewardFields,
 });
 
-export const BloodlineCollection = z.object({
-  ...baseObjectiveFields,
-  task: z.literal("bloodline_collection"),
-  bloodlineRank: z.enum(["ALL", ...LetterRanks]).prefault("ALL"),
-  ...questRewardFields,
-});
+export const BloodlineCollection = z.strictObject(
+  {
+    ...baseObjectiveFields,
+    task: z.literal("bloodline_collection"),
+    /** Collect every visible bloodline in the selected ranks, including H when selected. */
+    bloodlineRanks: z
+      .array(z.enum(LetterRanks))
+      .min(1)
+      .prefault([...LetterRanks]),
+    ...questRewardFields,
+  },
+  {
+    // Reject stale editor fields before a missing rank array defaults to every rank.
+    error: (issue) =>
+      issue.code === "unrecognized_keys"
+        ? "This bloodline collection uses unsupported fields. Reload the editor before saving."
+        : undefined,
+  },
+);
 
 export const AllObjectives = z.discriminatedUnion("task", [
   SimpleObjective,

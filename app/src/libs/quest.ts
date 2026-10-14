@@ -1108,9 +1108,16 @@ export const getNewTrackers = (
 
           // General updates we want to apply every time
           if (objective.task === "bloodline_collection") {
-            const progress = user.bloodlineCollectionProgress?.find(
-              (entry) => entry.rank === objective.bloodlineRank,
-            );
+            // Sum the selected rank snapshots; no rank has an implicit exemption.
+            const progress = user.bloodlineCollectionProgress
+              ?.filter((entry) => objective.bloodlineRanks.includes(entry.rank))
+              .reduce(
+                (total, entry) => ({
+                  collected: total.collected + entry.collected,
+                  total: total.total + entry.total,
+                }),
+                { collected: 0, total: 0 },
+              );
             if (progress) {
               const isComplete =
                 progress.total > 0 && progress.collected === progress.total;

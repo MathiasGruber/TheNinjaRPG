@@ -2,6 +2,7 @@ import type { SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import { describe, expect, it, vi } from "bun:test";
 import type { Bloodline } from "@/drizzle/schema";
+import { LetterRanks, type LetterRank } from "@/drizzle/constants";
 import { buildBloodlineCollectionProgress } from "@/libs/bloodline";
 import {
   filterQuestTrackersForDbPersist,
@@ -28,11 +29,15 @@ const catalogue = [
   line("hidden", "A", true),
 ];
 
-const makeUser = (bloodlineRank = "ALL") => {
+/**
+ * Build a collector with one validated objective and no hydrated collection counts.
+ * Tests supply ownership snapshots for the selected ranks.
+ */
+const makeUser = (bloodlineRanks: LetterRank[] = [...LetterRanks]) => {
   const objective = BloodlineCollection.parse({
     id: "collect",
     task: "bloodline_collection",
-    bloodlineRank,
+    bloodlineRanks,
   });
   const quest = {
     id: "collection",
@@ -94,18 +99,20 @@ describe("bloodline collection achievements", () => {
     expect(getObjectiveSchema("bloodline_collection")).toBe(BloodlineCollection);
     expect(
       BloodlineCollection.parse({ id: "c", task: "bloodline_collection" })
-        .bloodlineRank,
-    ).toBe("ALL");
+        .bloodlineRanks,
+    ).toEqual([...LetterRanks]);
     expect(
       BloodlineCollection.safeParse({
         id: "c",
         task: "bloodline_collection",
-        bloodlineRank: "X",
+        bloodlineRanks: ["X"],
       }).success,
     ).toBe(false);
+    expect(BloodlineCollection.safeParse({ id: "c", task: "bloodline_collection", bloodlineRanks: [] }).success).toBe(false);
+    expect(BloodlineCollection.safeParse({ id: "c", task: "bloodline_collection", bloodlineRanks: ["ALL"] }).success).toBe(false);
   });
 
-  it("counts distinct visible ownership, exempts H from ALL, and ignores hidden/deleted IDs", () => {
+  it("counts distinct visible ownership per rank and ignores hidden/deleted IDs", () => {
     const progress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a1",
@@ -114,11 +121,7 @@ describe("bloodline collection achievements", () => {
       "hidden",
       "deleted",
     ]);
-    expect(progress.find((p) => p.rank === "ALL")).toEqual({
-      rank: "ALL",
-      collected: 2,
-      total: 3,
-    });
+    expect(progress.map((p) => p.rank)).toEqual([...LetterRanks]);
     expect(progress.find((p) => p.rank === "A")).toEqual({
       rank: "A",
       collected: 1,
@@ -137,7 +140,7 @@ describe("bloodline collection achievements", () => {
   });
 
   it("requires the actual eligible IDs, rather than an equal number of other bloodlines", () => {
-    const user = makeUser("A");
+    const user = makeUser(["A"]);
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "s1",
@@ -159,7 +162,7 @@ describe("bloodline collection achievements", () => {
   });
 
   it("refreshes unfinished progress as bloodlines are added, revealed, or hidden", () => {
-    const user = makeUser("A");
+    const user = makeUser(["A"]);
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
     ]);
@@ -181,14 +184,14 @@ describe("bloodline collection achievements", () => {
     expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
   });
 
-  it("completes ALL without H-rank ownership and never counts H toward ALL", () => {
+  it("requires H-rank ownership when all ranks are selected", () => {
     const user = makeUser();
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a2",
       "s1",
     ]);
-    expect(goal(user).goal).toMatchObject({ value: 3, target: 3, done: true });
+    expect(goal(user).goal).toMatchObject({ value: 3, target: 4, done: false });
     const withH = makeUser();
     withH.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
@@ -196,11 +199,32 @@ describe("bloodline collection achievements", () => {
       "s1",
       "h1",
     ]);
-    expect(goal(withH).goal).toMatchObject({ value: 3, target: 3, done: true });
+    expect(goal(withH).goal).toMatchObject({ value: 4, target: 4, done: true });
   });
 
-  it("keeps explicit H-rank collection goals and does not complete ALL from H alone", () => {
-    const user = makeUser("H");
+  it("counts only selected ranks, without credit for excluded S or H ownership", () => {
+    const user = makeUser(["D", "C", "B", "A"]);
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "s1", "h1"]);
+    expect(goal(user).goal).toMatchObject({ value: 1, target: 2, done: false });
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "a2"]);
+    expect(goal(user).goal).toMatchObject({ value: 2, target: 2, done: true });
+
+    const inclusive = makeUser(["D", "C", "B", "A", "S"]);
+    inclusive.bloodlineCollectionProgress = user.bloodlineCollectionProgress;
+    expect(goal(inclusive).goal).toMatchObject({ value: 2, target: 3, done: false });
+  });
+
+  it("allows S-only goals and cannot complete an excluded-only catalogue", () => {
+    const user = makeUser(["S"]);
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["s1"]);
+    expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
+    const all = makeUser(["A"]);
+    all.bloodlineCollectionProgress = buildBloodlineCollectionProgress([line("s1", "S"), line("h1", "H")], ["s1", "h1"]);
+    expect(goal(all).goal).toMatchObject({ value: 0, target: 0, done: false });
+  });
+
+  it("supports H alone or alongside other selected ranks", () => {
+    const user = makeUser(["H"]);
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a2",
@@ -211,12 +235,17 @@ describe("bloodline collection achievements", () => {
       "h1",
     ]);
     expect(goal(user).goal).toMatchObject({ value: 1, target: 1, done: true });
-    const all = makeUser();
-    all.bloodlineCollectionProgress = buildBloodlineCollectionProgress(
-      [line("h1", "H")],
-      ["h1"],
-    );
-    expect(goal(all).goal).toMatchObject({ value: 0, target: 0, done: false });
+    const mixed = makeUser(["A", "H"]);
+    mixed.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "a2"]);
+    expect(goal(mixed).goal).toMatchObject({ value: 2, target: 3, done: false });
+    mixed.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "a2", "h1"]);
+    expect(goal(mixed).goal).toMatchObject({ value: 3, target: 3, done: true });
+  });
+
+  it("does not double-count duplicate selected ranks", () => {
+    const user = makeUser(["A", "A"]);
+    user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, ["a1", "a2"]);
+    expect(goal(user).goal).toMatchObject({ value: 2, target: 2, done: true });
   });
 
   it("never completes an empty catalogue or accepts an emitted counter as proof", () => {
@@ -234,7 +263,7 @@ describe("bloodline collection achievements", () => {
   });
 
   it("persists completion at a point in time and still offers the badge after catalogue growth", () => {
-    const user = makeUser("A");
+    const user = makeUser(["A"]);
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
       "a2",
@@ -259,7 +288,7 @@ describe("bloodline collection achievements", () => {
   });
 
   it("keeps unfinished mock achievements in memory and retains a completed collection snapshot", () => {
-    const user = makeUser("A");
+    const user = makeUser(["A"]);
     user.bloodlineCollectionProgress = buildBloodlineCollectionProgress(catalogue, [
       "a1",
     ]);
@@ -305,7 +334,7 @@ describe("collection snapshot hydration", () => {
 
   it("hydrates existing history and the currently equipped line before tracker evaluation", async () => {
     const { client, findBloodlines, findRolls } = makeClient();
-    const user = makeUser("A");
+    const user = makeUser(["A"]);
     user.bloodlineId = "a2";
     const hydrated = await hydrateQuestCollections(client, user);
     expect(goal(hydrated).goal).toMatchObject({ value: 2, target: 2, done: true });

@@ -4128,7 +4128,8 @@ export const fetchPublicUsers = async (info: {
       case "Medical":
         return [desc(userData.medicalExperience), desc(userData.experience)];
       case "PvP":
-        return [desc(userData.pvpStreak), desc(userData.experience)];
+        // Rank by PvP XP, with character XP as the tie-breaker.
+        return [desc(userData.pvpExperience), desc(userData.experience)];
       case "Ranked":
         return [desc(userData.rankedLp), desc(userData.experience)];
       case "Staff":
@@ -4188,7 +4189,7 @@ export const fetchPublicUsers = async (info: {
         isSummon: true,
         lastIp: true,
         level: true,
-        pvpStreak: true,
+        pvpExperience: true,
         rankedLp: true,
         rank: true,
         reputationPointsTotal: true,

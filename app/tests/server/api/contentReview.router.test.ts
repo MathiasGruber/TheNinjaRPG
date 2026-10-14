@@ -29,6 +29,7 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 
 const EDITOR = "review-editor";
 const MODERATOR = "review-moderator";
+const AUTHOR = "review-author";
 const PLAYER = "review-player";
 const BADGE = "review-badge";
 const OTHER_BADGE = "review-badge-2";
@@ -79,6 +80,7 @@ describeWithDatabase("content review", () => {
     await insertUsers([
       { userId: EDITOR, username: "ReviewEditor", role: "CONTENT-ADMIN" },
       { userId: MODERATOR, username: "ReviewModerator", role: "MODERATOR" },
+      { userId: AUTHOR, username: "ReviewAuthor", role: "HEAD_CONTENT" },
       { userId: PLAYER, username: "ReviewPlayer", role: "USER" },
     ]);
     const database = await getTestDatabase();
@@ -364,9 +366,16 @@ describeWithDatabase("content review", () => {
     expect(deleted).not.toHaveBeenCalled();
   });
 
-  it("stores only the changed fields of a staff suggestion", async () => {
+  it.each(["MODERATOR", "MODERATOR-ADMIN", "HEAD_MODERATOR", "JR_MODERATOR"] as const)("rejects suggestions from %s before writing", async (role) => {
+    await (await getTestDatabase()).update(userData).set({ role }).where(eq(userData.userId, MODERATOR));
     const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    const result = await moderator.create(suggestion("Awarded for bravery in battle."));
+    expect(await moderator.create(suggestion("Awarded for bravery in battle."))).toMatchObject({ success: false, message: "Your role cannot suggest content changes" });
+    expect(await proposalRows()).toEqual([]);
+  });
+
+  it("stores only the changed fields of a staff suggestion", async () => {
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    const result = await author.create(suggestion("Awarded for bravery in battle."));
     expect(result.success).toBe(true);
     const [row] = await proposalRows();
     expect(row?.status).toBe("PENDING");
@@ -379,9 +388,9 @@ describeWithDatabase("content review", () => {
   });
 
   it("leaves out form values the validator would store as the live value", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
+    const author = await callerFor(contentReviewRouter, AUTHOR);
     const input = suggestion("Awarded for bravery in battle.");
-    await moderator.create({ ...input, data: { ...input.data, name: ` ${input.data.name} ` } });
+    await author.create({ ...input, data: { ...input.data, name: ` ${input.data.name} ` } });
     const [row] = await proposalRows();
     expect(row?.changes[0]?.after).toEqual({ description: "Awarded for bravery in battle." });
   });
@@ -400,8 +409,8 @@ describeWithDatabase("content review", () => {
         { entityType: "ITEM", entityId: "review-item" },
       ])
     ).get(entityKey("ITEM", "review-item"));
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    const result = await moderator.create({
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    const result = await author.create({
       entityType: "ITEM",
       entityId: row?.id ?? "",
       category: "GRAMMAR",
@@ -431,8 +440,8 @@ describeWithDatabase("content review", () => {
     ]);
     const live = (await loadEntities(database, [ref])).get(entityKey("ITEM", ref.entityId));
     const [effect] = live?.editable.effects as Record<string, unknown>[];
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create({
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create({
       ...ref,
       category: "SOUND",
       title: "Give the blade a sound",
@@ -454,11 +463,12 @@ describeWithDatabase("content review", () => {
   });
 
   it("applies an approval through the badge's own update and can revert it", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const [pending] = await proposalRows();
     const editor = await callerFor(contentReviewRouter, EDITOR);
 
+    const moderator = await callerFor(contentReviewRouter, MODERATOR);
     const denied = await moderator.approve({ id: pending?.id ?? "" });
     expect(denied.success).toBe(false);
 
@@ -486,8 +496,8 @@ describeWithDatabase("content review", () => {
   });
 
   it("undoes an approval that throws part way and keeps the suggestion pending", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const [pending] = await proposalRows();
     // The badge update writes its row, then fails posting to Discord.
     vi.spyOn(socials, "callDiscordContent").mockRejectedValue(new Error("Discord is down"));
@@ -503,9 +513,9 @@ describeWithDatabase("content review", () => {
   });
 
   it("returns the suggestions an undone approval outdated to the queue", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
-    await moderator.create({
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
+    await author.create({
       ...suggestion("Awarded for braveyr in battle."),
       title: "Rename the badge",
       data: { ...badgeRow(BADGE, "Awarded for braveyr in battle."), name: "Brave Heart" },
@@ -527,8 +537,8 @@ describeWithDatabase("content review", () => {
   });
 
   it("undoes a revert that throws part way and keeps the suggestion applied", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const [pending] = await proposalRows();
     const editor = await callerFor(contentReviewRouter, EDITOR);
     expect((await editor.approve({ id: pending?.id ?? "" })).success).toBe(true);
@@ -581,9 +591,9 @@ describeWithDatabase("content review", () => {
   it("pages past suggestions a refresh outdated without skipping any", async () => {
     const database = await getTestDatabase();
     await database.insert(badge).values(badgeRow("review-badge-3", "Awarded for focus."));
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
+    const author = await callerFor(contentReviewRouter, AUTHOR);
     for (const id of [BADGE, OTHER_BADGE, "review-badge-3"]) {
-      await moderator.create({
+      await author.create({
         ...suggestion("A clearer description."),
         entityId: id,
         data: badgeRow(id, `Awarded for clarity ${id}.`),
@@ -765,8 +775,8 @@ describeWithDatabase("content review", () => {
   });
 
   it("applies reviewer edits and leaves out unticked fields", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create({
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create({
       ...suggestion("Awarded for bravery in battle."),
       data: { ...badgeRow(BADGE, "Awarded for bravery in battle."), name: "Brave Heart" },
     });
@@ -787,8 +797,8 @@ describeWithDatabase("content review", () => {
   });
 
   it("outdates a pending suggestion as soon as its target is edited", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const [pending] = await proposalRows();
     const badges = await callerFor(badgeRouter, EDITOR);
     await badges.update({
@@ -804,16 +814,16 @@ describeWithDatabase("content review", () => {
   });
 
   it("keeps a pending suggestion when an editor saves without changes", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const badges = await callerFor(badgeRouter, EDITOR);
     await badges.update({ id: BADGE, data: badgeRow(BADGE, "Awarded for braveyr in battle.") });
     expect((await proposalRows())[0]?.status).toBe("PENDING");
   });
 
   it("catches edits that bypassed the editors when the queue is read", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     await (await getTestDatabase())
       .update(badge)
       .set({ description: "Changed by a migration." })
@@ -827,8 +837,8 @@ describeWithDatabase("content review", () => {
   });
 
   it("lets exactly one of two simultaneous approvals win", async () => {
-    const moderator = await callerFor(contentReviewRouter, MODERATOR);
-    await moderator.create(suggestion("Awarded for bravery in battle."));
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
     const [pending] = await proposalRows();
     const editor = await callerFor(contentReviewRouter, EDITOR);
     const results = await Promise.all([

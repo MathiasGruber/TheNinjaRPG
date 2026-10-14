@@ -19,7 +19,7 @@ const validObjectives = [
   { id: "o9", task: "defeat_opponents" }, // DefeatOpponents
   { id: "o10", task: "dialog" }, // DialogObjective
   { id: "o11", task: "win_encounter_at_location" }, // EncountersAtLocation
-  { id: "collection", task: "bloodline_collection", bloodlineRank: "A" },
+  { id: "collection", task: "bloodline_collection", bloodlineRanks: ["A"] },
   {
     id: "o12",
     task: "open_raid",

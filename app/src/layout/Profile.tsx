@@ -306,18 +306,23 @@ function CharacterProfile() {
             <p>PvE Fights: {userData.pveFights}</p>
             <p>PvP Fights: {userData.pvpFights}</p>
             <p>PvP Streak: {userData.pvpStreak}</p>
-            <p>PvP Wins: {userData.pvpWins}</p>
-            <p>PvP Losses: {userData.pvpLosses}</p>
-            <p>
-              PvP Win Rate:{" "}
-              {userData.pvpWins + userData.pvpLosses > 0
-                ? (
-                    (userData.pvpWins / (userData.pvpWins + userData.pvpLosses)) *
-                    100
-                  ).toFixed(1)
-                : "0"}
-              %
-            </p>
+            {/* The profile owner uses the same display preference as public viewers. */}
+            {userData.showPvpRecord && (
+              <>
+                <p>PvP Wins: {userData.pvpWins}</p>
+                <p>PvP Losses: {userData.pvpLosses}</p>
+                <p>
+                  PvP Win Rate:{" "}
+                  {userData.pvpWins + userData.pvpLosses > 0
+                    ? (
+                        (userData.pvpWins / (userData.pvpWins + userData.pvpLosses)) *
+                        100
+                      ).toFixed(1)
+                    : "0"}
+                  %
+                </p>
+              </>
+            )}
             <button
               type="button"
               className="flex items-center gap-1 text-left underline decoration-dotted underline-offset-4"

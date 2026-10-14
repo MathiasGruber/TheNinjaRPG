@@ -31,10 +31,15 @@ describeWithDatabase("fetchPublicUsers IP visibility", () => {
   beforeEach(async () => {
     await resetTables(userData);
     await insertUsers([
-      { userId: "staff", username: "staff", role: "OWNER", lastIp: "10.0.0.1" },
-      { userId: "player", username: "player", role: "USER", lastIp: "10.0.0.2" },
-      { userId: "proxied", username: "proxied", role: "USER", lastIp: null },
+      { userId: "staff", username: "staff", role: "OWNER", lastIp: "10.0.0.1", pvpExperience: 10, pvpStreak: 100 },
+      { userId: "player", username: "player", role: "USER", lastIp: "10.0.0.2", pvpExperience: 30, pvpStreak: 1 },
+      { userId: "proxied", username: "proxied", role: "USER", lastIp: null, pvpExperience: 20, pvpStreak: 50 },
     ]);
+  });
+
+  it("ranks PvP by experience rather than streak and returns the displayed value", async () => {
+    const result = await fetchPublicUsers({ client: await getTestDatabase(), input: { ...listing, orderBy: "PvP" } });
+    expect(result.data.map((user) => [user.userId, user.pvpExperience])).toEqual([["player", 30], ["proxied", 20], ["staff", 10]]);
   });
 
   it("shows real IPs to a role that may see them", async () => {

@@ -3034,7 +3034,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   completeQuestIds: "Quests to Complete",
   tagType: "Combat Tag Type",
   singleBattle: "Track best single-battle only (else cumulative)",
-  bloodlineRank: "Bloodline Rank",
+  bloodlineRanks: "Bloodline ranks to include",
   shieldRounds: "Shield Rounds",
   delayRounds: "Diffuse Repayment Turns",
 };
