@@ -4159,7 +4159,10 @@ export const handleQuestConsequences = async (
             gt(userItem.quantity, 0),
             eq(userItem.isInAuction, false),
             eq(userItem.storedAtHome, false),
-            isNull(userItem.craftingFinishedAt),
+            or(
+              isNull(userItem.craftingFinishedAt),
+              lte(userItem.craftingFinishedAt, new Date()),
+            ),
           ),
           columns: { id: true, itemId: true },
         })

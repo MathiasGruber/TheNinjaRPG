@@ -426,6 +426,35 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     }
   }
 
+  it("retires finished crafted delivery copies while preserving unfinished crafts", async () => {
+    const client = await getTestDatabase();
+    await insertItems([{ id: "scroll", canBeCrafted: true }]);
+    await insertQuests([{ id: "team-quest", questType: "event", teamEnabled: true, hidden: false, consecutiveObjectives: true, maxAttempts: 3, maxCompletes: 3, retryDelay: "none", content: { objectives: [
+      AllObjectives.parse({ id: "delivery", task: "deliver_item", deliverItemIds: ["scroll"], item_name: "Scroll", sector: 50, longitude: 11, latitude: 10, sectorType: "specific", locationType: "specific", nextObjectiveId: "wait" }),
+      AllObjectives.parse({ id: "wait", task: "stats_trained", value: 100 }),
+    ], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } }]);
+    expect((await (await callerFor(questPartyRouter, "leader")).create({ questId: "team-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    await insertUserItems([
+      { id: "leader-copy", userId: "leader", itemId: "scroll" },
+      { id: "helper-finished", userId: "helper", itemId: "scroll", craftingFinishedAt: new Date(Date.now() - 60_000) },
+      { id: "helper-crafting", userId: "helper", itemId: "scroll", craftingFinishedAt: new Date(Date.now() + 60_000) },
+    ]);
+    await client.update(userData).set({ longitude: 11 }).where(eq(userData.userId, "leader"));
+    expect((await (await callerFor(questsRouter, "leader")).checkLocationQuest()).success).toBe(true);
+    expect(await client.query.userItem.findMany({ where: eq(userItem.userId, "leader") })).toHaveLength(0);
+    expect((await client.query.questParty.findFirst())?.tracker.goals.find((goal) => goal.id === "delivery")?.done).toBe(true);
+    const profile = await callerFor(profileRouter, "helper");
+    for (let read = 0; read < 2; read++) {
+      await profile.getUser();
+      const saved = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+      expect(saved?.questData?.find((tracker) => tracker.id === "team-quest")?.goals.find((goal) => goal.id === "delivery")).toMatchObject({ done: true, partyEffectsApplied: true });
+      const inventory = await client.query.userItem.findMany({ where: eq(userItem.userId, "helper") });
+      expect(inventory.map((row) => row.id)).toEqual(["helper-crafting"]);
+    }
+  });
+
   for (const mode of ["existing member", "replacement"] as const) {
     for (const secondId of ["scroll", "second-scroll"]) {
       it(`continues repeated collection and delivery after the collector leaves (${mode}, ${secondId})`, async () => {
