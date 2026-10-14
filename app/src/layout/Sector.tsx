@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import alea from "alea";
 import type { Grid } from "honeycomb-grid";
 import { useAtomValue } from "jotai";
-import { Castle, Swords } from "lucide-react";
+import { Swords } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -468,6 +468,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         })),
     [sectorDungeons, sector],
   );
+  const firstDungeon = dungeonStructures[0];
   // Add dynamic entrances and the shrine without mutating cached village structures.
   const structures = useMemo(() => {
     const base = [...(villageData?.structures ?? []), ...dungeonStructures];
@@ -2805,23 +2806,13 @@ const Sector: React.FC<SectorProps> = (props) => {
             Gold lines mark sector borders
           </div>
         </aside>
-        <div className="pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
-          <DayNightIndicator className="pointer-events-auto rounded-lg border bg-background/90 px-3 py-2 shadow-md backdrop-blur-sm" />
-          {!!sectorDungeons?.length && (
-            <Button asChild size="sm" className="pointer-events-auto shadow-md">
-              <Link href="/dungeon">
-                <Castle className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Dungeons ({sectorDungeons.length})
-              </Link>
-            </Button>
-          )}
-        </div>
+        <DayNightIndicator className="absolute top-3 right-3 z-10 rounded-lg border bg-background/90 px-3 py-2 shadow-md backdrop-blur-sm" />
       </div>
       {webglError && <WebGlError />}
       {currentStructure && (
-        <div className="absolute bottom-4 left-4 z-20 rounded-lg bg-black/70 p-4 text-white shadow-lg">
+        <div className="absolute bottom-3 left-3 z-20 max-w-[calc(50%-1.5rem)] rounded-lg bg-black/70 p-2 text-white shadow-lg sm:bottom-4 sm:left-4 sm:max-w-xs sm:p-4">
           <div className="flex items-center gap-4">
-            <div className="flex-shrink-0">
+            <div className="hidden shrink-0 sm:block">
               <Image
                 src={currentStructure.image}
                 alt={currentStructure.name}
@@ -2830,11 +2821,16 @@ const Sector: React.FC<SectorProps> = (props) => {
                 className="rounded-md"
               />
             </div>
-            <div>
-              <h3 className="font-semibold text-lg">{currentStructure.name}</h3>
+            <div className="min-w-0">
+              <h3
+                className="truncate font-semibold text-sm sm:text-lg"
+                title={currentStructure.name}
+              >
+                {currentStructure.name}
+              </h3>
               <Link
                 href={currentStructure.route}
-                className="mt-2 inline-block rounded-md bg-blue-500 px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-blue-600"
+                className="mt-2 inline-block rounded-md bg-blue-500 px-2 py-2 font-medium text-white text-xs transition-colors hover:bg-blue-600 sm:px-4 sm:text-sm"
               >
                 Enter {currentStructure.name}
               </Link>
@@ -2842,60 +2838,96 @@ const Sector: React.FC<SectorProps> = (props) => {
           </div>
         </div>
       )}
-      {hoveredStructure && hoveredStructure.id !== currentStructure?.id && (
-        <div className="absolute right-4 bottom-4 z-20 rounded-lg bg-black/70 p-4 text-white shadow-lg">
-          <div className="flex items-center gap-4">
-            <div className="flex-shrink-0">
+      {/* Stack corner actions so dungeon, hover and raid cards share the map without overlap. */}
+      <div className="pointer-events-none absolute right-3 bottom-3 z-20 flex max-w-[calc(50%-1.5rem)] flex-col items-end gap-2 sm:right-4 sm:bottom-4 sm:max-w-xs">
+        {hoveredStructure && hoveredStructure.id !== currentStructure?.id && (
+          <div className="pointer-events-auto w-full rounded-lg bg-black/70 p-2 text-white shadow-lg sm:p-4">
+            <div className="flex items-center gap-4">
+              <div className="hidden shrink-0 sm:block">
+                <Image
+                  src={hoveredStructure.image}
+                  alt={hoveredStructure.name}
+                  width={48}
+                  height={48}
+                  className="rounded-md"
+                />
+              </div>
+              <div className="min-w-0">
+                <h3
+                  className="truncate font-semibold text-sm sm:text-lg"
+                  title={hoveredStructure.name}
+                >
+                  {hoveredStructure.name}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTarget({
+                      x: hoveredStructure.longitude,
+                      y: hoveredStructure.latitude,
+                    })
+                  }
+                  className="mt-2 inline-block rounded-md bg-blue-500 px-2 py-2 font-medium text-white text-xs transition-colors hover:bg-blue-600 sm:px-4 sm:text-sm"
+                >
+                  Go to {hoveredStructure.name}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {activeRaid && (
+          <div className="pointer-events-auto w-full rounded-lg bg-black/70 p-2 text-white shadow-lg sm:p-4">
+            <div className="flex items-center gap-4">
+              <Swords className="hidden h-12 w-12 shrink-0 text-red-500 sm:block" />
+              <div className="min-w-0">
+                <h3
+                  className="truncate font-semibold text-sm sm:text-lg"
+                  title={activeRaid.name}
+                >
+                  {activeRaid.name}
+                </h3>
+                <p className="text-gray-300 text-sm">Active Raid in this sector</p>
+                <button
+                  type="button"
+                  onClick={() => setShowRaidModal(true)}
+                  className="mt-2 inline-block rounded-md bg-red-600 px-2 py-2 font-medium text-white text-xs transition-colors hover:bg-red-700 sm:px-4 sm:text-sm"
+                >
+                  View Raid
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {firstDungeon && (
+          <div className="pointer-events-auto w-full rounded-lg bg-black/70 p-2 text-white shadow-lg sm:p-4">
+            <div className="flex items-center gap-4">
               <Image
-                src={hoveredStructure.image}
-                alt={hoveredStructure.name}
+                src={firstDungeon.image}
+                alt=""
                 width={48}
                 height={48}
-                className="rounded-md"
+                className="hidden shrink-0 rounded-md sm:block"
               />
-            </div>
-            <div>
-              <h3 className="font-semibold text-lg">{hoveredStructure.name}</h3>
-              <button
-                type="button"
-                onClick={() =>
-                  setTarget({
-                    x: hoveredStructure.longitude,
-                    y: hoveredStructure.latitude,
-                  })
-                }
-                className="mt-2 inline-block rounded-md bg-blue-500 px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-blue-600"
-              >
-                Go to {hoveredStructure.name}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {activeRaid && (
-        <div
-          className={`absolute right-4 z-20 rounded-lg bg-black/70 p-4 text-white shadow-lg ${
-            hoveredStructure && hoveredStructure.id !== currentStructure?.id
-              ? "bottom-28"
-              : "bottom-4"
-          }`}
-        >
-          <div className="flex items-center gap-4">
-            <Swords className="h-12 w-12 text-red-500" />
-            <div>
-              <h3 className="font-semibold text-lg">{activeRaid.name}</h3>
-              <p className="text-gray-300 text-sm">Active Raid in this sector</p>
-              <button
-                type="button"
-                onClick={() => setShowRaidModal(true)}
-                className="mt-2 inline-block rounded-md bg-red-600 px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-red-700"
-              >
-                View Raid
-              </button>
+              <div className="min-w-0">
+                <h3
+                  className="truncate font-semibold text-sm sm:text-lg"
+                  title={dungeonStructures.length === 1 ? firstDungeon.name : undefined}
+                >
+                  {dungeonStructures.length === 1
+                    ? firstDungeon.name
+                    : `Dungeons (${dungeonStructures.length})`}
+                </h3>
+                <Link
+                  href="/dungeon"
+                  className="mt-2 inline-block rounded-md bg-blue-500 px-2 py-2 font-medium text-white text-xs transition-colors hover:bg-blue-600 sm:px-4 sm:text-sm"
+                >
+                  {dungeonStructures.length === 1 ? "Enter Dungeon" : "View Dungeons"}
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
       {showRaidModal && userData && (
         <Modal isOpen={showRaidModal} setIsOpen={setShowRaidModal} title="Sector Raid">
           <RaidBrowser
