@@ -94,6 +94,7 @@ const prepare = async (queue = entries) => {
       status: "AWAKE",
       level: 1,
       villageId: "home",
+      joinedVillageAt: new Date(Date.now() - 7 * 86_400_000),
       sector: HOME,
       longitude: 25,
       latitude: 10,
@@ -231,9 +232,9 @@ describeWithDatabase("Energy queue state transitions", () => {
     ).toBe(true);
     const arrived = (await read())!;
     expect(arrived.curEnergy).toBe(100);
-    expect(arrived.curHealth).toBe(300);
-    expect(arrived.curChakra).toBe(300);
-    expect(arrived.curStamina).toBe(300);
+    expect(arrived.curHealth).toBe(315);
+    expect(arrived.curChakra).toBe(315);
+    expect(arrived.curStamina).toBe(315);
     expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + 180_000);
     expect(await readEnergyQueue(USER)).toEqual(entries);
     await fetchUpdatedUser({
@@ -255,7 +256,7 @@ describeWithDatabase("Energy queue state transitions", () => {
     expect(arrived.status).toBe("AWAKE");
     expect(arrived.travelFinishAt).toBeNull();
     expect(arrived.curEnergy).toBe(queued ? 100 : 0);
-    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina]).toEqual(queued ? [600, 600, 600] : [0, 0, 0]);
+    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina]).toEqual(queued ? [630, 630, 630] : [0, 0, 0]);
     expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + (queued ? 180_000 : 0));
     expect(arrived.offence).toBe(10);
     expect(arrived.defence).toBe(10);
@@ -312,7 +313,7 @@ describeWithDatabase("Energy queue state transitions", () => {
     await insertUsers([{ userId: "pvp-population", pvpExperience: 600 }]);
     await patch({
       status: "TRAVEL", travelFinishAt: new Date(Date.now() - 1000), regenAt,
-      pvpExperience: 1400, joinedVillageAt: new Date(0),
+      pvpExperience: 1400, joinedVillageAt: new Date(Date.now() - 100 * 86_400_000),
       curHealth: 0, curChakra: 0, curStamina: 0,
       maxHealth: 1000, maxChakra: 1000, maxStamina: 1000,
     });
@@ -320,7 +321,7 @@ describeWithDatabase("Energy queue state transitions", () => {
     await completeExpiredGlobalTravel(db);
     const arrived = (await read())!;
     expect(arrived.status).toBe("AWAKE");
-    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina]).toEqual([345, 345, 345]);
+    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina]).toEqual([397, 397, 397]);
     expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + 180_000);
     expect(await readEnergyQueue(USER)).toEqual(entries);
     await completeExpiredGlobalTravel(db);

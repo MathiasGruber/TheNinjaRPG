@@ -3453,12 +3453,31 @@ const fetchUpdatedUserOnce = async (props: {
     };
   }
 
-  // The surviving ANBU membership is a durable retry marker after failed expulsion cleanup.
-  if (user?.isOutlaw && user.anbuId) {
-    const squadData = await fetchSquad(client, user.anbuId);
-    if (squadData && (await removeFromSquad(client, squadData, user.userId))) {
+  // Surviving memberships are durable retry markers after failed expulsion cleanup.
+  if (user?.isOutlaw) {
+    const [squadData, clanData] = await Promise.all([
+      user.anbuId ? fetchSquad(client, user.anbuId) : null,
+      user.clanId && user.clan?.villageId !== user.villageId
+        ? fetchClan(client, user.clanId)
+        : null,
+    ]);
+    // Outlaws retain factions belonging to Syndicate, hideouts and strongholds.
+    const needsClanCleanup = clanData?.village?.type === "VILLAGE";
+    const [removedFromSquad] = await Promise.all([
+      squadData ? removeFromSquad(client, squadData, user.userId) : false,
+      needsClanCleanup
+        ? removeFromClan(client, clanData, user, ["Turned outlaw"])
+        : null,
+    ]);
+    if (removedFromSquad) {
       user.anbuId = null;
       user.anbuSquad = null;
+    }
+    if (needsClanCleanup) {
+      user.clanId = null;
+      user.clan = null;
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
     }
   }
 

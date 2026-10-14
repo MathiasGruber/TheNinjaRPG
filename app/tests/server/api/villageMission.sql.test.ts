@@ -223,6 +223,19 @@ describeWithDatabase("Village Missions and maintenance on real MySQL", () => {
     expect((await caller.get({ id: "v1" }))?.mission?.objectives[0]?.current).toBe(0);
   });
 
+  it("applies the claiming Kage's loyalty to Village Mission tokens exactly once", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ joinedVillageAt: new Date(Date.now() - 100 * 86_400_000) }).where(eq(userData.userId, "leader"));
+    const caller = await leader();
+    await caller.select({ villageId: "v1" });
+    const missionId = (await state())?.activeMission?.id;
+    await recordVillageMissionProgress(db, "v1", "member", { combined_mission_effort: 14 });
+    const results = await Promise.all([caller.claim({ villageId: "v1", missionId }), caller.claim({ villageId: "v1", missionId })]);
+    expect(results.filter((result) => result.success)).toEqual([{ success: true, message: "113,000 tokens awarded to the village" }]);
+    expect((await state())?.tokens).toBe(613_000);
+    expect((await state())?.activeMission).toBeNull();
+  });
+
   it("persists group PvP credit with the battle version claim and prevents another winner crediting it", async () => {
     const db = await getTestDatabase();
     await (await leader()).select({ villageId: "v1" });

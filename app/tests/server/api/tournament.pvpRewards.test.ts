@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { clan, tournament, tournamentMatch, tournamentRecord, userData } from "@/drizzle/schema";
+import { clan, tournament, tournamentMatch, tournamentRecord, userData, village } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { updateRewards } from "@/server/api/routers/quests";
 import { syncTournamentState, tournamentRouter } from "@/server/api/routers/tournament";
@@ -10,7 +10,7 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 
 describeWithDatabase("tournament PvP reward boost", () => {
   beforeEach(async () => {
-    await resetTables(tournamentRecord, tournamentMatch, tournament, clan, userData);
+    await resetTables(tournamentRecord, tournamentMatch, tournament, clan, userData, village);
     await insertUsers([
       { userId: "prize-winner", username: "prize-winner", clanId: "prize-clan", pvpExperience: 1400, money: 0 },
       { userId: "prize-other", username: "prize-other", pvpExperience: 600 },
@@ -40,5 +40,18 @@ describeWithDatabase("tournament PvP reward boost", () => {
     await updateRewards({ client: db, user: winner, rewards: PostProcessedRewardSchema.parse({ reward_money: 1000 }), reason: "TOURNAMENT" });
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, "prize-winner") })).toMatchObject({ money: 1150 });
     expect(await db.query.clan.findFirst({ where: eq(clan.id, "prize-clan") })).toMatchObject({ bank: 1000 });
+  });
+
+  it("applies winner loyalty to configured prestige and tokens exactly once", async () => {
+    const db = await getTestDatabase();
+    await db.insert(village).values({ id: "prize-village", name: "Prize village", kageId: "", tokens: 0 });
+    await db.update(userData).set({ villageId: "prize-village", villagePrestige: 0, joinedVillageAt: new Date(Date.now() - 100 * 86_400_000) }).where(eq(userData.userId, "prize-winner"));
+    await db.insert(tournament).values({ id: "loyalty-prize", name: "Loyalty prize", image: "", description: "", type: "CLAN", status: "IN_PROGRESS", roundStartedAt: new Date(0), rewards: ObjectiveReward.parse({ reward_tokens: 1000, reward_prestige: 1000 }) });
+    await db.insert(tournamentMatch).values({ id: "loyalty-final", tournamentId: "loyalty-prize", round: 1, match: 1, userId1: "prize-winner", winnerId: "prize-winner", startedAt: new Date(0) });
+    expect((await syncTournamentState(db, "loyalty-prize", updateRewards)).success).toBe(true);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "prize-winner") })).toMatchObject({ villagePrestige: 1130 });
+    expect(await db.query.village.findFirst({ where: eq(village.id, "prize-village") })).toMatchObject({ tokens: 1130 });
+    await syncTournamentState(db, "loyalty-prize", updateRewards);
+    expect(await db.query.village.findFirst({ where: eq(village.id, "prize-village") })).toMatchObject({ tokens: 1130 });
   });
 });

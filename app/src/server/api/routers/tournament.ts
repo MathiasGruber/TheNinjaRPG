@@ -496,7 +496,7 @@ const finalizeTournamentAndPayWinner = async (
     return errorResponse(TOURNAMENT_FINALIZATION_INCOMPLETE);
   }
 
-  const finalRewards = postProcessRewards(currentData.rewards);
+  const finalRewards = postProcessRewards(currentData.rewards, winner);
   try {
     await rewardWinner({
       client,
