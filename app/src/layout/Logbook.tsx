@@ -76,7 +76,7 @@ const Logbook: React.FC = () => {
       }
     >
       <PendingRewardChoices />
-      <QuestTeams />
+      <QuestTeams compact />
       {tab === "Active" && <LogbookActive />}
       {tab === "History" && <LogbookHistory />}
       {tab === "Battles" && <LogbookBattles />}

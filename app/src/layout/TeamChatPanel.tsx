@@ -26,18 +26,23 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
     [conversationId],
   );
 
-  const { data: commentsData, isPending } =
-    api.comments.getConversationComments.useInfiniteQuery(queryKey, {
-      enabled: !!conversationId,
-      // Recheck permissions after missed cross-tab events, even while cached history is fresh.
-      refetchOnMount: "always",
-      refetchOnWindowFocus: "always",
-      refetchOnReconnect: "always",
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
-    });
+  const {
+    data: commentsData,
+    isPending,
+    error,
+    refetch,
+  } = api.comments.getConversationComments.useInfiniteQuery(queryKey, {
+    enabled: !!conversationId,
+    // Recheck permissions after missed cross-tab events, even while cached history is fresh.
+    refetchOnMount: "always",
+    refetchOnWindowFocus: "always",
+    refetchOnReconnect: "always",
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  });
 
   const { mutate: sendMessage, isPending: isSending } =
     api.comments.createConversationComment.useMutation({
+      onError: (error) => showMutationToast({ success: false, message: error.message }),
       onSuccess: async (data) => {
         if (!data.success) {
           showMutationToast(data);
@@ -107,20 +112,22 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
   };
 
   return (
-    <div className="rounded-lg border p-3">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="font-medium">{title}</h4>
-        <span className="text-muted-foreground text-xs">
-          Messages are shared live with your team.
-        </span>
-      </div>
+    <div className="space-y-3 border-t pt-3">
+      <h4 className="font-semibold text-sm">{title}</h4>
 
-      <div className="mb-3 max-h-72 space-y-2 overflow-y-auto rounded-md border bg-muted/30 p-3">
+      <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg bg-muted/30 p-3">
         {isPending ? (
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading chat...
           </div>
+        ) : error ? (
+          <p role="alert" className="text-sm">
+            {error.message}{" "}
+            <Button variant="link" size="sm" onClick={() => void refetch()}>
+              Retry chat
+            </Button>
+          </p>
         ) : comments.length > 0 ? (
           comments
             .slice()
@@ -129,8 +136,8 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
               <div
                 key={comment.id}
                 className={cn(
-                  "rounded-md border bg-background p-2 text-sm",
-                  comment.userId === userData?.userId && "border-primary/40",
+                  "rounded-lg bg-background px-3 py-2 text-sm",
+                  comment.userId === userData?.userId && "bg-primary/5",
                 )}
               >
                 <div className="mb-1 flex items-center justify-between gap-2">
@@ -146,17 +153,24 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
             ))
         ) : (
           <p className="text-muted-foreground text-sm">
-            {restrictionMessage ?? "No messages yet. Coordinate your team here."}
+            No messages yet. Say hello to your team.
           </p>
         )}
       </div>
 
-      <div className="space-y-2">
+      {restrictionMessage && (
+        <p role="alert" className="text-muted-foreground text-sm">
+          {restrictionMessage}
+        </p>
+      )}
+      <div className="flex items-end gap-2">
         <Textarea
+          aria-label="Team message"
+          rows={2}
           value={message}
           onChange={(event) => setMessage(event.target.value)}
           placeholder={
-            restrictionMessage ??
+            (restrictionMessage ? "Chat unavailable" : undefined) ??
             (userData?.isBanned || userData?.isSilenced
               ? "You cannot send messages while banned or silenced."
               : "Write a message to your team...")
@@ -167,27 +181,25 @@ export const TeamChatPanel: React.FC<TeamChatPanelProps> = ({
             userData?.isBanned ||
             userData?.isSilenced
           }
-          className="min-h-24"
+          className="max-h-40 min-h-16 resize-y"
           maxLength={5000}
         />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground text-xs">
-            {restrictionMessage ?? "Minimum 4 characters."}
-          </span>
-          <Button
-            onClick={handleSendMessage}
-            disabled={
-              !!restrictionMessage ||
-              isSending ||
-              userData?.isBanned ||
-              userData?.isSilenced ||
-              message.trim().length < 4
-            }
-          >
-            {isSending ? "Sending..." : "Send"}
-          </Button>
-        </div>
+        <Button
+          onClick={handleSendMessage}
+          disabled={
+            !!restrictionMessage ||
+            isSending ||
+            userData?.isBanned ||
+            userData?.isSilenced ||
+            message.trim().length < 4
+          }
+        >
+          {isSending ? "Sending..." : "Send"}
+        </Button>
       </div>
+      {message.length > 0 && message.trim().length < 4 && (
+        <p className="text-muted-foreground text-xs">Minimum 4 characters.</p>
+      )}
     </div>
   );
 };

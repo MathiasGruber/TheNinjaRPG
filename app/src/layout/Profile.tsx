@@ -597,7 +597,7 @@ function ProfileHistory() {
           className="min-h-11 px-3"
         />
       </div>
-      <QuestTeams />
+      <QuestTeams compact />
       {tab === "Quests" ? <LogbookHistory /> : <LogbookBattles />}
     </div>
   );

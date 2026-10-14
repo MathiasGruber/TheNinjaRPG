@@ -1,11 +1,15 @@
 "use client";
 
+import { Plus, Skull, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumberInput, validateNumberInputs } from "@/components/ui/number-input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   COMBAT_BIOMES,
@@ -33,6 +37,7 @@ export default function DungeonEditor() {
   const [tier, setTier] = useState(0);
   const [floor, setFloor] = useState(0);
   const [message, setMessage] = useState("");
+  const [panel, setPanel] = useState("details");
   const formRef = useRef<HTMLDivElement>(null);
   const definitions = api.coop.dungeon.getAll.useQuery(undefined, { enabled: allowed });
   const ais = api.profile.getAllAiNames.useQuery(undefined, { enabled: allowed });
@@ -66,14 +71,42 @@ export default function DungeonEditor() {
   const room = content.tiers[tier]?.[floor];
   /** Validate native numeric inputs and the complete definition before submitting its saved ID. */
   const submit = () => {
+    // Keep tab fields mounted and reveal an invalid number before native validation focuses it.
+    const invalidNumber = formRef.current?.querySelector<HTMLInputElement>(
+      "[data-number-input]:invalid",
+    );
+    if (invalidNumber) {
+      setPanel(
+        invalidNumber.closest<HTMLElement>("[data-editor-panel]")?.dataset
+          .editorPanel ?? "details",
+      );
+      setMessage("Please correct the highlighted number.");
+      requestAnimationFrame(() => validateNumberInputs(formRef.current));
+      return;
+    }
     if (!validateNumberInputs(formRef.current)) return;
     const parsed = dungeonContentSchema.safeParse(content);
     if (!parsed.success) {
-      setMessage(
-        parsed.error.issues
-          .map((issue) => `${issue.path.join(" → ")}: ${issue.message}`)
-          .join("\n"),
+      const issue = parsed.error.issues[0];
+      if (!issue) return;
+      setPanel(
+        issue.path[0] === "tiers"
+          ? "rooms"
+          : issue.path[0] === "rewards"
+            ? "rewards"
+            : "details",
       );
+      if (
+        issue.path[0] === "tiers" &&
+        typeof issue.path[1] === "number" &&
+        typeof issue.path[2] === "number"
+      ) {
+        setTier(issue.path[1]);
+        setFloor(issue.path[2]);
+        setMessage(
+          `Tier ${issue.path[1] + 1}, floor ${issue.path[2] + 1}: ${issue.message}`,
+        );
+      } else setMessage(issue.message);
       return;
     }
     save.mutate({ id, content: parsed.data });
@@ -85,12 +118,12 @@ export default function DungeonEditor() {
     );
   return (
     <ContentBox
-      title="Dungeon Pyramids"
-      subtitle="Content creation"
+      title="Dungeon editor"
+      subtitle="Three-player co-op"
       defaultBackHref="/manual"
     >
       {/* Keep the submitted draft selected until its save result supplies or confirms the ID. */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button
           variant="secondary"
           disabled={save.isPending}
@@ -100,13 +133,14 @@ export default function DungeonEditor() {
             setTier(0);
             setFloor(0);
             setMessage("");
+            setPanel("details");
           }}
         >
           New dungeon
         </Button>
         <select
           aria-label="Edit existing dungeon"
-          className="rounded border bg-background p-2"
+          className="min-w-0 flex-1 rounded border bg-background p-2"
           disabled={save.isPending}
           value={id ?? ""}
           onChange={(e) => {
@@ -117,6 +151,7 @@ export default function DungeonEditor() {
             setTier(0);
             setFloor(0);
             setMessage("");
+            setPanel("details");
           }}
         >
           <option value="">Select dungeon</option>
@@ -126,6 +161,9 @@ export default function DungeonEditor() {
             </option>
           ))}
         </select>
+        <Button disabled={save.isPending} loading={save.isPending} onClick={submit}>
+          Save dungeon
+        </Button>
       </div>
       {(message || definitions.error) && (
         <p role="status" className="mb-4 whitespace-pre-wrap rounded border p-3">
@@ -133,312 +171,397 @@ export default function DungeonEditor() {
         </p>
       )}
       <div ref={formRef} className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name">
-            <Input
-              value={content.name}
-              onChange={(e) => patch({ name: e.target.value })}
-            />
-          </Field>
-          <Field label="Pyramid type">
-            <Input value="Dungeon · Three-player co-op" readOnly />
-          </Field>
-          <Field label="Description">
-            <Textarea
-              value={content.description}
-              onChange={(e) => patch({ description: e.target.value })}
-            />
-          </Field>
-          <Field label="Battle background">
-            <select
-              className="w-full rounded border bg-background p-2"
-              value={content.background}
-              onChange={(e) =>
-                patch({ background: e.target.value as DungeonContent["background"] })
-              }
+        <fieldset disabled={save.isPending}>
+          <Tabs value={panel} onValueChange={setPanel}>
+            <TabsList className="mb-4 grid grid-cols-3">
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="rooms">Encounters</TabsTrigger>
+              <TabsTrigger value="rewards">Rewards</TabsTrigger>
+            </TabsList>
+            <TabsContent
+              value="details"
+              forceMount
+              data-editor-panel="details"
+              className="space-y-4 data-[state=inactive]:hidden"
             >
-              {COMBAT_BIOMES.map((b) => (
-                <option key={b}>{b}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Expiration (new lobbies only)">
-            <Input
-              type="datetime-local"
-              value={
-                content.expiresAt ? formatLocalDateTimeInput(content.expiresAt) : ""
-              }
-              onChange={(e) =>
-                patch({ expiresAt: e.target.value ? new Date(e.target.value) : null })
-              }
-            />
-          </Field>
-          <Field label="Published">
-            <input
-              type="checkbox"
-              checked={!content.hidden}
-              onChange={(e) => patch({ hidden: !e.target.checked })}
-            />
-          </Field>
-          <Field label="Sector">
-            <NumberInput
-              value={content.sector}
-              onValueChange={(value) => patch({ sector: value })}
-            />
-          </Field>
-          <div className="flex gap-2">
-            <Field label="Longitude">
-              <NumberInput
-                value={content.longitude}
-                onValueChange={(value) => patch({ longitude: value })}
-              />
-            </Field>
-            <Field label="Latitude">
-              <NumberInput
-                value={content.latitude}
-                onValueChange={(value) => patch({ latitude: value })}
-              />
-            </Field>
-          </div>
-        </div>
-        <div className="my-4 space-y-3 rounded border p-4">
-          <h2 className="font-bold text-lg">Tiers, floors and waves</h2>
-          <p>
-            Each tier has {DUNGEON_FLOORS_PER_TIER} floors. Its last floor is the
-            mini-boss; the final tier ends with the boss. Waves enter after the
-            preceding wave is defeated and the configured round delay has elapsed.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {content.tiers.map((_, i) => (
-              <Button
-                key={i}
-                variant={tier === i ? "default" : "secondary"}
-                onClick={() => {
-                  setTier(i);
-                  setFloor(0);
-                }}
-              >
-                Tier {i + 1}
-              </Button>
-            ))}
-            <Button
-              variant="secondary"
-              disabled={content.tiers.length >= DUNGEON_MAX_TIERS}
-              onClick={() =>
-                patch({ tiers: normalizeRooms([...content.tiers, newTier()]) })
-              }
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Name">
+                  <Input
+                    value={content.name}
+                    onChange={(e) => patch({ name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Battle background">
+                  <select
+                    className="w-full rounded border bg-background p-2"
+                    value={content.background}
+                    onChange={(e) =>
+                      patch({
+                        background: e.target.value as DungeonContent["background"],
+                      })
+                    }
+                  >
+                    {COMBAT_BIOMES.map((b) => (
+                      <option key={b}>{b}</option>
+                    ))}
+                  </select>
+                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Description">
+                    <Textarea
+                      rows={2}
+                      value={content.description}
+                      onChange={(e) => patch({ description: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <Field label="Expiration (new lobbies only)">
+                  <Input
+                    type="datetime-local"
+                    value={
+                      content.expiresAt
+                        ? formatLocalDateTimeInput(content.expiresAt)
+                        : ""
+                    }
+                    onChange={(e) =>
+                      patch({
+                        expiresAt: e.target.value ? new Date(e.target.value) : null,
+                      })
+                    }
+                  />
+                </Field>
+                <Field label="Published">
+                  <Switch
+                    checked={!content.hidden}
+                    onCheckedChange={(published) => patch({ hidden: !published })}
+                  />
+                </Field>
+                <Field label="Sector">
+                  <NumberInput
+                    value={content.sector}
+                    onValueChange={(value) => patch({ sector: value })}
+                  />
+                </Field>
+                <div className="flex gap-2">
+                  <Field label="Longitude">
+                    <NumberInput
+                      value={content.longitude}
+                      onValueChange={(value) => patch({ longitude: value })}
+                    />
+                  </Field>
+                  <Field label="Latitude">
+                    <NumberInput
+                      value={content.latitude}
+                      onValueChange={(value) => patch({ latitude: value })}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent
+              value="rooms"
+              forceMount
+              data-editor-panel="rooms"
+              className="space-y-4 data-[state=inactive]:hidden"
             >
-              Add tier
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={content.tiers.length <= 1}
-              onClick={() => {
-                patch({ tiers: normalizeRooms(content.tiers.slice(0, -1)) });
-                setTier(0);
-                setFloor(0);
-              }}
-            >
-              Remove last tier
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {content.tiers[tier]?.map((f, i) => (
-              <Button
-                key={i}
-                variant={floor === i ? "default" : "secondary"}
-                onClick={() => setFloor(i)}
-              >
-                Floor {i + 1}
-                {f.kind !== "floor" ? ` · ${f.kind}` : ""}
-              </Button>
-            ))}
-          </div>
-          {room?.waves.map((wave, wi) => (
-            <div key={wi} className="space-y-2 rounded bg-muted p-3">
-              <h3 className="font-bold">Wave {wi + 1}</h3>
-              <Field label="Minimum rounds since previous wave began">
-                <NumberInput
-                  min={0}
-                  max={ENCOUNTER_MAX_WAVE_DELAY_ROUNDS}
-                  disabled={wi === 0}
-                  value={wave.delayRounds}
-                  onValueChange={(value) =>
-                    editRoom((r) => {
-                      const w = r.waves[wi];
-                      if (w) w.delayRounds = value;
-                    })
-                  }
-                />
-              </Field>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {wave.aiIds.map((ai, aiIndex) => (
-                  <div className="flex gap-2" key={aiIndex}>
-                    <select
-                      aria-label={`Wave ${wi + 1} enemy ${aiIndex + 1}`}
-                      className="min-w-0 flex-1 rounded border bg-background p-2"
-                      value={ai}
-                      onChange={(e) =>
-                        editRoom((r) => {
-                          const w = r.waves[wi];
-                          if (w) w.aiIds[aiIndex] = e.target.value;
-                        })
-                      }
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    aria-label="Tier"
+                    className="min-w-0 flex-1 rounded border bg-background p-2"
+                    value={tier}
+                    onChange={(e) => {
+                      setTier(Number(e.target.value));
+                      setFloor(0);
+                    }}
+                  >
+                    {content.tiers.map((_, i) => (
+                      <option key={i} value={i}>
+                        Tier {i + 1} of {content.tiers.length}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="secondary"
+                    disabled={content.tiers.length >= DUNGEON_MAX_TIERS}
+                    onClick={() =>
+                      patch({ tiers: normalizeRooms([...content.tiers, newTier()]) })
+                    }
+                  >
+                    <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Add tier
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    aria-label="Remove last tier"
+                    hoverText="Remove last tier"
+                    disabled={content.tiers.length <= 1}
+                    onClick={() => {
+                      patch({ tiers: normalizeRooms(content.tiers.slice(0, -1)) });
+                      setTier(0);
+                      setFloor(0);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-5 gap-1">
+                  {content.tiers[tier]?.map((f, i) => (
+                    <Button
+                      key={i}
+                      variant={floor === i ? "default" : "secondary"}
+                      size="sm"
+                      className="min-w-0 px-1"
+                      onClick={() => setFloor(i)}
                     >
-                      <option value="">Select enemy</option>
-                      {ais.data?.map((a) => (
-                        <option key={a.userId} value={a.userId}>
-                          {a.username}
+                      Floor {i + 1}
+                      {f.kind !== "floor" && (
+                        <Skull className="ml-1 h-3 w-3" aria-label={f.kind} />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 text-sm">
+                  <span>
+                    Tier {tier + 1} · Floor {floor + 1}
+                  </span>
+                  <Badge variant="outline">
+                    {room?.kind === "floor"
+                      ? "Regular room"
+                      : room?.kind === "mini-boss"
+                        ? "Mini-boss"
+                        : "Final boss"}
+                  </Badge>
+                </div>
+                {room?.waves.map((wave, wi) => (
+                  <div key={wi} className="space-y-3 rounded-lg border bg-popover p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-sm">Wave {wi + 1}</h3>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label={`Remove wave ${wi + 1}`}
+                        hoverText="Remove wave"
+                        disabled={room.waves.length === 1}
+                        onClick={() =>
+                          editRoom((r) => {
+                            r.waves.splice(wi, 1);
+                            if (r.waves[0]) r.waves[0].delayRounds = 0;
+                          })
+                        }
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </Button>
+                    </div>
+                    {wi > 0 && (
+                      <Field label="Minimum rounds between wave starts">
+                        <NumberInput
+                          min={0}
+                          max={ENCOUNTER_MAX_WAVE_DELAY_ROUNDS}
+                          value={wave.delayRounds}
+                          onValueChange={(value) =>
+                            editRoom((r) => {
+                              const w = r.waves[wi];
+                              if (w) w.delayRounds = value;
+                            })
+                          }
+                        />
+                      </Field>
+                    )}
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {wave.aiIds.map((ai, aiIndex) => (
+                        <div className="flex gap-2" key={aiIndex}>
+                          <select
+                            aria-label={`Wave ${wi + 1} enemy ${aiIndex + 1}`}
+                            className="min-w-0 flex-1 rounded border bg-background p-2"
+                            value={ai}
+                            onChange={(e) =>
+                              editRoom((r) => {
+                                const w = r.waves[wi];
+                                if (w) w.aiIds[aiIndex] = e.target.value;
+                              })
+                            }
+                          >
+                            <option value="">Select enemy</option>
+                            {ais.data?.map((a) => (
+                              <option key={a.userId} value={a.userId}>
+                                {a.username}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            aria-label={`Remove enemy ${aiIndex + 1} from wave ${wi + 1}`}
+                            hoverText="Remove enemy"
+                            disabled={wave.aiIds.length === 1}
+                            onClick={() =>
+                              editRoom((r) => r.waves[wi]?.aiIds.splice(aiIndex, 1))
+                            }
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={wave.aiIds.length >= DUNGEON_MAX_MOBS}
+                        onClick={() => editRoom((r) => r.waves[wi]?.aiIds.push(""))}
+                      >
+                        <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                        Add enemy
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  disabled={!room || room.waves.length >= DUNGEON_MAX_WAVES}
+                  onClick={() =>
+                    editRoom((r) => r.waves.push({ aiIds: [""], delayRounds: 1 }))
+                  }
+                >
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Add wave
+                </Button>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Each tier has {DUNGEON_FLOORS_PER_TIER} floors. Waves wait for the
+                previous wave's defeat and their minimum round spacing.
+              </p>
+            </TabsContent>
+            <TabsContent
+              value="rewards"
+              forceMount
+              data-editor-panel="rewards"
+              className="space-y-4 data-[state=inactive]:hidden"
+            >
+              <div className="space-y-3">
+                <p className="text-muted-foreground text-sm">
+                  Each player receives these rewards and rolls drops independently.
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {(["money", "experience", "tokens", "prestige"] as const).map(
+                    (key) => (
+                      <Field
+                        key={key}
+                        label={
+                          key === "money"
+                            ? "Ryo"
+                            : key === "experience"
+                              ? "Exp"
+                              : key === "tokens"
+                                ? "Tokens"
+                                : "Prestige"
+                        }
+                      >
+                        <NumberInput
+                          min={0}
+                          value={content.rewards[key]}
+                          onValueChange={(value) =>
+                            patch({
+                              rewards: { ...content.rewards, [key]: value },
+                            })
+                          }
+                        />
+                      </Field>
+                    ),
+                  )}
+                </div>
+                {content.rewards.drops.map((drop, i) => (
+                  <div
+                    className="grid grid-cols-[5rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_1fr_auto_auto]"
+                    key={i}
+                  >
+                    <select
+                      aria-label={`Drop ${i + 1} type`}
+                      className="rounded border bg-background p-2"
+                      value={drop.type}
+                      onChange={(e) => {
+                        const drops = [...content.rewards.drops];
+                        drops[i] = {
+                          ...drop,
+                          type: e.target.value as "item" | "jutsu",
+                          id: "",
+                        };
+                        patch({ rewards: { ...content.rewards, drops } });
+                      }}
+                    >
+                      <option value="item">Item</option>
+                      <option value="jutsu">Jutsu</option>
+                    </select>
+                    <select
+                      aria-label={`Drop ${i + 1} reward`}
+                      className="min-w-0 flex-1 rounded border bg-background p-2"
+                      value={drop.id}
+                      onChange={(e) => {
+                        const drops = [...content.rewards.drops];
+                        drops[i] = { ...drop, id: e.target.value };
+                        patch({ rewards: { ...content.rewards, drops } });
+                      }}
+                    >
+                      <option value="">Select reward</option>
+                      {(drop.type === "item" ? items.data : jutsus.data)?.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
                         </option>
                       ))}
                     </select>
+                    <Field label={`Drop ${i + 1} chance (%)`}>
+                      <NumberInput
+                        className="w-20"
+                        min={1}
+                        max={100}
+                        value={drop.chance}
+                        onValueChange={(value) => {
+                          const drops = [...content.rewards.drops];
+                          drops[i] = { ...drop, chance: value };
+                          patch({ rewards: { ...content.rewards, drops } });
+                        }}
+                      />
+                    </Field>
                     <Button
                       variant="secondary"
-                      disabled={wave.aiIds.length === 1}
+                      size="icon"
+                      aria-label={`Remove drop ${i + 1}`}
+                      hoverText="Remove drop"
                       onClick={() =>
-                        editRoom((r) => r.waves[wi]?.aiIds.splice(aiIndex, 1))
+                        patch({
+                          rewards: {
+                            ...content.rewards,
+                            drops: content.rewards.drops.filter((_, di) => di !== i),
+                          },
+                        })
                       }
                     >
-                      Remove
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </div>
                 ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="secondary"
-                  disabled={wave.aiIds.length >= DUNGEON_MAX_MOBS}
-                  onClick={() => editRoom((r) => r.waves[wi]?.aiIds.push(""))}
-                >
-                  Add enemy
-                </Button>
-                <Button
-                  variant="secondary"
-                  disabled={room.waves.length === 1}
                   onClick={() =>
-                    editRoom((r) => {
-                      r.waves.splice(wi, 1);
-                      if (r.waves[0]) r.waves[0].delayRounds = 0;
+                    patch({
+                      rewards: {
+                        ...content.rewards,
+                        drops: [
+                          ...content.rewards.drops,
+                          { type: "item", id: "", chance: 100 },
+                        ],
+                      },
                     })
                   }
                 >
-                  Remove wave
+                  <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+                  Add random drop
                 </Button>
               </div>
-            </div>
-          ))}
-          <Button
-            disabled={!room || room.waves.length >= DUNGEON_MAX_WAVES}
-            onClick={() =>
-              editRoom((r) => r.waves.push({ aiIds: [""], delayRounds: 1 }))
-            }
-          >
-            Add wave
-          </Button>
-        </div>
-        <div className="space-y-3 rounded border p-4">
-          <h2 className="font-bold text-lg">
-            Completion rewards · Each player rolls independently
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(["money", "experience", "tokens", "prestige"] as const).map((key) => (
-              <Field key={key} label={key === "money" ? "Ryo" : key}>
-                <NumberInput
-                  min={0}
-                  value={content.rewards[key]}
-                  onValueChange={(value) =>
-                    patch({
-                      rewards: { ...content.rewards, [key]: value },
-                    })
-                  }
-                />
-              </Field>
-            ))}
-          </div>
-          {content.rewards.drops.map((drop, i) => (
-            <div className="flex flex-wrap gap-2 rounded bg-muted p-3" key={i}>
-              <select
-                aria-label={`Drop ${i + 1} type`}
-                className="rounded border bg-background p-2"
-                value={drop.type}
-                onChange={(e) => {
-                  const drops = [...content.rewards.drops];
-                  drops[i] = {
-                    ...drop,
-                    type: e.target.value as "item" | "jutsu",
-                    id: "",
-                  };
-                  patch({ rewards: { ...content.rewards, drops } });
-                }}
-              >
-                <option value="item">Item</option>
-                <option value="jutsu">Jutsu</option>
-              </select>
-              <select
-                aria-label={`Drop ${i + 1} reward`}
-                className="min-w-0 flex-1 rounded border bg-background p-2"
-                value={drop.id}
-                onChange={(e) => {
-                  const drops = [...content.rewards.drops];
-                  drops[i] = { ...drop, id: e.target.value };
-                  patch({ rewards: { ...content.rewards, drops } });
-                }}
-              >
-                <option value="">Select reward</option>
-                {(drop.type === "item" ? items.data : jutsus.data)?.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-              <Field label={`Drop ${i + 1} chance: ${drop.chance}%`}>
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  value={drop.chance}
-                  onChange={(e) => {
-                    const drops = [...content.rewards.drops];
-                    drops[i] = { ...drop, chance: Number(e.target.value) };
-                    patch({ rewards: { ...content.rewards, drops } });
-                  }}
-                />
-              </Field>
-              <Button
-                variant="secondary"
-                onClick={() =>
-                  patch({
-                    rewards: {
-                      ...content.rewards,
-                      drops: content.rewards.drops.filter((_, di) => di !== i),
-                    },
-                  })
-                }
-              >
-                Remove drop
-              </Button>
-            </div>
-          ))}
-          <Button
-            variant="secondary"
-            onClick={() =>
-              patch({
-                rewards: {
-                  ...content.rewards,
-                  drops: [
-                    ...content.rewards.drops,
-                    { type: "item", id: "", chance: 100 },
-                  ],
-                },
-              })
-            }
-          >
-            Add random drop
-          </Button>
-        </div>
-        <Button className="mt-4" disabled={save.isPending} onClick={submit}>
-          {save.isPending ? "Saving…" : "Save dungeon"}
-        </Button>
+            </TabsContent>
+          </Tabs>
+        </fieldset>
       </div>
     </ContentBox>
   );

@@ -280,7 +280,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
     {
       id: "teamEnabled",
       type: "boolean",
-      label: "Allow Quest Teams (Story, Event, ANBU)",
+      label: "Allow quest teams",
     },
     { id: "questType", type: "str_array", values: QuestTypes },
     { id: "questRank", type: "str_array", values: LetterRanks },

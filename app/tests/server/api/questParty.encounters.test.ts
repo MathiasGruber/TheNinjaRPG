@@ -141,6 +141,10 @@ describeWithDatabase("quest team encounter location claims", () => {
     expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
     const party = (await client.query.questParty.findFirst())!;
     expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    expect((await leader.overview()).current).toMatchObject({
+      hasEncounter: true,
+      members: expect.arrayContaining([expect.objectContaining({ userId: "helper", longitude: 12, latitude: 13 })]),
+    });
     expect((await leader.startEncounter({ partyId: party.id })).success).toBe(true);
     const fight = (await client.query.battle.findFirst())!;
     expect(fight.extraState.questBattleSource).toEqual({ questId: "team-quest", objectiveId: "encounter" });
@@ -161,6 +165,7 @@ describeWithDatabase("quest team encounter location claims", () => {
     expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
     const party = (await client.query.questParty.findFirst())!;
     expect((await (await callerFor(questPartyRouter, "helper")).join({ partyId: party.id })).success).toBe(true);
+    expect((await leader.overview()).current?.hasEncounter).toBe(false);
     // Settlement releases the users and deletes the battle before the next team sync.
     await client.update(questParty).set({ battleId: "settled-team-battle" }).where(eq(questParty.id, party.id));
     await insertUsers([{ userId: "outsider", username: "outsider", status: "AWAKE", rank: "JONIN", level: 50, experience: 20_000_000, sector: 50, longitude: 12, latitude: 13, villageId: null }]);

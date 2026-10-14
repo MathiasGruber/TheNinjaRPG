@@ -52,6 +52,14 @@ it.each(["success", "error"])("keeps the saved draft selected until a pending sa
   const select = view.getByRole("combobox", { name: "Edit existing dungeon" }) as HTMLSelectElement;
   const newButton = view.getByRole("button", { name: "New dungeon" }) as HTMLButtonElement;
   fireEvent.change(select, { target: { value: "A" } });
+  // A numeric draft on a hidden tab must be revealed and corrected before saving.
+  const tokens = view.getByLabelText("Tokens") as HTMLInputElement;
+  fireEvent.input(tokens, { target: { value: "" } });
+  fireEvent.click(view.getByRole("button", { name: "Save dungeon" }));
+  expect(save).not.toHaveBeenCalled();
+  expect(view.getByRole("tab", { name: "Rewards" }).getAttribute("aria-selected")).toBe("true");
+  expect(view.getByRole("status").textContent).toBe("Please correct the highlighted number.");
+  fireEvent.input(tokens, { target: { value: "5" } });
   fireEvent.click(view.getByRole("button", { name: "Save dungeon" }));
   await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
   expect(save.mock.calls[0]?.[0]).toMatchObject({ id: "A", content: { name: "Dungeon A" } });
@@ -79,5 +87,10 @@ it.each(["success", "error"])("keeps the saved draft selected until a pending sa
   fireEvent.click(newButton);
   expect(select.value).toBe("");
   expect((view.getByLabelText("Name") as HTMLInputElement).value).toBe("");
+  fireEvent.change(view.getByLabelText("Name"), { target: { value: "New dungeon" } });
+  fireEvent.click(view.getByRole("button", { name: "Save dungeon" }));
+  expect(save).toHaveBeenCalledTimes(2);
+  expect(view.getByRole("tab", { name: "Encounters" }).getAttribute("aria-selected")).toBe("true");
+  expect(view.getByRole("status").textContent).toContain("Tier 1, floor 1: Choose an enemy");
   queryClient.clear();
 });

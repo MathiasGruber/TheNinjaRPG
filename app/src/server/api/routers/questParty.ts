@@ -178,6 +178,9 @@ export const questPartyRouter = createTRPCRouter({
         limit: 100,
       }),
     ]);
+    const objectiveIds = new Set(
+      user?.questParty?.quest.content.objectives.map((entry) => entry.id) ?? [],
+    );
     return {
       current: user?.questParty
         ? {
@@ -187,11 +190,19 @@ export const questPartyRouter = createTRPCRouter({
             name: user.questParty.quest.name,
             leaderId: user.questParty.leaderId,
             isPublic: user.questParty.isPublic,
+            // Non-combat quests use their Logbook objectives instead of an unusable launch button.
+            hasEncounter: getActiveObjectives(user).some(
+              (entry) =>
+                objectiveIds.has(entry.id) &&
+                (entry.task === "start_battle" || entry.task === "defeat_opponents"),
+            ),
             members: user.questParty.members.map(
-              ({ userId, username, sector, status }) => ({
+              ({ userId, username, sector, longitude, latitude, status }) => ({
                 userId,
                 username,
                 sector,
+                longitude,
+                latitude,
                 status,
               }),
             ),

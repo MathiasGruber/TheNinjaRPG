@@ -73,6 +73,14 @@ const scenarios = [
   { status: "PAUSED", label: "Resume and ready up", command: "resume" },
 ] as const;
 
+it("does not show an older ended run beside a newer completion", async () => {
+  const data = partyState("COMPLETED");
+  data.runs = [...data.runs, { ...party("ENDED"), id: "old", state: { ...party("ENDED").state, message: "Old abandonment" } }];
+  const { view } = mount(null, async () => [], async () => data);
+  await waitFor(() => expect(view.getByRole("button", { name: "Claim completion rewards" })).toBeDefined());
+  expect(view.queryByText(/Old abandonment/)).toBeNull();
+});
+
 it("uses the shared account clock across dungeon response updates", async () => {
   const { view, queryClient, countdown } = mount("PAUSED", async () => []);
   await waitFor(() => expect(view.getByRole("button", { name: "Resume and ready up" })).toBeDefined());

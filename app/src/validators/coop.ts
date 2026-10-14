@@ -9,7 +9,7 @@ export const coopRosterSchema = z.object({
 });
 /** Enemy template occurrences and the minimum rounds elapsed since the previous wave began. */
 export const encounterWaveSchema = z.object({
-  aiIds: z.array(z.string().min(1)).min(1),
+  aiIds: z.array(z.string().min(1, "Choose an enemy for every wave.")).min(1),
   delayRounds: z.number().int().min(0).max(ENCOUNTER_MAX_WAVE_DELAY_ROUNDS).prefault(0),
 });
 /** Shared member, invitation and readiness IDs; activity adapters enforce their policy. */

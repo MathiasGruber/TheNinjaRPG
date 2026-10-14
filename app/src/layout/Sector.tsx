@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import alea from "alea";
 import type { Grid } from "honeycomb-grid";
 import { useAtomValue } from "jotai";
-import { Swords } from "lucide-react";
+import { Castle, Swords } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -2865,11 +2865,12 @@ const Sector: React.FC<SectorProps> = (props) => {
         </div>
       )}
       {!!sectorDungeons?.length && (
-        <div className="absolute top-4 right-4 z-20 rounded-lg bg-black/70 p-3 text-white">
+        <Button asChild size="sm" className="absolute top-4 right-4 z-20 shadow-md">
           <Link href="/dungeon">
-            <Button>Dungeon Pyramids ({sectorDungeons.length})</Button>
+            <Castle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+            Dungeons ({sectorDungeons.length})
           </Link>
-        </div>
+        </Button>
       )}
       {activeRaid && (
         <div

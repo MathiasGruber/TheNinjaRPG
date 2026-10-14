@@ -15,7 +15,7 @@ import { type CoopRoster, encounterWaveSchema } from "@/validators/coop";
 /** Each member rolls each authored item or jutsu drop independently at completion. */
 const dungeonDropSchema = z.object({
   type: z.enum(["item", "jutsu"]),
-  id: z.string().min(1),
+  id: z.string().min(1, "Choose a reward for each drop."),
   chance: z.number().min(1).max(100),
 });
 /** Enemy templates and the minimum rounds elapsed since the preceding wave began. */
@@ -33,7 +33,7 @@ export const dungeonFloorSchema = z.object({
 /** Shared editor/server contract: five floors per tier, immediate first waves and a final boss. */
 export const dungeonContentSchema = z
   .object({
-    name: z.string().trim().min(1).max(100),
+    name: z.string().trim().min(1, "Enter a dungeon name.").max(100),
     description: z.string().max(2000).prefault(""),
     sector: z.number().int().min(MAP_SECTOR_ID_MIN).max(MAP_SECTOR_ID_MAX),
     longitude: z
