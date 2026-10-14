@@ -78,14 +78,20 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
   const isRevealed = getWarEspionage(w, side) >= WAR_ESPIONAGE_TARGET;
   const enemyVillage =
     side === w.attackerVillageId ? w.defenderVillage : w.attackerVillage;
-  const hasEnded = w.status !== "ACTIVE" || !!w.endedAt;
+  const hasEnded =
+    w.status !== "ACTIVE" ||
+    !!w.endedAt ||
+    w.attackerWarHealth <= 0 ||
+    w.defenderWarHealth <= 0;
   const pending = hasEnded || start.isPending || finish.isPending || cancel.isPending;
   return (
     <section className="my-4 space-y-4 rounded-lg border p-4">
       <h3 className="text-lg font-semibold">War objectives</h3>
       <p>
         {hasEnded
-          ? `War ended: ${w.status.replaceAll("_", " ")}`
+          ? w.status === "ACTIVE"
+            ? "War is settling."
+            : `War ended: ${w.status.replaceAll("_", " ")}`
           : isNotice
             ? "Notice period — allies and war missions are available."
             : "Active objective war"}{" "}

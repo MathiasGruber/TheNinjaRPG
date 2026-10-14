@@ -459,6 +459,8 @@ export const warRouter = createTRPCRouter({
       .where(
         and(
           isNull(war.endedAt),
+          gt(war.attackerWarHealth, 0),
+          gt(war.defenderWarHealth, 0),
           isNull(warCamp.resolvedAt),
           sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
           or(

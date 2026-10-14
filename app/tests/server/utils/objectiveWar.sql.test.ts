@@ -179,4 +179,20 @@ describeWithDatabase("objective war atomic strategic actions", () => {
     expect(after.objectiveState!.objectives[0]!.hp).toBe(350);
   });
 
+  it("preserves an earlier camp victory when delayed daily decay is also due", async () => {
+    const db = await getTestDatabase(); const start = new Date(Date.now() - 24.5 * 3600000);
+    await db.update(war).set({ combatStartedAt: start, lastTokenReductionAt: start, attackerWarHealth: 200, defenderWarHealth: 250 }).where(eq(war.id, "w"));
+    await db.insert(warCamp).values({ id: "first-victory", warId: "w", sector: 201, guardianId: "ai", startsAt: new Date(start.getTime() + 21 * 3600000), endsAt: new Date(start.getTime() + 22 * 3600000), attackerScore: 10 });
+    await insertUsers([{ userId: "camp-ai", username: "camp-guardian", isAi: true, isWarCamp: true }]);
+    await syncWarCamps(db, [await readWar()]);
+    expect(await db.query.warCamp.findMany()).toHaveLength(1);
+    const after = await readWar(); expect(after.attackerWarHealth).toBe(200); expect(after.defenderWarHealth).toBe(0);
+  });
+  it("stops overdue decay at the first terminal day", async () => {
+    const db = await getTestDatabase(); const start = new Date(Date.now() - 6 * 86400000);
+    await db.update(war).set({ combatStartedAt: start, lastTokenReductionAt: start, attackerWarHealth: 1000, defenderWarHealth: 1300 }).where(eq(war.id, "w"));
+    await applyObjectiveWarDecay(db, await readWar());
+    const after = await readWar(); expect(after.attackerWarHealth).toBe(0); expect(after.defenderWarHealth).toBe(100);
+  });
+
 });

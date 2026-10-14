@@ -22,10 +22,20 @@ export const getWarSide = (
 };
 
 export const isObjectiveWarActive = (
-  activeWar: Pick<War, "rules" | "combatStartedAt" | "endedAt" | "status">,
+  activeWar: Pick<
+    War,
+    | "rules"
+    | "combatStartedAt"
+    | "endedAt"
+    | "status"
+    | "attackerWarHealth"
+    | "defenderWarHealth"
+  >,
   now = new Date(),
 ) =>
   activeWar.status === "ACTIVE" &&
+  activeWar.attackerWarHealth > 0 &&
+  activeWar.defenderWarHealth > 0 &&
   !activeWar.endedAt &&
   !!activeWar.rules &&
   !!activeWar.combatStartedAt &&

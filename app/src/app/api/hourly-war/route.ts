@@ -33,8 +33,8 @@ import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import {
-  applyObjectiveWarDecay,
   expireWarPoints,
+  settleObjectiveWarSchedule,
   syncWarCamps,
 } from "@/server/utils/objectiveWar";
 import {
@@ -62,12 +62,12 @@ export async function GET(request: Request) {
   try {
     const now = new Date();
     await syncStrongholdMembership(drizzleDB);
-    // Apply every due daily drain through the deadline before settlement chooses a winner.
+    // Replay due camp results and daily drains before settlement chooses a winner.
     const dueObjectiveWars = await drizzleDB.query.war.findMany({
       where: and(eq(war.status, "ACTIVE"), isNotNull(war.rules)),
     });
     await Promise.all(
-      dueObjectiveWars.map((w) => applyObjectiveWarDecay(drizzleDB, w, now)),
+      dueObjectiveWars.map((w) => settleObjectiveWarSchedule(drizzleDB, w, now)),
     );
     // Raid deadlines and daily HP drain are checked hourly, independently of village token decay.
     const raids = (await fetchActiveWars(drizzleDB)).filter(

@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lte, sql } from "drizzle-orm";
 import {
   WAR_CAMP_DURATION_HOURS,
   WAR_CAMP_INTERVAL_HOURS,
@@ -172,25 +172,76 @@ export const applyObjectiveWarDecay = async (
       86400000,
   );
   if (intervals <= 0) return;
-  const decay = intervals * activeWar.rules.dailyDecay;
-  await retryOnDeadlock(() =>
-    client
-      .update(war)
-      .set({
-        attackerWarHealth: sql`GREATEST(${war.attackerWarHealth} - ${decay}, 0)`,
-        defenderWarHealth: sql`GREATEST(${war.defenderWarHealth} - ${decay}, 0)`,
-        lastTokenReductionAt: new Date(
-          activeWar.lastTokenReductionAt.getTime() + intervals * 86400000,
+  const decay = activeWar.rules.dailyDecay;
+  for (let interval = 1; interval <= intervals; interval++) {
+    const previous = new Date(
+      activeWar.lastTokenReductionAt.getTime() + (interval - 1) * 86400000,
+    );
+    await retryOnDeadlock(() =>
+      client
+        .update(war)
+        .set({
+          attackerWarHealth: sql`GREATEST(${war.attackerWarHealth} - ${decay}, 0)`,
+          defenderWarHealth: sql`GREATEST(${war.defenderWarHealth} - ${decay}, 0)`,
+          lastTokenReductionAt: new Date(
+            activeWar.lastTokenReductionAt.getTime() + interval * 86400000,
+          ),
+        })
+        .where(
+          and(
+            eq(war.id, activeWar.id),
+            isNull(war.endedAt),
+            eq(war.lastTokenReductionAt, previous),
+            gt(war.attackerWarHealth, 0),
+            gt(war.defenderWarHealth, 0),
+          ),
         ),
-      })
-      .where(
-        and(
-          eq(war.id, activeWar.id),
-          isNull(war.endedAt),
-          eq(war.lastTokenReductionAt, activeWar.lastTokenReductionAt),
-        ),
+    );
+  }
+};
+
+/** Replay scheduled effects in time order; health guards preserve the first defeat. */
+export const settleObjectiveWarSchedule = async (
+  client: DrizzleClient,
+  activeWar: War,
+  now = new Date(),
+  preloadedCamps?: WarCamp[],
+) => {
+  if (!activeWar.rules || !activeWar.combatStartedAt || activeWar.endedAt) return;
+  const deadline =
+    activeWar.combatStartedAt.getTime() + activeWar.rules.durationDays * 86400000;
+  const cutoff = Math.min(now.getTime(), deadline);
+  const camps =
+    preloadedCamps ??
+    (await client.query.warCamp.findMany({
+      where: and(
+        eq(warCamp.warId, activeWar.id),
+        isNull(warCamp.resolvedAt),
+        lte(warCamp.endsAt, new Date(cutoff)),
       ),
-  );
+    }));
+  const events: { at: Date; camp?: WarCamp }[] = camps
+    .filter((c) => c.endsAt.getTime() <= cutoff)
+    .map((camp) => ({ at: camp.endsAt, camp }));
+  for (
+    let at = activeWar.lastTokenReductionAt.getTime() + 86400000;
+    at <= cutoff;
+    at += 86400000
+  )
+    events.push({ at: new Date(at) });
+  events.sort((a, b) => a.at.getTime() - b.at.getTime());
+  let previous = activeWar.lastTokenReductionAt;
+  for (const event of events) {
+    if (event.camp) await resolveDueWarCamps(client, [event.camp], now);
+    else {
+      await applyObjectiveWarDecay(
+        client,
+        { ...activeWar, lastTokenReductionAt: previous },
+        event.at,
+      );
+      previous = event.at;
+    }
+  }
 };
 
 /** Fixed slots make retries harmless. A tie applies no damage. */
@@ -207,7 +258,21 @@ export const syncWarCamps = async (
       where: and(eq(userData.isAi, true), eq(userData.isWarCamp, true)),
     }),
   ]);
-  await resolveDueWarCamps(client, camps, now);
+  await Promise.all(
+    wars.map((w) =>
+      settleObjectiveWarSchedule(
+        client,
+        w,
+        now,
+        camps.filter((c) => c.warId === w.id),
+      ),
+    ),
+  );
+  await resolveDueWarCamps(
+    client,
+    camps.filter((c) => !wars.some((w) => w.id === c.warId)),
+    now,
+  );
   if (!guardians.length) return;
   await Promise.all(
     wars
@@ -226,17 +291,16 @@ export const syncWarCamps = async (
           [w.attackerVillageId, w.defenderVillageId].includes(s.villageId),
         );
         if (!owned.length) return;
-        await client
-          .insert(warCamp)
-          .values({
-            id: `${w.id}:${slot}`,
-            warId: w.id,
-            sector: owned[Math.floor(Math.random() * owned.length)]!.sector,
-            guardianId: guardians[Math.floor(Math.random() * guardians.length)]!.userId,
-            startsAt,
-            endsAt,
-          })
-          .onDuplicateKeyUpdate({ set: { id: sql`${warCamp.id}` } });
+        const selectedSector = owned[Math.floor(Math.random() * owned.length)]!.sector;
+        const guardianId =
+          guardians[Math.floor(Math.random() * guardians.length)]!.userId;
+        // Replay can have ended combat since preload; guard insertion against current health.
+        await client.execute(sql`
+          INSERT IGNORE INTO WarCamp (id, warId, sector, guardianId, startsAt, endsAt)
+          SELECT ${`${w.id}:${slot}`}, ${war.id}, ${selectedSector}, ${guardianId}, ${startsAt}, ${endsAt}
+          FROM ${war} WHERE ${war.id} = ${w.id} AND ${war.status} = 'ACTIVE' AND ${war.endedAt} IS NULL
+            AND ${objectiveWarCombatGuard()}
+        `);
       }),
   );
 };
@@ -249,20 +313,6 @@ export const expireWarPoints = (client: DrizzleClient) =>
     AND ${war.endedAt} IS NOT NULL AND DATE_ADD(${war.endedAt}, INTERVAL ${WAR_POINT_CONVERSION_DAYS} DAY) <= SYSDATE(3)
 `);
 
-export const settleDueWarCamps = async (
-  client: DrizzleClient,
-  warId: string,
-  now = new Date(),
-) => {
-  const camps = await client.query.warCamp.findMany({
-    where: and(
-      eq(warCamp.warId, warId),
-      isNull(warCamp.resolvedAt),
-      lte(warCamp.endsAt, now),
-    ),
-  });
-  await resolveDueWarCamps(client, camps, now);
-};
 const resolveDueWarCamps = async (
   client: DrizzleClient,
   camps: WarCamp[],
@@ -275,8 +325,8 @@ const resolveDueWarCamps = async (
         retryOnDeadlock(() =>
           client.execute(sql`
     UPDATE ${warCamp} INNER JOIN ${war} ON ${war.id} = ${warCamp.warId}
-    SET ${war.attackerWarHealth} = GREATEST(${war.attackerWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.defenderScore} > ${warCamp.attackerScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
-        ${war.defenderWarHealth} = GREATEST(${war.defenderWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.attackerScore} > ${warCamp.defenderScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
+    SET ${war.attackerWarHealth} = GREATEST(${war.attackerWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0 AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.defenderScore} > ${warCamp.attackerScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
+        ${war.defenderWarHealth} = GREATEST(${war.defenderWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0 AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.attackerScore} > ${warCamp.defenderScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
         ${warCamp.resolvedAt} = SYSDATE(3)
     WHERE ${warCamp.id} = ${camp.id} AND ${warCamp.resolvedAt} IS NULL AND ${warCamp.endsAt} <= SYSDATE(3)
   `),

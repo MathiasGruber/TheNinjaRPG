@@ -73,11 +73,7 @@ import {
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
-import {
-  applyObjectiveWarDecay,
-  fetchWarRules,
-  settleDueWarCamps,
-} from "@/server/utils/objectiveWar";
+import { fetchWarRules, settleObjectiveWarSchedule } from "@/server/utils/objectiveWar";
 import { logError } from "@/server/utils/sentry";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { DAY_S, secondsFromDate } from "@/utils/time";
@@ -121,8 +117,7 @@ export const handleWarEnd = async (
       current.combatStartedAt.getTime() + current.rules.durationDays * DAY_S * 1000 ||
       Date.now() >= current.lastTokenReductionAt.getTime() + DAY_S * 1000)
   ) {
-    await applyObjectiveWarDecay(client, current);
-    await settleDueWarCamps(client, current.id);
+    await settleObjectiveWarSchedule(client, current);
     current = (await fetchSettlementWar(client, current.id)) ?? current;
   }
   for (let attempt = 0; attempt < 4; attempt++) {
