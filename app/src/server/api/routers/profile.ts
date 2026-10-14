@@ -195,7 +195,10 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
-import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
+import {
+  buildDerivedUserRegenUpdate,
+  buildNegativePrestigeVillageUpdate,
+} from "@/server/utils/profileRegen";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
@@ -217,7 +220,6 @@ import {
   settleJutsuTrainingQueue,
 } from "@/server/utils/userQueue";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
-import { buildDerivedUserRegenUpdate, buildNegativePrestigeVillageUpdate } from "@/server/utils/profileRegen";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {

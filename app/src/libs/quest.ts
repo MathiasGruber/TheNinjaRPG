@@ -501,25 +501,31 @@ export const getReward = (
       isReducedMissionReward(user.dailyMissions, { phase: "in-progress" })
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
-    // Loyalty improves earnings, never the cost of a configured penalty.
-    const scaleReward = (value: number, extraLoyalty = 0) =>
-      Math.floor(
-        (value * boostFactor +
-          (value > 0 ? (value * (missionLoyalty + extraLoyalty)) / 100 : 0)) *
-          reducedRewardFactor,
-      );
+    const factor = boostFactor * reducedRewardFactor;
+    // Keep configured penalties and unrelated reward categories at their existing scale.
+    const scaleReward = (value: number, loyaltyPercent = 0) =>
+      Math.floor(value * factor) +
+      (value > 0
+        ? Math.round((value * loyaltyPercent * reducedRewardFactor) / 100)
+        : 0);
 
     // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
     const scaleRewards = (target: ObjectiveRewardType) => {
       // Apply only the listed gain categories, including frozen reward-choice offers.
       const pvpPercent = getPvpBoost(user, settings).totalPercent;
       boostPvpRewards(target, pvpPercent);
-      target.reward_money = Math.floor(target.reward_money * factor);
+      target.reward_money = scaleReward(target.reward_money, missionLoyalty);
       target.reward_clanpoints = Math.floor(target.reward_clanpoints * factor);
       target.reward_anbupoints = Math.floor(target.reward_anbupoints * factor);
-      target.reward_exp = Math.floor(target.reward_exp * factor);
-      target.reward_tokens = Math.floor(target.reward_tokens * factor);
-      target.reward_prestige = Math.floor(target.reward_prestige * factor);
+      target.reward_exp = scaleReward(target.reward_exp, missionLoyalty);
+      target.reward_tokens = scaleReward(
+        target.reward_tokens,
+        missionLoyalty + loyalty.villageRewards,
+      );
+      target.reward_prestige = scaleReward(
+        target.reward_prestige,
+        missionLoyalty + loyalty.villageRewards,
+      );
       target.reward_reputation = Math.floor(target.reward_reputation * factor);
       target.reward_medical_experience = Math.floor(
         target.reward_medical_experience * factor,
@@ -535,9 +541,10 @@ export const getReward = (
       );
       for (const field of MASTERY_EXPERIENCE_FIELDS)
         if (target[field] !== undefined)
-          target[field] = Math.floor((target[field] ?? 0) * factor);
-      target.reward_sage_mastery_experience = Math.floor(
-        target.reward_sage_mastery_experience * factor,
+          target[field] = scaleReward(target[field] ?? 0, missionLoyalty);
+      target.reward_sage_mastery_experience = scaleReward(
+        target.reward_sage_mastery_experience,
+        missionLoyalty,
       );
       target.reward_seichi_silver = Math.floor(target.reward_seichi_silver * factor);
 
@@ -718,20 +725,16 @@ export const postProcessRewards = (
   const villageRewardBonus = user ? getVillageLoyaltyBonuses(user).villageRewards : 0;
   return {
     ...rewards,
-    ...(user
+    ...(villageRewardBonus > 0
       ? {
-          reward_tokens: Math.floor(
+          reward_tokens:
             rewards.reward_tokens > 0
-              ? rewards.reward_tokens +
-                  (rewards.reward_tokens * villageRewardBonus) / 100
+              ? Math.round(rewards.reward_tokens * (1 + villageRewardBonus / 100))
               : rewards.reward_tokens,
-          ),
-          reward_prestige: Math.floor(
+          reward_prestige:
             rewards.reward_prestige > 0
-              ? rewards.reward_prestige +
-                  (rewards.reward_prestige * villageRewardBonus) / 100
+              ? Math.round(rewards.reward_prestige * (1 + villageRewardBonus / 100))
               : rewards.reward_prestige,
-          ),
         }
       : {}),
     reward_items: rewardItems

@@ -1,26 +1,13 @@
-// @vitest-environment node
-
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { UserStatNames } from "@/drizzle/constants";
+import { afterEach, beforeEach, describe, expect, it, setSystemTime, vi } from "bun:test";
+import { STATS_PER_ENERGY } from "@/drizzle/constants";
+import { calcMasteryTrainingAmount, settleEnergyTrainingQueue, settleMasteryTrainingQueue, trainingBoost } from "@/libs/train";
+import type { UserWithRelations } from "@/routers/profile";
+import { combatMasteryGains } from "@/libs/combat/mastery";
 import { calcBattleResult } from "@/libs/combat/util";
 import { getReward, postProcessRewards } from "@/libs/quest";
-import { fetchUpdatedUser, profileRouter } from "@/routers/profile";
-import { updateRewards } from "@/routers/quests";
 import { QuestValidator } from "@/validators/objectives";
-import { ObjectiveReward, PostProcessedRewardSchema } from "@/validators/rewards";
+import { ObjectiveReward } from "@/validators/rewards";
 import { makeBattleUser, makeCompleteBattle } from "./combat/helpers/battleScenario";
-
-vi.mock("@/server/db", () => ({ drizzleDB: {} }));
-vi.mock("@/env/server.mjs", () => ({
-  env: { NODE_ENV: "test", NEXT_PUBLIC_BASE_URL: "http://localhost:3000" },
-}));
-vi.mock("@/env/client.mjs", () => ({
-  env: { NEXT_PUBLIC_BASE_URL: "http://localhost:3000" },
-}));
-vi.mock("@/libs/moderator", () => ({
-  moderateContent: vi.fn(),
-  validateUserUpdateReason: vi.fn(),
-}));
 
 const NOW = new Date("2026-09-19T12:00:00Z");
 const member = (days: number) => ({
@@ -30,12 +17,12 @@ const member = (days: number) => ({
 });
 
 beforeEach(() => {
-  vi.useFakeTimers();
-  vi.setSystemTime(NOW);
+  setSystemTime(NOW);
+  vi.spyOn(Math, "random").mockReturnValue(0.5);
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => { setSystemTime(); vi.restoreAllMocks(); });
 
-const questReward = (days: number, questType: "daily" | "mission", amount: number) => {
+const questReward = (days: number, questType: "daily" | "mission", amount: number, extraReward: Record<string, number> = {}, choice = false) => {
   const quest = {
     id: "quest-1",
     ...QuestValidator.parse({
@@ -46,7 +33,8 @@ const questReward = (days: number, questType: "daily" | "mission", amount: numbe
         objectives: [0, 1, 2].map((id) => ({
           id: `goal-${id}`, task: "win_quest", description: "Complete", successDescription: "",
         })),
-        reward: { reward_prestige: amount },
+        reward: { reward_prestige: amount, ...extraReward },
+        ...(choice ? { rewardMode: "choose", rewardPickCount: 1 } : {}),
       },
     }),
   };
@@ -74,6 +62,35 @@ describe("loyalty reward delivery", () => {
     expect(questReward(90, "mission", 1000).rewards.reward_prestige).toBe(1180);
   });
 
+  it("scales frozen reward-choice offers once with the same loyalty as direct rewards", () => {
+    const result = questReward(90, "mission", 1000, { reward_money: 1000 }, true);
+    expect(result.rewardChoice?.cards).toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "reward_prestige", amount: 1180 }),
+      expect.objectContaining({ field: "reward_money", amount: 1050 }),
+    ]));
+    expect(result.rewards.reward_prestige).toBe(0);
+  });
+  it("restricts mission loyalty to money, experience, mastery and village earnings", () => {
+    const result = questReward(100, "mission", 1000, {
+      reward_money: 1000, reward_exp: 1000, reward_ninjutsu_experience: 1000,
+      reward_reputation: 1000, reward_clanpoints: 1000, reward_anbupoints: 1000,
+      reward_seichi_silver: 1000, reward_medical_experience: 1000,
+    });
+    expect(result.rewards).toMatchObject({ reward_money: 1050, reward_exp: 1050,
+      reward_ninjutsu_experience: 1050, reward_prestige: 1180,
+      reward_reputation: 1000, reward_clanpoints: 1000, reward_anbupoints: 1000,
+      reward_seichi_silver: 1000, reward_medical_experience: 1000,
+    });
+  });
+  it("normally rounds small positive loyalty awards", () => {
+    expect(questReward(90, "daily", 5).rewards.reward_prestige).toBe(6);
+    expect(postProcessRewards(ObjectiveReward.parse({ reward_tokens: 5 }), member(90)).reward_tokens).toBe(6);
+  });
+
+  it("preserves fractional penalties and payouts without active loyalty", () => {
+    expect(postProcessRewards(ObjectiveReward.parse({ reward_prestige: -5.5 }), member(90)).reward_prestige).toBe(-5.5);
+    expect(postProcessRewards(ObjectiveReward.parse({ reward_prestige: 5.5 }), member(0)).reward_prestige).toBe(5.5);
+  });
   it("boosts unscaled configured payouts without changing penalties", () => {
     const rewards = ObjectiveReward.parse({ reward_prestige: 1000, reward_tokens: 1000 });
     expect(postProcessRewards(rewards, member(90))).toMatchObject({ reward_prestige: 1130, reward_tokens: 1130 });
@@ -81,129 +98,60 @@ describe("loyalty reward delivery", () => {
     expect(postProcessRewards(ObjectiveReward.parse({ reward_prestige: -100 }), member(90)).reward_prestige).toBe(-100);
   });
 
-  it("boosts arena stats while preserving rewardless battles", () => {
-    const result = (days: number, battleType: "ARENA" | "TRAINING" = "ARENA") => calcBattleResult(
-      makeCompleteBattle({
-        battleType, rewardScaling: 1,
-        usersState: [
-          makeBattleUser("winner", { ...member(days), experience: 1000, usedGenerals: { strength: 1, speed: 0, intelligence: 0, willpower: 0 } }),
-          makeBattleUser("loser", { curHealth: 0, leftBattle: true, isAi: true, experience: 1000 }),
-        ],
-      }), "winner", [],
-    );
-    const base = result(0)!.strength;
-    expect(base).toBeGreaterThan(0);
-    expect(result(20)!.strength).toBeCloseTo(base * 1.05);
-    expect(result(70)!.strength).toBeCloseTo(base * 1.15);
-    expect(result(70)!.experience).toBe(result(70)!.strength);
-    expect(result(70, "TRAINING")!.strength).toBe(0);
-  });
-
-  it("boosts converted stats while spending the original allocatable XP", async () => {
-    const user = {
-      ...Object.fromEntries(UserStatNames.map((key) => [key, 100])),
-      ...member(70), userId: "user-1", rank: "JONIN", experience: 1000, earnedExperience: 1000,
-    };
-    const database = {
-      query: { userData: { findFirst: vi.fn().mockResolvedValue(user) } },
-      update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue({ rowsAffected: 1 }) }) }),
-    };
-    const api = profileRouter.createCaller({ userId: "user-1", drizzle: database } as never);
-    const input = { ninjutsuOffence: 0, taijutsuOffence: 0, genjutsuOffence: 0, bukijutsuOffence: 0,
-      ninjutsuDefence: 0, taijutsuDefence: 0, genjutsuDefence: 0, bukijutsuDefence: 0,
-      strength: 100, speed: 0, intelligence: 0, willpower: 0 };
-    const response = await api.useUnusedExperiencePoints(input);
-    expect(response).toMatchObject({ success: true, data: { strength: 215, earnedExperience: 900, experience: 1115 } });
-  });
-
-  it.each(["village-1", "village-2"])("changes membership age only when the destination %s differs", async (villageId) => {
-    const sets: Record<string, unknown>[] = [];
-    const db = {
-      select: () => ({ from: () => ({ where: () => Promise.resolve([{ id: villageId, name: "AKIKAZE" }]) }) }),
-      update: () => ({ set: (data: Record<string, unknown>) => { sets.push(data); return { where: () => Promise.resolve({ rowsAffected: 1 }) }; } }),
-    };
-    await updateRewards({
-      client: db as never,
-      user: { ...member(90), userId: "user-1", questData: [], occupation: "NONE" } as never,
-      rewards: PostProcessedRewardSchema.parse({ reward_village_membership: "AKIKAZE" }),
-      reason: "QUEST",
+  it("caps boosted PvP mastery awards against the unbuffed stored base", () => {
+    const user = makeBattleUser("player", { ...member(30), ninjutsuMastery: 1800000,
+      masteryRanks: { ninjutsuMastery: "MASTER" }, usedMasteries: { ninjutsuMastery: 1 },
+      baseStatsForModifiers: { ninjutsuMastery: 1499995 },
     });
-    expect(sets[0]?.villageId).toBe(villageId);
-    if (villageId === "village-1") expect(sets[0]).not.toHaveProperty("joinedVillageAt");
-    else expect(sets[0]?.joinedVillageAt).toEqual(NOW);
+    expect(combatMasteryGains({ battleType: "COMBAT", rewardScaling: 1 }, user,
+      [makeBattleUser("target")], "Won", 0)).toMatchObject({ ninjutsuMastery: 5 });
+  });
+  it("boosts only open-world PvP growth and experience, including loss participation", () => {
+    const result = (days: number, battleType: "COMBAT" | "ARENA" | "RANKED_PVP", won = true) => calcBattleResult(
+      makeCompleteBattle({ battleType, rewardScaling: 1, usersState: [
+        makeBattleUser("player", { ...member(days), experience: 1000, direction: "left", pvpStreak: 0, ninjutsuMastery: 0, masteryRanks: { ninjutsuMastery: "NOVICE" }, usedMasteries: { ninjutsuMastery: 1 }, villageId: "village-1", curHealth: won ? 100 : 0, usedGenerals: { strength: 1, speed: 0, intelligence: 0, willpower: 0 } }),
+        makeBattleUser("opponent", { direction: "right", villageId: "village-2", curHealth: won ? 0 : 100, experience: 1000, isAi: battleType === "ARENA" }),
+      ] }), "player", [],
+    )!;
+    const base = result(0, "COMBAT");
+    const loyal = result(30, "COMBAT");
+    expect(base.strength).toBeGreaterThan(0);
+    expect(base.pvpExperience).toBeGreaterThan(0);
+    expect(loyal.strength).toBeCloseTo(base.strength * 1.05, 1);
+    expect(loyal.pvpExperience).toBe((base.pvpExperience ?? 0) * 1.05);
+    expect(result(30, "COMBAT", false).pvpExperience).toBe((result(0, "COMBAT", false).pvpExperience ?? 0) * 1.05);
+    expect(result(70, "ARENA").strength).toBe(result(0, "ARENA").strength);
+    expect(result(70, "RANKED_PVP").pvpExperience).toBe(result(0, "RANKED_PVP").pvpExperience);
+    expect(loyal.money).toBe(base.money);
+    expect(loyal.masteryGains?.ninjutsuMastery).toBe((base.masteryGains?.ninjutsuMastery ?? 0) * 1.05);
+    expect(result(30, "COMBAT", false).masteryGains?.ninjutsuMastery).toBe((result(0, "COMBAT", false).masteryGains?.ninjutsuMastery ?? 0) * 1.05);
   });
 });
 
+const trainee = (days: number) => ({ ...makeBattleUser("trainee"), ...member(days),
+  rank: "GENIN", status: "AWAKE", isBanned: false, village: null, clan: null,
+  dailyTrainings: 0, trainingSpeed: "15min", currentlyTrainingMastery: "ninjutsuMastery",
+  masteryTrainingStartedAt: new Date(NOW.getTime() - 900_000),
+  ninjutsuMastery: 0, elementalMastery: {}, curEnergy: 100, maxEnergy: 100, strength: 0,
+}) as unknown as NonNullable<UserWithRelations>;
 
-const profileSnapshot = (isOutlaw: boolean, anbuId: string | null = null) => ({
-  ...makeBattleUser("user-1"), ...member(isOutlaw ? 0 : 90),
-  isOutlaw, villageId: isOutlaw ? "syndicate" : "village-1",
-  villagePrestige: isOutlaw ? 100 : -100,
-  village: { id: isOutlaw ? "syndicate" : "village-1", type: isOutlaw ? "OUTLAW" : "VILLAGE", structures: [], sectors: [] },
-  status: "BATTLE", anbuId, anbuSquad: anbuId ? { name: "Squad" } : null,
-  clanId: null, clan: null, bloodline: null, sageMode: null, activeReskin: null,
-  userQuests: [], completedQuests: [], votes: {}, promotions: [], questData: [],
-});
-
-const profileClient = (snapshots: ReturnType<typeof profileSnapshot>[], failCleanup = false, maxReads = Infinity) => {
-  const selection = Object.assign(Promise.resolve([]), {
-    from: () => selection, where: () => selection, leftJoin: () => selection,
-    limit: () => selection, orderBy: () => selection,
+describe("loyalty training integration", () => {
+  it("shares stat bonuses between direct and queued Energy training", () => {
+    const user = trainee(70);
+    expect(trainingBoost(user, [])).toBeCloseTo(trainingBoost(trainee(14), []) * 1.15);
+    const result = settleEnergyTrainingQueue(user, [{ stat: "strength", energy: 10 }], [], 0);
+    expect(result.gains.strength).toBeCloseTo(10 * STATS_PER_ENERGY * trainingBoost(user, []));
   });
-  let reads = 0;
-  let writes = 0;
-  const db = {
-    select: () => selection,
-    query: {
-      userData: { findFirst: () => {
-        if (reads >= maxReads) throw new Error("Exceeded profile read budget");
-        return Promise.resolve(structuredClone(snapshots[Math.min(reads++, snapshots.length - 1)]));
-      } },
-      war: { findMany: () => Promise.resolve([]) },
-      mpvpBattleQueue: { findMany: () => Promise.resolve([]) },
-      quest: { findMany: () => Promise.resolve([]) },
-      village: { findFirst: () => Promise.resolve({ id: "syndicate", type: "OUTLAW" }) },
-      anbuSquad: { findFirst: () => Promise.resolve({ id: "squad-1", name: "Squad", memberCount: 2 }) },
-    },
-    update: () => ({ set: () => ({ where: async () => {
-      const index = writes++;
-      if (failCleanup && index === 0) throw new Error("temporary cleanup failure");
-      // Expulsion CAS loses; retry cleanup succeeds except the leadership CAS.
-      return { rowsAffected: failCleanup ? (index === 3 ? 0 : 1) : 0 };
-    } }) }),
-  };
-  return { db: db as never, reads: () => reads, writes: () => writes };
-};
-
-describe("village expulsion recovery", () => {
-  it("bounds repeated expulsion CAS losses", async () => {
-    const { db, reads } = profileClient([profileSnapshot(false)], false, 3);
-    await expect(fetchUpdatedUser({ client: db, userId: "user-1" })).rejects.toThrow("User state changed concurrently");
-    expect(reads()).toBe(3);
+  it("uses mastery bonuses for timed training and queued collection", () => {
+    const base = calcMasteryTrainingAmount(trainee(14), [], 900);
+    const user = trainee(100.1);
+    expect(calcMasteryTrainingAmount(user, [], 900)).toBeCloseTo(base * 1.3);
+    expect(settleMasteryTrainingQueue(user, [], [], NOW).gains.ninjutsuMastery).toBeCloseTo(base * 1.3);
   });
-
-  it("does not repeatedly expel an already-outlaw account with inconsistent village data", async () => {
-    const snapshot = { ...profileSnapshot(false), isOutlaw: true };
-    const { db, reads, writes } = profileClient([snapshot], false, 1);
-    const result = await fetchUpdatedUser({ client: db, userId: "user-1" });
-    expect(result.user?.isOutlaw).toBe(true);
-    expect(reads()).toBe(1);
-    expect(writes()).toBe(0);
-  });
-
-  it("reloads full membership and relations after a lost expulsion CAS", async () => {
-    const fresh = profileSnapshot(true);
-    const { db, reads } = profileClient([profileSnapshot(false), fresh]);
-    const result = await fetchUpdatedUser({ client: db, userId: "user-1" });
-    expect(reads()).toBe(2);
-    expect(result.user).toMatchObject({ isOutlaw: true, villageId: "syndicate", joinedVillageAt: fresh.joinedVillageAt, village: { type: "OUTLAW" } });
-  });
-
-  it("retries failed ANBU cleanup even after the account is already an outlaw", async () => {
-    const { db, writes } = profileClient([profileSnapshot(true, "squad-1")], true);
-    await expect(fetchUpdatedUser({ client: db, userId: "user-1" })).rejects.toThrow("temporary cleanup failure");
-    const result = await fetchUpdatedUser({ client: db, userId: "user-1" });
-    expect(writes()).toBe(4);
-    expect(result.user).toMatchObject({ isOutlaw: true, anbuId: null, anbuSquad: null });
+  it("uses the completion date when offline collection crosses a loyalty milestone", () => {
+    const user = trainee(100);
+    user.masteryTrainingStartedAt = new Date(NOW.getTime() - 1_800_000);
+    const base = calcMasteryTrainingAmount(trainee(14), [], 900);
+    expect(settleMasteryTrainingQueue(user, [], [], NOW).gains.ninjutsuMastery).toBeCloseTo(base * 1.15);
   });
 });

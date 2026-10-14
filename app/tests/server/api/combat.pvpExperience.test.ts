@@ -22,7 +22,7 @@ const participant = (userId: string, villageId: string, isAi = false) => ({
   ...makeUser({ userId, username: userId, controllerId: userId, villageId, isAi, experience: 3339000, rank: "JONIN", status: "AWAKE", pvpStreak: 4, clanId: "clan" }),
   items: [], jutsus: [], userSkills: [], queue: [], userQuests: [], completedQuests: [],
   bounties: [], bountySignups: [], bloodline: null, sageMode: null, village: null, clan: null,
-  regenAt: new Date(), joinedVillageAt: new Date(0),
+  regenAt: new Date(), joinedVillageAt: new Date(),
 });
 
 const startBattle = async (battleType: BattleType, repeats: number, defenderAi = false) => {

@@ -59,6 +59,7 @@ import {
 } from "@/libs/queue";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { calcIsInVillage } from "@/libs/travel";
+import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
 import { isInArray } from "@/utils/array";
 import { getUserFederalStatus } from "@/utils/paypal";
@@ -952,6 +953,8 @@ export const applyMasteryTrainingGains = (
 export const trainingBoost = (
   user: NonNullable<UserWithRelations>,
   settings: GameSetting[],
+  kind: "STATS" | "MASTERY" = "STATS",
+  now = new Date(),
 ) => {
   const sectors = user.village?.sectors?.length ?? 0;
   const shrineBoost = getShrineBoost(sectors, "Training", user.village);
@@ -959,10 +962,14 @@ export const trainingBoost = (
   const warSetting = getGameSettingBoost(`war-${user.villageId}-train`, settings);
   const boost = getStrucBoost("trainBoostPerLvl", user.village?.structures) / 100;
   const clanBoost = (user.clan?.trainingBoost ?? 0) / 100;
+  const loyalty = getVillageLoyaltyBonuses(user, now);
   return (
     ((trainSetting?.value ?? 1) *
       (1 + boost + clanBoost + shrineBoost) *
       (1 + getPvpBoost(user, settings).totalPercent / 100) *
+      percentageMultiplier(
+        kind === "STATS" ? loyalty.statGains : loyalty.masteryTraining,
+      ) *
       (100 + (warSetting?.value ?? 0))) /
     100
   );
@@ -973,8 +980,9 @@ export const calcMasteryTrainingAmount = (
   user: NonNullable<UserWithRelations>,
   settings: GameSetting[],
   elapsedSeconds: number,
+  now = new Date(),
 ) =>
-  trainingBoost(user, settings) *
+  trainingBoost(user, settings, "MASTERY", now) *
   Math.min(Math.floor(energyPerSecond(user.trainingSpeed) * elapsedSeconds), 100) *
   trainEfficiency(user) *
   trainingMultiplier(user);
@@ -1060,6 +1068,7 @@ export const settleMasteryTrainingQueue = (
               { ...user, trainingSpeed: speed },
               settings,
               seconds,
+              finishedAt,
             ),
           )
         : 0;

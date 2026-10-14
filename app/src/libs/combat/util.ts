@@ -1960,12 +1960,18 @@ export const calcBattleResult = (
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
     const loyalty = getVillageLoyaltyBonuses(user);
-    const pvpRewardBoost = PvpBattleTypes.includes(battleType) ? loyalty.pvpRewards : 0;
     // Faction identities still determine reward eligibility and political consequences.
     const villageIds = [
       ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
     ];
     const targets = users.filter((u) => !u.isSummon && !areBattleAllies(u, user));
+    const pvpRewardBoost =
+      battleType === "COMBAT" &&
+      !user.isAi &&
+      !user.isSummon &&
+      targets.some((target) => !target.isAi)
+        ? loyalty.pvpRewards
+        : 0;
     const friends = getBattleTeamMembers(battle, user);
     const effects = battle.usersEffects;
     const survivingTargets = targets.filter((t) => stillInBattle(t, effects));
@@ -2646,21 +2652,8 @@ export const calcBattleResult = (
           });
       }
 
-      const boostPositiveReward = (value: number, percent: number) =>
-        value > 0 ? value * percentageMultiplier(percent) : value;
-      moneyDelta = boostPositiveReward(moneyDelta, pvpRewardBoost);
-      deltaEarnedExperience = boostPositiveReward(
-        deltaEarnedExperience,
-        pvpRewardBoost,
-      );
-      deltaTokens = boostPositiveReward(
-        deltaTokens,
-        loyalty.villageRewards + pvpRewardBoost,
-      );
-      deltaPrestige = boostPositiveReward(
-        deltaPrestige,
-        loyalty.villageRewards + pvpRewardBoost,
-      );
+      deltaTokens = boostPvpGain(deltaTokens, loyalty.villageRewards);
+      deltaPrestige = boostPvpGain(deltaPrestige, loyalty.villageRewards);
 
       // Result object
       const result: CombatResult = {
@@ -2728,7 +2721,6 @@ export const calcBattleResult = (
           };
           total = 6;
         }
-        experience *= percentageMultiplier(loyalty.statGains);
         let assignedExp = 0;
         const { stats_cap, gens_cap } = getUserCaps(user.rank);
 
@@ -2756,7 +2748,7 @@ export const calcBattleResult = (
         });
 
         // Experience
-        result.experience = Math.floor(round(assignedExp * 100, 8)) / 100;
+        result.experience = Math.floor(assignedExp * 100) / 100;
       }
 
       // Ensure Ranked PvP winner rewards are applied despite noRewardBattles gating
@@ -2848,6 +2840,11 @@ export const calcBattleResult = (
             battle.extraState.pvpExperienceScaling ?? battle.rewardScaling,
           )
         : 0;
+      if (result.pvpExperience > 0)
+        result.pvpExperience = round(
+          result.pvpExperience * percentageMultiplier(pvpRewardBoost),
+          2,
+        );
       result.weeklyPvpKills =
         earnsPvpExperience && outcome === "Won"
           ? targetUsers.filter((target) => wasDefeated(target, effects)).length
@@ -2874,8 +2871,7 @@ const distributeExpToStat = (
   result: CombatResult,
 ): number => {
   const expWeighted = (count / total) * experience;
-  // Remove floating-point noise before truncating to hundredths (e.g. 18.4 * 100).
-  const expRounded = Math.floor(round(expWeighted * 100, 8)) / 100;
+  const expRounded = Math.floor(expWeighted * 100) / 100;
   const expResult = Math.max(0, Math.min(expRounded, cap - user[stat]));
   result[stat] += expResult;
   return expResult;

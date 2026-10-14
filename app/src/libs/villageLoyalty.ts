@@ -60,14 +60,14 @@ export const getVillageLoyaltyTierDescription = (
     case "villageRewards":
       return `+${tier.percent}% village prestige and token earnings`;
     case "statGains":
-      return `+${tier.percent}% offense, defense, and general stat gains`;
+      return `+${tier.percent}% offense, defense, and general stat training gains`;
     case "pvpRewards":
-      return `+${tier.percent}% PvP rewards`;
+      return `+${tier.percent}% open-world PvP stat gains and experience`;
     case "shopDiscount":
       return `${tier.percent}% item and village prestige shop discount`;
     case "missionRewards":
       return `+${tier.percent}% mission and errand rewards`;
     case "masteryTraining":
-      return `+${tier.percent}% sage mastery training`;
+      return `+${tier.percent}% mastery training`;
   }
 };

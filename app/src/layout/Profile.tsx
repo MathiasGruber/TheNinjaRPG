@@ -31,9 +31,9 @@ import {
   PVP_EXPERIENCE_WIN_REWARD,
   PVP_WEEKLY_KILL_BOOST,
   PVP_WEEKLY_KILL_BOOST_CAP,
+  VILLAGE_LOYALTY_TIERS,
 } from "@/drizzle/constants";
 import { safeLocalStorageSetItem } from "@/hooks/localstorage";
-import { VILLAGE_LOYALTY_TIERS } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import { DashboardSettings } from "@/layout/DashboardSettings";
@@ -55,9 +55,12 @@ import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
 import { calcMedninRank } from "@/libs/hospital";
 import { calcLevelRequirements, showUserRank } from "@/libs/profile";
 import { getRankedRank } from "@/libs/ranked_pvp";
-import { getVillageLoyaltyDays, getVillageLoyaltyTierDescription } from "@/libs/villageLoyalty";
 import { getSageMasteryDisplayRank } from "@/libs/sageMode";
 import { isTutorialActive } from "@/libs/tutorial";
+import {
+  getVillageLoyaltyDays,
+  getVillageLoyaltyTierDescription,
+} from "@/libs/villageLoyalty";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { nextRegenerationTickAt } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -421,7 +424,7 @@ function CharacterProfile() {
                     <p className="font-semibold">Village loyalty</p>
                     <p className="mb-2 text-muted-foreground text-sm">
                       Bonuses stack while you remain in your village and reset when you
-                      leave or swap villages.
+                      leave your village.
                     </p>
                     <ul className="space-y-1 text-sm">
                       {VILLAGE_LOYALTY_TIERS.map((tier) => (
