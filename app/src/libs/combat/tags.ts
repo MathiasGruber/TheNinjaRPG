@@ -3422,13 +3422,19 @@ export const getPower = (effect: UserEffect | GroundEffect) => {
  * matched in the RHS, whereas a ratio of 1 means everything is matched by a value in RHS
  */
 export const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) => {
-  // Damage-derived tags without general or element restrictions apply to any hit.
-  if (
-    damageDerivedTagTypes.includes(effect.type) &&
-    !("generalTypes" in effect && effect.generalTypes?.length) &&
-    !("elements" in effect && effect.elements?.length)
-  ) {
-    return 1;
+  // Damage-derived tags (absorb, reflect, lifesteal, ...) are only limited by generals.
+  // Their elements lock which users can learn the jutsu (see checkJutsuElements); they
+  // never restricted which hits the tag converts, because the legacy stat selector
+  // (usually all four stats) matched every hit before it was removed.
+  if (damageDerivedTagTypes.includes(effect.type)) {
+    const generals = "generalTypes" in effect ? effect.generalTypes : undefined;
+    if (!generals?.length || dmgEffect.type === "pierce") return 1;
+    const effectGenerals = getLowerGenerals(generals, effect.highestGenerals);
+    const dmgGenerals =
+      "generalTypes" in dmgEffect
+        ? getLowerGenerals(dmgEffect.generalTypes, dmgEffect.highestGenerals)
+        : [];
+    return dmgGenerals.some((general) => effectGenerals.includes(general)) ? 1 : 0;
   }
   // Damage modifiers are universal unless explicitly limited to matching elements.
   if (damageModifierTypes.includes(effect.type)) {
@@ -3444,8 +3450,7 @@ export const getEfficiencyRatio = (dmgEffect: UserEffect, effect: UserEffect) =>
   // We need to get the list of dmgEffect stats/gens/elements and effect stats/gens/elements
   const getTags = (e: UserEffect) => {
     const tags: string[] = [];
-    // Catalog JSON and active battles can still contain fields removed from schemas.
-    if (!damageDerivedTagTypes.includes(e.type) && "statTypes" in e) {
+    if ("statTypes" in e) {
       e.statTypes?.forEach((statType: StatType) => {
         tags.push(statType);
       });
