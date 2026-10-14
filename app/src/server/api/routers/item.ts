@@ -33,7 +33,6 @@ import {
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
-  MEDNIN_HEAL_ITEM_DISCOUNT_PERC,
   TUTORIAL_ITEM_ID,
 } from "@/drizzle/constants";
 import type {
@@ -117,6 +116,7 @@ import {
 import { hasEnergyQueue } from "@/libs/queue";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { filterRollableSageModes } from "@/libs/sageMode";
+import { shopItemDiscountFactor } from "@/libs/shop";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { callDiscordContent } from "@/libs/socials";
 import { hasRequiredLevel } from "@/libs/train";
@@ -194,8 +194,6 @@ import type { PostProcessedRewards } from "@/validators/rewards";
 import { ObjectiveReward, type ObjectiveRewardType } from "@/validators/rewards";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 import { updateRewards } from "./quests";
-
-const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -2866,17 +2864,16 @@ export const itemRouter = createTRPCRouter({
       };
       const sDiscount = getStrucBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
-      const hDiscount = info?.effects.find((e) => e.type === "heal")
-        ? MEDNIN_HEAL_ITEM_DISCOUNT_PERC
-        : 0;
       const loyaltyDiscount = getVillageLoyaltyBonuses(user).shopDiscount;
-      const factor = Math.max(
-        MIN_ITEM_SHOP_DISCOUNT_FACTOR,
-        (100 - sDiscount - aDiscount - hDiscount - loyaltyDiscount) / 100,
-      );
       // Guard
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
+      const factor = shopItemDiscountFactor(
+        info,
+        sDiscount,
+        aDiscount,
+        loyaltyDiscount,
+      );
       const allowance = getItemPurchaseAllowance(info, purchaseCounters, purchaseTime);
       if (allowance.remaining != null && input.stack > allowance.remaining) {
         return errorResponse(itemPurchaseLimitMessage(allowance));

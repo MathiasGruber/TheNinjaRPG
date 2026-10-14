@@ -57,7 +57,7 @@ import {
   isSupportedOverworldBindingTask,
   pickPlaceableSector,
 } from "@/libs/overworldAi";
-import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
+import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import { recordPartyContributions } from "@/libs/questParty";
 import {
   getIsolatedPyramid,
@@ -729,11 +729,11 @@ export const postProcessRewards = (
       ? {
           reward_tokens:
             rewards.reward_tokens > 0
-              ? Math.round(rewards.reward_tokens * (1 + villageRewardBonus / 100))
+              ? Math.round(boostPvpGain(rewards.reward_tokens, villageRewardBonus))
               : rewards.reward_tokens,
           reward_prestige:
             rewards.reward_prestige > 0
-              ? Math.round(rewards.reward_prestige * (1 + villageRewardBonus / 100))
+              ? Math.round(boostPvpGain(rewards.reward_prestige, villageRewardBonus))
               : rewards.reward_prestige,
         }
       : {}),

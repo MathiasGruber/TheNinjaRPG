@@ -195,10 +195,7 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
-import {
-  buildDerivedUserRegenUpdate,
-  buildNegativePrestigeVillageUpdate,
-} from "@/server/utils/profileRegen";
+import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
@@ -3509,7 +3506,12 @@ const fetchUpdatedUserOnce = async (props: {
       ]);
       if (syndicate) {
         const previousVillageId = user.villageId;
-        const kickUpdate = buildNegativePrestigeVillageUpdate(user, syndicate.id);
+        const kickUpdate = {
+          villagePrestige: Math.abs(user.villagePrestige),
+          villageId: syndicate.id,
+          isOutlaw: true,
+          joinedVillageAt: new Date(),
+        };
         const expectedVillage = previousVillageId
           ? eq(userData.villageId, previousVillageId)
           : isNull(userData.villageId);

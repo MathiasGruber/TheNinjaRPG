@@ -61,15 +61,3 @@ export const buildDerivedUserRegenUpdate = (props: {
 
   return derivedUserUpdate;
 };
-
-/** Complete village-state transition applied when negative prestige turns a user outlaw. */
-export const buildNegativePrestigeVillageUpdate = (
-  user: Pick<UserData, "villagePrestige">,
-  syndicateId: string,
-  joinedVillageAt: Date = new Date(),
-) => ({
-  villagePrestige: Math.abs(user.villagePrestige),
-  villageId: syndicateId,
-  isOutlaw: true,
-  joinedVillageAt,
-});

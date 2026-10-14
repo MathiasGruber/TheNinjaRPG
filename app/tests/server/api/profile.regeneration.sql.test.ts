@@ -39,7 +39,9 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const persisted = await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") });
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
     expect(first.user).toMatchObject({ isOutlaw: true, regeneration: 50, curHealth: 115, curChakra: 115, curStamina: 115 });
-    expect(persisted).toMatchObject({ regeneration: 100, curHealth: 115, regenAt: NOW });
+    expect(persisted).toMatchObject({ regeneration: 100, curHealth: 115, regenAt: NOW,
+      villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
+    });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
     setSystemTime(new Date(NOW.getTime() + 60_000));
     expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regeneration, first.user?.regenAt).current).toBe(165);

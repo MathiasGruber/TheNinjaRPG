@@ -51,7 +51,11 @@ import Modal from "@/layout/Modal";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import { useInfinitePagination } from "@/libs/pagination";
 import { cn } from "@/libs/shadui";
-import { getMaxItemShopPurchaseQuantity, isItemAvailableInStore } from "@/libs/shop";
+import {
+  getMaxItemShopPurchaseQuantity,
+  isItemAvailableInStore,
+  shopItemDiscountFactor,
+} from "@/libs/shop";
 import { showMutationToast } from "@/libs/toast";
 import { isTutorialItemBuyStep, isTutorialPageMatch } from "@/libs/tutorial";
 import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
@@ -145,32 +149,10 @@ const SHOP_ITEM_TYPE_TAB_LABEL: Record<ItemType, string> = {
   OTHER: "Other",
 };
 
-const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
-
 function categoryTabIcon(type: ItemType) {
   const cls = "h-4 w-4 shrink-0 opacity-90";
   const Icon = SHOP_ITEM_TYPE_TAB_ICON[type] ?? LayoutGrid;
   return <Icon className={cls} />;
-}
-
-function shopItemDiscountFactor(
-  item: Item,
-  structureDiscountPerc: number,
-  anbuDiscountPerc: number,
-  loyaltyDiscountPerc = 0,
-) {
-  const healDiscount = item.effects.some((e) => e.type === "heal")
-    ? MEDNIN_HEAL_ITEM_DISCOUNT_PERC
-    : 0;
-  return Math.max(
-    MIN_ITEM_SHOP_DISCOUNT_FACTOR,
-    (100 -
-      structureDiscountPerc -
-      anbuDiscountPerc -
-      healDiscount -
-      loyaltyDiscountPerc) /
-      100,
-  );
 }
 
 function ShopCatalogCard({

@@ -87,6 +87,11 @@ describe("loyalty reward delivery", () => {
     expect(postProcessRewards(ObjectiveReward.parse({ reward_tokens: 5 }), member(90)).reward_tokens).toBe(6);
   });
 
+  it("rounds halfway configured village awards up consistently with quest rewards", () => {
+    expect(postProcessRewards(ObjectiveReward.parse({ reward_tokens: 50, reward_prestige: 50 }), member(100))).toMatchObject({ reward_tokens: 57, reward_prestige: 57 });
+    expect(questReward(100, "daily", 50, { reward_tokens: 50 }).rewards).toMatchObject({ reward_tokens: 57, reward_prestige: 57 });
+  });
+
   it("preserves fractional penalties and payouts without active loyalty", () => {
     expect(postProcessRewards(ObjectiveReward.parse({ reward_prestige: -5.5 }), member(90)).reward_prestige).toBe(-5.5);
     expect(postProcessRewards(ObjectiveReward.parse({ reward_prestige: 5.5 }), member(0)).reward_prestige).toBe(5.5);
