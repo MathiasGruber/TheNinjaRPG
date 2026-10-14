@@ -14,7 +14,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,11 +117,27 @@ export default function HomePage() {
   const {
     data: userItems,
     isLoading: isItemsLoading,
+    isFetching: isItemsFetching,
     isError: isItemsError,
     refetch: userItemsRefetch,
   } = api.item.getUserItems.useQuery(undefined, {
     enabled: !!userData && access && ownVillage,
   });
+
+  const missingFurnitureIds =
+    userData && access && ownVillage && userItems
+      ? (homeData?.furniture
+          .filter((piece) => !userItems.some((owned) => owned.id === piece.id))
+          .map((piece) => piece.id)
+          .sort()
+          .join(",") ?? "")
+      : "";
+  // Loading a home can grant furniture after the parallel inventory read. Keying on missing
+  // ownership IDs refreshes that cache once, while an incomplete response remains retryable.
+  // Default refetch cancellation also replaces any in-flight read of the pre-grant cache.
+  useEffect(() => {
+    if (missingFurnitureIds) void userItemsRefetch();
+  }, [missingFurnitureIds, userItemsRefetch]);
 
   // Mutations
   const { mutate: upgradeHome, isPending: isUpgrading } =
@@ -579,7 +595,7 @@ export default function HomePage() {
             returnFocusRef={storageTriggerRef}
             className="sm:max-w-4xl"
           >
-            {homeData && !isItemsError && (
+            {homeData && !isItemsError && !missingFurnitureIds && (
               <div className="flex justify-end">
                 <MergeAllStacksButton
                   storedAtHome={true}
@@ -590,9 +606,11 @@ export default function HomePage() {
                 />
               </div>
             )}
-            {isHomeLoading || isItemsLoading ? (
+            {isHomeLoading ||
+            isItemsLoading ||
+            (missingFurnitureIds && isItemsFetching) ? (
               <Loader explanation="Loading item storage data" />
-            ) : isHomeError || isItemsError || !homeData ? (
+            ) : isHomeError || isItemsError || !homeData || missingFurnitureIds ? (
               <div role="alert">
                 Unable to load home storage.
                 <Button

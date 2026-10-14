@@ -18,7 +18,7 @@ export const homePlacementSchema = z.strictObject({
 });
 export type HomePlacement = z.infer<typeof homePlacementSchema>;
 
-/** An empty room is valid; inventory ownership is checked against the server snapshot. */
+/** Inventory ownership, geometry, and essential actions are checked against the server snapshot. */
 export const homeLayoutSchema = z
   .array(homePlacementSchema)
   .max(HOME_FURNITURE_MAX_PLACEMENTS)

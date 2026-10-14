@@ -1,4 +1,6 @@
 import {
+  HOME_FURNITURE_ESSENTIALS,
+  HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
   HOME_FURNITURE_ROTATION_DEGREES,
@@ -160,6 +162,7 @@ export const clampHomeFurniturePlacement = (
   const polygon = getHomeAnchorPolygon(furniture, placement, homeType);
   if (!polygon.length) return null;
   const anchor = projectHomePlacement(placement);
+  if (isPointInHomePolygon(anchor, polygon)) return { ...placement };
   const point = closestPointInHomePolygon(anchor, polygon);
   return { ...placement, ...unprojectHomePlacement(point) };
 };
@@ -244,6 +247,108 @@ export const recoverHomeLayout = (
     if (fitted) recovered.push(fitted);
   }
   return recovered;
+};
+
+/** Every saved room keeps its sleeping, storage, and kitchen actions reachable. */
+export const homeLayoutEssentialsError = (
+  placements: HomePlacement[],
+  furniture: Pick<HomeFurniture, "id" | "action">[],
+) => {
+  const placed = new Set(placements.map(({ id }) => id));
+  const actions = new Set(
+    furniture.filter(({ id }) => placed.has(id)).map(({ action }) => action),
+  );
+  const missing = HOME_FURNITURE_ESSENTIALS.filter(
+    ({ action }) => !actions.has(action),
+  );
+  return missing.length
+    ? `Place essential furniture before saving: ${missing.map(({ name }) => name).join(", ")}`
+    : null;
+};
+
+/** Fit missing actions first; displaced pieces remain ordinary owned, unplaced inventory. */
+export const completeHomeLayoutEssentials = (
+  placements: HomePlacement[],
+  furniture: HomeFurniture[],
+  homeType: HomeType,
+): HomePlacement[] => {
+  let completed = [...placements];
+  const available = new Map(furniture.map((piece) => [piece.id, piece]));
+  for (const essential of HOME_FURNITURE_ESSENTIALS) {
+    if (completed.some(({ id }) => available.get(id)?.action === essential.action))
+      continue;
+    const candidates = furniture
+      .filter(({ action }) => action === essential.action)
+      .sort((a, b) => a.id.localeCompare(b.id));
+    const fit = (pieces: HomePlacement[]) => {
+      if (pieces.length >= HOME_FURNITURE_MAX_PLACEMENTS) return null;
+      for (const piece of candidates) {
+        for (const rotation of getHomeFurnitureRotations(piece)) {
+          const fitted = fitHomeFurniturePlacement(
+            { id: piece.id, x: essential.x, y: essential.y, rotation },
+            piece,
+            pieces,
+            furniture,
+            homeType,
+          );
+          if (fitted) return fitted;
+        }
+      }
+      return null;
+    };
+    const fitted = fit(completed);
+    if (fitted) {
+      completed.push(fitted);
+      continue;
+    }
+    // Keep one furnishing per action, including farming; redundant copies can free capacity.
+    const preservedActions = new Set<HomeFurnitureAction>();
+    const optional = completed.filter(({ id }) => {
+      const action = available.get(id)?.action;
+      if (action === null) return true;
+      if (!action) return false;
+      if (preservedActions.has(action)) return true;
+      preservedActions.add(action);
+      return false;
+    });
+    const optionalIds = new Set(optional.map(({ id }) => id));
+    let recovered = false;
+    for (const piece of optional) {
+      const remaining = completed.filter(({ id }) => id !== piece.id);
+      const fitted = fit(remaining);
+      if (fitted) {
+        completed = [...remaining, fitted];
+        recovered = true;
+        break;
+      }
+    }
+    if (recovered) continue;
+    const actionsOnly = completed.filter(({ id }) => !optionalIds.has(id));
+    const essentialPlacement = fit(actionsOnly);
+    if (!essentialPlacement) continue;
+    const essentialPiece = available.get(essentialPlacement.id);
+    if (!essentialPiece) continue;
+    // Only optional pieces touching the new footprint need to return to storage.
+    completed = completed.filter((placement) => {
+      const piece = available.get(placement.id);
+      return (
+        !piece ||
+        !optionalIds.has(placement.id) ||
+        !homeLayoutPlacementError(
+          [placement, essentialPlacement],
+          [piece, essentialPiece],
+          homeType,
+        )
+      );
+    });
+    while (completed.length >= HOME_FURNITURE_MAX_PLACEMENTS) {
+      const index = completed.findIndex(({ id }) => optionalIds.has(id));
+      if (index < 0) break;
+      completed.splice(index, 1);
+    }
+    completed.push(essentialPlacement);
+  }
+  return completed;
 };
 
 /** Null coordinates keep an owned item unplaced without a second inventory or layout document. */
