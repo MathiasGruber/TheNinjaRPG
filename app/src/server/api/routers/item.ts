@@ -2278,7 +2278,7 @@ export const itemRouter = createTRPCRouter({
       let processedRewards: PostProcessedRewards | null = null;
       if (rewards.length > 0) {
         const collapsedRewards = collapseRewards(rewards);
-        processedRewards = postProcessRewards(collapsedRewards);
+        processedRewards = postProcessRewards(collapsedRewards, user);
       }
       // Claim the account, apply its effects and debit the stack together. A run
       // or battle that wins the account race leaves the item available for retry.
