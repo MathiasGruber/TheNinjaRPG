@@ -1285,6 +1285,7 @@ const WarSideTownHall: React.FC<{
       {warStatus === "ACTIVE" && (
         <div className="mb-2 w-full">
           <StatusBar
+            key={`hp-${warHealth}-${warHealthMax}`}
             title="HP"
             tooltip="Townhall health — affected by war victories, objectives, camps and daily decay"
             color="bg-red-500"
@@ -2212,7 +2213,9 @@ export const VillageWar: React.FC<{
             village={isAttacker ? war.attackerVillage : war.defenderVillage}
             warStatus={war.status}
             warHealth={
-              isAttacker ? war.attackerWarHealth : healthSnapshot.defenderWarHealth
+              isAttacker
+                ? healthSnapshot.attackerWarHealth
+                : healthSnapshot.defenderWarHealth
             }
             warHealthMax={
               isAttacker ? war.attackerWarHealthMax : war.defenderWarHealthMax
@@ -2223,7 +2226,9 @@ export const VillageWar: React.FC<{
             village={isAttacker ? war.defenderVillage : war.attackerVillage}
             warStatus={war.status}
             warHealth={
-              isAttacker ? war.defenderWarHealth : healthSnapshot.attackerWarHealth
+              isAttacker
+                ? healthSnapshot.defenderWarHealth
+                : healthSnapshot.attackerWarHealth
             }
             warHealthMax={
               isAttacker ? war.defenderWarHealthMax : war.attackerWarHealthMax
