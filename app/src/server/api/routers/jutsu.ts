@@ -3,6 +3,7 @@ import {
   asc,
   desc,
   eq,
+  getTableColumns,
   gte,
   inArray,
   isNotNull,
@@ -582,7 +583,8 @@ export const jutsuRouter = createTRPCRouter({
         relations.aiUsingJutsu.length +
         relations.questsUsingJutsu.length +
         relations.childEvolutions.length +
-        relations.linkedReskins.length;
+        relations.linkedReskins.length +
+        relations.playerReskins.length;
       // Guard
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
@@ -600,6 +602,7 @@ export const jutsuRouter = createTRPCRouter({
           ...relations.questsUsingJutsu.map((q) => `Quest: ${q.name}`),
           ...relations.childEvolutions.map((e) => `Evolution: ${e.name}`),
           ...relations.linkedReskins.map((e) => `Reskin: ${e.name}`),
+          ...relations.playerReskins.map((r) => `Player reskin: ${r.name}`),
         ].join(", ");
         return errorResponse(
           `Justu is being used by: ${message}. So you cannot delete it.`,
@@ -2209,8 +2212,14 @@ export const jutsuRouter = createTRPCRouter({
 
       // Build the base DB filter (on underlying jutsu)
       const baseFilters = jutsuDatabaseFilter(input);
+      const jutsuFilters = and(
+        ...baseFilters,
+        ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
+      );
 
-      // Query reskins joined with jutsu to allow filtering via jutsuDatabaseFilter
+      // Query reskins joined with jutsu to allow filtering via jutsuDatabaseFilter.
+      // Reskins whose base jutsu was deleted (jutsu is null) bypass the jutsu
+      // filters and are listed first, so staff can re-point them with updateReskin.
       const rows = await ctx.drizzle
         .select({
           reskin: jutsuReskin,
@@ -2219,25 +2228,28 @@ export const jutsuRouter = createTRPCRouter({
           userUsername: userData.username,
         })
         .from(jutsuReskin)
-        .innerJoin(jutsu, eq(jutsuReskin.jutsuId, jutsu.id))
+        .leftJoin(jutsu, eq(jutsuReskin.jutsuId, jutsu.id))
         .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
         .innerJoin(userData, eq(jutsuReskin.userId, userData.userId))
-        .where(
-          and(...baseFilters, ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : [])),
-        )
-        .orderBy(desc(jutsuReskin.updatedAt))
+        .where(jutsuFilters ? or(isNull(jutsu.id), jutsuFilters) : undefined)
+        .orderBy(asc(isNotNull(jutsu.id)), desc(jutsuReskin.updatedAt))
         .offset(skip)
         .limit(input.limit);
 
       // Map back to the previous shape used by the frontend consumer
       const results = rows
-        .filter((row) => filterByEffectConstraints([row.jutsu], input).length > 0)
+        .filter(
+          (row) =>
+            !row.jutsu || filterByEffectConstraints([row.jutsu], input).length > 0,
+        )
         .map((row) => ({
           ...row.reskin,
-          jutsu: {
-            ...row.jutsu,
-            bloodline: row.bloodlineName ? { name: row.bloodlineName } : null,
-          },
+          jutsu: row.jutsu
+            ? {
+                ...row.jutsu,
+                bloodline: row.bloodlineName ? { name: row.bloodlineName } : null,
+              }
+            : null,
           user: {
             username: row.userUsername,
           },
@@ -2355,6 +2367,7 @@ export const getJutsuRelations = async (client: DrizzleClient, jutsuId: string) 
     questsUsingJutsu,
     childEvolutions,
     linkedReskins,
+    playerReskins,
   ] = await Promise.all([
     client.query.jutsu.findMany({
       columns: { id: true, name: true },
@@ -2399,6 +2412,16 @@ export const getJutsuRelations = async (client: DrizzleClient, jutsuId: string) 
       columns: { id: true, name: true },
       where: eq(jutsu.reskinParentJutsuId, jutsuId),
     }),
+    // Player-owned reskins reference the jutsu by id; staff re-point them with
+    // updateReskin before the jutsu can be deleted.
+    client
+      .select({
+        id: jutsuReskin.id,
+        name: sql<string>`CONCAT(${jutsuReskin.name}, ' (', COALESCE(${userData.username}, ${jutsuReskin.userId}), ')')`,
+      })
+      .from(jutsuReskin)
+      .leftJoin(userData, eq(jutsuReskin.userId, userData.userId))
+      .where(eq(jutsuReskin.jutsuId, jutsuId)),
   ]);
 
   return {
@@ -2410,6 +2433,7 @@ export const getJutsuRelations = async (client: DrizzleClient, jutsuId: string) 
     questsUsingJutsu,
     childEvolutions,
     linkedReskins,
+    playerReskins,
   };
 };
 export type JutsuRelations = Awaited<ReturnType<typeof getJutsuRelations>>;
@@ -2484,15 +2508,18 @@ const isAttachedToOwner = (
 };
 
 /**
- * Fetch all reskins for a user
+ * Fetch all reskins for a user whose base jutsu still exists
  * @param client - The database client
  * @param userId - The ID of the user to fetch reskins for
  * @returns A promise that resolves to the result of the select
  */
 export const fetchUserReskins = async (client: DrizzleClient, userId: string) => {
-  return await client.query.jutsuReskin.findMany({
-    where: eq(jutsuReskin.userId, userId),
-  });
+  // Inner join so reskins whose base jutsu was deleted do not occupy reskin slots
+  return await client
+    .select(getTableColumns(jutsuReskin))
+    .from(jutsuReskin)
+    .innerJoin(jutsu, eq(jutsuReskin.jutsuId, jutsu.id))
+    .where(eq(jutsuReskin.userId, userId));
 };
 
 /**

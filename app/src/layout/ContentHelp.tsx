@@ -1322,6 +1322,7 @@ const renderJutseRelations = (
     itemInjectors,
     aiUsingJutsu,
     questsUsingJutsu,
+    playerReskins,
   } = relations;
 
   // Define relation configurations with their specific routes
@@ -1355,6 +1356,11 @@ const renderJutseRelations = (
       name: "Quests Using Jutsu",
       data: questsUsingJutsu,
       route: "/manual/quest/edit",
+    },
+    {
+      name: "Player Reskins",
+      data: playerReskins,
+      route: "/manual/jutsu/reskins/edit",
     },
   ];
 
