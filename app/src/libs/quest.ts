@@ -502,14 +502,14 @@ export const getReward = (
         ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
         : 1;
     const factor = boostFactor * reducedRewardFactor;
-    // Keep configured penalties and unrelated reward categories at their existing scale.
+    /** Preserve the floored base reward; only positive gains receive rounded additive loyalty. */
     const scaleReward = (value: number, loyaltyPercent = 0) =>
       Math.floor(value * factor) +
       (value > 0
         ? Math.round((value * loyaltyPercent * reducedRewardFactor) / 100)
         : 0);
 
-    // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
+    /** Apply the same scaling once to immediate rewards, packages and frozen choice offers. */
     const scaleRewards = (target: ObjectiveRewardType) => {
       // Apply only the listed gain categories, including frozen reward-choice offers.
       const pvpPercent = getPvpBoost(user, settings).totalPercent;
@@ -709,6 +709,7 @@ export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
 /**
  * Post-process rewards to ensure that the rewards are valid
  * @param rewards - Rewards to post-process
+ * @param user - Recipient of an unscaled configured payout; omit for getReward outputs
  * @returns Post-processed rewards with item IDs as flat string array
  *
  * NOTE: Return type is explicitly annotated with PostProcessedRewards from

@@ -1,10 +1,9 @@
 import {
   MAX_ITEM_SHOP_PURCHASE_QUANTITY,
   MEDNIN_HEAL_ITEM_DISCOUNT_PERC,
+  MIN_ITEM_SHOP_DISCOUNT_FACTOR,
 } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
-
-const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
 
 export const getMaxItemShopPurchaseQuantity = (stackSize: number) =>
   Math.min(stackSize, MAX_ITEM_SHOP_PURCHASE_QUANTITY);
@@ -14,6 +13,10 @@ export const isItemAvailableInStore = (
   now: Date = new Date(),
 ) => !expireFromStoreAt || new Date(expireFromStoreAt) > now;
 
+/**
+ * Shared Ryo price factor for catalog previews and authoritative purchases.
+ * Structure, ANBU, healing-item and loyalty discounts add before the price floor is applied.
+ */
 export function shopItemDiscountFactor(
   item: Item,
   structureDiscountPerc: number,

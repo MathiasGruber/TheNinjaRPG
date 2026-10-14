@@ -3055,8 +3055,9 @@ export const updateUserContent = async (props: {
 };
 
 /**
- * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
- * of pools, or optionally forces regeneration with forceRegen=true
+ * Load user relations and settle passive regeneration when due or forceRegen=true.
+ * A lost expulsion CAS discards the snapshot; at most three complete attempts are made.
+ * Repeated concurrent membership changes produce a conflict instead of stale user data.
  */
 export const fetchUpdatedUser = async (
   props: Parameters<typeof fetchUpdatedUserOnce>[0],
@@ -3069,6 +3070,7 @@ export const fetchUpdatedUser = async (
   throw serverError("CONFLICT", "User state changed concurrently; please try again");
 };
 
+/** One snapshot/regen pass; null requests a fresh attempt after a lost expulsion CAS. */
 const fetchUpdatedUserOnce = async (props: {
   client: DrizzleClient;
   userId: string;
@@ -3419,6 +3421,7 @@ const fetchUpdatedUserOnce = async (props: {
     (user as NonNullable<UserWithRelations>).activeRaids = userActiveRaids;
   }
 
+  // Retain the stored base rate separately from the derived rate for accrued ticks.
   const storedRegeneration = user?.regeneration;
   let regenerationAfterExpulsion: number | undefined;
   if (user) {
@@ -3507,6 +3510,7 @@ const fetchUpdatedUserOnce = async (props: {
       ]);
       if (syndicate) {
         const previousVillageId = user.villageId;
+        // Membership and tenure change together only while the prestige/village snapshot matches.
         const kickUpdate = {
           villagePrestige: Math.abs(user.villagePrestige),
           villageId: syndicate.id,

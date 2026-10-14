@@ -1959,12 +1959,14 @@ export const calcBattleResult = (
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
+    // Membership fields come from battle initiation; loyalty needs no additional combat reads.
     const loyalty = getVillageLoyaltyBonuses(user);
     // Faction identities still determine reward eligibility and political consequences.
     const villageIds = [
       ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
     ];
     const targets = users.filter((u) => !u.isSummon && !areBattleAllies(u, user));
+    // The PvP milestone covers open-world human stat gains and experience, excluding money.
     const pvpRewardBoost =
       battleType === "COMBAT" &&
       !user.isAi &&
@@ -2652,6 +2654,7 @@ export const calcBattleResult = (
           });
       }
 
+      // Positive generated prestige/tokens gain loyalty; penalties retain their existing values.
       deltaTokens = boostPvpGain(deltaTokens, loyalty.villageRewards);
       deltaPrestige = boostPvpGain(deltaPrestige, loyalty.villageRewards);
 

@@ -192,6 +192,7 @@ export const villageMissionRouter = createTRPCRouter({
         return errorResponse("The Village Mission changed; refresh and try again");
       if (!mission.completed)
         return errorResponse("Complete every Village Mission objective first");
+      // Round the claiming leader's loyalty-adjusted tokens once before the guarded payout.
       const rewardTokens =
         mission.rewardTokens > 0
           ? Math.round(

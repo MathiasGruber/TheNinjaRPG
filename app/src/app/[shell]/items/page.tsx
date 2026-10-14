@@ -1858,6 +1858,7 @@ const ItemVariantModal: React.FC<ItemVariantModalProps> = ({
           const isUnlocked = unlockedIds.has(v.id);
           const isActive = activeVariantId === v.id;
           const needsToken = v.costType === "VARIANT_TOKEN";
+          // Preview the same discounted prestige amount guarded and charged by the server.
           const purchaseCost =
             v.costType === "VILLAGE_PRESTIGE" && userData
               ? getVillageLoyaltyShopCost(v.cost, userData)

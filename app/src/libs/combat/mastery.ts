@@ -63,6 +63,7 @@ export const combatMasteryGains = (
   const total = Object.values(usage).reduce((sum, n) => sum + n, 0);
   if (total <= 0) return {};
   const isPvp = targets.some((target) => !target.isAi && !target.isSummon);
+  // Loyalty augments the open-world human budget; AI growth and earned caps remain unchanged.
   const loyaltyFactor = percentageMultiplier(
     battle.battleType === "COMBAT" ? getVillageLoyaltyBonuses(user).pvpRewards : 0,
   );

@@ -1348,7 +1348,7 @@ export const itemRouter = createTRPCRouter({
       if (!ownershipRows.length) return errorResponse("You don't own this item");
       if (existingUnlock) return errorResponse("Variant already unlocked");
 
-      // Currency checks
+      // Prestige variants share the preview's loyalty price; other currencies keep their cost.
       const cost =
         variant.costType === "VILLAGE_PRESTIGE"
           ? getVillageLoyaltyShopCost(variant.cost, user)

@@ -950,6 +950,10 @@ export const applyMasteryTrainingGains = (
   },
 });
 
+/**
+ * Shared training modifiers; `kind` selects stat or timed-mastery loyalty bonuses.
+ * `now` evaluates loyalty at settlement, so offline sessions use their completion time.
+ */
 export const trainingBoost = (
   user: NonNullable<UserWithRelations>,
   settings: GameSetting[],
@@ -975,7 +979,7 @@ export const trainingBoost = (
   );
 };
 
-/** Raw timed-session mastery gain; settlement applies discipline and shared-total caps. */
+/** Raw timed-session gain at `now`; settlement applies discipline and shared-total caps. */
 export const calcMasteryTrainingAmount = (
   user: NonNullable<UserWithRelations>,
   settings: GameSetting[],
