@@ -1,0 +1,99 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import type { UserData } from "@/drizzle/schema";
+import {
+  callDiscordContent,
+  callDiscordNews,
+  callDiscordTicket,
+  callFacebookNews,
+  callInstagramNews,
+  callRedditNews,
+  callTwitterNews,
+  isExternalPostingDisabled,
+} from "@/libs/socials";
+
+// Placeholder credentials so every helper passes its own "configured?" check;
+// only the test-runner guard can stop the post.
+const FAKE_ENV: Record<string, string> = {
+  DISCORD_CONTENT_UPDATES: "https://discord.com/api/webhooks/1/fake-token",
+  DISCORD_NEWS_UPDATES: "https://discord.com/api/webhooks/2/fake-token",
+  DISCORD_TICKETS: "https://discord.com/api/webhooks/3/fake-token",
+  FACEBOOK_PAGE_ID: "page",
+  FACEBOOK_PAGE_ACCESS_TOKEN: "token",
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: "account",
+  REDDIT_CLIENT_ID: "id",
+  REDDIT_CLIENT_SECRET: "secret",
+  REDDIT_REFRESH_TOKEN: "refresh",
+  REDDIT_SUBREDDIT: "sub",
+  TWITTER_API_KEY: "key",
+  TWITTER_API_SECRET: "secret",
+  TWITTER_ACCESS_TOKEN: "token",
+  TWITTER_ACCESS_SECRET: "secret",
+};
+
+const user = {
+  userId: "u",
+  username: "Tester",
+  role: "USER",
+  avatar: null,
+  isBanned: false,
+  isSilenced: false,
+  federalStatus: "NONE",
+  level: 1,
+  rank: "STUDENT",
+  status: "AWAKE",
+  regenAt: new Date(0),
+} as unknown as UserData;
+
+const postEverywhere = () =>
+  Promise.all([
+    callDiscordContent("Staff", "Fixture", ["Updated: {}"]),
+    callDiscordNews("Title", "Body"),
+    callDiscordTicket("thread", "reason", "bug_report", user),
+    callFacebookNews("Title", "Body"),
+    callInstagramNews("Title", "Body", "https://example.com/a.png"),
+    callRedditNews("Title", "Body"),
+    callTwitterNews("Title", "Body"),
+  ]);
+
+describe("social posting under the test runner", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const saved: Record<string, string | undefined> = {};
+  let fetchSpy: ReturnType<typeof vi.spyOn<typeof globalThis, "fetch">>;
+
+  beforeEach(() => {
+    for (const [key, value] of Object.entries({ ...FAKE_ENV, NODE_ENV: "" })) {
+      saved[key] = env[key];
+      if (key !== "NODE_ENV") env[key] = value;
+    }
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation((async () =>
+      new Response(JSON.stringify({ id: "x", access_token: "x" }))) as never);
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete env[key];
+      else env[key] = value;
+    }
+  });
+
+  it("runs with NODE_ENV=test, so posting is disabled", () => {
+    expect(process.env.NODE_ENV).toBe("test");
+    expect(isExternalPostingDisabled()).toBe(true);
+  });
+
+  it("never reaches the network from any social helper", async () => {
+    await postEverywhere();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("still posts outside the test runner", async () => {
+    env.NODE_ENV = "production";
+    await postEverywhere();
+    const hosts = fetchSpy.mock.calls.map(([url]) => new URL(String(url)).hostname);
+    expect(hosts).toContain("discord.com");
+    expect(hosts).toContain("graph.facebook.com");
+    expect(hosts).toContain("oauth.reddit.com");
+    expect(hosts).toContain("api.twitter.com");
+  });
+});
