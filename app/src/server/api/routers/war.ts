@@ -547,20 +547,19 @@ export const warRouter = createTRPCRouter({
     })
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const [wars, viewer] = await Promise.all([
+      const [wars, viewer, ledVillage] = await Promise.all([
         fetchActiveWars(ctx.drizzle, input.villageId),
         fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.village.findFirst({
+          columns: { id: true },
+          where: eq(village.kageId, ctx.userId),
+        }),
       ]);
       return wars.map((w) =>
         maskWarObjectives(
           w,
           viewer.villageId,
-          viewer.rank === "ELDER" ||
-            wars.some((w) =>
-              [w.attackerVillage.kageId, w.defenderVillage.kageId].includes(
-                viewer.userId,
-              ),
-            ),
+          viewer.rank === "ELDER" || ledVillage?.id === viewer.villageId,
         ),
       );
     }),

@@ -172,22 +172,25 @@ export const applyObjectiveWarDecay = async (
       86400000,
   );
   if (intervals <= 0) return;
-  await client
-    .update(war)
-    .set({
-      attackerWarHealth: sql`GREATEST(${war.attackerWarHealth} - ${intervals * activeWar.rules.dailyDecay}, 0)`,
-      defenderWarHealth: sql`GREATEST(${war.defenderWarHealth} - ${intervals * activeWar.rules.dailyDecay}, 0)`,
-      lastTokenReductionAt: new Date(
-        activeWar.lastTokenReductionAt.getTime() + intervals * 86400000,
+  const decay = intervals * activeWar.rules.dailyDecay;
+  await retryOnDeadlock(() =>
+    client
+      .update(war)
+      .set({
+        attackerWarHealth: sql`GREATEST(${war.attackerWarHealth} - ${decay}, 0)`,
+        defenderWarHealth: sql`GREATEST(${war.defenderWarHealth} - ${decay}, 0)`,
+        lastTokenReductionAt: new Date(
+          activeWar.lastTokenReductionAt.getTime() + intervals * 86400000,
+        ),
+      })
+      .where(
+        and(
+          eq(war.id, activeWar.id),
+          isNull(war.endedAt),
+          eq(war.lastTokenReductionAt, activeWar.lastTokenReductionAt),
+        ),
       ),
-    })
-    .where(
-      and(
-        eq(war.id, activeWar.id),
-        isNull(war.endedAt),
-        eq(war.lastTokenReductionAt, activeWar.lastTokenReductionAt),
-      ),
-    );
+  );
 };
 
 /** Fixed slots make retries harmless. A tie applies no damage. */
@@ -269,13 +272,15 @@ const resolveDueWarCamps = async (
     camps
       .filter((camp) => camp.endsAt <= now)
       .map((camp) =>
-        client.execute(sql`
+        retryOnDeadlock(() =>
+          client.execute(sql`
     UPDATE ${warCamp} INNER JOIN ${war} ON ${war.id} = ${warCamp.warId}
     SET ${war.attackerWarHealth} = GREATEST(${war.attackerWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.defenderScore} > ${warCamp.attackerScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
         ${war.defenderWarHealth} = GREATEST(${war.defenderWarHealth} - CASE WHEN ${war.endedAt} IS NULL AND ${war.rules} IS NOT NULL AND ${warCamp.endsAt} <= DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY) AND ${warCamp.attackerScore} > ${warCamp.defenderScore} THEN CAST(JSON_EXTRACT(${war.rules}, '$.campDamage') AS UNSIGNED) ELSE 0 END, 0),
         ${warCamp.resolvedAt} = SYSDATE(3)
     WHERE ${warCamp.id} = ${camp.id} AND ${warCamp.resolvedAt} IS NULL AND ${warCamp.endsAt} <= SYSDATE(3)
   `),
+        ),
       ),
   );
 };

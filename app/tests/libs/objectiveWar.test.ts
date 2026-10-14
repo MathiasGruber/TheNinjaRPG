@@ -30,6 +30,9 @@ describe("objective war rules", () => {
     const destroyed = rows.map((s) => ({ ...s, shrineLevel: s.sector === 100 ? 1 : 0 }));
     expect(selectWarObjectives(destroyed, "a", 100, defaultWarRules)).toEqual([]);
   });
+  it("keeps reserves protected when ordinary land is disputed", () => {
+    expect(selectWarObjectives(rows, "a", 100, defaultWarRules, Math.random, [101, 102, 103])).toEqual([]);
+  });
   it("hides both sides' objectives from nonleaders until their own espionage is full", () => {
     const activeWar = { attackerVillageId: "a", defenderVillageId: "b", warAllies: [{ villageId: "ally", supportVillageId: "a" }], objectiveState: {
       objectives: selectWarObjectives(rows, "a", 100, defaultWarRules), attackerEspionage: 0, defenderEspionage: 100,

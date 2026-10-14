@@ -3354,14 +3354,20 @@ const fetchUpdatedUserOnce = async (props: {
       });
       requiresUserRefresh = true;
       requiresProgressionRefresh = true;
-      if (claim.success)
+      if (claim.success) {
+        // The resumed timer depends on the committed pause duration.
+        const immunity = await client.query.userData.findFirst({
+          columns: { bracketImmunityLiftedUntil: true, bracketImmunityPausedAt: true },
+          where: eq(userData.userId, userId),
+        });
         Object.assign(user, {
           status: "AWAKE",
           updatedAt: claim.claimedAt,
           regenAt: now,
           curEnergy: energy,
+          ...immunity,
         });
-      else {
+      } else {
         const freshUser = await queryUpdatedUser();
         if (freshUser) Object.assign(user, freshUser);
       }

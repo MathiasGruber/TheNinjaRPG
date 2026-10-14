@@ -121,10 +121,8 @@ export const handleWarEnd = async (
       current.combatStartedAt.getTime() + current.rules.durationDays * DAY_S * 1000 ||
       Date.now() >= current.lastTokenReductionAt.getTime() + DAY_S * 1000)
   ) {
-    await Promise.all([
-      applyObjectiveWarDecay(client, current),
-      settleDueWarCamps(client, current.id),
-    ]);
+    await applyObjectiveWarDecay(client, current);
+    await settleDueWarCamps(client, current.id);
     current = (await fetchSettlementWar(client, current.id)) ?? current;
   }
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -678,15 +676,12 @@ export const startDeclaredWar = async (
       const objectives = rules
         ? lockedVillages.flatMap((v) =>
             selectWarObjectives(
-              sectors.filter(
-                (s) =>
-                  !activeWars.some(
-                    (w) => w.type === "SECTOR_WAR" && w.sector === s.sector,
-                  ),
-              ),
+              sectors,
               v.id,
               v.sector,
               rules,
+              Math.random,
+              activeWars.filter((w) => w.type === "SECTOR_WAR").map((w) => w.sector),
             ),
           )
         : [];

@@ -2,6 +2,7 @@ import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { questHistory, sector, userData, village, war, warAlly, warActionReceipt, warCamp, warContribution } from "@/drizzle/schema";
 import { applyObjectiveWarAction, applyObjectiveWarDecay, expireWarPoints, syncWarCamps, resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
+import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { warRouter } from "@/server/api/routers/war";
 import { defaultWarRules } from "@/validators/war";
 import { insertUsers } from "../../setup/factories";
@@ -83,6 +84,16 @@ describeWithDatabase("objective war atomic strategic actions", () => {
     expect(u.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeGreaterThan(1790000);
     expect(u.bracketImmunityPausedAt).toBeNull();
   });
+  it("returns restored immunity when recovering an orphaned battle", async () => {
+    const db = await getTestDatabase(); const now = Date.now();
+    await db.update(userData).set({ status: "BATTLE", battleId: null, bracketImmunityPausedAt: new Date(now - 3600000), bracketImmunityLiftedUntil: new Date(now - 1800000) }).where(eq(userData.userId, "hero"));
+    const { user } = await fetchUpdatedUser({ client: db, userId: "hero" });
+    if (!user) throw new Error("Missing recovered user");
+    expect(user.status).toBe("AWAKE");
+    expect(user.bracketImmunityPausedAt).toBeNull();
+    expect(user.bracketImmunityLiftedUntil.getTime() - Date.now()).toBeGreaterThan(1790000);
+  });
+
   it("converts all points exactly once under simultaneous claims", async () => {
     const db = await getTestDatabase(); await db.update(war).set({ endedAt: new Date(), status: "DRAW" }).where(eq(war.id, "w"));
     await db.insert(warContribution).values({ warId: "w", userId: "hero", damage: 150 });

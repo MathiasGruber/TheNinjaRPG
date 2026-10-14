@@ -57,17 +57,17 @@ export const selectWarObjectives = (
   homeSector: number,
   rules: WarRules,
   random = Math.random,
+  excludedSectors: number[] = [],
 ): WarObjectiveState[] => {
-  const owned = sectors.filter(
-    (s) =>
-      s.villageId === villageId &&
-      (!s.boostLockedUntil || new Date(s.boostLockedUntil) <= new Date()),
-  );
+  const owned = sectors.filter((s) => s.villageId === villageId);
   const ordinary = owned.filter(
     (s) => s.sector !== homeSector && !MAP_RESERVED_SECTORS.includes(s.sector),
   );
   const eligible = (ordinary.length ? ordinary : owned).filter(
-    (s) => s.shrineLevel > 0,
+    (s) =>
+      s.shrineLevel > 0 &&
+      !excludedSectors.includes(s.sector) &&
+      (!s.boostLockedUntil || new Date(s.boostLockedUntil) <= new Date()),
   );
   // Fisher-Yates avoids the bias of random comparator sorting.
   for (let i = eligible.length - 1; i > 0; i--) {
