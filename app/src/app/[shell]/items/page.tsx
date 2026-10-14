@@ -262,27 +262,30 @@ export default function MyItems() {
   return (
     <>
       <ContentBox
-        title="Item Management"
+        title="Items"
         subtitle={
           activeTab === "normal"
-            ? `Normal Inventory ${normalItemCount}/${maxNormalItems}`
+            ? `${normalItemCount}/${maxNormalItems} slots`
             : activeTab === "event"
-              ? `Event Inventory ${eventItemCount}/${maxEventItems}`
+              ? `${eventItemCount}/${maxEventItems} slots`
               : activeTab === "materials"
-                ? `Materials Inventory ${materialsItemCount}/${maxMaterials}`
-                : `Cooking Inventory ${cookingItemCount}/${maxCookingItems}`
+                ? `${materialsItemCount}/${maxMaterials} slots`
+                : `${cookingItemCount}/${maxCookingItems} slots`
         }
         padding={false}
         topRightContent={
-          <div className="flex flex-row gap-2">
+          <div className="flex flex-row items-center gap-1">
             <NavTabs
               id="backpackSelection"
               current={activeTab}
               options={availableTabs}
               setValue={setActiveTab}
+              itemClassName={() => "mr-1 last:mr-0"}
+              className="text-xs sm:text-sm"
             />
             <Button
               animation="pulse"
+              size="icon"
               aria-label="Purchase an extra item slot"
               aria-busy={isBuyingItemSlot}
               disabled={isBuyingItemSlot}
@@ -361,15 +364,12 @@ export default function MyItems() {
           <div className="flex flex-col sm:flex-row">
             <div className="w-full basis-1/2 p-3">
               <h2 className="font-bold text-2xl text-foreground">Equipped</h2>
-              <div className="relative">
+              <div className="relative mx-auto w-full max-w-[290px]">
                 <Character useritems={userItems} userData={userData} />
               </div>
             </div>
             <div className="max-h-full basis-1/2 overflow-y-scroll border-t-2 border-dashed bg-poppopover p-3 sm:max-h-[600px] sm:border-t-0 sm:border-l-2">
-              <div className="mb-2 flex flex-row flex-wrap items-center justify-between gap-2">
-                <h2 className="font-bold text-2xl text-foreground">Backpack</h2>
-                <MergeAllStacksButton storedAtHome={false} />
-              </div>
+              <h2 className="mb-2 font-bold text-2xl text-foreground">Backpack</h2>
               <Backpack
                 userData={userData}
                 useritems={
@@ -387,17 +387,33 @@ export default function MyItems() {
           </div>
         </div>
       </ContentBox>
-      <div className="mt-1 flex w-full flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-wrap items-start gap-2">
-          <ItemLoadoutSelector />
+      <div className="mt-1 flex w-full items-center gap-1">
+        <div className="min-w-0 flex-1">
+          <ItemLoadoutSelector size="small" compact />
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
           <Confirm
             title="Unequip all items"
             proceed_label={isUnequippingAll ? undefined : "Unequip all"}
             isValid={!isUnequippingAll}
+            disabled={isUnequippingAll}
             button={
-              <Button disabled={isUnequippingAll} variant="outline" type="button">
-                <Undo2 className="mr-2 h-4 w-4" />
-                {isUnequippingAll ? "Unequipping" : "Unequip all"}
+              <Button
+                disabled={isUnequippingAll}
+                aria-busy={isUnequippingAll}
+                aria-label={
+                  isUnequippingAll ? "Unequipping all items" : "Unequip all items"
+                }
+                hoverText="Unequip all items"
+                variant="outline"
+                size="sm"
+                type="button"
+                className="h-8 w-8 px-0 sm:w-auto sm:gap-1.5 sm:px-2"
+              >
+                <Undo2 className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {isUnequippingAll ? "Unequipping" : "Unequip"}
+                </span>
               </Button>
             }
             onAccept={(e) => {
@@ -410,8 +426,7 @@ export default function MyItems() {
               current item loadout. Your loadout slot selection stays the same.
             </p>
           </Confirm>
-        </div>
-        <div className="flex gap-2">
+          <MergeAllStacksButton storedAtHome={false} compact />
           {itemsNeedingRepair.length > 0 && (repairKits.length > 0 || isCrafter) && (
             <Confirm
               title="Repair All Items"
@@ -421,9 +436,21 @@ export default function MyItems() {
               isValid={canRepairWithKits && !isRepairAllPending}
               disabled={isRepairAllPending}
               button={
-                <Button disabled={isRepairAllPending} variant="outline">
-                  <Wrench className="mr-2 h-4 w-4" />
-                  {isRepairAllPending ? "Repairing" : "Repair All"}
+                <Button
+                  disabled={isRepairAllPending}
+                  aria-busy={isRepairAllPending}
+                  aria-label={
+                    isRepairAllPending ? "Repairing all items" : "Repair all items"
+                  }
+                  hoverText="Repair all items"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 px-0 sm:w-auto sm:gap-1.5 sm:px-2"
+                >
+                  <Wrench className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {isRepairAllPending ? "Repairing" : "Repair"}
+                  </span>
                 </Button>
               }
               onAccept={(e) => {
@@ -522,11 +549,19 @@ export default function MyItems() {
           )}
           <Confirm
             title="Auto Equip"
+            proceed_label={isAutoEquipping ? undefined : "Auto equip"}
             isValid={!isAutoEquipping}
+            disabled={isAutoEquipping}
             button={
-              <Button disabled={isAutoEquipping} variant="default">
-                <Zap className="mr-2 h-4 w-4" />
-                {isAutoEquipping ? "Equipping" : "Auto Equip"}
+              <Button
+                disabled={isAutoEquipping}
+                aria-busy={isAutoEquipping}
+                variant="default"
+                size="sm"
+                className="gap-1.5 px-2"
+              >
+                <Zap className="h-4 w-4" />
+                {isAutoEquipping ? "Equipping" : "Auto equip"}
               </Button>
             }
             onAccept={(e) => {
@@ -535,8 +570,8 @@ export default function MyItems() {
             }}
           >
             <p>
-              You are about to auto-equip your items. This will equip unequipped items
-              in the best possible way. Are you sure?
+              Equip the best available items from your backpack into your equipment
+              slots?
             </p>
           </Confirm>
         </div>
@@ -1656,7 +1691,7 @@ const Equip: React.FC<EquipProps> = (props) => {
   return (
     <button
       type="button"
-      className={`absolute ${props.pos} flex aspect-square w-1/5 shrink-0 grow-0 cursor-pointer flex-row items-center justify-center border-2 border-slate-500 border-dashed bg-slate-200 font-bold text-slate-950 text-xl md:w-1/4 lg:w-1/5 ${
+      className={`absolute ${props.pos} flex aspect-square w-1/5 shrink-0 grow-0 cursor-pointer flex-row items-center justify-center border-2 border-slate-500 border-dashed bg-slate-200 font-bold text-slate-950 text-xs sm:text-sm ${
         item ? "" : "opacity-50"
       } rounded-xl hover:border-black hover:bg-slate-400`}
       onClick={() => props.act(props.slot)}
