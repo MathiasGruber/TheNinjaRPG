@@ -452,6 +452,7 @@ export const warRouter = createTRPCRouter({
     }),
   getWarCampNotices: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
+    if (!user.villageId) return [];
     return ctx.drizzle
       .select({ id: warCamp.id, sector: warCamp.sector, endsAt: warCamp.endsAt })
       .from(warCamp)
@@ -464,8 +465,8 @@ export const warRouter = createTRPCRouter({
           isNull(warCamp.resolvedAt),
           sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
           or(
-            eq(war.attackerVillageId, user.villageId ?? ""),
-            eq(war.defenderVillageId, user.villageId ?? ""),
+            eq(war.attackerVillageId, user.villageId),
+            eq(war.defenderVillageId, user.villageId),
             sql`EXISTS (SELECT 1 FROM WarAlly WHERE warId = ${war.id} AND villageId = ${user.villageId} AND acceptedAt IS NOT NULL AND endedAt IS NULL)`,
           ),
         ),

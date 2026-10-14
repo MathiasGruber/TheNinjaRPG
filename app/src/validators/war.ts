@@ -35,8 +35,8 @@ export const raidOptionsSchema = z.object({
   targetVillageId: z.string(),
 });
 
-const positiveRule = z.coerce.number().int().min(1).max(100000000);
-const roleRule = z.coerce.number().int().min(0).max(10000);
+const positiveRule = z.number().int().min(1).max(100000000);
+const roleRule = z.number().int().min(0).max(10000);
 export const warRulesSchema = z.object({
   enabled: z.boolean(),
   townhallHp: positiveRule,

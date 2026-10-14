@@ -11,6 +11,13 @@ describe("objective war rules", () => {
     expect(warRulesSchema.safeParse({ ...defaultWarRules, durationDays: 0 }).success).toBe(false);
     expect(warRulesSchema.safeParse({ ...defaultWarRules, leaderDamage: -1 }).success).toBe(false);
   });
+  it("rejects non-number rule values instead of silently coercing them", () => {
+    for (const value of [null, "", [], false, "10"]) {
+      expect(warRulesSchema.safeParse({ ...defaultWarRules, regularDamage: value }).success).toBe(false);
+      expect(warRulesSchema.safeParse({ ...defaultWarRules, townhallHp: value }).success).toBe(false);
+    }
+    expect(warRulesSchema.safeParse({ ...defaultWarRules, regularDamage: 0 }).success).toBe(true);
+  });
   const rows = [100, 101, 102, 103, MAP_RESERVED_SECTORS[0]!].map((sector) => ({ sector, villageId: "a", shrineLevel: 1, boostLockedUntil: null }));
   it("selects two distinct ordinary sectors before reserves", () => {
     const selected = selectWarObjectives(rows, "a", 100, defaultWarRules, () => 0.5);
