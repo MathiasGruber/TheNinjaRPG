@@ -473,7 +473,7 @@ export default function DungeonEditor() {
                 </div>
                 {content.rewards.drops.map((drop, i) => (
                   <div
-                    className="grid grid-cols-[5rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_1fr_auto_auto]"
+                    className="grid grid-cols-[7rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_1fr_auto_auto]"
                     key={i}
                   >
                     <select

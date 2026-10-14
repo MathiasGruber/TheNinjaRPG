@@ -2805,8 +2805,16 @@ const Sector: React.FC<SectorProps> = (props) => {
             Gold lines mark sector borders
           </div>
         </aside>
-        <div className="pointer-events-none absolute top-3 right-3 z-10">
+        <div className="pointer-events-none absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
           <DayNightIndicator className="pointer-events-auto rounded-lg border bg-background/90 px-3 py-2 shadow-md backdrop-blur-sm" />
+          {!!sectorDungeons?.length && (
+            <Button asChild size="sm" className="pointer-events-auto shadow-md">
+              <Link href="/dungeon">
+                <Castle className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                Dungeons ({sectorDungeons.length})
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
       {webglError && <WebGlError />}
@@ -2863,14 +2871,6 @@ const Sector: React.FC<SectorProps> = (props) => {
             </div>
           </div>
         </div>
-      )}
-      {!!sectorDungeons?.length && (
-        <Button asChild size="sm" className="absolute top-4 right-4 z-20 shadow-md">
-          <Link href="/dungeon">
-            <Castle className="mr-1.5 h-4 w-4" aria-hidden="true" />
-            Dungeons ({sectorDungeons.length})
-          </Link>
-        </Button>
       )}
       {activeRaid && (
         <div
