@@ -55,6 +55,7 @@ import {
   isNewSlotDue,
 } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { countBoostingShrines } from "@/utils/village";
 import type { BoostTemplateEntry } from "@/validators/shrine";
 import type { UserDeltaResponse } from "@/validators/userCache";
 
@@ -380,9 +381,10 @@ const BoostsTab = ({ user, isActive }: TabProps) => {
   const isKage = user.userId === user.village?.kageId;
   const isElder = user.rank === "ELDER";
 
-  const level3Shrines = (capturedSectors || []).filter(
-    (s) => s.shrineLevel === 3,
-  ).length;
+  const level3Shrines = countBoostingShrines(
+    capturedSectors?.filter((s) => s.shrineLevel === 3),
+    now,
+  );
 
   const boostSettings = user.village?.shrineSettings?.activeBoosts;
   const activeBoosts = Object.entries(boostSettings || {})

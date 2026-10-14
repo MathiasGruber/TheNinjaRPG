@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import {
   SHRINE_BOOST_COST,
@@ -244,7 +244,12 @@ async function runShrineBoostTick(now: Date, prevTime: Date) {
     drizzleDB
       .select({ villageId: sector.villageId })
       .from(sector)
-      .where(eq(sector.shrineLevel, 3)),
+      .where(
+        and(
+          eq(sector.shrineLevel, 3),
+          or(isNull(sector.boostLockedUntil), lte(sector.boostLockedUntil, now)),
+        ),
+      ),
   ]);
 
   const villagesWithLevel3Shrine = new Set(level3Sectors.map((s) => s.villageId));
