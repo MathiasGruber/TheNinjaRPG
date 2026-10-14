@@ -35,6 +35,20 @@ const rug: HomeFurniture = {
   id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: {},
 };
 
+const basics = furniture.map((piece, index) => ({
+  ...piece,
+  itemId: ["home-sleeping-mat", "home-storage-box", "home-kitchen-utensils"][index]!,
+  name: ["Sleeping Mat", "Storage Box", "Kitchen Utensils"][index]!,
+}));
+const ownedItems = basics.map((piece) => ({
+  id: piece.id, itemId: piece.itemId, quantity: 1, level: 1, storedAtHome: true, equipped: "NONE",
+  item: { id: piece.itemId, name: piece.name, image: piece.image, itemType: "FURNITURE", slot: "NONE", rarity: "COMMON", hidden: false },
+})) as unknown as RouterOutputs["item"]["getUserItems"];
+const essentialHome: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
+  homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+  furniture: basics, furnitureRevision: 3, layout: [...layout],
+};
+
 const testApi = createTRPCReact<AppRouter>();
 let savedEvent: typeof Event;
 let savedCustomEvent: typeof CustomEvent;
@@ -76,6 +90,7 @@ beforeEach(() => {
     access: true,
     ownVillage: true,
   } as never);
+  vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "USER" } } as never);
   vi.spyOn(sleep, "useSleepToggle").mockReturnValue({
     toggleSleep: vi.fn(),
     isTogglingSleep: false,
@@ -101,6 +116,156 @@ afterEach(async () => {
     else Reflect.deleteProperty(globalThis, key);
   }
   vi.restoreAllMocks();
+});
+
+for (const hasCachedInventory of [false, true]) {
+  it(`refreshes home storage after ${hasCachedInventory ? "cached" : "initial"} parallel inventory reads miss newly granted furniture`, async () => {
+    let finishHome = () => {};
+    const homeReady = new Promise<void>((resolve) => { finishHome = resolve; });
+    let finishInventory = () => {};
+    const inventoryReady = new Promise<void>((resolve) => { finishInventory = resolve; });
+    let homeQueries = 0;
+    let itemQueries = 0;
+    let finishPregrantRead = () => {};
+    const pregrantRead = new Promise<void>((resolve) => { finishPregrantRead = resolve; });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
+    if (hasCachedInventory) {
+      queryClient.setQueryData(itemKey, []);
+      await queryClient.invalidateQueries({ queryKey: itemKey });
+    }
+    const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      const result = async () => {
+        if (op.path === "home.getUserHome") {
+          homeQueries++;
+          await homeReady;
+          return essentialHome;
+        }
+        if (op.path === "item.getUserItems") {
+          if (++itemQueries === 1) {
+            if (hasCachedInventory) await pregrantRead;
+            return [];
+          }
+          await inventoryReady;
+          return ownedItems;
+        }
+        if (op.path === "home.getAvailableUpgrades") return [];
+        throw new Error(`Unexpected procedure ${op.path}`);
+      };
+      void result().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
+    })] });
+    try {
+      const view = render(
+        <testApi.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+        </testApi.Provider>,
+      );
+      await waitFor(() => expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)).toEqual([]));
+      expect(homeQueries).toBe(1);
+      expect(itemQueries).toBe(1);
+      await act(async () => { finishHome(); await homeReady; });
+      const storage = await view.findByRole("button", { name: "Storage Box: Open home storage" });
+      fireEvent.click(storage);
+      await waitFor(() => expect(itemQueries).toBe(2));
+      const dialog = within(view.getByRole("dialog"));
+      expect(dialog.getByText("Loading item storage data")).toBeTruthy();
+      expect(dialog.queryByText("You don't have any items stored in your home.")).toBeNull();
+      expect(dialog.queryByRole("button", { name: "Merge all stacks" })).toBeNull();
+      await act(async () => { finishInventory(); await inventoryReady; });
+      expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+      for (const piece of basics) expect(dialog.getAllByAltText(piece.name).length).toBeGreaterThan(0);
+      await act(async () => { finishPregrantRead(); await pregrantRead; });
+      expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)).toEqual(ownedItems);
+      expect(itemQueries).toBe(2);
+      expect(homeQueries).toBe(1);
+    } finally {
+      finishHome();
+      finishInventory();
+      finishPregrantRead();
+      queryClient.clear();
+    }
+  }, 20_000);
+}
+
+for (const hasMissingInventory of [false, true]) {
+  it(hasMissingInventory ? "stops refreshing unchanged missing furniture IDs and lets storage Retry recover" : "keeps complete home inventory at one parallel read", async () => {
+    let itemQueries = 0;
+    let homeQueries = 0;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
+    const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getUserHome") {
+        homeQueries++;
+        observer.next({ result: { data: essentialHome } });
+      } else if (op.path === "item.getUserItems") {
+        itemQueries++;
+        observer.next({ result: { data: hasMissingInventory && itemQueries <= 2 ? [] : ownedItems } });
+      } else if (op.path === "home.getAvailableUpgrades") {
+        observer.next({ result: { data: [] } });
+      } else {
+        throw new Error(`Unexpected procedure ${op.path}`);
+      }
+      observer.complete();
+    })] });
+    try {
+      const view = render(
+        <testApi.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+        </testApi.Provider>,
+      );
+      fireEvent.click(await view.findByRole("button", { name: "Storage Box: Open home storage" }));
+      const dialog = within(view.getByRole("dialog"));
+      if (hasMissingInventory) {
+        expect((await dialog.findByRole("alert")).textContent).toContain("Unable to load home storage.");
+        expect(dialog.queryByRole("tab", { name: /Stored Items/ })).toBeNull();
+      } else {
+        expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+      }
+      // New result objects and furniture ordering must not restart the same missing-ID refresh.
+      await act(async () => {
+        queryClient.setQueryData(homeKey, { ...essentialHome, furniture: [...basics].reverse() });
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      });
+      expect(itemQueries).toBe(hasMissingInventory ? 2 : 1);
+      expect(homeQueries).toBe(1);
+      if (hasMissingInventory) {
+        fireEvent.click(dialog.getByRole("button", { name: "Retry" }));
+        expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+        expect(itemQueries).toBe(3);
+        expect(homeQueries).toBe(2);
+      }
+    } finally {
+      queryClient.clear();
+    }
+  }, 20_000);
+}
+
+it("does not refresh disabled owner inventory for a guest with cached home data", async () => {
+  vi.spyOn(UserContext, "useRequireInVillage").mockReturnValue({
+    userData: { homeType: "NONE", status: "AWAKE", sector: 2, village: { sector: 1 } },
+    access: true,
+    ownVillage: false,
+  } as never);
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  queryClient.setQueryData(getQueryKey(testApi.home.getUserHome, undefined, "query"), essentialHome);
+  queryClient.setQueryData(getQueryKey(testApi.item.getUserItems, undefined, "query"), []);
+  const requests = vi.fn();
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable(() => {
+    requests(op.path);
+    throw new Error(`Unexpected guest procedure ${op.path}`);
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    await view.findByRole("button", { name: "Go to sleep" });
+    expect(requests).not.toHaveBeenCalled();
+    expect(view.queryByRole("button", { name: "Manage home" })).toBeNull();
+  } finally {
+    queryClient.clear();
+  }
 });
 
 it("refreshes a selected furniture variant when returning from inventory", async () => {
