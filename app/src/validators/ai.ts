@@ -1,6 +1,22 @@
 import { detailedDiff } from "deep-object-diff";
 import { z } from "zod";
+import { IMG_ORIENTATIONS } from "@/drizzle/constants";
 import { tagTypes } from "@/validators/combat";
+
+/** Shared content-generation input; existing callers retain the default provider. */
+export const contentImageInputSchema = z.object({
+  preprompt: z.string(),
+  prompt: z.string(),
+  previousImg: z.string().optional(),
+  removeBg: z.boolean(),
+  relationId: z.string(),
+  size: z.enum(IMG_ORIENTATIONS),
+  maxDim: z.number(),
+  provider: z.enum(["NANO_BANANA", "OPENAI"]).prefault("NANO_BANANA"),
+});
+
+/** Image-generation providers supported by the content editor. */
+export type ContentImageProvider = z.infer<typeof contentImageInputSchema>["provider"];
 
 export const AvailableTargets = [
   "BARRIER_BETWEEN",

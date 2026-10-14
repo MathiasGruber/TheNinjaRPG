@@ -42,6 +42,22 @@
 
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-home-sleep: home-sleep 3s ease-in-out infinite;
+
+  @keyframes home-sleep {
+    0% {
+      opacity: 0;
+      transform: translate(0, 0) scale(0.7);
+    }
+    20%,
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(0.8em, -2em) scale(1.2);
+    }
+  }
 
   @keyframes accordion-down {
     from {

@@ -1,0 +1,679 @@
+import { ensureDom } from "../setup-dom.mjs";
+const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { type ImgHTMLAttributes, type ComponentProps, useState } from "react";
+import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
+import { HomeScene as ResidenceScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
+import { homeLayoutPlacementError, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
+import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
+import { bunnyImageUrl } from "@/utils/image";
+import { homeFurnitureSaveInputSchema } from "@/validators/home";
+
+// The image stub exposes art failures without relying on a browser image loader.
+vi.mock("@/layout/Image", () => ({
+  default: ({ src, alt, onError, style }: ImgHTMLAttributes<HTMLImageElement>) => (
+    // biome-ignore lint/performance/noImgElement: isolated image-failure test stub
+    <img src={src} alt={alt} onError={onError} style={style} />
+  ),
+}));
+
+/** The page header owns decoration; this wrapper keeps that state through scene rerenders. */
+const HomeScene = (props: Omit<ComponentProps<typeof ResidenceScene>, "isDecorating" | "onDecoratingChange"> & { isRefreshingFurniture?: boolean }) => {
+  const [isDecorating, setIsDecorating] = useState(false);
+  return (
+    <>
+      {props.canDecorate && (
+        <button type="button" disabled={isDecorating || props.isRefreshingFurniture} onClick={() => setIsDecorating(true)}>
+          Decorate
+        </button>
+      )}
+      <ResidenceScene {...props} isDecorating={isDecorating} onDecoratingChange={setIsDecorating} />
+    </>
+  );
+};
+
+const starterFurniture: HomeFurniture[] = [
+  { id: "owned-bed", itemId: "home-bed", name: "Bed", image: "https://ui0arpl8sm.ufs.sh/f/V2umBvRsN1p0ECHU5FA5r.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-armory", itemId: "home-armory", name: "Armory", image: "https://ui0arpl8sm.ufs.sh/f/EyNeihgG6GdMTMBcOC9JA.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", image: "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-garden", itemId: "home-garden", name: "Garden", image: "https://ui0arpl8sm.ufs.sh/f/cInj_p_PE20tF9FWO_frE.webp", width: 10, groundAnchor: 88.3, geometry: { aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 40, width: 100, height: 60 }, footprint: { x: 10, y: 85, width: 80, height: 15 } }, action: "farm", isFloor: false, quantity: 1, views: {} },
+];
+const rugDefinition: HomeFurniture = {
+  id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: { "90": { image: "/custom-rug-90.webp" } },
+};
+
+const props = {
+  homeType: "NONE" as const,
+  isGuest: false,
+  isAsleep: false,
+  isTogglingSleep: false,
+  onSleep: vi.fn(),
+  onStorage: vi.fn(),
+  onKitchen: vi.fn(),
+  onFarm: vi.fn(),
+  furniture: starterFurniture,
+  layout: [
+    { id: "owned-bed", x: 22, y: 15.15, rotation: 0 as const },
+    { id: "owned-armory", x: 75, y: 15.15, rotation: 0 as const },
+    { id: "owned-kitchen", x: 76, y: 57.58, rotation: 0 as const },
+    { id: "owned-garden", x: 86, y: 90.91, rotation: 0 as const },
+  ],
+};
+
+/** Regression coverage for residence navigation, owner access, and artwork recovery. */
+describe("Home scene", () => {
+  beforeEach(() => {
+    ensureDom();
+    vi.clearAllMocks();
+  });
+  afterEach(cleanup);
+
+  it("uses distinct uploaded artwork for every existing home tier", () => {
+    expect(new Set(Object.values(HOME_SCENE_IMAGES)).size).toBe(HomeTypes.length);
+    for (const tier of HomeTypes) {
+      const image = new URL(HOME_SCENE_IMAGES[tier]);
+      expect(image.hostname).toBe("ui0arpl8sm.ufs.sh");
+      expect(image.pathname).toMatch(/^\/f\/.+\.webp$/);
+    }
+  });
+
+  it("offers CDN renditions sized for the room, furniture, and inventory previews", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    const room = view.getByAltText(`${HomeTypeDetails.NONE.name} interior`);
+    expect(room.getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES.NONE, 768));
+    const roomSource = room.closest("picture")?.querySelector("source");
+    expect(roomSource?.getAttribute("srcset")).toContain(`${bunnyImageUrl(HOME_SCENE_IMAGES.NONE, 480)} 480w`);
+    expect(roomSource?.getAttribute("sizes")).toBe("(max-width: 768px) 100vw, 768px");
+    const bedSource = view.getByRole("button", { name: "Bed: Go to sleep" }).querySelector("source");
+    expect(bedSource?.getAttribute("srcset")).toContain(`${bunnyImageUrl(starterFurniture[0]!.image, 128)} 128w`);
+    expect(bedSource?.getAttribute("sizes")).toBe("(max-width: 768px) 34vw, 261px");
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const previews = view.getByRole("group", { name: "Owned furniture" });
+    expect(previews.querySelector("source")?.getAttribute("sizes")).toBe("80px");
+  });
+
+  it("opens home actions through callbacks without leaving the residence", () => {
+    const view = render(<HomeScene {...props} />);
+    const scene = within(view.getByRole("group", { name: "Home scene" }));
+    fireEvent.click(scene.getByRole("button", { name: "Bed: Go to sleep" }));
+    fireEvent.click(scene.getByRole("button", { name: "Armory: Open home storage" }));
+    const kitchen = scene.getByRole("button", { name: "Kitchen: Open kitchen" });
+    fireEvent.click(kitchen);
+    expect(props.onSleep).toHaveBeenCalledTimes(1);
+    expect(props.onStorage).toHaveBeenCalledTimes(1);
+    expect(props.onKitchen).toHaveBeenCalledTimes(1);
+    expect(props.onKitchen).toHaveBeenCalledWith(kitchen);
+    expect(view.queryByRole("link")).toBeNull();
+    expect(scene.getByRole("button", { name: "Garden: Open farm" })).toBeTruthy();
+    const actions = within(view.getByRole("group", { name: "Home actions" }));
+    for (const name of ["Go to sleep", "Home storage", "Kitchen", "Farm"]) {
+      expect(actions.getByRole("button", { name }).classList.contains("bg-primary")).toBe(true);
+    }
+  });
+
+  it("preserves awake/asleep feedback and prevents duplicate pending sleep actions", () => {
+    const view = render(<HomeScene {...props} isAsleep />);
+    expect(view.getByRole("button", { name: "Wake up" })).toBeTruthy();
+    expect(view.getByRole("status").textContent).toContain("You are asleep");
+    expect(view.getByRole("status").classList.contains("sr-only")).toBe(true);
+    view.rerender(<HomeScene {...props} isTogglingSleep />);
+    fireEvent.click(view.getByRole("button", { name: "Bed: Please wait…" }));
+    fireEvent.click(view.getByRole("button", { name: "Please wait…" }));
+    expect(props.onSleep).not.toHaveBeenCalled();
+    expect(view.getByRole("status").textContent).toContain("Changing sleep status");
+  });
+
+  it("keeps storage and management unavailable in a guest residence", () => {
+    const view = render(<HomeScene {...props} isGuest />);
+    fireEvent.click(view.getByRole("button", { name: "Armory: Home storage is in your own village" }));
+    fireEvent.click(view.getByRole("button", { name: "Home storage" }));
+    expect(props.onStorage).not.toHaveBeenCalled();
+    expect(view.queryByRole("button", { name: "Manage home" })).toBeNull();
+    expect(view.getByRole("button", { name: "Go to sleep" })).toBeTruthy();
+  });
+
+  it("keeps textual navigation working when the artwork fails", () => {
+    const view = render(<HomeScene {...props} />);
+    fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
+    const actions = within(view.getByRole("group", { name: "Home actions" }));
+    fireEvent.click(actions.getByRole("button", { name: "Home storage" }));
+    expect(props.onStorage).toHaveBeenCalledTimes(1);
+    fireEvent.click(actions.getByRole("button", { name: "Farm" }));
+    expect(props.onFarm).toHaveBeenCalledTimes(1);
+    expect(view.getByText(/Home artwork is unavailable/)).toBeTruthy();
+  });
+
+  it("loads a new tier after artwork failure while keeping dialog triggers mounted", () => {
+    const view = render(<HomeScene {...props} />);
+    const trigger = view.getByRole("button", { name: "Home storage" });
+    fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
+    view.rerender(<HomeScene {...props} homeType="PALACE" />);
+    expect(view.getByAltText("Palace interior").getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES.PALACE, 768));
+    expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();
+    expect(view.getByRole("button", { name: "Home storage" })).toBe(trigger);
+  });
+
+  it("edits furniture without triggering its game action and cancels without saving", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const before = bed.style.left;
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(bed.style.left).not.toBe(before);
+    fireEvent.click(bed);
+    expect(props.onSleep).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    expect(view.getByRole("button", { name: "Bed: Go to sleep" }).style.left).toBe(before);
+  });
+
+  it("leaves decoration controls in the page header and blocks editing until inventory refresh finishes", () => {
+    const view = render(<HomeScene {...props} canDecorate isRefreshingFurniture />);
+    const scene = within(view.getByRole("group", { name: "Home scene" }));
+    expect(scene.queryByRole("button", { name: "Decorate" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Manage home" })).toBeNull();
+    expect(view.queryByRole("button", { name: "House shop" })).toBeNull();
+    const decorate = view.getByRole("button", { name: "Decorate" }) as HTMLButtonElement;
+    expect(decorate.disabled).toBe(true);
+    fireEvent.click(decorate);
+    expect(view.queryByRole("button", { name: "Save layout" })).toBeNull();
+    view.rerender(<HomeScene {...props} canDecorate />);
+    fireEvent.click(decorate);
+    expect(view.getByRole("button", { name: "Move Bed" })).toBeTruthy();
+  });
+
+  it("cycles four painted views clockwise while preserving the floor anchor", async () => {
+    const furniture = [{ ...starterFurniture[0]!, views: {
+      "90": { image: "https://ui0arpl8sm.ufs.sh/f/bed-90.webp", width: 20, groundAnchor: 85 },
+      "180": { image: "/bed-180.webp" },
+      "270": { image: "/bed-270.webp", width: 21 },
+    } }, ...starterFurniture.slice(1)];
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={[furniture[0]!]} layout={[{ id: "owned-bed", x: 50, y: 50, rotation: 0 }]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
+    const controls = within(view.getByRole("group", { name: "Home scene" })).getByRole("group", { name: "Furniture controls" });
+    expect(controls.closest("button")).toBeNull();
+    expect(view.queryByRole("button", { name: "Move Bed right" })).toBeNull();
+    expect(rotate.disabled).toBe(false);
+    for (const [angle, image, width] of [
+      [90, "https://ui0arpl8sm.ufs.sh/f/bed-90.webp", 20],
+      [180, "/bed-180.webp", 34],
+      [270, "/bed-270.webp", 21],
+      [0, furniture[0]!.image, 34],
+    ] as const) {
+      fireEvent.click(rotate);
+      expect(bed.querySelector("img")?.getAttribute("src")).toBe(bunnyImageUrl(image, 400));
+      expect(bed.querySelector("img")!.style.transform).not.toContain("scaleX");
+      expect(bed.querySelector("source")?.getAttribute("srcset")).toContain(`${bunnyImageUrl(image, 128)} 128w`);
+      expect(bed.querySelector("source")?.getAttribute("sizes")).toBe(`(max-width: 768px) ${width}vw, ${Math.round(width * 7.68)}px`);
+      expect(rotate.getAttribute("aria-description")).toBe(`Current orientation: ${angle}°`);
+    }
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements[0]!;
+    expect(saved.id).toBe("owned-bed");
+    expect(saved.x).toBeCloseTo(50, 2);
+    expect(saved.y).toBeCloseTo(50, 2);
+    expect(saved.rotation).toBe(0);
+  });
+
+  it("skips missing directions and recovers removed artwork through the canonical view", async () => {
+    const bedDefinition = { ...starterFurniture[0]!, views: { "180": { image: "/bed-180.webp", width: 20 } } };
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={[bedDefinition]} layout={[props.layout[0]!]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
+    fireEvent.click(rotate);
+    expect(rotate.getAttribute("aria-description")).toContain("180°");
+    expect(bed.querySelector("img")?.getAttribute("src")).toBe("/bed-180.webp");
+    view.rerender(<HomeScene {...props} furniture={[{ ...bedDefinition, views: {} }]} layout={[props.layout[0]!]} canDecorate onSave={onSave} />);
+    expect(bed.querySelector("img")?.getAttribute("src")).toBe(bunnyImageUrl(bedDefinition.image, 400));
+    expect(rotate.disabled).toBe(false);
+    fireEvent.click(rotate);
+    expect(rotate.getAttribute("aria-description")).toContain("0°");
+    expect(rotate.disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.find(({ id }) => id === "owned-bed")?.rotation).toBe(0);
+  });
+
+  it.each([
+    { id: "owned-bed", name: "Bed", width: 800, height: 600, dx: 48, dy: 24 },
+    { id: "owned-bed", name: "Bed", width: 400, height: 300, dx: 24, dy: 12 },
+  ] as const)(
+    "keeps $id under the pointer in a $width by $height scene and saves normalized coordinates",
+    async ({ id, name, width, height, dx, dy }) => {
+      const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+      const layout = [{ id, x: 50, y: 50, rotation: 0 as const }];
+      const view = render(<HomeScene {...props} furniture={[starterFurniture[0]!]} canDecorate layout={layout} onSave={onSave} />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const furniture = view.getByRole("button", { name: `Move ${name}` });
+      furniture.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, width, height);
+      const before = [Number.parseFloat(furniture.style.left), Number.parseFloat(furniture.style.top)];
+
+      firePointerEvent(furniture, "pointerdown", 1, 110, 140);
+      firePointerEvent(furniture, "pointermove", 1, 110 + dx, 140 + dy);
+      expect((Number.parseFloat(furniture.style.left) - before[0]!) * width / 100).toBeCloseTo(dx, 1);
+      expect((Number.parseFloat(furniture.style.top) - before[1]!) * height / 100).toBeCloseTo(dy, 1);
+      firePointerEvent(furniture, "pointerup", 1, 110 + dx, 140 + dy);
+      fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      const saved = onSave.mock.calls[0]![0].placements.find((placement) => placement.id === id)!;
+      expect(saved.x).toBeCloseTo(50 + (100 * dx) / width / HOME_FLOOR_PROJECTION.scaleX, 2);
+      expect(saved.y).toBeCloseTo(50 + (100 * dy) / height / HOME_FLOOR_PROJECTION.scaleY, 2);
+      expect(layout.find((placement) => placement.id === id)).toEqual({ id, x: 50, y: 50, rotation: 0 });
+    },
+  );
+
+  it.each([
+    { key: "ArrowLeft", x: 48, y: 50 },
+    { key: "ArrowUp", x: 50, y: 48 },
+    { key: "ArrowDown", x: 50, y: 52 },
+    { key: "ArrowRight", x: 52, y: 50 },
+  ])("moves $key along the floor axis without changing the other coordinate", async ({ key, x, y }) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const layout = [{ id: "owned-bed", x: 50, y: 50, rotation: 0 as const }];
+    const view = render(<HomeScene {...props} furniture={[starterFurniture[0]!]} canDecorate layout={layout} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.keyDown(view.getByRole("button", { name: "Move Bed" }), { key });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements.find((placement) => placement.id === "owned-bed")!;
+    expect(saved.x).toBeCloseTo(x, 2);
+    expect(saved.y).toBeCloseTo(y, 2);
+    expect(saved.rotation).toBe(0);
+  });
+
+  it.each(["Cancel", "Undo changes"])(
+    "ends the captured drag when %s replaces the draft and permits a new drag",
+    (action) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const saved = furniturePosition(bed);
+      fireEvent.keyDown(bed, { key: "ArrowRight" });
+      const dragOrigin = furniturePosition(bed);
+      expect(dragOrigin).not.toEqual(saved);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      expect(furniturePosition(bed)).not.toEqual(dragOrigin);
+
+      fireEvent.click(view.getByRole("button", { name: action }));
+      if (action === "Cancel") {
+        fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      }
+      const replacement = view.getByRole("button", { name: "Move Bed" });
+      expect(furniturePosition(replacement)).toEqual(saved);
+      for (const type of ["pointermove", "pointercancel", "lostpointercapture"]) {
+        firePointerEvent(replacement, type, 1, 140, 140);
+        expect(furniturePosition(replacement)).toEqual(saved);
+      }
+      firePointerEvent(replacement, "pointerdown", 2);
+      firePointerEvent(replacement, "pointermove", 2, 160, 160);
+      expect(furniturePosition(replacement)).not.toEqual(saved);
+    },
+  );
+
+  it.each(["pointerup", "pointercancel", "lostpointercapture"])(
+    "ignores %s from another pointer or furniture while dragging",
+    (type) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      const garden = view.getByRole("button", { name: "Move Garden" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const gardenBefore = furniturePosition(garden);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      firePointerEvent(garden, "pointerdown", 2);
+
+      let coordinate = 140;
+      for (const [target, pointerId] of [[bed, 2], [garden, 1], [garden, 2]] as const) {
+        const moved = furniturePosition(bed);
+        firePointerEvent(target, type, pointerId);
+        expect(furniturePosition(garden)).toEqual(gardenBefore);
+        expect(furniturePosition(bed)).toEqual(moved);
+        firePointerEvent(bed, "pointermove", 1, coordinate, coordinate);
+        expect(furniturePosition(bed)).not.toEqual(moved);
+        coordinate += 20;
+      }
+    },
+  );
+
+  it.each(["pointerup", "pointercancel", "lostpointercapture"])(
+    "ends the matching drag on %s and restores the origin only on cancellation",
+    (type) => {
+      const view = render(<HomeScene {...props} canDecorate />);
+      fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+      const bed = view.getByRole("button", { name: "Move Bed" });
+      const garden = view.getByRole("button", { name: "Move Garden" });
+      bed.setPointerCapture = vi.fn();
+      view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+        new DOMRect(0, 0, 1000, 1000);
+      const bedBefore = furniturePosition(bed);
+      const gardenBefore = furniturePosition(garden);
+      firePointerEvent(bed, "pointerdown", 1);
+      firePointerEvent(bed, "pointermove", 1, 120, 120);
+      const moved = furniturePosition(bed);
+      expect(moved).not.toEqual(bedBefore);
+      firePointerEvent(bed, type, 1);
+      const expected = type === "pointercancel" ? bedBefore : moved;
+      expect(furniturePosition(bed)).toEqual(expected);
+      expect(furniturePosition(garden)).toEqual(gardenBefore);
+      firePointerEvent(bed, "pointermove", 1, 160, 160);
+      expect(furniturePosition(bed)).toEqual(expected);
+    },
+  );
+
+  it("retains rejected drafts and saves only the revision that the player began editing", async () => {
+    const onSave = vi.fn().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} canDecorate revision={3} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.keyDown(view.getByRole("button", { name: "Move Bed" }), { key: "ArrowRight" });
+    view.rerender(<HomeScene {...props} canDecorate revision={4} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].revision).toBe(3);
+    expect(view.getByRole("button", { name: "Move Bed" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Undo changes" }));
+    onSave.mockResolvedValue(true);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(view.getByRole("button", { name: "Decorate" })).toBeTruthy());
+    expect(onSave.mock.calls[1]![0].revision).toBe(4);
+  });
+
+  it("ends a captured drag when saving and preserves its submitted position after rejection", async () => {
+    let resolveSave!: (success: boolean) => void;
+    const pendingSave = new Promise<boolean>((resolve) => { resolveSave = resolve; });
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>(() => pendingSave);
+    const PendingSaveScene = () => {
+      const [isSaving, setIsSaving] = useState(false);
+      return (
+        <HomeScene
+          {...props}
+          canDecorate
+          isSaving={isSaving}
+          onSave={async (draft) => {
+            setIsSaving(true);
+            const success = await onSave(draft);
+            setIsSaving(false);
+            return success;
+          }}
+        />
+      );
+    };
+    const view = render(<PendingSaveScene />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+      new DOMRect(0, 0, 1000, 1000);
+    const origin = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 1);
+    firePointerEvent(bed, "pointermove", 1, 120, 120);
+    const submitted = furniturePosition(bed);
+    expect(submitted).not.toEqual(origin);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect((bed as HTMLButtonElement).disabled).toBe(true);
+    for (const name of ["Rotate clockwise", "Store", "Undo changes", "Cancel"]) {
+      const control = view.getByRole("button", { name }) as HTMLButtonElement;
+      expect(control.disabled).toBe(true);
+      fireEvent.click(control);
+    }
+    expect(furniturePosition(bed)).toEqual(submitted);
+
+    for (const type of ["pointermove", "pointercancel", "lostpointercapture"]) {
+      firePointerEvent(bed, type, 1, 140, 140);
+      expect(furniturePosition(bed)).toEqual(submitted);
+    }
+    await act(async () => { resolveSave(false); await pendingSave; });
+    expect(view.getByRole("button", { name: "Move Bed" })).toBe(bed);
+    firePointerEvent(bed, "pointermove", 1, 160, 160);
+    expect(furniturePosition(bed)).toEqual(submitted);
+    firePointerEvent(bed, "pointerdown", 2);
+    firePointerEvent(bed, "pointermove", 2, 180, 180);
+    expect(furniturePosition(bed)).not.toEqual(submitted);
+  });
+
+  it("allows every piece to be stored while retaining textual home actions", () => {
+    const view = render(<HomeScene {...props} canDecorate furniture={[...starterFurniture, rugDefinition]} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*Place$/ }));
+    expect(view.getByRole("button", { name: "Move Woven Rug" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    view.rerender(<HomeScene {...props} furniture={[]} layout={[]} />);
+    const actions = within(view.getByRole("group", { name: "Home actions" }));
+    fireEvent.click(actions.getByRole("button", { name: "Go to sleep" }));
+    fireEvent.click(actions.getByRole("button", { name: "Home storage" }));
+    fireEvent.click(actions.getByRole("button", { name: "Farm" }));
+    expect(props.onSleep).toHaveBeenCalledTimes(1);
+    expect(props.onStorage).toHaveBeenCalledTimes(1);
+    expect(props.onFarm).toHaveBeenCalledTimes(1);
+    fireEvent.click(actions.getByRole("button", { name: "Kitchen" }));
+    expect(props.onKitchen).toHaveBeenCalledTimes(1);
+  });
+
+  it("can save an empty room without virtual fixtures", async () => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={[]} layout={[]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect(view.getByText(/Buy furniture in the item shop/)).toBeTruthy();
+    expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith({ homeType: "NONE", revision: 0, placements: [] }));
+  });
+
+  it("renders custom metadata, floor layers and action roles without fixed catalog IDs", () => {
+    const custom = { ...rugDefinition, id: "new-inventory-row", name: "Cloud Mat", width: 17, groundAnchor: 70 };
+    const farm = { ...starterFurniture[3]!, id: "custom-farm-row", name: "Planter" };
+    const view = render(<HomeScene {...props} furniture={[custom, farm]} layout={[
+      { id: custom.id, x: 50, y: 50, rotation: 1 },
+      { id: farm.id, x: 50, y: 50, rotation: 0 },
+    ]} canDecorate />);
+    const farmButton = view.getByRole("button", { name: "Planter: Open farm" });
+    fireEvent.click(farmButton);
+    expect(props.onFarm).toHaveBeenCalledTimes(1);
+    const customImage = view.container.querySelector('img[src="/custom-rug-90.webp"]')!;
+    expect(customImage).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect(view.getByRole("button", { name: "Move Cloud Mat" })).toBeTruthy();
+  });
+
+  it("moves duplicate copies independently and saves their inventory IDs", async () => {
+    const copies = [rugDefinition, { ...rugDefinition, id: "owned-rug-second" }];
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={copies} layout={[]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const tray = within(view.getByRole("group", { name: "Owned furniture" }));
+    const cards = tray.getAllByRole("button", { name: /Woven Rug.*Place$/ });
+    expect(tray.queryByText("Quantity: 1")).toBeNull();
+    fireEvent.click(cards[0]!);
+    fireEvent.keyDown(view.getByRole("button", { name: "Move Woven Rug" }), { key: "ArrowRight" });
+    fireEvent.click(cards[1]!);
+    fireEvent.click(view.getByRole("button", { name: "Rotate clockwise" }));
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements).toEqual([
+      { id: "owned-rug", x: 52, y: 50, rotation: 0 },
+      { id: "owned-rug-second", x: 50, y: 50, rotation: 1 },
+    ]);
+  });
+
+  it("limits placed furniture while allowing selection and storage to make room", async () => {
+    const copies = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS + 1 }, (_, index) => ({
+      ...rugDefinition, id: `owned-rug-${index}`,
+    }));
+    const layout = copies.slice(0, HOME_FURNITURE_MAX_PLACEMENTS).map((piece) => ({
+      id: piece.id, x: 50, y: 50, rotation: 0 as const,
+    }));
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} furniture={copies} layout={layout} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const tray = within(view.getByRole("group", { name: "Owned furniture" }));
+    const spare = tray.getByRole("button", { name: /Place$/ }) as HTMLButtonElement;
+    expect(spare.disabled).toBe(true);
+    fireEvent.click(spare);
+    expect(view.getAllByRole("button", { name: "Move Woven Rug" })).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
+    expect(view.getByText(/Store a piece to make room/).getAttribute("role")).toBe("status");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(homeFurnitureSaveInputSchema.safeParse(onSave.mock.calls[0]![0]).success).toBe(true);
+
+    const placed = tray.getByRole("button", { name: /^Woven Rug2 \/.*Placed$/ }) as HTMLButtonElement;
+    expect(placed.disabled).toBe(false);
+    fireEvent.click(placed);
+    expect(placed.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByText(/Store a piece to make room/)).toBeNull();
+    expect(spare.disabled).toBe(false);
+    fireEvent.click(spare);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    const saved = onSave.mock.calls[1]![0];
+    expect(saved.placements).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
+    expect(saved.placements.some((piece) => piece.id === copies[1]!.id)).toBe(false);
+    expect(saved.placements.some((piece) => piece.id === copies.at(-1)!.id)).toBe(true);
+    expect(homeFurnitureSaveInputSchema.safeParse(saved).success).toBe(true);
+  });
+
+  it("retains surviving edits when furniture disappears and recovers through the saved layout", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const garden = view.getByRole("button", { name: "Move Garden" });
+    fireEvent.keyDown(garden, { key: "ArrowRight" });
+    const edited = garden.style.left;
+    const remaining = starterFurniture.filter((piece) => piece.id !== "owned-bed");
+    const saved = props.layout.filter((placement) => placement.id !== "owned-bed");
+    view.rerender(<HomeScene {...props} furniture={remaining} layout={saved} revision={1} canDecorate />);
+    expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
+    expect(garden.style.left).toBe(edited);
+    expect(view.getByRole("alert").textContent).toContain("no longer in your inventory");
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Undo changes" }));
+    expect(view.queryByRole("alert")).toBeNull();
+    expect(garden.style.left).not.toBe(edited);
+  });
+
+  it("blocks movement and saving after the home tier changes until the saved layout is reloaded", () => {
+    const view = render(<HomeScene {...props} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const position = furniturePosition(bed);
+    view.rerender(<HomeScene {...props} homeType="PALACE" canDecorate />);
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(furniturePosition(bed)).toEqual(position);
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Undo changes" }));
+    expect(view.queryByRole("alert")).toBeNull();
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(furniturePosition(bed)).not.toEqual(position);
+  });
+
+  it("ends a captured decoration drag when storing it and permits another furniture drag", () => {
+    const view = render(<HomeScene {...props} canDecorate furniture={[...starterFurniture, rugDefinition]} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*Place$/ }));
+    const rug = view.getByRole("button", { name: "Move Woven Rug" });
+    rug.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () =>
+      new DOMRect(0, 0, 1000, 1000);
+    firePointerEvent(rug, "pointerdown", 1);
+    firePointerEvent(rug, "pointermove", 1, 140, 140);
+    fireEvent.click(view.getByRole("button", { name: "Store" }));
+    expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
+    // Removing the capture target sends its capture loss and pointer release to the document.
+    firePointerEvent(document, "lostpointercapture", 1);
+    firePointerEvent(document, "pointerup", 1);
+
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    const origin = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 2);
+    firePointerEvent(bed, "pointermove", 2, 120, 120);
+    expect(furniturePosition(bed)).not.toEqual(origin);
+    expect(bed.setPointerCapture).toHaveBeenCalledWith(2);
+    expect(view.getByRole("button", { name: /Woven Rug.*Place$/ })).toBeTruthy();
+  });
+
+  it.each([0, 3])("keeps overlapping artwork placed when clicking or moving only %s pixels over the armory", async (displacement) => {
+    const geometry = { aspectRatio: 4 / 3, visibleBounds: { x: 0, y: 0, width: 100, height: 100 }, footprint: { x: 0, y: 85, width: 100, height: 15 } };
+    const base = { itemId: "custom", name: "Bonsai", image: "/bonsai.webp", width: 20, groundAnchor: 100, geometry, action: null, isFloor: false, quantity: 1, views: {} } satisfies Omit<HomeFurniture, "id">;
+    const furniture: HomeFurniture[] = [{ ...base, id: "armory", name: "Armory", action: "storage" }, { ...base, id: "bonsai" }];
+    const layout = [{ id: "armory", ...unprojectHomePlacement({ x: 50, y: 55 }), rotation: 0 as const }, { id: "bonsai", ...unprojectHomePlacement({ x: 50, y: 62 }), rotation: 0 as const }];
+    expect(homeLayoutPlacementError(layout, furniture, "NONE")).toBeNull();
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} canDecorate furniture={furniture} layout={layout} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bonsai = view.getByRole("button", { name: "Move Bonsai" });
+    const armory = view.getByRole("button", { name: "Move Armory" });
+    expect(Number(bonsai.style.zIndex)).toBeGreaterThan(Number(armory.style.zIndex));
+    bonsai.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () => new DOMRect(0, 0, 1000, 750);
+    // Tall art may overlap the armory even when their occupied floor areas do not.
+    firePointerEvent(bonsai, "pointerdown", 1, 500, 360);
+    if (displacement) firePointerEvent(bonsai, "pointermove", 1, 500 + displacement, 360);
+    firePointerEvent(bonsai, "pointerup", 1, 500 + displacement, 360);
+    expect(view.getByRole("button", { name: "Move Bonsai" })).toBeTruthy();
+    expect(armory.classList.contains("ring-4")).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.some((piece) => piece.id === "bonsai")).toBe(true);
+  });
+
+  it.each(["pointerup", "pointercancel"])("%s on the armory stores a completed drop or restores a cancelled drag", async (type) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    const armory = view.getByRole("button", { name: "Move Armory" });
+    expect(armory.getAttribute("aria-description")).toBe("Drop furniture here to store it");
+    bed.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () => new DOMRect(0, 0, 1000, 750);
+    const x = (Number.parseFloat(armory.style.left) + Number.parseFloat(armory.style.width) / 2) * 10;
+    const y = (Number.parseFloat(armory.style.top) + Number.parseFloat(armory.style.height) / 2) * 7.5;
+    const origin = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 1);
+    firePointerEvent(bed, "pointermove", 1, x, y);
+    expect(armory.classList.contains("ring-4")).toBe(true);
+    firePointerEvent(bed, type, 1, x, y);
+    if (type === "pointerup") {
+      expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
+      expect(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^BedPlace$/ })).toBeTruthy();
+    } else {
+      expect(furniturePosition(bed)).toEqual(origin);
+    }
+    expect(armory.classList.contains("ring-4")).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.some((piece) => piece.id === "owned-bed")).toBe(type === "pointercancel");
+  });
+});
+
+const furniturePosition = (target: HTMLElement) => [target.style.left, target.style.top];
+
+const firePointerEvent = (
+  target: HTMLElement | Document,
+  type: string,
+  pointerId: number,
+  clientX = 100,
+  clientY = 100,
+) => {
+  // jsdom has no PointerEvent constructor; dispatch its mouse coordinates with a pointer ID.
+  const event = new window.MouseEvent(type, { bubbles: true, button: 0, clientX, clientY });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  fireEvent(target, event);
+};

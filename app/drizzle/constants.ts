@@ -616,6 +616,7 @@ export const ItemTypes = [
   "COOKING",
   "KEYSTONE",
   "CRYSTAL",
+  "FURNITURE",
   "OTHER",
 ] as const;
 export type ItemType = (typeof ItemTypes)[number];
@@ -627,6 +628,7 @@ export const NonActionItemTypes: ItemType[] = [
   "ARMOR",
   "ACCESSORY",
   "KEYSTONE",
+  "FURNITURE",
 ];
 
 export const BanStates = [
@@ -2613,6 +2615,8 @@ export const IMG_PROFILE_LEVELUPGUY =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJaeS5LnYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk.webp";
 export const IMG_RAMEN_WELCOME =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJmd2fWKHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap.webp";
+export const IMG_HOME_KITCHEN =
+  "https://ui0arpl8sm.ufs.sh/f/i520XbXoRXRYIZrNImg62.webp";
 export const IMG_RAMEN_SMALL =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJj7ESnm4XzPI8f1v96qBot0Q3wsUp2nxu7SMb.webp";
 export const IMG_RAMEN_MEDIUM =
@@ -2627,14 +2631,6 @@ export const IMG_REPSHOP_GOLD =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJebK38NyV3OvUJQExAi0bGoIZDF74LqSnHRdp.webp";
 export const IMG_EQUIP_SILHOUETTE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ6e2pEi7DfT5pyNCaUruzhPtAJqb8Kj9mc1nl.webp";
-export const IMG_HOME_TRAIN =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ25o9TnMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8C.webp";
-export const IMG_HOME_EAT =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJbZ8Rz1xAtYUndMi56GkX19q0A4PzyeIloBrE.webp";
-export const IMG_HOME_SLEEP =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJu8FpvZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
-export const IMG_HOME_AWAKE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ1BKctL6bo95WClq4K0wxZUmJcvThgdVenO3P.webp";
 export const IMG_MANUAL_ACTIVITY_STREAK =
   "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJTPVewE5IU29dZYJPoOKSh5vmlqatMub3EigH.webp";
 export const IMG_MANUAL_TOWER_UPGRADES =
@@ -3037,6 +3033,33 @@ export const HomeTypeDetails = {
   },
 } as const;
 export type HomeTypeDetails = (typeof HomeTypeDetails)[keyof typeof HomeTypeDetails];
+
+/** Furniture definitions choose only existing home actions; a null action is decorative. */
+export const HomeFurnitureActions = ["sleep", "storage", "kitchen", "farm"] as const;
+export type HomeFurnitureAction = (typeof HomeFurnitureActions)[number];
+
+/** Placement stores clockwise quarter turns; each direction uses separately painted art. */
+export const HOME_FURNITURE_ROTATIONS = [0, 1, 2, 3] as const;
+export type HomeFurnitureRotation = (typeof HOME_FURNITURE_ROTATIONS)[number];
+export const HOME_FURNITURE_ROTATION_DEGREES = { 0: 0, 1: 90, 2: 180, 3: 270 } as const;
+
+/** Every character starts with four movable fixtures, owned through ordinary inventory rows. */
+export const HOME_FURNITURE_STARTERS = [
+  { itemId: "home-bed", x: 22, y: 15.15 },
+  { itemId: "home-armory", x: 75, y: 15.15 },
+  { itemId: "home-kitchen", x: 76, y: 57.58 },
+  { itemId: "home-garden", x: 86, y: 90.91 },
+] as const;
+
+/** Floor-space margins keep furniture reachable at scene edges on every home tier. */
+export const HOME_FURNITURE_POSITION_MIN = 0;
+export const HOME_FURNITURE_POSITION_MAX = 100;
+export const HOME_FURNITURE_MIN_WIDTH = 6;
+export const HOME_FURNITURE_MAX_WIDTH = 40;
+export const HOME_FURNITURE_MAX_PLACEMENTS = 50;
+
+/** The fixed room camera foreshortens furniture facing along the front-to-back floor axis. */
+export const HOME_FURNITURE_FLOOR_DEPTH_RATIO = 0.7;
 
 // Auction system constants
 export const IMG_AUCTION_HOUSE =

@@ -1,11 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useRef } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { type Path, useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import {
   AttackMethods,
   AttackTargets,
   BattleUsageTypes,
+  HomeFurnitureActions,
   ItemPurchaseLimitPeriods,
   ItemRarities,
   ItemSlotTypes,
@@ -19,6 +20,7 @@ import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags, ZodItemInput, ZodItemType } from "@/validators/combat";
 import { ItemValidator } from "@/validators/combat";
+import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
 
 /**
  * Hook used when creating frontend forms for editing items
@@ -40,6 +42,7 @@ export const useItemEditForm = (
     effects: data.effects,
     expireFromStoreAt: expireFromStoreAt,
     crystalTargetTypes: data.crystalTargetTypes || null,
+    furnitureData: data.furnitureData || null,
     craftingRequirements: data.craftingRequirements.map((req) => ({
       ids: [req.requirementItemId],
       number: req.quantity,
@@ -129,6 +132,29 @@ export const useItemEditForm = (
     control: form.control,
     name: "itemType",
   });
+  const previousItemType = useRef(itemType);
+  const isFurniture = itemType === "FURNITURE";
+  useEffect(() => {
+    if (previousItemType.current !== "FURNITURE" && isFurniture) {
+      for (const [field, value] of Object.entries(FURNITURE_ITEM_DEFAULTS)) {
+        form.setValue(field as keyof ZodItemInput, field === "effects" ? [] : value, {
+          shouldDirty: true,
+        });
+      }
+      form.setValue(
+        "furnitureData",
+        { ...DEFAULT_FURNITURE_DATA },
+        { shouldDirty: true },
+      );
+      form.clearErrors();
+      void form.trigger();
+    } else if (previousItemType.current === "FURNITURE" && !isFurniture) {
+      form.setValue("furnitureData", null, { shouldDirty: true });
+      form.setValue("maxImbueNumber", 1, { shouldDirty: true });
+      form.setValue("maxDurability", 100, { shouldDirty: true });
+    }
+    previousItemType.current = itemType;
+  }, [form, isFurniture, itemType]);
 
   // All item names, shared by the crafting, farming, and evolution pickers.
   const { data: allItemNames } = api.item.getAllNames.useQuery();
@@ -154,7 +180,7 @@ export const useItemEditForm = (
     previousTargetingMethod.current = targetingMethod;
   }, [targetingMethod, form]);
 
-  const formData: FormEntry<keyof ZodItemType>[] = [
+  const formData: FormEntry<Path<ZodItemType>>[] = [
     { id: "name", label: "Item Name", type: "text" },
     { id: "image", type: "avatar", href: imageUrl },
     { id: "itemType", type: "str_array", values: ItemTypes },
@@ -220,7 +246,7 @@ export const useItemEditForm = (
           id: field.id,
           label: field.label,
           type: "number",
-        }) as FormEntry<keyof ZodItemType>,
+        }) as FormEntry<Path<ZodItemType>>,
     ),
     { id: "destroyOnUse", type: "boolean" },
     { id: "canStack", type: "boolean" },
@@ -321,13 +347,58 @@ export const useItemEditForm = (
     });
   }
 
+  const visibleFormData = isFurniture
+    ? formData.filter((field) => FURNITURE_FORM_FIELDS.has(field.id))
+    : formData;
+  if (isFurniture) {
+    visibleFormData.splice(
+      3,
+      0,
+      {
+        id: "furnitureData.action",
+        label: "Home action (blank for decoration)",
+        type: "str_array",
+        values: HomeFurnitureActions,
+        resetButton: true,
+      },
+      {
+        id: "furnitureData.isFloor",
+        label: "Floor decoration",
+        type: "boolean",
+      },
+    );
+  }
+
   return {
     item,
     effects,
     form,
-    formData,
+    formData: visibleFormData,
     setEffects,
     handleItemSubmit,
     isUpdating,
   };
 };
+
+const FURNITURE_FORM_FIELDS = new Set<Path<ZodItemType>>([
+  "name",
+  "itemType",
+  "rarity",
+  "description",
+  "cost",
+  "repsCost",
+  "seichiSilverCost",
+  "requiredLevel",
+  "hidden",
+  "isEventItem",
+  "inShop",
+  "purchaseLimitPeriod",
+  "purchaseLimit",
+  "canBeCrafted",
+  "canBeTraded",
+  "auctionMinPrice",
+  "auctionMaxPrice",
+  "craftingExperience",
+  "expireFromStoreAt",
+  "craftingRequirements",
+]);

@@ -26,10 +26,10 @@ import {
   ANBU_ITEMSHOP_DISCOUNT_PERC,
   DURABILITY_MAX_DEFAULT,
   EVOLUTION_MAX_CHILDREN,
+  HomeTypeDetails,
   IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
   ItemSlots,
-  ItemTypes,
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
@@ -75,6 +75,7 @@ import {
   validateEvolutionGraph,
 } from "@/libs/evolution";
 import { canDropFarmSeed } from "@/libs/farming";
+import { measureFurnitureImage } from "@/libs/furnitureImage";
 import {
   buildItemLoadoutData,
   calcItemRepairCost,
@@ -82,6 +83,9 @@ import {
   canEquipAdditional,
   computeAutoEquipAssignments,
   computeLoadoutAssignments,
+  getHomeStorageBucket,
+  getHomeStorageBucketCapacity,
+  getHomeStorageBucketFullMessage,
   getInventoryBucket,
   getInventoryBucketCapacity,
   getInventoryBucketFullMessage,
@@ -148,6 +152,8 @@ import {
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
+import { fetchWithTimeout } from "@/utils/http";
+import { isBunnyCdnUrl, transformImageUrl } from "@/utils/image";
 import { fedItemLoadouts } from "@/utils/paypal";
 import {
   canAwardReputation,
@@ -156,6 +162,7 @@ import {
   canOnlyEditSelf,
 } from "@/utils/permissions";
 import { sanitizeVariantText } from "@/utils/sanitize";
+import { validateUrlForSsrf } from "@/utils/ssrf";
 import { getItemPurchasePeriodStart } from "@/utils/time";
 import type { QueryCondition } from "@/utils/typeutils";
 import { getStrucBoost } from "@/utils/village";
@@ -164,14 +171,18 @@ import { HealTag, ItemValidator, NonCombatGainSkill } from "@/validators/combat"
 import type { ItemFilteringSchema } from "@/validators/item";
 import {
   adjustUserItemSchema,
+  DEFAULT_FURNITURE_DATA,
   evolveItemSchema,
+  FURNITURE_ITEM_DEFAULTS,
+  furnitureImageMeasurementSchema,
   getItemEvolutionsSchema,
   getPublicUserItemsSchema,
   ItemVariantResponseSchema,
-  ItemVariantValidator,
   itemBuySchema,
+  itemCreateSchema,
   itemFilteringSchema,
   UserUnlockedVariantResponseSchema,
+  upsertItemVariantInputSchema,
 } from "@/validators/item";
 import { renameLoadoutSchema } from "@/validators/loadout";
 import { idSchema } from "@/validators/misc";
@@ -183,6 +194,70 @@ import { updateRewards } from "./quests";
 const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
 
 export const itemRouter = createTRPCRouter({
+  /** Content authoring needs source alpha bounds even for generated and historical uploads. */
+  getFurnitureImageGeometry: protectedProcedure
+    .input(furnitureImageMeasurementSchema)
+    .query(async ({ ctx, input }) => {
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (!canEditItems(user.role) || user.isBanned)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only content staff can measure furniture images",
+        });
+      const url = new URL(transformImageUrl(input.image));
+      if (
+        url.protocol !== "https:" ||
+        url.username ||
+        url.password ||
+        url.port ||
+        !isBunnyCdnUrl(url.toString())
+      )
+        return {
+          ...errorResponse("Choose an uploaded furniture image"),
+          geometry: null,
+        };
+      url.search = "";
+      url.hash = "";
+      if (!(await validateUrlForSsrf(url.toString())))
+        return {
+          ...errorResponse("Furniture image URL is unavailable"),
+          geometry: null,
+        };
+      try {
+        // Restrict redirects and size before decoding staff-selected content on the server.
+        const response = await fetchWithTimeout(url.toString(), { redirect: "error" });
+        if (
+          !response.ok ||
+          Number(response.headers.get("content-length")) > 10 * 1024 * 1024
+        )
+          return {
+            ...errorResponse("Furniture image could not be measured"),
+            geometry: null,
+          };
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length > 10 * 1024 * 1024)
+          return {
+            ...errorResponse("Furniture image is too large to measure"),
+            geometry: null,
+          };
+        const geometry = await measureFurnitureImage(bytes, input.useFullFootprint);
+        return {
+          success: true,
+          message: "Furniture image measured",
+          image: input.image,
+          useFullFootprint: input.useFullFootprint,
+          geometry,
+        };
+      } catch {
+        // The editor retains the image and exposes a retry beside the framing controls.
+        return {
+          ...errorResponse(
+            "Could not measure this cutout. Check its transparency and try again.",
+          ),
+          geometry: null,
+        };
+      }
+    }),
   getAllNames: publicProcedure
     .meta({ mcp: { description: "Get all item names and images" } })
     .query(async ({ ctx }) => {
@@ -285,7 +360,7 @@ export const itemRouter = createTRPCRouter({
     }),
   // Create new item
   create: protectedProcedure
-    .input(z.object({ type: z.enum(ItemTypes) }))
+    .input(itemCreateSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const user = await fetchUser(ctx.drizzle, ctx.userId);
@@ -304,6 +379,17 @@ export const itemRouter = createTRPCRouter({
           target: "CHARACTER",
           effects: [],
           hidden: true,
+          ...(input.type === "FURNITURE"
+            ? {
+                ...FURNITURE_ITEM_DEFAULTS,
+                furnitureData: { ...DEFAULT_FURNITURE_DATA },
+                effects: [],
+                inShop: false,
+                cost: 0,
+                repsCost: 0,
+                seichiSilverCost: 0,
+              }
+            : {}),
         });
         return { success: true, message: id };
       } else {
@@ -1095,7 +1181,7 @@ export const itemRouter = createTRPCRouter({
     }),
   // Admin: create or update a variant
   upsertItemVariant: protectedProcedure
-    .input(z.object({ itemId: z.string(), variant: ItemVariantValidator }))
+    .input(upsertItemVariantInputSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const [user, existing, parentItem] = await Promise.all([
@@ -1105,12 +1191,15 @@ export const itemRouter = createTRPCRouter({
         }),
         ctx.drizzle.query.item.findFirst({
           where: eq(item.id, input.itemId),
-          columns: { id: true },
+          columns: { id: true, name: true, itemType: true },
         }),
       ]);
       if (user.isBanned) return errorResponse("You are banned");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
       if (!parentItem) return errorResponse("Item not found");
+      if (parentItem.itemType !== "FURNITURE" && input.variant.furnitureData) {
+        return errorResponse("Only furniture variants can define orientation images");
+      }
       if (!input.variant.id && existing.length >= MAX_ITEM_VARIANTS) {
         return errorResponse(`Items can have at most ${MAX_ITEM_VARIANTS} variants`);
       }
@@ -1142,6 +1231,7 @@ export const itemRouter = createTRPCRouter({
             order: input.variant.order,
             description: safeDescription,
             battleDescription: safeBattleDescription,
+            furnitureData: input.variant.furnitureData,
             updatedAt: new Date(),
           })
           .where(
@@ -1165,6 +1255,7 @@ export const itemRouter = createTRPCRouter({
             order: input.variant.order,
             description: safeDescription,
             battleDescription: safeBattleDescription,
+            furnitureData: input.variant.furnitureData,
           })
           .onDuplicateKeyUpdate({ set: { id: sql`id` } });
         if (insertResult.rowsAffected === 0) {
@@ -1180,6 +1271,12 @@ export const itemRouter = createTRPCRouter({
           return errorResponse(`Items can have at most ${MAX_ITEM_VARIANTS} variants`);
         }
       }
+      await outdateProposalsFor(
+        ctx.drizzle,
+        "ITEM",
+        [parentItem.id],
+        editedReason("ITEM", parentItem.name, user.username),
+      );
       return { success: true, message: "Variant saved" };
     }),
   // Admin: delete a variant
@@ -1187,7 +1284,13 @@ export const itemRouter = createTRPCRouter({
     .input(z.object({ variantId: z.string() }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, variant] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.itemVariant.findFirst({
+          where: eq(itemVariant.id, input.variantId),
+          with: { item: { columns: { id: true, name: true } } },
+        }),
+      ]);
       if (user.isBanned) return errorResponse("You are banned");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
       // Step 1: remove user unlock records and clear active variant references in parallel
@@ -1202,6 +1305,14 @@ export const itemRouter = createTRPCRouter({
       ]);
       // Step 2: delete the variant row itself (after FK dependents are cleared)
       await ctx.drizzle.delete(itemVariant).where(eq(itemVariant.id, input.variantId));
+      if (variant?.item) {
+        await outdateProposalsFor(
+          ctx.drizzle,
+          "ITEM",
+          [variant.item.id],
+          editedReason("ITEM", variant.item.name, user.username),
+        );
+      }
       return { success: true, message: "Variant deleted" };
     }),
   // Purchase a variant with in-game currency
@@ -2273,6 +2384,9 @@ export const itemRouter = createTRPCRouter({
       if (useritem.isInAuction) {
         return errorResponse("Cannot repair items that are in auction");
       }
+      if (!needsInventoryRepair(useritem)) {
+        return errorResponse("This item cannot be repaired");
+      }
       // Calculate repair cost
       const repairCost = calcItemRepairCost(useritem);
       if (user.money < repairCost) {
@@ -2436,6 +2550,9 @@ export const itemRouter = createTRPCRouter({
       if (repairUserItem.quantity <= 0) {
         return errorResponse("You don't have any of this repair item");
       }
+      if (repairUserItem.item.itemType === "FURNITURE") {
+        return errorResponse("This item cannot be used as a repair kit");
+      }
       if (targetUserItem.durability >= targetUserItem.item.maxDurability) {
         return errorResponse("Item is already at full durability");
       }
@@ -2444,6 +2561,9 @@ export const itemRouter = createTRPCRouter({
       }
       if (targetUserItem.isInAuction) {
         return errorResponse("Cannot repair items that are in auction");
+      }
+      if (!needsInventoryRepair(targetUserItem)) {
+        return errorResponse("This item cannot be repaired");
       }
       // Check if repair item has repair tag
       const repairEffect = repairUserItem.item.effects.find((e) => e.type === "repair");
@@ -2767,11 +2887,31 @@ export const itemRouter = createTRPCRouter({
       if (info.hidden && !canChangeContent(user.role)) {
         return errorResponse("Item is hidden, cannot be bought");
       }
-      const purchaseBucket = getInventoryBucket(info);
-      if (
-        bucketCounts[purchaseBucket] >= getInventoryBucketCapacity(purchaseBucket, user)
-      ) {
-        return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+      const isFurniture = info.itemType === "FURNITURE";
+      if (isFurniture) {
+        const homeBucket = getHomeStorageBucket(info);
+        const storedCount = useritems.filter(
+          (owned) =>
+            owned.storedAtHome && getHomeStorageBucket(owned.item) === homeBucket,
+        ).length;
+        if (
+          storedCount >=
+          getHomeStorageBucketCapacity(
+            homeBucket,
+            user,
+            HomeTypeDetails[user.homeType].storage,
+          )
+        ) {
+          return errorResponse(getHomeStorageBucketFullMessage(homeBucket));
+        }
+      } else {
+        const purchaseBucket = getInventoryBucket(info);
+        if (
+          bucketCounts[purchaseBucket] >=
+          getInventoryBucketCapacity(purchaseBucket, user)
+        ) {
+          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+        }
       }
       if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
         return errorResponse("Item has expired");
@@ -2876,8 +3016,11 @@ export const itemRouter = createTRPCRouter({
         equipped,
         level: 1,
         experience: 0,
-        durability: DURABILITY_MAX_DEFAULT,
-        storedAtHome: false,
+        durability: isFurniture ? 0 : DURABILITY_MAX_DEFAULT,
+        storedAtHome: isFurniture,
+        homeX: null,
+        homeY: null,
+        homeRotation: 0,
         isInAuction: false,
         craftingFinishedAt: null,
         activeVariantId: null,

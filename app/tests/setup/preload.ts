@@ -7,6 +7,10 @@
  * its rows leak into it.
  */
 import { afterAll, beforeAll } from "bun:test";
+import * as dialog from "@/components/ui/dialog";
+import Modal from "@/layout/Modal";
+import ContentImageSelector from "@/layout/ContentImageSelector";
+import ItemWithEffects from "@/layout/ItemWithEffects";
 import {
   closeTestDatabase,
   hasTestDatabase,
@@ -15,6 +19,12 @@ import {
 // Bun preserves loaded exports when a suite supplies a partial module mock.
 // Load the toast module before any suite can hide exports needed by another suite.
 import "@/libs/toast";
+
+// UI suites can restore real components after another suite mocks their module.
+export const actualDialog = { ...dialog };
+export const actualModal = Modal;
+export const actualItemWithEffects = ItemWithEffects;
+export const actualContentImageSelector = ContentImageSelector;
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

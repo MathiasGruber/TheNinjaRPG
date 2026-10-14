@@ -6,12 +6,15 @@ import {
   ChefHat,
   Hammer,
   Home,
+  House,
   MinusCircle,
   Package,
+  Pencil,
   PlusCircle,
   ShoppingBag,
 } from "lucide-react";
-import { useState } from "react";
+import dynamic from "next/dynamic";
+import { useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,13 +27,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { HomeType } from "@/drizzle/constants";
 import {
   HomeTypeDetails,
-  IMG_HOME_AWAKE,
-  IMG_HOME_EAT,
-  IMG_HOME_SLEEP,
-  IMG_HOME_TRAIN,
-  IMG_OCCUPATION_FARMING,
+  IMG_HOME_KITCHEN,
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
@@ -40,9 +40,8 @@ import { useSleepToggle } from "@/hooks/sleep";
 import BanInfo from "@/layout/BanInfo";
 import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
-import Image from "@/layout/Image";
+import { HomeScene } from "@/layout/HomeScene";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { MergeAllStacksButton } from "@/layout/MergeAllStacksButton";
 import Modal from "@/layout/Modal";
@@ -59,7 +58,20 @@ import { showMutationToast } from "@/libs/toast";
 import { remainingXpToLevel } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
+import type { HomePlacement } from "@/validators/home";
 
+// Load the farm and food menu only when their dialogs are opened.
+const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
+  loading: () => <Loader explanation="Loading farm" />,
+});
+const HomeKitchen = dynamic(
+  () => import("@/layout/RamenShop").then((mod) => mod.RamenMenu),
+  {
+    loading: () => <Loader explanation="Loading kitchen" />,
+  },
+);
+
+/** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
 
@@ -68,26 +80,48 @@ export default function HomePage() {
     undefined,
   );
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isStorageOpen, setIsStorageOpen] = useState(false);
+  const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [isFarmOpen, setIsFarmOpen] = useState(false);
+  const [isKitchenOpen, setIsKitchenOpen] = useState(false);
+  const [isDecorating, setIsDecorating] = useState(false);
+  const [furnitureError, setFurnitureError] = useState<string | null>(null);
+  // Either a scene hotspot or a text control can open each dialog.
+  const storageTriggerRef = useRef<HTMLButtonElement>(null);
+  const managementTriggerRef = useRef<HTMLButtonElement>(null);
+  const farmTriggerRef = useRef<HTMLButtonElement>(null);
+  const kitchenTriggerRef = useRef<HTMLButtonElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
 
-  // Queries
+  // Guests use common navigation without fetching owner-only data; hooks stay unconditional.
   const {
     data: homeData,
     isLoading: isHomeLoading,
+    isFetching: isHomeFetching,
+    isError: isHomeError,
     refetch: userHomeRefetch,
-  } = api.home.getUserHome.useQuery();
+  } = api.home.getUserHome.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+    staleTime: 0,
+  });
   const {
     data: availableUpgrades,
     isLoading: isUpgradesLoading,
+    isError: isUpgradesError,
     refetch: upgradesRefetch,
-  } = api.home.getAvailableUpgrades.useQuery();
+  } = api.home.getAvailableUpgrades.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
   const {
     data: userItems,
     isLoading: isItemsLoading,
+    isError: isItemsError,
     refetch: userItemsRefetch,
-  } = api.item.getUserItems.useQuery();
+  } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
 
   // Mutations
   const { mutate: upgradeHome, isPending: isUpgrading } =
@@ -105,14 +139,44 @@ export default function HomePage() {
     api.home.toggleStoreItem.useMutation({
       onSuccess: (data) => {
         showMutationToast(data);
+        // Keep item details open after a rejection so the player can read feedback and retry.
         if (data.success) {
           void userHomeRefetch();
           void userItemsRefetch();
+          setIsModalOpen(false);
+          setSelectedItem(undefined);
         }
       },
     });
 
   const { toggleSleep, isTogglingSleep } = useSleepToggle();
+  const saveFurniture = api.home.saveFurnitureLayout.useMutation({
+    onSuccess: async (result) => {
+      showMutationToast(result);
+      if (!result.success) setFurnitureError(result.message);
+      // Keep the editor disabled until its saved layout and server revision are refreshed.
+      await userHomeRefetch();
+    },
+  });
+  /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
+  const saveLayout = async (draft: {
+    homeType: HomeType;
+    revision: number;
+    placements: HomePlacement[];
+  }) => {
+    setFurnitureError(null);
+    try {
+      const result = await saveFurniture.mutateAsync(draft);
+      return result.success;
+    } catch (error) {
+      setFurnitureError(
+        error instanceof Error
+          ? error.message
+          : "Unable to save your layout. Try again.",
+      );
+      return false;
+    }
+  };
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!access) return <Loader explanation="Accessing Residence" />;
@@ -120,7 +184,8 @@ export default function HomePage() {
 
   const boost = 1 + getStrucBoost("sleepRegenPerLvl", sectorVillage?.structures);
 
-  const homeName = homeData ? HomeTypeDetails[homeData.homeType].name : "Tent";
+  const homeType = ownVillage ? (homeData?.homeType ?? userData.homeType) : "NONE";
+  const homeName = HomeTypeDetails[homeType].name;
   const homeRegen = homeData ? homeData.regen : 0;
   const homeStorage = homeData ? homeData.storage : 0;
   const filteredItems = userItems?.filter(
@@ -204,88 +269,147 @@ export default function HomePage() {
   // Filter upgrades and downgrades
   const upgrades = availableUpgrades?.filter((upgrade) => upgrade.isUpgrade) || [];
   const downgrades = availableUpgrades?.filter((upgrade) => !upgrade.isUpgrade) || [];
+  const canDecorate =
+    ownVillage &&
+    userData.sector === userData.village?.sector &&
+    !!homeData &&
+    !isHomeError;
+  const kitchenImage =
+    homeData?.furniture.find((piece) => piece.action === "kitchen")?.image ??
+    IMG_HOME_KITCHEN;
 
   return (
     <>
       <ContentBox
         title={ownVillage ? "Your Home" : "Guest Residence"}
-        subtitle={`Train, eat, sleep. +${boost}% regen sleeping.`}
+        subtitle={
+          ownVillage
+            ? `${homeName} · +${boost}% regen sleeping.`
+            : "Rest during your visit. Your home storage is in your own village."
+        }
         defaultBackHref="/village"
-      >
-        <div className="grid grid-cols-2 items-center justify-center text-center font-bold italic sm:grid-cols-4">
-          <Link href="/traininggrounds">
-            <Image
-              className="hover:opacity-30"
-              alt="train"
-              src={IMG_HOME_TRAIN}
-              width={256}
-              height={256}
-            />
-            Go train
-          </Link>
-          <Link href="/ramenshop">
-            <Image
-              className="hover:opacity-30"
-              alt="eat"
-              src={IMG_HOME_EAT}
-              width={256}
-              height={256}
-            />
-            Get Food
-          </Link>
-          {isTogglingSleep && <Loader explanation="Toggling sleep status" />}
-          {!isTogglingSleep && (
-            <button
-              type="button"
-              className="cursor-pointer"
-              onClick={() => toggleSleep()}
-            >
-              {userData.status === "ASLEEP" ? (
-                <>
-                  <Image
-                    className="animate-pulse hover:opacity-30"
-                    alt="sleeping"
-                    src={IMG_HOME_SLEEP}
-                    width={256}
-                    height={256}
-                  />
-                  Wake up
-                </>
-              ) : (
-                <>
-                  <Image
-                    className="hover:opacity-30"
-                    alt="sleeping"
-                    src={IMG_HOME_AWAKE}
-                    width={256}
-                    height={256}
-                  />
-                  Go to Sleep
-                </>
+        topRightContent={
+          ownVillage && (
+            <div className="flex gap-1 pb-1 pl-2">
+              {canDecorate && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-11 w-11"
+                  aria-label="Decorate"
+                  hoverText="Decorate"
+                  aria-pressed={isDecorating}
+                  disabled={isHomeFetching || isDecorating}
+                  onClick={() => setIsDecorating(true)}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </Button>
               )}
-            </button>
-          )}
-          <Link href="/farm">
-            <Image
-              className="h-64 w-64 object-contain hover:opacity-30"
-              alt="farm"
-              src={IMG_OCCUPATION_FARMING}
-              width={256}
-              height={256}
-            />
-            Farm
-          </Link>
-        </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-11 w-11"
+                aria-label="Manage home"
+                hoverText="Manage home"
+                ref={managementTriggerRef}
+                disabled={isDecorating}
+                onClick={() => setIsManagementOpen(true)}
+              >
+                <House className="h-4 w-4" aria-hidden />
+              </Button>
+            </div>
+          )
+        }
+      >
+        {isHomeLoading ? (
+          <Loader explanation="Loading your home" />
+        ) : (
+          <HomeScene
+            homeType={homeType}
+            isGuest={!ownVillage}
+            isAsleep={userData.status === "ASLEEP"}
+            isTogglingSleep={isTogglingSleep}
+            onSleep={() => toggleSleep()}
+            layout={homeData?.layout}
+            furniture={homeData?.furniture}
+            revision={homeData?.furnitureRevision}
+            canDecorate={canDecorate}
+            isDecorating={isDecorating}
+            onDecoratingChange={setIsDecorating}
+            isSaving={saveFurniture.isPending}
+            isRefreshingFurniture={isHomeFetching}
+            furnitureError={furnitureError}
+            onSave={saveLayout}
+            onFarm={(trigger) => {
+              farmTriggerRef.current = trigger;
+              setIsFarmOpen(true);
+            }}
+            onStorage={(trigger) => {
+              storageTriggerRef.current = trigger;
+              setIsStorageOpen(true);
+            }}
+            onKitchen={(trigger) => {
+              kitchenTriggerRef.current = trigger;
+              setIsKitchenOpen(true);
+            }}
+          />
+        )}
+        {isHomeError && (
+          <div role="alert" className="mt-3 text-center">
+            Unable to load your home details.
+            <Button variant="outline" onClick={() => void userHomeRefetch()}>
+              Retry
+            </Button>
+          </div>
+        )}
       </ContentBox>
+      <Modal
+        title="Kitchen"
+        isOpen={isKitchenOpen}
+        setIsOpen={setIsKitchenOpen}
+        returnFocusRef={kitchenTriggerRef}
+        className="sm:max-w-xl md:max-w-xl"
+      >
+        {isKitchenOpen && (
+          <HomeKitchen
+            image={kitchenImage}
+            imageClassName="mx-auto h-40 w-auto max-w-full object-contain"
+          />
+        )}
+      </Modal>
+      <Modal
+        title="Your Farm"
+        isOpen={isFarmOpen}
+        setIsOpen={setIsFarmOpen}
+        returnFocusRef={farmTriggerRef}
+        className="sm:max-w-6xl md:max-w-6xl"
+      >
+        {isFarmOpen && <HomeFarm embedded />}
+      </Modal>
       {ownVillage && (
         <>
-          <ContentBox
-            title="Overview"
-            subtitle="Storage space and regeneration"
-            initialBreak={true}
+          <Modal
+            title="Home Management"
+            isOpen={isManagementOpen}
+            setIsOpen={setIsManagementOpen}
+            returnFocusRef={managementTriggerRef}
+            className="sm:max-w-3xl"
           >
             {isHomeLoading || isUpgradesLoading ? (
               <Loader explanation="Loading home data" />
+            ) : isHomeError || isUpgradesError || !homeData ? (
+              <div role="alert">
+                Unable to load home management.
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void userHomeRefetch();
+                    void upgradesRefetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
               <div className="space-y-4">
                 <Card>
@@ -446,13 +570,17 @@ export default function HomePage() {
                 </Tabs>
               </div>
             )}
-          </ContentBox>
+          </Modal>
 
-          <ContentBox
-            title="Item Storage"
-            initialBreak={true}
-            topRightContent={
-              homeData ? (
+          <Modal
+            title="Armory · Home Storage"
+            isOpen={isStorageOpen}
+            setIsOpen={setIsStorageOpen}
+            returnFocusRef={storageTriggerRef}
+            className="sm:max-w-4xl"
+          >
+            {homeData && !isItemsError && (
+              <div className="flex justify-end">
                 <MergeAllStacksButton
                   storedAtHome={true}
                   onMerged={() => {
@@ -460,11 +588,23 @@ export default function HomePage() {
                     setIsModalOpen(false);
                   }}
                 />
-              ) : undefined
-            }
-          >
+              </div>
+            )}
             {isHomeLoading || isItemsLoading ? (
               <Loader explanation="Loading item storage data" />
+            ) : isHomeError || isItemsError || !homeData ? (
+              <div role="alert">
+                Unable to load home storage.
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void userHomeRefetch();
+                    void userItemsRefetch();
+                  }}
+                >
+                  Retry
+                </Button>
+              </div>
             ) : (
               <Tabs defaultValue="stored" className="w-full">
                 <div className="mb-3 flex flex-col gap-2 sm:flex-row">
@@ -815,14 +955,13 @@ export default function HomePage() {
                 title="Item Details"
                 isOpen={isModalOpen}
                 setIsOpen={setIsModalOpen}
-                isValid={false}
+                isLoading={isTogglingStoreItem}
+                keepOpenOnAccept
                 proceed_label={
                   selectedItem.storedAtHome ? "Take from Storage" : "Store Item"
                 }
                 onAccept={() => {
                   toggleStoreItem({ userItemId: selectedItem.id });
-                  setIsModalOpen(false);
-                  setSelectedItem(undefined);
                 }}
               >
                 {showsItemLevelBadge(selectedItem.item) &&
@@ -852,7 +991,7 @@ export default function HomePage() {
                 )}
               </Modal>
             )}
-          </ContentBox>
+          </Modal>
         </>
       )}
     </>

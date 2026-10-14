@@ -11,6 +11,7 @@ import {
   Search,
   Shield,
   ShoppingBag,
+  Sofa,
   Sparkles,
   Sword,
   Tag,
@@ -112,6 +113,7 @@ const SHOP_ITEM_TYPE_TAB_ICON: Partial<Record<ItemType, LucideIcon>> = {
   ACCESSORY: Sparkles,
   MATERIAL: Package,
   COOKING: ChefHat,
+  FURNITURE: Sofa,
   KEYSTONE: Gem,
   CRYSTAL: Diamond,
 };
@@ -123,6 +125,7 @@ const SHOP_ITEM_TYPE_TAB_HINT: Record<ItemType, string> = {
   ACCESSORY: "Accessories — rings, charms, and extras that tweak your kit.",
   MATERIAL: "Materials — crafting and upgrade components.",
   COOKING: "Cooking — ingredients and prepared foods for storage.",
+  FURNITURE: "Furniture — painted props to place and arrange in your residence.",
   KEYSTONE: "Keystones — slot upgrades and build-defining modifiers.",
   CRYSTAL: "Crystals — special slot items and enhancements.",
   OTHER: "Other — miscellaneous goods in stock.",
@@ -135,6 +138,7 @@ const SHOP_ITEM_TYPE_TAB_LABEL: Record<ItemType, string> = {
   ACCESSORY: "Accessory",
   MATERIAL: "Material",
   COOKING: "Cooking",
+  FURNITURE: "Furniture",
   KEYSTONE: "Keystone",
   CRYSTAL: "Crystal",
   OTHER: "Other",
@@ -375,6 +379,9 @@ const Shop: React.FC<ShopProps> = (props) => {
         void updateUser(data.userPatch, { revision, delta: data.userDelta });
         void utils.item.getUserItems.invalidate();
         void utils.item.getPurchaseAllowance.invalidate();
+        if (item?.itemType === "FURNITURE") {
+          void utils.home.getUserHome.invalidate();
+        }
         if (isItemBuyStep && variables.itemId === TUTORIAL_ITEM_ID) {
           handleNextStep();
         }
@@ -497,6 +504,9 @@ const Shop: React.FC<ShopProps> = (props) => {
         <p role="alert" className="text-destructive">
           {purchaseError}
         </p>
+      )}
+      {item.itemType === "FURNITURE" && (
+        <p className="pb-3 text-sm">Furniture is delivered to your home storage.</p>
       )}
       {allowance.isPending && <p>Loading purchase allowance…</p>}
       {allowance.isError && (

@@ -412,6 +412,9 @@ export const canEquipAdditional = (
   candidate: Pick<EquipConstraintInfo, "bloodlineId" | "itemType" | "slot">,
   equippedItems: EquippedConstraintState[],
 ): string | null => {
+  if (candidate.itemType === "FURNITURE") {
+    return "Furniture belongs in your home and cannot be equipped";
+  }
   if (candidate.bloodlineId) {
     if (equippedItems.some((a) => a.bloodlineId)) {
       return "You can only equip one item with a bloodline requirement";
@@ -769,7 +772,7 @@ export const computeAutoEquipAssignments = (
   };
 };
 
-/** Gear that can meaningfully level — hide badges on consumables, mats, cooking, crystals, thrown. */
+/** Gear that can meaningfully level — hide badges on inventory goods and thrown items. */
 export const showsItemLevelBadge = (item: {
   itemType: string;
   slot: string;
@@ -778,6 +781,7 @@ export const showsItemLevelBadge = (item: {
   item.itemType !== "MATERIAL" &&
   item.itemType !== "COOKING" &&
   item.itemType !== "CRYSTAL" &&
+  item.itemType !== "FURNITURE" &&
   item.slot !== "THROWN";
 
 /** Consumables consolidate across ownership levels; gear keeps its progression. */

@@ -89,6 +89,7 @@ import { secondsPassed } from "@/utils/time";
 import { getShrineBoost, getStrucBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
+import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
 import type { PathCalculator, TerrainHex } from "../hexgrid";
 import { defineHex } from "../hexgrid";
 import { availableUserActions, calcActiveUser, stillInBattle } from "./actions";
@@ -137,11 +138,13 @@ export const applyActiveVariant = <
     image: string;
     name: string;
     description: string;
+    furnitureData?: FurnitureData | null;
     variants?: {
       id: string;
       image: string;
       name?: string | null;
       description?: string | null;
+      furnitureData?: FurnitureVariantData | null;
     }[];
   },
 >(userItem: {
@@ -156,6 +159,20 @@ export const applyActiveVariant = <
     image: variant?.image ?? userItem.item.image,
     name: variant?.name ?? userItem.item.name,
     description: variant?.description ?? userItem.item.description,
+    // A skin's missing directions fall back to its own canonical image, never the base skin.
+    ...(variant && userItem.item.furnitureData
+      ? {
+          furnitureData: {
+            ...userItem.item.furnitureData,
+            width: variant.furnitureData?.width ?? userItem.item.furnitureData.width,
+            groundAnchor:
+              variant.furnitureData?.groundAnchor ??
+              userItem.item.furnitureData.groundAnchor,
+            geometry: variant.furnitureData?.geometry,
+            views: variant.furnitureData?.views ?? {},
+          },
+        }
+      : {}),
   };
 };
 
@@ -480,6 +497,9 @@ export const hydrateUserForQuests = (battle: CompleteBattle, user: BattleUserSta
       updatedAt: now,
       userId: user.userId,
       storedAtHome: false,
+      homeX: null,
+      homeY: null,
+      homeRotation: 0,
       craftingFinishedAt: null,
       isInAuction: false,
       activeVariantId: bi.activeVariantId ?? null,

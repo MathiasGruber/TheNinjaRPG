@@ -13,6 +13,22 @@ import {
   VARIANT_COST_TYPES,
 } from "@/drizzle/constants";
 import { statFilters } from "@/libs/train";
+import { furnitureVariantDataSchema } from "@/validators/itemFurniture";
+
+export const itemCreateSchema = z.object({ type: z.enum(ItemTypes) });
+
+/** Furniture measurements always describe the original uploaded image, never a CDN rendition. */
+export const furnitureImageMeasurementSchema = z.object({
+  image: z.url().max(512),
+  useFullFootprint: z.boolean(),
+});
+
+export {
+  DEFAULT_FURNITURE_DATA,
+  FURNITURE_ITEM_DEFAULTS,
+  furnitureDataSchema,
+  furnitureItemSchema,
+} from "@/validators/itemFurniture";
 
 export const itemBuySchema = z.object({
   itemId: z.string(),
@@ -84,6 +100,7 @@ export const ItemVariantValidator = z.object({
   // undefined, not null. The tRPC output schema uses .nullish() because MySQL returns SQL NULL.
   description: z.string().optional(),
   battleDescription: z.string().optional(),
+  furnitureData: furnitureVariantDataSchema.nullable().prefault(null),
 });
 export type ZodItemVariantType = z.infer<typeof ItemVariantValidator>;
 
@@ -111,6 +128,12 @@ export const ItemVariantResponseSchema = z.object({
   updatedAt: z.date(),
   description: z.string().nullish(),
   battleDescription: z.string().nullish(),
+  furnitureData: furnitureVariantDataSchema.nullable().prefault(null),
+});
+
+export const upsertItemVariantInputSchema = z.object({
+  itemId: z.string(),
+  variant: ItemVariantValidator,
 });
 
 export const UserUnlockedVariantResponseSchema = z.object({

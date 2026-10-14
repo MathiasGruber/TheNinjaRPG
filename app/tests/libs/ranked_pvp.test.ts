@@ -106,6 +106,14 @@ describe("getRankedRadius", () => {
 });
 
 describe("ranked skill-tree restrictions", () => {
+  it("rejects furniture selected through a crafted ranked loadout", () => {
+    const result = validateItemLoadout([
+      { name: "Chair", itemType: "FURNITURE", effects: [] } as unknown as Item,
+    ]);
+    expect(result.check).toBe(false);
+    expect(result.message).toMatch(/Chair.*cannot be equipped in ranked PvP/);
+  });
+
   it("rejects any jutsu with a required skill, even when that skill is active", () => {
     const result = validateJutsuLoadout([
       { name: "Skill Jutsu", requiredSkillId: "skill-1" } as Jutsu,

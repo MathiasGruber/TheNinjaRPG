@@ -416,11 +416,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
     folderName,
   } = props;
   const { data: userData } = useUserData();
+  const isFurniture = "itemType" in item && item.itemType === "FURNITURE";
 
   // Get bloodline / sage-mode names for requirement labels
   const { data: bloodlinesData } = api.bloodline.getAllNames.useQuery();
   const { data: sageModesData } = api.sageMode.getAllNames.useQuery();
-  const requiredSkillId = "requiredSkillId" in item ? item.requiredSkillId : null;
+  const requiredSkillId =
+    !isFurniture && "requiredSkillId" in item ? item.requiredSkillId : null;
   const { data: skillNames } = api.skillTree.getAllNames.useQuery(undefined, {
     enabled: !!requiredSkillId,
   });
@@ -429,7 +431,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   // in list views. Pass showEvolutions={true} for single-item detail views (e.g.
   // the jutsus/traininggrounds/items modals) where the evolution chain is meaningful.
   const isJutsuItem = "jutsuType" in item;
-  const isGameItem = "itemType" in item && !("jutsuType" in item);
+  const isGameItem = "itemType" in item && !("jutsuType" in item) && !isFurniture;
   const farmYieldItemId = "farmYieldItemId" in item ? item.farmYieldItemId : null;
   const farmExtractSeedItemId =
     "farmExtractSeedItemId" in item ? item.farmExtractSeedItemId : null;
@@ -510,7 +512,8 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             className=""
           />
           {/* Durability bar */}
-          {"maxDurability" in item &&
+          {!isFurniture &&
+            "maxDurability" in item &&
             "curDurability" in item &&
             item.maxDurability !== undefined &&
             item.curDurability !== undefined && (
@@ -691,7 +694,8 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
           </div>
         </div>
         <div>
-          {!hideData && (
+          {!hideData && isFurniture && <FurnitureDetails item={item as Item} />}
+          {!hideData && !isFurniture && (
             <div className="my-2 grid grid-cols-2 rounded-lg bg-poppopover p-2 text-xs md:text-base">
               {"bloodline" in item && item.bloodline !== null && (
                 <p className="col-span-2">
@@ -1235,7 +1239,8 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
             </div>
           )} */}
 
-          {!hideEffects &&
+          {!isFurniture &&
+            !hideEffects &&
             effects?.map((effect, i) => {
               // Get schema for parsing effect
               const schema = getTagSchema(effect.type);
@@ -1603,3 +1608,57 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
 };
 
 export default ItemWithEffects;
+
+/** Shows furniture's home and shop metadata without equipment or battle statistics. */
+const FurnitureDetails = ({ item }: { item: Item }) => (
+  <div className="my-2 grid grid-cols-2 rounded-lg bg-poppopover p-2 text-xs md:text-base">
+    <p>
+      <b>Item type</b>: furniture
+    </p>
+    <p>
+      <b>Rarity</b>: {capitalizeFirstLetter(item.rarity)}
+    </p>
+    <p>
+      <b>Home action</b>:{" "}
+      {item.furnitureData?.action
+        ? capitalizeFirstLetter(item.furnitureData?.action)
+        : "Decoration"}
+    </p>
+    <p>
+      <b>Floor decoration</b>: {item.furnitureData?.isFloor ? "yes" : "no"}
+    </p>
+    <p>
+      <b>Required Level</b>: {item.requiredLevel}
+    </p>
+    <p>
+      <b>Can be Crafted</b>: {item.canBeCrafted ? "yes" : "no"}
+    </p>
+    <p>
+      <b>Can be Traded</b>: {item.canBeTraded ? "yes" : "no"}
+    </p>
+    <p>
+      <b>Hidden</b>: {item.hidden ? "yes" : "no"}
+    </p>
+    {item.cost > 0 && (
+      <p className="col-span-2">
+        <b>Shop Price:</b> {item.cost.toLocaleString()} ryo
+      </p>
+    )}
+    {item.repsCost > 0 && (
+      <p className="col-span-2">
+        <b>Shop Price:</b> {item.repsCost.toLocaleString()} reputation points
+      </p>
+    )}
+    {item.seichiSilverCost > 0 && (
+      <p className="col-span-2">
+        <b>Shop Price:</b> {item.seichiSilverCost.toLocaleString()} seichi silver
+      </p>
+    )}
+    {item.purchaseLimitPeriod !== "NONE" && item.purchaseLimit != null && (
+      <p className="col-span-2">
+        <b>Purchase limit</b>: {item.purchaseLimit}{" "}
+        {item.purchaseLimitPeriod.toLowerCase()}
+      </p>
+    )}
+  </div>
+);

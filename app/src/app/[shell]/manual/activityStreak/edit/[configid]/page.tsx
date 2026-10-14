@@ -223,6 +223,7 @@ const SingleEditConfig: React.FC<SingleEditConfigProps> = ({ config, refetch }) 
         schema={activityStreakFormSchema}
         form={form as UseFormReturn<ActivityStreakFormOutput>}
         formData={formData}
+        relationId={config.id}
         showSubmit={false}
         type="activityStreak"
         allowImageUpload={true}

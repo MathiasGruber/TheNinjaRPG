@@ -13,6 +13,7 @@ import {
   storeUserIdAlias,
   userAttribute,
   userData,
+  userItem,
   userReport,
   userReportComment,
   type UserReportComment,
@@ -144,7 +145,7 @@ const expectUnpublished = async (
   ).toBeUndefined();
   expect(await reportsOf(userId)).toHaveLength(0);
   expect(await database.query.userReportComment.findMany()).toEqual(existingComments);
-  for (const table of [actionLog, userAttribute, bloodlineRolls, questHistory]) {
+  for (const table of [actionLog, userAttribute, bloodlineRolls, questHistory, userItem]) {
     expect(
       await database.select().from(table).where(eq(table.userId, userId)),
     ).toHaveLength(0);
@@ -199,6 +200,7 @@ describeWithDatabase("registration claims current sanction sources", () => {
       storeUserIdAlias,
       userAttribute,
       userData,
+      userItem,
       userReport,
       userReportComment,
       village,
@@ -1120,6 +1122,17 @@ describeWithDatabase("registration claims current sanction sources", () => {
       ),
     ).toBe(true);
     expect(await database.query.bloodlineRolls.findMany()).toHaveLength(1);
+    const furniture = await database.query.userItem.findMany({
+      where: eq(userItem.userId, "Concurrent"),
+    });
+    expect(furniture.map((item) => item.itemId).sort()).toEqual([
+      "home-armory",
+      "home-bed",
+      "home-garden",
+      "home-kitchen",
+    ]);
+    expect(new Set(furniture.map((item) => item.id)).size).toBe(4);
+    expect(furniture.every((item) => item.storedAtHome)).toBe(true);
   });
 
   it("keeps a concurrent winner when a failed attempt resumes cleanup", async () => {

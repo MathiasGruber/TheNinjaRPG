@@ -361,6 +361,9 @@ const moveOfferItem = async (
             userId: recipientId,
             isInAuction: reserve,
             activeVariantId: recipientId === row.userId ? row.activeVariantId : null,
+            ...(recipientId !== row.userId
+              ? { homeX: null, homeY: null, homeRotation: 0 }
+              : {}),
             updatedAt: new Date(),
           },
     )
@@ -398,6 +401,9 @@ const moveOfferItem = async (
       quantity,
       isInAuction: reserve,
       activeVariantId: recipientId === row.userId ? row.activeVariantId : null,
+      homeX: null,
+      homeY: null,
+      homeRotation: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     } satisfies UserItem);

@@ -68,7 +68,7 @@ const CATEGORY_CONFIG: Record<
   OTHER: {
     label: "Items",
     icon: <Package className="h-8 w-8" />,
-    itemTypes: ["ACCESSORY", "MATERIAL", "KEYSTONE", "CRYSTAL", "OTHER"],
+    itemTypes: ["ACCESSORY", "MATERIAL", "KEYSTONE", "CRYSTAL", "FURNITURE", "OTHER"],
   },
 };
 

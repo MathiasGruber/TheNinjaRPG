@@ -42,6 +42,10 @@ import {
   coordinateTargetingSchema,
 } from "@/validators/coordinateTargeting";
 import { itemEconomySchema, refineItemEconomy } from "@/validators/itemEconomy";
+import {
+  FURNITURE_ITEM_DEFAULTS,
+  furnitureItemSchema,
+} from "@/validators/itemFurniture";
 import { rewardFields } from "@/validators/rewards";
 
 /**
@@ -1360,6 +1364,48 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
  * Validator specific to items
  */
 const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
+  if (data.itemType === "FURNITURE") {
+    if (!data.furnitureData) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["furnitureData"],
+        message: "Furniture requires scene configuration",
+      });
+    }
+    for (const [field, expected] of Object.entries(FURNITURE_ITEM_DEFAULTS)) {
+      const actual = data[field as keyof ItemValidatorType];
+      if (
+        (field === "effects" && data.effects.length > 0) ||
+        (field !== "effects" &&
+          actual !== expected &&
+          !(expected === null && (actual == null || actual === "")))
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message:
+            "Furniture must remain cosmetic and cannot be used as equipment or a battle action",
+        });
+      }
+    }
+  } else {
+    if (data.furnitureData) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["furnitureData"],
+        message: "Scene configuration is only available for furniture",
+      });
+    }
+    for (const field of ["maxImbueNumber", "maxDurability"] as const) {
+      if (data[field] < 1) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message: "Non-furniture items require a value of at least one",
+        });
+      }
+    }
+  }
   const hasBloodlineRoll = data.effects.find((e) => e.type === "rollbloodline");
   const hasSageModeRoll = data.effects.find((e) => e.type === "rollsagemode");
   const hasRemoveBloodline = data.effects.find((e) => e.type === "removebloodline");
@@ -1382,8 +1428,12 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
     { name: "seichi silver", value: data.seichiSilverCost },
   ].filter((cost) => cost.value > 0);
 
-  if (costTypes.length === 0) {
-    addIssue(ctx, "Must have either a ryo, reputation points, or seichi silver cost");
+  if (costTypes.length === 0 && (data.itemType !== "FURNITURE" || data.inShop)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["cost"],
+      message: "Must have either a ryo, reputation points, or seichi silver cost",
+    });
   }
 
   if (data.isFarmSeed && data.farmGrowTimeSeconds <= 0) {
@@ -1751,6 +1801,7 @@ export type ZodSkillTreeInput = z.input<typeof SkillTreeValidator>;
  */
 export const ItemValidatorRawSchema = z.object({
   ...itemEconomySchema.shape,
+  ...furnitureItemSchema.shape,
   name: z.string().trim(),
   image: z.string(),
   description: z.string(),
@@ -1765,8 +1816,8 @@ export const ItemValidatorRawSchema = z.object({
   staminaCostReducePerLvl: z.coerce.number().min(0).max(10000),
   actionCostPerc: z.coerce.number().int().min(1).max(100),
   canStack: z.coerce.boolean().prefault(false),
-  maxImbueNumber: z.coerce.number().int().min(1).max(3),
-  maxDurability: z.coerce.number().int().min(1).max(100),
+  maxImbueNumber: z.coerce.number().int().min(0).max(3),
+  maxDurability: z.coerce.number().int().min(0).max(100),
   inShop: z.coerce.boolean().prefault(false),
   isEventItem: z.coerce.boolean().prefault(false),
   preventBattleUsage: z.coerce.boolean().prefault(false),

@@ -142,6 +142,11 @@ describe("canEquipAdditional", () => {
   it("allows an item when nothing is equipped", () => {
     expect(canEquipAdditional(info({}), [])).toBeNull();
   });
+  it("rejects furniture even when its catalog row has an equipment slot", () => {
+    expect(
+      canEquipAdditional(info({ itemType: "FURNITURE", slot: "HEAD" }), []),
+    ).toMatch(/Furniture.*cannot be equipped/);
+  });
   it("blocks a second bloodline item", () => {
     expect(
       canEquipAdditional(info({ bloodlineId: "bl1" }), [
@@ -287,6 +292,23 @@ describe("buildItemLoadoutData", () => {
 });
 
 describe("computeLoadoutAssignments", () => {
+  it("skips stale furniture entries while equipping the remaining loadout", () => {
+    const items = [
+      ui({ id: "chair-row", itemId: "chair", itemType: "FURNITURE", slotType: "HEAD" }),
+      ui({ id: "armor-row", itemId: "armor", itemType: "ARMOR", slotType: "HEAD" }),
+    ];
+    const out = computeLoadoutAssignments(
+      [{ itemId: "chair", slot: "HEAD" }, { itemId: "armor", slot: "HEAD" }],
+      items,
+      USER,
+      NOW,
+    );
+    expect(out.assignments).toEqual([{ userItemId: "armor-row", slot: "HEAD" }]);
+    expect(out.invalidItems).toEqual([
+      "chair: Furniture belongs in your home and cannot be equipped",
+    ]);
+  });
+
   it("assigns a simple valid loadout", () => {
     const items = [ui({ id: "r1", itemId: "i1", slotType: "HEAD" })];
     const out = computeLoadoutAssignments(
@@ -707,6 +729,15 @@ describe("computeLoadoutAssignments", () => {
 });
 
 describe("computeAutoEquipAssignments", () => {
+  it("does not let costly furniture occupy an equipment slot", () => {
+    const items = [
+      ui({ id: "chair-row", itemId: "chair", itemType: "FURNITURE", slotType: "HEAD", cost: 999 }),
+      ui({ id: "armor-row", itemId: "armor", itemType: "ARMOR", slotType: "HEAD", cost: 10 }),
+    ];
+    const out = computeAutoEquipAssignments(items, USER, NOW);
+    expect(out.assignments).toEqual([{ userItemId: "armor-row", slot: "HEAD" }]);
+  });
+
   it("assigns the highest-cost item to a contended slot", () => {
     const items = [
       ui({ id: "cheap", itemId: "c", slotType: "HEAD", cost: 10 }),
@@ -900,6 +931,22 @@ describe("computeAutoEquipAssignments", () => {
     const out = computeAutoEquipAssignments(items, USER, NOW);
     expect(out.assignments).toEqual([]);
     expect(out.hasUnequipped).toBe(true);
+  });
+});
+
+describe("FURNITURE item type", () => {
+  it("keeps ordinary inventory and home capacity without equipment progression", () => {
+    expect(ItemTypes).toContain("FURNITURE");
+    expect(NonActionItemTypes).toContain("FURNITURE");
+    const furniture = { itemType: "FURNITURE", slot: "NONE" };
+    expect(getInventoryBucket(furniture)).toBe("normal");
+    expect(getHomeStorageBucket(furniture)).toBe("normal");
+    expect(showsItemLevelBadge(furniture)).toBe(false);
+    expect(userItemActionBadges([{ id: "chair-row", quantity: 2, level: 20, item: furniture }])).toEqual({
+      counts: [{ id: "chair-row", quantity: 2 }],
+      levels: [],
+    });
+    expect(isEquippableUserItem({ storedAtHome: false, isInAuction: false, craftingFinishedAt: null }, NOW)).toBe(true);
   });
 });
 
