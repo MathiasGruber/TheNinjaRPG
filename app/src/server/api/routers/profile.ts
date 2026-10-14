@@ -200,6 +200,12 @@ import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoverySummaryCandidates } from "@/server/utils/questDiscovery";
 import {
+  applyQuestParty,
+  type LoadedQuestParty,
+  questPartyRelations,
+  synchronizeQuestParty,
+} from "@/server/utils/questParty";
+import {
   awardRecruitRankMilestonesSafely,
   fetchRecruitMilestoneSummary,
 } from "@/server/utils/recruitment";
@@ -780,6 +786,7 @@ export const profileRouter = createTRPCRouter({
           userId: ctx.userId,
           userIp: ctx.userIp,
           hideInformation: true,
+          allowQuestPartySyncFallback: true,
           // forceRegen: true, // This should be disabled in prod to save on DB calls
         }),
         ctx.drizzle
@@ -3058,10 +3065,13 @@ export const fetchUpdatedUser = async (props: {
   forceRegen?: boolean;
   /** Client responses opt in; server callers need canonical locations for tracker persistence. */
   hideInformation?: boolean;
+  /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
+  allowQuestPartySyncFallback?: boolean;
 }) => {
   // Destructure
   const { client, userId, userIp, hideInformation = false } = props;
   let { forceRegen } = props;
+  let hasQuestPartySyncFailure = false;
   // Partial mutation responses must reconcile automatic progression beyond passive pools.
   let requiresUserRefresh = Boolean(forceRegen);
   let requiresProgressionRefresh = false;
@@ -3078,6 +3088,7 @@ export const fetchUpdatedUser = async (props: {
       where: eq(userData.userId, userId),
       with: {
         bloodline: true,
+        questParty: { with: questPartyRelations },
         sageMode: true,
         activeReskin: true,
         clan: true,
@@ -3116,12 +3127,11 @@ export const fetchUpdatedUser = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         completedQuests: {
-          columns: {
-            id: true,
-            questId: true,
-            completed: true,
-          },
-          where: gte(questHistory.completed, 1),
+          columns: { id: true, questId: true, completed: true },
+          where: or(
+            gte(questHistory.completed, 1),
+            gt(questHistory.previousCompletes, 0),
+          ),
         },
         votes: true,
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
@@ -3290,6 +3300,40 @@ export const fetchUpdatedUser = async (props: {
     }
   }
 
+  // Recover abandoned reservations after allowing an in-flight team creation to finish.
+  // Deleted content also releases its slot through the same character snapshot guard.
+  if (
+    user?.questPartyId &&
+    ((!user.questParty && secondsPassed(user.updatedAt) > 60) ||
+      (user.questParty && !user.questParty.quest))
+  ) {
+    const released = await claimUserSnapshot({
+      client,
+      userId: user.userId,
+      updatedAt: user.updatedAt,
+      where: [eq(userData.questPartyId, user.questPartyId)],
+      set: { questPartyId: null },
+    });
+    if (released.success) {
+      user.updatedAt = released.claimedAt;
+      user.questPartyId = null;
+      user.questParty = null;
+    }
+  }
+  if (user?.questParty) {
+    try {
+      user.questParty = await synchronizeQuestParty(client, user.questParty);
+    } catch (error) {
+      if (!props.allowQuestPartySyncFallback) throw error;
+      hasQuestPartySyncFailure = true;
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "synchronizeQuestParty" },
+      });
+    }
+    applyQuestParty(user, user.questParty);
+  }
+
   // Filter and attach active wars for enemy_village sector type resolution
   if (user?.villageId) {
     const userActiveWars = allActiveWars.filter(
@@ -3368,6 +3412,31 @@ export const fetchUpdatedUser = async (props: {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = calcActiveUserRegen(user, settings);
     user.maxEnergy = calcMaxEnergy(user);
+  }
+
+  if (user && hasQuestPartySyncFailure) {
+    // Render the loaded snapshot with feedback, but defer bookkeeping that could persist
+    // unsynchronized quest progress or run its effects. Mutating callers never opt into this path.
+    const responseUser = hideInformation ? getPublicQuestUser(user) : user;
+    const trackerResults: ReturnType<typeof getNewTrackers> = {
+      trackers: user.questData ?? [],
+      notifications: [],
+      consequences: [],
+      questIdsUpdated: [],
+    };
+    return {
+      user: { ...responseUser, effectiveMasteries: effectiveMasteries(user) },
+      settings,
+      publishedAchievementIds,
+      progressionQuestCandidates,
+      questBootstrap,
+      requiresProgressionRefresh: true,
+      requiresUserRefresh: true,
+      toastMessages: ["Quest team progress will update on your next request."],
+      hasUnvotedPolls,
+      trackerResults,
+      startedQueuedJobs,
+    };
   }
 
   // Handle village prestige situations
@@ -3617,7 +3686,15 @@ export const fetchUpdatedUser = async (props: {
     user.maxEnergy = calcMaxEnergy(user);
     const trackerUser = await hydrateQuestCollections(client, user);
     // Get the latest quest trackers
-    const trackerResults = getNewTrackers(trackerUser, [{ task: "any" }]);
+    const trackerResults = getNewTrackers(
+      trackerUser,
+      [{ task: "any" }],
+      undefined,
+      undefined,
+      undefined,
+      // Combat settlement owns the preloaded personal tracker until it finishes.
+      user.status !== "BATTLE",
+    );
 
     // Destructure for local usage
     const { trackers, notifications, consequences } = trackerResults;
@@ -3656,6 +3733,7 @@ export const fetchUpdatedUser = async (props: {
       user,
       consequences,
       notifications,
+      { claimConditions: [eq(userData.status, user.status)] },
     );
     toastMessages.push(...consequenceResult.notifications);
     if (!consequenceResult.claimed) requiresProgressionRefresh = true;
@@ -4303,6 +4381,7 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 
 export type UserWithRelations =
   | (UserData & {
+      questParty?: LoadedQuestParty | null;
       pvpBoost?: ReturnType<typeof getPvpBoost>;
       effectiveMasteries?: MasteryStatSource;
       userSkills?: NonNullable<MasterySources["userSkills"]>;

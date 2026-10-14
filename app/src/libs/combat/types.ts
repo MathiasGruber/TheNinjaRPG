@@ -395,6 +395,10 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Preloaded enemy waves shared by authored co-op encounters. */
+  encounter?: import("@/libs/combat/encounters").EncounterWaveState;
+  /** Private run/wave snapshot used by combat actions and atomic party settlement. */
+  dungeon?: import("@/libs/dungeon").DungeonBattleState;
   /** Definitions of publicly performed actions, retained after their caster despawns. */
   revealedActions?: { jutsuIds: string[]; itemIds: string[] };
   /** Persisted, unscaled player state for confirmed completion responses; never sent to opponents. */
@@ -473,7 +477,13 @@ export type ReturnedUserState = Pick<BattleUserState, (typeof publicState)[numbe
 /**
  * A returned battle used on frontend where private information is hidden
  */
-export type ReturnedExtraState = Omit<ExtraState, "villages" | "clans"> & {
+export type ReturnedExtraState = Omit<
+  ExtraState,
+  "villages" | "clans" | "dungeon" | "encounter"
+> & {
+  encounter?: Pick<import("@/libs/combat/encounters").EncounterWaveState, "wave">;
+  /** Public progress only; authored future enemies and their loadouts stay server-side. */
+  dungeon?: Pick<import("@/libs/dungeon").DungeonBattleState, "runId" | "expiresAt">;
   villages: Record<string, Pick<CombatQueryVillage, "id" | "hexColor">>;
   clans: Record<string, Pick<Clan, "id" | "image">>;
   textureAssets?: string[];

@@ -1,0 +1,383 @@
+"use client";
+
+import { CheckCircle2, CircleHelp, Ellipsis, Plus, Swords, Users } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { api } from "@/app/_trpc/client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
+import { QUEST_PARTY_MAX_MEMBERS } from "@/drizzle/constants";
+import Link from "@/layout/Link";
+import Loader from "@/layout/Loader";
+import Modal from "@/layout/Modal";
+import { PartyRoster } from "@/layout/PartyRoster";
+import { TeamChatPanel } from "@/layout/TeamChatPanel";
+import { showMutationToast } from "@/libs/toast";
+import { capitalizeFirstLetter } from "@/utils/string";
+import { useRequiredUserData } from "@/utils/UserContext";
+
+/** Quest-specific creation/join controls when embedded; full roster and chat otherwise. */
+export const QuestTeams = ({
+  questId,
+  teamEnabled = true,
+  compact = false,
+}: {
+  questId?: string;
+  teamEnabled?: boolean;
+  compact?: boolean;
+}) => {
+  const { data: user, updateUser } = useRequiredUserData();
+  const utils = api.useUtils();
+  const [isPublic, setIsPublic] = useState(false);
+  const [username, setUsername] = useState("");
+  const [message, setMessage] = useState("");
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [endAction, setEndAction] = useState<"leave" | "disband" | null>(null);
+  const publicId = useId();
+  const { data, error, isPending } = api.coop.quest.overview.useQuery(undefined, {
+    enabled: !!user && teamEnabled,
+    // Shared progress needs frequent updates; team and invitation discovery can poll less often.
+    refetchInterval: (query) => (query.state.data?.current ? 5000 : 30000),
+  });
+  /** Keep rejections beside the controls; successful changes refresh shared and personal progress. */
+  const refresh = async (result: { success: boolean; message: string }) => {
+    setMessage(result.success ? "" : result.message);
+    if (result.success) {
+      setEndAction(null);
+      setUsername("");
+      showMutationToast(result);
+      await Promise.all([
+        utils.coop.quest.overview.invalidate(),
+        utils.quests.specificQuests.invalidate(),
+        updateUser(undefined),
+      ]);
+    }
+  };
+  /** Mutation and background refresh failures retain controls and show a recoverable message. */
+  const onError = (error: { message: string }) => setMessage(error.message);
+  const create = api.coop.quest.create.useMutation({ onSuccess: refresh, onError });
+  const join = api.coop.quest.join.useMutation({ onSuccess: refresh, onError });
+  const leave = api.coop.quest.leave.useMutation({ onSuccess: refresh, onError });
+  const invite = api.coop.quest.invite.useMutation({ onSuccess: refresh, onError });
+  const disband = api.coop.quest.disband.useMutation({ onSuccess: refresh, onError });
+  const start = api.coop.quest.startEncounter.useMutation({
+    onSuccess: refresh,
+    onError,
+  });
+  const busy =
+    disband.isPending ||
+    create.isPending ||
+    join.isPending ||
+    leave.isPending ||
+    invite.isPending ||
+    start.isPending;
+  const previousTeamVersion = useRef<string | null>(null);
+  const teamVersion = data?.current
+    ? `${data.current.id}:${data.current.version}`
+    : null;
+  // Overview updates carry shared progress; refresh the personal projection and receipts too.
+  useEffect(() => {
+    if (questId && data?.current?.questId !== questId) return;
+    if (
+      previousTeamVersion.current &&
+      teamVersion &&
+      previousTeamVersion.current !== teamVersion
+    )
+      void updateUser(undefined).catch(onError);
+    previousTeamVersion.current = teamVersion;
+  }, [teamVersion, questId, data?.current?.questId, updateUser]);
+  if (!teamEnabled) return null;
+  if (!user) return <Loader explanation="Loading quest teams..." />;
+  const current = data?.current;
+  // Embedded summaries keep the Logbook focused on quests; the dedicated page owns management/chat.
+  if (compact)
+    return current || data?.teams.length || error ? (
+      <div className="m-3 flex flex-wrap items-center gap-2 rounded-lg border bg-popover px-3 py-2 text-sm">
+        <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+        <span className="min-w-0 flex-1">{current?.name ?? "Quest teams"}</span>
+        {current && (
+          <Badge variant="outline">
+            {current.completed
+              ? "Completed"
+              : `${current.members.length}/${QUEST_PARTY_MAX_MEMBERS}`}
+          </Badge>
+        )}
+        {error && <span role="alert">{error.message}</span>}
+        <Link
+          href="/questteams"
+          className="font-medium text-primary underline-offset-4 hover:underline"
+        >
+          {current ? "Team & chat" : "Find a team"}
+        </Link>
+      </div>
+    ) : null;
+  if (questId && current)
+    return current.questId === questId ? (
+      <p className="flex flex-wrap items-center gap-2 py-2 pr-12 text-primary text-sm">
+        <Users className="h-4 w-4" aria-hidden="true" />
+        Shared quest · {current.members.length}/{QUEST_PARTY_MAX_MEMBERS}
+        <Link href="/questteams" className="ml-auto font-medium hover:underline">
+          Team & chat
+        </Link>
+      </p>
+    ) : null;
+  return (
+    <section
+      className={
+        questId ? "space-y-2 rounded-lg border bg-popover p-3" : "space-y-4 p-3 sm:p-4"
+      }
+      aria-label="Quest teams"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="font-semibold text-base">
+            {current?.name ?? (questId ? "Play with a team" : "Find a team")}
+          </h3>
+          <p className="mt-1 text-muted-foreground text-xs">
+            {current
+              ? `${current.members.length}/${QUEST_PARTY_MAX_MEMBERS} members · ${current.isPublic ? "Public" : "Private"} team`
+              : `Share quest progress with up to ${QUEST_PARTY_MAX_MEMBERS} players.`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                aria-label="How quest teams work"
+                hoverText="How quest teams work"
+              >
+                <CircleHelp className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="space-y-2 text-sm">
+              <p className="font-semibold">Quest teams</p>
+              <p>
+                Up to {QUEST_PARTY_MAX_MEMBERS} players share every objective, even when
+                joining mid-quest.
+              </p>
+              <p>
+                Each eligible player claims the full reward. Previously completed
+                helpers receive no quest rewards.
+              </p>
+              <p>
+                The leader chooses dialog branches. Gather on the same tile for battles.
+              </p>
+            </PopoverContent>
+          </Popover>
+          {current && (
+            <Popover open={isOptionsOpen} onOpenChange={setIsOptionsOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label="Team options"
+                  hoverText="Team options"
+                >
+                  <Ellipsis className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-52 space-y-1 p-2">
+                {(
+                  [
+                    "leave",
+                    ...(current.leaderId === user.userId ? ["disband"] : []),
+                  ] as ("leave" | "disband")[]
+                ).map((action) => (
+                  <Button
+                    key={action}
+                    className="w-full justify-start"
+                    variant="ghost"
+                    disabled={busy || !!current.battleId}
+                    onClick={() => {
+                      setIsOptionsOpen(false);
+                      setMessage("");
+                      setEndAction(action);
+                    }}
+                  >
+                    {action === "leave" ? "Leave Team" : "Disband Team"}
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      </div>
+      {isPending && <p>Loading quest teams...</p>}
+      {(message || error) && !endAction && (
+        <p
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"
+        >
+          {message || error?.message}
+        </p>
+      )}
+      {!current && questId && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <label htmlFor={publicId} className="flex items-center gap-2 text-sm">
+            <Switch id={publicId} checked={isPublic} onCheckedChange={setIsPublic} />
+            Public team
+          </label>
+          <Button
+            disabled={busy || isPending}
+            onClick={() => create.mutate({ questId, isPublic })}
+          >
+            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
+            {create.isPending ? "Forming..." : "Form Quest Team"}
+          </Button>
+        </div>
+      )}
+      {current && !questId && (
+        <div className="space-y-4">
+          <PartyRoster
+            members={current.members.map((member) => ({
+              ...member,
+              details:
+                member.status !== "AWAKE"
+                  ? capitalizeFirstLetter(member.status.toLowerCase())
+                  : member.sector === user.sector &&
+                      member.longitude === user.longitude &&
+                      member.latitude === user.latitude
+                    ? "At your location"
+                    : `Sector ${member.sector} · ${member.longitude}, ${member.latitude}`,
+            }))}
+            leaderId={current.leaderId}
+            viewerId={user.userId}
+            capacity={QUEST_PARTY_MAX_MEMBERS}
+          />
+          {current.completed && (
+            <div
+              role="status"
+              className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+            >
+              <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
+              Quest complete
+              <Button asChild size="sm" className="ml-auto">
+                <Link href="/profile?tab=dashboard#progress-heading">Open Logbook</Link>
+              </Button>
+            </div>
+          )}
+          {current.failed && (
+            <p role="status" className="text-sm">
+              The team failed this quest. Leave the team to start another attempt.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {current.battleId && (
+              <Button asChild>
+                <Link href="/combat">
+                  <Swords className="mr-2 h-4 w-4" />
+                  Open team battle
+                </Link>
+              </Button>
+            )}
+            {current.leaderId === user.userId &&
+              current.hasEncounter &&
+              !current.completed &&
+              !current.failed && (
+                <Button
+                  disabled={busy || !!current.battleId}
+                  onClick={() => start.mutate({ partyId: current.id })}
+                >
+                  <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {start.isPending ? "Starting..." : "Start Team Encounter"}
+                </Button>
+              )}
+            {!current.battleId && !current.completed && !current.failed && (
+              <Button asChild variant="secondary">
+                <Link href="/profile?tab=dashboard#progress-heading">View quest</Link>
+              </Button>
+            )}
+          </div>
+          {current.leaderId === user.userId &&
+            !current.completed &&
+            !current.failed &&
+            current.members.length < QUEST_PARTY_MAX_MEMBERS &&
+            !current.battleId && (
+              <form
+                className="flex gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  invite.mutate({ partyId: current.id, username });
+                }}
+              >
+                <Input
+                  aria-label="Player username"
+                  placeholder="Player username"
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                />
+                <Button disabled={busy || !username.trim()}>Invite</Button>
+              </form>
+            )}
+          <TeamChatPanel conversationId={current.id} title="Quest Team Chat" />
+          <Modal
+            title={endAction === "disband" ? "Disband this team?" : "Leave this team?"}
+            isOpen={!!endAction}
+            setIsOpen={(open) => {
+              if (!open) setEndAction(null);
+            }}
+            proceed_label={endAction === "disband" ? "Disband Team" : "Leave Team"}
+            isLoading={busy}
+            keepOpenOnAccept
+            onAccept={() => {
+              if (endAction === "disband") disband.mutate({ partyId: current.id });
+              else leave.mutate({ partyId: current.id });
+            }}
+          >
+            <p>
+              {endAction === "disband"
+                ? "Everyone keeps their quest progress and continues solo. Team chat closes."
+                : "You keep your quest progress and continue solo. Leadership passes to another member if needed."}
+            </p>
+            {message && (
+              <p role="alert" className="text-destructive">
+                {message}
+              </p>
+            )}
+          </Modal>
+        </div>
+      )}
+      {!current &&
+        data?.teams
+          .filter((team) => !questId || team.questId === questId)
+          .map((team) => (
+            <div
+              key={team.id}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-popover p-3 text-sm"
+            >
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="font-semibold">{team.name}</p>
+                <p className="text-muted-foreground text-xs">
+                  {team.members.map((member) => member.username).join(", ")}
+                </p>
+              </div>
+              {team.invited && <Badge variant="outline">Invited</Badge>}
+              <span className="flex items-center gap-1 text-muted-foreground text-xs">
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                {team.members.length}/{QUEST_PARTY_MAX_MEMBERS}
+              </span>
+              <Button
+                size="sm"
+                disabled={
+                  busy ||
+                  !!team.battleId ||
+                  team.members.length >= QUEST_PARTY_MAX_MEMBERS
+                }
+                onClick={() => join.mutate({ partyId: team.id })}
+              >
+                {team.invited ? "Accept Invitation" : "Join Team"}
+              </Button>
+            </div>
+          ))}
+      {!questId && !current && data?.teams.length === 0 && (
+        <p className="text-sm">
+          No public teams or invitations. Form a team from a team-enabled quest.
+        </p>
+      )}
+    </section>
+  );
+};

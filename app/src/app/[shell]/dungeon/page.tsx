@@ -1,0 +1,573 @@
+"use client";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  CheckCircle2,
+  CircleHelp,
+  Clock3,
+  Ellipsis,
+  Gift,
+  Pause,
+  Swords,
+  Users,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { api } from "@/app/_trpc/client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Progress } from "@/components/ui/progress";
+import {
+  DUNGEON_FLOORS_PER_TIER,
+  DUNGEON_INACTIVE_ROUNDS,
+  DUNGEON_PARTY_SIZE,
+  DUNGEON_RUN_SECONDS,
+} from "@/drizzle/constants";
+import ContentBox from "@/layout/ContentBox";
+import Countdown from "@/layout/Countdown";
+import Link from "@/layout/Link";
+import Loader from "@/layout/Loader";
+import Modal from "@/layout/Modal";
+import { PartyRoster } from "@/layout/PartyRoster";
+import UserSearchSelect from "@/layout/UserSearchSelect";
+import { showMutationToast } from "@/libs/toast";
+import { pushToCombat } from "@/utils/routing";
+import { capitalizeFirstLetter } from "@/utils/string";
+import { useRequiredUserData } from "@/utils/UserContext";
+import type { DungeonContent } from "@/validators/dungeon";
+import { getSearchValidator } from "@/validators/register";
+
+/** Show invitations, party readiness and completion claims through the authenticated dungeon router. */
+export default function DungeonPage() {
+  // Reuse the account's calibrated server clock for deadlines, as other game timers do.
+  const { data: user, timeDiff } = useRequiredUserData();
+  const router = useRouter();
+  const utils = api.useUtils();
+  const [message, setMessage] = useState("");
+  const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  const [abandonId, setAbandonId] = useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const form = useForm({
+    resolver: zodResolver(getSearchValidator({ max: 1 })),
+    defaultValues: { username: "", users: [] },
+  });
+  const selected = useWatch({ control: form.control, name: "users" });
+  const available = api.coop.dungeon.getAvailable.useQuery(
+    { sector: user?.sector ?? 1 },
+    {
+      enabled: !!user,
+      refetchInterval: 10_000,
+      refetchIntervalInBackground: false,
+    },
+  );
+  const state = api.coop.dungeon.getState.useQuery(undefined, {
+    enabled: !!user,
+    refetchInterval: 3000,
+  });
+  /** Show expected rejections beside the action and refresh party/account state after a mutation. */
+  const refresh = async (response: { success: boolean; message: string }) => {
+    setMessage(response.success ? "" : response.message);
+    if (response.success) setAbandonId(null);
+    showMutationToast(response);
+    await Promise.all([state.refetch(), utils.profile.getUser.invalidate()]);
+  };
+  const create = api.coop.dungeon.create.useMutation({
+    onSuccess: refresh,
+    onError: (e) => setMessage(e.message),
+  });
+  const act = api.coop.dungeon.act.useMutation({
+    onSuccess: async (response, input) => {
+      if (response.success && input.action === "invite") form.reset();
+      await refresh(response);
+    },
+    onError: (e) => setMessage(e.message),
+  });
+  const claim = api.coop.dungeon.claim.useMutation({
+    onSuccess: async (response) => {
+      if (response.success) setIsHistoryOpen(true);
+      await refresh(response);
+    },
+    onError: (e) => setMessage(e.message),
+  });
+  const runs = state.data?.runs ?? [];
+  const current = runs.find(
+    (r) =>
+      r.state.memberIds.includes(user?.userId ?? "") &&
+      !["ENDED", "COMPLETED"].includes(r.status),
+  );
+  const battleId = current?.status === "FIGHTING" ? current.battleId : null;
+  useEffect(() => {
+    if (battleId) pushToCombat(router, battleId);
+  }, [battleId, router]);
+  const pending = create.isPending || act.isPending || claim.isPending;
+  /** Send a party command; the shared mutation callbacks display failures and refresh run state. */
+  const action = (
+    id: string,
+    action: Parameters<typeof act.mutate>[0]["action"],
+    userId?: string,
+  ) => act.mutate({ id, action, userId });
+  if (state.error)
+    return (
+      <ContentBox title="Dungeon Pyramids" defaultBackHref="/travel">
+        <p role="alert">{state.error.message}</p>
+        <Button onClick={() => void state.refetch()}>Retry</Button>
+      </ContentBox>
+    );
+  if (!user || state.isPending) return <Loader explanation="Loading dungeon parties" />;
+  const completed = runs.filter(
+    (run) => run.status === "COMPLETED" && run.state.memberIds.includes(user.userId),
+  );
+  /** State includes only the viewer's persisted receipts; other members claim independently. */
+  const receiptFor = (id: string) =>
+    state.data?.members.find((member) => member.runId === id)?.reward;
+  const claimed = completed.filter((run) => receiptFor(run.id));
+  const readyCount = current?.state.readyIds.length ?? 0;
+  const isReady = current?.state.readyIds.includes(user.userId) ?? false;
+  const allReady =
+    current?.state.memberIds.length === DUNGEON_PARTY_SIZE &&
+    current.state.memberIds.every((id) => current.state.readyIds.includes(id));
+  const endingRun = runs.find((run) => run.id === abandonId);
+  return (
+    <ContentBox
+      title="Dungeon Pyramids"
+      subtitle="Three-player co-op"
+      defaultBackHref="/travel"
+    >
+      <div className="mb-4 flex items-center gap-3 text-muted-foreground text-sm">
+        <span className="flex items-center gap-1.5">
+          <Users className="h-4 w-4" aria-hidden="true" />
+          {DUNGEON_PARTY_SIZE} players
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Clock3 className="h-4 w-4" aria-hidden="true" />
+          {DUNGEON_RUN_SECONDS / 60} min run
+        </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto"
+              aria-label="Dungeon rules"
+            >
+              <CircleHelp className="mr-1.5 h-4 w-4" />
+              Rules
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="space-y-2 text-sm">
+            <p className="font-semibold">Dungeon rules</p>
+            <p>
+              Enter with {DUNGEON_PARTY_SIZE} ready players. The{" "}
+              {DUNGEON_RUN_SECONDS / 60}-minute timer starts on the first floor and
+              keeps running while paused.
+            </p>
+            <p>
+              Each floor fully restores the party. Fleeing is disabled;{" "}
+              {DUNGEON_INACTIVE_ROUNDS} inactive rounds end the run.
+            </p>
+            <p>Completion rewards are claimed separately by each player.</p>
+          </PopoverContent>
+        </Popover>
+      </div>
+      {message && !abandonId && (
+        <p
+          role="alert"
+          className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm"
+        >
+          {message}
+        </p>
+      )}
+      <div className="space-y-4">
+        {runs
+          .filter(
+            (run) =>
+              run.status === "LOBBY" && run.state.invitedIds.includes(user.userId),
+          )
+          .map((run) => (
+            <div
+              key={run.id}
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">{run.content.name}</p>
+                <p className="text-muted-foreground text-sm">
+                  Invitation from{" "}
+                  {state.data?.users.find((u) => u.userId === run.leaderId)?.username}
+                </p>
+              </div>
+              <Button disabled={pending} onClick={() => action(run.id, "accept")}>
+                Accept invitation
+              </Button>
+              <Button
+                variant="ghost"
+                disabled={pending}
+                onClick={() => action(run.id, "decline")}
+              >
+                Decline
+              </Button>
+            </div>
+          ))}
+        {completed
+          .filter((run) => !receiptFor(run.id))
+          .map((run) => (
+            <div
+              key={run.id}
+              className="rounded-lg border border-primary/30 bg-primary/5 p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">{run.content.name}</h2>
+                  <p className="flex items-center gap-1.5 text-primary text-sm">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    All {run.state.clearedFloors.length} floors cleared
+                  </p>
+                </div>
+                <Button disabled={pending} onClick={() => claim.mutate({ id: run.id })}>
+                  Claim completion rewards
+                </Button>
+              </div>
+              <DungeonRewards rewards={run.content.rewards} />
+            </div>
+          ))}
+        {current && (
+          <div className="space-y-4 rounded-lg border bg-popover p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="font-semibold text-lg">{current.content.name}</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                  <Badge variant="outline">
+                    {current.status === "BETWEEN"
+                      ? "Between floors"
+                      : capitalizeFirstLetter(current.status.toLowerCase())}
+                  </Badge>
+                  <span className="text-muted-foreground">
+                    Tier {Math.floor(current.state.floor / DUNGEON_FLOORS_PER_TIER) + 1}{" "}
+                    · Floor {(current.state.floor % DUNGEON_FLOORS_PER_TIER) + 1}
+                  </span>
+                </div>
+              </div>
+              <Popover open={isOptionsOpen} onOpenChange={setIsOptionsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Party options"
+                    hoverText="Party options"
+                  >
+                    <Ellipsis className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-52 space-y-1 p-2">
+                  {current.leaderId === user.userId && current.status === "BETWEEN" && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      disabled={pending}
+                      onClick={() => {
+                        setIsOptionsOpen(false);
+                        action(current.id, "pause");
+                      }}
+                    >
+                      <Pause className="mr-2 h-4 w-4" />
+                      Pause dungeon
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-destructive"
+                    disabled={pending || current.status === "FIGHTING"}
+                    onClick={() => {
+                      setIsOptionsOpen(false);
+                      setMessage("");
+                      setAbandonId(current.id);
+                    }}
+                  >
+                    {current.status === "LOBBY" ? "Leave lobby" : "Abandon dungeon"}
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground text-xs">
+                <span>
+                  {current.state.clearedFloors.length}/
+                  {current.content.tiers.length * DUNGEON_FLOORS_PER_TIER} floors
+                  cleared
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                  {current.expiresAt ? (
+                    <Countdown
+                      targetDate={current.expiresAt}
+                      timeDiff={timeDiff}
+                      onFinish={() => void state.refetch()}
+                    />
+                  ) : (
+                    "Timer starts on entry"
+                  )}
+                </span>
+              </div>
+              <Progress
+                aria-label="Dungeon progress"
+                value={
+                  (current.state.clearedFloors.length /
+                    (current.content.tiers.length * DUNGEON_FLOORS_PER_TIER)) *
+                  100
+                }
+              />
+            </div>
+            <PartyRoster
+              capacity={DUNGEON_PARTY_SIZE}
+              members={current.state.memberIds.map((id) => ({
+                userId: id,
+                username:
+                  state.data?.users.find((u) => u.userId === id)?.username ?? id,
+                isReady: current.state.readyIds.includes(id),
+                details: current.state.readyIds.includes(id) ? "Ready" : "Not ready",
+              }))}
+              leaderId={current.leaderId}
+              viewerId={user.userId}
+              disabled={pending}
+              onRemove={
+                current.status === "LOBBY"
+                  ? (id) => action(current.id, "remove", id)
+                  : undefined
+              }
+            />
+            {current.state.invitedIds.length > 0 && (
+              <div className="flex flex-wrap gap-2 text-sm">
+                {current.state.invitedIds.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-md border border-dashed px-2 py-1 text-muted-foreground"
+                  >
+                    {state.data?.users.find((u) => u.userId === id)?.username} · Invited
+                    {current.leaderId === user.userId && current.status === "LOBBY" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pending}
+                        onClick={() => action(current.id, "remove", id)}
+                      >
+                        Cancel invitation
+                      </Button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+            {current.status === "LOBBY" &&
+              current.leaderId === user.userId &&
+              current.state.memberIds.length + current.state.invitedIds.length <
+                DUNGEON_PARTY_SIZE && (
+                <div className="flex items-end gap-2">
+                  <UserSearchSelect
+                    useFormMethods={form}
+                    showYourself={false}
+                    showAi={false}
+                    maxUsers={1}
+                  />
+                  <Button
+                    variant="secondary"
+                    disabled={pending || !selected[0]}
+                    onClick={() => {
+                      const target = selected[0];
+                      if (target) action(current.id, "invite", target.userId);
+                    }}
+                  >
+                    Invite
+                  </Button>
+                </div>
+              )}
+            <p className="text-muted-foreground text-sm">{current.state.message}</p>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+              <span className="text-muted-foreground text-xs">
+                {current.status === "PAUSED"
+                  ? "The timer continues while paused."
+                  : `${readyCount}/${DUNGEON_PARTY_SIZE} ready`}
+              </span>
+              <div className="flex gap-2">
+                {["LOBBY", "BETWEEN"].includes(current.status) && (
+                  <Button
+                    variant={isReady ? "secondary" : "default"}
+                    disabled={pending}
+                    onClick={() => action(current.id, isReady ? "unready" : "ready")}
+                  >
+                    {isReady ? "Undo ready" : "Ready"}
+                  </Button>
+                )}
+                {current.leaderId === user.userId &&
+                  ["LOBBY", "BETWEEN"].includes(current.status) && (
+                    <Button
+                      variant={allReady ? "default" : "secondary"}
+                      disabled={pending || !allReady}
+                      onClick={() => action(current.id, "start")}
+                    >
+                      <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
+                      Enter next floor
+                    </Button>
+                  )}
+                {current.leaderId === user.userId && current.status === "PAUSED" && (
+                  <Button
+                    disabled={pending}
+                    onClick={() => action(current.id, "resume")}
+                  >
+                    Resume and ready up
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {!current &&
+          runs
+            .slice(0, 1)
+            .filter((run) => run.status === "ENDED")
+            .map((run) => (
+              <p
+                key={run.id}
+                role="status"
+                className="rounded-lg border bg-muted/30 px-3 py-2 text-muted-foreground text-sm"
+              >
+                {run.content.name}: {run.state.message}
+              </p>
+            ))}
+        {/* Entrance lookups must not block party controls or completion claims. */}
+        {!current && (
+          <div className="space-y-3">
+            <h2 className="font-semibold">Dungeons in your sector</h2>
+            {available.error ? (
+              <p role="alert">
+                {available.error.message}{" "}
+                <Button onClick={() => void available.refetch()}>Retry</Button>
+              </p>
+            ) : available.isPending ? (
+              <Loader explanation="Loading dungeon entrances" />
+            ) : available.data?.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                No dungeon entrances are available here.{" "}
+                <Link href="/travel" className="text-primary hover:underline">
+                  Explore another sector.
+                </Link>
+              </p>
+            ) : (
+              available.data?.map((dungeon) => (
+                <div
+                  key={dungeon.id}
+                  className="space-y-3 rounded-lg border bg-popover p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold">{dungeon.content.name}</h3>
+                      <p className="mt-1 text-muted-foreground text-xs">
+                        {dungeon.content.tiers.length} tiers ·{" "}
+                        {dungeon.content.tiers.length * DUNGEON_FLOORS_PER_TIER} floors
+                      </p>
+                    </div>
+                    <Button
+                      disabled={pending}
+                      onClick={() => create.mutate({ id: dungeon.id })}
+                    >
+                      Create lobby
+                    </Button>
+                  </div>
+                  <DungeonRewards rewards={dungeon.content.rewards} />
+                  {dungeon.content.description && (
+                    <details className="text-sm">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        About this dungeon
+                      </summary>
+                      <p className="pt-2">{dungeon.content.description}</p>
+                    </details>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        {claimed.length > 0 && (
+          <details
+            open={isHistoryOpen}
+            onToggle={(event) => setIsHistoryOpen(event.currentTarget.open)}
+            className="rounded-lg border text-sm"
+          >
+            <summary className="cursor-pointer p-3 font-medium">
+              Completed runs ({claimed.length})
+            </summary>
+            <div className="max-h-64 divide-y overflow-y-auto px-3 pb-3">
+              {claimed.map((run) => {
+                const receipt = receiptFor(run.id);
+                return (
+                  <div key={run.id} className="space-y-1 py-3">
+                    <p className="font-medium">{run.content.name}</p>
+                    <p
+                      role="status"
+                      className="flex items-center gap-1.5 text-muted-foreground text-xs"
+                    >
+                      <CheckCircle2
+                        className="h-3.5 w-3.5 text-primary"
+                        aria-hidden="true"
+                      />
+                      Rewards delivered · {receipt?.items.length} item drops ·{" "}
+                      {receipt?.jutsus.length} jutsu drops
+                    </p>
+                    <DungeonRewards rewards={run.content.rewards} />
+                  </div>
+                );
+              })}
+            </div>
+          </details>
+        )}
+      </div>
+      <Modal
+        title={
+          endingRun?.status === "LOBBY" ? "Leave this lobby?" : "Abandon this dungeon?"
+        }
+        isOpen={!!abandonId}
+        setIsOpen={(open) => {
+          if (!open) setAbandonId(null);
+        }}
+        proceed_label={
+          endingRun?.status === "LOBBY" ? "Leave lobby" : "Abandon dungeon"
+        }
+        isLoading={pending}
+        keepOpenOnAccept
+        onAccept={() => {
+          if (abandonId) action(abandonId, "leave");
+        }}
+      >
+        <p>
+          {endingRun?.status === "LOBBY"
+            ? endingRun.leaderId === user.userId
+              ? "Leaving cancels this lobby. You can create or join another lobby."
+              : "Your spot becomes available. The other members can continue forming their party."
+            : "This ends the run for the whole party. Unfinished runs grant no completion rewards."}
+        </p>
+        {message && (
+          <p role="alert" className="text-destructive">
+            {message}
+          </p>
+        )}
+      </Modal>
+    </ContentBox>
+  );
+}
+
+/** Keep configured rewards readable across discovery, claim cards and completed history. */
+const DungeonRewards = ({ rewards }: { rewards: DungeonContent["rewards"] }) => (
+  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+    <Gift className="h-3.5 w-3.5" aria-label="Completion rewards" />
+    {rewards.money > 0 && <span>{rewards.money.toLocaleString()} Ryo</span>}
+    {rewards.experience > 0 && <span>{rewards.experience.toLocaleString()} Exp</span>}
+    {rewards.tokens > 0 && <span>{rewards.tokens.toLocaleString()} tokens</span>}
+    {rewards.prestige > 0 && <span>{rewards.prestige.toLocaleString()} prestige</span>}
+    {rewards.drops.length > 0 && <span>{rewards.drops.length} possible drops</span>}
+    {!rewards.money &&
+      !rewards.experience &&
+      !rewards.tokens &&
+      !rewards.prestige &&
+      rewards.drops.length === 0 && <span>No completion rewards</span>}
+  </div>
+);

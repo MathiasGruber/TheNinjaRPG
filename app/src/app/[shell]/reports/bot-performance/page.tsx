@@ -304,7 +304,7 @@ export default function BotPerformance() {
 const OutcomeChart = ({ trend }: { trend: Stats["trend"] }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
-    let chart: Chart | undefined;
+    let chart: Chart<"bar" | "line", (number | null)[], string> | undefined;
     let cancelled = false;
     void import("chart.js/auto").then(({ default: ChartJS }) => {
       if (cancelled || !ref.current) return;
