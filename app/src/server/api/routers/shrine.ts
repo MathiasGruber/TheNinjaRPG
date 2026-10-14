@@ -1279,6 +1279,7 @@ export const shrineRouter = createTRPCRouter({
           client: ctx.drizzle,
           biome: "default",
           forceDefenderVillageId: shrineBattle.defenderEntityId,
+          sector: shrineBattle.sector ?? undefined,
         },
         "SHRINE_WAR",
       );
