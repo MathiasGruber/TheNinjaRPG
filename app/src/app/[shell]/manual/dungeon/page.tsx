@@ -510,8 +510,9 @@ export default function DungeonEditor() {
                         </option>
                       ))}
                     </select>
-                    <Field label={`Drop ${i + 1} chance (%)`}>
+                    <Field label="Chance (%)">
                       <NumberInput
+                        aria-label={`Drop ${i + 1} chance (%)`}
                         className="w-20"
                         min={1}
                         max={100}
