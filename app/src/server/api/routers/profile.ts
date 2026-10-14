@@ -3422,6 +3422,8 @@ const fetchUpdatedUserOnce = async (props: {
     (user as NonNullable<UserWithRelations>).activeRaids = userActiveRaids;
   }
 
+  const storedRegeneration = user?.regeneration;
+  let regenerationAfterExpulsion: number | undefined;
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = calcActiveUserRegen(user, settings);
@@ -3524,6 +3526,13 @@ const fetchUpdatedUserOnce = async (props: {
           );
         if (kickResult.rowsAffected !== 1) return null;
         Object.assign(user, kickUpdate);
+        if (storedRegeneration !== undefined) {
+          // Keep accrued ticks at the member rate; future ticks use the new membership.
+          regenerationAfterExpulsion = calcActiveUserRegen(
+            { ...user, regeneration: storedRegeneration },
+            settings,
+          );
+        }
         forceRegen = true;
         requiresUserRefresh = true;
         requiresProgressionRefresh = true;
@@ -3799,7 +3808,11 @@ const fetchUpdatedUserOnce = async (props: {
     // Mask response copies only: trackerResults is reused by server-side quest updates.
     const responseUser = hideInformation ? getPublicQuestUser(user) : user;
     return {
-      user: { ...responseUser, effectiveMasteries: effectiveMasteries(user) },
+      user: {
+        ...responseUser,
+        regeneration: regenerationAfterExpulsion ?? responseUser.regeneration,
+        effectiveMasteries: effectiveMasteries(user),
+      },
       settings,
       publishedAchievementIds,
       progressionQuestCandidates,
