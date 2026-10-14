@@ -2693,6 +2693,8 @@ export const IMG_MANUAL_REVIEW =
   "https://uploadthing.b-cdn.net/f/content-WaMWC0umwru8ZLBGJYbsR.webp";
 export const IMG_MANUAL_QUEST =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJmWVaWXHE4IMO5Goa7cgLxPJ0VC6lU8vbt1Ap.webp";
+export const IMG_MANUAL_DUNGEON =
+  "https://uploadthing.b-cdn.net/f/manual-dungeon-oFMdBV90NEEJ0Msv7nz9C.webp";
 export const IMG_MANUAL_LOGS =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJwvy6QoT2j854CWbaITZyegfXimvd7s16cO0h.webp";
 export const IMG_MANUAL_DAM_CALCS =
