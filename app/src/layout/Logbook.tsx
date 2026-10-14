@@ -911,6 +911,9 @@ export const useCheckRewards = () => {
           utils.quests.allianceBuilding.invalidate(),
           utils.quests.missionHall.invalidate(),
           utils.quests.specificQuests.invalidate(),
+          // Quest rewards can grant items
+          utils.item.getUserItems.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
         ]);
         // If the quest is finished, handle the next step
         if (

@@ -71,6 +71,9 @@ export const RewardChoiceModal: React.FC = () => {
           );
         await Promise.all([
           utils.quests.getPendingRewardChoices.invalidate(),
+          // The chosen reward can be an item
+          utils.item.getUserItems.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
           updateUser(data.userPatch, {
             revision: context?.userRevision,
             delta: data.userDelta,

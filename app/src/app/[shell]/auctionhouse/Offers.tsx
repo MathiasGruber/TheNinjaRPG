@@ -65,7 +65,9 @@ export function AuctionOffers({
     { offerType, status, search, onlyMine, limit: 10 },
     { getNextPageParam: (page) => page.nextCursor, refetchInterval: 10000 },
   );
-  const inventory = api.item.getUserItems.useQuery();
+  const inventory = api.item.getUserItems.useQuery(undefined, {
+    refetchOnMount: "always",
+  });
   const offers = query.data?.pages.flatMap((page) => page.data) ?? [];
   return (
     <div>
@@ -194,7 +196,14 @@ export function NewOfferDialog({
       ?.filter(isOfferInventoryAvailable)
       .map((row) => ({ value: row.id, label: inventoryLabel(row) })) ?? [];
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        // Re-read the inventory on open; it may have changed since it was last cached.
+        if (open) void utils.item.getUserItems.invalidate();
+        setIsOpen(open);
+      }}
+    >
       <DialogTrigger asChild>
         <Button
           size="icon"
