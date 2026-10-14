@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { UserStatus } from "@/drizzle/constants";
 import {
+  HOME_FURNITURE_ESSENTIALS,
   HomeTypeDetails,
   HomeTypes,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -8,11 +10,14 @@ import {
 import { item, userData, userItem } from "@/drizzle/schema";
 import { applyActiveVariant } from "@/libs/combat/util";
 import {
+  completeHomeLayoutEssentials,
   getHomeLayout,
   type HomeFurniture,
+  homeLayoutEssentialsError,
   homeLayoutOrientationError,
   homeLayoutOwnershipError,
   homeLayoutPlacementError,
+  recoverHomeLayout,
 } from "@/libs/home";
 import {
   getHomeStorageBucket,
@@ -35,7 +40,9 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
+  type HomePlacement,
   homeFurnitureSaveInputSchema,
   homeSleepResponseSchema,
   homeStorageInputSchema,
@@ -138,7 +145,10 @@ export const homeRouter = createTRPCRouter({
     .meta({ mcp: { description: "Get current user home info" } })
     .query(async ({ ctx }) => {
       // Revision and item positions come from one statement, keeping refetched layouts coherent.
-      const user = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
+      const snapshot = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
+      const user = snapshot
+        ? await ensureHomeFurnitureEssentials(ctx.drizzle, ctx.userId, snapshot)
+        : snapshot;
       if (!user) return null;
       const furnitureItems = user.items.filter(
         (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
@@ -181,32 +191,15 @@ export const homeRouter = createTRPCRouter({
         user.homeType,
       );
       if (placementError) return errorResponse(placementError);
-
-      /** Maps placements to owned inventory rows and resets omitted furniture's coordinates. */
-      const coordinateCase = (axis: "x" | "y" | "rotation") =>
-        input.placements.length
-          ? sql`CASE ${userItem.id} ${sql.join(
-              input.placements.map(
-                (placement) => sql`WHEN ${placement.id} THEN ${placement[axis]}`,
-              ),
-              sql` `,
-            )} ELSE ${axis === "rotation" ? 0 : null} END`
-          : sql`${axis === "rotation" ? 0 : null}`;
-      // Drizzle's update builder targets one table. A single joined update atomically
-      // publishes every placement and its revision without a transaction or partial room.
-      // A concurrent sale can only remove a cosmetic placement; this never recreates inventory.
-      const result = await ctx.drizzle.execute(sql`
-        UPDATE ${userData}
-        LEFT JOIN (${userItem} INNER JOIN ${item} ON ${item.id} = ${userItem.itemId})
-          ON ${userItem.userId} = ${userData.userId}
-          AND ${availableHomeFurnitureItems()}
-          AND ${item.itemType} = ${"FURNITURE"} AND ${item.hidden} = ${false}
-        SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
-            ${userItem.homeX} = ${coordinateCase("x")},
-            ${userItem.homeY} = ${coordinateCase("y")},
-            ${userItem.homeRotation} = ${coordinateCase("rotation")}
-        WHERE ${homeFurnitureWriteGuard(user, ctx.userId, input.revision)}
-      `);
+      const essentialsError = homeLayoutEssentialsError(input.placements, pieces);
+      if (essentialsError) return errorResponse(essentialsError);
+      const result = await publishHomeFurnitureLayout(
+        ctx.drizzle,
+        ctx.userId,
+        user,
+        input.placements,
+        input.revision,
+      );
       // MySQL counts changed inventory rows as well as the account revision.
       if (result.rowsAffected === 0) {
         return errorResponse("Your home changed. Refresh and try again");
@@ -478,6 +471,149 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
     },
   });
 
+type HomeFurnitureUser = NonNullable<
+  Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
+>;
+
+/** Repair legacy rooms once; a complete room remains a single coherent read with no writes. */
+const ensureHomeFurnitureEssentials = async (
+  client: DrizzleClient,
+  userId: string,
+  user: HomeFurnitureUser,
+) => {
+  if (homeFurnitureAccessError(user)) return user;
+  const owned = user.items.filter(
+    (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
+  );
+  const furniture = owned.map(homeFurnitureDetails);
+  const recovered = recoverHomeLayout(getHomeLayout(owned), furniture, user.homeType);
+  if (!homeLayoutEssentialsError(recovered, furniture)) return user;
+  let completed = completeHomeLayoutEssentials(recovered, furniture, user.homeType);
+  const placedActions = new Set(
+    completed.map(({ id }) => furniture.find((piece) => piece.id === id)?.action),
+  );
+  const missing = HOME_FURNITURE_ESSENTIALS.filter(
+    ({ action }) => !placedActions.has(action),
+  );
+  let resultSnapshot: Awaited<ReturnType<typeof fetchHomeFurnitureUser>> = user;
+  if (missing.length) {
+    // Definitions are needed only when no available owned piece can supply the missing action.
+    const definitions = await client.query.item.findMany({
+      where: and(
+        inArray(
+          item.id,
+          missing.map(({ itemId }) => itemId),
+        ),
+        eq(item.itemType, "FURNITURE"),
+        eq(item.hidden, false),
+        eq(item.cost, 0),
+        eq(item.inShop, false),
+        eq(item.canBeTraded, false),
+      ),
+      with: { variants: true },
+    });
+    const grants = missing.flatMap((essential) => {
+      const definition = definitions.find(
+        (definition) =>
+          definition.id === essential.itemId &&
+          definition.furnitureData?.action === essential.action,
+      );
+      if (!definition || owned.some(({ itemId }) => itemId === definition.id))
+        return [];
+      const id = `home-essential-${createHash("sha256").update(`${userId}:${essential.action}`).digest("hex")}`;
+      return [{ id, definition }];
+    });
+    // A racing inventory change can leave one extra valueless basic in this account's storage.
+    // It is reversible; deterministic IDs prevent duplicate first-view grants without locks.
+    // Drizzle's INSERT SELECT requires all schema columns, so this small extension preserves
+    // UserItem's database defaults while rechecking access and revision before granting.
+    if (grants.length) {
+      await retryOnDeadlock(() =>
+        client.execute(sql`
+        INSERT INTO ${userItem} (
+          ${sql.identifier("id")}, ${sql.identifier("userId")},
+          ${sql.identifier("itemId")}, ${sql.identifier("storedAtHome")}
+        )
+        ${sql.join(
+          grants.map(
+            ({ id, definition }) => sql`
+          SELECT ${id}, ${userId}, ${definition.id}, ${true}
+          FROM ${userData}
+          WHERE ${homeFurnitureWriteGuard(user, userId, user.homeFurnitureRevision)}
+        `,
+          ),
+          sql` UNION ALL `,
+        )}
+        ON DUPLICATE KEY UPDATE ${sql.identifier("id")} = ${userItem.id}
+      `),
+      );
+      resultSnapshot = await fetchHomeFurnitureUser(client, userId);
+      if (
+        !resultSnapshot ||
+        homeFurnitureAccessError(resultSnapshot) ||
+        resultSnapshot.homeFurnitureRevision !== user.homeFurnitureRevision ||
+        resultSnapshot.homeType !== user.homeType
+      )
+        return resultSnapshot;
+      const available = resultSnapshot.items.filter(
+        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
+      );
+      // A no-op duplicate grant does not make an escrowed, destroyed, or unfinished row available.
+      furniture.splice(0, furniture.length, ...available.map(homeFurnitureDetails));
+      completed = recoverHomeLayout(getHomeLayout(available), furniture, user.homeType);
+    }
+    completed = completeHomeLayoutEssentials(completed, furniture, user.homeType);
+  }
+  if (!homeLayoutEssentialsError(completed, furniture)) {
+    await publishHomeFurnitureLayout(
+      client,
+      userId,
+      user,
+      completed,
+      user.homeFurnitureRevision,
+    );
+    // A concurrent editor or first view may win the revision CAS. Read its complete result once.
+    return await fetchHomeFurnitureUser(client, userId);
+  }
+  return resultSnapshot;
+};
+
+/** Publish every owned placement and its revision together, including first-view recovery. */
+const publishHomeFurnitureLayout = (
+  client: DrizzleClient,
+  userId: string,
+  user: HomeFurnitureUser,
+  placements: HomePlacement[],
+  revision: number,
+) => {
+  const coordinateCase = (axis: "x" | "y" | "rotation") =>
+    placements.length
+      ? sql`CASE ${userItem.id} ${sql.join(
+          placements.map(
+            (placement) => sql`WHEN ${placement.id} THEN ${placement[axis]}`,
+          ),
+          sql` `,
+        )} ELSE ${axis === "rotation" ? 0 : null} END`
+      : sql`${axis === "rotation" ? 0 : null}`;
+  // Drizzle's update builder targets one table. A joined update avoids partial rooms and
+  // stale initialization overwriting a player's concurrent save, without a transaction.
+  // A concurrent sale can only remove a placement; this statement never recreates inventory.
+  return retryOnDeadlock(() =>
+    client.execute(sql`
+    UPDATE ${userData}
+    LEFT JOIN (${userItem} INNER JOIN ${item} ON ${item.id} = ${userItem.itemId})
+      ON ${userItem.userId} = ${userData.userId}
+      AND ${availableHomeFurnitureItems()}
+      AND ${item.itemType} = ${"FURNITURE"} AND ${item.hidden} = ${false}
+    SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
+        ${userItem.homeX} = ${coordinateCase("x")},
+        ${userItem.homeY} = ${coordinateCase("y")},
+        ${userItem.homeRotation} = ${coordinateCase("rotation")}
+    WHERE ${homeFurnitureWriteGuard(user, userId, revision)}
+  `),
+  );
+};
+
 /** Only available inventory can be placed; auction escrow and unfinished crafts remain inaccessible. */
 const availableHomeFurnitureItems = () =>
   and(
@@ -491,9 +627,10 @@ const availableHomeFurnitureItems = () =>
 
 /** The joined inventory snapshot supplies the same active-view geometry to reads and save guards. */
 const homeFurnitureDetails = (
-  owned: NonNullable<
-    Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
-  >["items"][number],
+  owned: Pick<
+    HomeFurnitureUser["items"][number],
+    "id" | "itemId" | "quantity" | "activeVariantId" | "item"
+  >,
 ): HomeFurniture => {
   const content = applyActiveVariant(owned);
   const data = content.furnitureData ?? DEFAULT_FURNITURE_DATA;

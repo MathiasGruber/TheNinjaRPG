@@ -21,9 +21,16 @@ import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../../setup-dom.mjs";
 import { actualDialog, actualModal } from "../../setup/preload";
 
-const furniture: HomeFurniture[] = [{
-  id: "owned-bed", itemId: "home-bed", name: "Bed", image: "/images/home/furniture/bed.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {},
-}];
+const furniture: HomeFurniture[] = [
+  { id: "owned-bed", itemId: "home-bed", name: "Bed", image: "/images/home/furniture/bed.webp", width: 34, groundAnchor: 91.1, action: "sleep", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-armory", itemId: "home-armory", name: "Armory", image: "/images/home/furniture/armory.webp", width: 24, groundAnchor: 95.8, action: "storage", isFloor: false, quantity: 1, views: {} },
+  { id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen", image: "/images/home/furniture/kitchen.webp", width: 32, groundAnchor: 89.1, action: "kitchen", isFloor: false, quantity: 1, views: {} },
+];
+const layout = [
+  { id: "owned-bed", x: 22, y: 15.15, rotation: 0 as const },
+  { id: "owned-armory", x: 75, y: 15.15, rotation: 0 as const },
+  { id: "owned-kitchen", x: 76, y: 57.58, rotation: 0 as const },
+];
 const rug: HomeFurniture = {
   id: "owned-rug", itemId: "custom-rug", name: "Woven Rug", image: "/custom-rug.webp", width: 25, groundAnchor: 88.5, action: null, isFloor: true, quantity: 1, views: {},
 };
@@ -157,7 +164,7 @@ for (const success of [true, false]) {
       storage: HomeTypeDetails.NONE.storage,
       furniture,
       furnitureRevision: 3,
-      layout: [{ id: "owned-bed", x: 22, y: 15.15, rotation: 0 }],
+      layout: [...layout],
     };
     const save = vi.fn((draft: RouterInputs["home"]["saveFurnitureLayout"]) => {
       if (success) {
@@ -264,7 +271,7 @@ it("opens home management from the header and waits for refreshed inventory befo
   let homeQueries = 0;
   const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
     homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-    furniture: [...furniture], furnitureRevision: 3, layout: [{ id: "owned-bed", x: 22, y: 15.15, rotation: 0 }],
+    furniture: [...furniture], furnitureRevision: 3, layout: [...layout],
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
