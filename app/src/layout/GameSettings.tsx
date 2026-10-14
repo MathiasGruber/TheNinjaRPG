@@ -26,7 +26,6 @@ import {
 } from "@/hooks/localstorage";
 import { useAudio } from "@/hooks/useAudio";
 import { useIframeMute } from "@/hooks/useIframeMute";
-import { ReadingSettings } from "@/layout/ReadingSettings";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import {
   type EffectiveLayout,
@@ -773,8 +772,6 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
           </div>
         )}
       </div>
-
-      <ReadingSettings />
 
       <NativeSettingsEntry onNavigate={onNavigate} />
 

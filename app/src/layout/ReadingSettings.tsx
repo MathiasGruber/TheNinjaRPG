@@ -17,7 +17,7 @@ import {
   type ReadingPreferences,
 } from "@/libs/readingPreferences";
 
-/** Shared game/profile controls with an immediate preview, save feedback, and reset. */
+/** Profile display controls with an immediate preview, save feedback, and reset. */
 export const ReadingSettings = () => {
   const id = useId();
   const { preferences, updatePreferences, isPersisted } = useReadingPreferences();
