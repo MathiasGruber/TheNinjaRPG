@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { bloodline, gameSetting, trainingLog, userData, userQueue, userVote, village } from "@/drizzle/schema";
+import { bloodline, gameSetting, trainingLog, userData, userQueue, userVote, village, villageStructure } from "@/drizzle/schema";
 import { calcCurrent } from "@/layout/StatusBar";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
@@ -15,7 +15,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
   beforeEach(async () => {
     setSystemTime(NOW);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
-    await resetTables(trainingLog, userQueue, userVote, userData, village, bloodline, gameSetting);
+    await resetTables(trainingLog, userQueue, userVote, userData, village, villageStructure, bloodline, gameSetting);
     const db = await getTestDatabase();
     await db.insert(village).values([
       { id: "home", name: "Home", type: "VILLAGE", sector: 1, kageId: "" },
@@ -54,6 +54,41 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
     expect(first.user).toMatchObject({ regeneration: 50, curHealth: 0, curEnergy: 0 });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
+  });
+
+  it.each([
+    { status: "AWAKE", homeWar: 0, syndicateStructure: 0, syndicateWar: 0, accrued: 138, future: 50 },
+    { status: "AWAKE", homeWar: 40, syndicateStructure: 10, syndicateWar: 20, accrued: 193, future: 66 },
+    { status: "BATTLE", homeWar: 0, syndicateStructure: 0, syndicateWar: 0, accrued: 0, future: 50 },
+    { status: "BATTLE", homeWar: 40, syndicateStructure: 10, syndicateWar: 20, accrued: 0, future: 66 },
+  ] as const)("uses destination structure and war regeneration after expulsion (%j)", async ({ status, homeWar, syndicateStructure, syndicateWar, accrued, future }) => {
+    const db = await getTestDatabase();
+    await Promise.all([
+      db.insert(villageStructure).values([
+        { id: "home-regen", villageId: "home", name: "Recovery", image: "", level: 1, regenIncreasePerLvl: 20 },
+        { id: "syndicate-regen", villageId: VILLAGE_SYNDICATE_ID, name: "Recovery", image: "", level: 1, regenIncreasePerLvl: syndicateStructure },
+      ]),
+      db.insert(gameSetting).values([
+        { id: "home-war-regen", name: "war-home-regen", value: homeWar, time: new Date(NOW.getTime() + 86_400_000) },
+        { id: "syndicate-war-regen", name: `war-${VILLAGE_SYNDICATE_ID}-regen`, value: syndicateWar, time: new Date(NOW.getTime() + 86_400_000) },
+      ]),
+      db.update(userData).set({ status, battleId: status === "BATTLE" ? "battle-1" : null }).where(eq(userData.userId, "expelled")),
+    ]);
+    const first = await fetchUpdatedUser({ client: db, userId: "expelled" });
+    const persisted = await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") });
+    const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
+    expect(first.user).toMatchObject({ isOutlaw: true, curHealth: accrued, curChakra: accrued, curStamina: accrued });
+    expect(first.user?.regeneration).toBeCloseTo(future);
+    expect(persisted).toMatchObject({ regeneration: 100, curHealth: accrued, curChakra: accrued, curStamina: accrued,
+      villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
+      regenAt: status === "BATTLE" ? new Date(NOW.getTime() - 60_000) : NOW,
+    });
+    expect(next.user?.regeneration).toBe(first.user?.regeneration);
+    expect(next.user?.joinedVillageAt).toEqual(NOW);
+    setSystemTime(new Date(NOW.getTime() + 60_000));
+    if (status === "AWAKE") {
+      expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regeneration, first.user?.regenAt).current).toBeCloseTo(accrued + future);
+    }
   });
 
   it.each([true, false])("applies bloodline and event modifiers once with expulsion %s", async (isExpelled) => {

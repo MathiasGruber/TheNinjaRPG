@@ -1,8 +1,9 @@
 import { and, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { quest, userData, village } from "@/drizzle/schema";
+import { boostPvpGain } from "@/libs/pvpExperience";
 import { collapseRewards } from "@/libs/rewards";
-import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
+import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import {
   getVillageMissionProgress,
   isVillageMissionAvailable,
@@ -194,8 +195,10 @@ export const villageMissionRouter = createTRPCRouter({
       const rewardTokens =
         mission.rewardTokens > 0
           ? Math.round(
-              mission.rewardTokens *
-                percentageMultiplier(getVillageLoyaltyBonuses(user).villageRewards),
+              boostPvpGain(
+                mission.rewardTokens,
+                getVillageLoyaltyBonuses(user).villageRewards,
+              ),
             )
           : mission.rewardTokens;
       const result = await ctx.drizzle

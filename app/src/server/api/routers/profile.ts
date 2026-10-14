@@ -3497,6 +3497,7 @@ const fetchUpdatedUserOnce = async (props: {
       const [syndicate, clanData, squadData, elder] = await Promise.all([
         client.query.village.findFirst({
           where: eq(village.type, "OUTLAW"),
+          with: { structures: true },
         }),
         user.clanId ? fetchClan(client, user.clanId) : null,
         user.anbuId ? fetchSquad(client, user.anbuId) : null,
@@ -3531,7 +3532,7 @@ const fetchUpdatedUserOnce = async (props: {
         if (storedRegeneration !== undefined) {
           // Keep accrued ticks at the member rate; future ticks use the new membership.
           regenerationAfterExpulsion = calcActiveUserRegen(
-            { ...user, regeneration: storedRegeneration },
+            { ...user, regeneration: storedRegeneration, village: syndicate },
             settings,
           );
         }
