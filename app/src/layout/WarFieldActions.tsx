@@ -56,9 +56,9 @@ export const WarFieldActions = () => {
     <>
       <Button
         ref={triggerRef}
-        size="sm"
+        size="icon"
         variant="ghost"
-        className="mr-2 gap-1 pr-5 pl-2"
+        className="mr-2 h-7 w-7"
         aria-label={
           updates ? `War, ${updates} ${updates === 1 ? "update" : "updates"}` : "War"
         }
@@ -67,8 +67,7 @@ export const WarFieldActions = () => {
         count={updates}
         onClick={() => setIsOpen(true)}
       >
-        <Swords className="h-4 w-4" aria-hidden />
-        War
+        <Swords className="h-7 w-7" aria-hidden />
       </Button>
       {isOpen && (
         <Modal
