@@ -285,7 +285,7 @@ export const recordSanctionTombstone = async (
                 ),
                 sql`, `,
               )})`
-            : sanctionTombstone.ipHashes,
+            : undefined,
         },
       }),
   );
