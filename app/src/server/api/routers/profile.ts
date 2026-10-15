@@ -163,7 +163,11 @@ import {
 } from "@/libs/raids";
 import { createThumbnail } from "@/libs/replicate";
 import { callDiscordContent } from "@/libs/socials";
-import { getTimedRegenerationGain } from "@/libs/timedBuffs";
+import {
+  getTimedRegeneration,
+  getTimedRegenerationGain,
+  type TimedBuff,
+} from "@/libs/timedBuffs";
 import {
   applyMasteryTrainingGains,
   getReducedGainsDays,
@@ -214,6 +218,10 @@ import {
   awardRecruitRankMilestonesSafely,
   fetchRecruitMilestoneSummary,
 } from "@/server/utils/recruitment";
+import {
+  getUserRegenerationGain,
+  userRegenerationGainSql,
+} from "@/server/utils/regeneration";
 import { retainSanctionIps } from "@/server/utils/sanctionTombstone";
 import { fetchPublishedSectorMaps } from "@/server/utils/sectorMap";
 import {
@@ -3230,7 +3238,9 @@ const fetchUpdatedUserOnce = async (props: {
     fetchActiveRaids(client, now),
     fetchQuestBootstrap(client, userId),
   ]);
-  let user = fetchedUser;
+  let user:
+    | (NonNullable<typeof fetchedUser> & { regenerationWithoutTimedBuffs?: number })
+    | undefined = fetchedUser;
 
   // Start timed jobs (jutsu levels, crafts) whose turn has come, backdated to when it
   // came. The in-memory check keeps every other request free of extra queries. When a
@@ -3323,14 +3333,14 @@ const fetchUpdatedUserOnce = async (props: {
     // Retired or deleted content cannot leave a player between floors indefinitely.
     // Recheck persisted isolation with the status claim so a fresh run wins the race.
     if (user.status === "BATTLE" && !user.battleId && !getIsolatedPyramid(user)) {
-      const regeneration = calcActiveUserRegen(user, settings);
+      const regenerationUser = {
+        regeneration: calcActiveUserRegen(user, settings, false),
+        regenAt: user.regenAt,
+        raidBuffs: user.raidBuffs,
+      };
+      const recovery = getUserRegenerationGain(regenerationUser, now);
       const maxEnergy = calcMaxEnergy(user);
-      const energy = Math.min(
-        maxEnergy,
-        user.curEnergy +
-          regeneration *
-            Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
-      );
+      const energy = Math.min(maxEnergy, user.curEnergy + recovery);
       const claim = await claimUserSnapshot({
         client,
         userId,
@@ -3357,7 +3367,7 @@ const fetchUpdatedUserOnce = async (props: {
           bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
           bracketImmunityPausedAt: null,
           status: "AWAKE",
-          curEnergy: sql`LEAST(${maxEnergy}, ${userData.curEnergy} + ${regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000}))`,
+          curEnergy: sql`LEAST(${maxEnergy}, ${userData.curEnergy} + ${userRegenerationGainSql(regenerationUser, userData.regenAt, now)})`,
           regenAt: now,
         },
       });
@@ -3510,7 +3520,8 @@ const fetchUpdatedUserOnce = async (props: {
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     accruedBaseRegeneration = calcActiveUserRegen(user, settings, false);
-    user.regeneration = calcActiveUserRegen(user, settings);
+    user.regenerationWithoutTimedBuffs = accruedBaseRegeneration;
+    user.regeneration = getTimedRegeneration(accruedBaseRegeneration, user.raidBuffs);
     user.maxEnergy = calcMaxEnergy(user);
   }
 
@@ -4563,6 +4574,9 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
 
 export type UserWithRelations =
   | (UserData & {
+      /** Derived regeneration before timed bonuses, retained for pending recovery ticks. */
+      regenerationWithoutTimedBuffs?: number;
+      raidBuffs?: TimedBuff[];
       questParty?: LoadedQuestParty | null;
       pvpBoost?: ReturnType<typeof getPvpBoost>;
       effectiveMasteries?: MasteryStatSource;
