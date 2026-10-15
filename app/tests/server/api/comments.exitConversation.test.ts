@@ -1,0 +1,97 @@
+import { afterEach, beforeEach, expect, it } from "bun:test";
+import { eq } from "drizzle-orm";
+import {
+  conversation,
+  conversationComment,
+  supportTicket,
+  user2conversation,
+  userData,
+} from "@/drizzle/schema";
+import { commentsRouter } from "@/server/api/routers/comments";
+import { insertUsers } from "../../setup/factories";
+import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
+import {
+  callerForDatabase,
+  describeWithDatabase,
+  getTestDatabase,
+  resetTables,
+} from "../../setup/testDatabase";
+
+/** A conversation whose only member is `player`, with one comment from them. */
+const insertSoloConversation = async (id: string, isStaffAvailable: boolean) => {
+  const db = await getTestDatabase();
+  await Promise.all([
+    db.insert(conversation).values({
+      id,
+      title: "Help",
+      createdById: "player",
+      isPublic: false,
+      isLocked: false,
+      isStaffAvailable,
+    }),
+    db.insert(user2conversation).values({ conversationId: id, userId: "player" }),
+    db.insert(conversationComment).values({
+      id: `${id}-comment`,
+      content: "Please help",
+      userId: "player",
+      authorId: "player",
+      conversationId: id,
+    }),
+  ]);
+};
+
+describeWithDatabase("comments.exitConversation", () => {
+  beforeEach(async () => {
+    const db = await getTestDatabase();
+    await resetTables(
+      supportTicket,
+      conversationComment,
+      user2conversation,
+      conversation,
+      userData,
+    );
+    await insertUsers([{ userId: "player" }]);
+    stubProfile("fetchUser", async (_client: unknown, id: string) =>
+      db.query.userData.findFirst({ where: eq(userData.userId, id) }),
+    );
+  });
+  afterEach(() => resetServerModuleStubs());
+
+  it("keeps a support ticket's conversation and comments when its creator exits", async () => {
+    const db = await getTestDatabase();
+    await insertSoloConversation("ticket-convo", true);
+    await db.insert(supportTicket).values({
+      id: "ticket",
+      title: "Help",
+      description: "Please help",
+      category: "BUG_REPORT",
+      conversationId: "ticket-convo",
+      createdByUserId: "player",
+    });
+
+    const result = await callerForDatabase(commentsRouter, "player", db).exitConversation({
+      convo_id: "ticket-convo",
+    });
+
+    expect(result.success).toBe(true);
+    expect(await db.query.user2conversation.findMany()).toHaveLength(0);
+    expect(
+      await db.query.conversation.findFirst({ where: eq(conversation.id, "ticket-convo") }),
+    ).toBeDefined();
+    expect(await db.query.conversationComment.findMany()).toHaveLength(1);
+  });
+
+  it("deletes an ordinary conversation once its last member exits", async () => {
+    const db = await getTestDatabase();
+    await insertSoloConversation("plain-convo", false);
+
+    const result = await callerForDatabase(commentsRouter, "player", db).exitConversation({
+      convo_id: "plain-convo",
+    });
+
+    expect(result.success).toBe(true);
+    expect(await db.query.user2conversation.findMany()).toHaveLength(0);
+    expect(await db.query.conversation.findMany()).toHaveLength(0);
+    expect(await db.query.conversationComment.findMany()).toHaveLength(0);
+  });
+});

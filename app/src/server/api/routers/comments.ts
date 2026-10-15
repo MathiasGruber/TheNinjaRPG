@@ -403,12 +403,16 @@ export const commentsRouter = createTRPCRouter({
       if (isRaidChatConversationId(input.convo_id)) {
         return errorResponse("Raid chat membership is managed by the raid queue");
       }
-      const [user, convo] = await Promise.all([
+      const [user, convo, linkedSupportTicket] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchConversation({
           client: ctx.drizzle,
           id: input.convo_id,
           userId: ctx.userId,
+        }),
+        ctx.drizzle.query.supportTicket.findFirst({
+          where: eq(supportTicket.conversationId, input.convo_id),
+          columns: { id: true },
         }),
       ]);
       // Guard
@@ -426,7 +430,9 @@ export const commentsRouter = createTRPCRouter({
           ),
         );
 
-      if (membershipDeleteResult.rowsAffected === 1) {
+      // A support ticket's conversation is its message history with staff, and
+      // its creator is its only member, so it must outlive the membership.
+      if (membershipDeleteResult.rowsAffected === 1 && !linkedSupportTicket) {
         // Both cleanup deletes only need to know that no membership rows remain,
         // which the awaited membership delete above already settled. Guarding
         // each one on that condition keeps a concurrent exit from wiping a
