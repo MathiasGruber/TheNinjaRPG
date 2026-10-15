@@ -174,6 +174,8 @@ const MenuBoxProfile: React.FC = () => {
   const battleUser = battle?.usersState.find((u) => u.userId === userData?.userId);
   // Checkpoints display the carried pools without the generic hidden BATTLE bars.
   const hasBattlePools = !!battleUser || isBetweenPyramidBattles(userData);
+  const passiveRegeneration =
+    userData?.regenerationWithoutTimedBuffs ?? userData?.regeneration;
 
   // Calculate effective pool values with fallbacks (effectivePools → battleUser → userData)
   const pools = useEffectivePools({
@@ -249,7 +251,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-red-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={hasBattlePools ? 0 : userData?.regeneration}
+              regen={hasBattlePools ? 0 : passiveRegeneration}
+              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curHealth}
               total={pools.maxHealth}
@@ -262,7 +265,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-blue-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={hasBattlePools ? 0 : userData?.regeneration}
+              regen={hasBattlePools ? 0 : passiveRegeneration}
+              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curChakra}
               total={pools.maxChakra}
@@ -275,7 +279,8 @@ const MenuBoxProfile: React.FC = () => {
               color="bg-green-500"
               showText={true}
               lastRegenAt={userData?.regenAt}
-              regen={hasBattlePools ? 0 : userData?.regeneration}
+              regen={hasBattlePools ? 0 : passiveRegeneration}
+              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curStamina}
               total={pools.maxStamina}
@@ -290,6 +295,7 @@ const MenuBoxProfile: React.FC = () => {
                     [])
                   : undefined
               }
+              timedBuffs={userData?.raidBuffs}
               color="bg-violet-500"
               showText
               lastRegenAt={userData?.regenAt}
@@ -297,7 +303,7 @@ const MenuBoxProfile: React.FC = () => {
                 userData?.status === "BATTLE" && battle?.id === userData.battleId
                   ? (battle?.extraState.energyRegeneration?.[userData.userId] ??
                     userData.regeneration)
-                  : userData?.regeneration
+                  : passiveRegeneration
               }
               status={
                 userData &&

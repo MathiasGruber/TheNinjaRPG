@@ -10,7 +10,11 @@ import { REGEN_SECONDS } from "@/drizzle/constants";
 import type { UserStatus } from "@/drizzle/schema";
 import { combatCacheEnergy } from "@/libs/combat/userCache";
 import { cn } from "@/libs/shadui";
-import type { RegenerationPeriod } from "@/libs/timedBuffs";
+import {
+  getTimedRegenerationGain,
+  type RegenerationPeriod,
+  type TimedBuff,
+} from "@/libs/timedBuffs";
 import { nextRegenerationTickAt, secondsPassed } from "@/utils/time";
 
 interface StatusBarProps {
@@ -23,6 +27,8 @@ interface StatusBarProps {
   timeDiff?: number;
   /** Combat Energy uses continuous recovery, including captured timed bonuses. */
   combatRegenerationPeriods?: readonly RegenerationPeriod[];
+  /** Discrete recovery uses the base regen rate and retains expired bonus history. */
+  timedBuffs?: readonly TimedBuff[];
   color:
     | "bg-red-500"
     | "bg-blue-500"
@@ -44,6 +50,7 @@ export const calcCurrent = (
   regenAt?: Date | null,
   timeDiff?: number,
   combatRegenerationPeriods?: readonly RegenerationPeriod[],
+  timedBuffs?: readonly TimedBuff[],
 ) => {
   const end = total ?? 100;
   let current = Math.max(start ?? 0, 0);
@@ -70,7 +77,17 @@ export const calcCurrent = (
             0,
             combatRegenerationPeriods,
           )
-        : Math.min(end, start + regen * minutes);
+        : Math.min(
+            end,
+            start +
+              getTimedRegenerationGain(
+                regen,
+                timedBuffs ?? [],
+                regenAt,
+                minutes,
+                REGEN_SECONDS,
+              ),
+          );
     } else {
       current = Math.max(0, start + regen * minutes);
     }
@@ -94,7 +111,7 @@ export const calcCurrent = (
 
 const StatusBar: React.FC<StatusBarProps> = (props) => {
   // Destructure props
-  const { regen, lastRegenAt, timeDiff, combatRegenerationPeriods } = props;
+  const { regen, lastRegenAt, timeDiff, combatRegenerationPeriods, timedBuffs } = props;
   const { showText, title, current, total, status } = props;
 
   // Is the user in battle?
@@ -111,6 +128,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
       lastRegenAt,
       timeDiff,
       combatRegenerationPeriods,
+      timedBuffs,
     ),
   );
 
@@ -135,6 +153,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
             lastRegenAt,
             timeDiff,
             combatRegenerationPeriods,
+            timedBuffs,
           );
           // Capacity can change while the bar is full; suppress only unchanged values.
           if (
@@ -164,6 +183,7 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
     status,
     timeDiff,
     combatRegenerationPeriods,
+    timedBuffs,
   ]);
 
   return (

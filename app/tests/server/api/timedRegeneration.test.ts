@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as nextServer from "next/server";
 import {
@@ -14,6 +14,7 @@ import {
   userQueue,
   userRaidBuff,
 } from "@/drizzle/schema";
+import { calcCurrent } from "@/layout/StatusBar";
 import { Pusher } from "@/libs/pusher";
 import { hospitalRouter } from "@/server/api/routers/hospital";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
@@ -26,7 +27,7 @@ import {
 import { IncreaseRegenerationTag } from "@/validators/combat";
 import { DialogObjective, QuestTracker } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
-import { insertUsers, insertQuests } from "../../setup/factories";
+import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import { queueEnergy, readEnergyQueue } from "../../setup/queues";
 import {
   callerFor,
@@ -75,7 +76,51 @@ describeWithDatabase(
         },
       ]);
     });
-    afterEach(() => vi.restoreAllMocks());
+    afterEach(() => {
+      setSystemTime();
+      vi.restoreAllMocks();
+    });
+
+    it.each(["HOSPITALIZED", "TRAVEL", "BATTLE"] as const)(
+      "%s profiles retain earned ticks when a meal expires without resetting the recovery clock",
+      async (status) => {
+        const db = await getTestDatabase();
+        const from = new Date("2026-01-01T00:00:00Z");
+        await db.update(userData).set({
+          status, battleId: null, regenAt: from, updatedAt: from,
+          joinedVillageAt: new Date(from.getTime() - 100 * 86400000),
+          curHealth: 0, curChakra: 0, curStamina: 0,
+          travelFinishAt: new Date(from.getTime() + 600000),
+        }).where(eq(userData.userId, USER_ID));
+        if (status === "BATTLE") {
+          await insertQuests([{
+            id: "retained-recovery", questType: "battlepyramid",
+            content: { isolated: true, entryItems: [], objectives: [], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] },
+          }]);
+          await insertQuestHistory([{
+            userId: USER_ID, questId: "retained-recovery", questType: "battlepyramid", isolated: true,
+          }]);
+        }
+        await db.insert(userRaidBuff).values({
+          id: "retained-meal", userId: USER_ID, itemId: "meal",
+          createdAt: from, expiresAt: new Date(from.getTime() + 150000),
+          effects: [IncreaseRegenerationTag.parse({ power: 70 })],
+        });
+        await queueEnergy(USER_ID, [{ stat: "offence", energy: 1000 }]);
+        for (const [elapsed, rate, earned] of [[149999, 17, 34], [151001, 10, 34], [240000, 10, 54]] as const) {
+          setSystemTime(new Date(from.getTime() + elapsed));
+          const { user } = await fetchUpdatedUser({ client: db, userId: USER_ID });
+          expect(user).toMatchObject({ status, curEnergy: 0, regenAt: from, regeneration: rate, regenerationWithoutTimedBuffs: 10 });
+          expect(calcCurrent(user!.curEnergy, user!.maxEnergy, "AWAKE", user!.regenerationWithoutTimedBuffs, user!.regenAt, 0, undefined, user!.raidBuffs).current).toBe(earned);
+          if (status === "TRAVEL") {
+            for (const pool of ["Health", "Chakra", "Stamina"] as const)
+              expect(calcCurrent(user![`cur${pool}`], user![`max${pool}`], status, user!.regenerationWithoutTimedBuffs, user!.regenAt, 0, undefined, user!.raidBuffs).current).toBe(earned);
+          }
+        }
+        expect(await readUser()).toMatchObject({ status, curEnergy: 0, curHealth: 0, curChakra: 0, curStamina: 0, regenAt: from });
+        expect(await readEnergyQueue(USER_ID)).toMatchObject([{ stat: "offence", energy: 1000 }]);
+      },
+    );
 
     const recoveryClock = async (ticks = 4, overlap = false, active = false) => {
       const db = await getTestDatabase();
