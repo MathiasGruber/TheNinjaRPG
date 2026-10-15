@@ -622,6 +622,80 @@ describeWithDatabase("event tournament persistence", () => {
     });
   }
 
+  for (const expired of [false, true]) {
+    it(`starts scheduled series only before the event deadline (expired=${expired})`, async () => {
+      const database = await getTestDatabase();
+      await insertUsers(
+        ["staff", "first", "second"].map((userId) => ({
+          userId,
+          role: userId === "staff" ? "CODER" : "USER",
+          status: "AWAKE",
+          sector: MAP_WAKE_ISLAND_SECTOR,
+        })),
+      );
+      const staff = await callerFor(tournamentRouter, "staff");
+      const config = eventConfig("Scheduled series");
+      config.scheduling = "SEQUENTIAL";
+      const created = await staff.saveEvent({ config });
+      if (!("tournamentId" in created)) throw new Error(created.message);
+      const { tournamentId } = created;
+      expect(
+        (await staff.manageEvent({ tournamentId, action: "PUBLISH" })).success,
+      ).toBe(true);
+      for (const userId of ["first", "second"])
+        expect(
+          (
+            await (await callerFor(tournamentRouter, userId)).participateEvent({
+              tournamentId,
+              action: "JOIN",
+            })
+          ).success,
+        ).toBe(true);
+      expect((await staff.manageEvent({ tournamentId, action: "SEED" })).success).toBe(
+        true,
+      );
+      const seriesId = (await fetchEvent(database, tournamentId))!.eventData!
+        .series[0]!.id;
+      const scheduledAt = config.endsAt - 30_000;
+      expect(
+        (
+          await staff.manageEvent({
+            tournamentId,
+            action: "BEGIN",
+            seriesId,
+            scheduledAt,
+          })
+        ).success,
+      ).toBe(true);
+      const now = expired ? config.endsAt + 1 : scheduledAt;
+      vi.spyOn(Date, "now").mockReturnValue(now);
+      await maintainEventTournaments(database);
+      const saved = (await fetchEvent(database, tournamentId))!;
+      const player = await callerFor(tournamentRouter, "first");
+      const [notices, listing] = await Promise.all([
+        player.getEventNotices(),
+        player.listEvents(),
+      ]);
+      const status = expired ? "CANCELLED" : "RUNNING";
+      expect(saved.eventData?.status).toBe(status);
+      expect(saved.status).toBe(expired ? "COMPLETED" : "IN_PROGRESS");
+      expect(saved.eventData?.finishedAt).toBe(expired ? now : null);
+      expect(saved.eventData?.series[0]!.games).toHaveLength(expired ? 0 : 1);
+      expect(listing[0]?.eventData?.status).toBe(status);
+      if (expired) expect(notices).toEqual([]);
+      else
+        expect(notices).toEqual([
+          {
+            tournamentId,
+            name: config.name,
+            message: "Your tournament match is ready",
+            deadline: saved.eventData!.series[0]!.games[0]!.deadline,
+          },
+        ]);
+      expect(await database.query.tournamentRewardClaim.findMany()).toHaveLength(0);
+    });
+  }
+
   it("pays the final bye as a championship after both upper finalists no-show", async () => {
     const database = await getTestDatabase();
     const entrants = ["first", "second", "third", "fourth"];

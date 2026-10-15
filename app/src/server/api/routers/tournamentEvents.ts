@@ -608,8 +608,9 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
     }
   } else if (event.scheduledRoundAt && now >= event.scheduledRoundAt)
     beginEventRound(event, now);
-  for (const s of event.series)
-    if (s.scheduledAt && now >= s.scheduledAt) beginEventRound(event, now, s.id);
+  if (now < event.config.endsAt)
+    for (const s of event.series)
+      if (s.scheduledAt && now >= s.scheduledAt) beginEventRound(event, now, s.id);
   const changed = JSON.stringify(event) !== JSON.stringify(row.eventData);
   if (changed && !(await saveEventState(client, row, event))) return;
   if (["COMPLETED", "CANCELLED"].includes(event.status)) {
