@@ -110,11 +110,12 @@ export const HomeScene = ({
     if (!scene || !isProperty) return;
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
+      const rect = scene.getBoundingClientRect();
+      if (!(rect.width > 0 && rect.height > 0)) return;
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
       setCamera((current) => {
         const scale = clamp(current.scale * (event.deltaY > 0 ? 0.9 : 1.1), 0.3, 1.8);
-        const rect = scene.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width) * 100;
-        const y = ((event.clientY - rect.top) / rect.height) * 100;
         return boundHomeCamera(zoomHomeCamera(current, scale, { x, y }), homeType);
       });
     };

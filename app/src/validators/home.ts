@@ -1,13 +1,16 @@
 import { z } from "zod";
 import {
+  HOME_FLOOR_TILES,
   HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
   HOME_FURNITURE_ROTATIONS,
   HOME_MAX_ROOMS,
   HOME_ROOM_IDS,
+  HOME_WALL_PAINTS,
   HomeTypes,
 } from "@/drizzle/constants";
+import { objectKeys } from "@/utils/typeutils";
 import { baseServerResponse } from "@/validators/base";
 
 /** Placement belongs to one UserItem row, so multiple copies of the same content item remain independent. */
@@ -48,8 +51,8 @@ export const homeFurnitureSaveInputSchema = z.strictObject({
     .array(
       z.strictObject({
         room: z.enum(HOME_ROOM_IDS),
-        paint: z.enum(["ivory", "sage", "indigo", "rose", "charcoal"]),
-        floor: z.enum(["cedar", "oak", "slate", "terracotta"]),
+        paint: z.enum(objectKeys(HOME_WALL_PAINTS)),
+        floor: z.enum(objectKeys(HOME_FLOOR_TILES)),
       }),
     )
     .max(HOME_MAX_ROOMS)

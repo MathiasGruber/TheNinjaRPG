@@ -716,6 +716,22 @@ describe("multi-room home scene", () => {
   beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
   afterEach(cleanup);
 
+  it.each([[0, 600], [800, 0], [0, 0]])("preserves the camera while the scene is %s by %s and resumes wheel zoom after resize", (width, height) => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const camera = scene.querySelector("[data-home-camera]")!;
+    const before = camera.getAttribute("style");
+    scene.getBoundingClientRect = () => new DOMRect(40, 50, width, height);
+    fireEvent.wheel(scene, { deltaY: -1, clientX: 240, clientY: 200 });
+    expect(camera.getAttribute("style")).toBe(before);
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("100%");
+
+    scene.getBoundingClientRect = () => new DOMRect(40, 50, 800, 600);
+    fireEvent.wheel(scene, { deltaY: -1, clientX: 240, clientY: 200 });
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("110%");
+    expect(camera.getAttribute("style")).not.toMatch(/NaN|Infinity/);
+  });
+
   it.each(["pointerup", "pointercancel"])("keeps room finishes aligned with a cross-room drag ending in %s", async (ending) => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
