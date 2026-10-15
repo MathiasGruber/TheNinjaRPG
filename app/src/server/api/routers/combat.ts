@@ -173,6 +173,11 @@ import {
   missingMasteryRequirement,
 } from "@/libs/mastery";
 import {
+  areWarObjectivesRevealed,
+  getWarSide,
+  isObjectiveWarActive,
+} from "@/libs/objectiveWar";
+import {
   calcActiveUserRegen,
   calcCP,
   calcHP,
@@ -238,6 +243,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
   commitQuestEntryBattle,
@@ -1712,6 +1718,17 @@ export const combatRouter = createTRPCRouter({
       const userWar = activeWars.find((w) => {
         if (w.status !== "ACTIVE") return false;
 
+        if (w.rules) {
+          const side = getWarSide(w, user?.villageId ?? null);
+          return (
+            !!side &&
+            isObjectiveWarActive(w) &&
+            areWarObjectivesRevealed(w, side) &&
+            w.objectiveState?.objectives.some(
+              (o) => o.sector === input.sector && o.villageId !== side && !o.destroyed,
+            )
+          );
+        }
         if (w.type === "SECTOR_WAR") {
           // Sector wars use war.sector and only attackers can attack
           return w.sector === input.sector && isUserOnAttackerSide(w);
@@ -1748,7 +1765,7 @@ export const combatRouter = createTRPCRouter({
       // Check that user was found
       if (!user) return errorResponse("User not found");
       if (user.isBanned) return errorResponse("Cannot attack shrine while banned");
-      if (MAP_RESERVED_SECTORS.includes(input.sector)) {
+      if (MAP_RESERVED_SECTORS.includes(input.sector) && !userWar?.rules) {
         return errorResponse("This sector is reserved and cannot be attacked");
       }
       // Home sectors can only be attacked during Village Wars or Raids
@@ -1762,8 +1779,10 @@ export const combatRouter = createTRPCRouter({
 
       // Determine which village's shrine is being attacked
       // For Village Wars: if at defender's sector, attack defender; if at attacker's sector, attack attacker
-      const shrineOwnerVillageId =
-        isVillageWarOrRaid && userWar.attackerVillage?.sector === input.sector
+      const shrineOwnerVillageId = userWar.rules
+        ? userWar.objectiveState!.objectives.find((o) => o.sector === input.sector)!
+            .villageId
+        : isVillageWarOrRaid && userWar.attackerVillage?.sector === input.sector
           ? userWar.attackerVillageId
           : userWar.defenderVillageId;
 
@@ -1905,6 +1924,8 @@ export const initiateBattle = async (
     questAttempt?: UserQuest;
     /** Attribute battle progress to its owning objective instead of unrelated matching kills. */
     questBattleSource?: { questId: string; objectiveId: string };
+    /** Camp identity and guardian snapshot used by combat's final strategic mutation phase. */
+    warCamp?: import("@/drizzle/schema").WarCamp;
     raidQuestId?: string;
     topPlayersLP?: number[];
     /** Reserved lobby/combat IDs used to reject participants after lobby deletion. */
@@ -1948,7 +1969,14 @@ export const initiateBattle = async (
       with: {
         bloodline: { with: { bloodrightTiers: true } },
         sageMode: true,
-        village: { with: { structures: true, sectors: { columns: { sector: true } } } },
+        village: {
+          with: {
+            structures: true,
+            sectors: {
+              columns: { sector: true, boostLockedUntil: true, shrineLevel: true },
+            },
+          },
+        },
         loadout: { columns: { jutsuIds: true } },
         clan: true,
         anbuSquad: true,
@@ -2430,6 +2458,33 @@ export const initiateBattle = async (
       users.slice(userIds.length).some((u) => !u.isAi))
   )
     return { success: false, message: "A dungeon enemy is unavailable" };
+
+  // Recheck pre-existing shrine parties too: approval may have selected their sector later.
+  if (battleType === "SHRINE_WAR" && !info.warCamp) {
+    for (const activeWar of activeWars.filter((w) => w.rules)) {
+      const objective = activeWar.objectiveState?.objectives.find(
+        (o) => o.sector === info.sector,
+      );
+      if (!objective) continue;
+      for (const attacker of users.filter(
+        (u) => userIds.includes(u.userId) && !u.isAi,
+      )) {
+        const side = getWarSide(activeWar, attacker.villageId);
+        if (
+          !side ||
+          side === objective.villageId ||
+          objective.destroyed ||
+          !isObjectiveWarActive(activeWar) ||
+          !areWarObjectivesRevealed(activeWar, side)
+        )
+          return {
+            success: false,
+            message:
+              "This objective shrine is unavailable until active combat and completed espionage",
+          };
+      }
+    }
+  }
 
   // Hide some information from quests
   users.forEach((user) => {
@@ -2989,19 +3044,22 @@ export const initiateBattle = async (
             );
           });
         })
-      : [];
+      : battleType === "SHRINE_WAR"
+        ? userIds
+        : [];
 
-  // Initiating ANY attack on a real player lifts the attacker's own bracket immunity for the 5-minute
+  // Initiating PvP or a shrine attack lifts the attacker's bracket immunity for the 30-minute
   // retaliation window, so anyone from any bracket can hit them back. Stamped here at attack initiation
   // (not battle end) so the window starts when the attack lands and abandoned/lost fights still expose
-  // the aggressor. AI-only targets don't count — bracket immunity is a PvP-only mechanic.
+  // the aggressor. The window pauses while the aggressor is in combat.
   const combatTargetsRealPlayer =
     battleType === "COMBAT" &&
     targetIds.some((tid) => {
       const target = users.find((u) => u.userId === tid);
       return !!target && !target.isAi;
     });
-  const bracketImmunityAggressorIds = combatTargetsRealPlayer ? userIds : [];
+  const bracketImmunityAggressorIds =
+    combatTargetsRealPlayer || battleType === "SHRINE_WAR" ? userIds : [];
 
   const queuedParticipants = queuedTraining.filter((entry) =>
     allParticipantIds.includes(entry.user.userId),
@@ -3153,6 +3211,7 @@ export const initiateBattle = async (
           settings: settings,
           initialDurability: initialDurability,
           questBattleSource: info.questBattleSource,
+          warCamp: info.warCamp,
           raidQuestId: info.raidQuestId,
           raidInitialBossHp: raidInitialBossHp,
           raidStartBattleCount: Object.fromEntries(
@@ -3191,7 +3250,7 @@ export const initiateBattle = async (
           pveFights: !["SPARRING", "COMBAT"].includes(battleType)
             ? sql`${userData.pveFights} + 1`
             : sql`${userData.pveFights}`,
-          immunityUntil: ["SPARRING", "COMBAT"].includes(battleType)
+          immunityUntil: ["SPARRING", "COMBAT", "SHRINE_WAR"].includes(battleType)
             ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
             : sql`immunityUntil`,
           // Break stealth when entering combat
@@ -3208,7 +3267,7 @@ export const initiateBattle = async (
           // Stamp war aggressors AND bracket-immunity aggressors in the same update so the WHERE guard
           // (status/sector match) gates both the battle entry and these timers atomically. GREATEST never
           // shortens an existing longer stamp; any leak on the rollback path is bounded (war ~2h, bracket
-          // immunity ~5m) and fail-safe — a lingering bracket lift only makes the aggressor more attackable.
+          // immunity ~30m) and fail-safe — a lingering bracket lift only makes the aggressor more attackable.
           ...(warAggressorIds.length > 0
             ? {
                 warParticipantUntil: sql`CASE WHEN ${inArray(userData.userId, warAggressorIds)} THEN ${extendWarParticipantSql()} ELSE ${userData.warParticipantUntil} END`,
@@ -3219,6 +3278,7 @@ export const initiateBattle = async (
                 bracketImmunityLiftedUntil: sql`CASE WHEN ${inArray(userData.userId, bracketImmunityAggressorIds)} THEN ${liftBracketImmunitySql()} ELSE ${userData.bracketImmunityLiftedUntil} END`,
               }
             : {}),
+          bracketImmunityPausedAt: sql`CASE WHEN ${userData.bracketImmunityLiftedUntil} > NOW(3) THEN NOW(3) ELSE NULL END`,
         })
         .where(
           and(
@@ -3479,6 +3539,8 @@ export const initiateBattle = async (
           status: info.questAttempt?.isolated
             ? sql`CASE WHEN ${userData.userId} = ${info.questAttempt.userId} THEN 'BATTLE' ELSE ${battleClaimRollbackStatus(client, battleType, userIds)} END`
             : battleClaimRollbackStatus(client, battleType, userIds),
+          bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+          bracketImmunityPausedAt: null,
           battleId: null,
         })
         .where(eq(userData.battleId, battleId)),

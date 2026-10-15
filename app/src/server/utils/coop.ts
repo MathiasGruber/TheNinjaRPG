@@ -10,6 +10,7 @@ import {
 import { errorResponse } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 
 /**
  * Allocate the battle ID before reserving either co-op activity, then initiate and publish.
@@ -95,7 +96,13 @@ export const cleanupCoopBattleStart = async (
       client.delete(battleHistory).where(eq(battleHistory.battleId, battleId)),
       client
         .update(userData)
-        .set({ status: "AWAKE", battleId: null, updatedAt: new Date() })
+        .set({
+          status: "AWAKE",
+          battleId: null,
+          bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+          bracketImmunityPausedAt: null,
+          updatedAt: new Date(),
+        })
         .where(
           and(inArray(userData.userId, memberIds), eq(userData.battleId, battleId)),
         ),

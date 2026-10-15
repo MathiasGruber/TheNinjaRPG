@@ -52,6 +52,7 @@ import NavTabs from "@/layout/NavTabs";
 import ProfileDashboard from "@/layout/ProfileDashboard";
 import { QuestTeams } from "@/layout/QuestTeams";
 import StrengthWeaknesses from "@/layout/StrengthWeaknesses";
+import { WarDashboardNotices } from "@/layout/WarDashboardNotices";
 import { calcMedninRank } from "@/libs/hospital";
 import { calcLevelRequirements, showUserRank } from "@/libs/profile";
 import { getRankedRank } from "@/libs/ranked_pvp";
@@ -152,6 +153,7 @@ export function Profile() {
 
   return (
     <div id="tutorial-profile">
+      <WarDashboardNotices />
       <Tabs
         value={profileTabValues[activeTab]}
         onValueChange={(value) => selectTab(value)}

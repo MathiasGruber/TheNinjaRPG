@@ -13,7 +13,7 @@ import type {
   UserWithRelations,
 } from "@/server/api/routers/profile";
 import { isPlainObject } from "@/utils/typeutils";
-import { getShrineBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost } from "@/utils/village";
 import type { UserCachePatch, UserDelta } from "@/validators/userCache";
 
 type User = NonNullable<UserWithRelations>;
@@ -183,7 +183,11 @@ const mergeUserCache = (
     desired.push({ href: "/hospital", name: "In hospital", color: "red" });
   for (const boostType of SHRINE_BOOST_TYPES) {
     const boost =
-      getShrineBoost(user.village?.sectors?.length ?? 0, boostType, user.village) * 100;
+      getShrineBoost(
+        countBoostingShrines(user.village?.sectors),
+        boostType,
+        user.village,
+      ) * 100;
     if (boost > 0)
       desired.push({
         href: "/shrine",

@@ -197,6 +197,7 @@ import {
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { buildDerivedUserRegenUpdate } from "@/server/utils/profileRegen";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
@@ -253,7 +254,7 @@ import {
   secondsFromNow,
   secondsPassed,
 } from "@/utils/time";
-import { getShrineBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost } from "@/utils/village";
 import { mutateContentSchema } from "@/validators/comments";
 import { idSchema } from "@/validators/misc";
 import { attributes, colors, skin_colors, usernameSchema } from "@/validators/register";
@@ -1184,7 +1185,7 @@ export const profileRouter = createTRPCRouter({
         // Shrine boosts
         const shrineBoosts = user.village?.shrineSettings?.activeBoosts;
         if (shrineBoosts) {
-          const sectors = user.village?.sectors?.length ?? 0;
+          const sectors = countBoostingShrines(user.village?.sectors);
           SHRINE_BOOST_TYPES.forEach((boostType) => {
             const boost = getShrineBoost(sectors, boostType, user.village) * 100;
             if (boost > 0) {
@@ -3160,7 +3161,9 @@ const fetchUpdatedUserOnce = async (props: {
             structures: true,
             relationshipA: true,
             relationshipB: true,
-            sectors: { columns: { sector: true } },
+            sectors: {
+              columns: { sector: true, boostLockedUntil: true, shrineLevel: true },
+            },
           },
         },
         anbuSquad: {
@@ -3342,6 +3345,8 @@ const fetchUpdatedUserOnce = async (props: {
           ),
         ],
         set: {
+          bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+          bracketImmunityPausedAt: null,
           status: "AWAKE",
           curEnergy: sql`LEAST(${maxEnergy}, ${userData.curEnergy} + ${regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000}))`,
           regenAt: now,
@@ -3349,14 +3354,20 @@ const fetchUpdatedUserOnce = async (props: {
       });
       requiresUserRefresh = true;
       requiresProgressionRefresh = true;
-      if (claim.success)
+      if (claim.success) {
+        // The resumed timer depends on the committed pause duration.
+        const immunity = await client.query.userData.findFirst({
+          columns: { bracketImmunityLiftedUntil: true, bracketImmunityPausedAt: true },
+          where: eq(userData.userId, userId),
+        });
         Object.assign(user, {
           status: "AWAKE",
           updatedAt: claim.claimedAt,
           regenAt: now,
           curEnergy: energy,
+          ...immunity,
         });
-      else {
+      } else {
         const freshUser = await queryUpdatedUser();
         if (freshUser) Object.assign(user, freshUser);
       }
@@ -4375,6 +4386,9 @@ export const fetchPublicUsers = async (info: {
         ...(input.isAi ? [eq(userData.isAi, true)] : []),
         ...(input.inArena !== undefined ? [eq(userData.inArena, !!input.inArena)] : []),
         ...(input.isEvent !== undefined ? [eq(userData.isEvent, !!input.isEvent)] : []),
+        ...(input.isWarCamp !== undefined
+          ? [eq(userData.isWarCamp, !!input.isWarCamp)]
+          : []),
         ...(input.isSummon !== undefined
           ? [eq(userData.isSummon, !!input.isSummon)]
           : []),
@@ -4392,6 +4406,7 @@ export const fetchPublicUsers = async (info: {
         inShrines: true,
         isAi: true,
         isEvent: true,
+        isWarCamp: true,
         isOutlaw: true,
         isSummon: true,
         lastIp: true,

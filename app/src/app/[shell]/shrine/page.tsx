@@ -19,6 +19,7 @@ import RaidBrowser from "@/layout/RaidBrowser";
 import RamenShop from "@/layout/RamenShop";
 import ShrineBattleLobby from "@/layout/ShrineBattleLobby";
 import StatusBar from "@/layout/StatusBar";
+import { WarFieldActions } from "@/layout/WarFieldActions";
 import { isRaidCurrentlyActive } from "@/libs/raids";
 import { showMutationToast } from "@/libs/toast";
 import { pushToCombat } from "@/utils/routing";
@@ -265,6 +266,7 @@ export default function Shrine() {
 
   return (
     <div className="space-y-8">
+      <WarFieldActions />
       {hasNoActiveWars && (
         <ContentBox
           title={`Lvl. ${sectorData.sectorData?.shrineLevel || 1} Shrine`}

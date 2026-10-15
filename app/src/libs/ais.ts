@@ -139,6 +139,8 @@ export const useAiEditForm = (
     { id: "willpower", label: "Willpower Focus", type: "number" },
     { id: "speed", label: "Speed Focus", type: "number" },
     { id: "isSummon", type: "boolean" },
+    { id: "isEvent", label: "Event AI", type: "boolean" },
+    { id: "isWarCamp", label: "War Camp AI", type: "boolean" },
     { id: "inArena", type: "boolean" },
     { id: "inShrines", type: "boolean" },
     {

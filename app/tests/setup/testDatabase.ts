@@ -140,6 +140,9 @@ export const getTestDatabase = async (): Promise<DrizzleClient> => {
                 new Proxy(tx, {
                   get(transaction, key, txReceiver) {
                     const value = Reflect.get(transaction, key, txReceiver);
+                    if (key === "execute") {
+                      return async (...args: unknown[]) => normalize(await value.apply(transaction, args));
+                    }
                     if (key === "insert" || key === "update" || key === "delete") {
                       return (...args: unknown[]) =>
                         wrapWriteBuilder(value.apply(transaction, args));

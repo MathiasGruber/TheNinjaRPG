@@ -176,7 +176,11 @@ import {
 } from "@/server/utils/questParty";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
-import { extendWarParticipantSql, warRaidCombatGuard } from "@/server/utils/war";
+import {
+  extendWarParticipantSql,
+  liftBracketImmunitySql,
+  warRaidCombatGuard,
+} from "@/server/utils/war";
 import { chunkArray, getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {
@@ -875,7 +879,13 @@ export const questsRouter = createTRPCRouter({
         if (!check) {
           return { success: false, message: `Objective flow invalid: ${message}` };
         }
-        // Shared Village Mission progress has no quest scenes to populate.
+        // Shared Village Missions and concurrent war missions progress outside quest scenes.
+        const isConcurrentWarMission =
+          input.data.questType === "war" &&
+          input.data.content.objectives.some(
+            (objective) =>
+              objective.task === "espionage" || objective.task === "sabotage",
+          );
         const hasMainSceneCharacters = input.data.content.sceneCharacters.length > 0;
         const allObjectivesHaveSceneCharacters = input.data.content.objectives.every(
           (objective) =>
@@ -884,6 +894,7 @@ export const questsRouter = createTRPCRouter({
         if (
           !input.data.hidden &&
           input.data.questType !== "village_mission" &&
+          !isConcurrentWarMission &&
           !hasMainSceneCharacters &&
           !allObjectivesHaveSceneCharacters
         ) {
@@ -2968,6 +2979,8 @@ export const assignQuestToUser = async (args: {
       .set({
         dailyWarMissions: sql`${userData.dailyWarMissions} + 1`,
         warParticipantUntil: extendWarParticipantSql(),
+        bracketImmunityLiftedUntil: liftBracketImmunitySql(),
+        immunityUntil: new Date(0),
       })
       .where(
         and(

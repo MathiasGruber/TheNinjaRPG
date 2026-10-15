@@ -98,6 +98,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { isMysqlDeadlockError } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { renameParentalContact } from "@/server/utils/parentalControls";
 import {
   isDeletedStoreUserId,
@@ -420,7 +421,7 @@ export const staffRouter = createTRPCRouter({
             isNull(questHistory.endAt),
           )}
           SET ${userData.status} = 'AWAKE', ${userData.travelFinishAt} = NULL,
-              ${userData.battleId} = NULL, ${questHistory.completed} = 0,
+              ${userData.bracketImmunityLiftedUntil} = ${resumeBracketImmunitySql()}, ${userData.bracketImmunityPausedAt} = NULL, ${userData.battleId} = NULL, ${questHistory.completed} = 0,
               ${questHistory.endAt} = ${new Date()},
               ${userData.updatedAt} = GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))
           WHERE ${userData.userId} = ${targetUser.userId}

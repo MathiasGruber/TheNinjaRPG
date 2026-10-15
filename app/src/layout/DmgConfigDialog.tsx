@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { NumberInput } from "@/components/ui/number-input";
+import { WarRulesForm } from "@/layout/WarRulesForm";
 import { dmgConfig as defaultDmgConfig } from "@/libs/combat/constants";
 import { showMutationToast } from "@/libs/toast";
 import { confSchema } from "@/validators/combat";
@@ -144,6 +145,7 @@ export const DmgConfigDialog = () => {
             </Button>
           </form>
         </Form>
+        <WarRulesForm />
       </DialogContent>
     </Dialog>
   );

@@ -81,6 +81,8 @@ import { villageMissionContentError } from "@/validators/villageMission";
 export { idsWithNumberField };
 
 export const SimpleTasks = [
+  "espionage",
+  "sabotage",
   "siege_operation",
   "combined_mission_effort",
   "pvp_kills",
@@ -264,6 +266,8 @@ export const objectiveImageMap: Record<
   AllObjectiveTask,
   { image: string; title: string }
 > = {
+  espionage: { image: IMG_BADGE_MINUTES_PASSED, title: "Espionage" },
+  sabotage: { image: IMG_BADGE_DAMAGE_DEALT, title: "Sabotage" },
   siege_operation: { image: IMG_BADGE_DAMAGE_DEALT, title: "Siege Operation" },
   combined_mission_effort: {
     image: IMG_BADGE_A_MISSION_TOTAL,
@@ -439,13 +443,26 @@ export const baseObjectiveFields = {
   overworldPlacementId: z.string().optional(),
 };
 
-export const SimpleObjective = z.object({
-  ...baseObjectiveFields,
-  task: z.enum(SimpleTasks),
-  value: z.coerce.number().min(0).prefault(3),
-  ...questRewardFields,
-  ...attackerFields,
-});
+export const SimpleObjective = z
+  .object({
+    ...baseObjectiveFields,
+    task: z.enum(SimpleTasks),
+    durationSeconds: z.coerce.number().int().min(1).max(86400).prefault(60),
+    value: z.coerce.number().min(0).prefault(3),
+    ...questRewardFields,
+    ...attackerFields,
+  })
+  .superRefine((objective, ctx) => {
+    if (
+      ["espionage", "sabotage"].includes(objective.task) &&
+      (!Number.isInteger(objective.value) || objective.value <= 0)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["value"],
+        message: "War mission points and damage must be positive whole numbers",
+      });
+  });
 
 export const InstantWinLoseObjective = z.object({
   ...baseObjectiveFields,
@@ -836,6 +853,20 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  const concurrentObjectives = val.content.objectives.filter(
+    (o) => o.task === "espionage" || o.task === "sabotage",
+  );
+  if (
+    concurrentObjectives.length &&
+    (val.questType !== "war" ||
+      concurrentObjectives.length !== val.content.objectives.length)
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "objectives"],
+      message:
+        "Concurrent war quests may contain only espionage and sabotage objectives",
+    });
   if (val.content.isolated && val.questType !== "battlepyramid") {
     ctx.addIssue({
       code: "custom",

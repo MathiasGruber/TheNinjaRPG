@@ -29,7 +29,7 @@ import { getCraftingRank, getTotalItemQuantity } from "@/libs/crafting";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
-import { getShrineBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost } from "@/utils/village";
 
 type CraftableItem = Item & {
   craftingRequirements: {
@@ -192,7 +192,7 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
         ? CONSUMABLE_CRAFTING_TIMES_MINS[selectedItem.rarity]
         : CRAFTING_TIMES_MINS[userCraftingRank][selectedItem.rarity];
 
-    const sectors = userData.village?.sectors?.length || 0;
+    const sectors = countBoostingShrines(userData.village?.sectors);
     const shrineBoost = getShrineBoost(sectors, "Crafting", userData.village);
     const shrineBoostFactor = shrineBoost ? 1 - shrineBoost : 1;
 

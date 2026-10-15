@@ -7,7 +7,6 @@ import {
   WAR_DAILY_TOKEN_DECAY_PERCENT_BASE,
   WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5,
   WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_8,
-  WAR_DECLARATION_COST,
   WAR_MAX_DURATION_DAYS,
   WAR_TOKEN_REDUCTION_INTERVAL_HOURS,
 } from "@/drizzle/constants";
@@ -34,6 +33,11 @@ import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import {
+  expireWarPoints,
+  settleObjectiveWarSchedule,
+  syncWarCamps,
+} from "@/server/utils/objectiveWar";
+import {
   applyRaidHealthDecay,
   handleWarEnd,
   resumePendingWarSettlements,
@@ -58,11 +62,22 @@ export async function GET(request: Request) {
   try {
     const now = new Date();
     await syncStrongholdMembership(drizzleDB);
+    // Replay due camp results and daily drains before settlement chooses a winner.
+    const dueObjectiveWars = await drizzleDB.query.war.findMany({
+      where: and(eq(war.status, "ACTIVE"), isNotNull(war.rules)),
+    });
+    await Promise.all(
+      dueObjectiveWars.map((w) => settleObjectiveWarSchedule(drizzleDB, w, now)),
+    );
     // Raid deadlines and daily HP drain are checked hourly, independently of village token decay.
     const raids = (await fetchActiveWars(drizzleDB)).filter(
       (w) => w.type === "WAR_RAID",
     );
     await Promise.all(raids.map((raid) => applyRaidHealthDecay(drizzleDB, raid, now)));
+
+    const objectiveWars = (await fetchActiveWars(drizzleDB)).filter((w) => w.rules);
+    await syncWarCamps(drizzleDB, objectiveWars, now);
+    await expireWarPoints(drizzleDB);
 
     // Check if daily decay should run (separate from hourly tasks)
     const dailyDecayTimer = await getGameSetting(drizzleDB, DAILY_DECAY_TIMER);
@@ -83,7 +98,7 @@ export async function GET(request: Request) {
       // fetchActiveWars is expensive (loads village structures); only fetch when needed
       const activeWars = await fetchActiveWars(drizzleDB);
       // Ordinary village wars drain treasury tokens; raid HP decay runs separately.
-      const decayWars = activeWars.filter((w) => w.type === "VILLAGE_WAR");
+      const decayWars = activeWars.filter((w) => w.type === "VILLAGE_WAR" && !w.rules);
 
       for (const activeWar of decayWars) {
         if (!activeWar.attackerVillage || !activeWar.defenderVillage) {
@@ -395,7 +410,7 @@ async function handleExpiredWarDeclaration(
     );
   if (warClaimResult.rowsAffected === 0) return;
 
-  if (!attackerVillage || attackerVillage.tokens < WAR_DECLARATION_COST) {
+  if (!attackerVillage) {
     await rejectWithNotification(
       `War declaration against ${defenderName} was cancelled — village no longer has enough tokens.`,
     );

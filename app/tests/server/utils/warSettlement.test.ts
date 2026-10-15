@@ -6,6 +6,7 @@ import mysql from "mysql2/promise";
 import {
   FACTION_RAID_REWARD,
   WAR_DEFEAT_STRUCTURE_PENALTY_LEVELS,
+  VILLAGE_SYNDICATE_ID,
   WAR_DECLARATION_COST,
   WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
@@ -32,6 +33,7 @@ import {
   warAlly,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
+import { villageRouter } from "@/server/api/routers/village";
 import { shrineRouter } from "@/server/api/routers/shrine";
 import {
   fetchActiveWar,
@@ -40,7 +42,8 @@ import {
   warRouter,
 } from "@/server/api/routers/war";
 import type { DrizzleClient } from "@/server/db";
-import { handleWarEnd } from "@/server/utils/war";
+import { defaultWarRules } from "@/validators/war";
+import { handleWarEnd, startDeclaredWar, startSectorWar } from "@/server/utils/war";
 import { acceptWarAllyOffer, withdrawWarAlly } from "@/server/utils/warAlly";
 import { insertUsers } from "../../setup/factories";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
@@ -180,6 +183,33 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     );
   });
   afterEach(resetServerModuleStubs);
+
+  it("settles overdue objective wars at the deadline with final decay, camps and allied bonuses", async () => {
+    const db = await seed();
+    await addAlly(db);
+    const start = new Date(Date.now() - 8 * 86400000);
+    await db.update(war).set({ rules: { ...defaultWarRules, enabled: true }, combatStartedAt: start, lastTokenReductionAt: start, attackerWarHealth: 10000, defenderWarHealth: 9500 }).where(eq(war.id, warId));
+    await db.insert(villageStructure).values({ id: "ally-extra", name: "extra", route: "/townhall", image: "", villageId: "ally" });
+    const ended = await handleWarEnd(await snapshot(db), db);
+    expect(ended.status).toBe("ATTACKER_VICTORY");
+    expect(ended.endedAt!.getTime()).toBe(start.getTime() + 7 * 86400000);
+    expect(ended.attackerWarHealth).toBe(7900);
+    expect(ended.defenderWarHealth).toBe(7400);
+    expect(await balance(db, "ally")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
+    const allyVillage = (await db.query.village.findFirst({ where: eq(village.id, "ally") }))!;
+    expect(allyVillage.lastWarEndedAt!.getTime()).toBe(ended.endedAt!.getTime());
+    const allyStructure = (await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "ally-extra") }))!;
+    expect(allyStructure.temporaryLevelBonus).toBe(3);
+    expect(allyStructure.temporaryLevelBonusExpiresAt!.getTime()).toBe(ended.endedAt!.getTime() + 5 * 86400000);
+    const boosts = await db.query.gameSetting.findMany();
+    expect(boosts.find((b) => b.name === "war-ally-train")!.value).toBe(20);
+    expect(boosts.find((b) => b.name === "war-ally-regen")!.value).toBe(40);
+    const loser = (await db.query.village.findFirst({ where: eq(village.id, "defender") }))!;
+    expect(loser.warExhaustionEndedAt!.getTime()).toBe(ended.endedAt!.getTime() + 4 * 86400000);
+    const loserStructure = (await db.query.villageStructure.findFirst({ where: eq(villageStructure.id, "defender/townhall") }))!;
+    expect(loserStructure.temporaryLevelBonus).toBe(-2);
+    expect(loserStructure.temporaryLevelBonusExpiresAt!.getTime()).toBe(ended.endedAt!.getTime() + 3 * 86400000);
+  });
 
   it("withdrawal overlapping settlement either leaves before rewards or loses its claim", async () => {
     const db = await seed();
@@ -513,6 +543,79 @@ describeWithDatabase("guarded war settlement and delivery", () => {
         })
       )?.curSp,
     ).toBe(WAR_SECTOR_LOSS_TOWNHALL_DAMAGE);
+  });
+
+  it("serializes competing objective and sector declarations without selecting disputed land", async () => {
+    const db = await seed();
+    await db.delete(war);
+    const declarationTokens = WAR_DECLARATION_COST + defaultWarRules.declarationCost;
+    await db.update(village).set({ tokens: declarationTokens });
+    await db.update(sector).set({ shrineLevel: 1 });
+    await db.insert(gameSetting).values({ id: "OBJECTIVE_WAR_enabled", name: "OBJECTIVE_WAR_enabled", time: new Date(), value: 1 });
+    await db.insert(sector).values([
+      { sector: 301, villageId: "attacker", shrineLevel: 1 },
+      { sector: 302, villageId: "attacker", shrineLevel: 1 },
+      { sector: 206, villageId: "defender", shrineLevel: 1 },
+    ]);
+    const [objectiveStarted, sectorStarted] = await Promise.all([
+      startDeclaredWar(db, {
+        attackerVillageId: "attacker", attackerVillageName: "attacker",
+        defenderVillageId: "defender", defenderVillageName: "defender",
+        initiatedByUserId: "attacker-kage", warType: "VILLAGE_WAR", targetStructureRoute: "/townhall",
+      }),
+      startSectorWar(db, { id: "competing-sector", attackerVillageId: "other", defenderVillageId: "defender", initiatedByUserId: "other-kage", sectorId }),
+    ]);
+    expect(Number(objectiveStarted) + Number(sectorStarted)).toBe(1);
+    const objective = (await db.query.war.findMany()).find((w) => w.rules);
+    if (objectiveStarted) expect(objective?.objectiveState?.objectives).toHaveLength(4);
+    if (sectorStarted) expect(objective).toBeUndefined();
+    expect(await balance(db, "other")).toBe(declarationTokens - (sectorStarted ? WAR_DECLARATION_COST : 0));
+    expect(await balance(db, "attacker")).toBe(declarationTokens - (objectiveStarted ? defaultWarRules.declarationCost : 0));
+  });
+
+  it("rejects a stale sector owner without charging or creating a war", async () => {
+    const db = await seed();
+    await db.delete(war);
+    await db.update(sector).set({ villageId: "ally" }).where(eq(sector.sector, sectorId));
+    expect(await startSectorWar(db, { id: "stale-sector", attackerVillageId: "attacker", defenderVillageId: "defender", initiatedByUserId: "attacker-kage", sectorId })).toBe(false);
+    expect(await balance(db, "attacker")).toBe(tokens);
+    expect(await db.query.war.findMany()).toHaveLength(0);
+  });
+
+  it("rejects a deleted sector with a stale owner without recreating ownership", async () => {
+    const db = await seed();
+    await db.delete(war);
+    await db.delete(sector).where(eq(sector.sector, sectorId));
+    expect(await startSectorWar(db, { id: "deleted-sector", attackerVillageId: "attacker", defenderVillageId: "defender", initiatedByUserId: "attacker-kage", sectorId })).toBe(false);
+    expect(await balance(db, "attacker")).toBe(tokens);
+    expect(await db.query.war.findMany()).toHaveLength(0);
+    expect(await db.query.sector.findMany()).toHaveLength(0);
+  });
+
+  it("treats missing sectors as Syndicate land when declaring sector wars", async () => {
+    const db = await seed();
+    await db.delete(war);
+    await db.insert(village).values({ id: VILLAGE_SYNDICATE_ID, name: "Syndicate", sector: 99, kageId: "syndicate-kage" });
+    await db.update(village).set({ tokens: WAR_DECLARATION_COST }).where(eq(village.id, "attacker"));
+    await db.delete(sector).where(eq(sector.sector, sectorId));
+    expect(await startSectorWar(db, { id: "unowned-sector", attackerVillageId: "attacker", defenderVillageId: VILLAGE_SYNDICATE_ID, initiatedByUserId: "attacker-kage", sectorId })).toBe(true);
+    expect(await balance(db, "attacker")).toBe(0);
+    expect((await db.query.war.findFirst())?.defenderVillageId).toBe(VILLAGE_SYNDICATE_ID);
+  });
+
+  it("preserves selected objectives when a Kage attempts to release their sector", async () => {
+    const db = await seed();
+    await db.update(war).set({ rules: { ...defaultWarRules, enabled: true }, objectiveState: { attackerEspionage: 0, defenderEspionage: 0, objectives: [{ sector: sectorId, villageId: "defender", hp: 5000, maxHp: 5000, isReserve: false, destroyed: false }] } }).where(eq(war.id, warId));
+    await insertUsers([{ userId: "defender-kage", username: "release-kage", villageId: "defender" }]);
+    stubProfile("fetchUpdatedUser", async () => ({ user: await db.query.userData.findFirst({ where: eq(userData.userId, "defender-kage"), with: { village: true } }), requiresUserRefresh: false }));
+    const caller = callerForDatabase(villageRouter, "defender-kage", db);
+    const blocked = await caller.releaseSector({ sector: sectorId });
+    expect(blocked.success).toBe(false);
+    expect(blocked.message).toBe("Sector ownership or leadership changed, or this is an active war objective. Refresh and try again.");
+    expect((await db.query.sector.findFirst())?.villageId).toBe("defender");
+    await db.update(war).set({ endedAt: new Date(), status: "DRAW" }).where(eq(war.id, warId));
+    expect((await caller.releaseSector({ sector: sectorId })).success).toBe(true);
+    expect(await db.query.sector.findMany()).toHaveLength(0);
   });
 
   it("a declaration consuming the attacker's last tokens preserves the defending shrine", async () => {

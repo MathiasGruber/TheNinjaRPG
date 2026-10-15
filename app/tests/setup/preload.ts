@@ -11,6 +11,7 @@ import * as dialog from "@/components/ui/dialog";
 import Modal from "@/layout/Modal";
 import ContentImageSelector from "@/layout/ContentImageSelector";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import * as gamesettings from "@/libs/gamesettings";
 import {
   closeTestDatabase,
   hasTestDatabase,
@@ -25,6 +26,9 @@ export const actualDialog = { ...dialog };
 export const actualModal = Modal;
 export const actualItemWithEffects = ItemWithEffects;
 export const actualContentImageSelector = ContentImageSelector;
+
+// Cron SQL suites restore real timers after unit suites replace the module exports.
+export const actualGameSettings = { ...gamesettings };
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

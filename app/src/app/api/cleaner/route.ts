@@ -53,6 +53,7 @@ import { drizzleDB } from "@/server/db";
 import { processAccountDeletions } from "@/server/utils/accountDeletion/process";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { reconcileFederalStatuses } from "@/server/utils/purchases/grant";
 import { removeExpiredSanctionTombstones } from "@/server/utils/sanctionTombstone";
 import { getBankInterestDateRange, secondsFromNow } from "@/utils/time";
@@ -90,6 +91,8 @@ export async function GET(request: Request) {
         curEnergy: sql`CASE WHEN ${userData.status} = 'BATTLE' THEN ${combatEnergyRecoverySql()} ELSE ${userData.curEnergy} END`,
         regenAt: sql`CASE WHEN ${userData.status} = 'BATTLE' THEN NOW(3) ELSE ${userData.regenAt} END`,
         updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+        bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+        bracketImmunityPausedAt: null,
         battleId: null,
         status: sql`CASE WHEN EXISTS (SELECT 1 FROM ${questHistory} WHERE ${questHistory.userId} = ${userData.userId} AND ${questHistory.isolated} = TRUE AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL) THEN 'BATTLE' ELSE 'AWAKE' END`,
         travelFinishAt: null,

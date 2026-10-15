@@ -88,6 +88,7 @@ import Loader from "@/layout/Loader";
 import MapError from "@/layout/MapError";
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
+import { WarFieldActions } from "@/layout/WarFieldActions";
 import { nonCombatConsume } from "@/libs/item";
 import {
   getQuestTargetSectorsToCheck,
@@ -985,8 +986,10 @@ function Travel() {
         title="Travel"
         subtitle={subtitle}
         padding={false}
+        topRightCorntentBreakpoint="sm"
         topRightContent={
           <div className="flex cursor-pointer flex-row items-center">
+            <WarFieldActions />
             {!isGlobal && activeTab !== "" && (
               <>
                 {userData?.anbuId &&

@@ -12,11 +12,14 @@ import * as select from "@/components/ui/select";
 import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import * as map from "@/hooks/map";
+import * as building from "@/layout/Building";
 import * as Image from "@/layout/Image";
+import * as panel from "@/layout/ObjectiveWarPanel";
 import * as toast from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import type { FetchActiveWarsReturnType } from "@/routers/war";
 import * as UserContext from "@/utils/UserContext";
+import { defaultWarRules } from "@/validators/war";
 import { ensureDom } from "../setup-dom.mjs";
 
 // Exercise declarations through WarMap while isolating map rendering and transport.
@@ -36,7 +39,7 @@ vi.spyOn(dynamic, "default").mockImplementation(
       </>
     )) as never,
 );
-const { WarMap, SectorWar } = await import("@/layout/WarSystem");
+const { WarMap, SectorWar, VillageWar } = await import("@/layout/WarSystem");
 
 type MutationResult = { success: boolean; message: string };
 type MutationCallbacks = {
@@ -139,6 +142,7 @@ beforeEach(() => {
       declareEnemy,
     },
     war: {
+      getRules: { useQuery: () => ({ data: undefined }) },
       getRaidOptions: {
         useQuery: () => ({ data: [], isFetching: false }),
       },
@@ -310,6 +314,7 @@ describe("paid sector shrine claims", () => {
             targetStructureRoute: "/townhall",
             settlement: null,
             settlementPending: false,
+            rules: null, objectiveState: null, combatStartedAt: null,
           } satisfies FetchActiveWarsReturnType
         }
       />,
@@ -413,5 +418,152 @@ describe("war map confirmations", () => {
       view.getAllByRole("button", { name: /^Close$/ })
         .every((button) => !(button as HTMLButtonElement).disabled),
     ).toBe(true);
+  });
+});
+
+describe("objective war townhall health", () => {
+  const war = {
+    id: "objective-war",
+    type: "VILLAGE_WAR",
+    status: "ACTIVE",
+    rules: defaultWarRules,
+    attackerVillageId: "attacker",
+    defenderVillageId: "defender",
+    warAllies: [
+      {
+        villageId: "attacker-ally",
+        supportVillageId: "attacker",
+        village: { name: "Attacking ally" },
+      },
+      {
+        villageId: "defender-ally",
+        supportVillageId: "defender",
+        village: { name: "Defending ally" },
+      },
+    ],
+    attackerVillage: {
+      id: "attacker",
+      name: "Attacker",
+      structures: [{ route: "/townhall" }],
+    },
+    defenderVillage: {
+      id: "defender",
+      name: "Defender",
+      structures: [{ route: "/townhall" }],
+    },
+    startedAt: new Date(),
+    lastTokenReductionAt: new Date(),
+    targetStructureRoute: "/townhall",
+    attackerWarHealth: 10000,
+    defenderWarHealth: 10000,
+    attackerWarHealthMax: 10000,
+    defenderWarHealthMax: 10000,
+  } as FetchActiveWarsReturnType;
+  const freshWar = { ...war, attackerWarHealth: 9700, defenderWarHealth: 8200 };
+  let response: FetchActiveWarsReturnType | undefined;
+  let pollInterval: (query: { state: { data?: { war: FetchActiveWarsReturnType } } }) => number | false;
+
+  beforeEach(() => {
+    response = undefined;
+    const mutation = {
+      useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+    };
+    Object.assign(vi.spyOn(client, "api" as never), {
+      useUtils: () => ({}),
+      war: {
+        getObjectiveWarInfo: {
+          useQuery: (_input: unknown, options: { refetchInterval: typeof pollInterval }) => {
+            pollInterval = options.refetchInterval;
+            return { data: response ? { war: response } : undefined };
+          },
+        },
+        getWarKills: { useQuery: () => ({}) },
+        getWarKillStats: { useQuery: () => ({}) },
+        getAllyOffers: { useQuery: () => ({ data: [] }) },
+        acceptAllyOffer: mutation,
+        rejectAllyOffer: mutation,
+        cancelAllyOffer: mutation,
+        createAllyOffer: mutation,
+        surrender: mutation,
+        adminEndWar: mutation,
+      },
+    });
+    vi.spyOn(panel, "ObjectiveWarPanel").mockImplementation(() => null);
+    vi.spyOn(building, "default").mockImplementation(() => null);
+    vi.spyOn(Image, "default").mockImplementation(() => null);
+  });
+
+  const expectHealth = (view: ReturnType<typeof render>, health: number[]) => {
+    const labels = view.getAllByText(/^HP \(/);
+    expect(labels.map((label) => label.textContent)).toEqual(
+      health.map((current) => `HP (${current} / 10000)`),
+    );
+    expect(
+      labels.map(
+        (label) =>
+          (label.parentElement?.querySelector(".bg-red-500") as HTMLElement).style.width,
+      ),
+    ).toEqual(health.map((current) => `${(current / 10000) * 100}%`));
+  };
+
+  const viewers = [
+    ["attacker", true],
+    ["attacker-ally", true],
+    ["defender", false],
+    ["defender-ally", false],
+  ] as const;
+
+  it.each(viewers)(
+    "shows the latest initial snapshot to %s",
+    (villageId, isAttacker) => {
+      response = freshWar;
+      const user = { userId: "viewer", villageId, role: "USER" } as NonNullable<
+        UserWithRelations
+      >;
+      const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
+    },
+  );
+
+  it.each(viewers)(
+    "refreshes visible health after polling for %s",
+    (villageId, isAttacker) => {
+      const user = { userId: "viewer", villageId, role: "USER" } as NonNullable<
+        UserWithRelations
+      >;
+      const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, [10000, 10000]);
+
+      response = freshWar;
+      view.rerender(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
+
+      response = { ...freshWar, attackerWarHealth: 9740, defenderWarHealth: 7900 };
+      view.rerender(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, isAttacker ? [9740, 7900] : [7900, 9740]);
+    },
+  );
+
+  it("shows the polled outcome, removes active actions and stops polling when a war ends", () => {
+    const user = { userId: "viewer", villageId: "attacker", role: "OWNER" } as NonNullable<UserWithRelations>;
+    const view = render(<VillageWar war={war} user={user} isKage />);
+    expect(view.getByRole("button", { name: "Surrender war objective-war" })).toBeDefined();
+    expect(view.getByRole("button", { name: /Administratively end/ })).toBeDefined();
+    expect(pollInterval({ state: {} })).toBe(10000);
+
+    response = { ...freshWar, status: "ATTACKER_VICTORY", endedAt: new Date() };
+    view.rerender(<VillageWar war={war} user={user} isKage />);
+    expect(view.getByText("Outcome: Victory")).toBeDefined();
+    expect(view.getByText(/^Ended:/)).toBeDefined();
+    expect(view.queryByRole("button", { name: "Surrender war objective-war" })).toBeNull();
+    expect(view.queryByRole("button", { name: /Administratively end/ })).toBeNull();
+    expect(view.queryByText(/^HP \(/)).toBeNull();
+    expect(pollInterval({ state: { data: { war: response } } })).toBe(false);
+  });
+
+  it("does not poll historical objective wars", () => {
+    const user = { userId: "viewer", villageId: "attacker", role: "USER" } as NonNullable<UserWithRelations>;
+    render(<VillageWar war={{ ...war, status: "DRAW", endedAt: new Date() }} user={user} isKage={false} />);
+    expect(pollInterval({ state: {} })).toBe(false);
   });
 });
