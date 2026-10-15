@@ -2,31 +2,47 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/app/_trpc/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   WAR_CAMP_DURATION_HOURS,
   WAR_CAMP_INTERVAL_HOURS,
   WAR_ESPIONAGE_TARGET,
 } from "@/drizzle/constants";
+import { useRefreshAt } from "@/hooks/useRefreshAt";
+import Countdown from "@/layout/Countdown";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import Table from "@/layout/Table";
 import { getWarEspionage, getWarSide } from "@/libs/objectiveWar";
 import { pushToCombat } from "@/utils/routing";
+import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 
-/** Show server-masked objectives, concurrent missions and combat actions for one war. */
+/** Present masked objectives and war actions using the shared game surfaces and controls. */
 export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
-  const [message, setMessage] = useState("");
-  const { data: user, updateUser } = useRequiredUserData();
+  const [feedback, setFeedback] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+  const { data: user, updateUser, timeDiff } = useRequiredUserData();
   const router = useRouter();
   const utils = api.useUtils();
-  const { data, isPending } = api.war.getObjectiveWarInfo.useQuery(
+  const { data, error, isPending, refetch } = api.war.getObjectiveWarInfo.useQuery(
     { warId },
-    { refetchInterval: 10000 },
+    {
+      refetchInterval: (query) =>
+        query.state.data?.war.status === "ACTIVE" && !query.state.data.war.endedAt
+          ? 10000
+          : false,
+    },
   );
-  /** Refresh eligibility and timers after both accepted and rejected mission responses. */
+  /** Refresh eligibility after accepted and rejected responses, retaining feedback by the controls. */
   const refresh = (result: { success: boolean; message: string }) => {
-    setMessage(result.message);
+    setFeedback(result);
     void utils.war.getObjectiveWarInfo.invalidate({ warId });
     void utils.war.getActiveWars.invalidate();
     void utils.profile.getUser.invalidate();
@@ -37,7 +53,7 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
     message: string;
     battleId?: string;
   }) => {
-    setMessage(result.message);
+    setFeedback(result);
     if (result.success && result.battleId) {
       await updateUser({
         status: "BATTLE",
@@ -47,248 +63,473 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
       pushToCombat(router, result.battleId);
     }
   };
-  /** Keep transport failures beside the actions; mutation hooks release their pending state. */
-  const onError = (error: { message: string }) => setMessage(error.message);
+  /** Transport failures leave actions available for retry and remain visible in the panel. */
+  const onError = (error: { message: string }) =>
+    setFeedback({ success: false, message: error.message });
+  const onMutate = () => setFeedback(null);
   const start = api.war.startWarMission.useMutation({
     onSuccess: refresh,
     onError,
+    onMutate,
   });
   const finish = api.war.completeWarMission.useMutation({
     onSuccess: refresh,
     onError,
+    onMutate,
   });
   const cancel = api.war.cancelWarMission.useMutation({
     onSuccess: refresh,
     onError,
+    onMutate,
   });
   const attack = api.combat.startShrineBattle.useMutation({
     onSuccess: onBattleSuccess,
     onError,
+    onMutate,
   });
   const camp = api.war.attackWarCamp.useMutation({
     onSuccess: onBattleSuccess,
     onError,
+    onMutate,
   });
-  if (isPending) return <Loader explanation="Loading war objectives" />;
-  if (!data || !user) return null;
+  const endsAt =
+    data?.war.combatStartedAt && data.war.rules
+      ? new Date(
+          data.war.combatStartedAt.getTime() + data.war.rules.durationDays * 86400000,
+        )
+      : undefined;
+  // Boundary refreshes unlock actions on server time, without waiting for the next poll.
+  useRefreshAt(
+    [
+      data?.war.combatStartedAt,
+      endsAt,
+      data?.attempt?.endsAt,
+      ...(data?.camps.map((camp) => camp.endsAt) ?? []),
+    ],
+    () => {
+      void refetch();
+    },
+    timeDiff,
+    data?.war.status === "ACTIVE" && !data.war.endedAt,
+  );
+  if (isPending) return <Loader explanation="Loading war objectives..." />;
+  if (!data || !user)
+    return error ? (
+      <Alert variant="destructive">
+        <AlertDescription>
+          <p>Unable to load war objectives. {error.message}</p>
+          <Button variant="outline" onClick={() => void refetch()}>
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
+    ) : null;
   const w = data.war;
-  const side = getWarSide(w, user.villageId)!;
-  const activeAt = w.combatStartedAt!;
-  const isNotice = new Date(activeAt) > new Date();
+  const side = getWarSide(w, user.villageId);
+  if (!side || !w.combatStartedAt || !endsAt) return null;
+  const now = Date.now() - timeDiff;
+  const isNotice = w.combatStartedAt.getTime() > now;
   const isRevealed = getWarEspionage(w, side) >= WAR_ESPIONAGE_TARGET;
   const hasEnded =
     w.status !== "ACTIVE" ||
     !!w.endedAt ||
     w.attackerWarHealth <= 0 ||
-    w.defenderWarHealth <= 0;
-  const pending = hasEnded || start.isPending || finish.isPending || cancel.isPending;
+    w.defenderWarHealth <= 0 ||
+    !!(endsAt && endsAt.getTime() <= now);
+  const busy =
+    start.isPending ||
+    finish.isPending ||
+    cancel.isPending ||
+    attack.isPending ||
+    camp.isPending;
+  const attempt = data.attempt?.warId === warId ? data.attempt : null;
+  const isReady = !!attempt && new Date(attempt.endsAt).getTime() <= now;
+  const openCamps = data.camps.filter(
+    (camp) => camp.startsAt.getTime() <= now && camp.endsAt.getTime() > now,
+  );
   return (
-    <section className="my-4 space-y-4 rounded-lg border p-4">
-      <h3 className="text-lg font-semibold">War objectives</h3>
-      <p>
-        {hasEnded
-          ? w.status === "ACTIVE"
-            ? "War is settling."
-            : `War ended: ${w.status.replaceAll("_", " ")}`
-          : isNotice
-            ? "Notice period — allies and war missions are available."
-            : "Active objective war"}{" "}
-        Combat begins {new Date(activeAt).toLocaleString()}.
-      </p>
-      <p className="text-sm">
-        War ends{" "}
-        {new Date(
-          new Date(activeAt).getTime() + w.rules!.durationDays * 86400000,
-        ).toLocaleString()}
-        . The village with the most townhall health wins.
-      </p>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {[w.attackerVillageId, w.defenderVillageId].map((id) => (
-          <div key={id}>
-            <p className="font-medium">
-              {id === side ? "Your side" : "Enemy side"} espionage:{" "}
-              {getWarEspionage(w, id)} / {WAR_ESPIONAGE_TARGET}
-            </p>
-            <progress
-              className="w-full"
-              max={WAR_ESPIONAGE_TARGET}
-              value={getWarEspionage(w, id)}
+    <section
+      className="space-y-4 bg-card py-4 text-card-foreground"
+      aria-label="War objectives"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Badge variant="secondary">
+          {hasEnded
+            ? w.status === "ACTIVE"
+              ? "Settling war"
+              : "War ended"
+            : isNotice
+              ? "Notice period"
+              : "Combat active"}
+        </Badge>
+        {!hasEnded && (
+          <p className="text-muted-foreground text-sm">
+            {isNotice ? "Combat begins in " : "War ends in "}
+            <Countdown
+              targetDate={isNotice ? w.combatStartedAt : endsAt}
+              timeDiff={timeDiff}
+              onEndShow="now"
             />
-          </div>
-        ))}
+          </p>
+        )}
       </div>
-      {!isRevealed && (
-        <p>
-          Fill your espionage counter to reveal the shrines to defend and attack.
-          Leaders can see their locations in advance.
-        </p>
+      <p className="text-muted-foreground text-sm">
+        {hasEnded
+          ? "Combat and missions are closed. Review your village’s contributions below."
+          : isNotice
+            ? "Prepare with your allies and gather intelligence before combat begins."
+            : "Destroy enemy shrines and win camp battles to damage the enemy townhall."}{" "}
+        The village with the most townhall health wins.
+      </p>
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Unable to refresh war objectives.{" "}
+            <Button variant="link" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {w.objectiveState?.objectives.map((o, index) => (
-          <div className="rounded border p-3" key={`${o.villageId}:${index}`}>
-            <p className="font-semibold">
-              {o.villageId === side ? "Defend" : "Attack"} sector {o.sector}
-              {o.isReserve ? " (reserve)" : ""}
-            </p>
-            <p>
-              Shrine health: {o.hp.toLocaleString()} / {o.maxHp.toLocaleString()}
-              {o.destroyed ? " — destroyed" : ""}
-            </p>
-            <Link href={`/travel?sector=${o.sector}`}>Travel to sector {o.sector}</Link>
-            {o.villageId !== side &&
-              !o.destroyed &&
-              isRevealed &&
-              !isNotice &&
-              !hasEnded && (
-                <Button
-                  className="mt-2"
-                  disabled={user.sector !== o.sector || attack.isPending}
-                  onClick={() => attack.mutate({ sector: o.sector })}
-                >
-                  Attack guardian
-                </Button>
+      {feedback && (
+        <Alert
+          variant={feedback.success ? "default" : "destructive"}
+          role={feedback.success ? "status" : "alert"}
+        >
+          <AlertDescription>{feedback.message}</AlertDescription>
+        </Alert>
+      )}
+      {attempt && (
+        <div className="space-y-3 rounded-lg border bg-popover p-3">
+          <div>
+            <h3 className="font-semibold">
+              {attempt.task === "espionage" ? "Espionage" : "Sabotage"} in progress
+            </h3>
+            <p className="text-muted-foreground text-sm">
+              Sector {attempt.sector} ·{" "}
+              {isReady ? (
+                "Ready to complete"
+              ) : (
+                <>
+                  Ready in{" "}
+                  <Countdown
+                    targetDate={new Date(attempt.endsAt)}
+                    timeDiff={timeDiff}
+                    onEndShow="a moment"
+                  />
+                </>
               )}
-          </div>
-        ))}
-      </div>
-      <div className="space-y-2">
-        <h4 className="font-semibold">Concurrent war missions</h4>
-        {data.attempt && (
-          <div className="rounded border p-3">
-            <p>
-              {data.attempt.task} in sector {data.attempt.sector}. Ready{" "}
-              {new Date(data.attempt.endsAt).toLocaleTimeString()}.
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
             <Button
-              disabled={pending || new Date(data.attempt.endsAt) > new Date()}
-              onClick={() => finish.mutate({ attemptId: data.attempt!.id })}
+              disabled={hasEnded || busy || !isReady}
+              onClick={() => finish.mutate({ attemptId: attempt.id })}
             >
-              Complete mission
-            </Button>{" "}
+              {finish.isPending ? "Completing..." : "Complete mission"}
+            </Button>
             <Button
               variant="outline"
-              disabled={cancel.isPending || start.isPending || finish.isPending}
-              onClick={() => cancel.mutate({ attemptId: data.attempt!.id })}
+              disabled={busy}
+              onClick={() => cancel.mutate({ attemptId: attempt.id })}
             >
-              Cancel mission
+              {cancel.isPending ? "Cancelling..." : "Cancel mission"}
             </Button>
           </div>
-        )}
-        {!data.missions.length && (
-          <p className="text-sm">No available war missions have been configured.</p>
-        )}
-        {data.missions.map((mission) => (
-          <div
-            key={`${mission.questId}:${mission.objective.id}`}
-            className="flex flex-wrap items-center justify-between gap-2 rounded border p-3"
-          >
-            <div>
-              <p className="font-semibold">
-                {mission.name}: {mission.objective.task}
-              </p>
-              <p className="text-sm">
-                {"durationSeconds" in mission.objective
-                  ? mission.objective.durationSeconds
-                  : 0}{" "}
-                seconds; {"value" in mission.objective ? mission.objective.value : 0}{" "}
-                {mission.objective.task === "espionage"
-                  ? "espionage points"
-                  : "shrine damage"}
-              </p>
-            </div>
-            <Button
-              disabled={pending || !!data.attempt}
-              onClick={() =>
-                start.mutate({
-                  warId,
-                  questId: mission.questId,
-                  objectiveId: mission.objective.id,
-                })
-              }
-            >
-              Start {mission.objective.task}
-            </Button>
-          </div>
-        ))}
-      </div>
-      <div>
-        <h4 className="font-semibold">War camps</h4>
-        <p className="text-sm">
-          A camp opens every {WAR_CAMP_INTERVAL_HOURS} hours for{" "}
-          {WAR_CAMP_DURATION_HOURS} hour. Tied camps deal no townhall damage.
-        </p>
-        {data.camps.map((c) => (
-          <div key={c.id} className="rounded border p-3 mt-2">
-            <p>
-              <Link href={`/travel?sector=${c.sector}`}>Sector {c.sector}</Link> —
-              closes {new Date(c.endsAt).toLocaleTimeString()}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <p>
-                  {w.attackerVillage.name}: {c.attackerScore}
-                </p>
-                <progress
-                  className="w-full"
-                  value={c.attackerScore}
-                  max={Math.max(1, c.attackerScore + c.defenderScore)}
-                />
-              </div>
-              <div>
-                <p>
-                  {w.defenderVillage.name}: {c.defenderScore}
-                </p>
-                <progress
-                  className="w-full"
-                  value={c.defenderScore}
-                  max={Math.max(1, c.attackerScore + c.defenderScore)}
-                />
-              </div>
-            </div>
-            <Button
-              disabled={
-                hasEnded ||
-                camp.isPending ||
-                user.sector !== c.sector ||
-                new Date(c.endsAt) <= new Date()
-              }
-              onClick={() => camp.mutate({ campId: c.id })}
-            >
-              Attack war camp
-            </Button>
-          </div>
-        ))}
-      </div>
-      <div className="overflow-x-auto">
-        <h4 className="font-semibold">Townhall contributions</h4>
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className="text-left">Ninja</th>
-              <th>War damage dealt</th>
-              <th>Health recovered</th>
-              <th>War points</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...data.contributions]
-              .sort((a, b) => b.damage - a.damage)
-              .map((row) => (
-                <tr key={row.userId}>
-                  <td>{row.username}</td>
-                  <td className="text-center">{row.damage}</td>
-                  <td className="text-center">{row.recovery}</td>
-                  <td className="text-center">{row.damage}</td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-      {message && (
-        <p role="status" className="text-sm">
-          {message}
-        </p>
+        </div>
       )}
+      <Tabs defaultValue="objectives">
+        <TabsList
+          className="grid grid-cols-2 sm:grid-cols-4"
+          aria-label="War activities"
+        >
+          <TabsTrigger value="objectives">Objectives</TabsTrigger>
+          <TabsTrigger value="missions">Missions</TabsTrigger>
+          <TabsTrigger value="camps">
+            Camps{openCamps.length > 0 ? ` (${openCamps.length})` : ""}
+          </TabsTrigger>
+          <TabsTrigger value="contributions">Contributions</TabsTrigger>
+        </TabsList>
+        <TabsContent value="objectives" className="space-y-4 pt-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                id: w.attackerVillageId,
+                name: w.attackerVillage.name,
+                health: w.attackerWarHealth,
+                maxHealth: w.attackerWarHealthMax,
+              },
+              {
+                id: w.defenderVillageId,
+                name: w.defenderVillage.name,
+                health: w.defenderWarHealth,
+                maxHealth: w.defenderWarHealthMax,
+              },
+            ].map((village) => (
+              <div
+                key={village.id}
+                className="space-y-3 rounded-lg border bg-popover p-3"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <h3 className="font-semibold">{village.name}</h3>
+                  <Badge variant="outline">
+                    {village.id === side ? "Your side" : "Enemy side"}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="flex justify-between gap-2 text-sm">
+                    <span>Townhall health</span>
+                    <span>
+                      {village.health.toLocaleString()} /{" "}
+                      {village.maxHealth.toLocaleString()}
+                    </span>
+                  </p>
+                  <Progress
+                    aria-label={`${village.name} townhall health`}
+                    value={(village.health / Math.max(1, village.maxHealth)) * 100}
+                    indicatorClassName={
+                      village.id === side ? "bg-green-600" : "bg-red-600"
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="flex justify-between gap-2 text-sm">
+                    <span>Espionage</span>
+                    <span>
+                      {getWarEspionage(w, village.id)} / {WAR_ESPIONAGE_TARGET}
+                    </span>
+                  </p>
+                  <Progress
+                    aria-label={`${village.name} espionage`}
+                    value={
+                      (getWarEspionage(w, village.id) / WAR_ESPIONAGE_TARGET) * 100
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+          {!isRevealed && (
+            <p className="text-muted-foreground text-sm">
+              Complete espionage missions to reveal the shrines to defend and attack.
+              Leaders can see locations in advance.
+            </p>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {w.objectiveState?.objectives.map((objective) => (
+              <div
+                className="space-y-3 rounded-lg border bg-popover p-3"
+                key={`${objective.villageId}:${objective.sector}`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <h3 className="font-semibold">
+                    {objective.villageId === side ? "Defend" : "Attack"} sector{" "}
+                    {objective.sector}
+                  </h3>
+                  <Badge variant="outline">
+                    {objective.destroyed
+                      ? "Destroyed"
+                      : objective.isReserve
+                        ? "Reserve shrine"
+                        : "Shrine"}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground text-sm">
+                    Health: {objective.hp.toLocaleString()} /{" "}
+                    {objective.maxHp.toLocaleString()}
+                  </p>
+                  <Progress
+                    aria-label={`Sector ${objective.sector} shrine health`}
+                    value={(objective.hp / Math.max(1, objective.maxHp)) * 100}
+                  />
+                </div>
+                {!objective.destroyed && !hasEnded && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {user.sector !== objective.sector && (
+                      <Button asChild variant="outline" size="sm">
+                        <Link href={`/travel?sector=${objective.sector}`}>
+                          Travel to sector {objective.sector}
+                        </Link>
+                      </Button>
+                    )}
+                    {objective.villageId !== side && isRevealed && !isNotice && (
+                      <Button
+                        size="sm"
+                        disabled={user.sector !== objective.sector || busy}
+                        onClick={() => attack.mutate({ sector: objective.sector })}
+                      >
+                        {attack.isPending &&
+                        attack.variables?.sector === objective.sector
+                          ? "Starting battle..."
+                          : "Attack guardian"}
+                      </Button>
+                    )}
+                    {user.sector === objective.sector && (
+                      <span className="text-muted-foreground text-sm">
+                        You are here
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="missions" className="space-y-3 pt-2">
+          <p className="text-muted-foreground text-sm">
+            War missions run alongside your regular quests.{" "}
+            {isRevealed
+              ? "Sabotage weakens enemy shrines."
+              : "Espionage reveals the war’s shrine locations."}
+          </p>
+          {data.attempt && !attempt && (
+            <p role="status" className="text-sm">
+              Finish or cancel your mission in the other war before starting another.
+            </p>
+          )}
+          {!data.missions.length && (
+            <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
+              No war missions are currently available to you.
+            </p>
+          )}
+          {data.missions.map((mission) => (
+            <div
+              key={`${mission.questId}:${mission.objective.id}`}
+              className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-popover p-3"
+            >
+              <div>
+                <h3 className="font-semibold">{mission.name}</h3>
+                <p className="text-muted-foreground text-sm">
+                  {formatSecondsToTimeDisplay(
+                    "durationSeconds" in mission.objective
+                      ? mission.objective.durationSeconds
+                      : 0,
+                  )}{" "}
+                  ·{" "}
+                  {"value" in mission.objective
+                    ? mission.objective.value.toLocaleString()
+                    : 0}{" "}
+                  {mission.objective.task === "espionage"
+                    ? "espionage points"
+                    : "shrine damage"}
+                </p>
+              </div>
+              <Button
+                disabled={hasEnded || busy || !!data.attempt}
+                onClick={() =>
+                  start.mutate({
+                    warId,
+                    questId: mission.questId,
+                    objectiveId: mission.objective.id,
+                  })
+                }
+              >
+                {start.isPending &&
+                start.variables?.objectiveId === mission.objective.id
+                  ? "Starting..."
+                  : `Start ${mission.objective.task}`}
+              </Button>
+            </div>
+          ))}
+        </TabsContent>
+        <TabsContent value="camps" className="space-y-3 pt-2">
+          <p className="text-muted-foreground text-sm">
+            A camp opens every {WAR_CAMP_INTERVAL_HOURS} hours for{" "}
+            {WAR_CAMP_DURATION_HOURS} hour. Win battles to help your side deal townhall
+            damage. Ties deal no damage.
+          </p>
+          {!openCamps.length && (
+            <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
+              {hasEnded
+                ? "War camps are closed."
+                : isNotice
+                  ? "War camps open after combat begins."
+                  : "No war camps are open. Check back for the next camp."}
+            </p>
+          )}
+          {openCamps.map((c) => (
+            <div key={c.id} className="space-y-3 rounded-lg border bg-popover p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold">War camp · Sector {c.sector}</h3>
+                <p className="text-muted-foreground text-sm">
+                  Closes in{" "}
+                  <Countdown
+                    targetDate={c.endsAt}
+                    timeDiff={timeDiff}
+                    onEndShow="a moment"
+                  />
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  { name: w.attackerVillage.name, score: c.attackerScore },
+                  { name: w.defenderVillage.name, score: c.defenderScore },
+                ].map((village) => (
+                  <div key={village.name} className="space-y-1">
+                    <p className="flex justify-between gap-2 text-sm">
+                      <span>{village.name}</span>
+                      <span>{village.score.toLocaleString()} points</span>
+                    </p>
+                    <Progress
+                      aria-label={`${village.name} camp score`}
+                      value={
+                        (village.score /
+                          Math.max(1, c.attackerScore + c.defenderScore)) *
+                        100
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {user.sector !== c.sector && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/travel?sector=${c.sector}`}>
+                      Travel to sector {c.sector}
+                    </Link>
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  disabled={hasEnded || isNotice || busy || user.sector !== c.sector}
+                  onClick={() => camp.mutate({ campId: c.id })}
+                >
+                  {camp.isPending && camp.variables?.campId === c.id
+                    ? "Starting battle..."
+                    : "Attack war camp"}
+                </Button>
+                {user.sector === c.sector && (
+                  <span className="text-muted-foreground text-sm">You are here</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </TabsContent>
+        <TabsContent value="contributions" className="space-y-3 pt-2">
+          <p className="text-muted-foreground text-sm">
+            War points equal actual damage dealt to the enemy townhall. Health recovered
+            is tracked separately.
+          </p>
+          {data.contributions.length ? (
+            <Table
+              data={[...data.contributions].sort((a, b) => b.damage - a.damage)}
+              columns={[
+                { key: "username", header: "Ninja", type: "string" },
+                { key: "damage", header: "Damage / war points", type: "number" },
+                { key: "recovery", header: "Health recovered", type: "number" },
+              ]}
+              linkColumn="userId"
+              linkPrefix="/userid/"
+              compact
+            />
+          ) : (
+            <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
+              No townhall contributions have been recorded yet.
+            </p>
+          )}
+        </TabsContent>
+      </Tabs>
     </section>
   );
 };
