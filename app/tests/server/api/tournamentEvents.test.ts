@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
+import * as nextServer from "next/server";
 import {
   ENERGY_PVP_WIN_REWARD,
   EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS,
@@ -29,7 +30,7 @@ import {
   createEventState,
   generateEventBracket,
 } from "@/libs/tournament/events";
-import { initiateBattle } from "@/server/api/routers/combat";
+import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { tournamentRouter } from "@/server/api/routers/tournament";
 import {
   fetchEvent,
@@ -44,6 +45,7 @@ import { queueEnergy } from "../../setup/queues";
 import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
+  callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
   resetTables,
@@ -394,7 +396,7 @@ describeWithDatabase("event tournament persistence", () => {
     const { database, game, accept } = await readyEvent();
     const reached = deferred();
     const release = deferred();
-    const stalled = beforeLaunchWrite(database, battle, async () => {
+    const stalled = beforeTransactionalWrite(database, battle, async () => {
       reached.resolve();
       await release.promise;
     });
@@ -437,6 +439,124 @@ describeWithDatabase("event tournament persistence", () => {
     }
   });
 
+  for (const route of ["getBattle", "performAction"] as const) {
+    for (const beforeCommit of [true, false]) {
+      it(`preserves ${route} results when recovery runs ${beforeCommit ? "before" : "after"} final settlement commits`, async () => {
+        vi.spyOn(nextServer, "after").mockImplementation(() => {});
+        const { database, game, accept } = await readyEvent();
+        expect((await accept(game.userIds[1]!)).success).toBe(true);
+        const row = (await fetchEvent(database, "launch"))!;
+        row.eventData!.config.rewards.winner.reward_money = 100;
+        const active = row.eventData!.series[0]!.games[0]!;
+        active.deadline =
+          Date.now() - (EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS + 1) * 1000;
+        await database
+          .update(tournament)
+          .set({ eventData: row.eventData })
+          .where(eq(tournament.id, row.id));
+        const snapshot = (await database.query.battle.findFirst())!;
+        snapshot.usersState.find((u) => u.userId === "foe")!.curHealth = 0;
+        await database
+          .update(battle)
+          .set({
+            usersState: snapshot.usersState,
+            activeUserId: "hero",
+            createdAt: new Date(Date.now() - 1000),
+            roundStartAt: new Date(),
+            updatedAt: new Date(Date.now() + 1000),
+          })
+          .where(eq(battle.id, game.battleId));
+        const before = await database.query.userData.findMany();
+        const firstReached = deferred();
+        const secondReached = deferred();
+        const release = deferred();
+        // Delay the first player's ordinary result write. The last player's claim
+        // must make deletion and the outcome visible together even in this gap.
+        const first = callerForDatabase(
+          combatRouter,
+          "foe",
+          beforeStatements(database, tournamentMatch, [
+            async () => {
+              firstReached.resolve();
+              await release.promise;
+            },
+          ]),
+        ).getBattle({ battleId: game.battleId });
+        let second: Promise<unknown> | undefined;
+        try {
+          await firstReached.promise;
+          const wait = async () => {
+            secondReached.resolve();
+            await release.promise;
+          };
+          const last = callerForDatabase(
+            combatRouter,
+            "hero",
+            beforeCommit
+              ? beforeTransactionalWrite(database, tournamentMatch, wait)
+              : beforeStatements(database, tournamentMatch, [wait]),
+          );
+          const current = (await database.query.battle.findFirst())!;
+          second =
+            route === "getBattle"
+              ? last.getBattle({ battleId: game.battleId })
+              : last.performAction({
+                  battleId: game.battleId,
+                  version: current.version,
+                });
+          await secondReached.promise;
+          await syncEventTournament(database, "launch");
+          const during = (await fetchEvent(database, "launch"))!.eventData!;
+          expect(during.series[0]!.games).toHaveLength(1);
+          expect(during.series[0]!.games[0]!.outcome).not.toBe("DRAW");
+          release.resolve();
+          const [foeResult, heroResult] = await Promise.all([first, second]);
+          expect(foeResult.result?.outcome).toBe("Lost");
+          expect(heroResult).toMatchObject({ result: { outcome: "Won" } });
+          await Promise.all([
+            syncEventTournament(database, "launch"),
+            syncEventTournament(database, "launch"),
+          ]);
+          const finished = (await fetchEvent(database, "launch"))!;
+          expect(finished.matches[0]).toMatchObject({
+            state: "PLAYED",
+            winnerId: "hero",
+          });
+          expect(finished.eventData!.status).toBe("COMPLETED");
+          expect(finished.eventData!.series[0]!.games).toHaveLength(1);
+          expect(finished.eventData!.series[0]!.scores).toEqual(
+            game.userIds[0] === "hero" ? [1, 0] : [0, 1],
+          );
+          expect(await database.query.battle.findMany()).toHaveLength(0);
+          for (const user of before) {
+            const after = (await database.query.userData.findFirst({
+              where: eq(userData.userId, user.userId),
+            }))!;
+            expect(after).toMatchObject({
+              status: "AWAKE",
+              battleId: null,
+              money: user.money + 10 + (user.userId === "hero" ? 100 : 0),
+              pvpWins: user.pvpWins,
+              pvpLosses: user.pvpLosses,
+              rankedLp: user.rankedLp,
+            });
+          }
+          const claims = await database.query.tournamentRewardClaim.findMany();
+          await syncEventTournament(database, "launch");
+          expect(await database.query.tournamentRewardClaim.findMany()).toEqual(claims);
+          expect(
+            await callerForDatabase(combatRouter, "hero", database).getBattle({
+              battleId: game.battleId,
+            }),
+          ).toEqual({ battle: null, result: null });
+        } finally {
+          release.resolve();
+          await Promise.allSettled([first, second]);
+        }
+      }, 15000);
+    }
+  }
+
   for (const inFlight of [false, true]) {
     it(`arbitrates launch against recovery's stale missing-battle read (inFlight=${inFlight})`, async () => {
       const { database, game, accept } = await readyEvent();
@@ -444,7 +564,7 @@ describeWithDatabase("event tournament persistence", () => {
       const release = deferred();
       const revoking = deferred();
       const releaseRecovery = deferred();
-      const stalled = beforeLaunchWrite(database, battleHistory, async () => {
+      const stalled = beforeTransactionalWrite(database, battleHistory, async () => {
         reached.resolve();
         await release.promise;
       });
@@ -525,7 +645,7 @@ describeWithDatabase("event tournament persistence", () => {
       battleId: game.battleId,
       startedAt: new Date(),
     });
-    const raced = beforeLaunchWrite(database, battle, async () => {
+    const raced = beforeTransactionalWrite(database, battle, async () => {
       await database
         .update(userData)
         .set({ status: "ASLEEP" })
@@ -1042,8 +1162,8 @@ const deferred = () => {
   return { promise, resolve };
 };
 
-/** Interleave the same real SQL write whether launch uses a transaction or independent writes. */
-const beforeLaunchWrite = (
+/** Interleave a real SQL write inside or outside a transaction. */
+const beforeTransactionalWrite = (
   client: DrizzleClient,
   table: object,
   hook: () => Promise<void>,

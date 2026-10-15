@@ -196,10 +196,21 @@ export const updateBattle = async (
   // Only the successful version claim may proceed to rewards and cleanup.
   // Subsequent writes are not atomic with this claim; failures can leave partial settlement.
   if (battleOver) {
-    const deleted = await retryOnDeadlock(() =>
-      client
+    const deleteBattle = (database: DrizzleClient) =>
+      database
         .delete(battle)
-        .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion))),
+        .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion)));
+    const deleted = await retryOnDeadlock(() =>
+      newBattle.extraState.tournamentGameId
+        ? client.transaction(async (tx) => {
+            const database = tx as unknown as DrizzleClient;
+            const deleted = await deleteBattle(database);
+            // Recovery must never see a missing battle before its outcome is durable.
+            if (deleted.rowsAffected === 1)
+              await updateTournament(database, newBattle, result, userId);
+            return deleted;
+          })
+        : deleteBattle(client),
     );
     if (deleted.rowsAffected === 0) {
       return null;
