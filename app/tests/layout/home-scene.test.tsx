@@ -716,6 +716,89 @@ describe("multi-room home scene", () => {
   beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
   afterEach(cleanup);
 
+  it.each(["pointerup", "pointercancel"])("keeps room finishes aligned with a cross-room drag ending in %s", async (ending) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const camera = scene.querySelector("[data-home-camera]")!;
+    const beforeCamera = camera.getAttribute("style");
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    firePointerEvent(bed, "pointerdown", 1, 200, 200);
+    firePointerEvent(bed, "pointermove", 1, 907.2, 200);
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
+    firePointerEvent(bed, ending, 1, 907.2, 200);
+    const room = ending === "pointerup" ? "room-1" : "main";
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe(room);
+    expect(camera.getAttribute("style")).toBe(beforeCamera);
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].styles).toEqual([{ room, paint: "sage", floor: "cedar" }]);
+  });
+
+  it("keeps the source room active when furniture cannot move into the yard", async () => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const before = furniturePosition(bed);
+    firePointerEvent(bed, "pointerdown", 1, 200, 200);
+    firePointerEvent(bed, "pointermove", 1, 200, 824);
+    firePointerEvent(bed, "pointerup", 1, 200, 824);
+    expect(furniturePosition(bed)).toEqual(before);
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("main");
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].styles).toEqual([{ room: "main", paint: "sage", floor: "cedar" }]);
+  });
+
+  it.each(["background", "furniture", "editing furniture"])("pinches from %s without invoking an action or moving furniture", async (start) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    if (start === "editing furniture") fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.setPointerCapture = vi.fn();
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const bed = view.getByRole("button", { name: start === "editing furniture" ? "Move Bed" : "Bed: Go to sleep" });
+    bed.setPointerCapture = vi.fn();
+    const before = furniturePosition(bed);
+    const first = start === "background" ? scene : bed;
+    firePointerEvent(first, "pointerdown", 1, 200, 200);
+    if (start === "editing furniture") {
+      firePointerEvent(bed, "pointermove", 1, 210, 205);
+      expect(furniturePosition(bed)).not.toEqual(before);
+    }
+    firePointerEvent(scene, "pointerdown", 2, 400, 200);
+    firePointerEvent(scene, "pointermove", 2, 600, 200);
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("180%");
+    firePointerEvent(scene, "pointerup", 2, 600, 200);
+    firePointerEvent(bed, "pointermove", 1, 220, 200);
+    firePointerEvent(first, "pointerup", 1, 220, 200);
+    fireEvent.click(bed, { detail: 1 });
+    expect(props.onSleep).not.toHaveBeenCalled();
+    expect(furniturePosition(bed)).toEqual(before);
+    if (start === "editing furniture") {
+      fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0]![0].placements.find(({ id }) => id === "owned-bed")?.room ?? "main").toBe("main");
+    } else {
+      const camera = scene.querySelector("[data-home-camera]")?.getAttribute("style");
+      firePointerEvent(bed, "pointerdown", 3, 200, 200);
+      firePointerEvent(bed, "pointermove", 3, 202, 201);
+      firePointerEvent(bed, "pointerup", 3, 202, 201);
+      fireEvent.click(bed, { detail: 1 });
+      expect(props.onSleep).toHaveBeenCalledTimes(1);
+      expect(scene.querySelector("[data-home-camera]")?.getAttribute("style")).toBe(camera);
+    }
+  });
+
   it("moves furniture between rooms and publishes the room's paint and tiles with one draft", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);

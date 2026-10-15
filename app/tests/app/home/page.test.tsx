@@ -589,6 +589,59 @@ it("opens home management from the header and waits for refreshed inventory befo
   }
 }, 20_000);
 
+it("preserves a draft across a tier refresh and requires recovery before saving", async () => {
+  const home = { ...essentialHome, furniture, homeType: "TOWN_HOUSE" as const, layout: [...layout] };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
+  const save = vi.fn().mockReturnValue({ success: false, message: "Retained" });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    let data;
+    if (op.path === "home.getUserHome") data = home;
+    else if (op.path === "item.getUserItems") data = ownedItems;
+    else if (op.path === "home.getAvailableUpgrades") data = [];
+    else if (op.path === "home.saveFurnitureLayout") data = save(op.input);
+    else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Decorate" }));
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "room-1" } });
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "rose" } });
+    const position = view.getByRole("button", { name: "Move Bed" }).style.left;
+    await act(async () => {
+      queryClient.setQueryData(homeKey, { ...home, homeType: "SMALL_MANSION", furnitureRevision: 4 });
+    });
+    await view.findByRole("button", { name: "Room 3" });
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
+    expect(view.getByRole("button", { name: "Move Bed" }).style.left).toBe(position);
+    expect(view.getByRole("alert").textContent).toContain("Your home tier changed. Cancel and reopen");
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Room 2" }));
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("rose");
+    fireEvent.click(view.getByRole("button", { name: "Main room" }));
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("sage");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect(view.queryByRole("alert")).toBeNull();
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("main");
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("ivory");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]![0]).toMatchObject({ homeType: "SMALL_MANSION", revision: 4, styles: [] });
+  } finally {
+    queryClient.clear();
+  }
+});
+
 it("opens the kitchen with owned artwork or its fallback and returns focus to its action", async () => {
   for (const hasKitchen of [true, false]) {
     const kitchen: HomeFurniture = {

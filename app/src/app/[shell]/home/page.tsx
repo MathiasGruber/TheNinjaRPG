@@ -355,7 +355,6 @@ export default function HomePage() {
           <Loader explanation="Loading your home" />
         ) : (
           <HomeScene
-            key={homeType}
             homeType={homeType}
             styles={homeData?.styles}
             isGuest={!ownVillage}

@@ -80,7 +80,10 @@ export const HomeScene = ({
   const isProperty = rooms.length > 1;
   const [activeRoom, setActiveRoom] = useState<HomeRoomId>("main");
   const [camera, setCamera] = useState({ x: 0, y: 0, scale: 1 });
-  const cameraPointers = useRef(new Map<number, { x: number; y: number }>());
+  const cameraPointers = useRef(
+    new Map<number, { x: number; y: number; canPan: boolean }>(),
+  );
+  const hasPinched = useRef(false);
   const focusRoom = (id: HomeRoomId) => {
     const room = rooms.find((room) => room.id === id) ?? {
       id: "main" as const,
@@ -96,6 +99,8 @@ export const HomeScene = ({
     return { ...bounds, x: bounds.x + (room?.x ?? 0), y: bounds.y + (room?.y ?? 0) };
   };
   useEffect(() => {
+    cameraPointers.current.clear();
+    hasPinched.current = false;
     setCamera({ x: 0, y: 0, scale: 1 });
     setActiveRoom("main");
   }, [homeType]);
@@ -160,6 +165,8 @@ export const HomeScene = ({
       setPlacementError(null);
     } else if (!isDecorating && draft) {
       dragRef.current = null;
+      cameraPointers.current.clear();
+      hasPinched.current = false;
       setDraft(null);
       setStorageTargetId(null);
     }
@@ -187,7 +194,8 @@ export const HomeScene = ({
   /** Pointer and keyboard moves use the same painted floor and collision rules as saving. */
   const moveFurniture = (id: string, x: number, y: number, room?: HomeRoomId) => {
     const piece = furnitureById.get(id);
-    if (!piece) return;
+    const placement = placements.find((placement) => placement.id === id);
+    if (!piece || !placement || isMovementDisabled) return;
     if (
       room &&
       placements.filter(
@@ -195,23 +203,23 @@ export const HomeScene = ({
       ).length >= HOME_FURNITURE_MAX_PLACEMENTS
     )
       return;
-    updatePlacements((placements) =>
-      placements.map((placement) =>
-        placement.id === id
-          ? (fitHomeFurniturePlacement(
-              { ...placement, x, y, ...(room ? { room } : {}) },
-              piece,
-              placements,
-              furniture,
-              homeType,
-            ) ?? placement)
-          : placement,
-      ),
+    const fitted = fitHomeFurniturePlacement(
+      { ...placement, x, y, ...(room ? { room } : {}) },
+      piece,
+      placements,
+      furniture,
+      homeType,
     );
+    if (!fitted) return;
+    updatePlacements((current) =>
+      current.map((placement) => (placement.id === id ? fitted : placement)),
+    );
+    if (room) setActiveRoom(room);
   };
 
   /** Removing a placement keeps the owned inventory row and its quantity unchanged. */
   const storeFurniture = (id: string) => {
+    if (dragRef.current) cameraPointers.current.delete(dragRef.current.pointerId);
     dragRef.current = null;
     setStorageTargetId(null);
     updatePlacements((placements) =>
@@ -255,13 +263,14 @@ export const HomeScene = ({
     if (!drag || drag.pointerId !== pointerId || drag.placement.id !== id) return;
     dragRef.current = null;
     setStorageTargetId(null);
-    if (shouldRestore)
+    if (shouldRestore) {
       updatePlacements((placements) =>
         placements.map((placement) =>
           placement.id === id ? drag.placement : placement,
         ),
       );
-    else if (targetId) storeFurniture(id);
+      setActiveRoom(getHomePlacementRoom(drag.placement));
+    } else if (targetId) storeFurniture(id);
   };
 
   /** Place an owned piece on nearby free ground; a full room leaves it safely in inventory. */
@@ -432,18 +441,23 @@ export const HomeScene = ({
             ),
           );
         }}
-        onPointerDown={(event) => {
-          if (
-            !isProperty ||
-            event.button !== 0 ||
-            (event.target as HTMLElement).closest("button")
-          )
-            return;
+        onPointerDownCapture={(event) => {
+          if (!isProperty || event.button !== 0) return;
+          if (cameraPointers.current.size === 0) hasPinched.current = false;
+          const canPan = !(event.target as HTMLElement).closest("button");
           cameraPointers.current.set(event.pointerId, {
             x: event.clientX,
             y: event.clientY,
+            canPan,
           });
-          event.currentTarget.setPointerCapture(event.pointerId);
+          // A second pointer turns a furniture drag into navigation, preserving its starting placement.
+          if (cameraPointers.current.size > 1) {
+            hasPinched.current = true;
+            const drag = dragRef.current;
+            if (drag) finishDrag(drag.placement.id, drag.pointerId, true);
+          }
+          if (canPan || hasPinched.current)
+            event.currentTarget.setPointerCapture(event.pointerId);
         }}
         onPointerMove={(event) => {
           const previous = cameraPointers.current.get(event.pointerId);
@@ -454,9 +468,11 @@ export const HomeScene = ({
           );
           const other = others[0]?.[1];
           cameraPointers.current.set(event.pointerId, {
+            ...previous,
             x: event.clientX,
             y: event.clientY,
           });
+          if (!other && !previous.canPan && !hasPinched.current) return;
           setCamera((current) => {
             const before = other
               ? Math.hypot(previous.x - other.x, previous.y - other.y)
@@ -609,7 +625,7 @@ export const HomeScene = ({
                 className={className}
                 style={style}
                 onClick={(event) => {
-                  if (isVisiting) return;
+                  if (isVisiting || (hasPinched.current && event.detail > 0)) return;
                   if (isEditing) setSelectedId(placement.id);
                   else if (details.action === "sleep") onSleep();
                   else if (details.action === "storage") onStorage(event.currentTarget);
@@ -621,6 +637,7 @@ export const HomeScene = ({
                     !isEditing ||
                     isMovementDisabled ||
                     event.button !== 0 ||
+                    hasPinched.current ||
                     dragRef.current
                   )
                     return;
@@ -640,6 +657,7 @@ export const HomeScene = ({
                   const scene = sceneRef.current?.getBoundingClientRect();
                   if (
                     isMovementDisabled ||
+                    hasPinched.current ||
                     !drag ||
                     drag.pointerId !== event.pointerId ||
                     drag.placement.id !== placement.id ||
