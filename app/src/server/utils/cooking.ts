@@ -10,7 +10,10 @@ import {
   userRaidBuff,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
-import { claimUserSnapshot } from "@/server/utils/concurrency";
+import {
+  claimUserSnapshot,
+  consumeUserItemAtomically,
+} from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { isMealEffect } from "@/validators/cooking";
 
@@ -113,27 +116,23 @@ export const consumeMeal = async ({
         });
         if (!claim.success)
           return { success: false, message: "Your state changed. Please try again" };
-        const itemWhere = and(
-          eq(userItem.id, owned.id),
-          eq(userItem.userId, user.userId),
-          eq(userItem.itemId, owned.itemId),
-          eq(userItem.quantity, expectedQuantity),
-          eq(userItem.storedAtHome, false),
-          eq(userItem.isInAuction, false),
-          eq(userItem.equipped, "NONE"),
-          or(
-            isNull(userItem.craftingFinishedAt),
-            lte(userItem.craftingFinishedAt, now),
-          ),
-        );
-        const taken =
-          expectedQuantity === 1
-            ? await tx.delete(userItem).where(itemWhere)
-            : await tx
-                .update(userItem)
-                .set({ quantity: sql`${userItem.quantity} - 1` })
-                .where(itemWhere);
-        if (taken.rowsAffected !== 1) throw inventoryConflict;
+        const taken = await consumeUserItemAtomically({
+          client: tx,
+          userId: user.userId,
+          userItemId: owned.id,
+          expectedQuantity,
+          where: [
+            eq(userItem.itemId, owned.itemId),
+            eq(userItem.storedAtHome, false),
+            eq(userItem.isInAuction, false),
+            eq(userItem.equipped, "NONE"),
+            or(
+              isNull(userItem.craftingFinishedAt),
+              lte(userItem.craftingFinishedAt, now),
+            ),
+          ],
+        });
+        if (!taken) throw inventoryConflict;
         const buff = {
           itemId: owned.itemId,
           questId: null,
