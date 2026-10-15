@@ -2502,10 +2502,14 @@ export const profileRouter = createTRPCRouter({
         user.earnedExperience = 8008;
         user.isBanned = false;
         user.aiProfileId = null;
-      }
-      if (!isSelf && (!requester || !canSeeSecretData(requester.role))) {
-        user.jutsus = [];
-        user.items = [];
+        // Editors submit these ownership lists with the full profile form.
+        const canEditTarget = requester && !canOnlyEditSelf(requester.role);
+        if (!canEditTarget || !canEditJutsus(requester.role)) {
+          user.jutsus = [];
+        }
+        if (!canEditTarget || !canEditItems(requester.role)) {
+          user.items = [];
+        }
       }
       if (!requester || !canSeeIps(requester.role)) {
         user.lastIp = "hidden";
