@@ -1032,14 +1032,18 @@ export function canTransitionStatus(
 }
 
 export const canViewConversation = (
-  conversation: Conversation & { users: User2Conversation[] },
+  conversation: Conversation & {
+    users: User2Conversation[];
+    supportTicketCreatorId?: string | null;
+  },
   userId: string,
   userRole: UserRole,
 ) => {
   const isPublic = conversation.isPublic;
   const inConversation = conversation.users.some((u) => u.userId === userId);
   const isStaffAvailable = conversation.isStaffAvailable;
-  if (isPublic || inConversation) return true;
+  const isTicketCreator = conversation.supportTicketCreatorId === userId;
+  if (isPublic || inConversation || isTicketCreator) return true;
   if (isStaffAvailable && isStaffRole(userRole)) return true;
   return false;
 };

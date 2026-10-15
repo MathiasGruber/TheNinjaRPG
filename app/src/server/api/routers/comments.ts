@@ -403,12 +403,16 @@ export const commentsRouter = createTRPCRouter({
       if (isRaidChatConversationId(input.convo_id)) {
         return errorResponse("Raid chat membership is managed by the raid queue");
       }
-      const [user, convo] = await Promise.all([
+      const [user, convo, linkedSupportTicket] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchConversation({
           client: ctx.drizzle,
           id: input.convo_id,
           userId: ctx.userId,
+        }),
+        ctx.drizzle.query.supportTicket.findFirst({
+          where: eq(supportTicket.conversationId, input.convo_id),
+          columns: { id: true },
         }),
       ]);
       // Guard
@@ -426,7 +430,9 @@ export const commentsRouter = createTRPCRouter({
           ),
         );
 
-      if (membershipDeleteResult.rowsAffected === 1) {
+      // A support ticket's conversation is its message history with staff, and
+      // its creator is its only member, so it must outlive the membership.
+      if (membershipDeleteResult.rowsAffected === 1 && !linkedSupportTicket) {
         // Both cleanup deletes only need to know that no membership rows remain,
         // which the awaited membership delete above already settled. Guarding
         // each one on that condition keeps a concurrent exit from wiping a
@@ -1094,11 +1100,24 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   const convo = await getConvo();
   if (!convo) return undefined;
   const participantIds = [...new Set([userId, ...convo.users.map((u) => u.userId)])];
-  const [policies, senders] = await Promise.all([
+  // A support ticket's creator keeps access to its conversation through the
+  // ticket after leaving it, so only non-members of private staff threads need
+  // the lookup.
+  const needsTicketLookup =
+    convo.isStaffAvailable &&
+    !convo.isPublic &&
+    !convo.users.some((u) => u.userId === userId);
+  const [policies, senders, linkedSupportTicket] = await Promise.all([
     fetchCommunicationPolicies(client, participantIds),
     convo.isPublic || convo.isStaffAvailable
       ? []
       : fetchPrivateConversationSenders(client, userId, convo.id),
+    needsTicketLookup
+      ? client.query.supportTicket.findFirst({
+          where: eq(supportTicket.conversationId, convo.id),
+          columns: { createdByUserId: true },
+        })
+      : undefined,
   ]);
   const senderIds = senders.map((sender) => sender.userId);
   const readRestriction = conversationReadRestriction(
@@ -1110,7 +1129,12 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
     convo.isPublic || convo.isStaffAvailable
       ? readRestriction
       : privateConversationRestriction(policies, [...participantIds, ...senderIds]);
-  return { ...convo, readRestriction, sendRestriction };
+  return {
+    ...convo,
+    readRestriction,
+    sendRestriction,
+    supportTicketCreatorId: linkedSupportTicket?.createdByUserId ?? null,
+  };
 };
 
 /**
