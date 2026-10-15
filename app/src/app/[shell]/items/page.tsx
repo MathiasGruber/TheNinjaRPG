@@ -68,6 +68,10 @@ import {
   showsItemLevelBadge,
   userItemActionBadges,
 } from "@/libs/item";
+import {
+  finishItemConsumeRequest,
+  getItemConsumeRequestId,
+} from "@/libs/itemConsumption";
 import { gearMissingMastery } from "@/libs/mastery";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
@@ -856,9 +860,18 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   });
 
   const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
+      finishItemConsumeRequest(userData?.userId ?? "", variables.userItemId);
       if (data.success && "rewards" in data && data.rewards) {
-        showRewardToast(data.notifications, data.rewards, data.message, false);
+        showRewardToast(
+          data.notifications,
+          data.rewards,
+          data.message,
+          false,
+          undefined,
+          undefined,
+          data.cacheRewards,
+        );
       } else {
         let message = data.message || "Consume failed";
         if ("notifications" in data && data.notifications) {
@@ -883,6 +896,11 @@ const Backpack: React.FC<BackpackProps> = (props) => {
         ]);
       }
     },
+    onError: () =>
+      showMutationToast({
+        success: false,
+        message: "Could not confirm item use. Try Consume again to check the opening.",
+      }),
     onSettled,
   });
 
@@ -1214,6 +1232,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                     consume({
                       userItemId: useritem.id,
                       expectedQuantity: useritem.quantity,
+                      requestId: getItemConsumeRequestId(
+                        userData?.userId ?? "",
+                        useritem.id,
+                      ),
                     })
                   }
                 >

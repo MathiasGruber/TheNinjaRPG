@@ -62,6 +62,10 @@ import {
   VILLAGE_REDUCED_GAINS_DAYS,
 } from "@/drizzle/constants";
 import type { UserItemWithItem } from "@/drizzle/schema";
+import {
+  finishItemConsumeRequest,
+  getItemConsumeRequestId,
+} from "@/libs/itemConsumption";
 
 type RevealedPlayer = {
   userId: string;
@@ -646,9 +650,18 @@ function Travel() {
     });
 
   const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
+      finishItemConsumeRequest(userData?.userId ?? "", variables.userItemId);
       if (data.success && "rewards" in data && data.rewards) {
-        showRewardToast(data.notifications, data.rewards, data.message, false);
+        showRewardToast(
+          data.notifications,
+          data.rewards,
+          data.message,
+          false,
+          undefined,
+          undefined,
+          data.cacheRewards,
+        );
       } else {
         showMutationToast(data);
       }
@@ -660,6 +673,11 @@ function Travel() {
         ]);
       }
     },
+    onError: () =>
+      showMutationToast({
+        success: false,
+        message: "Could not confirm item use. Try Consume again to check the opening.",
+      }),
     onSettled: () => {
       setIsOpen(false);
       setUserItem(undefined);
@@ -1427,7 +1445,15 @@ function Travel() {
                   {nonCombatConsume(useritem.item, userData) && (
                     <Button
                       variant="info"
-                      onClick={() => consume({ userItemId: useritem.id })}
+                      onClick={() =>
+                        consume({
+                          userItemId: useritem.id,
+                          requestId: getItemConsumeRequestId(
+                            userData?.userId ?? "",
+                            useritem.id,
+                          ),
+                        })
+                      }
                     >
                       <Cookie className="mr-2 h-5 w-5" />
                       Consume

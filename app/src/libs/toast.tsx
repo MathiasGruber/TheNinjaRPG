@@ -18,6 +18,7 @@ import { countNames } from "@/utils/array";
 import { playPreloadedAudio, savedSfxVolume } from "@/utils/audio";
 import { parseHtml } from "@/utils/parse";
 import type { PostProcessedRewards } from "@/validators/rewards";
+import type { CacheRewardDisplay } from "@/validators/weightedCache";
 
 type FireConfetti = (options: {
   startVelocity: number;
@@ -237,6 +238,7 @@ export const showRewardToast = (
   resolved?: boolean,
   quest?: Pick<Quest, "successDescription">,
   badges?: { id: string; name: string; image: string }[],
+  cacheRewards?: CacheRewardDisplay[],
 ) => {
   const message = (
     <div className="flex flex-col gap-2">
@@ -358,6 +360,16 @@ export const showRewardToast = (
               {countNames(rewards.reward_items).join(", ")}
             </span>
           )}
+          {cacheRewards?.map((cache, index) => (
+            <div key={`cache-${index}`} className="mt-2 text-sm">
+              <b>{cache.displayName}</b>
+              {cache.items.map((item) => (
+                <p key={item.name}>
+                  {item.name}: {item.chance.toFixed(2)}% chance per opening
+                </p>
+              ))}
+            </div>
+          ))}
           {rewards.reward_war_damage > 0 && (
             <span className="whitespace-nowrap">
               <b>War damage to enemy:</b> {rewards.reward_war_damage}

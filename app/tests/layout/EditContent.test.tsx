@@ -8,6 +8,7 @@ import { RewardEditor } from "@/layout/RewardEditor";
 import { ObjectiveReward } from "@/validators/rewards";
 import {
   DamageTag,
+  NonCombatConsumeRewardTag,
   HealTag,
   JutsuValidatorRawSchema,
   type ZodAllTags,
@@ -418,4 +419,39 @@ describe("coordinate effect drafts", () => {
       );
     },
   );
+});
+
+const CacheDraftForm = () => {
+  const [effects, setEffects] = useState<ZodAllTags[]>([
+    NonCombatConsumeRewardTag.parse({ reward_money: 17, rewardMode: "weightedCache", weightedCache: {
+      version: 1, displayName: "Pill Cache", rolls: [{ count: 1, probability: 5000 }, { count: 2, probability: 5000 }],
+      tiers: [{ name: "Common", probability: 10_000, entries: [{ items: [{ itemId: "pill", quantity: 2 }] }] }],
+    } }),
+  ]);
+  return <>
+    <EffectFormWrapper type="item" idx={0} tag={effects[0]!} effects={effects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} />
+    <button type="button" onClick={() => { if (NonCombatConsumeRewardTag.safeParse(effects[0]).success) void save({ id: "cache", data: { effects } }); }}>Save cache effects</button>
+  </>;
+};
+
+describe("weighted cache effect drafts", () => {
+  it("propagates invalid probability totals to the parent and allows correction", async () => {
+    const view = render(<CacheDraftForm />);
+    const probabilities = view.getAllByRole("spinbutton", { name: "Probability (%)" });
+    fireEvent.input(probabilities[0]!, { target: { value: "49" } });
+    await waitFor(() => expect(view.getByText("Roll probability total: 99% / 100%")).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.input(probabilities[0]!, { target: { value: "50" } });
+    await waitFor(() => expect(view.getByText("Roll probability total: 100% / 100%")).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ reward_money: 17, weightedCache: { displayName: "Pill Cache" } });
+  });
+  it("retains a blank quantity draft instead of silently saving the previous quantity", async () => {
+    const view = render(<CacheDraftForm />);
+    fireEvent.input(view.getByRole("spinbutton", { name: /quantity/ }), { target: { value: "" } });
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    expect(save).not.toHaveBeenCalled();
+  });
 });

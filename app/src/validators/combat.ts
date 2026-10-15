@@ -6,6 +6,7 @@ import {
   type BasicElement,
   BattleUsageTypes,
   BloodlineDifficultyRatings,
+  CACHE_MAX_GRANTED_ITEMS,
   DIFFUSE_DEFAULT_DELAY_ROUNDS,
   DIFFUSE_MAX_PERCENTAGE,
   ElementNames,
@@ -50,6 +51,11 @@ import {
   furnitureItemSchema,
 } from "@/validators/itemFurniture";
 import { rewardFields } from "@/validators/rewards";
+import {
+  maximumCacheItems,
+  weightedCacheDraftSchema,
+  weightedCacheSchema,
+} from "@/validators/weightedCache";
 
 /**
  * Schema & types for performing battle actions
@@ -835,12 +841,23 @@ export const ActivateSageModeTag = z.object({
   description: msg("Enter sage mode using your equipped sage mode definition"),
 });
 
-export const NonCombatConsumeRewardTag = z.object({
-  ...BaseAttributes,
-  ...rewardFields,
-  type: z.literal("noncombatconsumereward").prefault("noncombatconsumereward"),
-  description: msg("Gain various rewards from consumption outside of combat"),
-});
+export const NonCombatConsumeRewardTag = z
+  .object({
+    ...BaseAttributes,
+    ...rewardFields,
+    type: z.literal("noncombatconsumereward").prefault("noncombatconsumereward"),
+    description: msg("Gain various rewards from consumption outside of combat"),
+    rewardMode: z.enum(["standard", "weightedCache"]).optional(),
+    weightedCache: weightedCacheDraftSchema.optional(),
+  })
+  .superRefine((effect, ctx) => {
+    if (effect.rewardMode !== "weightedCache") return;
+    const result = weightedCacheSchema.safeParse(effect.weightedCache);
+    if (!result.success) {
+      for (const issue of result.error.issues)
+        ctx.addIssue({ ...issue, path: ["weightedCache", ...issue.path] });
+    }
+  });
 export type NonCombatConsumeRewardTagType = z.infer<typeof NonCombatConsumeRewardTag>;
 
 export const RepairTag = z.object({
@@ -1503,6 +1520,23 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   if (data.itemType === "CONSUMABLE" && !data.destroyOnUse) {
     addIssue(ctx, "Consumable items must be destroyed on use");
   }
+  const caches = data.effects.flatMap((effect) =>
+    effect.type === "noncombatconsumereward" &&
+    effect.rewardMode === "weightedCache" &&
+    effect.weightedCache
+      ? [effect.weightedCache]
+      : [],
+  );
+  if (caches.length > 0 && !data.preventBattleUsage)
+    addIssue(ctx, "Weighted caches must prevent battle usage");
+  if (
+    caches.reduce((sum, cache) => sum + maximumCacheItems(cache), 0) >
+    CACHE_MAX_GRANTED_ITEMS
+  )
+    addIssue(
+      ctx,
+      `All cache effects together may grant at most ${CACHE_MAX_GRANTED_ITEMS} items per opening`,
+    );
   if (hasNonCombatConsumeReward) {
     if (data.itemType !== "CONSUMABLE") {
       addIssue(ctx, "Non-combat consume reward must be consumable.");

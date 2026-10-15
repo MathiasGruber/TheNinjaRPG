@@ -54,6 +54,7 @@ import { RewardEditor } from "@/layout/RewardEditor";
 import RichInput from "@/layout/RichInput";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
+import { WeightedCacheEditor } from "@/layout/WeightedCacheEditor";
 import { damageModifierTypes } from "@/libs/combat/constants";
 import { POTENCY_TAG_LABELS } from "@/libs/combat/potency";
 import {
@@ -62,6 +63,7 @@ import {
 } from "@/libs/overworldAi";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
+import { defaultWeightedCache } from "@/libs/weightedCache";
 import { calculateContentDiff } from "@/utils/diff";
 import { isRetryableTrpcError } from "@/utils/error";
 import { canAwardReputation } from "@/utils/permissions";
@@ -1668,7 +1670,12 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       fields.includes("jutsuIds"),
   });
 
-  const { data: itemData } = api.item.getAllNames.useQuery(undefined, {
+  const {
+    data: itemData,
+    isLoading: isItemCatalogLoading,
+    isError: isItemCatalogError,
+    refetch: refetchItemCatalog,
+  } = api.item.getAllNames.useQuery(undefined, {
     enabled:
       fields.includes("items") ||
       fields.includes("reward_items") ||
@@ -1778,6 +1785,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // Coordinate drafts must reach the parent validator so Save cannot persist an
     // older valid pattern while duplicate or incomplete coordinates are on screen.
     const hasCoordinateDraft = watchAll.target === "COORDINATES";
+    const hasCacheDraft = watchType === "noncombatconsumereward";
     const leftCoordinateTarget = tag.target === "COORDINATES" && !hasCoordinateDraft;
     const draft = leftCoordinateTarget
       ? { ...watchAll, coordinateTargeting: null }
@@ -1785,7 +1793,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     const parsedTag = tagSchema.safeParse(draft);
     const shownTag = parsedTag.success
       ? parsedTag.data
-      : hasCoordinateDraft
+      : hasCoordinateDraft || hasCacheDraft
         ? draft
         : tag;
     newEffects[idx] = shownTag;
@@ -1797,6 +1805,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         }
         if (
           hasCoordinateDraft ||
+          hasCacheDraft ||
           (leftCoordinateTarget && parsedTag.success) ||
           form.formState.isValid
         ) {
@@ -1825,7 +1834,12 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   };
 
   // Parse how to present the tag form
-  const ignore = ["timeTracker", "type"];
+  const ignore = ["timeTracker", "type", "weightedCache", "rewardMode"];
+  if (watchAll.rewardMode === "weightedCache") {
+    ignore.push(
+      ...Object.keys(tagSchema.shape).filter((key) => key.startsWith("reward_")),
+    );
+  }
   if (isDamageModifier && !hasElementFilter) ignore.push("elements");
   if (watchAll.target !== "COORDINATES") ignore.push("coordinateTargeting");
   if (props.type === "bloodline") {
@@ -2159,6 +2173,48 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   // Re-used EditContent component for actually showing the form
   return (
     <>
+      {watchType === "noncombatconsumereward" &&
+        (!props.editableFields || props.editableFields.includes("rewardMode")) && (
+          <div className="my-3 space-y-2">
+            <Label>Reward mode</Label>
+            <Select
+              value={watchAll.rewardMode ?? "standard"}
+              onValueChange={(value) => {
+                if (value === "weightedCache" && !watchAll.weightedCache)
+                  form.setValue("weightedCache", defaultWeightedCache(), {
+                    shouldDirty: true,
+                  });
+                form.setValue("rewardMode", value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
+            >
+              <SelectTrigger aria-label="Reward mode">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="standard">Standard rewards</SelectItem>
+                <SelectItem value="weightedCache">Weighted Cache</SelectItem>
+              </SelectContent>
+            </Select>
+            {watchAll.rewardMode === "weightedCache" && (
+              <WeightedCacheEditor
+                cache={watchAll.weightedCache ?? defaultWeightedCache()}
+                onChange={(cache) =>
+                  form.setValue("weightedCache", cache, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                items={itemData ?? []}
+                isLoading={isItemCatalogLoading}
+                isError={isItemCatalogError}
+                onRetry={() => void refetchItemCatalog()}
+              />
+            )}
+          </div>
+        )}
       {isDamageModifier &&
         (!props.editableFields || props.editableFields.includes("elements")) && (
           <div className="mb-3 space-y-1">

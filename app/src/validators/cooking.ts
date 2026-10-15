@@ -29,6 +29,10 @@ export const cookItemInputSchema = z.object({
 export const consumeItemInputSchema = z.object({
   userItemId: z.string(),
   expectedQuantity: z.int().positive().optional(),
+  requestId: z
+    .string()
+    .regex(/^[\w-]{10,64}$/)
+    .optional(),
 });
 
 /** A fixed positive stat or regeneration bonus whose duration is controlled by the meal. */
