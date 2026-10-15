@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { quest, questHistory, userData } from "@/drizzle/schema";
+import { item, quest, questHistory, userData, userItem } from "@/drizzle/schema";
 import { getNewTrackers } from "@/libs/quest";
 import { Pusher } from "@/libs/pusher";
 import * as socials from "@/libs/socials";
@@ -9,7 +9,7 @@ import { assignQuestToUser, questsRouter } from "@/server/api/routers/quests";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { DialogObjective, InstantStartBattleObjective, QuestTracker, SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
-import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
+import { insertItems, insertQuestHistory, insertQuests, insertUserItems, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -22,7 +22,7 @@ const checkpoint = QuestTracker.parse({ id: "pyramid", startAt: "2026-01-01T00:0
 
 describeWithDatabase("quest run state preservation", () => {
   beforeEach(async () => {
-    await resetTables(questHistory, quest, userData);
+    await resetTables(questHistory, quest, userItem, item, userData);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     vi.spyOn(socials, "callDiscordContent").mockResolvedValue(undefined);
     await insertUsers([{ userId: "hero", status: "AWAKE", rank: "JONIN", level: 50, isOutlaw: true, regeneration: 0, primaryElement: "Fire", secondaryElement: "Water" }, { userId: "editor", role: "OWNER" }]);
@@ -122,6 +122,8 @@ describeWithDatabase("quest run state preservation", () => {
     const client = await getTestDatabase();
     await client.update(userData).set({ dailyMissions: 19 }).where(eq(userData.userId, "hero"));
     await client.update(quest).set({ content: { ...content, entryItems: [{ ids: ["ticket"], number: 1 }] } }).where(eq(quest.id, "mission"));
+    await insertItems([{ id: "ticket" }]);
+    await insertUserItems([{ id: "tickets", userId: "hero", itemId: "ticket", quantity: 2 }]);
     const authored = await client.query.quest.findFirst({ where: eq(quest.id, "mission") });
     const { user } = await fetchUpdatedUser({ client, userId: "hero" });
     const transact = client.transaction.bind(client);
@@ -140,6 +142,8 @@ describeWithDatabase("quest run state preservation", () => {
     expect(attempts).toBe(retries + 1);
     expect(user!.dailyMissions).toBe(20);
     expect((await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }))?.dailyMissions).toBe(20);
-    expect(await client.query.questHistory.findMany({ where: eq(questHistory.questId, "mission") })).toHaveLength(1);
+    expect(await client.query.questHistory.findMany({ where: eq(questHistory.questId, "mission") })).toMatchObject([{ entryPaid: true }]);
+    // Rolled-back attempts must not leave their ticket debit behind.
+    expect((await client.query.userItem.findFirst({ where: eq(userItem.id, "tickets") }))?.quantity).toBe(1);
   });
 });

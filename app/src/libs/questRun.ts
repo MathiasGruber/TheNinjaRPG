@@ -37,6 +37,12 @@ export const getQuestEntryRequirements = (
   return [...quantities].map(([itemId, quantity]) => ({ itemId, quantity }));
 };
 
+/** "2× Pyramid Ticket, 1× Key" — the entry cost as players read it. */
+export const formatQuestEntryCost = (
+  requirements: readonly { quantity: number; name: string }[],
+) =>
+  requirements.map((required) => `${required.quantity}× ${required.name}`).join(", ");
+
 /** Only run progression, combat controls, preferences and authorized staff rescue remain usable. */
 export const isPyramidRestrictedProcedure = (path: string) =>
   ![

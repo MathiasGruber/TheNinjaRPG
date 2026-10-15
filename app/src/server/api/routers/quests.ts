@@ -107,6 +107,7 @@ import {
   verifyQuestContentForSave,
 } from "@/libs/quest";
 import {
+  formatQuestEntryCost,
   getIsolatedPyramid,
   getQuestEntryRequirements,
   hasQuestContentChanged,
@@ -163,6 +164,11 @@ import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
+import {
+  fetchQuestEntryInventory,
+  getQuestEntryCharges,
+  payQuestEntryAtStart,
+} from "@/server/utils/questEntry";
 import {
   publishQuestPartyProgress,
   resetQuestPartyProgress,
@@ -2889,6 +2895,40 @@ export const assignQuestToUser = async (args: {
   const block = questTypeConcurrentBlockMessage(questData, user);
   if (block) return errorResponse(block);
 
+  // Entry items are checked and paid when the run starts, not at its first battle, so a
+  // player without the items never holds a run they cannot fight. Re-entering an attempt
+  // that is still open keeps its receipt; a fresh or restarted attempt pays again.
+  let entryCharges: NonNullable<ReturnType<typeof getQuestEntryCharges>> = [];
+  const entryRequirements = getQuestEntryRequirements(questData.content);
+  if (entryRequirements.length > 0) {
+    const reopensPaidAttempt =
+      !!prevAttempt &&
+      prevAttempt.completed === 0 &&
+      prevAttempt.endAt === null &&
+      prevAttempt.entryPaid;
+    const charges = getQuestEntryCharges(
+      { entryPaid: reopensPaidAttempt, quest: questData },
+      await fetchQuestEntryInventory(client, user.userId),
+    );
+    if (!charges) {
+      const names = await client.query.item.findMany({
+        columns: { id: true, name: true },
+        where: inArray(
+          item.id,
+          entryRequirements.map((required) => required.itemId),
+        ),
+      });
+      const cost = formatQuestEntryCost(
+        entryRequirements.map((required) => ({
+          quantity: required.quantity,
+          name: names.find((row) => row.id === required.itemId)?.name ?? "unknown item",
+        })),
+      );
+      return errorResponse(`You need ${cost} in your inventory to enter.`);
+    }
+    entryCharges = charges;
+  }
+
   // War: fetch active wars (expensive; only after all cheap guards pass)
   if (questData.questType === "war") {
     if (!user.villageId) {
@@ -2918,8 +2958,11 @@ export const assignQuestToUser = async (args: {
   // stamp without a quest — the same fail-safe leak the equivalent merge in initiateBattle
   // accepts, and harmless since it only makes the user more attackable.
   let assignment: Awaited<ReturnType<typeof upsertQuestEntry>>;
-  if (questData.questType === "war") {
-    const result = await client
+  // Rolls back the claim, history and any debited stack when a ticket stack changed.
+  const entryRejected = new Error("Quest entry rejected");
+  const warLimitMessage = `You have reached your daily war mission limit of ${WAR_MISSIONS_PER_DAY}`;
+  const claimWarSlot = (database: DrizzleClient) =>
+    database
       .update(userData)
       .set({
         dailyWarMissions: sql`${userData.dailyWarMissions} + 1`,
@@ -2931,10 +2974,53 @@ export const assignQuestToUser = async (args: {
           sql`${userData.dailyWarMissions} < ${WAR_MISSIONS_PER_DAY}`,
         ),
       );
+  if (questData.questType === "war" && entryCharges.length > 0) {
+    // With entry items the slot, history row and item debit must commit together, so a
+    // changed ticket stack refunds the daily slot instead of burning it.
+    const warLimitReached = new Error("War mission limit reached");
+    const paid = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const database = tx as unknown as DrizzleClient;
+        if ((await claimWarSlot(database)).rowsAffected === 0) throw warLimitReached;
+        // A rolled-back attempt must not leave its tracker changes on the caller's user.
+        const warUser = { ...user };
+        const result = await upsertQuestEntry(
+          database,
+          warUser,
+          questData,
+          source,
+          prevAttempt ?? null,
+          true,
+        );
+        if (
+          !(await payQuestEntryAtStart({
+            client: database,
+            userId: user.userId,
+            questId: questData.id,
+            charges: entryCharges,
+          }))
+        )
+          throw entryRejected;
+        result.entry = { ...result.entry, entryPaid: true };
+        warUser.userQuests = warUser.userQuests.map((row) =>
+          row.questId === questData.id ? { ...row, entryPaid: true } : row,
+        );
+        return { result, user: warUser };
+      }),
+    ).catch((error: unknown) => {
+      if (error === warLimitReached) return undefined;
+      if (error === entryRejected) return null;
+      throw error;
+    });
+    if (paid === undefined) return errorResponse(warLimitMessage);
+    if (paid === null)
+      return errorResponse("Your entry items changed. Please try again.");
+    Object.assign(user, paid.user);
+    assignment = paid.result;
+  } else if (questData.questType === "war") {
+    const result = await claimWarSlot(client);
     if (result.rowsAffected === 0) {
-      return errorResponse(
-        `You have reached your daily war mission limit of ${WAR_MISSIONS_PER_DAY}`,
-      );
+      return errorResponse(warLimitMessage);
     }
     assignment = await upsertQuestEntry(
       client,
@@ -2988,10 +3074,31 @@ export const assignQuestToUser = async (args: {
           prevAttempt ?? null,
           true,
         );
+        if (
+          entryCharges.length > 0 &&
+          !(await payQuestEntryAtStart({
+            client: database,
+            userId: user.userId,
+            questId: questData.id,
+            charges: entryCharges,
+          }))
+        )
+          throw entryRejected;
+        if (entryCharges.length > 0) {
+          result.entry = { ...result.entry, entryPaid: true };
+          claimedUser.userQuests = claimedUser.userQuests.map((row) =>
+            row.questId === questData.id ? { ...row, entryPaid: true } : row,
+          );
+        }
         await incrementDailyQuestCounter(database, claimedUser, questData.questType);
         return { result, user: claimedUser };
       }),
-    );
+    ).catch((error: unknown) => {
+      if (error === entryRejected) return null;
+      throw error;
+    });
+    if (assigned === null)
+      return errorResponse("Your entry items changed. Please try again.");
     if (!assigned)
       return errorResponse(
         "Your account changed or another Pyramid started. Refresh and try again.",
