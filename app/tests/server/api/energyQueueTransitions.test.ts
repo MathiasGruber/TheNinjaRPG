@@ -18,6 +18,7 @@ import {
   userVote,
   userRaidBuff,
   village,
+  villageStructure,
 } from "@/drizzle/schema";
 import { getServerPusher } from "@/libs/pusher";
 import { getEnergyQueue } from "@/libs/queue";
@@ -168,6 +169,7 @@ describeWithDatabase("Energy queue state transitions", () => {
       userVote,
       userData,
       village,
+      villageStructure,
     );
     invalidatePublishedMapCache();
   });

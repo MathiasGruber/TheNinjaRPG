@@ -22,7 +22,7 @@ import { getTotalItemQuantity } from "@/libs/crafting";
 import { showMutationToast } from "@/libs/toast";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { getShrineBoost } from "@/utils/village";
+import { countBoostingShrines, getShrineBoost } from "@/utils/village";
 
 /** Recipe selection, batch production, Cooking progression, and active meal effects. */
 export default function Kitchen({ image }: { image?: string }) {
@@ -82,7 +82,7 @@ export default function Kitchen({ image }: { image?: string }) {
       requirement.quantity * batches,
   );
   const shrineBoost = getShrineBoost(
-    user?.village?.sectors?.length ?? 0,
+    countBoostingShrines(user?.village?.sectors),
     "Crafting",
     user?.village,
   );
