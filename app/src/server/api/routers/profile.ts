@@ -211,6 +211,7 @@ import {
   awardRecruitRankMilestonesSafely,
   fetchRecruitMilestoneSummary,
 } from "@/server/utils/recruitment";
+import { retainSanctionIps } from "@/server/utils/sanctionTombstone";
 import { fetchPublishedSectorMaps } from "@/server/utils/sectorMap";
 import {
   fetchJutsuQueueSummary,
@@ -3954,6 +3955,7 @@ const persistPassiveRegenToDb = async ({
           .onDuplicateKeyUpdate({
             set: { usedAt: new Date(), ipHash: hashIp(userIp) },
           })
+          .then(() => retainSanctionIps(client, userId, [userIp]))
       : Promise.resolve(null);
 
   const [freshVillageRow] = await Promise.all([

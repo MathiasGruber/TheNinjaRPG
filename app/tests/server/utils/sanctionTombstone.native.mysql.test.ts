@@ -278,6 +278,105 @@ describeWithDatabase("original sanctions during native deletion", () => {
     await resetTables(sanctionTombstone);
   });
 
+  it.each(["clear", "silence", "ban"] as const)(
+    "preserves carryover %s while the original Clerk deletion retries",
+    async (decision) => {
+      const database = await getTestDatabase();
+      const ip = "192.0.2.71";
+      await database
+        .update(userData)
+        .set({ lastIp: ip })
+        .where(eq(userData.userId, NATIVE_USER));
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      let failsOnce = true;
+      const deleted = new Set<string>();
+      vi.spyOn(clerk, "clerkClient").mockResolvedValue({
+        users: {
+          getUser: vi.fn(async (userId: string) => {
+            if (deleted.has(userId))
+              throw Object.assign(new Error("not found"), { status: 404 });
+            return {
+              ...identity,
+              emailAddresses: [
+                { ...identity.emailAddresses[0]!, emailAddress: `${userId}@example.com` },
+              ],
+              externalAccounts: [],
+            };
+          }),
+          deleteUser: vi.fn(async (userId: string) => {
+            if (failsOnce) {
+              failsOnce = false;
+              throw new Error("Clerk temporarily unavailable");
+            }
+            deleted.add(userId);
+          }),
+        },
+      } as never);
+      await database.insert(accountDeletion).values({ userId: NATIVE_USER });
+      expect(await processAccountDeletions(NATIVE_USER)).toEqual({
+        processed: 0,
+        failed: 1,
+      });
+      expect(await database.query.accountDeletion.findFirst()).toMatchObject({
+        phase: "QUEUED",
+      });
+      const [inherited] = await register("DuringDelay", ip);
+      expect(inherited).toMatchObject({ status: "BAN_ACTIVATED" });
+      const paused = await pauseNextDecision();
+      const deciding = callerForDatabase(reportsRouter, "staff", paused.client)[decision](
+        {
+          ...decisionInput,
+          object_id: inherited!.id,
+          banTime: 30,
+        },
+      );
+      await paused.entered;
+      try {
+        // Recapture after the decision but before closure/pruning must not revive it.
+        const before = await database.query.sanctionTombstone.findMany();
+        await recordSanctionTombstone(database, NATIVE_USER);
+        expect(await database.query.sanctionTombstone.findMany()).toEqual(before);
+      } finally {
+        paused.release();
+        await deciding;
+      }
+      expect(await deciding).toMatchObject({ success: true });
+      const expected = await database.query.sanctionTombstone.findMany();
+      if (decision === "clear") {
+        expect(expected).toHaveLength(0);
+        expect(
+          await database.query.userReport.findFirst({
+            where: eq(userReport.id, "original"),
+          }),
+        ).toMatchObject({ status: "REPORT_CLEARED" });
+      } else {
+        expect(expected).toMatchObject([
+          { sanction: decision === "ban" ? "BAN" : "SILENCE" },
+        ]);
+        expect(expected[0]!.sanctionEndsAt.getTime()).toBeGreaterThan(
+          Date.now() + 29 * DAY,
+        );
+      }
+      await database
+        .update(accountDeletion)
+        .set({ nextAttemptAt: new Date(Date.now() - 1) })
+        .where(eq(accountDeletion.userId, NATIVE_USER));
+      expect(await processAccountDeletions(NATIVE_USER)).toEqual({
+        processed: 1,
+        failed: 0,
+      });
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      const later = await register("AfterRetry", ip);
+      expect(later).toHaveLength(decision === "clear" ? 0 : 1);
+      if (decision !== "clear")
+        expect(later[0]).toMatchObject({
+          status: decision === "ban" ? "BAN_ACTIVATED" : "SILENCE_ACTIVATED",
+          banEnd: expected[0]!.sanctionEndsAt,
+        });
+      await finishDeletion();
+    },
+  );
+
   it.each([false, true])(
     "finishes a clear after source pruning (deadlock: %p)",
     async (deadlock) => {

@@ -203,17 +203,16 @@ const activeSanctionReportsWhere = (userId: string) =>
  *
  * Pass the Clerk user when the caller already holds it; otherwise it is loaded, and only
  * when a sanction exists. The write selects current decisions after the Clerk lookup.
- * Repeated captures preserve case links. Once Clerk is gone, only add observed IP hashes:
- * moderation updates the captured decision through updateSanctionReport, and the original
- * reports may now be stale. Live retained sources can acquire IP hashes even after the
- * original reports expire or are removed, without changing the captured decision.
+ * Repeated captures preserve captured decisions and case links. Moderation changes the
+ * sources through updateSanctionReport; their original reports may now be stale. Live
+ * sources can acquire IP hashes even after the original reports are removed.
  */
 export const recordSanctionTombstone = async (
   client: DrizzleClient,
   userId: string,
   identity?: SanctionIdentity | null,
 ) => {
-  const [activeReport, user, ips] = await Promise.all([
+  const [activeReport, user] = await Promise.all([
     client.query.userReport.findFirst({
       columns: { id: true },
       where: activeSanctionReportsWhere(userId),
@@ -222,92 +221,89 @@ export const recordSanctionTombstone = async (
       columns: { lastIp: true },
       where: eq(userData.userId, userId),
     }),
-    client.query.historicalIp.findMany({
-      columns: { ip: true },
-      where: eq(historicalIp.userId, userId),
-    }),
   ]);
   const clerkUser = activeReport
     ? identity === undefined
       ? await fetchSanctionIdentity(userId)
       : identity
     : null;
-  const ipHashes = [
-    ...new Set(
-      [user?.lastIp, ...ips.map(({ ip }) => ip)]
-        .map(hashSanctionIp)
-        .filter((hash): hash is string => hash !== null),
-    ),
-  ].sort();
-  // Merge against the current row, retaining addresses removed by partial cleanup.
-  const mergedIpHashes = ipHashes.length
-    ? sql`JSON_MERGE_PRESERVE(${sanctionTombstone.ipHashes}, ${sql.join(
-        ipHashes.map(
-          (hash) =>
-            sql`IF(JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${hash})), JSON_ARRAY(), JSON_ARRAY(${hash}))`,
-        ),
-        sql`, `,
-      )})`
-    : undefined;
-  if (!clerkUser) {
-    // In-flight requests can persist IPs after identity deletion. Add them only to live
-    // sources, preserving staff revisions and never recreating a cleared sanction.
-    if (mergedIpHashes)
-      await retryOnDeadlock(() =>
-        client
-          .update(sanctionTombstone)
-          .set({ ipHashes: mergedIpHashes })
-          .where(
-            and(
-              eq(sanctionTombstone.userId, userId),
-              gt(sanctionTombstone.sanctionEndsAt, sql`CURRENT_TIMESTAMP(3)`),
-            ),
-          ),
-      );
-    return;
+  if (clerkUser) {
+    const hashes = {
+      emailHash: primaryEmailHashOf(clerkUser),
+      accountHashes: accountHashesOf(clerkUser),
+    };
+    const sanction = sql<SanctionTombstoneType>`CASE WHEN ${userReport.status} = 'BAN_ACTIVATED' THEN 'BAN' ELSE 'SILENCE' END`;
+    // Select eligibility and the decision in the same write, so a completed staff revision
+    // cannot be replaced by a snapshot from before the Clerk lookup.
+    await retryOnDeadlock(() =>
+      client
+        .insert(sanctionTombstone)
+        .select(
+          client
+            .select({
+              userId: sql`${userId}`.as("userId"),
+              sourceId: userReport.id,
+              sanction: sanction.as("sanction"),
+              sanctionEndsAt: userReport.banEnd,
+              emailHash: sql`${hashes.emailHash}`.as("emailHash"),
+              // INSERT SELECT bypasses column encoders; produce SQL JSON for arrays.
+              accountHashes:
+                sql`CAST(${JSON.stringify(hashes.accountHashes)} AS JSON)`.as(
+                  "accountHashes",
+                ),
+              ipHashes: sql`JSON_ARRAY()`.as("ipHashes"),
+              carryoverReportIds: sql`JSON_ARRAY()`.as("carryoverReportIds"),
+              createdAt: sql`CURRENT_TIMESTAMP(3)`.as("createdAt"),
+            })
+            .from(userReport)
+            .where(activeSanctionReportsWhere(userId)),
+        )
+        .onDuplicateKeyUpdate({
+          set: {
+            emailHash: hashes.emailHash,
+            accountHashes: hashes.accountHashes,
+          },
+        }),
+    );
   }
-  const hashes = {
-    emailHash: primaryEmailHashOf(clerkUser),
-    accountHashes: accountHashesOf(clerkUser),
-    ipHashes,
-  };
-  const sanction = sql<SanctionTombstoneType>`CASE WHEN ${userReport.status} = 'BAN_ACTIVATED' THEN 'BAN' ELSE 'SILENCE' END`;
-  // Select eligibility and the decision in the same write, so a completed staff revision
-  // cannot be replaced by a snapshot from before the Clerk lookup.
+  // Keep the preflight lastIp, and read history only after creating sources. Profile
+  // writes append after persisting history: either this read sees the new address,
+  // or the profile append sees the retained source.
+  const ips = await client.query.historicalIp.findMany({
+    columns: { ip: true },
+    where: eq(historicalIp.userId, userId),
+  });
+  await retainSanctionIps(client, userId, [user?.lastIp, ...ips.map(({ ip }) => ip)]);
+};
+
+/** Add observed IPs only to live sources; never recreate a cleared staff decision. */
+export const retainSanctionIps = async (
+  client: DrizzleClient,
+  userId: string,
+  ips: (string | null | undefined)[],
+) => {
+  const hashes = [
+    ...new Set(ips.map(hashSanctionIp).filter((hash) => hash !== null)),
+  ].sort();
+  if (!hashes.length) return;
   await retryOnDeadlock(() =>
     client
-      .insert(sanctionTombstone)
-      .select(
-        client
-          .select({
-            userId: sql`${userId}`.as("userId"),
-            sourceId: userReport.id,
-            sanction: sanction.as("sanction"),
-            sanctionEndsAt: userReport.banEnd,
-            emailHash: sql`${hashes.emailHash}`.as("emailHash"),
-            // INSERT SELECT bypasses column encoders; produce SQL JSON for arrays.
-            accountHashes:
-              sql`CAST(${JSON.stringify(hashes.accountHashes)} AS JSON)`.as(
-                "accountHashes",
-              ),
-            ipHashes: sql`CAST(${JSON.stringify(hashes.ipHashes)} AS JSON)`.as(
-              "ipHashes",
-            ),
-            carryoverReportIds: sql`JSON_ARRAY()`.as("carryoverReportIds"),
-            createdAt: sql`CURRENT_TIMESTAMP(3)`.as("createdAt"),
-          })
-          .from(userReport)
-          .where(activeSanctionReportsWhere(userId)),
-      )
-      .onDuplicateKeyUpdate({
-        set: {
-          sanction,
-          sanctionEndsAt: sql`${userReport.banEnd}`,
-          emailHash: hashes.emailHash,
-          accountHashes: hashes.accountHashes,
-          ipHashes: mergedIpHashes,
-        },
-      }),
+      .update(sanctionTombstone)
+      .set({
+        ipHashes: sql`JSON_MERGE_PRESERVE(${sanctionTombstone.ipHashes}, ${sql.join(
+          hashes.map(
+            (hash) =>
+              sql`IF(JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${hash})), JSON_ARRAY(), JSON_ARRAY(${hash}))`,
+          ),
+          sql`, `,
+        )})`,
+      })
+      .where(
+        and(
+          eq(sanctionTombstone.userId, userId),
+          gt(sanctionTombstone.sanctionEndsAt, sql`CURRENT_TIMESTAMP(3)`),
+        ),
+      ),
   );
 };
 
@@ -707,17 +703,26 @@ export const updateSanctionReport = async (
   if (result.rowsAffected === 0) return false;
   // Expiry retires sources in the decision write. Prune only still-expired rows so a
   // delayed clear cannot erase a newer active decision on the same case.
-  if (!activeEnd)
-    await retryOnDeadlock(() =>
-      client
-        .delete(sanctionTombstone)
-        .where(and(sources, lte(sanctionTombstone.sanctionEndsAt, endsAt))),
-    );
+  if (!activeEnd) await removeExpiredSanctionTombstones(client, sources);
   return true;
 };
 
-/** Drop tombstones whose sanction has ended; nothing is kept past the sanction. */
-export const removeExpiredSanctionTombstones = (client: DrizzleClient) =>
-  client
-    .delete(sanctionTombstone)
-    .where(lte(sanctionTombstone.sanctionEndsAt, new Date()));
+/** Close surviving source reports before pruning their expired retained decisions. */
+export const removeExpiredSanctionTombstones = async (
+  client: DrizzleClient,
+  sources?: ReturnType<typeof or>,
+) => {
+  const expired = and(sources, lte(sanctionTombstone.sanctionEndsAt, new Date()));
+  // A retry must not recreate a cleared/expired source from its stale original report.
+  // Capture never changes existing decisions, so the source remains expired until this
+  // durable report closure completes; pruning is safe only after it succeeds.
+  await retryOnDeadlock(() =>
+    client.execute(sql`
+      UPDATE ${userReport}
+      INNER JOIN ${sanctionTombstone} ON ${and(eq(userReport.id, sanctionTombstone.sourceId), eq(userReport.reportedUserId, sanctionTombstone.userId))}
+      SET ${userReport.status} = 'REPORT_CLEARED', ${userReport.adminResolved} = TRUE, ${userReport.updatedAt} = CURRENT_TIMESTAMP(3)
+      WHERE ${and(expired, inArray(userReport.status, ["BAN_ACTIVATED", "SILENCE_ACTIVATED", "TIMEOUT_ACTIVATED"]), gt(userReport.banEnd, sql`CURRENT_TIMESTAMP(3)`))}
+    `),
+  );
+  return retryOnDeadlock(() => client.delete(sanctionTombstone).where(expired));
+};
