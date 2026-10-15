@@ -409,7 +409,7 @@ export const saveUsage = async (
   userId: string,
 ) => {
   // Completion claims own dungeon progression and rewards; floors do not train the loadout.
-  if (curBattle.extraState.dungeon) return;
+  if (curBattle.extraState.dungeon || curBattle.extraState.tournamentGameId) return;
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
   if (result && user) {
@@ -704,6 +704,7 @@ export const updateWars = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  if (curBattle.extraState.tournamentGameId) return;
   // Fetch user
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const userVillageId = user?.villageId;
@@ -1128,6 +1129,28 @@ export const updateTournament = async (
   // Fetch
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const target = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  // Event games use sparring rules and record one durable outcome, including draws.
+  if (curBattle.extraState.tournamentGameId && user && target && result) {
+    await client
+      .update(tournamentMatch)
+      .set({
+        state: "PLAYED",
+        winnerId:
+          result.outcome === "Draw"
+            ? null
+            : result.didWin
+              ? user.userId
+              : target.userId,
+      })
+      .where(
+        and(
+          eq(tournamentMatch.id, curBattle.extraState.tournamentGameId),
+          eq(tournamentMatch.battleId, curBattle.id),
+          eq(tournamentMatch.state, "WAITING"),
+        ),
+      );
+    return;
+  }
   // Guards
   if (!user) return;
   if (!target) return;
@@ -1150,6 +1173,7 @@ export const updateVillageAnbuClan = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  if (curBattle.extraState.tournamentGameId) return;
   // Fetch
   const user = curBattle.usersState.find((u) => u.userId === userId);
   // Guards
@@ -1369,6 +1393,27 @@ export const updateUser = async (
   // Party settlement restores every member together, bypassing single-player combat rewards.
   if (curBattle.extraState.dungeon) return { updatedQuestIds };
   const user = curBattle.usersState.find((u) => u.userId === userId);
+  if (result && user && curBattle.extraState.tournamentGameId) {
+    // Event battles are exhibition matches: preserve inventory, pools, progression,
+    // immunity and every ordinary combat statistic. Only release this battle's claim.
+    const settledAt = new Date();
+    await client
+      .update(userData)
+      .set({
+        status: "AWAKE",
+        battleId: null,
+        regenAt: settledAt,
+        curEnergy: combatEnergyRecoverySql(curBattle, userId, 0, settledAt),
+        updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+      })
+      .where(and(eq(userData.userId, userId), eq(userData.battleId, curBattle.id)));
+    void updateUserOnMap(pusher, user.sector, {
+      ...user,
+      longitude: user.originalLongitude,
+      latitude: user.originalLatitude,
+    });
+    return { updatedQuestIds };
+  }
   if (result && user) {
     const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
     const hasHumanOpponent = curBattle.usersState.some(

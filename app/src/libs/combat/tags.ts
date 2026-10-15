@@ -3163,6 +3163,7 @@ export const summon = (
         newAi.isOriginal = true;
         newAi.controllerId = user.userId;
         newAi.isPiloted = wantsPilot;
+        if (battle.extraState?.tournamentAiOnly) newAi.isAutoCombat = true;
         // Remember which creature this is: controllerId is about to be rebound
         // to the summoner, so this is the only surviving link to the template.
         newAi.summonSourceId = effect.aiId;

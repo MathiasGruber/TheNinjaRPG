@@ -29,11 +29,13 @@ import { secondsFromDate } from "@/utils/time";
 import { checkCoLeader } from "@/validators/clan";
 import { ObjectiveReward } from "@/validators/rewards";
 import { tournamentCreateSchema } from "@/validators/tournament";
+import { eventTournamentProcedures, syncEventTournament } from "./tournamentEvents";
 
 const TOURNAMENT_FINALIZATION_INCOMPLETE =
   "Tournament finalization incomplete. Staff recovery required.";
 
 export const tournamentRouter = createTRPCRouter({
+  ...eventTournamentProcedures,
   // Advances rounds and finalizes payouts via syncTournamentState before each read so clients
   // need not call syncTournament separately (authenticated tRPC; not edge-cacheable like static GET).
   getTournament: protectedProcedure
@@ -104,6 +106,8 @@ export const tournamentRouter = createTRPCRouter({
       // General guards
       if (!user) return errorResponse("User not found");
       if (!tournamentData) return errorResponse("Tournament not found.");
+      if (tournamentData.type === "EVENT")
+        return errorResponse("Use the event tournament page");
       if (matches.find((m) => [m.userId1, m.userId2].includes(user.userId))) {
         return errorResponse("User already in tournament.");
       }
@@ -150,6 +154,8 @@ export const tournamentRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!matchData) return errorResponse("Match not found.");
       if (!tournamentData) return errorResponse("Tournament not found.");
+      if (tournamentData.type === "EVENT")
+        return errorResponse("Use the event tournament page");
       if (tournamentData.round !== matchData.round) {
         return errorResponse("Match not in current round.");
       }
@@ -559,6 +565,11 @@ export const syncTournamentState = async (
   }
 
   const now = new Date();
+  if (data.type === "EVENT") {
+    await syncEventTournament(client, tournamentId);
+    return { success: true, message: "Tournament synchronized." };
+  }
+
   const [afterOpen, earlyAfterOpen] = await promoteOpenTournamentIfStarted(
     client,
     tournamentId,

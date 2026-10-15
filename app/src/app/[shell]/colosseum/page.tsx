@@ -12,6 +12,7 @@ import {
 import { type BattleType, BattleTypes } from "@/drizzle/constants";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import type { ArrayElement } from "@/utils/typeutils";
@@ -130,6 +131,14 @@ export default function ColosseumPage() {
       }
     >
       <div>
+        <div className="m-4 rounded-lg border p-4">
+          <Link className="font-bold text-orange-500 underline" href="/tournaments">
+            Wake Island Tournaments
+          </Link>
+          <p className="text-sm">
+            Register, view brackets and accept your tournament matches.
+          </p>
+        </div>
         {isLoading && <Loader explanation="Loading battles..." />}
         {!isLoading && (!battles || battles.length === 0) && (
           <div className="p-4 text-center text-muted-foreground">

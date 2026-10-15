@@ -423,6 +423,7 @@ export const combatRouter = createTRPCRouter({
                     ),
                     updateWars(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     updateKage(ctx.drizzle, settledBattle, result),
+                    updateTournament(ctx.drizzle, settledBattle, result, ctx.userId),
                     updateRaidProgress(ctx.drizzle, settledBattle, ctx.userId),
                   ]
                 : []),
@@ -711,7 +712,9 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Only allow action if it is the users turn (a piloted summon is human-driven)
-          const { isUserTurn, isAITurn } = getTurnControl(actor, suid);
+          const control = getTurnControl(actor, suid);
+          const isUserTurn = !battle.extraState.tournamentAiOnly && control.isUserTurn;
+          const isAITurn = !!battle.extraState.tournamentAiOnly || control.isAITurn;
           if (!isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
@@ -1124,6 +1127,8 @@ export const combatRouter = createTRPCRouter({
       // Guard
       if (!userBattle) return errorResponse("You are not in a battle");
       if (!user) return errorResponse("You are not in this battle");
+      if (userBattle.extraState.tournamentAiOnly)
+        return errorResponse("AI tournament loadouts are frozen for this game");
       if (user.iAmHere) return errorResponse("You are already marked as ready");
       if (userBattle.battleType !== "COMBAT" && userBattle.battleType !== "SPARRING") {
         return errorResponse("You can only update loadouts in the combat lobby");
@@ -1605,7 +1610,10 @@ export const combatRouter = createTRPCRouter({
         if (!user) return errorResponse("You are not in this battle");
         if (user.isAi)
           return errorResponse("Only human players can toggle auto combat");
-        if (AutoBattleTypes.includes(userBattle.battleType)) {
+        if (
+          userBattle.extraState.tournamentAiOnly ||
+          AutoBattleTypes.includes(userBattle.battleType)
+        ) {
           return errorResponse("This battle is always fought by your AI profile");
         }
         if (user.leftBattle || user.fledBattle || user.curHealth <= 0) {
@@ -1835,7 +1843,8 @@ export const combatRouter = createTRPCRouter({
           WHERE Battle.battleType = ${input.battleType}
             AND (
               Battle.battleType NOT IN ('SPARRING', 'RANKED_SPARRING') OR 
-              UserRequest.spectatable = true
+              UserRequest.spectatable = true OR
+              JSON_EXTRACT(Battle.extraState, '$.tournamentGameId') IS NOT NULL
             )
           ORDER BY Battle.createdAt DESC
           LIMIT ${input.limit} OFFSET ${input.offset}
@@ -1932,6 +1941,8 @@ export const initiateBattle = async (
     clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];
+    /** A launch claimed by the event tournament version CAS. */
+    tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
   },
   battleType: BattleType,
   scaleGains = 1,
@@ -2859,9 +2870,17 @@ export const initiateBattle = async (
     };
   }
 
+  if (info.tournamentGame) {
+    extraState.tournamentGameId = info.tournamentGame.id;
+    extraState.tournamentAiOnly = info.tournamentGame.aiOnly;
+  }
+
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
-  if (info.autoCombatUserIds?.length && AutoCombatBattleTypes.includes(battleType)) {
+  if (
+    info.autoCombatUserIds?.length &&
+    (AutoCombatBattleTypes.includes(battleType) || !!info.tournamentGame)
+  ) {
     usersState.forEach((user) => {
       if (
         !user.isAi &&
@@ -2992,7 +3011,11 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = info.coop?.battleId ?? info.clanBattle?.battleId ?? nanoid();
+  const battleId =
+    info.coop?.battleId ??
+    info.clanBattle?.battleId ??
+    info.tournamentGame?.battleId ??
+    nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
@@ -3009,14 +3032,14 @@ export const initiateBattle = async (
   const stealthBreakUserIds: string[] = [];
 
   // Defenders always lose stealth
-  if (!AutoBattleTypes.includes(battleType)) {
+  if (!info.tournamentGame && !AutoBattleTypes.includes(battleType)) {
     stealthBreakUserIds.push(...targetIds);
   }
 
   // Attackers roll to see if they keep stealth
   for (const userId of userIds) {
     const user = users.find((u) => u.userId === userId);
-    if (user?.stealthActive) {
+    if (!info.tournamentGame && user?.stealthActive) {
       const keepStealth = rollStealthKeep(user.stealth);
       if (!keepStealth) {
         stealthBreakUserIds.push(userId);
@@ -3244,15 +3267,19 @@ export const initiateBattle = async (
           ...queueUpdate,
           status: "BATTLE",
           battleId: battleId,
-          pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
-            ? sql`${userData.pvpFights} + 1`
-            : sql`${userData.pvpFights}`,
-          pveFights: !["SPARRING", "COMBAT"].includes(battleType)
-            ? sql`${userData.pveFights} + 1`
-            : sql`${userData.pveFights}`,
-          immunityUntil: ["SPARRING", "COMBAT", "SHRINE_WAR"].includes(battleType)
-            ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
-            : sql`immunityUntil`,
+          pvpFights:
+            !info.tournamentGame && ["SPARRING", "COMBAT"].includes(battleType)
+              ? sql`${userData.pvpFights} + 1`
+              : sql`${userData.pvpFights}`,
+          pveFights:
+            !info.tournamentGame && !["SPARRING", "COMBAT"].includes(battleType)
+              ? sql`${userData.pveFights} + 1`
+              : sql`${userData.pveFights}`,
+          immunityUntil:
+            !info.tournamentGame &&
+            ["SPARRING", "COMBAT", "SHRINE_WAR"].includes(battleType)
+              ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
+              : sql`immunityUntil`,
           // Break stealth when entering combat
           // Defenders (being attacked) always lose stealth
           // Attackers roll to keep stealth based on their stealth stat
@@ -3288,6 +3315,25 @@ export const initiateBattle = async (
             // row is never even examined (or locked) by this update. Drizzle
             // compiles an empty list to FALSE, matching expectedRows === 0.
             inArray(userData.userId, allParticipantIds),
+            ...(info.tournamentGame
+              ? [
+                  eq(userData.status, "AWAKE"),
+                  isNull(userData.battleId),
+                  eq(userData.sector, MAP_WAKE_ISLAND_SECTOR),
+                  exists(
+                    client
+                      .select({ one: sql`1` })
+                      .from(tournamentMatch)
+                      .where(
+                        and(
+                          eq(tournamentMatch.id, info.tournamentGame.id),
+                          eq(tournamentMatch.battleId, battleId),
+                          eq(tournamentMatch.state, "WAITING"),
+                        ),
+                      ),
+                  ),
+                ]
+              : []),
             ...partyQuestSnapshots.map((snapshot) =>
               or(
                 ne(userData.userId, snapshot.userId),

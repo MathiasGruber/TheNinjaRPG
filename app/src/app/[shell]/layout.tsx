@@ -16,6 +16,7 @@ import { ReadingPreferencesProvider } from "@/hooks/useReadingPreferences";
 import AcceptWarning from "@/layout/AcceptWarning";
 import { ActiveSessionBoundary } from "@/layout/ActiveSessionBoundary";
 import ActivityStreakPopup from "@/layout/ActivityStreakPopup";
+import { EventTournamentNotice } from "@/layout/EventTournamentNotice";
 import { ExperimentSpeedInsights } from "@/layout/ExperimentSpeedInsights";
 import LayoutSwitcher from "@/layout/LayoutSwitcher";
 import { PyramidRunBoundary } from "@/layout/PyramidRunBoundary";
@@ -168,6 +169,7 @@ export default async function RootLayout({
                   <AcceptWarning />
                   <ActivityStreakPopup />
                   <RewardChoiceModal />
+                  <EventTournamentNotice />
                   <PWAManager />
                   <NativeBridge />
                   <InstallPrompt />

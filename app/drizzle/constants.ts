@@ -864,7 +864,7 @@ export const STRUCTURE_ADJACENTS = [
   { dCol: 0, dRow: 0 },
 ];
 
-export const TournamentTypes = ["CLAN"] as const;
+export const TournamentTypes = ["CLAN", "EVENT"] as const;
 export type TournamentType = (typeof TournamentTypes)[number];
 
 export const TournamentStates = ["OPEN", "IN_PROGRESS", "COMPLETED"] as const;
@@ -3709,3 +3709,11 @@ export const OBJECTIVE_WAR_DEFENDER_COOLDOWN_DAYS = 4;
 export const OBJECTIVE_WAR_DEFEAT_PENALTY_LEVELS = 2;
 export const OBJECTIVE_WAR_DEFEAT_PENALTY_DAYS = 3;
 export const WAR_DRAW_PENALTY_LEVELS = 1;
+
+// Staff tournament limits, ready checks, inter-game preparation and history retention.
+export const EVENT_TOURNAMENT_READY_SECONDS = 5 * 60;
+export const EVENT_TOURNAMENT_GAME_DELAY_SECONDS = 30;
+export const EVENT_TOURNAMENT_RETENTION_DAYS = 30;
+export const EVENT_TOURNAMENT_MAX_CAPACITY = 64;
+export const EVENT_TOURNAMENT_MIN_CAPACITY = 8;
+export const EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS = 120;

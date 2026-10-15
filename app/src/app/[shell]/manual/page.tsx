@@ -36,6 +36,7 @@ import Link from "@/layout/Link";
 import {
   canChangeContent,
   canControlBackups,
+  canManageTournaments,
   canViewRecruitmentAnalytics,
   isStaffRole,
 } from "@/utils/permissions";
@@ -49,6 +50,9 @@ export default function ManualMain() {
   const canEditMaps = canChangeContent(role);
 
   const baseEntries = [
+    ...(canManageTournaments(role)
+      ? [{ name: "tournaments", img: IMG_MANUAL_COMBAT }]
+      : []),
     // recruitment added conditionally below
     { name: "combat", img: IMG_MANUAL_COMBAT },
     { name: "bloodline", img: IMG_MANUAL_BLOODLINE },

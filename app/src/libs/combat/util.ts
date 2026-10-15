@@ -1811,6 +1811,8 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
   ];
 
   return {
+    tournamentGameId: state?.tournamentGameId,
+    tournamentAiOnly: state?.tournamentAiOnly,
     encounter: state?.encounter ? { wave: state.encounter.wave } : undefined,
     // Pending wave templates include private loadouts; expose only the party's current progress.
     dungeon: state?.dungeon
@@ -2857,6 +2859,15 @@ export const calcBattleResult = (
           ? targetUsers.filter((target) => wasDefeated(target, effects)).length
           : 0;
 
+      if (battle.extraState.tournamentGameId) {
+        result.experience = 0;
+        result.earnedExperience = 0;
+        result.clanPoints = 0;
+        result.anbuPoints = 0;
+        result.villageTokens = 0;
+        result.villagePrestige = 0;
+        result.masteryGains = {};
+      }
       // Return results
       return result;
     }

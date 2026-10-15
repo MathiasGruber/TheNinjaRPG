@@ -1,3 +1,4 @@
+import type { EventTournamentState } from "@/validators/tournament";
 import { z } from "zod";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
 import type { CraftingQueueMaterial } from "@/validators/train";
@@ -1052,6 +1053,8 @@ export const tournament = mysqlTable(
     description: text("description").notNull(),
     round: tinyint("round").default(1).notNull(),
     type: mysqlEnum("type", consts.TournamentTypes).notNull(),
+    eventData: json("eventData").$type<EventTournamentState>(),
+    version: int("version").default(0).notNull(),
     rewards: json("rewards").$type<ObjectiveRewardType>().notNull(),
     startedAt: datetime("startedAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY )`)
@@ -1070,6 +1073,14 @@ export const tournament = mysqlTable(
     };
   },
 );
+
+// A receipt and its quest-style grants commit in one transaction.
+export const tournamentRewardClaim = mysqlTable("TournamentRewardClaim", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  tournamentId: varchar("tournamentId", { length: 191 }).notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+}, (table) => ({ tournamentIdx: index("TournamentRewardClaim_tournamentId_idx").on(table.tournamentId) }));
 
 export const tournamentRelations = relations(tournament, ({ many }) => ({
   matches: many(tournamentMatch),
