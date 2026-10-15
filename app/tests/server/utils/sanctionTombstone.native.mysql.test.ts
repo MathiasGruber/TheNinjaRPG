@@ -5,6 +5,7 @@ import {
   accountDeletion,
   actionLog,
   bloodline,
+  historicalIp,
   sanctionTombstone,
   storeUserIdAlias,
   userData,
@@ -14,6 +15,7 @@ import {
   village,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
+import { profileRouter } from "@/server/api/routers/profile";
 import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { removeAccountGameData } from "@/server/utils/accountDeletion/cleanup";
@@ -21,6 +23,7 @@ import { processAccountDeletions } from "@/server/utils/accountDeletion/process"
 import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
+  hashSanctionIp,
   recordSanctionTombstone,
   type SanctionIdentity,
 } from "@/server/utils/sanctionTombstone";
@@ -113,23 +116,29 @@ const finishDeletion = async (userId = NATIVE_USER) => {
   ).toBeUndefined();
 };
 
-const register = async (userId: string) => {
+const register = async (userId: string, userIp?: string) => {
   expect(
-    await (await callerFor(registerRouter, userId)).createCharacter({
-      username: userId,
-      gender: "Male",
-      hair_color: "Black",
-      eye_color: "Blue",
-      skin_color: "Light",
-      attribute_1: "Soft features",
-      attribute_2: "Glasses",
-      attribute_3: "Short Hair",
-      read_tos: true,
-      read_privacy: true,
-      read_earlyaccess: true,
-      utm_source: null,
-      bloodlineId: "native-bloodline",
-    }),
+    await registerRouter
+      .createCaller({
+        drizzle: await getTestDatabase(),
+        userId,
+        userIp,
+      } as never)
+      .createCharacter({
+        username: userId,
+        gender: "Male",
+        hair_color: "Black",
+        eye_color: "Blue",
+        skin_color: "Light",
+        attribute_1: "Soft features",
+        attribute_2: "Glasses",
+        attribute_3: "Short Hair",
+        read_tos: true,
+        read_privacy: true,
+        read_earlyaccess: true,
+        utm_source: null,
+        bloodlineId: "native-bloodline",
+      }),
   ).toMatchObject({ success: true });
   return (await getTestDatabase()).query.userReport.findMany({
     where: eq(userReport.reportedUserId, userId),
@@ -160,10 +169,10 @@ const stubSingleIdentity = (afterDelete?: () => Promise<void>) => {
     },
   } as never);
   return {
-    register: async (userId: string, ownerIdentity = identity) => {
+    register: async (userId: string, ownerIdentity = identity, userIp?: string) => {
       expect(liveOwners.size).toBe(0);
       liveOwners.set(userId, ownerIdentity);
-      return register(userId);
+      return register(userId, userIp);
     },
     replace: (userId: string, replacement: SanctionIdentity) => {
       expect(liveOwners.has(userId)).toBe(true);
@@ -226,6 +235,7 @@ describeWithDatabase("original sanctions during native deletion", () => {
       accountDeletion,
       actionLog,
       bloodline,
+      historicalIp,
       sanctionTombstone,
       storeUserIdAlias,
       userData,
@@ -520,6 +530,108 @@ describeWithDatabase("original sanctions during native deletion", () => {
     ]);
   });
 
+  it("retains an IP recorded by an in-flight profile request after native identity deletion", async () => {
+    const { register: registerIdentity } = stubSingleIdentity();
+    const database = await getTestDatabase();
+    const oldIp = "192.0.2.10";
+    const lateIp = "192.0.2.20";
+    const end = new Date(Date.now() + DAY);
+    await addReport("original", "BAN_ACTIVATED", end);
+    await database
+      .update(userData)
+      .set({
+        lastIp: oldIp,
+        isBanned: true,
+        villageId: "native-horizon",
+        updatedAt: new Date(Date.now() - 360_000),
+      })
+      .where(eq(userData.userId, NATIVE_USER));
+    let enter!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "insert")
+          return (table: Parameters<typeof target.insert>[0]) => {
+            const builder = target.insert(table);
+            if (table !== historicalIp) return builder;
+            return {
+              values: (...args: Parameters<typeof builder.values>) => {
+                const insert = builder.values(...args);
+                return {
+                  onDuplicateKeyUpdate: async (
+                    ...options: Parameters<typeof insert.onDuplicateKeyUpdate>
+                  ) => {
+                    enter();
+                    await gate;
+                    return insert.onDuplicateKeyUpdate(...options);
+                  },
+                };
+              },
+            };
+          };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const pending = profileRouter
+      .createCaller({
+        drizzle: paused,
+        userId: NATIVE_USER,
+        userIp: lateIp,
+      } as never)
+      .getUser();
+    await entered;
+    try {
+      await startDeletion();
+    } finally {
+      release();
+    }
+    await pending;
+    expect(
+      await database.query.historicalIp.findFirst({
+        where: eq(historicalIp.userId, NATIVE_USER),
+      }),
+    ).toMatchObject({ ip: lateIp });
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, NATIVE_USER),
+      }),
+    ).toMatchObject({ lastIp: lateIp });
+    await finishDeletion();
+    expect(await database.query.historicalIp.findMany()).toHaveLength(0);
+    expect(await database.query.sanctionTombstone.findFirst()).toMatchObject({
+      ...hashes,
+      ipHashes: expect.arrayContaining([hashSanctionIp(oldIp), hashSanctionIp(lateIp)]),
+    });
+    expect(
+      await registerIdentity(
+        "AfterCleanup",
+        {
+          ...identity,
+          emailAddresses: [
+            {
+              id: "primary",
+              emailAddress: "new@example.com",
+              verification: { status: "verified" },
+            },
+          ],
+          externalAccounts: [],
+        },
+        lateIp,
+      ),
+    ).toMatchObject([{ status: "BAN_ACTIVATED", banEnd: end }]);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "AfterCleanup"),
+      }),
+    ).toMatchObject({ isBanned: true });
+  });
+
   it.each([
     ["ban", true],
     ["silence", true],
@@ -564,25 +676,35 @@ describeWithDatabase("original sanctions during native deletion", () => {
           },
         );
       }
+      // Late IP capture must leave the carryover's decision authoritative over the original report.
+      const lateIp = "192.0.2.30";
+      await database
+        .update(userData)
+        .set({ lastIp: lateIp })
+        .where(eq(userData.userId, NATIVE_USER));
+      const withLateIp = snapshot.map((source) => ({
+        ...source,
+        ipHashes: [...new Set([...source.ipHashes, hashSanctionIp(lateIp)!])],
+      }));
       await recordSanctionTombstone(database, NATIVE_USER, null);
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
       await finishDeletion();
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
       // A retry after the reports are gone must preserve the retained staff decision.
       await removeAccountGameData(NATIVE_USER);
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
 
       // Release the replacement's sign-in identity before another account reuses it.
       await database.insert(accountDeletion).values({ userId: "DuringDelay" });

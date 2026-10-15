@@ -203,9 +203,9 @@ const activeSanctionReportsWhere = (userId: string) =>
  *
  * Pass the Clerk user when the caller already holds it; otherwise it is loaded, and only
  * when a sanction exists. The write selects current decisions after the Clerk lookup.
- * Repeated captures preserve case links. Once Clerk is gone, keep the captured snapshot:
- * moderation updates it through updateSanctionReport, and the original reports may now
- * be stale. Repeating cleanup after the reports are gone also leaves the snapshot untouched.
+ * Repeated captures preserve case links. Once Clerk is gone, only add observed IP hashes:
+ * moderation updates the captured decision through updateSanctionReport, and the original
+ * reports may now be stale. Repeating cleanup after the reports are gone leaves it untouched.
  */
 export const recordSanctionTombstone = async (
   client: DrizzleClient,
@@ -229,17 +229,44 @@ export const recordSanctionTombstone = async (
   if (!activeReport) return;
   const clerkUser =
     identity === undefined ? await fetchSanctionIdentity(userId) : identity;
-  if (!clerkUser) return;
+  const ipHashes = [
+    ...new Set(
+      [user?.lastIp, ...ips.map(({ ip }) => ip)]
+        .map(hashSanctionIp)
+        .filter((hash): hash is string => hash !== null),
+    ),
+  ].sort();
+  // Merge against the current row, retaining addresses removed by partial cleanup.
+  const mergedIpHashes = ipHashes.length
+    ? sql`JSON_MERGE_PRESERVE(${sanctionTombstone.ipHashes}, ${sql.join(
+        ipHashes.map(
+          (hash) =>
+            sql`IF(JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${hash})), JSON_ARRAY(), JSON_ARRAY(${hash}))`,
+        ),
+        sql`, `,
+      )})`
+    : undefined;
+  if (!clerkUser) {
+    // In-flight requests can persist IPs after identity deletion. Add them only to live
+    // sources, preserving staff revisions and never recreating a cleared sanction.
+    if (mergedIpHashes)
+      await retryOnDeadlock(() =>
+        client
+          .update(sanctionTombstone)
+          .set({ ipHashes: mergedIpHashes })
+          .where(
+            and(
+              eq(sanctionTombstone.userId, userId),
+              gt(sanctionTombstone.sanctionEndsAt, sql`CURRENT_TIMESTAMP(3)`),
+            ),
+          ),
+      );
+    return;
+  }
   const hashes = {
     emailHash: primaryEmailHashOf(clerkUser),
     accountHashes: accountHashesOf(clerkUser),
-    ipHashes: [
-      ...new Set(
-        [user?.lastIp, ...ips.map(({ ip }) => ip)]
-          .map(hashSanctionIp)
-          .filter((hash): hash is string => hash !== null),
-      ),
-    ].sort(),
+    ipHashes,
   };
   const sanction = sql<SanctionTombstoneType>`CASE WHEN ${userReport.status} = 'BAN_ACTIVATED' THEN 'BAN' ELSE 'SILENCE' END`;
   // Select eligibility and the decision in the same write, so a completed staff revision
@@ -270,22 +297,12 @@ export const recordSanctionTombstone = async (
           .where(activeSanctionReportsWhere(userId)),
       )
       .onDuplicateKeyUpdate({
-        // Retain addresses removed by partial cleanup and add addresses learned while
-        // native identity deletion was retrying. Deduplicate against the current row.
         set: {
           sanction,
           sanctionEndsAt: sql`${userReport.banEnd}`,
           emailHash: hashes.emailHash,
           accountHashes: hashes.accountHashes,
-          ipHashes: hashes.ipHashes.length
-            ? sql`JSON_MERGE_PRESERVE(${sanctionTombstone.ipHashes}, ${sql.join(
-                hashes.ipHashes.map(
-                  (hash) =>
-                    sql`IF(JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${hash})), JSON_ARRAY(), JSON_ARRAY(${hash}))`,
-                ),
-                sql`, `,
-              )})`
-            : undefined,
+          ipHashes: mergedIpHashes,
         },
       }),
   );
