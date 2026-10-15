@@ -3943,6 +3943,8 @@ const persistPassiveRegenToDb = async ({
 }) => {
   const includeVillageState = forceRegen || (user.villagePrestige < 0 && user.isOutlaw);
 
+  // Persist history before appending: concurrent deletion either reads this IP or creates
+  // a retained source in time for the append to preserve it before history is removed.
   const historicalIpPromise =
     userIp && user.lastIp !== userIp
       ? client

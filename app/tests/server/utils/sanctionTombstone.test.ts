@@ -263,6 +263,8 @@ describeWithDatabase("sanction tombstones", () => {
       const deletionGate = new Promise<void>((resolve) => {
         releaseDeletion = resolve;
       });
+      // Read/delete gates must pause after execution; beforeStatements only provides
+      // a before-write hook, so those boundaries need the custom proxy below.
       const deletionClient = boundary === "before sources"
         ? beforeStatements(database, sanctionTombstone, [async () => {
             enterDeletion();

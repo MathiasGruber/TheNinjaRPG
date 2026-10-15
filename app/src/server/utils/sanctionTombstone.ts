@@ -113,7 +113,10 @@ export const hashSanctionIdentifier = (kind: "email" | "oauth" | "ip", value: st
     .update(`sanction-tombstone:${kind}:${value}`)
     .digest("hex");
 
-/** Reject missing/placeholder addresses and canonicalize equivalent IPv6 spellings. */
+/**
+ * Hash a valid address in the sanction namespace, folding IPv6 and mapped IPv4 aliases.
+ * Missing, invalid and zone-scoped addresses return null so placeholders cannot match.
+ */
 export const hashSanctionIp = (ip: string | null | undefined): string | null => {
   const address = ip?.trim();
   if (!address || !isIP(address) || address.includes("%")) return null;
@@ -276,7 +279,11 @@ export const recordSanctionTombstone = async (
   await retainSanctionIps(client, userId, [user?.lastIp, ...ips.map(({ ip }) => ip)]);
 };
 
-/** Add observed IPs only to live sources; never recreate a cleared staff decision. */
+/**
+ * Atomically add observed IP hashes to existing unexpired sources without duplicates.
+ * Never insert a source or change its decision, so late writes cannot revive a cleared
+ * sanction. Persist history first; capture reads it after creating the retained sources.
+ */
 export const retainSanctionIps = async (
   client: DrizzleClient,
   userId: string,
@@ -286,6 +293,7 @@ export const retainSanctionIps = async (
     ...new Set(ips.map(hashSanctionIp).filter((hash) => hash !== null)),
   ].sort();
   if (!hashes.length) return;
+  // Merge against the current SQL row so concurrent capture/profile appends keep both IPs.
   await retryOnDeadlock(() =>
     client
       .update(sanctionTombstone)
@@ -316,6 +324,7 @@ export const fetchActiveSanctionTombstones = (client: DrizzleClient) =>
 /**
  * The sanctions a registering account inherits, one per type with the latest end date.
  * Every verified email counts, so moving the old address off primary does not escape it.
+ * IP matching uses the exact normalized address, including accounts sharing a public IP.
  */
 export const matchSanctionTombstones = (
   tombstones: SanctionTombstone[],
@@ -461,7 +470,10 @@ export const discardUnpublishedSanctions = async (
   );
 };
 
-/** Prepare idempotent moderation records; return the guard that publishes the character. */
+/**
+ * Prepare idempotent moderation records and return the character-publication guard.
+ * The guard rechecks current identifiers, including IPs, so stale matches require a retry.
+ */
 export const reapplySanctions = async (
   client: DrizzleClient,
   userId: string,
@@ -707,7 +719,11 @@ export const updateSanctionReport = async (
   return true;
 };
 
-/** Close surviving source reports before pruning their expired retained decisions. */
+/**
+ * Close surviving source reports before pruning their expired retained decisions.
+ * An optional source predicate scopes moderation cleanup; the cleaner prunes all expired
+ * sources. Ordered guarded writes allow retries after partial failure without a transaction.
+ */
 export const removeExpiredSanctionTombstones = async (
   client: DrizzleClient,
   sources?: ReturnType<typeof or>,
