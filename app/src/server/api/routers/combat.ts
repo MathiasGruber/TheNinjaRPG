@@ -4009,7 +4009,7 @@ export const processUsersForBattle = async (
         }
         // Exclude jutsus that belong to a bloodline the user doesn't have
         if (
-          userjutsu.jutsu.bloodlineId !== "" &&
+          userjutsu.jutsu.bloodlineId &&
           !user.isAi &&
           user.bloodlineId !== userjutsu.jutsu.bloodlineId
         ) {

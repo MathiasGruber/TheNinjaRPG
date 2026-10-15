@@ -57,6 +57,21 @@ const copyUsingEditor = (
 };
 
 describe("reward packages", () => {
+  it("keeps repeated reward nodes as distinct choices and grants only the selected payload", () => {
+    const reward = QuestReward.parse({ reward_packages: [
+      { id: "node-a", name: "Currency", rewards: { reward_money: 50 } },
+      { id: "node-b", name: "Currency", rewards: { reward_money: 100 } },
+    ] });
+    const cards = buildRewardChoiceCards(reward);
+    expect(cards.map((card) => card.id)).toEqual(["reward_package:node-a", "reward_package:node-b"]);
+    expect(rewardFromChoiceCards([cards[1]!]).reward_money).toBe(100);
+    const content: QuestContentType = { reward, rewardMode: "choose", rewardPickCount: 1, objectives: [], sceneBackground: "", sceneCharacters: [] };
+    expect(verifyRewardChoiceForSave(content).check).toBe(true);
+    expect(validateQuestRewardPackages(content, { ...content, reward: QuestReward.parse({}) }, [], "HEAD_CONTENT")).toBeNull();
+    reward.reward_packages![0]!.rewards.reward_reputation = 10;
+    expect(validateQuestRewardPackages({ ...content, reward }, { ...content, reward: QuestReward.parse({}) }, [], "CONTENT")).toBe("Package reputation must match its approved snapshot");
+  });
+
   /** Supply an active quest and player state for the real tracker and reward calculators. */
   const makeUser = (content: Record<string, unknown>, questType = "mission") =>
     ({
@@ -286,7 +301,7 @@ describe("reward packages", () => {
     const existing = { reward: QuestReward.parse({}), objectives: [objective], sceneBackground: "", sceneCharacters: [] };
     const content = { ...existing, objectives: copied.objectives };
     const sources = objective.reward_packages!.map((pack) => ({
-      id: pack.packageId, name: pack.name, description: pack.description,
+      id: pack.packageId!, name: pack.name, description: pack.description,
       rewards: pack.rewards, createdAt: new Date(), updatedAt: new Date(),
     }));
     expect(validateQuestRewardPackages(content, existing, sources, "HEAD_CONTENT")).toBeNull();

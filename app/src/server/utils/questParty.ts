@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import type { Quest, QuestParty, UserData } from "@/drizzle/schema";
 import { questParty, userData } from "@/drizzle/schema";
 import { mergePartyProgress, projectPartyTracker } from "@/libs/questParty";
@@ -59,14 +59,30 @@ export const synchronizeQuestParty = async (
     const liveMembers = party.members.filter((member) =>
       party.memberIds.includes(member.userId),
     );
+    // Confirm missing relations before pruning: an incomplete preload is not a departure.
+    // Explicitly detached members still reconcile after interrupted cleanup.
+    const missingIds = party.memberIds.filter(
+      (id) => !liveMembers.some((member) => member.userId === id),
+    );
+    const attached = missingIds.length
+      ? await client.query.userData.findMany({
+          where: and(
+            inArray(userData.userId, missingIds),
+            eq(userData.questPartyId, party.id),
+          ),
+          columns: questPartyRelations.members.columns,
+        })
+      : [];
+    liveMembers.push(...attached);
     const members = committedMember
       ? [
           ...liveMembers.filter((member) => member.userId !== committedMember.userId),
           committedMember,
         ]
       : liveMembers;
-    const memberIds = party.memberIds.filter((id) =>
-      liveMembers.some((member) => member.userId === id),
+    const memberIds = party.memberIds.filter(
+      (id) =>
+        !missingIds.includes(id) || attached.some((member) => member.userId === id),
     );
     const leaderId = memberIds.includes(party.leaderId)
       ? party.leaderId
@@ -82,14 +98,14 @@ export const synchronizeQuestParty = async (
       : undefined;
     const boundBattleId =
       reservedBattleId &&
-      party.members.some((member) => member.battleId === reservedBattleId)
+      liveMembers.some((member) => member.battleId === reservedBattleId)
         ? reservedBattleId
         : undefined;
     const battleId =
       boundBattleId ??
       (party.battleId &&
       !isFreshClaim &&
-      !party.members.some(
+      !liveMembers.some(
         (member) => member.battleId === (reservedBattleId ?? party.battleId),
       )
         ? null

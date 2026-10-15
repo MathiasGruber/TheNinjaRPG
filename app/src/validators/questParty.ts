@@ -11,3 +11,7 @@ export const questPartyIdSchema = z.object({ partyId: z.string() });
 export const questPartyInviteSchema = questPartyIdSchema.extend({
   username: z.string().trim().min(1).max(191),
 });
+/** Remove a teammate while retaining their personal progress and reward receipts. */
+export const questPartyRemoveSchema = questPartyIdSchema.extend({
+  userId: z.string().min(1),
+});

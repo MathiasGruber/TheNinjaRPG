@@ -193,14 +193,16 @@ export const validateQuestRewardPackages = (
       oldSnapshots.find(
         (saved) => saved.id === pack.id && saved.packageId === pack.packageId,
       ) ??
-      oldSnapshots.find(
-        (saved) =>
-          saved.packageId === pack.packageId &&
-          (canAwardReputation(role) ||
-            saved.rewards.reward_reputation === pack.rewards.reward_reputation),
-      );
+      (pack.packageId
+        ? oldSnapshots.find(
+            (saved) =>
+              saved.packageId === pack.packageId &&
+              (canAwardReputation(role) ||
+                saved.rewards.reward_reputation === pack.rewards.reward_reputation),
+          )
+        : undefined);
     const source = packages.find((source) => source.id === pack.packageId);
-    if (!source && !old)
+    if (pack.packageId && !source && !old)
       return "Reward package no longer exists. Select another package.";
     if (
       !canAwardReputation(role) &&

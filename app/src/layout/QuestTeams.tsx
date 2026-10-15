@@ -34,7 +34,10 @@ export const QuestTeams = ({
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
-  const [endAction, setEndAction] = useState<"leave" | "disband" | null>(null);
+  const [endAction, setEndAction] = useState<"leave" | "disband" | "remove" | null>(
+    null,
+  );
+  const [removeUserId, setRemoveUserId] = useState<string | null>(null);
   const publicId = useId();
   const { data, error, isPending } = api.coop.quest.overview.useQuery(undefined, {
     enabled: !!user && teamEnabled,
@@ -51,6 +54,7 @@ export const QuestTeams = ({
       await Promise.all([
         utils.coop.quest.overview.invalidate(),
         utils.quests.specificQuests.invalidate(),
+        utils.quests.getPendingRewardChoices.invalidate(),
         updateUser(undefined),
       ]);
     }
@@ -61,12 +65,14 @@ export const QuestTeams = ({
   const join = api.coop.quest.join.useMutation({ onSuccess: refresh, onError });
   const leave = api.coop.quest.leave.useMutation({ onSuccess: refresh, onError });
   const invite = api.coop.quest.invite.useMutation({ onSuccess: refresh, onError });
+  const remove = api.coop.quest.remove.useMutation({ onSuccess: refresh, onError });
   const disband = api.coop.quest.disband.useMutation({ onSuccess: refresh, onError });
   const start = api.coop.quest.startEncounter.useMutation({
     onSuccess: refresh,
     onError,
   });
   const busy =
+    remove.isPending ||
     disband.isPending ||
     create.isPending ||
     join.isPending ||
@@ -79,19 +85,18 @@ export const QuestTeams = ({
     : null;
   // Overview updates carry shared progress; refresh the personal projection and receipts too.
   useEffect(() => {
-    if (questId && data?.current?.questId !== questId) return;
-    if (
-      previousTeamVersion.current &&
-      teamVersion &&
-      previousTeamVersion.current !== teamVersion
-    )
-      void updateUser(undefined).catch(onError);
+    if (questId && data?.current && data.current.questId !== questId) return;
+    if (previousTeamVersion.current && previousTeamVersion.current !== teamVersion)
+      void Promise.all([
+        updateUser(undefined),
+        utils.quests.getPendingRewardChoices.invalidate(),
+      ]).catch(onError);
     previousTeamVersion.current = teamVersion;
-  }, [teamVersion, questId, data?.current?.questId, updateUser]);
+  }, [teamVersion, questId, data?.current?.questId, updateUser, utils]);
   if (!teamEnabled) return null;
   if (!user) return <Loader explanation="Loading quest teams..." />;
   const current = data?.current;
-  // Embedded summaries keep the Logbook focused on quests; the dedicated page owns management/chat.
+  // Compact summaries link to the full team controls and chat.
   if (compact)
     return current || data?.teams.length || error ? (
       <div className="m-3 flex flex-wrap items-center gap-2 rounded-lg border bg-popover px-3 py-2 text-sm">
@@ -113,20 +118,31 @@ export const QuestTeams = ({
         </Link>
       </div>
     ) : null;
-  if (questId && current)
-    return current.questId === questId ? (
-      <p className="flex flex-wrap items-center gap-2 py-2 pr-12 text-primary text-sm">
-        <Users className="h-4 w-4" aria-hidden="true" />
-        Shared quest · {current.members.length}/{QUEST_PARTY_MAX_MEMBERS}
-        <Link href="/questteams" className="ml-auto font-medium hover:underline">
-          Team & chat
-        </Link>
-      </p>
-    ) : null;
+  if (questId && current && current.questId !== questId) return null;
+  const location = current?.encounterLocation;
+  const atEncounter =
+    location &&
+    user.sector === location.sector &&
+    user.longitude === location.longitude &&
+    user.latitude === location.latitude;
+  const travelHref = location
+    ? `/travel?sector=${location.sector}&longitude=${location.longitude}&latitude=${location.latitude}`
+    : "/travel";
+  const canEncounter = current?.hasEncounter && !current.completed && !current.failed;
+  const missingMembers = current?.members.filter(
+    (member) =>
+      member.status !== "AWAKE" ||
+      !location ||
+      member.sector !== location.sector ||
+      member.longitude !== location.longitude ||
+      member.latitude !== location.latitude,
+  );
   return (
     <section
       className={
-        questId ? "space-y-2 rounded-lg border bg-popover p-3" : "space-y-4 p-3 sm:p-4"
+        questId
+          ? "space-y-3 rounded-lg border bg-popover p-3 text-popover-foreground"
+          : "space-y-4 p-3 text-foreground sm:p-4"
       }
       aria-label="Quest teams"
     >
@@ -135,7 +151,7 @@ export const QuestTeams = ({
           <h3 className="font-semibold text-base">
             {current?.name ?? (questId ? "Play with a team" : "Find a team")}
           </h3>
-          <p className="mt-1 text-muted-foreground text-xs">
+          <p className="mt-1 text-sm">
             {current
               ? `${current.members.length}/${QUEST_PARTY_MAX_MEMBERS} members · ${current.isPublic ? "Public" : "Private"} team`
               : `Share quest progress with up to ${QUEST_PARTY_MAX_MEMBERS} players.`}
@@ -230,7 +246,7 @@ export const QuestTeams = ({
           </Button>
         </div>
       )}
-      {current && !questId && (
+      {current && (
         <div className="space-y-4">
           <PartyRoster
             members={current.members.map((member) => ({
@@ -247,6 +263,16 @@ export const QuestTeams = ({
             leaderId={current.leaderId}
             viewerId={user.userId}
             capacity={QUEST_PARTY_MAX_MEMBERS}
+            disabled={busy || !!current.battleId}
+            onRemove={
+              current.leaderId === user.userId
+                ? (userId) => {
+                    setRemoveUserId(userId);
+                    setMessage("");
+                    setEndAction("remove");
+                  }
+                : undefined
+            }
           />
           {current.completed && (
             <div
@@ -264,6 +290,34 @@ export const QuestTeams = ({
             <p role="status" className="text-sm">
               The team failed this quest. Leave the team to start another attempt.
             </p>
+          )}
+          {canEncounter && !current.battleId && (
+            <div
+              className="space-y-2 rounded-lg border bg-background/50 p-3 text-sm"
+              role="status"
+            >
+              <p className="font-semibold">Gather for the team encounter</p>
+              <p>
+                {location
+                  ? `Sector ${location.sector} · ${location.longitude}, ${location.latitude}`
+                  : current.encounterAtNpc
+                    ? "Meet at the quest objective's NPC on the map."
+                    : "Explore the map to discover the encounter location."}
+              </p>
+              <p>
+                {missingMembers?.length
+                  ? `Waiting for: ${missingMembers.map((member) => member.username).join(", ")}. Everyone must be awake at the encounter location.`
+                  : "Everyone is ready at the encounter location."}
+              </p>
+              {!atEncounter && (
+                <Button asChild variant="secondary" size="sm">
+                  <Link href={travelHref}>Travel to encounter</Link>
+                </Button>
+              )}
+              {current.leaderId !== user.userId && (
+                <p>The team leader starts the encounter.</p>
+              )}
+            </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-2">
             {current.battleId && (
@@ -313,25 +367,47 @@ export const QuestTeams = ({
                 <Button disabled={busy || !username.trim()}>Invite</Button>
               </form>
             )}
-          <TeamChatPanel conversationId={current.id} title="Quest Team Chat" />
+          {questId ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/questteams">Team & chat</Link>
+            </Button>
+          ) : (
+            <TeamChatPanel conversationId={current.id} title="Quest Team Chat" />
+          )}
           <Modal
-            title={endAction === "disband" ? "Disband this team?" : "Leave this team?"}
+            title={
+              endAction === "remove"
+                ? `Remove ${current.members.find((member) => member.userId === removeUserId)?.username ?? "member"}?`
+                : endAction === "disband"
+                  ? "Disband this team?"
+                  : "Leave this team?"
+            }
             isOpen={!!endAction}
             setIsOpen={(open) => {
               if (!open) setEndAction(null);
             }}
-            proceed_label={endAction === "disband" ? "Disband Team" : "Leave Team"}
+            proceed_label={
+              endAction === "remove"
+                ? "Remove Member"
+                : endAction === "disband"
+                  ? "Disband Team"
+                  : "Leave Team"
+            }
             isLoading={busy}
             keepOpenOnAccept
             onAccept={() => {
-              if (endAction === "disband") disband.mutate({ partyId: current.id });
+              if (endAction === "remove" && removeUserId)
+                remove.mutate({ partyId: current.id, userId: removeUserId });
+              else if (endAction === "disband") disband.mutate({ partyId: current.id });
               else leave.mutate({ partyId: current.id });
             }}
           >
             <p>
-              {endAction === "disband"
-                ? "Everyone keeps their quest progress and continues solo. Team chat closes."
-                : "You keep your quest progress and continue solo. Leadership passes to another member if needed."}
+              {endAction === "remove"
+                ? "This member keeps their quest progress and unclaimed rewards, and continues solo. Team chat access ends."
+                : endAction === "disband"
+                  ? "Everyone keeps their quest progress and continues solo. Team chat closes."
+                  : "You keep your quest progress and continue solo. Leadership passes to another member if needed."}
             </p>
             {message && (
               <p role="alert" className="text-destructive">

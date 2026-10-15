@@ -4,6 +4,8 @@ import {
   aiProfile,
   battle,
   battleHistory,
+  jutsu,
+  userJutsu,
   conversation,
   quest,
   questHistory,
@@ -14,6 +16,7 @@ import {
   village,
   villageStructure,
 } from "@/drizzle/schema";
+import { availableUserActions } from "@/libs/combat/actions";
 import { Pusher } from "@/libs/pusher";
 import { rollObjectiveAttackers } from "@/libs/quest";
 import { fetchUpdatedUser } from "@/routers/profile";
@@ -38,6 +41,8 @@ describeWithDatabase("quest team encounter location claims", () => {
   beforeEach(async () => {
     await resetTables(
       aiProfile,
+      jutsu,
+      userJutsu,
       battle,
       battleHistory,
       conversation,
@@ -137,6 +142,13 @@ describeWithDatabase("quest team encounter location claims", () => {
       objectives: [AllObjectives.parse({ id: "encounter", task: "start_battle", opponentAIs: [{ ids: ["enemy"], number: 1 }], givePools: 25, applyBuffs: [getTagSchema("shield").parse({ power: 100, health: 500, rounds: 3 })] })],
       reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [],
     } }]);
+    await client.insert(jutsu).values(["PVE", "BOTH", "PVP"].map((usage) => ({
+      id: `jutsu-${usage}`, name: `Jutsu ${usage}`, description: "Quest combat fixture", effects: [], target: "SELF" as const,
+      range: 0, requiredRank: "STUDENT" as const, jutsuType: "NORMAL" as const, image: "", battleDescription: "Uses a jutsu", battleUsageType: usage as "PVE" | "PVP" | "BOTH",
+    })));
+    await client.insert(userJutsu).values(["leader", "helper"].flatMap((userId) => ["PVE", "BOTH", "PVP"].map((usage) => ({ id: `${userId}-${usage}`, userId, jutsuId: `jutsu-${usage}`, equipped: true }))));
+    // A bloodline must not make general jutsu (null bloodlineId) disappear.
+    await client.update(userData).set({ bloodlineId: "player-bloodline" }).where(eq(userData.userId, "helper"));
     const leader = await callerFor(questPartyRouter, "leader");
     expect((await leader.create({ questId: "team-quest", isPublic: true })).success).toBe(true);
     const party = (await client.query.questParty.findFirst())!;
@@ -149,6 +161,10 @@ describeWithDatabase("quest team encounter location claims", () => {
     const fight = (await client.query.battle.findFirst())!;
     expect(fight.extraState.questBattleSource).toEqual({ questId: "team-quest", objectiveId: "encounter" });
     for (const player of fight.usersState.filter((entry) => !entry.isAi && !entry.isSummon)) {
+      const actions = availableUserActions(fight, player.userId);
+      expect(actions.map((action) => action.id)).toEqual(expect.arrayContaining(["jutsu-PVE", "jutsu-BOTH"]));
+      expect(actions.map((action) => action.id)).not.toContain("jutsu-PVP");
+      expect((await (await callerFor(combatRouter, player.userId)).getBattleHistory({})).some((entry) => entry.battleId === fight.id)).toBe(true);
       expect(player.curHealth).toBe(player.maxHealth / 4);
       expect(player.curChakra).toBe(player.maxChakra / 4);
       expect(player.curStamina).toBe(player.maxStamina / 4);

@@ -103,6 +103,25 @@ export const usePusherHandler = (
             void utils.coop.dungeon.getState.invalidate();
             router.push("/dungeon");
           }
+        } else if (data.type === "questTeam") {
+          await Promise.all([
+            utils.profile.getUser.invalidate(),
+            utils.coop.quest.overview.invalidate(),
+            utils.quests.getPendingRewardChoices.invalidate(),
+          ]);
+          if (data.message)
+            showMutationToast({
+              success: true,
+              message: data.message,
+              title: "Quest Team",
+              action: (
+                <ToastAction altText="Open Quest Teams">
+                  <Link href={data.route ?? "/questteams"}>
+                    {data.routeText ?? "Open team"}
+                  </Link>
+                </ToastAction>
+              ),
+            });
         } else if (data.type === "parentalControlsChanged") {
           // Drop cached chat history in every open tab when a parent changes access.
           void utils.parentalControls.get.invalidate();

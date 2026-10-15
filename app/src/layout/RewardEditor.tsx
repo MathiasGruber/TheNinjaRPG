@@ -139,7 +139,9 @@ export const RewardEditor = ({
               </summary>
               <div className="my-2 flex gap-2">
                 <Input
-                  aria-label="Package snapshot name"
+                  aria-label={
+                    pack.packageId ? "Package snapshot name" : "Reward node name"
+                  }
                   value={pack.name}
                   onChange={(event) =>
                     setPackages(
@@ -154,7 +156,7 @@ export const RewardEditor = ({
                   variant="outline"
                   onClick={() => setPackages(packages.filter((_, i) => i !== index))}
                 >
-                  Remove Package
+                  {pack.packageId ? "Remove Package" : "Remove Node"}
                 </Button>
               </div>
               <RewardFormWrapper
@@ -182,14 +184,43 @@ export const RewardEditor = ({
           aria-label="Add reward node"
           className="min-w-0 flex-1 rounded border bg-background p-2"
           value=""
-          onChange={(event) => setAddedNodes([...addedNodes, event.target.value])}
+          onChange={(event) => {
+            const node = groups.find((node) => node.id === event.target.value);
+            if (!node) return;
+            if (!activeNodes.some((active) => active.id === node.id)) {
+              setAddedNodes([...addedNodes, node.id]);
+              return;
+            }
+            if (packages.length >= 50) return;
+            // A repeated node needs an independent payload and choice identity.
+            setPackages([
+              ...packages,
+              {
+                id: nanoid(),
+                name: node.name,
+                description: "",
+                rewards: ObjectiveReward.parse(
+                  Object.fromEntries(
+                    node.fields.map((field) => [field, values[field]]),
+                  ),
+                ),
+              },
+            ]);
+          }}
         >
           <option value="">Add a reward node</option>
           {groups
-            .filter((node) => !activeNodes.some((active) => active.id === node.id))
+            .filter(
+              (node) =>
+                (allowPackages && packages.length < 50) ||
+                !activeNodes.some((active) => active.id === node.id),
+            )
             .map((node) => (
               <option key={node.id} value={node.id}>
                 {node.name}
+                {activeNodes.some((active) => active.id === node.id)
+                  ? " (another node)"
+                  : ""}
               </option>
             ))}
         </select>

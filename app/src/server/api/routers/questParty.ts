@@ -1,8 +1,9 @@
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { QUEST_PARTY_MAX_MEMBERS, QUEST_PARTY_TYPES } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import {
+  overworldAiPlacement,
   quest,
   questHistory,
   questParty,
@@ -11,6 +12,7 @@ import {
 } from "@/drizzle/schema";
 import { questCoopParty, transitionCoopParty } from "@/libs/coop";
 import { isQuestComplete } from "@/libs/objectives";
+import { getServerPusher } from "@/libs/pusher";
 import {
   getActiveObjectives,
   getNewTrackers,
@@ -50,6 +52,7 @@ import {
   questPartyCreateSchema,
   questPartyIdSchema,
   questPartyInviteSchema,
+  questPartyRemoveSchema,
 } from "@/validators/questParty";
 
 /** Shared quest progress uses party CAS; membership and reward receipts remain personal. */
@@ -113,6 +116,17 @@ export const questPartyRouter = createTRPCRouter({
         await ctx.drizzle
           .delete(user2conversation)
           .where(eq(user2conversation.conversationId, party.id));
+        await Promise.all(
+          [...new Set(members.map((member) => member.userId))].map((userId) =>
+            getServerPusher().trigger(userId, "event", {
+              type: "questTeam",
+              message:
+                "Your quest team disbanded. Your progress and unclaimed rewards are in your Logbook.",
+              route: "/profile?tab=dashboard#progress-heading",
+              routeText: "Open Logbook",
+            }),
+          ),
+        );
       } catch (error) {
         await ctx.drizzle
           .update(questParty)
@@ -181,6 +195,36 @@ export const questPartyRouter = createTRPCRouter({
     const objectiveIds = new Set(
       user?.questParty?.quest.content.objectives.map((entry) => entry.id) ?? [],
     );
+    const encounter =
+      user &&
+      getActiveObjectives(user).find(
+        (entry) =>
+          objectiveIds.has(entry.id) &&
+          (entry.task === "start_battle" || entry.task === "defeat_opponents"),
+      );
+    const placement =
+      encounter?.task === "defeat_opponents" && encounter.overworldPlacementId
+        ? await ctx.drizzle.query.overworldAiPlacement.findFirst({
+            where: and(
+              eq(overworldAiPlacement.id, encounter.overworldPlacementId),
+              eq(overworldAiPlacement.isActive, true),
+            ),
+            columns: { sector: true, longitude: true, latitude: true },
+          })
+        : undefined;
+    const encounterLocation =
+      encounter?.task === "start_battle"
+        ? user?.questParty?.members.find(
+            (member) => member.userId === user.questParty?.leaderId,
+          )
+        : encounter &&
+            (!("hideLocation" in encounter && encounter.hideLocation) ||
+              (placement?.sector ?? encounter.sector) === user?.sector)
+          ? (placement ??
+            ("sector" in encounter && !encounter.overworldPlacementId
+              ? encounter
+              : undefined))
+          : undefined;
     return {
       current: user?.questParty
         ? {
@@ -190,6 +234,14 @@ export const questPartyRouter = createTRPCRouter({
             name: user.questParty.quest.name,
             leaderId: user.questParty.leaderId,
             isPublic: user.questParty.isPublic,
+            encounterAtNpc: !!encounter?.overworldPlacementId,
+            encounterLocation: encounterLocation
+              ? {
+                  sector: encounterLocation.sector,
+                  longitude: encounterLocation.longitude,
+                  latitude: encounterLocation.latitude,
+                }
+              : null,
             // Non-combat quests use their Logbook objectives instead of an unusable launch button.
             hasEncounter: getActiveObjectives(user).some(
               (entry) =>
@@ -440,14 +492,64 @@ export const questPartyRouter = createTRPCRouter({
           version: party.version + 1,
         })
         .where(and(eq(questParty.id, party.id), eq(questParty.version, party.version)));
-      return saved.rowsAffected === 1
-        ? {
-            success: true,
-            message: "Invitation sent. The player can accept on the Quest Teams page",
-          }
-        : errorResponse("Team changed. Please try again");
+      if (saved.rowsAffected !== 1)
+        return errorResponse("Team changed. Please try again");
+      await getServerPusher().trigger(invited.userId, "event", {
+        type: "questTeam",
+        message: "You were invited to a quest team. Open Quest Teams to accept.",
+      });
+      return {
+        success: true,
+        message: "Invitation sent. The player can accept on the Quest Teams page",
+      };
     }),
   /** Detach with personal receipts intact; retries finish an earlier partial departure. */
+  remove: protectedProcedure
+    .input(questPartyRemoveSchema)
+    .mutation(async ({ ctx, input }) => {
+      const loaded = await ctx.drizzle.query.questParty.findFirst({
+        where: eq(questParty.id, input.partyId),
+        with: questPartyRelations,
+      });
+      if (
+        !loaded ||
+        loaded.leaderId !== ctx.userId ||
+        input.userId === ctx.userId ||
+        !loaded.memberIds.includes(ctx.userId)
+      )
+        return errorResponse("Only the team leader can remove another member");
+      if (
+        !loaded.memberIds.includes(input.userId) &&
+        !loaded.members.some((member) => member.userId === input.userId)
+      )
+        return errorResponse("This player is not in the team");
+      const party = loaded.quest
+        ? await synchronizeQuestParty(ctx.drizzle, loaded)
+        : loaded;
+      if (party.battleId)
+        return errorResponse("Finish the team's encounter before removing members");
+      const result = await removeMember(
+        ctx.drizzle,
+        party.id,
+        input.userId,
+        undefined,
+        ctx.userId,
+      );
+      if (result.success)
+        await getServerPusher().trigger(input.userId, "event", {
+          type: "questTeam",
+          message:
+            "You left the quest team. Your quest progress and unclaimed rewards are in your Logbook.",
+          route: "/profile?tab=dashboard#progress-heading",
+          routeText: "Open Logbook",
+        });
+      return result.success
+        ? {
+            success: true,
+            message: "Member removed. Their quest progress and rewards are preserved",
+          }
+        : result;
+    }),
   leave: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -585,6 +687,7 @@ const removeMember = async (
   partyId: string,
   userId: string,
   joinClaimId?: string,
+  removingLeaderId?: string,
 ) => {
   // The roster and leader move in one CAS; no missing-row locks or transactions.
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -599,6 +702,12 @@ const removeMember = async (
       }),
     ]);
     if (!party) return { success: true, message: "Already left quest team" };
+    if (
+      removingLeaderId &&
+      (party.leaderId !== removingLeaderId ||
+        !party.memberIds.includes(removingLeaderId))
+    )
+      return errorResponse("Only the team leader can remove another member");
     if (member?.questPartyId === party.id && member.status === "BATTLE")
       return errorResponse("Finish your battle before leaving the quest team");
     if (!party.memberIds.includes(userId)) {
@@ -737,6 +846,33 @@ export const startQuestPartyEncounter = async ({
           (!objectiveId || entry.id === objectiveId) &&
           (entry.task === "start_battle" || entry.task === "defeat_opponents"),
       );
+  if (!atPlacementIds) {
+    const placementIds = activeObjectives.flatMap((entry) =>
+      entry.overworldPlacementId ? [entry.overworldPlacementId] : [],
+    );
+    // Only bound encounters need a placement lookup; its live tile is authoritative.
+    const placements = placementIds.length
+      ? await client.query.overworldAiPlacement.findMany({
+          where: and(
+            inArray(overworldAiPlacement.id, placementIds),
+            eq(overworldAiPlacement.isActive, true),
+          ),
+          columns: { id: true, sector: true, longitude: true, latitude: true },
+          with: { aiTemplate: { columns: { isAi: true } } },
+        })
+      : [];
+    atPlacementIds = new Set(
+      placements
+        .filter(
+          (placement) =>
+            placement.aiTemplate?.isAi &&
+            placement.sector === user.sector &&
+            placement.longitude === user.longitude &&
+            placement.latitude === user.latitude,
+        )
+        .map((placement) => placement.id),
+    );
+  }
   const activeObjective = activeObjectives.find(
     (entry) =>
       entry.task === "start_battle" ||
