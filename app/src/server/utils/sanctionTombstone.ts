@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { isIP } from "node:net";
 import { clerkClient } from "@clerk/nextjs/server";
 import {
   and,
@@ -23,6 +24,7 @@ import {
 import {
   accountDeletion,
   actionLog,
+  historicalIp,
   type SanctionTombstone,
   sanctionTombstone,
   storeUserIdAlias,
@@ -42,13 +44,13 @@ import { DELETED_STORE_USER_PREFIX } from "@/server/utils/purchases/grant";
  * registering again.
  *
  * Deleting an account while a ban or silence still runs stores one row per active report:
- * the Clerk user id, keyed hashes of the primary email and of every linked OAuth account,
- * the end date and the report id that imposed it. Nothing about the character, its
- * chat or its IPs is kept, and the hourly cleaner removes the row once the sanction ends.
+ * the Clerk user id, keyed hashes of the primary email, linked OAuth accounts and recorded
+ * IP addresses, the end date and the report id that imposed it. No plain addresses or
+ * character content are kept, and the hourly cleaner removes the row once the sanction ends.
  *
  * The web character deletion keeps the Clerk user, so the same Clerk id returns on the next
  * registration. The native account deletion deletes the Clerk user, so a returning player
- * gets a new Clerk id and only the email and OAuth hashes can match. A new character that
+ * gets a new Clerk id and only the email, OAuth and IP hashes can match. A new character that
  * matches serves the remainder: it gets a new report with the same type and end date, so
  * the ordinary ban and silence screens, expiry and staff tools apply to it unchanged.
  */
@@ -72,7 +74,7 @@ type ActiveSanction = {
 
 /** One inherited sanction type, its matching identifiers and every retained source. */
 export type SanctionMatch = ActiveSanction & {
-  matchedBy: ("clerkId" | "email" | "oauth")[];
+  matchedBy: ("clerkId" | "email" | "oauth" | "ip")[];
   tombstones: SanctionTombstone[];
 };
 
@@ -106,10 +108,28 @@ const normalizeProvider = (provider: string) =>
  * HMAC-SHA256 keyed with the app-wide hashing secret, labelled per identifier kind so a
  * value never hashes alike across kinds or across features that share the key.
  */
-export const hashSanctionIdentifier = (kind: "email" | "oauth", value: string) =>
+export const hashSanctionIdentifier = (kind: "email" | "oauth" | "ip", value: string) =>
   createHmac("sha256", getIpHashSecret())
     .update(`sanction-tombstone:${kind}:${value}`)
     .digest("hex");
+
+/** Reject missing/placeholder addresses and canonicalize equivalent IPv6 spellings. */
+export const hashSanctionIp = (ip: string | null | undefined): string | null => {
+  const address = ip?.trim();
+  if (!address || !isIP(address) || address.includes("%")) return null;
+  let normalized = address;
+  if (isIP(address) === 6) {
+    normalized = new URL(`http://[${address}]`).hostname.slice(1, -1);
+    // Dual-stack proxies may represent the same IPv4 client as an IPv6 mapped address.
+    const mapped = /^::ffff:([\da-f]+):([\da-f]+)$/.exec(normalized);
+    if (mapped?.[1] && mapped[2]) {
+      const high = Number.parseInt(mapped[1], 16);
+      const low = Number.parseInt(mapped[2], 16);
+      normalized = [high >> 8, high & 255, low >> 8, low & 255].join(".");
+    }
+  }
+  return hashSanctionIdentifier("ip", normalized);
+};
 
 /** Hash stable linked provider identifiers and deduplicate equivalent provider names. */
 const accountHashesOf = (identity: SanctionIdentity) => [
@@ -192,10 +212,20 @@ export const recordSanctionTombstone = async (
   userId: string,
   identity?: SanctionIdentity | null,
 ) => {
-  const activeReport = await client.query.userReport.findFirst({
-    columns: { id: true },
-    where: activeSanctionReportsWhere(userId),
-  });
+  const [activeReport, user, ips] = await Promise.all([
+    client.query.userReport.findFirst({
+      columns: { id: true },
+      where: activeSanctionReportsWhere(userId),
+    }),
+    client.query.userData.findFirst({
+      columns: { lastIp: true },
+      where: eq(userData.userId, userId),
+    }),
+    client.query.historicalIp.findMany({
+      columns: { ip: true },
+      where: eq(historicalIp.userId, userId),
+    }),
+  ]);
   if (!activeReport) return;
   const clerkUser =
     identity === undefined ? await fetchSanctionIdentity(userId) : identity;
@@ -203,6 +233,13 @@ export const recordSanctionTombstone = async (
   const hashes = {
     emailHash: primaryEmailHashOf(clerkUser),
     accountHashes: accountHashesOf(clerkUser),
+    ipHashes: [
+      ...new Set(
+        [user?.lastIp, ...ips.map(({ ip }) => ip)]
+          .map(hashSanctionIp)
+          .filter((hash): hash is string => hash !== null),
+      ),
+    ].sort(),
   };
   const sanction = sql<SanctionTombstoneType>`CASE WHEN ${userReport.status} = 'BAN_ACTIVATED' THEN 'BAN' ELSE 'SILENCE' END`;
   // Select eligibility and the decision in the same write, so a completed staff revision
@@ -223,6 +260,9 @@ export const recordSanctionTombstone = async (
               sql`CAST(${JSON.stringify(hashes.accountHashes)} AS JSON)`.as(
                 "accountHashes",
               ),
+            ipHashes: sql`CAST(${JSON.stringify(hashes.ipHashes)} AS JSON)`.as(
+              "ipHashes",
+            ),
             carryoverReportIds: sql`JSON_ARRAY()`.as("carryoverReportIds"),
             createdAt: sql`CURRENT_TIMESTAMP(3)`.as("createdAt"),
           })
@@ -230,7 +270,23 @@ export const recordSanctionTombstone = async (
           .where(activeSanctionReportsWhere(userId)),
       )
       .onDuplicateKeyUpdate({
-        set: { sanction, sanctionEndsAt: sql`${userReport.banEnd}`, ...hashes },
+        // Retain addresses removed by partial cleanup and add addresses learned while
+        // native identity deletion was retrying. Deduplicate against the current row.
+        set: {
+          sanction,
+          sanctionEndsAt: sql`${userReport.banEnd}`,
+          emailHash: hashes.emailHash,
+          accountHashes: hashes.accountHashes,
+          ipHashes: hashes.ipHashes.length
+            ? sql`JSON_MERGE_PRESERVE(${sanctionTombstone.ipHashes}, ${sql.join(
+                hashes.ipHashes.map(
+                  (hash) =>
+                    sql`IF(JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${hash})), JSON_ARRAY(), JSON_ARRAY(${hash}))`,
+                ),
+                sql`, `,
+              )})`
+            : sanctionTombstone.ipHashes,
+        },
       }),
   );
 };
@@ -249,9 +305,11 @@ export const matchSanctionTombstones = (
   tombstones: SanctionTombstone[],
   userId: string,
   identity: SanctionIdentity | null,
+  userIp?: string,
 ): SanctionMatch[] => {
   const emailHashes = new Set(emailHashesOf(identity));
   const accountHashes = new Set(identity ? accountHashesOf(identity) : []);
+  const ipHash = hashSanctionIp(userIp);
   const matches = new Map<SanctionTombstoneType, SanctionMatch>();
   for (const tombstone of tombstones) {
     if (tombstone.sanctionEndsAt <= new Date()) continue;
@@ -263,6 +321,7 @@ export const matchSanctionTombstones = (
       ...(tombstone.accountHashes.some((hash) => accountHashes.has(hash))
         ? (["oauth"] as const)
         : []),
+      ...(ipHash && tombstone.ipHashes.includes(ipHash) ? (["ip"] as const) : []),
     ];
     if (matchedBy.length === 0) continue;
     const current = matches.get(tombstone.sanction);
@@ -316,6 +375,7 @@ export const carryoverReportId = (userId: string, match: SanctionMatch) =>
               sanctionEndsAt,
               emailHash,
               accountHashes,
+              ipHashes,
             }) => [
               userId,
               sourceId,
@@ -323,6 +383,7 @@ export const carryoverReportId = (userId: string, match: SanctionMatch) =>
               sanctionEndsAt,
               emailHash,
               [...accountHashes].sort(),
+              [...ipHashes].sort(),
             ],
           )
           .map((source) => JSON.stringify(source))
@@ -348,6 +409,7 @@ const unchangedSource = (source: SanctionTombstone) =>
       ? eq(sanctionTombstone.emailHash, source.emailHash)
       : isNull(sanctionTombstone.emailHash),
     sql`${sanctionTombstone.accountHashes} = CAST(${JSON.stringify(source.accountHashes)} AS JSON)`,
+    sql`${sanctionTombstone.ipHashes} = CAST(${JSON.stringify(source.ipHashes)} AS JSON)`,
   );
 
 /** Remove only unpublished records; a concurrent successful registration keeps its cases. */
@@ -390,6 +452,7 @@ export const reapplySanctions = async (
   matches: SanctionMatch[],
   previousReportIds: string[],
   identity: SanctionIdentity | null | undefined,
+  userIp?: string,
 ) => {
   const reportIds = matches.map((match) => carryoverReportId(userId, match));
   await discardUnpublishedSanctions(
@@ -512,6 +575,7 @@ export const reapplySanctions = async (
   // If an empty snapshot skipped Clerk, any newly active source requires a fresh attempt.
   const emailHashes = emailHashesOf(identity ?? null);
   const accountHashes = identity ? accountHashesOf(identity) : [];
+  const ipHash = hashSanctionIp(userIp);
   const expectedSources = or(
     ...matches.flatMap((match) =>
       match.tombstones.map((source) =>
@@ -537,6 +601,9 @@ export const reapplySanctions = async (
               (hash) =>
                 sql`JSON_CONTAINS(${sanctionTombstone.accountHashes}, JSON_QUOTE(${hash}))`,
             ),
+            ipHash
+              ? sql`JSON_CONTAINS(${sanctionTombstone.ipHashes}, JSON_QUOTE(${ipHash}))`
+              : undefined,
           ),
       expectedSources ? not(expectedSources) : undefined,
     )})`,

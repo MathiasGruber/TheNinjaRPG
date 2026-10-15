@@ -6,6 +6,7 @@ import {
   accountDeletion,
   actionLog,
   bloodline,
+  historicalIp,
   sanctionTombstone,
   storeUserIdAlias,
   userData,
@@ -24,6 +25,7 @@ import { DELETED_STORE_USER_PREFIX } from "@/server/utils/purchases/grant";
 import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
+  hashSanctionIp,
   normalizeEmail,
   removeExpiredSanctionTombstones,
   type SanctionIdentity,
@@ -87,9 +89,9 @@ const addSanction = async (
   });
 };
 
-const register = async (userId: string, database?: DrizzleClient) =>
+const register = async (userId: string, database?: DrizzleClient, userIp?: string) =>
   registerRouter
-    .createCaller({ drizzle: database ?? (await getTestDatabase()), userId } as never)
+    .createCaller({ drizzle: database ?? (await getTestDatabase()), userId, userIp } as never)
     .createCharacter({
       username: `n${userId.slice(-11)}`.replace(/[^a-zA-Z0-9]/g, ""),
       gender: "Male",
@@ -135,6 +137,19 @@ const pauseWebDeletion = async () => {
 };
 
 describe("sanction identifier normalization", () => {
+  it("matches equivalent IPv6 and mapped IPv4 addresses without retaining plain IPs", () => {
+    expect(hashSanctionIp(" 2001:0DB8:0:0:0:0:0:1 ")).toBe(hashSanctionIp("2001:db8::1"));
+    expect(hashSanctionIp("::ffff:192.0.2.1")).toBe(hashSanctionIp("192.0.2.1"));
+    expect(hashSanctionIp("192.0.2.1")).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashSanctionIp("192.0.2.1")).not.toBe(hashSanctionIp("192.0.2.2"));
+  });
+
+  it.each([undefined, null, "", "unknown", "hidden", "Proxied", "ai-test-broker", "192.0.2.999", "fe80::1%eth0"])(
+    "does not match placeholder or invalid address %s", (ip) => {
+      expect(hashSanctionIp(ip)).toBeNull();
+    },
+  );
+
   it("folds Gmail aliases and preserves distinct local parts at other providers", () => {
     expect(normalizeEmail(" J.Doe+alt@GoogleMail.com ")).toBe("jdoe@gmail.com");
     expect(normalizeEmail("j.doe+x@example.com")).toBe("j.doe+x@example.com");
@@ -150,6 +165,7 @@ describeWithDatabase("sanction tombstones", () => {
       accountDeletion,
       actionLog,
       bloodline,
+      historicalIp,
       sanctionTombstone,
       storeUserIdAlias,
       userData,
@@ -181,6 +197,130 @@ describeWithDatabase("sanction tombstones", () => {
     vi.restoreAllMocks();
     // Other suites must not inherit this suite's sanctions or deletion markers.
     await resetTables(sanctionTombstone, storeUserIdAlias, accountDeletion);
+  });
+
+  it.each(["BAN_ACTIVATED", "SILENCE_ACTIVATED"] as const)(
+    "restores %s on a new identity using only a recorded IP and supports staff clearing",
+    async (status) => {
+      const database = await getTestDatabase();
+      const endsAt = new Date(Date.now() + 7 * DAY);
+      await insertUsers([
+        { userId: SANCTIONED, lastIp: "192.0.2.1" },
+        { userId: "staff", role: "OWNER" },
+      ]);
+      await database.insert(historicalIp).values([
+        { userId: SANCTIONED, ip: "2001:0DB8:0:0:0:0:0:1" },
+        { userId: SANCTIONED, ip: "::ffff:192.0.2.1" },
+        { userId: SANCTIONED, ip: "unknown" },
+      ]);
+      await addSanction(SANCTIONED, status, endsAt);
+      stubClerk({
+        [SANCTIONED]: identity("old@example.com"),
+        replacement: identity("new@example.com"),
+        cleared: identity("cleared@example.com"),
+      });
+      await deleteUser(database, SANCTIONED);
+      const sources = await tombstonesOf(SANCTIONED);
+      expect(sources[0]!.ipHashes.sort()).toEqual(
+        [
+          hashSanctionIdentifier("ip", "192.0.2.1"),
+          hashSanctionIdentifier("ip", "2001:db8::1"),
+        ].sort(),
+      );
+      expect(JSON.stringify(sources)).not.toContain("192.0.2.1");
+      expect(JSON.stringify(sources)).not.toContain("2001:");
+      expect(await database.query.historicalIp.findMany()).toHaveLength(0);
+      expect(await register("replacement", database, "2001:db8::1")).toMatchObject({
+        success: true,
+      });
+      const inherited = (await database.query.userReport.findFirst({
+        where: eq(userReport.reportedUserId, "replacement"),
+      }))!;
+      expect(inherited).toMatchObject({ status, banEnd: endsAt });
+      const account = await database.query.userData.findFirst({
+        where: eq(userData.userId, "replacement"),
+      });
+      expect(account).toMatchObject({
+        isBanned: status === "BAN_ACTIVATED",
+        isSilenced: status === "SILENCE_ACTIVATED",
+      });
+      const audit = await database.query.actionLog.findFirst({
+        where: eq(actionLog.relatedId, inherited.id),
+      });
+      expect(audit!.changes).toContain("Matched by: ip");
+      expect(
+        await sanctions.updateSanctionReport(database, inherited, {
+          status: "REPORT_CLEARED",
+          adminResolved: true,
+        }),
+      ).toBe(true);
+      expect(await tombstonesOf(SANCTIONED)).toHaveLength(0);
+      expect(await register("cleared", database, "192.0.2.1")).toMatchObject({
+        success: true,
+      });
+      expect(
+        await database.query.userReport.findFirst({
+          where: eq(userReport.reportedUserId, "cleared"),
+        }),
+      ).toBeUndefined();
+    },
+  );
+
+  it("does not sanction a different IP or missing IP, and ignores expired IP sources", async () => {
+    const database = await getTestDatabase();
+    await insertUsers([{ userId: SANCTIONED, lastIp: "192.0.2.1" }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk(
+      Object.fromEntries(
+        [SANCTIONED, "otherip", "noip", "expiredip"].map((id) => [
+          id,
+          identity(`${id}@example.com`),
+        ]),
+      ),
+    );
+    await deleteUser(database, SANCTIONED);
+    expect(await register("otherip", database, "192.0.2.2")).toMatchObject({
+      success: true,
+    });
+    expect(await register("noip", database, "unknown")).toMatchObject({ success: true });
+    await database
+      .update(sanctionTombstone)
+      .set({ sanctionEndsAt: new Date(Date.now() - 1) });
+    expect(await register("expiredip", database, "192.0.2.1")).toMatchObject({
+      success: true,
+    });
+    expect(await database.query.userReport.findMany()).toHaveLength(0);
+  });
+
+  it("merges newly learned IPs and preserves removed history across deletion retries", async () => {
+    const database = await getTestDatabase();
+    await insertUsers([{ userId: SANCTIONED, lastIp: "192.0.2.1" }]);
+    await addSanction(SANCTIONED, "BAN_ACTIVATED", new Date(Date.now() + DAY));
+    stubClerk({
+      [SANCTIONED]: identity("old@example.com"),
+      retryip: identity("new@example.com"),
+    });
+    await database.insert(historicalIp).values({ userId: SANCTIONED, ip: "192.0.2.2" });
+    await sanctions.recordSanctionTombstone(database, SANCTIONED);
+    await database.delete(historicalIp);
+    await database
+      .update(userData)
+      .set({ lastIp: "192.0.2.3" })
+      .where(eq(userData.userId, SANCTIONED));
+    await sanctions.recordSanctionTombstone(database, SANCTIONED);
+    await sanctions.recordSanctionTombstone(database, SANCTIONED);
+    await deleteUser(database, SANCTIONED);
+    expect((await tombstonesOf(SANCTIONED))[0]!.ipHashes.sort()).toEqual(
+      ["192.0.2.1", "192.0.2.2", "192.0.2.3"]
+        .map((ip) => hashSanctionIdentifier("ip", ip))
+        .sort(),
+    );
+    expect(await register("retryip", database, "192.0.2.3")).toMatchObject({
+      success: true,
+    });
+    expect(
+      await database.query.userData.findFirst({ where: eq(userData.userId, "retryip") }),
+    ).toMatchObject({ isBanned: true });
   });
 
   it("records a running sanction with hashed identifiers only, before the reports go", async () => {
