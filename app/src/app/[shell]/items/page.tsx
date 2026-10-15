@@ -78,6 +78,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { displayCostType } from "@/validators/item";
 
+/** Carried inventory, equipment loadouts, and item actions across capacity buckets. */
 export default function MyItems() {
   // State
   const availableTabs = ["normal", "event", "materials", "cooking"];

@@ -50,6 +50,7 @@ import {
   furnitureGeometrySchema,
 } from "@/validators/itemFurniture";
 
+/** Staff item editor with type-specific configuration and validated effects. */
 export default function ItemEdit(props: { params: Promise<{ itemid: string }> }) {
   const params = use(props.params);
   const router = useRouter();

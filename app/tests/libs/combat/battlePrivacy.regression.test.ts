@@ -50,6 +50,7 @@ describe("battle privacy regressions", () => {
       ninjutsuMastery: 100, genjutsuMastery: 100, taijutsuMastery: 100,
       bukijutsuMastery: 100, bloodlineMastery: 100, sageMastery: 100,
       jutsus: [], effects: [], bloodright: [], userSkills: [], bloodlineId: "line",
+      cookingJobs: [{ id: "pending-meal", userId: "foe", experience: 250, finishesAt: new Date(now.getTime() + 60000) }],
       bloodline: { id: "line", name: "Visible bloodline", effects: [structuredClone(authored)], bloodrightTiers: [] },
       items: [{
         id: "keystone-row", userId: "foe", itemId: "keystone", equipped: "KEYSTONE",
@@ -66,6 +67,8 @@ describe("battle privacy regressions", () => {
       defaultProfile: { id: "default" } as AiProfile,
     });
     // A selected item can share the passive template stored in keystoneItems.
+    expect(processed.usersState[0]).not.toHaveProperty("cookingJobs");
+    expect(user.cookingJobs).toHaveLength(1);
     processed.extraState.revealedActions = { itemIds: ["keystone"], jutsuIds: [] };
     const battle = makeCompleteBattle({
       usersState: processed.usersState,

@@ -24,6 +24,7 @@ import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { getShrineBoost } from "@/utils/village";
 
+/** Recipe selection, batch production, Cooking progression, and active meal effects. */
 export default function Kitchen({ image }: { image?: string }) {
   const { data: user } = useRequiredUserData();
   const utils = api.useUtils();

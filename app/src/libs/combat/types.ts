@@ -113,6 +113,8 @@ export type CombatQueryCompletedQuest = {
  */
 export type CombatQueryUser = UserData & {
   raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
+  /** Completion receipts loaded only for settlement before entering combat. */
+  cookingJobs?: { id: string; experience: number; finishesAt: Date }[];
   bloodline: (Bloodline & { bloodrightTiers?: SkillTree[] }) | null;
   activeReskin?: BloodlineReskin | null; // For bloodline reskinning
   sageMode?: SageMode | null; // Sage mode (must be manually activated)

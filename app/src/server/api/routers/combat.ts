@@ -4724,6 +4724,7 @@ export const processUsersForBattle = async (
       bounties: _bounties,
       bountySignups: _bountySignups,
       activeReskin: _activeReskin,
+      cookingJobs: _cookingJobs,
       ...rest
     } = user;
 
