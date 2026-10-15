@@ -84,6 +84,7 @@ import {
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
+  applyQuestResets,
   controlShownQuestLocationInformation,
   fallbackQuestsFilter,
   filterQuestTrackersForDbPersist,
@@ -4200,25 +4201,7 @@ export const handleQuestConsequences = async (
   }
   // If quests were reset, update the user's quest data
   if (resetQuests.length > 0) {
-    resetQuests.forEach((resetQuest) => {
-      if (!user.questData) return;
-      // If no text, which contains the objective id, then reset the entire quest
-      if (!resetQuest.info) {
-        user.questData = user.questData.filter((t) => !resetQuest.ids.includes(t.id));
-      } else {
-        const questId = resetQuest.ids[0]; // We only reset one quest at a time ever
-        const quest = user.questData?.find((t) => t.id === questId);
-        if (quest) {
-          const objectiveIdsToRemove = [resetQuest.info];
-          let goal = quest.goals.find((g) => g.id === resetQuest.info);
-          while (goal?.selectedNextObjectiveId) {
-            objectiveIdsToRemove.push(goal.selectedNextObjectiveId);
-            goal = quest.goals.find((g) => g.id === goal?.selectedNextObjectiveId);
-          }
-          quest.goals = quest.goals.filter((g) => !objectiveIdsToRemove.includes(g.id));
-        }
-      }
-    });
+    user.questData = applyQuestResets(user.questData, resetQuests);
   }
   // Database updates
   const shouldClaimUserState =
