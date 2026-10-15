@@ -50,7 +50,7 @@ describeWithDatabase("comments.exitConversation", () => {
       conversation,
       userData,
     );
-    await insertUsers([{ userId: "player" }]);
+    await insertUsers([{ userId: "player" }, { userId: "other" }]);
     stubProfile("fetchUser", async (_client: unknown, id: string) =>
       db.query.userData.findFirst({ where: eq(userData.userId, id) }),
     );
@@ -79,6 +79,17 @@ describeWithDatabase("comments.exitConversation", () => {
       await db.query.conversation.findFirst({ where: eq(conversation.id, "ticket-convo") }),
     ).toBeDefined();
     expect(await db.query.conversationComment.findMany()).toHaveLength(1);
+
+    // The creator still reads the thread through the ticket; other players do not.
+    const read = (userId: string) =>
+      callerForDatabase(commentsRouter, userId, db).getConversationComments({
+        convo_id: "ticket-convo",
+        limit: 10,
+      });
+    const creatorView = await read("player");
+    expect(creatorView.convo?.id).toBe("ticket-convo");
+    expect(creatorView.data.map((comment) => comment.id)).toEqual(["ticket-convo-comment"]);
+    expect((await read("other")).convo).toBeNull();
   });
 
   it("deletes an ordinary conversation once its last member exits", async () => {

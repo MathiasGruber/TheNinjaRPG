@@ -1100,11 +1100,24 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
   const convo = await getConvo();
   if (!convo) return undefined;
   const participantIds = [...new Set([userId, ...convo.users.map((u) => u.userId)])];
-  const [policies, senders] = await Promise.all([
+  // A support ticket's creator keeps access to its conversation through the
+  // ticket after leaving it, so only non-members of private staff threads need
+  // the lookup.
+  const needsTicketLookup =
+    convo.isStaffAvailable &&
+    !convo.isPublic &&
+    !convo.users.some((u) => u.userId === userId);
+  const [policies, senders, linkedSupportTicket] = await Promise.all([
     fetchCommunicationPolicies(client, participantIds),
     convo.isPublic || convo.isStaffAvailable
       ? []
       : fetchPrivateConversationSenders(client, userId, convo.id),
+    needsTicketLookup
+      ? client.query.supportTicket.findFirst({
+          where: eq(supportTicket.conversationId, convo.id),
+          columns: { createdByUserId: true },
+        })
+      : undefined,
   ]);
   const senderIds = senders.map((sender) => sender.userId);
   const readRestriction = conversationReadRestriction(
@@ -1116,7 +1129,12 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
     convo.isPublic || convo.isStaffAvailable
       ? readRestriction
       : privateConversationRestriction(policies, [...participantIds, ...senderIds]);
-  return { ...convo, readRestriction, sendRestriction };
+  return {
+    ...convo,
+    readRestriction,
+    sendRestriction,
+    supportTicketCreatorId: linkedSupportTicket?.createdByUserId ?? null,
+  };
 };
 
 /**
