@@ -284,6 +284,12 @@ const MenuBoxProfile: React.FC = () => {
             <StatusBar
               title="EP"
               tooltip="Energy continues recovering during combat and is credited when you leave."
+              combatRegenerationPeriods={
+                userData?.status === "BATTLE" && battle?.id === userData.battleId
+                  ? (battle.extraState.energyRegenerationPeriods?.[userData.userId] ??
+                    [])
+                  : undefined
+              }
               color="bg-violet-500"
               showText
               lastRegenAt={userData?.regenAt}

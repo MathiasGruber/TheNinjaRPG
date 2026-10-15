@@ -37,6 +37,7 @@ const battleWithLoadouts = () => makeCompleteBattle({
     jutsus: { "me-jutsu": jutsu("me-jutsu"), "foe-jutsu": jutsu("foe-jutsu"), "unused-injectable": jutsu("unused-injectable") },
     items: { "me-item": {id: "me-item", effects: []} as unknown as Item, "foe-item": {id: "foe-item", effects: []} as unknown as Item },
     energyRegeneration: { me: 20, foe: 99 },
+    energyRegenerationPeriods: { me: [{ startsAt: 1, endsAt: 2, bonus: 5 }], foe: [{ startsAt: 1, endsAt: 9, bonus: 9 }] },
     initialDurability: { foe: { "foe-row": 70 } },
     preBattleGearModifiers: { foe: {secret: 123} as never },
     aiProfiles: { foe: {rules: ["secret-ai-rule"]} as never },
@@ -60,6 +61,7 @@ describe("battle response privacy", () => {
     expect(response.extraState.items).not.toHaveProperty("foe-item");
     expect(JSON.stringify(response)).not.toContain("secret-ai-rule");
     expect(response.extraState.energyRegeneration).toEqual({me: 20});
+    expect(response.extraState.energyRegenerationPeriods).toEqual({me: [{ startsAt: 1, endsAt: 2, bonus: 5 }]});
     expect(response.extraState).not.toHaveProperty("initialDurability");
     expect(response.extraState).not.toHaveProperty("preBattleGearModifiers");
     expect(battle).toEqual(before);
@@ -70,6 +72,7 @@ describe("battle response privacy", () => {
     expect(masked.extraState.jutsus).toEqual({});
     expect(masked.extraState.items).toEqual({});
     expect(masked.extraState.energyRegeneration).toEqual({});
+    expect(masked.extraState.energyRegenerationPeriods).toEqual({});
     for (const user of masked.usersState) expect(user).not.toHaveProperty("jutsus");
   });
 

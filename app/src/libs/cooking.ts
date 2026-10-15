@@ -5,12 +5,14 @@ import { calcLevelRequirements } from "@/libs/profile";
 
 export const getCookingLevel = getFarmingLevel;
 export const getCookingLevelProgress = getFarmingLevelProgress;
+/** Highest Cooking title unlocked on the shared Farming experience curve. */
 export const getCookingRank = (experience: number) => {
   const level = getCookingLevel(experience);
   return (
     [...COOKING_RANKS].reverse().find((rank) => level >= rank.level) ?? COOKING_RANKS[0]
   );
 };
+/** Progress between title milestones rather than individual Cooking levels. */
 export const getCookingRankProgress = (experience: number) => {
   const rank = getCookingRank(experience);
   const next = COOKING_RANKS.find((entry) => entry.level > rank.level);
@@ -35,6 +37,7 @@ export const getCookingRankProgress = (experience: number) => {
           ),
   };
 };
+/** Batch duration counts each output meal and applies the Crafting shrine modifier. */
 export const getCookingSeconds = (
   meal: Pick<Item, "cookingTimeSeconds" | "cookingOutputQuantity">,
   batches: number,
@@ -50,6 +53,7 @@ export const getCookingSeconds = (
     ),
   );
 
+/** Human-readable bonus and duration shared by recipe and inventory views. */
 export const describeMealEffect = (
   meal: Pick<Item, "effects" | "mealDurationSeconds">,
 ) =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { getCookingLevel, getCookingRank, getCookingSeconds } from "@/libs/cooking";
-import { getInventoryBucket, getHomeStorageBucket, nonCombatConsume } from "@/libs/item";
+import { getInventoryBucket, getHomeStorageBucket, nonCombatConsume, isEquippableUserItem, getEquipBlockReason, canEquipAdditional } from "@/libs/item";
 import type { Item, UserData } from "@/drizzle/schema";
 
 describe("Cooking progression", () => {
@@ -20,5 +20,9 @@ describe("Cooking progression", () => {
     expect(getInventoryBucket(item)).toBe("cooking");
     expect(getHomeStorageBucket(item)).toBe("cooking");
     expect(nonCombatConsume(item, {} as UserData)).toBe(true);
+    const owned = { item, storedAtHome: false, isInAuction: false, craftingFinishedAt: null };
+    expect(isEquippableUserItem(owned)).toBe(true);
+    expect(getEquipBlockReason(owned)).toBeNull();
+    expect(canEquipAdditional({ itemType: "MEAL", slot: "ITEM", bloodlineId: null }, [])).toBe("Meals cannot be equipped");
   });
 });

@@ -16,6 +16,7 @@ import {
   userData,
   userQueue,
   userVote,
+  userRaidBuff,
   village,
 } from "@/drizzle/schema";
 import { getServerPusher } from "@/libs/pusher";
@@ -23,6 +24,7 @@ import { getEnergyQueue } from "@/libs/queue";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { trainRouter } from "@/server/api/routers/train";
+import { IncreaseRegenerationTag } from "@/validators/combat";
 import { completeExpiredGlobalTravel, travelRouter } from "@/server/api/routers/travel";
 import {
   invalidatePublishedMapCache,
@@ -149,6 +151,7 @@ describeWithDatabase("Energy queue state transitions", () => {
   });
   beforeEach(async () => {
     await resetTables(
+      userRaidBuff,
       battle,
       battleHistory,
       userItem,
@@ -638,6 +641,14 @@ describeWithDatabase("Energy queue state transitions", () => {
         maxChakra: 1000,
         maxStamina: 1000,
       });
+      // The first two earned ticks include the meal; the third is after expiry.
+      await db.insert(userRaidBuff).values({
+        id: "expired-training-meal",
+        userId: USER,
+        effects: [IncreaseRegenerationTag.parse({ power: 50 })],
+        createdAt: new Date(Date.now() - 200_000),
+        expiresAt: new Date(Date.now() - 60_000),
+      });
       await insertUsers([
         {
           userId: "attacker",
@@ -719,9 +730,9 @@ describeWithDatabase("Energy queue state transitions", () => {
         expect(user.offence).toBe(27);
         expect(user.defence).toBe(27);
         expect(user.experience).toBe(34);
-        expect(user.curHealth).toBe(300);
-        expect(user.curChakra).toBe(300);
-        expect(user.curStamina).toBe(300);
+        expect(user.curHealth).toBe(400);
+        expect(user.curChakra).toBe(400);
+        expect(user.curStamina).toBe(400);
         if (result) {
           const state = await db.query.battle.findFirst({
             where: eq(battle.id, result.battleId!),

@@ -1578,6 +1578,7 @@ const Character: React.FC<CharacterProps> = (props) => {
                 items={items?.filter(
                   (item) =>
                     item.itemType !== "FURNITURE" &&
+                    item.itemType !== "MEAL" &&
                     slot?.includes(item.slot) &&
                     isEquippableUserItem(item),
                 )}

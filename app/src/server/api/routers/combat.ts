@@ -2236,12 +2236,20 @@ export const initiateBattle = async (
       !user.isAi && user.cookingJobs.some((job) => job.finishesAt <= new Date()),
   );
   if (cookingOwners.length) {
-    await Promise.all(
-      cookingOwners.map((user) =>
-        settleCookingExperience(client, user.userId, user.cookingJobs),
-      ),
-    );
-    fetchedUsers = await queryBattleUsers();
+    try {
+      await Promise.all(
+        cookingOwners.map((user) =>
+          settleCookingExperience(client, user.userId, user.cookingJobs),
+        ),
+      );
+      fetchedUsers = await queryBattleUsers();
+    } catch (error) {
+      // Completion receipts remain retryable; Cooking XP does not block combat.
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "battleCookingSettlement" },
+      });
+    }
   }
 
   const entryCharges = info.questAttempt
@@ -2377,20 +2385,21 @@ export const initiateBattle = async (
       regeneration: calcActiveUserRegen(user, settings),
       maxEnergy: calcMaxEnergy(user),
     } as unknown as NonNullable<UserWithRelations>;
+    const regenerationGain = (fromTick: number, toTick: number) =>
+      getTimedRegenerationGain(
+        calcActiveUserRegen(user, settings, false),
+        user.raidBuffs,
+        new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
+        toTick - fromTick,
+        REGEN_SECONDS,
+      );
     const { energy, mastery } = settleQueuedTraining(
       trainingUser,
       user.queue,
       settings,
       ticks,
       new Date(),
-      (fromTick, toTick) =>
-        getTimedRegenerationGain(
-          calcActiveUserRegen(user, settings, false),
-          user.raidBuffs,
-          new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
-          toTick - fromTick,
-          REGEN_SECONDS,
-        ),
+      regenerationGain,
     );
     if (!energy && !mastery && !info.tournamentGame) return [];
     const amount = energy?.completed.reduce((sum, entry) => sum + entry.amount, 0) ?? 0;
@@ -2428,7 +2437,7 @@ export const initiateBattle = async (
         energy,
         mastery,
         amount,
-        regen: ticks * trainingUser.regeneration,
+        regen: regenerationGain(0, ticks),
         regenAt: secondsFromDate(ticks * REGEN_SECONDS, original.regenAt),
       },
     ];

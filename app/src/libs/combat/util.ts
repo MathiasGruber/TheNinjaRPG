@@ -1870,6 +1870,10 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
     bountySignups: {},
     sectorExclusiveRaids: [],
     energyRegeneration: select(state?.energyRegeneration, new Set([userId])),
+    energyRegenerationPeriods: select(
+      state?.energyRegenerationPeriods,
+      new Set([userId]),
+    ),
     textureAssets: [
       ...new Set([
         ID_ANIMATION_SMOKE,

@@ -333,11 +333,9 @@ export const getEquipBlockReason = (
     storedAtHome: boolean;
     isInAuction: boolean;
     craftingFinishedAt: Date | null;
-    item?: { itemType: string };
   },
   now: Date = new Date(),
 ): string | null => {
-  if (ui.item?.itemType === "MEAL") return "cannot be equipped";
   if (ui.storedAtHome) return "is stored at home";
   if (ui.isInAuction) return "is in auction";
   if (ui.craftingFinishedAt && ui.craftingFinishedAt > now) return "is being crafted";
@@ -419,6 +417,7 @@ export const canEquipAdditional = (
   candidate: Pick<EquipConstraintInfo, "bloodlineId" | "itemType" | "slot">,
   equippedItems: EquippedConstraintState[],
 ): string | null => {
+  if (candidate.itemType === "MEAL") return "Meals cannot be equipped";
   if (candidate.itemType === "FURNITURE") {
     return "Furniture belongs in your home and cannot be equipped";
   }

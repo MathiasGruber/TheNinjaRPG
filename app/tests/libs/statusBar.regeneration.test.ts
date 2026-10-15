@@ -3,6 +3,14 @@ import { calcCurrent } from "@/layout/StatusBar";
 
 afterEach(() => vi.restoreAllMocks());
 
+it("projects combat Energy continuously and stops the meal bonus at expiry", () => {
+  const regenAt = new Date("2026-01-01T00:00:00Z");
+  const periods = [{ startsAt: regenAt.getTime(), endsAt: regenAt.getTime() + 30000, bonus: 10 }];
+  vi.spyOn(Date, "now").mockReturnValue(regenAt.getTime() + 125000);
+  expect(calcCurrent(10, 100, "AWAKE", 20, regenAt, 5000, periods).current).toBe(55);
+  expect(calcCurrent(10, 100, "AWAKE", 20, regenAt, 5000, []).current).toBe(50);
+});
+
 it.each([
   [59, 10], [60, 30], [119, 30], [120, 50], [600, 100],
 ])("regenerates after %s seconds to %s", (seconds, expected) => {
