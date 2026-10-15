@@ -4,6 +4,7 @@ import {
   type HomeType,
   HomeTypes,
 } from "@/drizzle/constants";
+import { clamp } from "@/utils/math";
 import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 export type HomeRoomId = (typeof HOME_ROOM_IDS)[number];
@@ -18,16 +19,18 @@ export type HomeCamera = { x: number; y: number; scale: number };
 
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
-  const scale = Math.max(0.3, Math.min(1.8, camera.scale));
+  const scale = clamp(camera.scale, 0.3, 1.8);
   return {
     scale,
-    x: Math.max(
+    x: clamp(
+      camera.x,
       Math.min(0, 100 - Math.max(...rooms.map((room) => room.x + 100)) * scale),
-      Math.min(0, camera.x),
+      0,
     ),
-    y: Math.max(
+    y: clamp(
+      camera.y,
       Math.min(0, 100 - Math.max(...rooms.map((room) => room.y + 100)) * scale),
-      Math.min(0, camera.y),
+      0,
     ),
   };
 };

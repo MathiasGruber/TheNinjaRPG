@@ -43,6 +43,7 @@ import {
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
+import { clamp } from "@/utils/math";
 import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 /** A furnished residence with a reversible draft; the page owns persistence and game actions. */
@@ -110,10 +111,7 @@ export const HomeScene = ({
     const wheel = (event: WheelEvent) => {
       event.preventDefault();
       setCamera((current) => {
-        const scale = Math.max(
-          0.3,
-          Math.min(1.8, current.scale * (event.deltaY > 0 ? 0.9 : 1.1)),
-        );
+        const scale = clamp(current.scale * (event.deltaY > 0 ? 0.9 : 1.1), 0.3, 1.8);
         const rect = scene.getBoundingClientRect();
         const x = ((event.clientX - rect.left) / rect.width) * 100;
         const y = ((event.clientY - rect.top) / rect.height) * 100;
@@ -503,10 +501,7 @@ export const HomeScene = ({
               ? Math.hypot(event.clientX - other.x, event.clientY - other.y)
               : 0;
             if (other && before > 0) {
-              const scale = Math.max(
-                0.3,
-                Math.min(1.8, (current.scale * after) / before),
-              );
+              const scale = clamp((current.scale * after) / before, 0.3, 1.8);
               const midpoint = {
                 x: (((previous.x + other.x) / 2 - rect.left) / rect.width) * 100,
                 y: (((previous.y + other.y) / 2 - rect.top) / rect.height) * 100,
