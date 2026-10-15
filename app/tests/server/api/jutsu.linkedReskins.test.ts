@@ -77,6 +77,30 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
     expect((await fetchUserJutsus(db, "player"))[0]?.jutsu.name).toBe("Parent");
   });
 
+  it("searches linked names and retains base-name filtering for unlinked jutsu", async () => {
+    const id = await createChild();
+    const db = await getTestDatabase();
+    await db.update(jutsu).set({ name: "Scarlet attack" }).where(eq(jutsu.id, id));
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "group" }).where(eq(userData.userId, "player"));
+    await db.insert(jutsu).values({ ...await read("parent"), id: "unlinked", name: "Plain attack", bloodlineId: null });
+    await db.insert(userJutsu).values([
+      { id: "learned-parent", userId: "player", jutsuId: "parent" },
+      { id: "learned-plain", userId: "player", jutsuId: "unlinked" },
+    ]);
+    for (const name of ["sCaRlEt", "Scarlet attack", "Scar%attack"]) {
+      const found = await fetchUserJutsus(db, "player", { name });
+      expect(found.map((owned) => owned.jutsuId)).toEqual(["parent"]);
+      expect(found[0]?.jutsu.name).toBe("Scarlet attack");
+    }
+    expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+    expect((await fetchUserJutsus(db, "player", { name: "pLaIn" })).map((owned) => owned.jutsuId)).toEqual(["unlinked"]);
+    expect(await fetchUserJutsus(db, "player", { name: "missing" })).toEqual([]);
+    expect(await fetchUserJutsus(db, "player", { name: "Scarlet", jutsuType: ["NORMAL"] })).toEqual([]);
+    await db.update(userData).set({ bloodlineReskinId: null }).where(eq(userData.userId, "player"));
+    expect(await fetchUserJutsus(db, "player", { name: "Scarlet" })).toEqual([]);
+    expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+  });
+
   it("copies mechanics on creation and parent updates while preserving H rank and cosmetics", async () => {
     const id = await createChild();
     const child = await read(id);
