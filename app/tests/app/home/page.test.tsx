@@ -318,6 +318,54 @@ it("refreshes a selected furniture variant when returning from inventory", async
   }
 });
 
+it("refreshes furniture storage after a downgrade stores a carried piece from a removed room", async () => {
+  let home: typeof essentialHome = { ...essentialHome, homeType: "TOWN_HOUSE", furniture: [...basics, rug], layout: [...layout, { id: rug.id, x: 50, y: 50, rotation: 0, room: "room-1" }] };
+  let items = [...ownedItems, { ...ownedItems[0]!, id: rug.id, itemId: rug.itemId, storedAtHome: false, item: { ...ownedItems[0]!.item, id: rug.itemId, name: rug.name, image: rug.image } }];
+  let itemQueries = 0;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    let data;
+    if (op.path === "home.getUserHome") data = { ...home };
+    else if (op.path === "item.getUserItems") {
+      itemQueries++;
+      data = items.map((row) => ({ ...row }));
+    } else if (op.path === "home.getAvailableUpgrades") {
+      data = [{ type: "TWO_BED_HOUSE", ...HomeTypeDetails.TWO_BED_HOUSE, isUpgrade: false, upgradeCost: 0, downgradeRefund: 100 }];
+    } else if (op.path === "home.upgradeHome") {
+      expect(op.input).toEqual({ homeType: "TWO_BED_HOUSE" });
+      home = { ...home, homeType: "TWO_BED_HOUSE", layout: [...layout], furnitureRevision: home.furnitureRevision + 1 };
+      items = items.map((row) => row.id === rug.id ? { ...row, storedAtHome: true } : row);
+      data = { success: true, message: "Downgraded" };
+    } else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Manage home" }));
+    const management = within(view.getByRole("dialog"));
+    await act(async () => { fireEvent.mouseDown(management.getByRole("tab", { name: "Downgrades" }), { button: 0 }); });
+    fireEvent.click(management.getByRole("button", { name: "Downgrade" }));
+    await waitFor(() => expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)!.find(({ id }) => id === rug.id)!.storedAtHome).toBe(true));
+    expect(itemQueries).toBe(2);
+    fireEvent.click(management.getAllByRole("button", { name: "Close" })[0]!);
+    fireEvent.click(view.getByRole("button", { name: "Home storage" }));
+    const storage = within(view.getByRole("dialog"));
+    expect(storage.getByRole("tab", { name: "Furniture (4)" })).toBeTruthy();
+    await act(async () => { fireEvent.mouseDown(storage.getByRole("tab", { name: "Furniture (4)" }), { button: 0 }); });
+    expect(storage.getAllByAltText(rug.name).length).toBeGreaterThan(0);
+    await act(async () => { fireEvent.mouseDown(storage.getByRole("tab", { name: "Inventory" }), { button: 0 }); });
+    expect(storage.queryByAltText(rug.name)).toBeNull();
+  } finally {
+    queryClient.clear();
+  }
+}, 20_000);
+
 it("refreshes furniture storage after placing a carried piece and waits for its inventory", async () => {
   let home = { ...essentialHome, furniture: [...basics, rug] };
   let items = [...ownedItems, { ...ownedItems[0]!, id: rug.id, itemId: rug.itemId, storedAtHome: false, item: { ...ownedItems[0]!.item, id: rug.itemId, name: rug.name, image: rug.image } }];

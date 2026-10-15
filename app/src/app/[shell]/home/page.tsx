@@ -146,6 +146,7 @@ export default function HomePage() {
         if (data.success) {
           void userHomeRefetch();
           void upgradesRefetch();
+          void userItemsRefetch();
         }
       },
     });

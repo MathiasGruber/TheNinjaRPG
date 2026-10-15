@@ -79,9 +79,12 @@ describeWithDatabase("owned furniture persistence", () => {
     const home = await api.getUserHome();
     expectLayout(home?.layout, placements);
     expect(home?.styles).toEqual([...styles]);
+    expect((await api.toggleStoreItem({ userItemId: "cabinet-a" })).success).toBe(true);
+    expect((await snapshot()).inventory.find(({ id }) => id === "cabinet-a")).toMatchObject({ storedAtHome: false, homeRoom: "room-1", homeX: 50, homeY: 50 });
+    expect((await api.getUserHome())?.layout.some(({ id }) => id === "cabinet-a")).toBe(true);
     expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
     const stored = (await snapshot()).inventory.find(({ id }) => id === "cabinet-a");
-    expect(stored).toMatchObject({ quantity: 1, homeX: null, homeY: null });
+    expect(stored).toMatchObject({ quantity: 1, storedAtHome: true, homeRoom: "main", homeX: null, homeY: null });
     const downgraded = await api.getUserHome();
     expect(downgraded?.styles).toEqual([]);
     expect(downgraded?.layout.some(({ id }) => id === "cabinet-a")).toBe(false);
