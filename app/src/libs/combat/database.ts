@@ -122,6 +122,7 @@ const isRaidBossDefeated = (battle: CompleteBattle) =>
 
 /**
  * Claim the battle version; return cleanup to run alongside independent reward writes.
+ * A terminal event claim also commits its match outcome before recovery can observe deletion.
  * Battle-length analytics select an opposing non-summon combatant.
  */
 export const updateBattle = async (
@@ -194,12 +195,24 @@ export const updateBattle = async (
   const humanUserIds = humanTeammates.map((u) => u.userId);
 
   // Only the successful version claim may proceed to rewards and cleanup.
-  // Subsequent writes are not atomic with this claim; failures can leave partial settlement.
+  // Ordinary settlement writes are not atomic with this claim; failures can leave partial settlement.
   if (battleOver) {
-    const deleted = await retryOnDeadlock(() =>
-      client
+    const deleteBattle = (database: DrizzleClient) =>
+      database
         .delete(battle)
-        .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion))),
+        .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion)));
+    const deleted = await retryOnDeadlock(() =>
+      newBattle.extraState.tournamentGameId
+        ? client.transaction(async (tx) => {
+            const database = tx as unknown as DrizzleClient;
+            const deleted = await deleteBattle(database);
+            // The version DELETE and match UPDATE must commit together: a single-row CAS
+            // cannot prevent recovery treating a deleted battle as an interrupted launch.
+            if (deleted.rowsAffected === 1)
+              await updateTournament(database, newBattle, result, userId);
+            return deleted;
+          })
+        : deleteBattle(client),
     );
     if (deleted.rowsAffected === 0) {
       return null;
@@ -408,8 +421,8 @@ export const saveUsage = async (
   result: CombatResult | null,
   userId: string,
 ) => {
-  // Completion claims own dungeon progression and rewards; floors do not train the loadout.
-  if (curBattle.extraState.dungeon) return;
+  // Dungeon completion owns its progression; event exhibitions never train the loadout.
+  if (curBattle.extraState.dungeon || curBattle.extraState.tournamentGameId) return;
   const user = curBattle.usersState.find((user) => user.userId === userId);
   const battleType = curBattle.battleType;
   if (result && user) {
@@ -704,6 +717,8 @@ export const updateWars = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  // Exhibition results cannot advance wars or their rewards.
+  if (curBattle.extraState.tournamentGameId) return;
   // Fetch user
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const userVillageId = user?.villageId;
@@ -1119,6 +1134,11 @@ export const updateWars = async (
   );
 };
 
+/**
+ * Record event outcomes once through their WAITING token, including draws, or settle
+ * ordinary tournament matches. Terminal events call this inside the battle claim;
+ * earlier player settlements may record the same outcome without deleting the battle.
+ */
 export const updateTournament = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
@@ -1128,6 +1148,28 @@ export const updateTournament = async (
   // Fetch
   const user = curBattle.usersState.find((u) => u.userId === userId && !u.isSummon);
   const target = curBattle.usersState.find((u) => u.userId !== userId && !u.isSummon);
+  // Event games use sparring rules and record one durable outcome, including draws.
+  if (curBattle.extraState.tournamentGameId && user && target && result) {
+    await client
+      .update(tournamentMatch)
+      .set({
+        state: "PLAYED",
+        winnerId:
+          result.outcome === "Draw"
+            ? null
+            : result.didWin
+              ? user.userId
+              : target.userId,
+      })
+      .where(
+        and(
+          eq(tournamentMatch.id, curBattle.extraState.tournamentGameId),
+          eq(tournamentMatch.battleId, curBattle.id),
+          eq(tournamentMatch.state, "WAITING"),
+        ),
+      );
+    return;
+  }
   // Guards
   if (!user) return;
   if (!target) return;
@@ -1150,6 +1192,8 @@ export const updateVillageAnbuClan = async (
   result: CombatResult | null,
   userId: string,
 ) => {
+  // Event rewards are deferred to tournament completion, independent of faction rewards.
+  if (curBattle.extraState.tournamentGameId) return;
   // Fetch
   const user = curBattle.usersState.find((u) => u.userId === userId);
   // Guards
@@ -1369,6 +1413,29 @@ export const updateUser = async (
   // Party settlement restores every member together, bypassing single-player combat rewards.
   if (curBattle.extraState.dungeon) return { updatedQuestIds };
   const user = curBattle.usersState.find((u) => u.userId === userId);
+  if (result && user && curBattle.extraState.tournamentGameId) {
+    // Event battles are exhibition matches: preserve inventory, pools, progression,
+    // immunity and every ordinary combat statistic. Only release this battle's claim.
+    const settledAt = new Date();
+    await client
+      .update(userData)
+      .set({
+        status: "AWAKE",
+        bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+        bracketImmunityPausedAt: null,
+        battleId: null,
+        regenAt: settledAt,
+        curEnergy: combatEnergyRecoverySql(curBattle, userId, 0, settledAt),
+        updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+      })
+      .where(and(eq(userData.userId, userId), eq(userData.battleId, curBattle.id)));
+    void updateUserOnMap(pusher, user.sector, {
+      ...user,
+      longitude: user.originalLongitude,
+      latitude: user.originalLatitude,
+    });
+    return { updatedQuestIds };
+  }
   if (result && user) {
     const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
     const hasHumanOpponent = curBattle.usersState.some(

@@ -14,7 +14,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { TournamentType } from "@/drizzle/constants";
 import { IMG_AVATAR_DEFAULT, TOURNAMENT_ROUND_SECONDS } from "@/drizzle/constants";
 import type { TournamentMatch } from "@/drizzle/schema";
 import AvatarImage from "@/layout/Avatar";
@@ -46,7 +45,7 @@ interface TournamentProps {
   canJoin?: boolean;
   title: string;
   subtitle: string;
-  type: TournamentType;
+  type: "CLAN";
 }
 
 const Tournament: React.FC<TournamentProps> = (props) => {

@@ -292,6 +292,7 @@ export default function CombatPage() {
       <div className={cn(results && "opacity-50")} inert={!!results}>
         {isAutoCombatActive ? (
           <AutoCombatPanel
+            aiOnly={battle.extraState.tournamentAiOnly}
             isToggling={isTogglingAutoCombat}
             onTakeControl={() =>
               toggleAutoCombat({ battleId: battle.id, enabled: false })
@@ -495,6 +496,7 @@ export default function CombatPage() {
 }
 
 interface AutoCombatPanelProps {
+  aiOnly?: boolean;
   isToggling: boolean;
   onTakeControl: () => void;
 }
@@ -507,17 +509,20 @@ const AutoCombatPanel: React.FC<AutoCombatPanelProps> = (props) => {
         Auto combat active
       </p>
       <p className="text-muted-foreground text-sm">
-        Your AI profile is fighting this battle for you. Sit back and watch, or take
-        back control at any time.
+        {props.aiOnly
+          ? "Your AI profile is fighting this tournament game. You can edit your rules before the next game."
+          : "Your AI profile is fighting this battle for you. Sit back and watch, or take back control at any time."}
       </p>
-      <Button
-        variant="secondary"
-        disabled={props.isToggling}
-        onClick={props.onTakeControl}
-      >
-        <Hand className="mr-2 h-4 w-4" />
-        Take control
-      </Button>
+      {!props.aiOnly && (
+        <Button
+          variant="secondary"
+          disabled={props.isToggling}
+          onClick={props.onTakeControl}
+        >
+          <Hand className="mr-2 h-4 w-4" />
+          Take control
+        </Button>
+      )}
     </div>
   );
 };

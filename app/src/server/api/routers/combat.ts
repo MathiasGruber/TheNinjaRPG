@@ -13,6 +13,7 @@ import {
   like,
   lt,
   ne,
+  notExists,
   notInArray,
   or,
   sql,
@@ -78,6 +79,7 @@ import {
   rankedPvpQueue,
   sageMode,
   sector,
+  tournament,
   tournamentMatch,
   trainingLog,
   userData,
@@ -243,6 +245,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
@@ -423,6 +426,17 @@ export const combatRouter = createTRPCRouter({
                     ),
                     updateWars(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     updateKage(ctx.drizzle, settledBattle, result),
+                    // Terminal event outcomes were committed with the battle version claim.
+                    ...(claim.battleOver && settledBattle.extraState.tournamentGameId
+                      ? []
+                      : [
+                          updateTournament(
+                            ctx.drizzle,
+                            settledBattle,
+                            result,
+                            ctx.userId,
+                          ),
+                        ]),
                     updateRaidProgress(ctx.drizzle, settledBattle, ctx.userId),
                   ]
                 : []),
@@ -711,7 +725,9 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Only allow action if it is the users turn (a piloted summon is human-driven)
-          const { isUserTurn, isAITurn } = getTurnControl(actor, suid);
+          const control = getTurnControl(actor, suid);
+          const isUserTurn = !battle.extraState.tournamentAiOnly && control.isUserTurn;
+          const isAITurn = !!battle.extraState.tournamentAiOnly || control.isAITurn;
           if (!isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
@@ -907,7 +923,10 @@ export const combatRouter = createTRPCRouter({
                     updateClanLeaders(db, newBattle, result, suid),
                     updateVillageAnbuClan(db, newBattle, result, suid),
                     updateWars(db, pusher, newBattle, result, suid),
-                    updateTournament(db, newBattle, result, suid),
+                    // Terminal event outcomes were committed with the battle version claim.
+                    ...(battleOver && newBattle.extraState.tournamentGameId
+                      ? []
+                      : [updateTournament(db, newBattle, result, suid)]),
                     result
                       ? updateRaidProgress(db, newBattle, suid)
                       : Promise.resolve(),
@@ -1124,6 +1143,8 @@ export const combatRouter = createTRPCRouter({
       // Guard
       if (!userBattle) return errorResponse("You are not in a battle");
       if (!user) return errorResponse("You are not in this battle");
+      if (userBattle.extraState.tournamentAiOnly)
+        return errorResponse("AI tournament loadouts are frozen for this game");
       if (user.iAmHere) return errorResponse("You are already marked as ready");
       if (userBattle.battleType !== "COMBAT" && userBattle.battleType !== "SPARRING") {
         return errorResponse("You can only update loadouts in the combat lobby");
@@ -1605,7 +1626,10 @@ export const combatRouter = createTRPCRouter({
         if (!user) return errorResponse("You are not in this battle");
         if (user.isAi)
           return errorResponse("Only human players can toggle auto combat");
-        if (AutoBattleTypes.includes(userBattle.battleType)) {
+        if (
+          userBattle.extraState.tournamentAiOnly ||
+          AutoBattleTypes.includes(userBattle.battleType)
+        ) {
           return errorResponse("This battle is always fought by your AI profile");
         }
         if (user.leftBattle || user.fledBattle || user.curHealth <= 0) {
@@ -1835,7 +1859,8 @@ export const combatRouter = createTRPCRouter({
           WHERE Battle.battleType = ${input.battleType}
             AND (
               Battle.battleType NOT IN ('SPARRING', 'RANKED_SPARRING') OR 
-              UserRequest.spectatable = true
+              UserRequest.spectatable = true OR
+              JSON_EXTRACT(Battle.extraState, '$.tournamentGameId') IS NOT NULL
             )
           ORDER BY Battle.createdAt DESC
           LIMIT ${input.limit} OFFSET ${input.offset}
@@ -1932,6 +1957,8 @@ export const initiateBattle = async (
     clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];
+    /** Stable event launch identity; participant claims require its WAITING recovery token. */
+    tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
   },
   battleType: BattleType,
   scaleGains = 1,
@@ -2087,6 +2114,23 @@ export const initiateBattle = async (
                 ),
               ),
               gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+              // Exhibition history remains viewable without reducing ordinary PvP rewards.
+              notExists(
+                client
+                  .select({ id: tournamentMatch.id })
+                  .from(tournamentMatch)
+                  .innerJoin(
+                    tournament,
+                    eq(tournament.id, tournamentMatch.tournamentId),
+                  )
+                  .where(
+                    and(
+                      eq(tournamentMatch.userId1, battleHistory.attackedId),
+                      eq(tournamentMatch.battleId, battleHistory.battleId),
+                      eq(tournament.type, "EVENT"),
+                    ),
+                  ),
+              ),
             ),
           )
       : null,
@@ -2281,13 +2325,15 @@ export const initiateBattle = async (
   );
 
   // Settle authorized pre-combat training from the already loaded participant snapshots.
-  // Battle claims commit these gains with status; failed partial claims retain earned training.
+  // Battle claims commit these gains with status; ordinary partial claims retain earned training.
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
-  // bulk with the battle claim below.
+  // bulk with the battle claim below. Exhibitions also preserve real pool recovery here,
+  // before loadout/stat normalization, since their settlement discards battle pools.
   const queuedTraining = fetchedUsers.flatMap((user) => {
     if (
       user.isAi ||
-      (user.queue.length === 0 &&
+      (!info.tournamentGame &&
+        user.queue.length === 0 &&
         !user.currentlyTrainingMastery &&
         !user.currentlyTrainingElement)
     )
@@ -2307,7 +2353,7 @@ export const initiateBattle = async (
       settings,
       ticks,
     );
-    if (!energy && !mastery) return [];
+    if (!energy && !mastery && !info.tournamentGame) return [];
     const amount = energy?.completed.reduce((sum, entry) => sum + entry.amount, 0) ?? 0;
     const minutes =
       mastery?.completed.reduce((sum, entry) => sum + entry.minutes, 0) ?? 0;
@@ -2859,9 +2905,17 @@ export const initiateBattle = async (
     };
   }
 
+  if (info.tournamentGame) {
+    extraState.tournamentGameId = info.tournamentGame.id;
+    extraState.tournamentAiOnly = info.tournamentGame.aiOnly;
+  }
+
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
-  if (info.autoCombatUserIds?.length && AutoCombatBattleTypes.includes(battleType)) {
+  if (
+    info.autoCombatUserIds?.length &&
+    (AutoCombatBattleTypes.includes(battleType) || !!info.tournamentGame)
+  ) {
     usersState.forEach((user) => {
       if (
         !user.isAi &&
@@ -2992,7 +3046,11 @@ export const initiateBattle = async (
     : secondsFromNow(COMBAT_LOBBY_SECONDS);
 
   // Insert battle entry into DB
-  const battleId = info.coop?.battleId ?? info.clanBattle?.battleId ?? nanoid();
+  const battleId =
+    info.coop?.battleId ??
+    info.clanBattle?.battleId ??
+    info.tournamentGame?.battleId ??
+    nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
   const allParticipantIds = getBattleClaimIds({
@@ -3009,14 +3067,14 @@ export const initiateBattle = async (
   const stealthBreakUserIds: string[] = [];
 
   // Defenders always lose stealth
-  if (!AutoBattleTypes.includes(battleType)) {
+  if (!info.tournamentGame && !AutoBattleTypes.includes(battleType)) {
     stealthBreakUserIds.push(...targetIds);
   }
 
   // Attackers roll to see if they keep stealth
   for (const userId of userIds) {
     const user = users.find((u) => u.userId === userId);
-    if (user?.stealthActive) {
+    if (!info.tournamentGame && user?.stealthActive) {
       const keepStealth = rollStealthKeep(user.stealth);
       if (!keepStealth) {
         stealthBreakUserIds.push(userId);
@@ -3086,28 +3144,38 @@ export const initiateBattle = async (
       queuedParticipants.map((entry) => entry.user.userId),
     )} THEN GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt})) ELSE ${userData.updatedAt} END`;
     const energyParticipants = queuedParticipants.filter((entry) => entry.energy);
+    const recoveryParticipants = info.tournamentGame
+      ? queuedParticipants
+      : energyParticipants;
+    if (recoveryParticipants.length) {
+      queueUpdate.curEnergy = queueCase(
+        "curEnergy",
+        recoveryParticipants,
+        (entry) =>
+          entry.energy?.curEnergy ??
+          Math.min(
+            entry.original.curEnergy + entry.regen,
+            energyCapacity[entry.original.userId] ?? entry.original.maxEnergy,
+          ),
+      );
+      for (const pool of PoolTypes) {
+        const { cur, max } = getPoolKeys(pool);
+        queueUpdate[cur] = queueCase(cur, recoveryParticipants, (entry) =>
+          Math.min(entry.original[cur] + entry.regen, entry.original[max]),
+        );
+      }
+      queueUpdate.regenAt = queueCase(
+        "regenAt",
+        recoveryParticipants,
+        (entry) => entry.regenAt,
+      );
+    }
     if (energyParticipants.length) {
       // Advancing the head consumes the settled rows in this same statement.
       queueUpdate.energyQueueHead = queueCase(
         "energyQueueHead",
         energyParticipants,
         (entry) => entry.energy?.head,
-      );
-      queueUpdate.curEnergy = queueCase(
-        "curEnergy",
-        energyParticipants,
-        (entry) => entry.energy?.curEnergy,
-      );
-      for (const pool of PoolTypes) {
-        const { cur, max } = getPoolKeys(pool);
-        queueUpdate[cur] = queueCase(cur, energyParticipants, (entry) =>
-          Math.min(entry.original[cur] + entry.regen, entry.original[max]),
-        );
-      }
-      queueUpdate.regenAt = queueCase(
-        "regenAt",
-        energyParticipants,
-        (entry) => entry.regenAt,
       );
       queueUpdate.experience = queueCase(
         "experience",
@@ -3181,7 +3249,7 @@ export const initiateBattle = async (
   }
   /**
    * Persist the preloaded battle and return the participant claim and any settled failure.
-   * First payment shares a PlanetScale transaction session, so await its writes in order.
+   * First payments and event launches share a transaction session, so await their writes in order.
    * Other battles dispatch independent writes together and settle all siblings before cleanup.
    */
   const createBattle = async (client: DrizzleClient) => {
@@ -3244,15 +3312,19 @@ export const initiateBattle = async (
           ...queueUpdate,
           status: "BATTLE",
           battleId: battleId,
-          pvpFights: ["SPARRING", "COMBAT"].includes(battleType)
-            ? sql`${userData.pvpFights} + 1`
-            : sql`${userData.pvpFights}`,
-          pveFights: !["SPARRING", "COMBAT"].includes(battleType)
-            ? sql`${userData.pveFights} + 1`
-            : sql`${userData.pveFights}`,
-          immunityUntil: ["SPARRING", "COMBAT", "SHRINE_WAR"].includes(battleType)
-            ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
-            : sql`immunityUntil`,
+          pvpFights:
+            !info.tournamentGame && ["SPARRING", "COMBAT"].includes(battleType)
+              ? sql`${userData.pvpFights} + 1`
+              : sql`${userData.pvpFights}`,
+          pveFights:
+            !info.tournamentGame && !["SPARRING", "COMBAT"].includes(battleType)
+              ? sql`${userData.pveFights} + 1`
+              : sql`${userData.pveFights}`,
+          immunityUntil:
+            !info.tournamentGame &&
+            ["SPARRING", "COMBAT", "SHRINE_WAR"].includes(battleType)
+              ? sql`CASE WHEN ${inArray(userData.userId, userIds)} THEN NOW() ELSE ${userData.immunityUntil} END`
+              : sql`immunityUntil`,
           // Break stealth when entering combat
           // Defenders (being attacked) always lose stealth
           // Attackers roll to keep stealth based on their stealth stat
@@ -3288,6 +3360,25 @@ export const initiateBattle = async (
             // row is never even examined (or locked) by this update. Drizzle
             // compiles an empty list to FALSE, matching expectedRows === 0.
             inArray(userData.userId, allParticipantIds),
+            ...(info.tournamentGame
+              ? [
+                  eq(userData.status, "AWAKE"),
+                  isNull(userData.battleId),
+                  eq(userData.sector, MAP_WAKE_ISLAND_SECTOR),
+                  exists(
+                    client
+                      .select({ one: sql`1` })
+                      .from(tournamentMatch)
+                      .where(
+                        and(
+                          eq(tournamentMatch.id, info.tournamentGame.id),
+                          eq(tournamentMatch.battleId, battleId),
+                          eq(tournamentMatch.state, "WAITING"),
+                        ),
+                      ),
+                  ),
+                ]
+              : []),
             ...partyQuestSnapshots.map((snapshot) =>
               or(
                 ne(userData.userId, snapshot.userId),
@@ -3450,7 +3541,7 @@ export const initiateBattle = async (
           ]
         : []),
     ] as const;
-    if (hasEntryCharges) {
+    if (hasEntryCharges || info.tournamentGame) {
       await writes[0];
       await writes[1];
       const claimedUsers = await writes[2];
@@ -3483,6 +3574,24 @@ export const initiateBattle = async (
     });
     if (!committed.success) return { success: false, message: committed.message };
     result = committed.result;
+  } else if (info.tournamentGame) {
+    // Battle/history inserts and both user claims must commit together. A single-row
+    // CAS cannot hide a staged battle from recovery or roll back partial claims'
+    // training and pool recovery; status compensation cannot undo those writes.
+    const rejected = new Error("Tournament participant claim failed");
+    try {
+      result = await retryOnDeadlock(() =>
+        client.transaction(async (tx) => {
+          const created = await createBattle(tx as unknown as DrizzleClient);
+          if (created.claimedUsers?.rowsAffected !== expectedRows) throw rejected;
+          return created;
+        }),
+      );
+    } catch (error) {
+      if (error === rejected)
+        return { success: false, message: "Attack failed, did the target move?" };
+      throw error;
+    }
   } else {
     result = await createBattle(client);
   }

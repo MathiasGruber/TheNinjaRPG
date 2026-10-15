@@ -27,6 +27,7 @@ import {
   IMG_MANUAL_SAGE_MODE,
   IMG_MANUAL_SKILLTREE,
   IMG_MANUAL_STAFF,
+  IMG_MANUAL_TOURNAMENTS,
   IMG_MANUAL_TOWER_UPGRADES,
   IMG_MANUAL_TRAVEL,
 } from "@/drizzle/constants";
@@ -36,6 +37,7 @@ import Link from "@/layout/Link";
 import {
   canChangeContent,
   canControlBackups,
+  canManageTournaments,
   canViewRecruitmentAnalytics,
   isStaffRole,
 } from "@/utils/permissions";
@@ -49,6 +51,9 @@ export default function ManualMain() {
   const canEditMaps = canChangeContent(role);
 
   const baseEntries = [
+    ...(canManageTournaments(role)
+      ? [{ name: "tournaments", img: IMG_MANUAL_TOURNAMENTS }]
+      : []),
     // recruitment added conditionally below
     { name: "combat", img: IMG_MANUAL_COMBAT },
     { name: "bloodline", img: IMG_MANUAL_BLOODLINE },

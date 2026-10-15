@@ -85,6 +85,15 @@ const mkBattle = (): Battle =>
   }) as unknown as Battle;
 
 describe("summon() template lookup", () => {
+  it("keeps a piloted summon under AI control in an AI tournament", () => {
+    const users = [mkPlayer(), mkTemplate()];
+    const battle = mkBattle(); battle.extraState.tournamentAiOnly = true;
+    summon(users, { ...mkSummonEffect(), playerControlled: true } as GroundEffect, [], battle);
+    const spawned = users.find((u) => u.isSummon && u.controllerId === PLAYER_ID);
+    expect(spawned?.isPiloted).toBe(true);
+    expect(spawned?.isAutoCombat).toBe(true);
+  });
+
   it("uses the pristine template when a depleted enemy shares its controllerId", () => {
     const template = {
       ...mkTemplate(),

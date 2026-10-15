@@ -396,6 +396,10 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Staff-event game identity; combat preloads it so settlement never fetches tournament data. */
+  tournamentGameId?: string;
+  /** Event AI rules cannot be disabled by participants. */
+  tournamentAiOnly?: boolean;
   /** Preloaded enemy waves shared by authored co-op encounters. */
   encounter?: import("@/libs/combat/encounters").EncounterWaveState;
   /** Private run/wave snapshot used by combat actions and atomic party settlement. */

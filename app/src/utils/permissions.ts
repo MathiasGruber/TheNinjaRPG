@@ -1074,3 +1074,19 @@ export const canManageRewards = (role: UserRole) =>
     "HEAD_EVENT",
     "OWNER",
   ].includes(role);
+
+/** Tournament operations are restricted to content, event and coding staff. */
+export const canManageTournaments = (role: UserRole) =>
+  [
+    "CONTENT",
+    "BALANCE",
+    "HEAD_BALANCE",
+    "HEAD_CONTENT",
+    "CONTENT-ADMIN",
+    "EVENT",
+    "HEAD_EVENT",
+    "EVENT-ADMIN",
+    "CODER",
+    "CODING-ADMIN",
+    "OWNER",
+  ].includes(role);
