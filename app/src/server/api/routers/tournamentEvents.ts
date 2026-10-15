@@ -156,7 +156,7 @@ export const eventTournamentProcedures = {
       const row = await fetchEvent(ctx.drizzle, input.tournamentId);
       if (!row?.eventData) return null;
       const participant = row.eventData.participants.find(
-        (p) => p.userId === ctx.userId,
+        (p) => p.userId === ctx.userId && !p.withdrawn,
       );
       const { matches: _matches, ...publicRow } = row;
       return {
@@ -294,6 +294,9 @@ export const eventTournamentProcedures = {
             return "Tournament is full, including reserved invitations";
           if (replacing)
             event.participants.splice(event.participants.indexOf(replacing), 1);
+          event.participants = event.participants.filter(
+            (p) => p.userId !== target.userId,
+          );
           event.participants.push(makeParticipant(target, true, false));
         } else if (input.action === "REMOVE_INVITE") {
           if (event.status !== "REGISTRATION")
@@ -396,6 +399,9 @@ export const eventTournamentProcedures = {
           } else {
             if (occupiedSeats(event) >= event.config.capacity)
               return "Tournament is full, including reserved invitations";
+            event.participants = event.participants.filter(
+              (p) => p.userId !== user.userId,
+            );
             event.participants.push(makeParticipant(user, false, true));
           }
         } else if (input.action === "WITHDRAW" || input.action === "DECLINE") {
@@ -484,6 +490,9 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
   for (const series of event.series.filter((s) => !s.complete)) {
     const game = series.games.at(-1);
     if (!game) continue;
+    const activeUserIds = event.participants
+      .filter((p) => series.seats.includes(p.id) && !p.withdrawn)
+      .map((p) => p.userId);
     const saved = row.matches.find((m) => m.id === game.id);
     if (saved?.state === "PLAYED") {
       const withdrawn = series.seats.some(
@@ -511,9 +520,7 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
       game.accepted.length < 2 &&
       now >= game.deadline
     ) {
-      const ready = game.accepted.filter(
-        (uid) => !event.participants.find((p) => p.userId === uid)?.withdrawn,
-      );
+      const ready = game.accepted.filter((uid) => activeUserIds.includes(uid));
       completeEventGame(
         event,
         series,
@@ -527,9 +534,7 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
         (sid) => event.participants.find((p) => p.id === sid)?.withdrawn,
       )
     ) {
-      game.accepted = game.userIds.filter(
-        (uid) => !event.participants.find((p) => p.userId === uid)?.withdrawn,
-      );
+      game.accepted = game.userIds.filter((uid) => activeUserIds.includes(uid));
       completeEventGame(
         event,
         series,

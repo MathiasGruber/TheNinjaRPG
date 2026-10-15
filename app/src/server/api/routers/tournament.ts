@@ -48,7 +48,8 @@ export const tournamentRouter = createTRPCRouter({
     .input(z.object({ tournamentId: z.string() }))
     .query(async ({ ctx, input }) => {
       await syncTournamentState(ctx.drizzle, input.tournamentId);
-      return (await fetchTournament(ctx.drizzle, input.tournamentId)) ?? null;
+      const data = await fetchTournament(ctx.drizzle, input.tournamentId);
+      return data?.type === "CLAN" ? data : null;
     }),
   syncTournament: protectedProcedure
     .meta({
