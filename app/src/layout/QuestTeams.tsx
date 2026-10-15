@@ -264,15 +264,11 @@ export const QuestTeams = ({
             viewerId={user.userId}
             capacity={QUEST_PARTY_MAX_MEMBERS}
             disabled={busy || !!current.battleId}
-            onRemove={
-              current.leaderId === user.userId
-                ? (userId) => {
-                    setRemoveUserId(userId);
-                    setMessage("");
-                    setEndAction("remove");
-                  }
-                : undefined
-            }
+            onRemove={(userId) => {
+              setRemoveUserId(userId);
+              setMessage("");
+              setEndAction("remove");
+            }}
           />
           {current.completed && (
             <div
