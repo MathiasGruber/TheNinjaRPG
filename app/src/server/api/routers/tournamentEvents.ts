@@ -20,7 +20,6 @@ import {
   userJutsu,
 } from "@/drizzle/schema";
 import { getExpBracket } from "@/libs/profile";
-import { getServerPusher } from "@/libs/pusher";
 import { postProcessRewards } from "@/libs/quest";
 import {
   advanceEvent,
@@ -41,7 +40,6 @@ import { canManageTournaments } from "@/utils/permissions";
 import { ObjectiveReward } from "@/validators/rewards";
 import {
   type EventParticipant,
-  type EventSeries,
   type EventTournamentState,
   eventTournamentActionSchema,
   eventTournamentIdSchema,

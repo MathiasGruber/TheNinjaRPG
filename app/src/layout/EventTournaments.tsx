@@ -1,5 +1,6 @@
 "use client";
 
+import { sentenceCase as label } from "change-case";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
@@ -23,6 +24,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import { getRewardArray } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
 import { canManageTournaments } from "@/utils/permissions";
+import { formatLocalDateTimeInput } from "@/utils/time";
 import { useUserData } from "@/utils/UserContext";
 import type { UserSearchResult } from "@/validators/register";
 import { ObjectiveReward } from "@/validators/rewards";
@@ -851,7 +853,11 @@ const TournamentEditor = ({
               <Input
                 type="datetime-local"
                 id={`event-${key}`}
-                value={localDateInput(config[key])}
+                value={
+                  Number.isFinite(config[key])
+                    ? formatLocalDateTimeInput(new Date(config[key]))
+                    : ""
+                }
                 onChange={(e) => update(key, new Date(e.target.value).getTime())}
               />
             </label>
@@ -901,19 +907,7 @@ const TournamentEditor = ({
   );
 };
 
-const label = (value: string) =>
-  value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replaceAll("_", " ")
-    .toLowerCase()
-    .replace(/^./, (c) => c.toUpperCase());
 const date = (value: number) => new Date(value).toLocaleString();
-const localDateInput = (value: number) =>
-  Number.isFinite(value)
-    ? new Date(value - new Date(value).getTimezoneOffset() * 60000)
-        .toISOString()
-        .slice(0, 16)
-    : "";
 const defaultConfig = (): EventTournamentConfig => ({
   name: "New Colosseum Tournament",
   description: "A staff-hosted tournament at Wake Island.",

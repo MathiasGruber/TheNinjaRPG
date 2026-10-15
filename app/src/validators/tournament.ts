@@ -17,7 +17,6 @@ export const tournamentCreateSchema = z.object({
 export type TournamentCreateSchema = z.infer<typeof tournamentCreateSchema>;
 export type TournamentCreateSchemaInput = z.input<typeof tournamentCreateSchema>;
 
-export const eventSeriesLengths = [1, 3, 5] as const;
 const seriesLength = z.union([z.literal(1), z.literal(3), z.literal(5)]);
 export const eventTournamentConfigSchema = z
   .object({
