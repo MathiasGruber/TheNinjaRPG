@@ -205,7 +205,8 @@ const activeSanctionReportsWhere = (userId: string) =>
  * when a sanction exists. The write selects current decisions after the Clerk lookup.
  * Repeated captures preserve case links. Once Clerk is gone, only add observed IP hashes:
  * moderation updates the captured decision through updateSanctionReport, and the original
- * reports may now be stale. Repeating cleanup after the reports are gone leaves it untouched.
+ * reports may now be stale. Live retained sources can acquire IP hashes even after the
+ * original reports expire or are removed, without changing the captured decision.
  */
 export const recordSanctionTombstone = async (
   client: DrizzleClient,
@@ -226,9 +227,11 @@ export const recordSanctionTombstone = async (
       where: eq(historicalIp.userId, userId),
     }),
   ]);
-  if (!activeReport) return;
-  const clerkUser =
-    identity === undefined ? await fetchSanctionIdentity(userId) : identity;
+  const clerkUser = activeReport
+    ? identity === undefined
+      ? await fetchSanctionIdentity(userId)
+      : identity
+    : null;
   const ipHashes = [
     ...new Set(
       [user?.lastIp, ...ips.map(({ ip }) => ip)]
