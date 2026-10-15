@@ -6,7 +6,14 @@ import {
   SHRINE_BOOST_BASE_PERC,
   SHRINE_BOOST_COST,
 } from "@/drizzle/constants";
-import { mpvpBattleQueue, mpvpBattleUser, sector, village } from "@/drizzle/schema";
+import {
+  mpvpBattleQueue,
+  mpvpBattleUser,
+  sector,
+  village,
+  war,
+  warCamp,
+} from "@/drizzle/schema";
 import * as gamesettings from "@/libs/gamesettings";
 import { getCurrentSlotBoundary, getSlotIndex } from "@/utils/time";
 import { countBoostingShrines, getShrineBoost } from "@/utils/village";
@@ -24,7 +31,7 @@ describeWithDatabase("shrine boost template reserve locks", () => {
   const spies: { mockRestore: () => void }[] = [];
 
   beforeEach(async () => {
-    await resetTables(mpvpBattleUser, mpvpBattleQueue, sector, village);
+    await resetTables(mpvpBattleUser, mpvpBattleQueue, warCamp, war, sector, village);
     stubCronAuth(() => null);
     spies.push(vi.spyOn(headers, "cookies").mockResolvedValue({} as never));
     spies.push(

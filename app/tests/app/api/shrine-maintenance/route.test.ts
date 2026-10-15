@@ -1,22 +1,6 @@
 import { describe, expect, it, vi } from "bun:test";
-import { mpvpBattleQueue, mpvpBattleUser, userData } from "@/drizzle/schema";
-
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(),
-}));
-
-vi.mock("@/libs/gamesettings", () => ({
-  handleEndpointError: vi.fn(),
-  lockWithDailyTimer: vi.fn(),
-  lockWithMinuteTimer: vi.fn(),
-  updateGameSetting: vi.fn(),
-}));
-
-vi.mock("@/server/api/routers/village", () => ({
-  fetchVillages: vi.fn(),
-}));
-
 import { runStaleShrineLobbyCleanup } from "@/app/api/shrine-maintenance/route";
+import { mpvpBattleQueue, mpvpBattleUser, userData } from "@/drizzle/schema";
 
 function createSelectChain<T>(rows: T[]) {
   const where = vi.fn().mockResolvedValue(rows);

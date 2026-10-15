@@ -1,4 +1,15 @@
-import { and, eq, gte, inArray, isNull, lt, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { cookies } from "next/headers";
 import {
   SHRINE_BOOST_COST,
@@ -12,6 +23,7 @@ import {
   sector,
   userData,
   village,
+  war,
 } from "@/drizzle/schema";
 import {
   handleEndpointError,
@@ -22,6 +34,7 @@ import {
 import { fetchVillages } from "@/server/api/routers/village";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { syncWarCamps } from "@/server/utils/objectiveWar";
 import {
   boostInactivePredicate,
   mergeActiveBoostsExpression,
@@ -54,11 +67,15 @@ export async function GET(request: Request) {
   try {
     const now = new Date();
 
-    // Run shrine boost tick (every minute)
-    const [boostResult, staleLobbyResult] = await Promise.all([
+    // Run minute tasks and load objective wars independently.
+    const [boostResult, staleLobbyResult, objectiveWars] = await Promise.all([
       runShrineBoostTick(now, minuteCheck.prevTime),
       runStaleShrineLobbyCleanup(now),
+      drizzleDB.query.war.findMany({
+        where: and(eq(war.status, "ACTIVE"), isNotNull(war.rules)),
+      }),
     ]);
+    if (objectiveWars.length) await syncWarCamps(drizzleDB, objectiveWars, now);
 
     // Check daily timer for shrine downgrade maintenance
     dailyCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME_DAILY);

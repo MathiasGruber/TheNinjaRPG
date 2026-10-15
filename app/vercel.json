@@ -104,10 +104,6 @@
     {
       "path": "/api/daily-overworld-ai",
       "schedule": "0/5 0 * * *"
-    },
-    {
-      "path": "/api/war-camps",
-      "schedule": "* * * * *"
     }
   ],
   "functions": {
@@ -122,8 +118,6 @@
       "includeFiles": "public/icons/icon-512x512.png"
     }
   },
-  "regions": [
-    "iad1"
-  ],
+  "regions": ["iad1"],
   "ignoreCommand": "test \"$VERCEL_PROJECT_ID\" = prj_BdSjqnIDD91tmQlpspujLZSxFnxM && test \"$VERCEL_ENV\" = preview"
 }
