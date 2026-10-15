@@ -526,6 +526,30 @@ describe("weighted cache effect drafts", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ rewardMode: "standard", weightedCache: { rolls: [{ count: 1, probability: 4900 }, { count: 2, probability: 5000 }] } });
   });
+
+  it("reveals and replaces missing rewards in a saved Standard cache without enforcing active totals", async () => {
+    vi.spyOn(names, "useQuery").mockReturnValue({ data: [{ id: "replacement", name: "Replacement Pill" }] } as never);
+    const effect = NonCombatConsumeRewardTag.parse({ ...cacheItem.effects[0], rewardMode: "standard" });
+    effect.weightedCache!.rolls[0]!.probability = 4900;
+    const view = render(<ItemCacheDraftForm item={{ ...cacheItem, effects: [effect] }} />);
+    const inactive = view.getByText("Inactive Weighted Cache · Needs attention").closest("details")!;
+    expect(inactive.open).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(inactive.open).toBe(true));
+    const error = view.getByRole("alert");
+    expect(error.textContent).toBe("Common · Entry 1 · Item 1: Remove or replace missing item: pill");
+    expect(document.activeElement).toBe(error);
+    expect(toast).toHaveBeenCalledWith({ success: false, message: `Cannot save. ${error.textContent}` });
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(within(inactive).getByRole("combobox"));
+    fireEvent.click(await view.findByRole("option", { name: "Replacement Pill" }));
+    fireEvent.click(view.getByRole("button", { name: "Remove pill" }));
+    await waitFor(() => expect(view.queryByText("Inactive Weighted Cache · Needs attention")).toBeNull());
+    expect(view.getByRole("combobox", { name: "Reward mode" }).textContent).toBe("Standard rewards");
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ rewardMode: "standard", reward_money: 17, weightedCache: { rolls: [{ count: 1, probability: 4900 }, { count: 2, probability: 5000 }], tiers: [{ entries: [{ items: [{ itemId: "replacement", quantity: 1 }] }] }] } });
+  });
 });
 
 const cacheItem = {
@@ -547,8 +571,8 @@ const cacheItem = {
   id: "cache", craftingRequirements: [],
 } as unknown as Item & { craftingRequirements: [] };
 
-const ItemCacheDraftForm = () => {
-  const { effects, setEffects, handleItemSubmit, isUpdating } = useItemEditForm(cacheItem, async () => undefined);
+const ItemCacheDraftForm = ({ item = cacheItem }: { item?: typeof cacheItem }) => {
+  const { effects, setEffects, handleItemSubmit, isUpdating } = useItemEditForm(item, async () => undefined);
   const validEffects = (effects?.filter((effect): effect is ZodAllTags => effect !== undefined) ?? []) as ZodAllTags[];
   return <>
     <EffectFormWrapper type="item" idx={0} tag={validEffects[0]!} effects={validEffects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} submitLoading={isUpdating} />

@@ -78,6 +78,11 @@ export const useItemEditForm = (
   const handleItemSubmit = form.handleSubmit(
     async (data: ZodItemType) => {
       if (submitInFlight.current) return;
+      const cacheError = focusWeightedCacheError();
+      if (cacheError) {
+        showMutationToast({ success: false, message: `Cannot save. ${cacheError}` });
+        return;
+      }
       const newItem = {
         ...item,
         ...data,

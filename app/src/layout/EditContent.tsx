@@ -63,7 +63,7 @@ import {
 } from "@/libs/overworldAi";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
-import { defaultWeightedCache } from "@/libs/weightedCache";
+import { cacheItemIds, defaultWeightedCache } from "@/libs/weightedCache";
 import { calculateContentDiff } from "@/utils/diff";
 import { isRetryableTrpcError } from "@/utils/error";
 import { canAwardReputation } from "@/utils/permissions";
@@ -2175,7 +2175,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     watchType === "noncombatconsumereward" &&
     watchAll.rewardMode !== "weightedCache" &&
     watchAll.weightedCache &&
-    !weightedCacheDraftSchema.safeParse(watchAll.weightedCache).success;
+    (!weightedCacheDraftSchema.safeParse(watchAll.weightedCache).success ||
+      (!isItemCatalogLoading &&
+        !isItemCatalogError &&
+        itemData &&
+        cacheItemIds(watchAll.weightedCache).some(
+          (id) => !itemData.some((item) => item.id === id),
+        )));
   const cacheEditor = (
     <WeightedCacheEditor
       cache={watchAll.weightedCache ?? defaultWeightedCache()}

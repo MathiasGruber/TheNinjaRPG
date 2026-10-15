@@ -46,7 +46,7 @@ export const WeightedCacheEditor = ({
   ).safeParse(cache);
   const issues: CacheIssue[] = [...(validation.error?.issues ?? [])];
   const itemIds = new Set(items.map((item) => item.id));
-  if (isActive && !isLoading && !isError)
+  if (!isLoading && !isError)
     cache.tiers.forEach((tier, tierIndex) => {
       tier.entries.forEach((entry, entryIndex) => {
         entry.items.forEach((reward, itemIndex) => {
