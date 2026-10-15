@@ -785,6 +785,48 @@ export type QuestConsequence = {
 };
 
 /**
+ * Applies `reset_quest` consequences to the user's trackers. Without an objective id the whole
+ * tracker is dropped; otherwise the target objective and the branch it routed into are cleared.
+ *
+ * A lost battle that routes into a reset (lose -> `failObjectiveId` -> reset to the battle) keeps
+ * its `recentlyDied` mark on the fresh goal. Otherwise the reset battle starts again on the first
+ * request after the player wakes up (typically the moment they pay to leave hospital), with no
+ * chance to restore their pools; they restart it with the Retry action instead. Managed runs
+ * (isolated / entry-item / Pyramid) resume their authored checkpoint directly, so callers
+ * exclude them with `awaitsRetry`.
+ */
+export const applyQuestResets = <T extends QuestTrackerType[] | null | undefined>(
+  questData: T,
+  resets: QuestConsequence[],
+  awaitsRetry: (questId: string) => boolean = () => true,
+): T => {
+  let trackers: QuestTrackerType[] | null | undefined = questData;
+  for (const resetQuest of resets) {
+    if (!trackers) break;
+    // If no text, which contains the objective id, then reset the entire quest
+    if (!resetQuest.info) {
+      trackers = trackers.filter((t) => !resetQuest.ids.includes(t.id));
+      continue;
+    }
+    const questId = resetQuest.ids[0]; // We only reset one quest at a time ever
+    const quest = trackers.find((t) => t.id === questId);
+    if (!quest) continue;
+    const target = quest.goals.find((g) => g.id === resetQuest.info);
+    const objectiveIdsToRemove = [resetQuest.info];
+    let goal = target;
+    while (goal?.selectedNextObjectiveId) {
+      objectiveIdsToRemove.push(goal.selectedNextObjectiveId);
+      goal = quest.goals.find((g) => g.id === goal?.selectedNextObjectiveId);
+    }
+    quest.goals = quest.goals.filter((g) => !objectiveIdsToRemove.includes(g.id));
+    if (target?.recentlyDied && awaitsRetry(quest.id)) {
+      quest.goals.push(ObjectiveTracker.parse({ id: target.id, recentlyDied: true }));
+    }
+  }
+  return trackers as T;
+};
+
+/**
  * Combat-only context for war kill eligibility, managed-run attribution and shared settlement.
  * The battle ID groups teammates' damage within one battle; a team still fighting
  * defers defeat/retry handling until the remaining participants have settled.
