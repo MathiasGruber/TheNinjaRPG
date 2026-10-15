@@ -1391,18 +1391,6 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
         });
       }
     }
-    if (
-      data.isFarmSeed ||
-      data.isFarmFertilizer ||
-      data.parentItemId ||
-      data.bloodlineId ||
-      data.requiredSkillId
-    ) {
-      addIssue(
-        ctx,
-        "Meals cannot be seeds, fertilizers, evolutions or require bloodlines or skills",
-      );
-    }
     if (data.effects.length !== 1 || !data.effects.every(isMealEffect)) {
       ctx.addIssue({
         code: "custom",

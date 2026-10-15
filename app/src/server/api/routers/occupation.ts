@@ -341,34 +341,15 @@ export const occupationRouter = createTRPCRouter({
       // Create crafting item entry/entries
       // Respect stackSize limit when creating items
       const craftingItemValues: (typeof userItem.$inferInsert)[] = [];
-      if (itemWithRequirements.stackSize === 1) {
-        // Create separate items for non-stackable items
-        for (let i = 0; i < outputQuantity; i++) {
-          craftingItemValues.push({
-            id: nanoid(),
-            userId: ctx.userId,
-            itemId: input.itemId,
-            quantity: 1,
-            craftingFinishedAt: finishTime,
-          });
-        }
-      } else {
-        // Create stacked items respecting stackSize limit
-        let remainingQuantity = outputQuantity;
-        while (remainingQuantity > 0) {
-          const stackQuantity = Math.min(
-            remainingQuantity,
-            itemWithRequirements.stackSize,
-          );
-          craftingItemValues.push({
-            id: nanoid(),
-            userId: ctx.userId,
-            itemId: input.itemId,
-            quantity: stackQuantity,
-            craftingFinishedAt: finishTime,
-          });
-          remainingQuantity -= stackQuantity;
-        }
+      const stackSize = itemWithRequirements.stackSize;
+      for (let remaining = outputQuantity; remaining > 0; remaining -= stackSize) {
+        craftingItemValues.push({
+          id: nanoid(),
+          userId: ctx.userId,
+          itemId: input.itemId,
+          quantity: Math.min(remaining, stackSize),
+          craftingFinishedAt: finishTime,
+        });
       }
 
       // Award crafting experience (from item config, or 0 if not set)
