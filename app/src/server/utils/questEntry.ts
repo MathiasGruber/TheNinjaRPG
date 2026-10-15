@@ -1,4 +1,4 @@
-import { and, eq, exists, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { UserRole } from "@/drizzle/constants";
 import {
   quest,
@@ -12,6 +12,7 @@ import type { DrizzleClient } from "@/server/db";
 import { updateUserItemQuantityAtomically } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canPlayHiddenQuests } from "@/utils/permissions";
+import type { QuestContentType } from "@/validators/objectives";
 
 /** Match the same open attempt and its playable content inside a guarded write. */
 const questAttemptWhere = (client: DrizzleClient, attempt: UserQuest, role: UserRole) =>
@@ -52,6 +53,69 @@ export const questAttemptIsActive = (
       .where(questAttemptWhere(client, attempt, role)),
   );
 
+/** Inventory that can pay a quest entry: carried, not listed, and not still being crafted. */
+export const fetchQuestEntryInventory = (client: DrizzleClient, userId: string) =>
+  client.query.userItem.findMany({
+    where: and(
+      eq(userItem.userId, userId),
+      gt(userItem.quantity, 0),
+      eq(userItem.storedAtHome, false),
+      eq(userItem.isInAuction, false),
+      or(
+        isNull(userItem.craftingFinishedAt),
+        lt(userItem.craftingFinishedAt, new Date()),
+      ),
+    ),
+  });
+
+/**
+ * Debit planned entry charges and write the receipt for a freshly started attempt.
+ * Runs inside the caller's start transaction, awaiting writes in order on its session.
+ * Returns false when the receipt or any stack changed, so the caller rolls everything back.
+ * The receipt makes the first-battle charge a no-op, so entry is only ever paid once.
+ */
+export const payQuestEntryAtStart = async ({
+  client,
+  userId,
+  questId,
+  charges,
+}: {
+  client: DrizzleClient;
+  userId: string;
+  questId: string;
+  charges: NonNullable<ReturnType<typeof getQuestEntryCharges>>;
+}) => {
+  const receipt = await client
+    .update(questHistory)
+    .set({ entryPaid: true })
+    .where(
+      and(
+        eq(questHistory.userId, userId),
+        eq(questHistory.questId, questId),
+        eq(questHistory.entryPaid, false),
+        isNull(questHistory.endAt),
+        eq(questHistory.completed, 0),
+      ),
+    );
+  if (receipt.rowsAffected !== 1) return false;
+  for (const charge of charges) {
+    const debited = await updateUserItemQuantityAtomically({
+      client,
+      userId,
+      userItemId: charge.id,
+      expectedQuantity: charge.expectedQuantity,
+      nextQuantity: charge.expectedQuantity - charge.quantity,
+      where: [
+        eq(userItem.itemId, charge.itemId),
+        eq(userItem.storedAtHome, false),
+        eq(userItem.isInAuction, false),
+      ],
+    });
+    if (!debited) return false;
+  }
+  return true;
+};
+
 /**
  * Allocate required quantities deterministically across available inventory stacks.
  * Returns null for insufficient inventory, or no charges when the attempt is already paid.
@@ -59,7 +123,9 @@ export const questAttemptIsActive = (
  * for their former item; each debit is positive and bounded by its stack.
  */
 export const getQuestEntryCharges = (
-  attempt: UserQuest,
+  attempt: Pick<UserQuest, "entryPaid"> & {
+    quest: { content: Pick<QuestContentType, "entryItems"> };
+  },
   items: readonly UserItem[],
 ) => {
   const charges: {

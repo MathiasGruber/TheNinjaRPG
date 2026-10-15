@@ -14,6 +14,7 @@ import Loader from "@/layout/Loader";
 import { LogbookEntry, useCheckRewards } from "@/layout/Logbook";
 import { QuestTeams } from "@/layout/QuestTeams";
 import { getActiveObjective } from "@/libs/objectives";
+import { formatQuestEntryCost } from "@/libs/questRun";
 import { showMutationToast } from "@/libs/toast";
 import { getTutorialHighlightedQuestId } from "@/libs/tutorial";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -72,7 +73,11 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
       if (data.success && currentStep?.title === "Genin Exam") {
         await handleNextStepAsync();
       }
-      await Promise.all([util.quests.specificQuests.invalidate()]);
+      await Promise.all([
+        util.quests.specificQuests.invalidate(),
+        // Entry items are consumed when a run starts.
+        ...(data.success ? [util.item.getUserItems.invalidate()] : []),
+      ]);
     },
   });
 
@@ -215,7 +220,7 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                               {itemNames?.find((item) => item.id === required.itemId)
                                 ?.name ?? required.name}
                               : {required.owned} / {required.quantity} owned. Consumed
-                              at the first battle.
+                              on entry.
                             </p>
                           ))}
                           {quest.content.isolated && (
@@ -249,8 +254,24 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                                 })
                               }
                             >
-                              {quest.entryRequirements.length > 0 &&
-                                "Entry items are consumed at your first battle and will not be refunded on abandonment. "}
+                              {quest.entryRequirements.length > 0 && (
+                                <span className="block">
+                                  Entering costs{" "}
+                                  <strong>
+                                    {formatQuestEntryCost(
+                                      quest.entryRequirements.map((required) => ({
+                                        quantity: required.quantity,
+                                        name:
+                                          itemNames?.find(
+                                            (item) => item.id === required.itemId,
+                                          )?.name ?? required.name,
+                                      })),
+                                    )}
+                                  </strong>
+                                  . The items are consumed when you enter and are not
+                                  refunded on abandonment. Proceed?
+                                </span>
+                              )}
                               {quest.content.isolated &&
                                 "Outside activities are blocked until this run is completed or abandoned."}
                             </Confirm>

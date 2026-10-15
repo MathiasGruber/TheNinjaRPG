@@ -107,6 +107,7 @@ import {
   verifyQuestContentForSave,
 } from "@/libs/quest";
 import {
+  formatQuestEntryCost,
   getIsolatedPyramid,
   getQuestEntryRequirements,
   hasQuestContentChanged,
@@ -163,6 +164,11 @@ import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
 import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
+import {
+  fetchQuestEntryInventory,
+  getQuestEntryCharges,
+  payQuestEntryAtStart,
+} from "@/server/utils/questEntry";
 import {
   publishQuestPartyProgress,
   resetQuestPartyProgress,
@@ -2889,6 +2895,40 @@ export const assignQuestToUser = async (args: {
   const block = questTypeConcurrentBlockMessage(questData, user);
   if (block) return errorResponse(block);
 
+  // Entry items are checked and paid when the run starts, not at its first battle, so a
+  // player without the items never holds a run they cannot fight. Re-entering an attempt
+  // that is still open keeps its receipt; a fresh or restarted attempt pays again.
+  let entryCharges: NonNullable<ReturnType<typeof getQuestEntryCharges>> = [];
+  const entryRequirements = getQuestEntryRequirements(questData.content);
+  if (entryRequirements.length > 0) {
+    const reopensPaidAttempt =
+      !!prevAttempt &&
+      prevAttempt.completed === 0 &&
+      prevAttempt.endAt === null &&
+      prevAttempt.entryPaid;
+    const charges = getQuestEntryCharges(
+      { entryPaid: reopensPaidAttempt, quest: questData },
+      await fetchQuestEntryInventory(client, user.userId),
+    );
+    if (!charges) {
+      const names = await client.query.item.findMany({
+        columns: { id: true, name: true },
+        where: inArray(
+          item.id,
+          entryRequirements.map((required) => required.itemId),
+        ),
+      });
+      const cost = formatQuestEntryCost(
+        entryRequirements.map((required) => ({
+          quantity: required.quantity,
+          name: names.find((row) => row.id === required.itemId)?.name ?? "unknown item",
+        })),
+      );
+      return errorResponse(`You need ${cost} in your inventory to enter.`);
+    }
+    entryCharges = charges;
+  }
+
   // War: fetch active wars (expensive; only after all cheap guards pass)
   if (questData.questType === "war") {
     if (!user.villageId) {
@@ -2947,6 +2987,8 @@ export const assignQuestToUser = async (args: {
     questData.questType === "battlepyramid" ||
     questData.content.entryItems?.length
   ) {
+    // Rolls back the claim, history and any debited stack when a ticket stack changed.
+    const entryRejected = new Error("Quest entry rejected");
     // Publish the account claim and new history together: another request must not see
     // a fresh account stamp before the active Pyramid row. A joined UPDATE cannot insert
     // missing history or commit its tracker and initial recovery with that insertion.
@@ -2988,10 +3030,31 @@ export const assignQuestToUser = async (args: {
           prevAttempt ?? null,
           true,
         );
+        if (
+          entryCharges.length > 0 &&
+          !(await payQuestEntryAtStart({
+            client: database,
+            userId: user.userId,
+            questId: questData.id,
+            charges: entryCharges,
+          }))
+        )
+          throw entryRejected;
+        if (entryCharges.length > 0) {
+          result.entry = { ...result.entry, entryPaid: true };
+          claimedUser.userQuests = claimedUser.userQuests.map((row) =>
+            row.questId === questData.id ? { ...row, entryPaid: true } : row,
+          );
+        }
         await incrementDailyQuestCounter(database, claimedUser, questData.questType);
         return { result, user: claimedUser };
       }),
-    );
+    ).catch((error: unknown) => {
+      if (error === entryRejected) return null;
+      throw error;
+    });
+    if (assigned === null)
+      return errorResponse("Your entry items changed. Please try again.");
     if (!assigned)
       return errorResponse(
         "Your account changed or another Pyramid started. Refresh and try again.",

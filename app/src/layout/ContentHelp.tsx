@@ -824,7 +824,7 @@ const renderBattlePyramidTips = (quest: DeepPartial<ZodCombinedQuest>) => {
         <AlertDescription>
           <strong>Battle Pyramid Quest Tips:</strong>
           <p>
-            Entry items are consumed once at the first battle of each run. Checkpoint
+            Entry items are checked and consumed once when a run is entered. Checkpoint
             resets keep the paid entry. Isolated runs keep players in combat and block
             outside activities until completion or abandonment. Set Starting pools to
             refill a checkpoint; leave it empty for attrition. Starting effects apply to

@@ -744,14 +744,14 @@ export const questEntryItemsSchema = z
   )
   .prefault([]);
 
-/** Shared authoring fields; entry is paid at the first battle and isolation is Pyramid-only. */
+/** Shared authoring fields; entry is paid when the run starts and isolation is Pyramid-only. */
 export const questRunFields = {
   entryItems: questEntryItemsSchema,
   isolated: z.coerce.boolean().prefault(false),
 };
 
 export type QuestContentType = {
-  /** Personal-run item requirements, consumed once at the first battle. */
+  /** Personal-run item requirements, consumed once when the run starts. */
   entryItems?: z.infer<typeof questEntryItemsSchema>;
   /** Freeze outside recovery and restrict inventory/travel until the attempt closes. */
   isolated?: boolean;

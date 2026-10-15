@@ -241,6 +241,7 @@ import {
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
   commitQuestEntryBattle,
+  fetchQuestEntryInventory,
   getQuestEntryCharges,
   questAttemptIsActive,
 } from "@/server/utils/questEntry";
@@ -2126,18 +2127,7 @@ export const initiateBattle = async (
     info.questAttempt &&
     !info.questAttempt.entryPaid &&
     info.questAttempt.quest.content.entryItems?.length
-      ? client.query.userItem.findMany({
-          where: and(
-            eq(userItem.userId, info.questAttempt.userId),
-            gt(userItem.quantity, 0),
-            eq(userItem.storedAtHome, false),
-            eq(userItem.isInAuction, false),
-            or(
-              isNull(userItem.craftingFinishedAt),
-              lt(userItem.craftingFinishedAt, new Date()),
-            ),
-          ),
-        })
+      ? fetchQuestEntryInventory(client, info.questAttempt.userId)
       : [],
   ]);
 

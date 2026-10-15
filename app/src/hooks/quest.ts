@@ -316,7 +316,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       values: items,
       multiple: true,
       doubleWidth: true,
-      label: "Entry items (quantity consumed at first battle)",
+      label: "Entry items (quantity consumed on entry)",
     });
   if (questType === "battlepyramid")
     formData.push({
