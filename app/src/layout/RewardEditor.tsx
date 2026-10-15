@@ -137,7 +137,7 @@ export const RewardEditor = ({
               <summary className="cursor-pointer font-semibold">
                 {pack.name}: {getRewardPreview(pack.rewards)}
               </summary>
-              <div className="my-2 flex gap-2">
+              <div className="my-2 flex flex-wrap gap-2">
                 <Input
                   aria-label={
                     pack.packageId ? "Package snapshot name" : "Reward node name"
@@ -151,6 +151,19 @@ export const RewardEditor = ({
                     )
                   }
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={packages.length >= 50}
+                  onClick={() =>
+                    setPackages([
+                      ...packages,
+                      { ...structuredClone(pack), id: nanoid() },
+                    ])
+                  }
+                >
+                  {pack.packageId ? "Add Another Package" : "Add Another Node"}
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -237,6 +250,33 @@ export const RewardEditor = ({
             fieldsOnly
             allowMaterialRewards={!allowPackages}
           />
+          {allowPackages && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={packages.length >= 50}
+              onClick={() =>
+                setPackages([
+                  ...packages,
+                  {
+                    id: nanoid(),
+                    name: node.name,
+                    description: "",
+                    rewards: ObjectiveReward.parse(
+                      structuredClone(
+                        Object.fromEntries(
+                          node.fields.map((field) => [field, values[field]]),
+                        ),
+                      ),
+                    ),
+                  },
+                ])
+              }
+            >
+              Add Another Node
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"
