@@ -567,7 +567,7 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
       if (running) game.status = "FIGHTING";
       else {
         // Revoke the launch token before a fresh ready check can be created. A delayed
-        // initiator's user claim verifies this row and compensates its own empty battle.
+        // initiator's user claim verifies this row and rolls back its battle if revoked.
         const revoked = saved
           ? await client
               .update(tournamentMatch)

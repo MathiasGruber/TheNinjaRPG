@@ -243,6 +243,7 @@ import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
@@ -2292,7 +2293,7 @@ export const initiateBattle = async (
   );
 
   // Settle authorized pre-combat training from the already loaded participant snapshots.
-  // Battle claims commit these gains with status; failed partial claims retain earned training.
+  // Battle claims commit these gains with status; ordinary partial claims retain earned training.
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
   // bulk with the battle claim below. Exhibitions also preserve real pool recovery here,
   // before loadout/stat normalization, since their settlement discards battle pools.
@@ -3216,7 +3217,7 @@ export const initiateBattle = async (
   }
   /**
    * Persist the preloaded battle and return the participant claim and any settled failure.
-   * First payment shares a PlanetScale transaction session, so await its writes in order.
+   * First payments and event launches share a transaction session, so await their writes in order.
    * Other battles dispatch independent writes together and settle all siblings before cleanup.
    */
   const createBattle = async (client: DrizzleClient) => {
@@ -3508,7 +3509,7 @@ export const initiateBattle = async (
           ]
         : []),
     ] as const;
-    if (hasEntryCharges) {
+    if (hasEntryCharges || info.tournamentGame) {
       await writes[0];
       await writes[1];
       const claimedUsers = await writes[2];
@@ -3541,6 +3542,23 @@ export const initiateBattle = async (
     });
     if (!committed.success) return { success: false, message: committed.message };
     result = committed.result;
+  } else if (info.tournamentGame) {
+    // Recovery must see the battle and both claims together. A partial claim also
+    // rolls back entry recovery and training, which status compensation cannot undo.
+    const rejected = new Error("Tournament participant claim failed");
+    try {
+      result = await retryOnDeadlock(() =>
+        client.transaction(async (tx) => {
+          const created = await createBattle(tx as unknown as DrizzleClient);
+          if (created.claimedUsers?.rowsAffected !== expectedRows) throw rejected;
+          return created;
+        }),
+      );
+    } catch (error) {
+      if (error === rejected)
+        return { success: false, message: "Attack failed, did the target move?" };
+      throw error;
+    }
   } else {
     result = await createBattle(client);
   }
