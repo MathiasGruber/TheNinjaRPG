@@ -10,6 +10,9 @@ import {
   questHistory,
   userData,
   userItem,
+  village,
+  villageStructure,
+  war,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
@@ -29,7 +32,7 @@ import {
   resetTables,
 } from "../../setup/testDatabase";
 
-/** Issue #1884: a Pyramid run must check and consume its entry items when it starts. */
+/** A Pyramid run checks and consumes its entry items when it starts. */
 describeWithDatabase("quest entry items are paid at the start of a run", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
@@ -42,6 +45,9 @@ describeWithDatabase("quest entry items are paid at the start of a run", () => {
       quest,
       userItem,
       item,
+      villageStructure,
+      war,
+      village,
       userData,
     );
     await insertUsers([
@@ -82,10 +88,10 @@ describeWithDatabase("quest entry items are paid at the start of a run", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  const start = async () => {
+  const start = async (questId = "pyramid") => {
     const client = await getTestDatabase();
     const { user } = await fetchUpdatedUser({ client, userId: "hero" });
-    const pyramid = await client.query.quest.findFirst({ where: eq(quest.id, "pyramid") });
+    const pyramid = await client.query.quest.findFirst({ where: eq(quest.id, questId) });
     return {
       client,
       result: await assignQuestToUser({
@@ -148,5 +154,69 @@ describeWithDatabase("quest entry items are paid at the start of a run", () => {
       { id: "b", quantity: 4 },
     ]);
     expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(true);
+  });
+
+  it("charges a war mission's entry items together with its daily slot", async () => {
+    const client = await getTestDatabase();
+    await client.insert(village).values(
+      ["home", "enemy"].map((id, i) => ({
+        id,
+        name: id,
+        sector: 201 + i,
+        kageId: `${id}-kage`,
+        tokens: 1000,
+      })),
+    );
+    await client.insert(war).values({
+      id: "war",
+      type: "VILLAGE_WAR",
+      status: "ACTIVE",
+      sector: 201,
+      attackerVillageId: "home",
+      defenderVillageId: "enemy",
+      attackerWarHealth: 100,
+      defenderWarHealth: 100,
+      defenderShrineHp: 0,
+    });
+    await client.insert(villageStructure).values(
+      ["home", "enemy"].map((id) => ({
+        id: `${id}/townhall`,
+        name: "Town Hall",
+        route: "/townhall",
+        image: "",
+        villageId: id,
+        curSp: 1000,
+      })),
+    );
+    await client
+      .update(userData)
+      .set({ villageId: "home" })
+      .where(eq(userData.userId, "hero"));
+    await insertQuests([
+      {
+        id: "warrun",
+        name: "War Run",
+        questType: "war",
+        hidden: false,
+        maxAttempts: 100,
+        maxCompletes: 100,
+        content: {
+          entryItems: [{ ids: ["ticket"], number: 2 }],
+          objectives: [DialogObjective.parse({ id: "wait", task: "dialog" })],
+          reward: ObjectiveReward.parse({}),
+          sceneBackground: "",
+          sceneCharacters: [],
+        },
+      },
+    ]);
+    await insertUserItems([{ id: "a", userId: "hero", itemId: "ticket", quantity: 3 }]);
+
+    const { result } = await start("warrun");
+    expect(result).toMatchObject({ success: true });
+    expect((await client.query.questHistory.findFirst())?.entryPaid).toBe(true);
+    expect(await client.query.userItem.findMany()).toMatchObject([{ id: "a", quantity: 1 }]);
+    expect(
+      await client.query.userData.findFirst({ where: eq(userData.userId, "hero") }),
+    ).toMatchObject({ dailyWarMissions: 1 });
   });
 });

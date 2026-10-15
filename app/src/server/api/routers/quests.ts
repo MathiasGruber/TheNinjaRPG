@@ -2958,8 +2958,11 @@ export const assignQuestToUser = async (args: {
   // stamp without a quest — the same fail-safe leak the equivalent merge in initiateBattle
   // accepts, and harmless since it only makes the user more attackable.
   let assignment: Awaited<ReturnType<typeof upsertQuestEntry>>;
-  if (questData.questType === "war") {
-    const result = await client
+  // Rolls back the claim, history and any debited stack when a ticket stack changed.
+  const entryRejected = new Error("Quest entry rejected");
+  const warLimitMessage = `You have reached your daily war mission limit of ${WAR_MISSIONS_PER_DAY}`;
+  const claimWarSlot = (database: DrizzleClient) =>
+    database
       .update(userData)
       .set({
         dailyWarMissions: sql`${userData.dailyWarMissions} + 1`,
@@ -2971,10 +2974,53 @@ export const assignQuestToUser = async (args: {
           sql`${userData.dailyWarMissions} < ${WAR_MISSIONS_PER_DAY}`,
         ),
       );
+  if (questData.questType === "war" && entryCharges.length > 0) {
+    // With entry items the slot, history row and item debit must commit together, so a
+    // changed ticket stack refunds the daily slot instead of burning it.
+    const warLimitReached = new Error("War mission limit reached");
+    const paid = await retryOnDeadlock(() =>
+      client.transaction(async (tx) => {
+        const database = tx as unknown as DrizzleClient;
+        if ((await claimWarSlot(database)).rowsAffected === 0) throw warLimitReached;
+        // A rolled-back attempt must not leave its tracker changes on the caller's user.
+        const warUser = { ...user };
+        const result = await upsertQuestEntry(
+          database,
+          warUser,
+          questData,
+          source,
+          prevAttempt ?? null,
+          true,
+        );
+        if (
+          !(await payQuestEntryAtStart({
+            client: database,
+            userId: user.userId,
+            questId: questData.id,
+            charges: entryCharges,
+          }))
+        )
+          throw entryRejected;
+        result.entry = { ...result.entry, entryPaid: true };
+        warUser.userQuests = warUser.userQuests.map((row) =>
+          row.questId === questData.id ? { ...row, entryPaid: true } : row,
+        );
+        return { result, user: warUser };
+      }),
+    ).catch((error: unknown) => {
+      if (error === warLimitReached) return undefined;
+      if (error === entryRejected) return null;
+      throw error;
+    });
+    if (paid === undefined) return errorResponse(warLimitMessage);
+    if (paid === null)
+      return errorResponse("Your entry items changed. Please try again.");
+    Object.assign(user, paid.user);
+    assignment = paid.result;
+  } else if (questData.questType === "war") {
+    const result = await claimWarSlot(client);
     if (result.rowsAffected === 0) {
-      return errorResponse(
-        `You have reached your daily war mission limit of ${WAR_MISSIONS_PER_DAY}`,
-      );
+      return errorResponse(warLimitMessage);
     }
     assignment = await upsertQuestEntry(
       client,
@@ -2987,8 +3033,6 @@ export const assignQuestToUser = async (args: {
     questData.questType === "battlepyramid" ||
     questData.content.entryItems?.length
   ) {
-    // Rolls back the claim, history and any debited stack when a ticket stack changed.
-    const entryRejected = new Error("Quest entry rejected");
     // Publish the account claim and new history together: another request must not see
     // a fresh account stamp before the active Pyramid row. A joined UPDATE cannot insert
     // missing history or commit its tracker and initial recovery with that insertion.
