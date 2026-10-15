@@ -54,6 +54,14 @@ import {
 describeWithDatabase("event tournament persistence", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    // Rate limiting is external to settlement; SQL tests must not contact Redis.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) =>
+      Response.json(
+        String(url).endsWith("/pipeline")
+          ? [{ result: [59, 60] }]
+          : { result: [59, 60] },
+      ),
+    );
     await resetTables(
       tournamentRewardClaim,
       tournamentMatch,
