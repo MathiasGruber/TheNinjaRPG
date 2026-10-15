@@ -732,6 +732,43 @@ describe("multi-room home scene", () => {
     expect(camera.getAttribute("style")).not.toMatch(/NaN|Infinity/);
   });
 
+  it.each([[0, 600], [800, 0], [0, 0]])("preserves the camera while pinching a %s by %s scene and resumes after resize", (width, height) => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.setPointerCapture = vi.fn();
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const camera = scene.querySelector("[data-home-camera]")!;
+    const before = camera.getAttribute("style");
+    firePointerEvent(scene, "pointerdown", 1, 200, 240);
+    firePointerEvent(scene, "pointerdown", 2, 400, 240);
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, width, height);
+    firePointerEvent(scene, "pointermove", 2, 600, 240);
+    expect(camera.getAttribute("style")).toBe(before);
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("100%");
+
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    firePointerEvent(scene, "pointermove", 2, 500, 240);
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("150%");
+    expect(camera.getAttribute("style")).toContain("translate(-12.5%, -20%) scale(1.5)");
+  });
+
+  it("preserves the camera while panning a zero-size scene and resumes after resize", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.setPointerCapture = vi.fn();
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    const camera = scene.querySelector("[data-home-camera]")!;
+    const before = camera.getAttribute("style");
+    firePointerEvent(scene, "pointerdown", 1, 400, 300);
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0);
+    firePointerEvent(scene, "pointermove", 1, 320, 240);
+    expect(camera.getAttribute("style")).toBe(before);
+
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    firePointerEvent(scene, "pointermove", 1, 240, 180);
+    expect(camera.getAttribute("style")).toContain("translate(-20%, -20%) scale(1)");
+  });
+
   it.each(["pointerup", "pointercancel"])("keeps room finishes aligned with a cross-room drag ending in %s", async (ending) => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);

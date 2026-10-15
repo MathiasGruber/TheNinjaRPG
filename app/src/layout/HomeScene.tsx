@@ -483,7 +483,7 @@ export const HomeScene = ({
         onPointerMove={(event) => {
           const previous = cameraPointers.current.get(event.pointerId);
           const rect = sceneRef.current?.getBoundingClientRect();
-          if (!previous || !rect) return;
+          if (!previous || !rect || !(rect.width > 0 && rect.height > 0)) return;
           const others = [...cameraPointers.current.entries()].filter(
             ([id]) => id !== event.pointerId,
           );
