@@ -15,7 +15,11 @@ import {
   CACHE_PROBABILITY_TOTAL,
 } from "@/drizzle/constants";
 import { cacheItemChance, cacheItemIds } from "@/libs/weightedCache";
-import { type WeightedCache, weightedCacheSchema } from "@/validators/weightedCache";
+import {
+  type WeightedCache,
+  weightedCacheDraftSchema,
+  weightedCacheSchema,
+} from "@/validators/weightedCache";
 
 export const WeightedCacheEditor = ({
   cache,
@@ -24,6 +28,8 @@ export const WeightedCacheEditor = ({
   isLoading,
   isError,
   onRetry,
+  isActive = true,
+  disabled = false,
 }: {
   cache: WeightedCache;
   onChange: (cache: WeightedCache) => void;
@@ -31,12 +37,16 @@ export const WeightedCacheEditor = ({
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
 }) => {
   const editor = useRef<HTMLElement>(null);
-  const validation = weightedCacheSchema.safeParse(cache);
+  const validation = (
+    isActive ? weightedCacheSchema : weightedCacheDraftSchema
+  ).safeParse(cache);
   const issues: CacheIssue[] = [...(validation.error?.issues ?? [])];
   const itemIds = new Set(items.map((item) => item.id));
-  if (!isLoading && !isError)
+  if (isActive && !isLoading && !isError)
     cache.tiers.forEach((tier, tierIndex) => {
       tier.entries.forEach((entry, entryIndex) => {
         entry.items.forEach((reward, itemIndex) => {
@@ -274,7 +284,7 @@ export const WeightedCacheEditor = ({
                       }))}
                       selected={entry.items.map((item) => item.itemId)}
                       placeholder="Search reward items (including hidden items)"
-                      disabled={isLoading || isError}
+                      disabled={disabled || isLoading || isError}
                       onChange={(update) => {
                         const ids =
                           typeof update === "function"
@@ -520,7 +530,14 @@ const cacheIssueMessage = (cache: WeightedCache, issue: CacheIssue) => {
         : field === "displayName"
           ? "Cache display name"
           : "Weighted Cache";
-  return `${location}: ${issue.message}`;
+  const message =
+    "code" in issue &&
+    issue.code === "invalid_type" &&
+    "expected" in issue &&
+    issue.expected === "number"
+      ? "Enter a valid number"
+      : issue.message;
+  return `${location}: ${message}`;
 };
 
 type CacheIssue = { path: PropertyKey[]; message: string };

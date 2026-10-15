@@ -97,6 +97,7 @@ import {
 } from "@/validators/objectives";
 import type { ObjectiveRewardType } from "@/validators/rewards";
 import { ObjectiveReward } from "@/validators/rewards";
+import { weightedCacheDraftSchema } from "@/validators/weightedCache";
 
 export type FormDbValue = { id: string; name: string };
 
@@ -2170,15 +2171,43 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     });
   }
 
+  const hasInvalidInactiveCache =
+    watchType === "noncombatconsumereward" &&
+    watchAll.rewardMode !== "weightedCache" &&
+    watchAll.weightedCache &&
+    !weightedCacheDraftSchema.safeParse(watchAll.weightedCache).success;
+  const cacheEditor = (
+    <WeightedCacheEditor
+      cache={watchAll.weightedCache ?? defaultWeightedCache()}
+      onChange={(cache) =>
+        form.setValue("weightedCache", cache, {
+          shouldDirty: true,
+          shouldValidate: true,
+        })
+      }
+      items={itemData ?? []}
+      isLoading={isItemCatalogLoading}
+      isError={isItemCatalogError}
+      onRetry={() => void refetchItemCatalog()}
+      isActive={watchAll.rewardMode === "weightedCache"}
+      disabled={props.submitLoading}
+    />
+  );
+
   // Re-used EditContent component for actually showing the form
   return (
     <>
       {watchType === "noncombatconsumereward" &&
         (!props.editableFields || props.editableFields.includes("rewardMode")) && (
-          <div className="my-3 space-y-2">
+          <fieldset
+            disabled={props.submitLoading}
+            aria-busy={props.submitLoading}
+            className="my-3 min-w-0 space-y-2"
+          >
             <Label>Reward mode</Label>
             <Select
               value={watchAll.rewardMode ?? "standard"}
+              disabled={props.submitLoading}
               onValueChange={(value) => {
                 if (value === "weightedCache" && !watchAll.weightedCache)
                   form.setValue("weightedCache", defaultWeightedCache(), {
@@ -2198,22 +2227,21 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
                 <SelectItem value="weightedCache">Weighted Cache</SelectItem>
               </SelectContent>
             </Select>
-            {watchAll.rewardMode === "weightedCache" && (
-              <WeightedCacheEditor
-                cache={watchAll.weightedCache ?? defaultWeightedCache()}
-                onChange={(cache) =>
-                  form.setValue("weightedCache", cache, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                }
-                items={itemData ?? []}
-                isLoading={isItemCatalogLoading}
-                isError={isItemCatalogError}
-                onRetry={() => void refetchItemCatalog()}
-              />
-            )}
-          </div>
+            {watchAll.rewardMode === "weightedCache" ? (
+              cacheEditor
+            ) : hasInvalidInactiveCache ? (
+              <details className="rounded border p-2">
+                <summary className="cursor-pointer font-semibold text-destructive text-sm">
+                  Inactive Weighted Cache · Needs attention
+                </summary>
+                <p className="mt-2 text-sm">
+                  Standard rewards remain active. Correct these saved cache settings
+                  before saving.
+                </p>
+                {cacheEditor}
+              </details>
+            ) : null}
+          </fieldset>
         )}
       {isDamageModifier &&
         (!props.editableFields || props.editableFields.includes("elements")) && (
