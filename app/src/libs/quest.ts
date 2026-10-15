@@ -760,11 +760,14 @@ export type QuestConsequence = {
  * A lost battle that routes into a reset (lose -> `failObjectiveId` -> reset to the battle) keeps
  * its `recentlyDied` mark on the fresh goal. Otherwise the reset battle starts again on the first
  * request after the player wakes up (typically the moment they pay to leave hospital), with no
- * chance to restore their pools; they restart it with the Retry action instead.
+ * chance to restore their pools; they restart it with the Retry action instead. Managed runs
+ * (isolated / entry-item / Pyramid) resume their authored checkpoint directly, so callers
+ * exclude them with `awaitsRetry`.
  */
 export const applyQuestResets = <T extends QuestTrackerType[] | null | undefined>(
   questData: T,
   resets: QuestConsequence[],
+  awaitsRetry: (questId: string) => boolean = () => true,
 ): T => {
   let trackers: QuestTrackerType[] | null | undefined = questData;
   for (const resetQuest of resets) {
@@ -785,7 +788,7 @@ export const applyQuestResets = <T extends QuestTrackerType[] | null | undefined
       goal = quest.goals.find((g) => g.id === goal?.selectedNextObjectiveId);
     }
     quest.goals = quest.goals.filter((g) => !objectiveIdsToRemove.includes(g.id));
-    if (target?.recentlyDied) {
+    if (target?.recentlyDied && awaitsRetry(quest.id)) {
       quest.goals.push(ObjectiveTracker.parse({ id: target.id, recentlyDied: true }));
     }
   }

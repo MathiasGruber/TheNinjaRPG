@@ -4201,7 +4201,20 @@ export const handleQuestConsequences = async (
   }
   // If quests were reset, update the user's quest data
   if (resetQuests.length > 0) {
-    user.questData = applyQuestResets(user.questData, resetQuests);
+    // Managed runs resume their authored checkpoint without waiting for a manual retry.
+    user.questData = applyQuestResets(
+      user.questData,
+      resetQuests,
+      (questId) =>
+        !user.userQuests.some(
+          (entry) =>
+            entry.questId === questId &&
+            !entry.endAt &&
+            (entry.questType === "battlepyramid" ||
+              !!entry.quest.content.isolated ||
+              !!entry.quest.content.entryItems?.length),
+        ),
+    );
   }
   // Database updates
   const shouldClaimUserState =

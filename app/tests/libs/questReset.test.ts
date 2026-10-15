@@ -114,4 +114,23 @@ describe("quest battle reset after a loss", () => {
     ]);
     expect(reset?.[0]?.goals).toEqual([]);
   });
+
+  it("lets managed runs resume their checkpoint without a manual retry", () => {
+    const trackers = [
+      {
+        id: "pyramid",
+        startAt: new Date().toISOString(),
+        goals: [
+          { id: "floor", done: true, value: 0, collected: false, recentlyDied: true, selectedNextObjectiveId: "checkpoint" },
+          { id: "checkpoint", done: false, value: 0, collected: false, recentlyDied: false },
+        ],
+      },
+    ];
+    const reset = applyQuestResets(
+      trackers,
+      [{ type: "reset_quest", ids: ["pyramid"], info: "floor" }],
+      () => false,
+    );
+    expect(reset?.[0]?.goals).toEqual([]);
+  });
 });
