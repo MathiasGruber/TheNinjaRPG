@@ -1401,7 +1401,7 @@ export const VillageWar: React.FC<{
   relationships?: VillageAlliance[];
   userVillage?: Village;
   isKage: boolean;
-}> = ({ war, user, villages, relationships, userVillage, isKage }) => {
+}> = ({ war: initialWar, user, villages, relationships, userVillage, isKage }) => {
   // Add state for dialog
   const [showKills, setShowKills] = useState(false);
   const [showStats, setShowStats] = useState(false);
@@ -1413,10 +1413,22 @@ export const VillageWar: React.FC<{
 
   // Add query for war kills
   const { data: objectiveInfo } = api.war.getObjectiveWarInfo.useQuery(
-    { warId: war.id },
-    { enabled: !!war.rules, refetchInterval: 10000 },
+    { warId: initialWar.id },
+    {
+      enabled: !!initialWar.rules,
+      refetchInterval: (query) =>
+        (query.state.data?.war.status ?? initialWar.status) === "ACTIVE"
+          ? 10000
+          : false,
+    },
   );
-  const healthSnapshot = objectiveInfo?.war ?? war;
+  const war = {
+    ...initialWar,
+    ...objectiveInfo?.war,
+    attackerVillage: initialWar.attackerVillage,
+    defenderVillage: initialWar.defenderVillage,
+    warAllies: initialWar.warAllies,
+  };
   const { data: warKills } = api.war.getWarKills.useQuery(
     { warId: war.id },
     { enabled: showKills && !war.rules },
@@ -1950,7 +1962,7 @@ export const VillageWar: React.FC<{
               )}
             </Button>
           )}
-          {canAdministrateWars(user.role) && (
+          {canAdministrateWars(user.role) && war.status === "ACTIVE" && (
             <Button
               variant="destructive"
               size="icon"
@@ -2212,11 +2224,7 @@ export const VillageWar: React.FC<{
             structure={isAttacker ? attackerStructure : defenderStructure}
             village={isAttacker ? war.attackerVillage : war.defenderVillage}
             warStatus={war.status}
-            warHealth={
-              isAttacker
-                ? healthSnapshot.attackerWarHealth
-                : healthSnapshot.defenderWarHealth
-            }
+            warHealth={isAttacker ? war.attackerWarHealth : war.defenderWarHealth}
             warHealthMax={
               isAttacker ? war.attackerWarHealthMax : war.defenderWarHealthMax
             }
@@ -2225,11 +2233,7 @@ export const VillageWar: React.FC<{
             structure={isAttacker ? defenderStructure : attackerStructure}
             village={isAttacker ? war.defenderVillage : war.attackerVillage}
             warStatus={war.status}
-            warHealth={
-              isAttacker
-                ? healthSnapshot.defenderWarHealth
-                : healthSnapshot.attackerWarHealth
-            }
+            warHealth={isAttacker ? war.defenderWarHealth : war.attackerWarHealth}
             warHealthMax={
               isAttacker ? war.defenderWarHealthMax : war.attackerWarHealthMax
             }

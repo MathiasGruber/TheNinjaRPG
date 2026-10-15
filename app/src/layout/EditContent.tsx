@@ -2678,7 +2678,12 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
         const isReputationField = valueStr === "reward_reputation";
         return {
           id: value,
-          label: FORM_LABEL_MAP[value] ?? value,
+          label:
+            valueStr === "value" && watchTask === "espionage"
+              ? "Espionage points"
+              : valueStr === "value" && watchTask === "sabotage"
+                ? "Sabotage damage"
+                : (FORM_LABEL_MAP[value] ?? value),
           type: "number",
           readonly: isReputationField && !hasReputationPermission,
         };
@@ -2979,6 +2984,7 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
 
 // Form labels for different tag names
 export const FORM_LABEL_MAP: Record<string, string> = {
+  durationSeconds: "Duration (seconds)",
   reward_items: "Reward Items [drop chance % and quantity]",
   reward_jutsus: "Reward Jutsus",
   reward_bloodlines: "Reward Bloodlines",

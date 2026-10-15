@@ -461,6 +461,7 @@ describe("objective war townhall health", () => {
   } as FetchActiveWarsReturnType;
   const freshWar = { ...war, attackerWarHealth: 9700, defenderWarHealth: 8200 };
   let response: FetchActiveWarsReturnType | undefined;
+  let pollInterval: (query: { state: { data?: { war: FetchActiveWarsReturnType } } }) => number | false;
 
   beforeEach(() => {
     response = undefined;
@@ -471,7 +472,10 @@ describe("objective war townhall health", () => {
       useUtils: () => ({}),
       war: {
         getObjectiveWarInfo: {
-          useQuery: () => ({ data: response ? { war: response } : undefined }),
+          useQuery: (_input: unknown, options: { refetchInterval: typeof pollInterval }) => {
+            pollInterval = options.refetchInterval;
+            return { data: response ? { war: response } : undefined };
+          },
         },
         getWarKills: { useQuery: () => ({}) },
         getWarKillStats: { useQuery: () => ({}) },
@@ -539,4 +543,27 @@ describe("objective war townhall health", () => {
       expectHealth(view, isAttacker ? [9740, 7900] : [7900, 9740]);
     },
   );
+
+  it("shows the polled outcome, removes active actions and stops polling when a war ends", () => {
+    const user = { userId: "viewer", villageId: "attacker", role: "OWNER" } as NonNullable<UserWithRelations>;
+    const view = render(<VillageWar war={war} user={user} isKage />);
+    expect(view.getByRole("button", { name: "Surrender war objective-war" })).toBeDefined();
+    expect(view.getByRole("button", { name: /Administratively end/ })).toBeDefined();
+    expect(pollInterval({ state: {} })).toBe(10000);
+
+    response = { ...freshWar, status: "ATTACKER_VICTORY", endedAt: new Date() };
+    view.rerender(<VillageWar war={war} user={user} isKage />);
+    expect(view.getByText("Outcome: Victory")).toBeDefined();
+    expect(view.getByText(/^Ended:/)).toBeDefined();
+    expect(view.queryByRole("button", { name: "Surrender war objective-war" })).toBeNull();
+    expect(view.queryByRole("button", { name: /Administratively end/ })).toBeNull();
+    expect(view.queryByText(/^HP \(/)).toBeNull();
+    expect(pollInterval({ state: { data: { war: response } } })).toBe(false);
+  });
+
+  it("does not poll historical objective wars", () => {
+    const user = { userId: "viewer", villageId: "attacker", role: "USER" } as NonNullable<UserWithRelations>;
+    render(<VillageWar war={{ ...war, status: "DRAW", endedAt: new Date() }} user={user} isKage={false} />);
+    expect(pollInterval({ state: {} })).toBe(false);
+  });
 });
