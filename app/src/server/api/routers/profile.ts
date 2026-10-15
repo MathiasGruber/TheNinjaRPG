@@ -3262,9 +3262,19 @@ const fetchUpdatedUserOnce = async (props: {
     }
   }
 
-  if (user && (await settleCookingExperience(client, userId, user.cookingJobs, now))) {
-    user = await queryUpdatedUser();
-    requiresUserRefresh = true;
+  if (user) {
+    try {
+      if (await settleCookingExperience(client, userId, user.cookingJobs, now)) {
+        requiresUserRefresh = true;
+        user = await queryUpdatedUser();
+      }
+    } catch (error) {
+      // Keep the loaded profile usable; rolled-back receipts settle on the next refresh.
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "settleCookingExperience" },
+      });
+    }
   }
 
   // Reskin bloodline if needed

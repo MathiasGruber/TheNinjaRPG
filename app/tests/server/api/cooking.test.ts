@@ -3,17 +3,20 @@ import { combatEnergyRecoverySql } from "@/libs/combat/database";
 import { combatCacheEnergy } from "@/libs/combat/userCache";
 import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 import { queueEnergy } from "../../setup/queues";
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as Sentry from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
 import { craftingRequirement, item, userCookingJob, userData, userItem, userQueue, userRaidBuff, userVote } from "@/drizzle/schema";
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { itemRouter } from "@/server/api/routers/item";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import type { DrizzleClient } from "@/server/db";
 import { settleCookingExperience } from "@/server/utils/cooking";
 import { settleCraftingQueue } from "@/server/utils/userQueue";
 import { IncreaseStatTag, IncreaseRegenerationTag } from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import { insertItems, insertUsers, insertUserItems } from "../../setup/factories";
+import { failStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const userId = "cook";
@@ -35,6 +38,7 @@ describeWithDatabase("Cooking production and consumption", () => {
     await db.insert(craftingRequirement).values({ id: "recipe-rice", craftItemId: "meal", requirementItemId: "rice", quantity: 2 });
     await insertUserItems([{ id: "rice-stack", userId, itemId: "rice", quantity: 20 }]);
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it("lets every occupation cook, multiplies outputs, and awards XP once at completion", async () => {
     const db = await getTestDatabase();
@@ -83,6 +87,64 @@ describeWithDatabase("Cooking production and consumption", () => {
     expect((await readUser())?.cookingExperience).toBe(60);
     expect(await db.query.userQueue.findMany()).toHaveLength(0);
     expect((await db.query.userItem.findMany({ where: eq(userItem.itemId, "meal") })).reduce((sum, row) => sum + row.quantity, 0)).toBe(6);
+  });
+
+  it("returns the loaded profile after a Cooking XP failure and retries the receipt exactly once", async () => {
+    const db = await getTestDatabase();
+    const receipt = { id: "cooking-retry", userId, experience: 30, finishesAt: past() };
+    await db.insert(userCookingJob).values(receipt);
+    const failing = new Proxy(db, {
+      get(target, key, receiver) {
+        if (key !== "transaction") return Reflect.get(target, key, receiver);
+        return (callback: Parameters<typeof db.transaction>[0]) => target.transaction((tx) =>
+          callback(failStatements(tx as unknown as DrizzleClient, userData) as typeof tx),
+        );
+      },
+    });
+    const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
+
+    const failed = await fetchUpdatedUser({ client: failing, userId });
+    expect(failed.user?.userId).toBe(userId);
+    expect(failed.user?.cookingExperience).toBe(0);
+    expect((await readUser())?.cookingExperience).toBe(0);
+    expect(await db.query.userCookingJob.findMany()).toEqual([receipt]);
+    expect(warning).toHaveBeenCalledWith(expect.objectContaining({ message: "Statement failed on purpose" }), {
+      level: "warning", tags: { source: "settleCookingExperience" },
+    });
+
+    const retried = await fetchUpdatedUser({ client: db, userId });
+    expect(retried.user?.cookingExperience).toBe(30);
+    expect(retried.requiresUserRefresh).toBe(true);
+    expect(await db.query.userCookingJob.findMany()).toEqual([]);
+    expect((await fetchUpdatedUser({ client: db, userId })).user?.cookingExperience).toBe(30);
+    expect((await readUser())?.cookingExperience).toBe(30);
+  });
+
+  it("keeps profile reconciliation after Cooking XP commits but the refreshed profile read fails", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ primaryElement: "Fire", secondaryElement: "Water" }).where(eq(userData.userId, userId));
+    await db.insert(userCookingJob).values({ id: "cooking-reread", userId, experience: 30, finishesAt: past() });
+    const read = db.query.userData.findFirst.bind(db.query.userData);
+    const error = new Error("Refreshed profile unavailable");
+    let profileReads = 0;
+    vi.spyOn(db.query.userData, "findFirst").mockImplementation(((config: Parameters<typeof read>[0]) => {
+      if (config?.with && ++profileReads === 2) throw error;
+      return read(config);
+    }) as never);
+    const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
+
+    const result = await fetchUpdatedUser({ client: db, userId });
+    expect(result.user?.userId).toBe(userId);
+    expect(result.user?.cookingExperience).toBe(0);
+    expect(result.requiresUserRefresh).toBe(true);
+    expect(profileReads).toBe(2);
+    expect(warning).toHaveBeenCalledWith(error, {
+      level: "warning", tags: { source: "settleCookingExperience" },
+    });
+    expect((await readUser())?.cookingExperience).toBe(30);
+    expect(await db.query.userCookingJob.findMany()).toEqual([]);
+    expect((await fetchUpdatedUser({ client: db, userId })).user?.cookingExperience).toBe(30);
+    expect((await readUser())?.cookingExperience).toBe(30);
   });
 
   it("rejects rank, ingredient and shared-capacity failures before taking ingredients", async () => {
