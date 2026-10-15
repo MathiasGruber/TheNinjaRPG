@@ -1072,12 +1072,12 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                 title={`Eat ${useritem.item.name}?`}
                 proceed_label="Eat meal"
                 proceed_loading_label="Eating…"
-                disabled={!canEatMeal}
+                disabled={isLoading}
                 confirmDisabled={!canEatMeal}
                 isLoading={isConsuming}
                 keepOpenOnAccept
                 button={
-                  <Button variant="info" disabled={!canEatMeal}>
+                  <Button variant="info" disabled={isLoading}>
                     <Cookie className="mr-2 h-5 w-5" />
                     Eat meal
                   </Button>
