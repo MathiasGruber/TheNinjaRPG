@@ -5,7 +5,7 @@ import {
   EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS,
   EVENT_TOURNAMENT_READY_SECONDS,
   EVENT_TOURNAMENT_RETENTION_DAYS,
-  IMG_MANUAL_COMBAT,
+  IMG_MANUAL_TOURNAMENTS,
   JUTSU_TRAIN_LEVEL_CAP,
   MAP_WAKE_ISLAND_SECTOR,
   RANKED_PVP_STATS,
@@ -192,7 +192,7 @@ export const eventTournamentProcedures = {
         type: "EVENT",
         name: `${input.config.name} (${id})`,
         description: input.config.description,
-        image: IMG_MANUAL_COMBAT,
+        image: IMG_MANUAL_TOURNAMENTS,
         rewards: ObjectiveReward.parse({}),
         eventData,
       });

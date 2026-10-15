@@ -27,6 +27,7 @@ import {
   IMG_MANUAL_SAGE_MODE,
   IMG_MANUAL_SKILLTREE,
   IMG_MANUAL_STAFF,
+  IMG_MANUAL_TOURNAMENTS,
   IMG_MANUAL_TOWER_UPGRADES,
   IMG_MANUAL_TRAVEL,
 } from "@/drizzle/constants";
@@ -51,7 +52,7 @@ export default function ManualMain() {
 
   const baseEntries = [
     ...(canManageTournaments(role)
-      ? [{ name: "tournaments", img: IMG_MANUAL_COMBAT }]
+      ? [{ name: "tournaments", img: IMG_MANUAL_TOURNAMENTS }]
       : []),
     // recruitment added conditionally below
     { name: "combat", img: IMG_MANUAL_COMBAT },

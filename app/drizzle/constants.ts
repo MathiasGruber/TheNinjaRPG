@@ -2681,6 +2681,9 @@ export const IMG_MANUAL_REWARDS =
   "https://uploadthing.b-cdn.net/f/orgABef23sCbtFgzqE1ZY.webp";
 export const IMG_MANUAL_COMBAT =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJUvE8xxILCIhwPniJ69VxpvAbTDWkOyGzS8rM.webp";
+/** Championship trophy at Wake Island's arena, shared by tournament navigation and event records. */
+export const IMG_MANUAL_TOURNAMENTS =
+  "https://uploadthing.b-cdn.net/f/manual-tournaments-U8M843Eo0wxOTeVIJA4Ne-0.webp";
 export const IMG_MANUAL_TRAVEL =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJu1h1uHCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
 export const IMG_MANUAL_BLOODLINE =
