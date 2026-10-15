@@ -45,7 +45,7 @@ export const questPartyRelations = {
 } as const;
 
 /**
- * Merge preloaded contributions through party CAS, rereading only after contention.
+ * Merge contributions through party CAS, confirming missing members before pruning.
  * A committed member may have departed since preload; include that accepted progress once
  * without restoring their membership. Return the synchronized party with its live roster.
  */
@@ -61,6 +61,7 @@ export const synchronizeQuestParty = async (
     );
     // Confirm missing relations before pruning: an incomplete preload is not a departure.
     // Explicitly detached members still reconcile after interrupted cleanup.
+    // Hydrate before merging contributions or reconciling battle locks.
     const missingIds = party.memberIds.filter(
       (id) => !liveMembers.some((member) => member.userId === id),
     );

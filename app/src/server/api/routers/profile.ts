@@ -833,6 +833,7 @@ export const profileRouter = createTRPCRouter({
         : [];
       // Figure out notifications
       const notifications: NavBarDropdownLink[] = [];
+      // Ignore stale invitations for disabled or terminal teams, as the discovery page does.
       const invitations = questInvitations.filter(
         (party) =>
           party.quest?.teamEnabled &&
@@ -849,6 +850,8 @@ export const profileRouter = createTRPCRouter({
         alwaysShow: true,
       });
 
+      // Keep collection discoverable after disbanding, even before a reward choice exists.
+      // Synthetic helpers keep closed receipts and must not advertise another payout.
       const completedTeamQuests =
         user?.userQuests.filter((entry) => {
           const tracker = user.questData?.find(

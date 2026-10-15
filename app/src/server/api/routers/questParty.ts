@@ -203,6 +203,7 @@ export const questPartyRouter = createTRPCRouter({
           objectiveIds.has(entry.id) &&
           (entry.task === "start_battle" || entry.task === "defeat_opponents"),
       );
+    // The bound placement comes from the active objective; its live tile overrides authored coordinates.
     const placement =
       encounter?.task === "defeat_opponents" && encounter.overworldPlacementId
         ? await ctx.drizzle.query.overworldAiPlacement.findFirst({
@@ -213,6 +214,8 @@ export const questPartyRouter = createTRPCRouter({
             columns: { sector: true, longitude: true, latitude: true },
           })
         : undefined;
+    // Generic battles gather at the leader; hidden map objectives reveal their tile in-sector.
+    // An unavailable bound NPC has no fallback to potentially stale authored coordinates.
     const encounterLocation =
       encounter?.task === "start_battle"
         ? user?.questParty?.members.find(
@@ -502,7 +505,7 @@ export const questPartyRouter = createTRPCRouter({
         message: "Invitation sent. The player can accept on the Quest Teams page",
       };
     }),
-  /** Detach with personal receipts intact; retries finish an earlier partial departure. */
+  /** Let the leader remove another member while preserving solo progress and reward receipts. */
   remove: protectedProcedure
     .input(questPartyRemoveSchema)
     .mutation(async ({ ctx, input }) => {
@@ -551,6 +554,7 @@ export const questPartyRouter = createTRPCRouter({
           }
         : result;
     }),
+  /** Detach with personal receipts intact; retries finish an earlier partial departure. */
   leave: protectedProcedure
     .input(questPartyIdSchema)
     .mutation(async ({ ctx, input }) => {
@@ -703,6 +707,7 @@ const removeMember = async (
       }),
     ]);
     if (!party) return { success: true, message: "Already left quest team" };
+    // Recheck leadership on each CAS retry so a transfer cannot authorize a stale removal.
     if (
       removingLeaderId &&
       (party.leaderId !== removingLeaderId ||
@@ -825,7 +830,7 @@ export const startQuestPartyEncounter = async ({
   partyId: string;
   /** Objective selected by an authoritative server interaction, never client input. */
   objectiveId?: string;
-  /** Placements verified by the server interaction as satisfying the objective location. */
+  /** Server-verified placements; lobby launches resolve live NPC tiles when omitted. */
   atPlacementIds?: ReadonlySet<string>;
   /** Authored quest attackers rolled by the server's travel consequence handler. */
   ambush?: QuestConsequence;

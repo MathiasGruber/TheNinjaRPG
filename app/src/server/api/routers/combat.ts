@@ -4007,7 +4007,7 @@ export const processUsersForBattle = async (
         if (!checkJutsuBloodlineItem(userjutsu.jutsu, user.items) && !user.isAi) {
           return false;
         }
-        // Exclude jutsus that belong to a bloodline the user doesn't have
+        // Only bloodline-bound jutsu are restricted; null and empty IDs are general jutsu.
         if (
           userjutsu.jutsu.bloodlineId &&
           !user.isAi &&

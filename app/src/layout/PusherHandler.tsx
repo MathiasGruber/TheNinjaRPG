@@ -104,6 +104,7 @@ export const usePusherHandler = (
             router.push("/dungeon");
           }
         } else if (data.type === "questTeam") {
+          // Membership changes affect the roster, personal quest projection and reward offers.
           await Promise.all([
             utils.profile.getUser.invalidate(),
             utils.coop.quest.overview.invalidate(),

@@ -18,7 +18,7 @@ import {
 } from "@/validators/rewardPackages";
 import { ObjectiveReward, rewardFields } from "@/validators/rewards";
 
-/** Edit direct rewards in groups and attach independent, editable catalog snapshots. */
+/** Edit grouped rewards, repeat groups as independent nodes, and attach catalog snapshots. */
 export const RewardEditor = ({
   form,
   formData,
@@ -192,7 +192,7 @@ export const RewardEditor = ({
               return;
             }
             if (packages.length >= 50) return;
-            // A repeated node needs an independent payload and choice identity.
+            // Copy only this group's fields into a source-free snapshot with its own choice ID.
             setPackages([
               ...packages,
               {

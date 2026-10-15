@@ -173,6 +173,7 @@ export const rewardPackagesRouter = createTRPCRouter({
  * Validate attachment identities, source approval and whole-bundle choice restrictions.
  * Restricted reputation amounts must match the saved snapshot or approved catalog source;
  * copied attachments can retain saved approval under fresh ids after catalog edits or deletion.
+ * Independent nodes without a catalog source retain approval only under their own saved id.
  * @returns A recoverable save rejection, or null when every attachment is permitted.
  */
 export const validateQuestRewardPackages = (
@@ -188,7 +189,7 @@ export const validateQuestRewardPackages = (
   if (new Set(snapshots.map((pack) => pack.id)).size !== snapshots.length)
     return "Each package snapshot must have a unique id";
   for (const pack of snapshots) {
-    // Copies retain their saved source; restricted authors must also retain its reputation approval.
+    // Catalog copies can match their source; independent nodes must match their exact saved identity.
     const old =
       oldSnapshots.find(
         (saved) => saved.id === pack.id && saved.packageId === pack.packageId,

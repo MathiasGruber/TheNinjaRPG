@@ -18,7 +18,10 @@ import { showMutationToast } from "@/libs/toast";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
 
-/** Quest-specific creation/join controls when embedded; full roster and chat otherwise. */
+/**
+ * Manage shared quest progress and roster in quests or on the team page.
+ * Compact mode renders a link; chat stays on the dedicated page.
+ */
 export const QuestTeams = ({
   questId,
   teamEnabled = true,
@@ -83,7 +86,7 @@ export const QuestTeams = ({
   const teamVersion = data?.current
     ? `${data.current.id}:${data.current.version}`
     : null;
-  // Overview updates carry shared progress; refresh the personal projection and receipts too.
+  // Refresh personal progress and receipts when the team changes or disappears.
   useEffect(() => {
     if (questId && data?.current && data.current.questId !== questId) return;
     if (previousTeamVersion.current && previousTeamVersion.current !== teamVersion)
