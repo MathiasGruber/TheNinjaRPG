@@ -318,6 +318,55 @@ it("refreshes a selected furniture variant when returning from inventory", async
   }
 });
 
+it("refreshes furniture storage after placing a carried piece and waits for its inventory", async () => {
+  let home = { ...essentialHome, furniture: [...basics, rug] };
+  let items = [...ownedItems, { ...ownedItems[0]!, id: rug.id, itemId: rug.itemId, storedAtHome: false, item: { ...ownedItems[0]!.item, id: rug.itemId, name: rug.name, image: rug.image } }];
+  let finishInventory = () => {};
+  const inventoryReady = new Promise<void>((resolve) => { finishInventory = resolve; });
+  let itemQueries = 0;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    const result = async () => {
+      if (op.path === "home.getUserHome") return { ...home };
+      if (op.path === "item.getUserItems") {
+        if (++itemQueries > 1) await inventoryReady;
+        return items.map((row) => ({ ...row }));
+      }
+      if (op.path === "home.getAvailableUpgrades") return [];
+      if (op.path === "home.saveFurnitureLayout") {
+        const draft = op.input as RouterInputs["home"]["saveFurnitureLayout"];
+        home = { ...home, layout: draft.placements, furnitureRevision: home.furnitureRevision + 1 };
+        items = items.map((row) => row.id === rug.id ? { ...row, storedAtHome: true } : row);
+        return { success: true, message: "Saved" };
+      }
+      throw new Error(`Unexpected procedure ${op.path}`);
+    };
+    void result().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*Place$/ }));
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(itemQueries).toBe(2));
+    expect(queryClient.isMutating()).toBe(1);
+    expect((view.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { finishInventory(); await inventoryReady; });
+    await waitFor(() => expect(view.queryByRole("button", { name: "Save layout" })).toBeNull());
+    expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)!.find(({ id }) => id === rug.id)!.storedAtHome).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Home storage" }));
+    expect(view.getByRole("tab", { name: "Furniture (4)" })).toBeDefined();
+  } finally {
+    finishInventory();
+    queryClient.clear();
+  }
+});
+
 for (const success of [true, false]) {
   it(`keeps the editor disabled through refreshing a ${success ? "successful" : "rejected"} save`, async () => {
     let finishRefresh = () => {};

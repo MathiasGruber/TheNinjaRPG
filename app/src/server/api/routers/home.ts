@@ -1,5 +1,16 @@
 import { createHash } from "node:crypto";
-import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { UserStatus } from "@/drizzle/constants";
 import {
   HOME_FURNITURE_ESSENTIALS,
@@ -489,6 +500,7 @@ export const homeRouter = createTRPCRouter({
               .where(
                 and(
                   eq(userItem.userId, ctx.userId),
+                  isNotNull(userItem.homeX),
                   sql`${userItem.homeRoom} NOT IN (${sql.join(
                     getHomeRooms(input.homeType).map(({ id }) => sql`${id}`),
                     sql`, `,

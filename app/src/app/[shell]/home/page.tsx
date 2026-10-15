@@ -168,9 +168,13 @@ export default function HomePage() {
   const saveFurniture = api.home.saveFurnitureLayout.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
-      if (!result.success) setFurnitureError(result.message);
-      // Keep the editor disabled until its saved layout and server revision are refreshed.
-      await userHomeRefetch();
+      if (!result.success) {
+        setFurnitureError(result.message);
+        await userHomeRefetch();
+        return;
+      }
+      // Keep the editor disabled until its saved layout, revision and storage are refreshed.
+      await Promise.all([userHomeRefetch(), userItemsRefetch()]);
     },
   });
   /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */

@@ -98,6 +98,21 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(await snapshot()).toEqual(before);
   });
 
+  it("keeps unplaced carried furniture out of full storage when its old room is removed", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    await insertUserItems([
+      ...Array.from({ length: HOME_FURNITURE_STORAGE_CAPACITY - 6 }, (_, i) => ({ id: `stored-${i}`, userId, itemId: "rug", storedAtHome: true })),
+      // Ownership transfers can retain the seller's room after clearing placement coordinates.
+      { id: "carried-extra", userId, itemId: "rug", homeRoom: "room-6", storedAtHome: false },
+    ]);
+    const api = await callerFor(homeRouter, userId);
+    expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const { inventory } = await snapshot();
+    expect(inventory.find(({ id }) => id === "carried-extra")).toMatchObject({ storedAtHome: false, homeX: null, homeY: null });
+    expect(inventory.filter((owned) => owned.userId === userId && owned.storedAtHome && owned.itemId !== "material")).toHaveLength(HOME_FURNITURE_STORAGE_CAPACITY);
+  });
+
   it("enforces private, invited, revoked and public visits without exposing unplaced furniture or mutating the owner", async () => {
     const api = await callerFor(homeRouter, userId);
     const visitor = await callerFor(homeRouter, "other-owner");
