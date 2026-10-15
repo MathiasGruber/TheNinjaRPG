@@ -80,9 +80,8 @@ export const synchronizeQuestParty = async (
           committedMember,
         ]
       : liveMembers;
-    const memberIds = party.memberIds.filter(
-      (id) =>
-        !missingIds.includes(id) || attached.some((member) => member.userId === id),
+    const memberIds = party.memberIds.filter((id) =>
+      liveMembers.some((member) => member.userId === id),
     );
     const leaderId = memberIds.includes(party.leaderId)
       ? party.leaderId

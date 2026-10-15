@@ -244,11 +244,7 @@ export const questPartyRouter = createTRPCRouter({
                 }
               : null,
             // Non-combat quests use their Logbook objectives instead of an unusable launch button.
-            hasEncounter: getActiveObjectives(user).some(
-              (entry) =>
-                objectiveIds.has(entry.id) &&
-                (entry.task === "start_battle" || entry.task === "defeat_opponents"),
-            ),
+            hasEncounter: !!encounter,
             members: user.questParty.members.map(
               ({ userId, username, sector, longitude, latitude, status }) => ({
                 userId,

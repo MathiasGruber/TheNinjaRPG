@@ -328,18 +328,15 @@ export const QuestTeams = ({
                 </Link>
               </Button>
             )}
-            {current.leaderId === user.userId &&
-              current.hasEncounter &&
-              !current.completed &&
-              !current.failed && (
-                <Button
-                  disabled={busy || !!current.battleId}
-                  onClick={() => start.mutate({ partyId: current.id })}
-                >
-                  <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
-                  {start.isPending ? "Starting..." : "Start Team Encounter"}
-                </Button>
-              )}
+            {current.leaderId === user.userId && canEncounter && (
+              <Button
+                disabled={busy || !!current.battleId}
+                onClick={() => start.mutate({ partyId: current.id })}
+              >
+                <Swords className="mr-2 h-4 w-4" aria-hidden="true" />
+                {start.isPending ? "Starting..." : "Start Team Encounter"}
+              </Button>
+            )}
             {!current.battleId && !current.completed && !current.failed && (
               <Button asChild variant="secondary">
                 <Link href="/profile?tab=dashboard#progress-heading">View quest</Link>
