@@ -191,6 +191,27 @@ export const HomeScene = ({
     );
   };
 
+  const updateRoomStyle = (
+    changes: Partial<Pick<HomeRoomStyle, "paint" | "floor">>,
+  ) => {
+    setDraft(
+      (current) =>
+        current && {
+          ...current,
+          styles: [
+            ...current.styles.filter(({ room }) => room !== activeRoom),
+            {
+              room: activeRoom,
+              paint: "ivory",
+              floor: "cedar",
+              ...current.styles.find(({ room }) => room === activeRoom),
+              ...changes,
+            },
+          ],
+        },
+    );
+  };
+
   /** Pointer and keyboard moves use the same painted floor and collision rules as saving. */
   const moveFurniture = (id: string, x: number, y: number, room?: HomeRoomId) => {
     const piece = furnitureById.get(id);
@@ -845,25 +866,11 @@ export const HomeScene = ({
                     (draft?.styles ?? styles).find(({ room }) => room === activeRoom)
                       ?.paint ?? "ivory"
                   }
-                  onChange={(event) => {
-                    const paint = event.target.value as HomeRoomStyle["paint"];
-                    setDraft(
-                      (current) =>
-                        current && {
-                          ...current,
-                          styles: [
-                            ...current.styles.filter(({ room }) => room !== activeRoom),
-                            {
-                              room: activeRoom,
-                              floor:
-                                current.styles.find(({ room }) => room === activeRoom)
-                                  ?.floor ?? "cedar",
-                              paint,
-                            },
-                          ],
-                        },
-                    );
-                  }}
+                  onChange={(event) =>
+                    updateRoomStyle({
+                      paint: event.target.value as HomeRoomStyle["paint"],
+                    })
+                  }
                 >
                   {Object.keys(HOME_WALL_PAINTS).map((paint) => (
                     <option key={paint} value={paint}>
@@ -884,25 +891,11 @@ export const HomeScene = ({
                     (draft?.styles ?? styles).find(({ room }) => room === activeRoom)
                       ?.floor ?? "cedar"
                   }
-                  onChange={(event) => {
-                    const floor = event.target.value as HomeRoomStyle["floor"];
-                    setDraft(
-                      (current) =>
-                        current && {
-                          ...current,
-                          styles: [
-                            ...current.styles.filter(({ room }) => room !== activeRoom),
-                            {
-                              room: activeRoom,
-                              paint:
-                                current.styles.find(({ room }) => room === activeRoom)
-                                  ?.paint ?? "ivory",
-                              floor,
-                            },
-                          ],
-                        },
-                    );
-                  }}
+                  onChange={(event) =>
+                    updateRoomStyle({
+                      floor: event.target.value as HomeRoomStyle["floor"],
+                    })
+                  }
                 >
                   {Object.keys(HOME_FLOOR_TILES).map((floor) => (
                     <option key={floor} value={floor}>

@@ -8,6 +8,7 @@ import {
   isNotNull,
   isNull,
   lte,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm";
@@ -474,7 +475,7 @@ export const homeRouter = createTRPCRouter({
             .set({
               homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
               homeRoomStyles: user.homeRoomStyles.filter(({ room }) =>
-                getHomeRooms(input.homeType).some(({ id }) => id === room),
+                retainedRooms.has(room),
               ),
               homeType: input.homeType,
               money: sql`${userData.money} + ${downgradeRefund}`,
@@ -502,10 +503,7 @@ export const homeRouter = createTRPCRouter({
                 and(
                   eq(userItem.userId, ctx.userId),
                   isNotNull(userItem.homeX),
-                  sql`${userItem.homeRoom} NOT IN (${sql.join(
-                    getHomeRooms(input.homeType).map(({ id }) => sql`${id}`),
-                    sql`, `,
-                  )})`,
+                  notInArray(userItem.homeRoom, [...retainedRooms]),
                 ),
               );
           return changed;
@@ -771,15 +769,18 @@ const publishHomeFurnitureLayout = (
   storeFurniture: boolean,
   styles?: HomeRoomStyle[],
 ) => {
-  const coordinateCase = (axis: "x" | "y" | "rotation") =>
-    placements.length
+  const placementCase = (field: "room" | "x" | "y" | "rotation") => {
+    const fallback = field === "room" ? "main" : field === "rotation" ? 0 : null;
+    return placements.length
       ? sql`CASE ${userItem.id} ${sql.join(
           placements.map(
-            (placement) => sql`WHEN ${placement.id} THEN ${placement[axis]}`,
+            (placement) =>
+              sql`WHEN ${placement.id} THEN ${placement[field] ?? fallback}`,
           ),
           sql` `,
-        )} ELSE ${axis === "rotation" ? 0 : null} END`
-      : sql`${axis === "rotation" ? 0 : null}`;
+        )} ELSE ${fallback} END`
+      : sql`${fallback}`;
+  };
   // Drizzle's update builder targets one table. A joined update avoids partial rooms and
   // stale initialization overwriting a player's concurrent save, without a transaction.
   // A concurrent sale can only remove a placement; this statement never recreates inventory.
@@ -801,20 +802,10 @@ const publishHomeFurnitureLayout = (
               )}`
             : sql``
         }) THEN ${true} ELSE ${userItem.storedAtHome} END,
-        ${userItem.homeRoom} = ${
-          placements.length
-            ? sql`CASE ${userItem.id} ${sql.join(
-                placements.map(
-                  (placement) =>
-                    sql`WHEN ${placement.id} THEN ${placement.room ?? "main"}`,
-                ),
-                sql` `,
-              )} ELSE ${"main"} END`
-            : sql`${"main"}`
-        },
-        ${userItem.homeX} = ${coordinateCase("x")},
-        ${userItem.homeY} = ${coordinateCase("y")},
-        ${userItem.homeRotation} = ${coordinateCase("rotation")}
+        ${userItem.homeRoom} = ${placementCase("room")},
+        ${userItem.homeX} = ${placementCase("x")},
+        ${userItem.homeY} = ${placementCase("y")},
+        ${userItem.homeRotation} = ${placementCase("rotation")}
     WHERE ${homeFurnitureWriteGuard(user, userId, revision)}
   `),
   );
