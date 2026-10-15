@@ -651,58 +651,31 @@ export const villageRouter = createTRPCRouter({
         return errorResponse("Cannot clear sector with village/town/hideout in it");
       }
 
-      // Share the village lock with declarations so a selected objective cannot be abandoned.
+      // Drizzle cannot express joined deletes. The village join's shared row lock
+      // coordinates with declarations' FOR UPDATE before they select objectives.
+      // Recheck leadership, ownership and active objectives in the same statement.
       const released = await retryOnDeadlock(() =>
-        ctx.drizzle.transaction(async (tx) => {
-          const [currentVillage] = await tx
-            .select()
-            .from(village)
-            .where(eq(village.id, villageId))
-            .for("update");
-          if (currentVillage?.kageId !== ctx.userId)
-            return errorResponse("You are not in charge");
-          const [currentSector, activeWars] = await Promise.all([
-            tx.query.sector.findFirst({ where: eq(sector.sector, input.sector) }),
-            tx.query.war.findMany({
-              where: and(
-                eq(war.status, "ACTIVE"),
-                isNull(war.endedAt),
-                or(
-                  eq(war.attackerVillageId, villageId),
-                  eq(war.defenderVillageId, villageId),
-                ),
-              ),
-            }),
-          ]);
-          if (currentSector?.villageId !== villageId)
-            return errorResponse("Sector ownership changed. Refresh and try again.");
-          if (
-            activeWars.some(
-              (w) =>
-                w.rules &&
-                w.objectiveState?.objectives.some(
-                  (objective) =>
-                    objective.sector === input.sector &&
-                    objective.villageId === villageId &&
-                    !objective.destroyed,
-                ),
+        ctx.drizzle.execute(sql`
+          DELETE ${sector} FROM ${sector}
+          INNER JOIN ${village} ON ${village.id} = ${sector.villageId}
+          WHERE ${sector.sector} = ${input.sector}
+            AND ${village.id} = ${villageId} AND ${village.kageId} = ${ctx.userId}
+            AND NOT EXISTS (
+              SELECT 1 FROM ${war}
+              WHERE ${war.status} = 'ACTIVE' AND ${war.endedAt} IS NULL
+                AND (${war.attackerVillageId} = ${village.id} OR ${war.defenderVillageId} = ${village.id})
+                AND ${war.rules} IS NOT NULL
+                AND JSON_CONTAINS(${war.objectiveState}, JSON_OBJECT(
+                  'sector', ${sector.sector}, 'villageId', ${village.id}, 'destroyed', CAST('false' AS JSON)
+                ), '$.objectives')
             )
-          ) {
-            return errorResponse(
-              "Cannot release an active village war objective sector",
-            );
-          }
-          const result = await tx
-            .delete(sector)
-            .where(
-              and(eq(sector.sector, input.sector), eq(sector.villageId, villageId)),
-            );
-          return result.rowsAffected > 0
-            ? { success: true, message: "You have released the sector" }
-            : errorResponse("Sector ownership changed. Refresh and try again.");
-        }),
+        `),
       );
-      if (!released.success) return released;
+      if (released.rowsAffected === 0) {
+        return errorResponse(
+          "Sector ownership or leadership changed, or this is an active war objective. Refresh and try again.",
+        );
+      }
       await ctx.drizzle.insert(actionLog).values({
         id: nanoid(),
         userId: ctx.userId,

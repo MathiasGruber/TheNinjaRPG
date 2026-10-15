@@ -611,7 +611,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
     const caller = callerForDatabase(villageRouter, "defender-kage", db);
     const blocked = await caller.releaseSector({ sector: sectorId });
     expect(blocked.success).toBe(false);
-    expect(blocked.message).toBe("Cannot release an active village war objective sector");
+    expect(blocked.message).toBe("Sector ownership or leadership changed, or this is an active war objective. Refresh and try again.");
     expect((await db.query.sector.findFirst())?.villageId).toBe("defender");
     await db.update(war).set({ endedAt: new Date(), status: "DRAW" }).where(eq(war.id, warId));
     expect((await caller.releaseSector({ sector: sectorId })).success).toBe(true);
