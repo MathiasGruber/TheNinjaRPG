@@ -17,6 +17,7 @@ import * as activeBuffs from "@/layout/ActiveTimedBuffs";
 import * as contentBox from "@/layout/ContentBox";
 import * as contentImage from "@/layout/ContentImage";
 import Kitchen from "@/layout/Kitchen";
+import * as modal from "@/layout/Modal";
 import * as timedQueue from "@/layout/TimedQueue";
 import { fetchUserItems } from "@/routers/item";
 import { occupationRouter } from "@/routers/occupation";
@@ -53,6 +54,9 @@ describeWithDatabase("Kitchen shrine duration preview", () => {
     vi.spyOn(contentImage, "default").mockImplementation(() => null);
     vi.spyOn(activeBuffs, "ActiveTimedBuffs").mockImplementation(() => null);
     vi.spyOn(timedQueue, "TimedQueue").mockImplementation(() => null);
+    vi.spyOn(modal, "default").mockImplementation(({ children, isOpen }) =>
+      isOpen ? <div>{children}</div> : null,
+    );
   });
 
   afterEach(() => {

@@ -11,6 +11,7 @@ import { ActiveTimedBuffs } from "@/layout/ActiveTimedBuffs";
 import ContentBox from "@/layout/ContentBox";
 import ContentImage from "@/layout/ContentImage";
 import Loader from "@/layout/Loader";
+import Modal from "@/layout/Modal";
 import { TimedQueue } from "@/layout/TimedQueue";
 import {
   describeMealEffect,
@@ -33,6 +34,7 @@ export default function Kitchen({ image }: { image?: string }) {
   const [batches, setBatches] = useState(1);
   const [message, setMessage] = useState<string | null>(null);
   const inFlight = useRef(false);
+  const recipeTriggerRef = useRef<HTMLButtonElement>(null);
   const recipes = api.occupation.getCookingRecipes.useQuery();
   const inventory = api.item.getUserItems.useQuery();
   const queue = api.occupation.getCraftingQueue.useQuery(undefined, {
@@ -51,7 +53,11 @@ export default function Kitchen({ image }: { image?: string }) {
     onSuccess: async (result) => {
       showMutationToast(result);
       setMessage(result.message);
-      if (result.success) await refresh();
+      if (result.success) {
+        setSelectedId("");
+        setBatches(1);
+        await refresh();
+      }
     },
     onError: (error) => setMessage(error.message),
     onSettled: () => {
@@ -207,9 +213,10 @@ export default function Kitchen({ image }: { image?: string }) {
               <button
                 type="button"
                 key={recipe.id}
-                aria-pressed={selectedId === recipe.id}
+                aria-haspopup="dialog"
                 className={`rounded border p-3 text-left ${selectedId === recipe.id ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}
-                onClick={() => {
+                onClick={(event) => {
+                  recipeTriggerRef.current = event.currentTarget;
                   setSelectedId(recipe.id);
                   setBatches(1);
                   setMessage(null);
@@ -247,9 +254,36 @@ export default function Kitchen({ image }: { image?: string }) {
             );
           })}
         </div>
+        {message && !selected && (
+          <p role="status" className="mt-3 text-sm">
+            {message}
+          </p>
+        )}
+      </ContentBox>
+      <Modal
+        title={selected?.name ?? "Recipe Details"}
+        isOpen={!!selected}
+        setIsOpen={(open) => {
+          if (!open && !cook.isPending) {
+            setSelectedId("");
+            setBatches(1);
+          }
+        }}
+        returnFocusRef={recipeTriggerRef}
+        proceed_label={active || waiting.length ? "Queue meal" : "Start cooking"}
+        proceed_loading_label="Preparing…"
+        isLoading={cook.isPending}
+        keepOpenOnAccept
+        proceedDisabled={!!blocked}
+        onAccept={() => {
+          if (!selected || inFlight.current || blocked) return;
+          inFlight.current = true;
+          setMessage(null);
+          cook.mutate({ itemId: selected.id, quantity: batches });
+        }}
+      >
         {selected && (
-          <div className="space-y-3 rounded border p-3">
-            <h3 className="font-bold">{selected.name}</h3>
+          <div className="space-y-3">
             <p className="text-sm">{selected.description}</p>
             <p className="text-sm">{describeMealEffect(selected)}</p>
             <ul className="text-sm">
@@ -293,29 +327,14 @@ export default function Kitchen({ image }: { image?: string }) {
               </p>
             )}
             {blocked && <p className="text-muted-foreground text-sm">{blocked}</p>}
-            <Button
-              disabled={!!blocked || cook.isPending}
-              onClick={() => {
-                if (inFlight.current || blocked) return;
-                inFlight.current = true;
-                setMessage(null);
-                cook.mutate({ itemId: selected.id, quantity: batches });
-              }}
-            >
-              {cook.isPending
-                ? "Preparing…"
-                : active || waiting.length
-                  ? "Queue meal"
-                  : "Start cooking"}
-            </Button>
+            {message && (
+              <p role="status" className="text-sm">
+                {message}
+              </p>
+            )}
           </div>
         )}
-        {message && (
-          <p role="status" className="mt-3 text-sm">
-            {message}
-          </p>
-        )}
-      </ContentBox>
+      </Modal>
     </div>
   );
 }
