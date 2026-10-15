@@ -986,6 +986,7 @@ function Travel() {
         title="Travel"
         subtitle={subtitle}
         padding={false}
+        topRightCorntentBreakpoint="sm"
         topRightContent={
           <div className="flex cursor-pointer flex-row items-center">
             <WarFieldActions />
