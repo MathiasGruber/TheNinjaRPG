@@ -64,6 +64,7 @@ describeWithDatabase("weighted cache consumption", () => {
     // Passive regeneration can reject a stale account snapshot before another request commits.
     const committed = results.find((response) => response.success);
     expect(committed).toBeDefined();
+    if (!committed) throw new Error("No request committed the opening");
     for (const _result of results) expect(await caller.consume({ userItemId: "cache-stack", requestId: "same-opening-request" })).toEqual(committed);
     expect((await db.select().from(userItem).where(eq(userItem.id, "cache-stack")))[0]?.quantity).toBe(1);
     expect(await db.select().from(actionLog)).toHaveLength(1);
