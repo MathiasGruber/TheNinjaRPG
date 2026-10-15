@@ -35,6 +35,96 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("preserves attached members when a progress preload omits their relation", async () => {
+    const client = await getTestDatabase();
+    const { party } = await lastMemberFixture();
+    const loaded = (await client.query.questParty.findFirst({ where: eq(questParty.id, party.id), with: questPartyRelations }))!;
+    const synchronized = await synchronizeQuestParty(client, { ...loaded, members: [] });
+    expect(synchronized.memberIds).toEqual(["leader"]);
+    expect(synchronized.leaderId).toBe("leader");
+    expect(synchronized.members.map((member) => member.userId)).toEqual(["leader"]);
+    expect((await client.query.questParty.findFirst())?.memberIds).toEqual(["leader"]);
+    await client.update(userData).set({status:"BATTLE",battleId:"ongoing"}).where(eq(userData.userId,"leader"));
+    await client.update(questParty).set({battleId:"ongoing"}).where(eq(questParty.id,party.id));
+    const fighting = (await client.query.questParty.findFirst({where:eq(questParty.id,party.id),with:questPartyRelations}))!;
+    const recovered = await synchronizeQuestParty(client,{...fighting,members:[]});
+    expect(recovered.battleId).toBe("ongoing");
+    expect(recovered.members[0]?.status).toBe("BATTLE");
+  });
+
+  it("lets only the leader remove a member and preserves the removed member's solo progress", async () => {
+    const client = await getTestDatabase();
+    const { leader, helper, party } = await lastMemberFixture();
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    expect((await helper.remove({ partyId: party.id, userId: "leader" })).success).toBe(false);
+    expect((await leader.remove({ partyId: party.id, userId: "leader" })).success).toBe(false);
+    expect((await leader.remove({ partyId: party.id, userId: "helper" })).success).toBe(true);
+    const removed = (await client.query.userData.findFirst({ where: eq(userData.userId, "helper") }))!;
+    expect(removed.questPartyId).toBeNull();
+    expect(removed.questData?.find((tracker) => tracker.id === party.questId)?.goals[0]?.value).toBe(40);
+    expect(removed.questData?.find((tracker) => tracker.id === party.questId)?.party).toBeUndefined();
+    expect(await client.query.user2conversation.findFirst({ where: eq(user2conversation.userId, "helper") })).toBeUndefined();
+  });
+
+  it("shows quest invitations in profile notifications until accepted", async () => {
+    const client = await getTestDatabase();
+    const { leader, helper, party } = await lastMemberFixture();
+    expect((await leader.invite({ partyId: party.id, username: "helper" })).success).toBe(true);
+    const profile = await callerFor(profileRouter, "helper");
+    expect((await profile.getUser()).notifications).toContainEqual(expect.objectContaining({ href: "/questteams", notificationCount: 1 }));
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    expect((await profile.getUser()).notifications).toContainEqual(expect.objectContaining({ href: "/questteams", notificationCount: 0 }));
+  });
+
+  for (const action of ["invite", "remove", "disband"] as const) {
+    it(`keeps a committed ${action} successful when notification delivery fails`, async () => {
+      const client = await getTestDatabase();
+      const { leader, helper, party } = await claimReleaseFixture();
+      if (action !== "invite") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+      vi.spyOn(Pusher.prototype, "trigger").mockRejectedValue(new Error("Notification unavailable"));
+      const result = action === "invite"
+        ? await leader.invite({ partyId: party.id, username: "helper" })
+        : action === "remove"
+          ? await leader.remove({ partyId: party.id, userId: "helper" })
+          : await leader.disband({ partyId: party.id });
+      expect(result.success).toBe(true);
+      const saved = await client.query.questParty.findFirst({ where: eq(questParty.id, party.id) });
+      if (action === "invite") expect(saved?.invitedUserIds).toContain("helper");
+      else {
+        const detached = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+        expect(detached?.questPartyId).toBeNull();
+        expect(detached?.questData?.find((tracker) => tracker.id === party.questId)).toBeDefined();
+        if (action === "remove") expect(saved?.memberIds).toEqual(["leader"]);
+        else expect(saved).toBeUndefined();
+      }
+    });
+  }
+
+  it("keeps unclaimed reward choices available after the team disbands", async () => {
+    const client = await getTestDatabase();
+    await insertQuests([{ id: "choice-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {
+      objectives: [AllObjectives.parse({ id: "goal", task: "stats_trained", value: 10 })],
+      reward: { ...ObjectiveReward.parse({reward_money: 50, reward_exp: 100}) }, rewardMode: "choose", rewardPickCount: 1, sceneBackground: "", sceneCharacters: [],
+    } }]);
+    const leader = await callerFor(questPartyRouter, "leader");
+    expect((await leader.create({ questId: "choice-quest", isPublic: true })).success).toBe(true);
+    const party = (await client.query.questParty.findFirst())!;
+    const helper = await callerFor(questPartyRouter, "helper");
+    expect((await helper.join({ partyId: party.id })).success).toBe(true);
+    const tracker = structuredClone(party.tracker);
+    tracker.goals[0]!.done = true; tracker.goals[0]!.value = 10;
+    await client.update(questParty).set({tracker,version: party.version + 2}).where(eq(questParty.id,party.id));
+    expect((await leader.disband({ partyId: party.id })).success).toBe(true);
+    expect((await (await callerFor(profileRouter,"helper")).getUser()).notifications).toContainEqual(expect.objectContaining({name:"Quest rewards waiting: open your Logbook"}));
+    const rewards = await callerFor(questsRouter,"helper");
+    expect((await rewards.checkRewards({questId:"choice-quest"})).success).toBe(true);
+    const offers = await rewards.getPendingRewardChoices();
+    expect(offers).toHaveLength(1);
+    expect((await rewards.claimRewardChoice({questId:"choice-quest",choiceId:offers[0]!.choiceId,cardIds:["reward_money"]})).success).toBe(true);
+    expect(await rewards.getPendingRewardChoices()).toHaveLength(0);
+    expect((await rewards.claimRewardChoice({questId:"choice-quest",choiceId:offers[0]!.choiceId,cardIds:["reward_money"]})).success).toBe(false);
+  });
+
   for (const failure of ["personal save", "personal contention", "chat removal", "party deletion"] as const) {
     it(`retains the last member's shared progress through ${failure} failure and retry`, async () => {
       const client = await getTestDatabase();

@@ -85,6 +85,7 @@ import {
   poll,
   quest,
   questHistory,
+  questParty,
   raidParticipation,
   recruitmentRewards,
   sageMode,
@@ -127,6 +128,7 @@ import {
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
+import { isQuestComplete } from "@/libs/objectives";
 import { isNewOnlineRecord } from "@/libs/onlineRecord";
 import {
   calcActiveUserRegen,
@@ -780,6 +782,7 @@ export const profileRouter = createTRPCRouter({
         readyFarmPlotsResult,
         waterableFarmPlotsResult,
         publishedAchievements,
+        questInvitations,
       ] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
@@ -816,6 +819,10 @@ export const profileRouter = createTRPCRouter({
             ),
           ),
         fetchPublishedAchievements(ctx.drizzle),
+        ctx.drizzle.query.questParty.findMany({
+          where: sql`JSON_CONTAINS(${questParty.invitedUserIds}, JSON_QUOTE(${ctx.userId}))`,
+          with: { quest: true },
+        }),
       ]);
       const { user, settings, toastMessages, hasUnvotedPolls } = updatedUser;
       const readyFarmPlots = readyFarmPlotsResult[0]?.count ?? 0;
@@ -826,6 +833,48 @@ export const profileRouter = createTRPCRouter({
         : [];
       // Figure out notifications
       const notifications: NavBarDropdownLink[] = [];
+      // Ignore stale invitations for disabled or terminal teams, as the discovery page does.
+      const invitations = questInvitations.filter(
+        (party) =>
+          party.quest?.teamEnabled &&
+          !party.tracker.failed &&
+          !isQuestComplete(party.quest, party.tracker),
+      );
+      notifications.push({
+        href: "/questteams",
+        name: invitations.length
+          ? `Quest Teams: ${invitations.length} invitation${invitations.length === 1 ? "" : "s"}`
+          : "Quest Teams",
+        color: invitations.length ? "green" : "default",
+        notificationCount: invitations.length,
+        alwaysShow: true,
+      });
+
+      // Keep collection discoverable after disbanding, even before a reward choice exists.
+      // Synthetic helpers keep closed receipts and must not advertise another payout.
+      const completedTeamQuests =
+        user?.userQuests.filter((entry) => {
+          const tracker = user.questData?.find(
+            (tracker) => tracker.id === entry.questId,
+          );
+          return (
+            entry.quest.teamEnabled &&
+            entry.id !== `party-${user.questPartyId}` &&
+            !entry.endAt &&
+            !entry.completed &&
+            tracker &&
+            !tracker.failed &&
+            isQuestComplete(entry.quest, tracker)
+          );
+        }) ?? [];
+      if (completedTeamQuests.length)
+        notifications.push({
+          href: "/profile?tab=dashboard#progress-heading",
+          name: "Quest rewards waiting: open your Logbook",
+          color: "green",
+          alwaysShow: true,
+          notificationCount: completedTeamQuests.length,
+        });
 
       // Add any notifications from fetching user to toasts
       toastMessages.forEach((msg) => {

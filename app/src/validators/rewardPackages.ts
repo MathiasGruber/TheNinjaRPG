@@ -34,10 +34,10 @@ export const RewardPackageValidator = z.object({
 export const RewardPackageSnapshot = RewardPackageValidator.extend({
   /** Unique attachment identity, regenerated when its objective is copied. */
   id: z.string().min(1).max(191),
-  /** Source attribution and approval lookup; payouts read the copied rewards instead. */
-  packageId: z.string().min(1).max(191),
+  /** Catalog attribution; independent reward nodes have no catalog source. */
+  packageId: z.string().min(1).max(191).optional(),
 });
-/** Quest and objective rewards share direct fields plus optional catalog snapshots. */
+/** Quest and objective rewards share direct fields plus optional independent or catalog snapshots. */
 export const questRewardFields = {
   ...rewardFields,
   reward_packages: z.array(RewardPackageSnapshot).max(50).optional(),

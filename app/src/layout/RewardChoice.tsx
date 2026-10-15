@@ -48,6 +48,8 @@ export const RewardChoiceModal: React.FC = () => {
   const { data: choices } = api.quests.getPendingRewardChoices.useQuery(undefined, {
     enabled: !!userData,
     staleTime: 5 * 60 * 1000,
+    // Poll while teamed so missed team events do not leave reward offers stale.
+    refetchInterval: userData?.questPartyId ? 30000 : false,
   });
 
   const { mutate: claim, isPending: isClaiming } =

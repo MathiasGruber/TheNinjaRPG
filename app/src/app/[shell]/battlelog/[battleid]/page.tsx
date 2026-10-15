@@ -120,9 +120,9 @@ export default function BattleLog(props: { params: Promise<{ battleid: string }>
   }, [combat]);
 
   const renderBattleLog = useCallback(() => {
-    if (!config.showBattleLog) return null;
+    // Saved fights still need their history when the live combat layout hides its log.
     return <CombatHistory battleId={battleId} battleVersion={versionId} />;
-  }, [config.showBattleLog, battleId, versionId]);
+  }, [battleId, versionId]);
 
   // Component renderer based on ID (only timer, battlefield, and battlelog for spectate view)
   const renderComponent = useCallback(
