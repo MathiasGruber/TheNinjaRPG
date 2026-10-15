@@ -38,6 +38,7 @@ const startBattle = async (battleType: BattleType, repeats: number, defenderAi =
     select: () => ({ from: (table: object) => {
       const rows = table === battleHistory ? [{ count: repeats }] : table === userData ? [{ average: 0 }] : [];
       const builder = {
+        innerJoin: () => builder,
         where: (predicate: SQL) => {
           if (table === battleHistory) { historyReads.push(predicate); phases.push("history"); }
           return builder;

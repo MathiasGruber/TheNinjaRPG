@@ -526,6 +526,9 @@ const StaffTournamentControls = ({
       ]);
     },
   });
+  const currentRound = Math.min(
+    ...event.series.filter((s) => !s.complete).map((s) => s.round),
+  );
   const applyRoster = (action: "INVITE" | "REMOVE_INVITE" | "SUBSTITUTE") =>
     mutation.mutate({
       tournamentId,
@@ -593,8 +596,13 @@ const StaffTournamentControls = ({
                 scheduledAt: new Date(scheduledAt).getTime(),
                 seriesId:
                   event.config.scheduling === "SEQUENTIAL"
-                    ? event.series.find((s) => !s.complete && !s.begun && s.resolved)
-                        ?.id
+                    ? event.series.find(
+                        (s) =>
+                          s.round === currentRound &&
+                          !s.complete &&
+                          !s.begun &&
+                          s.resolved,
+                      )?.id
                     : undefined,
               })
             }

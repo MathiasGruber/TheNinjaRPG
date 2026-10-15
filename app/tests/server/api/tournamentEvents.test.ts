@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
+  ENERGY_PVP_WIN_REWARD,
   EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS,
   EVENT_TOURNAMENT_RETENTION_DAYS,
   MAP_WAKE_ISLAND_SECTOR,
+  PVP_EXPERIENCE_PARTICIPATION_REWARD,
+  PVP_EXPERIENCE_WIN_REWARD,
   RANKED_PVP_STATS,
   REGEN_SECONDS,
 } from "@/drizzle/constants";
@@ -62,6 +65,131 @@ describeWithDatabase("event tournament persistence", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  for (const [battleType, isEvent] of [
+    ["SPARRING", true],
+    ["RANKED_SPARRING", true],
+    ["SPARRING", false],
+    ["TOURNAMENT", false],
+  ] as const) {
+    for (const reversed of [false, true]) {
+      it(`counts only ordinary ${battleType} history toward later PvP rewards (event=${isEvent}, reversed=${reversed})`, async () => {
+        const database = await getTestDatabase();
+        await insertUsers(
+          ["hero", "foe"].map((userId) => ({
+            userId,
+            username: userId,
+            villageId: `village-${userId}`,
+            status: "AWAKE",
+            rank: "JONIN",
+            experience: 500000,
+            level: 50,
+            isOutlaw: true,
+            sector: MAP_WAKE_ISLAND_SECTOR,
+            curHealth: 1000,
+            curChakra: 1000,
+            curStamina: 1000,
+            maxHealth: 1000,
+            maxChakra: 1000,
+            maxStamina: 1000,
+          })),
+        );
+        await database
+          .insert(aiProfile)
+          .values({ id: "Default", userId: "ai", rules: [] });
+        if (isEvent || battleType === "TOURNAMENT") {
+          await database.insert(tournament).values({
+            id: "prior-tournament",
+            name: "Prior tournament",
+            description: "",
+            image: "",
+            type: isEvent ? "EVENT" : "CLAN",
+            rewards: ObjectiveReward.parse({}),
+          });
+          await database.insert(tournamentMatch).values({
+            id: "prior-game",
+            tournamentId: "prior-tournament",
+            round: 1,
+            match: 1,
+            userId1: "hero",
+            userId2: "foe",
+            battleId: "prior-battle",
+            startedAt: new Date(),
+          });
+        }
+        const distribution =
+          battleType === "RANKED_SPARRING" ? RANKED_PVP_STATS : undefined;
+        const prior = await initiateBattle(
+          {
+            client: database,
+            userIds: ["hero"],
+            targetIds: ["foe"],
+            tournamentGame: isEvent
+              ? { id: "prior-game", battleId: "prior-battle", aiOnly: false }
+              : undefined,
+            userStatDistribution: distribution,
+            targetStatDistribution: distribution,
+          },
+          battleType,
+          isEvent ? 0 : 1,
+        );
+        expect(prior.success, prior.message).toBe(true);
+        if (battleType === "TOURNAMENT")
+          await database
+            .update(tournamentMatch)
+            .set({ battleId: prior.battleId })
+            .where(eq(tournamentMatch.id, "prior-game"));
+        const history = (await database.query.battleHistory.findFirst())!;
+        expect(history).toMatchObject({
+          attackedId: "hero",
+          defenderId: "foe",
+          battleType,
+        });
+        if (isEvent) {
+          const exhibition = (await database.query.battle.findFirst())!;
+          exhibition.usersState.find((u) => u.userId === "foe")!.curHealth = 0;
+          for (const userId of ["hero", "foe"])
+            await updateUser(
+              database,
+              getServerPusher(),
+              exhibition,
+              calcBattleResult(exhibition, userId, []),
+              userId,
+            );
+        }
+        // Expired battle snapshots must not be needed to identify exhibition history.
+        await database.delete(battle);
+        await database
+          .update(userData)
+          .set({ status: "AWAKE", battleId: null, sector: 0 });
+
+        const winnerId = reversed ? "foe" : "hero";
+        const loserId = reversed ? "hero" : "foe";
+        const started = await initiateBattle(
+          {
+            client: database,
+            userIds: [winnerId],
+            targetIds: [loserId],
+            sector: 0,
+          },
+          "COMBAT",
+        );
+        expect(started.success, started.message).toBe(true);
+        const ordinary = (await database.query.battle.findFirst())!;
+        expect(ordinary.rewardScaling).toBe(isEvent ? 1 : 0.5);
+        expect(ordinary.extraState.energyRewardEligible).toBe(isEvent);
+        ordinary.usersState.find((u) => u.userId === loserId)!.curHealth = 0;
+        const result = calcBattleResult(ordinary, winnerId, []);
+        await updateUser(database, getServerPusher(), ordinary, result, winnerId);
+        expect(result?.pvpExperience).toBe(
+          (PVP_EXPERIENCE_PARTICIPATION_REWARD + PVP_EXPERIENCE_WIN_REWARD) *
+            (isEvent ? 1 : 0.5),
+        );
+        expect(result?.energyReward).toBe(isEvent ? ENERGY_PVP_WIN_REWARD : 0);
+        expect(await database.query.battleHistory.findMany()).toHaveLength(2);
+      });
+    }
+  }
 
   for (const battleType of ["SPARRING", "RANKED_SPARRING"] as const) {
     for (const queued of [false, true]) {

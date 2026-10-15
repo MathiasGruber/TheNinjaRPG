@@ -13,6 +13,7 @@ import {
   like,
   lt,
   ne,
+  notExists,
   notInArray,
   or,
   sql,
@@ -78,6 +79,7 @@ import {
   rankedPvpQueue,
   sageMode,
   sector,
+  tournament,
   tournamentMatch,
   trainingLog,
   userData,
@@ -2099,6 +2101,23 @@ export const initiateBattle = async (
                 ),
               ),
               gt(battleHistory.createdAt, secondsFromDate(-60 * 60, new Date())),
+              // Exhibition history remains viewable without reducing ordinary PvP rewards.
+              notExists(
+                client
+                  .select({ id: tournamentMatch.id })
+                  .from(tournamentMatch)
+                  .innerJoin(
+                    tournament,
+                    eq(tournament.id, tournamentMatch.tournamentId),
+                  )
+                  .where(
+                    and(
+                      eq(tournamentMatch.userId1, battleHistory.attackedId),
+                      eq(tournamentMatch.battleId, battleHistory.battleId),
+                      eq(tournament.type, "EVENT"),
+                    ),
+                  ),
+              ),
             ),
           )
       : null,
