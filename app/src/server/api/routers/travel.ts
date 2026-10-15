@@ -699,12 +699,9 @@ export const travelRouter = createTRPCRouter({
         if (!updated.user) return errorResponse("User not found");
         user = {
           ...updated.user,
-          // Integrate timed bonuses from the stored rate instead of applying the current bonus to every tick.
-          regeneration: calcActiveUserRegen(
-            { ...updated.user, regeneration: user.regeneration },
-            updated.settings,
-            false,
-          ),
+          // Preserve the resolved membership rate while integrating timed bonuses per tick.
+          regeneration:
+            updated.user.regenerationWithoutTimedBuffs ?? updated.user.regeneration,
         };
       }
       if (!["TRAVEL", "AWAKE"].includes(user.status)) {
