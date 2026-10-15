@@ -212,7 +212,7 @@ export const HomeScene = ({
     );
   };
 
-  /** Pointer and keyboard moves use the same painted floor and collision rules as saving. */
+  /** Furniture moves use the same painted floor and collision rules as saving. */
   const moveFurniture = (id: string, x: number, y: number, room?: HomeRoomId) => {
     const piece = furnitureById.get(id);
     const placement = placements.find((placement) => placement.id === id);
@@ -236,6 +236,7 @@ export const HomeScene = ({
       current.map((placement) => (placement.id === id ? fitted : placement)),
     );
     if (room) setActiveRoom(room);
+    return fitted;
   };
 
   /** Removing a placement keeps the owned inventory row and its quantity unchanged. */
@@ -540,26 +541,17 @@ export const HomeScene = ({
             transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})`,
           }}
         >
-          {isProperty ? (
-            <HomePropertyBackdrop
+          {!isProperty && !hasImageError && (
+            <RoomImage
               homeType={homeType}
-              styles={draft?.styles ?? styles}
-            />
-          ) : (
-            !hasImageError && (
-              <RoomImage
-                homeType={homeType}
-                onError={() => setFailedHomeType(homeType)}
-              />
-            )
-          )}
-          {!isProperty && (
-            <HomePropertyBackdrop
-              homeType={homeType}
-              styles={draft?.styles ?? styles}
-              overlay
+              onError={() => setFailedHomeType(homeType)}
             />
           )}
+          <HomePropertyBackdrop
+            homeType={homeType}
+            styles={draft?.styles ?? styles}
+            overlay={!isProperty}
+          />
           {hasImageError && (
             <p
               role="status"
@@ -925,22 +917,14 @@ export const HomeScene = ({
                       setPlacementError("This room is full");
                       return;
                     }
-                    const fitted = fitHomeFurniturePlacement(
-                      { ...selected, room },
-                      piece,
-                      placements,
-                      furniture,
-                      homeType,
+                    const fitted = moveFurniture(
+                      selected.id,
+                      selected.x,
+                      selected.y,
+                      room,
                     );
-                    if (fitted) {
-                      updatePlacements((current) =>
-                        current.map((placement) =>
-                          placement.id === selected.id ? fitted : placement,
-                        ),
-                      );
-                      focusRoom(room);
-                    } else
-                      setPlacementError("This furniture does not fit in that room");
+                    if (fitted) focusRoom(room);
+                    else setPlacementError("This furniture does not fit in that room");
                   }}
                 >
                   {rooms.map((room) => (
