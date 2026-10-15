@@ -12,12 +12,15 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  HOME_FLOOR_TILES,
   HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_ROTATION_DEGREES,
+  HOME_WALL_PAINTS,
   type HomeFurnitureRotation,
   type HomeType,
   HomeTypeDetails,
 } from "@/drizzle/constants";
+import { HomePropertyBackdrop } from "@/layout/HomePropertyBackdrop";
 import Image from "@/layout/Image";
 import {
   fitHomeFurniturePlacement,
@@ -30,10 +33,17 @@ import {
   recoverHomeLayout,
   unprojectHomePlacement,
 } from "@/libs/home";
-import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import {
+  boundHomeCamera,
+  getHomePlacementRoom,
+  getHomeRooms,
+  type HomeRoomId,
+  zoomHomeCamera,
+} from "@/libs/homeProperty";
+import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
-import type { HomePlacement } from "@/validators/home";
+import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 /** A furnished residence with a reversible draft; the page owns persistence and game actions. */
 export const HomeScene = ({
@@ -55,6 +65,8 @@ export const HomeScene = ({
   isRefreshingFurniture = false,
   furnitureError,
   onSave,
+  styles = [],
+  isVisiting = false,
 }: HomeSceneProps) => {
   const sceneRef = useRef<HTMLFieldSetElement>(null);
   const dragRef = useRef<{
@@ -64,6 +76,48 @@ export const HomeScene = ({
     pointerId: number;
   } | null>(null);
   const foregroundId = useId();
+  const rooms = getHomeRooms(homeType);
+  const isProperty = rooms.length > 1;
+  const [activeRoom, setActiveRoom] = useState<HomeRoomId>("main");
+  const [camera, setCamera] = useState({ x: 0, y: 0, scale: 1 });
+  const cameraPointers = useRef(new Map<number, { x: number; y: number }>());
+  const focusRoom = (id: HomeRoomId) => {
+    const room = rooms.find((room) => room.id === id) ?? {
+      id: "main" as const,
+      x: 0,
+      y: 0,
+    };
+    setActiveRoom(room.id);
+    setCamera({ x: -room.x, y: -room.y, scale: 1 });
+  };
+  const roomBounds = (piece: HomeFurniture, placement: HomePlacement) => {
+    const room = rooms.find(({ id }) => id === getHomePlacementRoom(placement));
+    const bounds = getHomeFurnitureGeometry(piece, placement).visibleBounds;
+    return { ...bounds, x: bounds.x + (room?.x ?? 0), y: bounds.y + (room?.y ?? 0) };
+  };
+  useEffect(() => {
+    setCamera({ x: 0, y: 0, scale: 1 });
+    setActiveRoom("main");
+  }, [homeType]);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !isProperty) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      setCamera((current) => {
+        const scale = Math.max(
+          0.3,
+          Math.min(1.8, current.scale * (event.deltaY > 0 ? 0.9 : 1.1)),
+        );
+        const rect = scene.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        return boundHomeCamera(zoomHomeCamera(current, scale, { x, y }), homeType);
+      });
+    };
+    scene.addEventListener("wheel", wheel, { passive: false });
+    return () => scene.removeEventListener("wheel", wheel);
+  }, [homeType, isProperty]);
   const [failedHomeType, setFailedHomeType] = useState<HomeType | null>(null);
   const [draft, setDraft] = useState<HomeDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -87,7 +141,9 @@ export const HomeScene = ({
       ? "Some furniture is no longer in your inventory. Undo changes to continue."
       : placementError || essentialsError || furnitureError;
   const isMovementDisabled = isSaving || isTierChanged || !canDecorate;
-  const hasPlacementLimit = placements.length >= HOME_FURNITURE_MAX_PLACEMENTS;
+  const hasPlacementLimit =
+    placements.filter((placement) => getHomePlacementRoom(placement) === activeRoom)
+      .length >= HOME_FURNITURE_MAX_PLACEMENTS;
   const hasImageError = failedHomeType === homeType;
   const sleepLabel = isTogglingSleep
     ? "Please wait…"
@@ -99,7 +155,7 @@ export const HomeScene = ({
   useEffect(() => {
     if (isDecorating && !draft && !isRefreshingFurniture) {
       const placements = recoverHomeLayout(layout, furniture, homeType);
-      setDraft({ homeType, revision, placements });
+      setDraft({ homeType, revision, placements, styles });
       setSelectedId(placements[0]?.id ?? null);
       setPlacementError(null);
     } else if (!isDecorating && draft) {
@@ -129,14 +185,21 @@ export const HomeScene = ({
   };
 
   /** Pointer and keyboard moves use the same painted floor and collision rules as saving. */
-  const moveFurniture = (id: string, x: number, y: number) => {
+  const moveFurniture = (id: string, x: number, y: number, room?: HomeRoomId) => {
     const piece = furnitureById.get(id);
     if (!piece) return;
+    if (
+      room &&
+      placements.filter(
+        (placement) => placement.id !== id && getHomePlacementRoom(placement) === room,
+      ).length >= HOME_FURNITURE_MAX_PLACEMENTS
+    )
+      return;
     updatePlacements((placements) =>
       placements.map((placement) =>
         placement.id === id
           ? (fitHomeFurniturePlacement(
-              { ...placement, x, y },
+              { ...placement, x, y, ...(room ? { room } : {}) },
               piece,
               placements,
               furniture,
@@ -164,13 +227,13 @@ export const HomeScene = ({
       return null;
     const scene = sceneRef.current?.getBoundingClientRect();
     if (!scene?.width || !scene.height) return null;
-    const x = ((clientX - scene.left) / scene.width) * 100;
-    const y = ((clientY - scene.top) / scene.height) * 100;
+    const x = (((clientX - scene.left) / scene.width) * 100 - camera.x) / camera.scale;
+    const y = (((clientY - scene.top) / scene.height) * 100 - camera.y) / camera.scale;
     return (
       placements.find((placement) => {
         const piece = furnitureById.get(placement.id);
         if (placement.id === id || piece?.action !== "storage") return false;
-        const bounds = getHomeFurnitureGeometry(piece, placement).visibleBounds;
+        const bounds = roomBounds(piece, placement);
         return (
           x >= bounds.x &&
           x <= bounds.x + bounds.width &&
@@ -204,6 +267,8 @@ export const HomeScene = ({
   /** Place an owned piece on nearby free ground; a full room leaves it safely in inventory. */
   const selectFurniture = (id: string) => {
     setSelectedId(id);
+    const existing = placements.find((placement) => placement.id === id);
+    if (existing) focusRoom(getHomePlacementRoom(existing));
     const piece = furnitureById.get(id);
     if (
       !piece ||
@@ -213,7 +278,13 @@ export const HomeScene = ({
     )
       return;
     const placement = fitHomeFurniturePlacement(
-      { id, x: 50, y: piece.action === "farm" ? 95 : 50, rotation: 0 },
+      {
+        id,
+        ...(activeRoom !== "main" ? { room: activeRoom } : {}),
+        x: 50,
+        y: piece.action === "farm" ? 95 : 50,
+        rotation: 0,
+      },
       piece,
       placements,
       furniture,
@@ -279,274 +350,597 @@ export const HomeScene = ({
 
   return (
     <div className="space-y-3">
+      {isProperty && (
+        <fieldset
+          className="flex flex-wrap items-center gap-2"
+          aria-label="Property navigation"
+        >
+          {rooms.map((room) => (
+            <Button
+              key={room.id}
+              variant={activeRoom === room.id ? "default" : "outline"}
+              className="h-10"
+              onClick={() => focusRoom(room.id)}
+            >
+              {room.name}
+            </Button>
+          ))}
+          <Button
+            variant="outline"
+            aria-label="Zoom out"
+            onClick={() =>
+              setCamera((current) =>
+                boundHomeCamera(
+                  zoomHomeCamera(current, Math.max(0.3, current.scale - 0.15), {
+                    x: 50,
+                    y: 50,
+                  }),
+                  homeType,
+                ),
+              )
+            }
+          >
+            −
+          </Button>
+          <output aria-label="Camera zoom" className="text-sm tabular-nums">
+            {Math.round(camera.scale * 100)}%
+          </output>
+          <Button
+            variant="outline"
+            aria-label="Zoom in"
+            onClick={() =>
+              setCamera((current) =>
+                boundHomeCamera(
+                  zoomHomeCamera(current, Math.min(1.8, current.scale + 0.15), {
+                    x: 50,
+                    y: 50,
+                  }),
+                  homeType,
+                ),
+              )
+            }
+          >
+            +
+          </Button>
+          <Button variant="outline" onClick={() => focusRoom("main")}>
+            Reset view
+          </Button>
+        </fieldset>
+      )}
       <fieldset
         ref={sceneRef}
         aria-label="Home scene"
-        className="relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md"
-      >
-        {!hasImageError && (
-          <RoomImage homeType={homeType} onError={() => setFailedHomeType(homeType)} />
+        tabIndex={isProperty ? 0 : undefined}
+        className={cn(
+          "relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md",
+          isProperty &&
+            "touch-none outline-none focus-visible:ring-2 focus-visible:ring-primary",
         )}
-        {hasImageError && (
-          <p
-            role="status"
-            className="absolute inset-x-4 top-4 text-center text-sm text-white"
-          >
-            Home artwork is unavailable. Your furniture and text controls still work.
-          </p>
-        )}
-        {isEditing && (
-          <span className="pointer-events-none absolute top-3 left-3 z-[140] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
-            Decorating
-          </span>
-        )}
-        {placements.map((placement) => {
-          const details = furnitureById.get(placement.id);
-          // Inventory can change while editing; preserve the draft and give a recoverable save error below.
-          if (!details) return null;
-          const bounds = getHomeFurnitureGeometry(details, placement).visibleBounds;
-          const isSelected = isEditing && selectedId === placement.id;
-          const label = isEditing
-            ? `Move ${details.name}`
-            : details.action === "sleep"
-              ? `${details.name}: ${sleepLabel}`
-              : details.action === "storage"
-                ? `${details.name}: ${isGuest ? "Home storage is in your own village" : "Open home storage"}`
-                : details.action === "kitchen"
-                  ? `${details.name}: Open kitchen`
-                  : details.action === "farm"
-                    ? `${details.name}: Open farm`
-                    : details.name;
-          const style = {
-            left: `${bounds.x}%`,
-            top: `${bounds.y}%`,
-            width: `${bounds.width}%`,
-            height: `${bounds.height}%`,
-            zIndex: details.isFloor
-              ? 1
-              : Math.round(projectHomePlacement(placement).y) + 2,
-          };
-          const className = cn(
-            "group absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-white",
-            isEditing
-              ? "cursor-grab touch-none active:cursor-grabbing"
-              : "cursor-pointer transition-[filter] hover:brightness-125",
-            isSelected && "ring-2 ring-amber-300",
-            storageTargetId === placement.id && "ring-4 ring-emerald-400",
-            "disabled:cursor-not-allowed disabled:opacity-60",
+        onKeyDown={(event) => {
+          if (!isProperty || event.target !== event.currentTarget) return;
+          const direction = FURNITURE_DIRECTIONS.find(({ key }) => key === event.key);
+          if (!direction) return;
+          event.preventDefault();
+          setCamera((current) =>
+            boundHomeCamera(
+              {
+                ...current,
+                x: current.x - direction.dx * 10,
+                y: current.y - direction.dy * 10,
+              },
+              homeType,
+            ),
           );
-          const image = (
-            <FurnitureImage
-              furniture={details}
-              rotation={placement.rotation}
-              isInScene
-            />
+        }}
+        onPointerDown={(event) => {
+          if (
+            !isProperty ||
+            event.button !== 0 ||
+            (event.target as HTMLElement).closest("button")
+          )
+            return;
+          cameraPointers.current.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+          });
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          const previous = cameraPointers.current.get(event.pointerId);
+          const rect = sceneRef.current?.getBoundingClientRect();
+          if (!previous || !rect) return;
+          const others = [...cameraPointers.current.entries()].filter(
+            ([id]) => id !== event.pointerId,
           );
-          if (!isEditing && !details.action)
-            return (
-              <div
-                key={placement.id}
-                className="pointer-events-none absolute"
-                style={style}
-              >
-                {image}
-              </div>
+          const other = others[0]?.[1];
+          cameraPointers.current.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+          });
+          setCamera((current) => {
+            const before = other
+              ? Math.hypot(previous.x - other.x, previous.y - other.y)
+              : 0;
+            const after = other
+              ? Math.hypot(event.clientX - other.x, event.clientY - other.y)
+              : 0;
+            if (other && before > 0) {
+              const scale = Math.max(
+                0.3,
+                Math.min(1.8, (current.scale * after) / before),
+              );
+              const midpoint = {
+                x: (((previous.x + other.x) / 2 - rect.left) / rect.width) * 100,
+                y: (((previous.y + other.y) / 2 - rect.top) / rect.height) * 100,
+              };
+              const moved = {
+                x: (((event.clientX + other.x) / 2 - rect.left) / rect.width) * 100,
+                y: (((event.clientY + other.y) / 2 - rect.top) / rect.height) * 100,
+              };
+              return boundHomeCamera(
+                zoomHomeCamera(current, scale, midpoint, moved),
+                homeType,
+              );
+            }
+            return boundHomeCamera(
+              {
+                ...current,
+                x: current.x + ((event.clientX - previous.x) / rect.width) * 100,
+                y: current.y + ((event.clientY - previous.y) / rect.height) * 100,
+              },
+              homeType,
             );
-          return (
-            <button
-              key={placement.id}
-              type="button"
-              aria-label={label}
-              aria-pressed={isEditing ? isSelected : undefined}
-              aria-description={
-                isEditing && details.action === "storage"
-                  ? "Drop furniture here to store it"
-                  : undefined
-              }
-              disabled={
-                (isEditing && isMovementDisabled) ||
-                (!isEditing &&
-                  ((details.action === "storage" && isGuest) ||
-                    (details.action === "sleep" && isTogglingSleep)))
-              }
-              className={className}
-              style={style}
-              onClick={(event) => {
-                if (isEditing) setSelectedId(placement.id);
-                else if (details.action === "sleep") onSleep();
-                else if (details.action === "storage") onStorage(event.currentTarget);
-                else if (details.action === "kitchen") onKitchen(event.currentTarget);
-                else if (details.action === "farm") onFarm(event.currentTarget);
-              }}
-              onPointerDown={(event) => {
-                if (
-                  !isEditing ||
-                  isMovementDisabled ||
-                  event.button !== 0 ||
-                  dragRef.current
-                )
-                  return;
-                setSelectedId(placement.id);
-                dragRef.current = {
-                  placement,
-                  clientX: event.clientX,
-                  clientY: event.clientY,
-                  pointerId: event.pointerId,
-                };
-                event.currentTarget.setPointerCapture(event.pointerId);
-              }}
-              onPointerMove={(event) => {
-                const drag = dragRef.current;
-                const scene = sceneRef.current?.getBoundingClientRect();
-                if (
-                  isMovementDisabled ||
-                  !drag ||
-                  drag.pointerId !== event.pointerId ||
-                  drag.placement.id !== placement.id ||
-                  !scene
-                )
-                  return;
-                setStorageTargetId(
-                  findStorageTarget(placement.id, event.clientX, event.clientY),
-                );
-                moveFurniture(
-                  placement.id,
-                  drag.placement.x +
-                    (((event.clientX - drag.clientX) / scene.width) * 100) /
-                      HOME_FLOOR_PROJECTION.scaleX,
-                  drag.placement.y +
-                    (((event.clientY - drag.clientY) / scene.height) * 100) /
-                      HOME_FLOOR_PROJECTION.scaleY,
-                );
-              }}
-              onPointerUp={(event) =>
-                finishDrag(
-                  placement.id,
-                  event.pointerId,
-                  false,
-                  findStorageTarget(placement.id, event.clientX, event.clientY),
-                )
-              }
-              onPointerCancel={(event) =>
-                finishDrag(placement.id, event.pointerId, true)
-              }
-              onLostPointerCapture={(event) =>
-                finishDrag(placement.id, event.pointerId)
-              }
-              onKeyDown={(event) => {
-                if (!isEditing || isMovementDisabled) return;
-                const direction = FURNITURE_DIRECTIONS.find(
-                  (direction) => direction.key === event.key,
-                );
-                if (!direction) return;
-                event.preventDefault();
-                setSelectedId(placement.id);
-                moveFurniture(
-                  placement.id,
-                  placement.x + direction.dx,
-                  placement.y + direction.dy,
-                );
-              }}
+          });
+        }}
+        onPointerUp={(event) => cameraPointers.current.delete(event.pointerId)}
+        onPointerCancel={(event) => cameraPointers.current.delete(event.pointerId)}
+        onLostPointerCapture={(event) => cameraPointers.current.delete(event.pointerId)}
+      >
+        <div
+          className="absolute inset-0 origin-top-left"
+          data-home-camera
+          style={{
+            transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})`,
+          }}
+        >
+          {isProperty ? (
+            <HomePropertyBackdrop
+              homeType={homeType}
+              styles={draft?.styles ?? styles}
+            />
+          ) : (
+            !hasImageError && (
+              <RoomImage
+                homeType={homeType}
+                onError={() => setFailedHomeType(homeType)}
+              />
+            )
+          )}
+          {!isProperty && (
+            <HomePropertyBackdrop
+              homeType={homeType}
+              styles={draft?.styles ?? styles}
+              overlay
+            />
+          )}
+          {hasImageError && (
+            <p
+              role="status"
+              className="absolute inset-x-4 top-4 text-center text-sm text-white"
             >
-              {image}
-              {isAsleep && !isEditing && details.action === "sleep" && (
-                // A decorative cue follows the bed's painted bounds; reduced motion keeps the letters still.
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 items-end font-bold text-amber-100 text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] sm:text-2xl"
+              Home artwork is unavailable. Your furniture and text controls still work.
+            </p>
+          )}
+          {isEditing && (
+            <span className="pointer-events-none absolute top-3 left-3 z-[140] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
+              Decorating
+            </span>
+          )}
+          {placements.map((placement) => {
+            const details = furnitureById.get(placement.id);
+            // Inventory can change while editing; preserve the draft and give a recoverable save error below.
+            if (!details) return null;
+            const bounds = roomBounds(details, placement);
+            const isSelected = isEditing && selectedId === placement.id;
+            const label = isEditing
+              ? `Move ${details.name}`
+              : details.action === "sleep"
+                ? `${details.name}: ${sleepLabel}`
+                : details.action === "storage"
+                  ? `${details.name}: ${isGuest ? "Home storage is in your own village" : "Open home storage"}`
+                  : details.action === "kitchen"
+                    ? `${details.name}: Open kitchen`
+                    : details.action === "farm"
+                      ? `${details.name}: Open farm`
+                      : details.name;
+            const style = {
+              left: `${bounds.x}%`,
+              top: `${bounds.y}%`,
+              width: `${bounds.width}%`,
+              height: `${bounds.height}%`,
+              zIndex: details.isFloor
+                ? 1
+                : Math.round(projectHomePlacement(placement).y) + 2,
+            };
+            const className = cn(
+              "group absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-white",
+              isEditing
+                ? "cursor-grab touch-none active:cursor-grabbing"
+                : "cursor-pointer transition-[filter] hover:brightness-125",
+              isSelected && "ring-2 ring-amber-300",
+              storageTargetId === placement.id && "ring-4 ring-emerald-400",
+              "disabled:cursor-not-allowed disabled:opacity-60",
+            );
+            const image = (
+              <FurnitureImage
+                furniture={details}
+                rotation={placement.rotation}
+                isInScene
+              />
+            );
+            if (!isEditing && (!details.action || isVisiting))
+              return (
+                <div
+                  key={placement.id}
+                  className="pointer-events-none absolute"
+                  style={style}
                 >
-                  {["z", "z", "Z"].map((letter, index) => (
-                    <span
-                      key={index}
-                      className="inline-block motion-safe:animate-home-sleep"
-                      style={{
-                        animationDelay: `${-index}s`,
-                        fontSize: `${0.7 + index * 0.2}em`,
-                      }}
-                    >
-                      {letter}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </button>
-          );
-        })}
-        {!hasImageError && (
-          <>
-            <svg aria-hidden className="absolute h-0 w-0">
-              <defs>
-                <clipPath id={foregroundId} clipPathUnits="objectBoundingBox">
-                  {HOME_ROOM_GEOMETRY[homeType].foreground.map((polygon, index) => (
-                    <polygon
-                      key={index}
-                      points={polygon
-                        .map(({ x, y }) => `${x / 100},${y / 100}`)
-                        .join(" ")}
-                    />
-                  ))}
-                </clipPath>
-              </defs>
-            </svg>
-            {/* Reuse the room painting to put its front curtains above indoor sprites, without a second downloaded asset. */}
-            <div
-              className="pointer-events-none absolute inset-0 z-[100]"
-              style={{ clipPath: `url(#${foregroundId})` }}
-            >
-              <RoomImage homeType={homeType} isForeground />
-            </div>
-          </>
-        )}
-        {isEditing &&
-          selected &&
-          selectedFurniture &&
-          (() => {
-            const bounds = getHomeFurnitureGeometry(
-              selectedFurniture,
-              selected,
-            ).visibleBounds;
-            const rotations = getHomeFurnitureRotations(selectedFurniture);
+                  {image}
+                </div>
+              );
             return (
-              <fieldset
-                aria-label="Furniture controls"
-                className="absolute z-[150] flex gap-1 rounded-md bg-slate-950/85 p-1 shadow-md"
-                style={{
-                  left: `clamp(0px, calc(${bounds.x + bounds.width}% - 5.75rem), calc(100% - 5.75rem))`,
-                  top: `max(0px, calc(${bounds.y}% - 3rem))`,
+              <button
+                key={placement.id}
+                type="button"
+                aria-label={label}
+                aria-pressed={isEditing ? isSelected : undefined}
+                aria-description={
+                  isEditing && details.action === "storage"
+                    ? "Drop furniture here to store it"
+                    : undefined
+                }
+                disabled={
+                  isVisiting ||
+                  (isEditing && isMovementDisabled) ||
+                  (!isEditing &&
+                    ((details.action === "storage" && isGuest) ||
+                      (details.action === "sleep" && isTogglingSleep)))
+                }
+                className={className}
+                style={style}
+                onClick={(event) => {
+                  if (isVisiting) return;
+                  if (isEditing) setSelectedId(placement.id);
+                  else if (details.action === "sleep") onSleep();
+                  else if (details.action === "storage") onStorage(event.currentTarget);
+                  else if (details.action === "kitchen") onKitchen(event.currentTarget);
+                  else if (details.action === "farm") onFarm(event.currentTarget);
+                }}
+                onPointerDown={(event) => {
+                  if (
+                    !isEditing ||
+                    isMovementDisabled ||
+                    event.button !== 0 ||
+                    dragRef.current
+                  )
+                    return;
+                  event.stopPropagation();
+                  setSelectedId(placement.id);
+                  setActiveRoom(getHomePlacementRoom(placement));
+                  dragRef.current = {
+                    placement,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    pointerId: event.pointerId,
+                  };
+                  event.currentTarget.setPointerCapture(event.pointerId);
+                }}
+                onPointerMove={(event) => {
+                  const drag = dragRef.current;
+                  const scene = sceneRef.current?.getBoundingClientRect();
+                  if (
+                    isMovementDisabled ||
+                    !drag ||
+                    drag.pointerId !== event.pointerId ||
+                    drag.placement.id !== placement.id ||
+                    !scene
+                  )
+                    return;
+                  setStorageTargetId(
+                    findStorageTarget(placement.id, event.clientX, event.clientY),
+                  );
+                  const origin = rooms.find(
+                    ({ id }) => id === getHomePlacementRoom(drag.placement),
+                  );
+                  const anchor = projectHomePlacement(drag.placement);
+                  const point = {
+                    x:
+                      (origin?.x ?? 0) +
+                      anchor.x +
+                      ((event.clientX - drag.clientX) / (scene.width * camera.scale)) *
+                        100,
+                    y:
+                      (origin?.y ?? 0) +
+                      anchor.y +
+                      ((event.clientY - drag.clientY) / (scene.height * camera.scale)) *
+                        100,
+                  };
+                  const target = rooms.find(
+                    (room) =>
+                      point.x >= room.x &&
+                      point.x <= room.x + 100 &&
+                      point.y >= room.y &&
+                      point.y <= room.y + 100,
+                  );
+                  if (!target) return;
+                  const local = unprojectHomePlacement({
+                    x: point.x - target.x,
+                    y: point.y - target.y,
+                  });
+                  moveFurniture(placement.id, local.x, local.y, target.id);
+                }}
+                onPointerUp={(event) =>
+                  finishDrag(
+                    placement.id,
+                    event.pointerId,
+                    false,
+                    findStorageTarget(placement.id, event.clientX, event.clientY),
+                  )
+                }
+                onPointerCancel={(event) =>
+                  finishDrag(placement.id, event.pointerId, true)
+                }
+                onLostPointerCapture={(event) =>
+                  finishDrag(placement.id, event.pointerId)
+                }
+                onKeyDown={(event) => {
+                  if (!isEditing || isMovementDisabled) return;
+                  const direction = FURNITURE_DIRECTIONS.find(
+                    (direction) => direction.key === event.key,
+                  );
+                  if (!direction) return;
+                  event.preventDefault();
+                  setSelectedId(placement.id);
+                  moveFurniture(
+                    placement.id,
+                    placement.x + direction.dx,
+                    placement.y + direction.dy,
+                  );
                 }}
               >
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10"
-                  aria-label="Rotate clockwise"
-                  aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
-                  hoverText="Rotate clockwise"
-                  disabled={
-                    isMovementDisabled ||
-                    (rotations.length === 1 && rotations.includes(selected.rotation))
-                  }
-                  onClick={rotateFurniture}
-                >
-                  <RotateCw className="h-4 w-4" aria-hidden />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10"
-                  aria-label="Store"
-                  hoverText="Store in inventory"
-                  disabled={isMovementDisabled}
-                  onClick={() => storeFurniture(selected.id)}
-                >
-                  <Package className="h-4 w-4" aria-hidden />
-                </Button>
-              </fieldset>
+                {image}
+                {isAsleep && !isEditing && details.action === "sleep" && (
+                  // A decorative cue follows the bed's painted bounds; reduced motion keeps the letters still.
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute bottom-full left-1/2 flex -translate-x-1/2 items-end font-bold text-amber-100 text-xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] sm:text-2xl"
+                  >
+                    {["z", "z", "Z"].map((letter, index) => (
+                      <span
+                        key={index}
+                        className="inline-block motion-safe:animate-home-sleep"
+                        style={{
+                          animationDelay: `${-index}s`,
+                          fontSize: `${0.7 + index * 0.2}em`,
+                        }}
+                      >
+                        {letter}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </button>
             );
-          })()}
+          })}
+          {!isProperty && !hasImageError && (
+            <>
+              <svg aria-hidden className="absolute h-0 w-0">
+                <defs>
+                  <clipPath id={foregroundId} clipPathUnits="objectBoundingBox">
+                    {HOME_ROOM_GEOMETRY[homeType].foreground.map((polygon, index) => (
+                      <polygon
+                        key={index}
+                        points={polygon
+                          .map(({ x, y }) => `${x / 100},${y / 100}`)
+                          .join(" ")}
+                      />
+                    ))}
+                  </clipPath>
+                </defs>
+              </svg>
+              {/* Reuse the room painting to put its front curtains above indoor sprites, without a second downloaded asset. */}
+              <div
+                className="pointer-events-none absolute inset-0 z-[100]"
+                style={{ clipPath: `url(#${foregroundId})` }}
+              >
+                <RoomImage homeType={homeType} isForeground />
+              </div>
+            </>
+          )}
+        </div>
       </fieldset>
+      {isEditing &&
+        selected &&
+        selectedFurniture &&
+        (() => {
+          const rotations = getHomeFurnitureRotations(selectedFurniture);
+          return (
+            <fieldset
+              aria-label="Furniture controls"
+              className="flex w-fit gap-1 rounded-md border bg-muted p-1 shadow-md"
+            >
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10"
+                aria-label="Rotate clockwise"
+                aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
+                hoverText="Rotate clockwise"
+                disabled={
+                  isMovementDisabled ||
+                  (rotations.length === 1 && rotations.includes(selected.rotation))
+                }
+                onClick={rotateFurniture}
+              >
+                <RotateCw className="h-4 w-4" aria-hidden />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-10 w-10"
+                aria-label="Store"
+                hoverText="Store in inventory"
+                disabled={isMovementDisabled}
+                onClick={() => storeFurniture(selected.id)}
+              >
+                <Package className="h-4 w-4" aria-hidden />
+              </Button>
+            </fieldset>
+          );
+        })()}
+      {isProperty && (
+        <p className="text-muted-foreground text-xs">
+          Drag empty space to pan. Pinch or scroll to zoom. Focus the scene and use
+          arrow keys to pan.
+        </p>
+      )}
       {isEditing && (
         <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm">
+              {rooms.find(({ id }) => id === activeRoom)?.name} ·{" "}
+              {
+                placements.filter(
+                  (placement) => getHomePlacementRoom(placement) === activeRoom,
+                ).length
+              }
+              /{HOME_FURNITURE_MAX_PLACEMENTS} pieces
+            </span>
+            {activeRoom !== "yard" && (
+              <label className="text-sm">
+                Wall paint{" "}
+                <select
+                  aria-label="Wall paint"
+                  className="rounded border bg-background p-2"
+                  disabled={isMovementDisabled}
+                  value={
+                    (draft?.styles ?? styles).find(({ room }) => room === activeRoom)
+                      ?.paint ?? "ivory"
+                  }
+                  onChange={(event) => {
+                    const paint = event.target.value as HomeRoomStyle["paint"];
+                    setDraft(
+                      (current) =>
+                        current && {
+                          ...current,
+                          styles: [
+                            ...current.styles.filter(({ room }) => room !== activeRoom),
+                            {
+                              room: activeRoom,
+                              floor:
+                                current.styles.find(({ room }) => room === activeRoom)
+                                  ?.floor ?? "cedar",
+                              paint,
+                            },
+                          ],
+                        },
+                    );
+                  }}
+                >
+                  {Object.keys(HOME_WALL_PAINTS).map((paint) => (
+                    <option key={paint} value={paint}>
+                      {paint}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {activeRoom !== "yard" && (
+              <label className="text-sm">
+                Floor tiles{" "}
+                <select
+                  aria-label="Floor tiles"
+                  className="rounded border bg-background p-2"
+                  disabled={isMovementDisabled}
+                  value={
+                    (draft?.styles ?? styles).find(({ room }) => room === activeRoom)
+                      ?.floor ?? "cedar"
+                  }
+                  onChange={(event) => {
+                    const floor = event.target.value as HomeRoomStyle["floor"];
+                    setDraft(
+                      (current) =>
+                        current && {
+                          ...current,
+                          styles: [
+                            ...current.styles.filter(({ room }) => room !== activeRoom),
+                            {
+                              room: activeRoom,
+                              paint:
+                                current.styles.find(({ room }) => room === activeRoom)
+                                  ?.paint ?? "ivory",
+                              floor,
+                            },
+                          ],
+                        },
+                    );
+                  }}
+                >
+                  {Object.keys(HOME_FLOOR_TILES).map((floor) => (
+                    <option key={floor} value={floor}>
+                      {floor}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {selected && isProperty && (
+              <label className="text-sm">
+                Move selected to{" "}
+                <select
+                  aria-label="Furniture room"
+                  className="rounded border bg-background p-2"
+                  disabled={isMovementDisabled}
+                  value={getHomePlacementRoom(selected)}
+                  onChange={(event) => {
+                    const room = event.target.value as HomeRoomId;
+                    const piece = furnitureById.get(selected.id);
+                    if (!piece) return;
+                    if (
+                      placements.filter(
+                        (placement) => getHomePlacementRoom(placement) === room,
+                      ).length >= HOME_FURNITURE_MAX_PLACEMENTS
+                    ) {
+                      setPlacementError("This room is full");
+                      return;
+                    }
+                    const fitted = fitHomeFurniturePlacement(
+                      { ...selected, room },
+                      piece,
+                      placements,
+                      furniture,
+                      homeType,
+                    );
+                    if (fitted) {
+                      updatePlacements((current) =>
+                        current.map((placement) =>
+                          placement.id === selected.id ? fitted : placement,
+                        ),
+                      );
+                      focusRoom(room);
+                    } else
+                      setPlacementError("This furniture does not fit in that room");
+                  }}
+                >
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      {room.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
           <fieldset
             aria-label="Owned furniture"
             className="flex min-w-0 gap-2 overflow-x-auto pb-1"
@@ -597,7 +991,7 @@ export const HomeScene = ({
           </fieldset>
           {hasPlacementLimit && (
             <p role="status" className="text-muted-foreground text-sm">
-              Your home can display up to {HOME_FURNITURE_MAX_PLACEMENTS} pieces. Store
+              Each room can display up to {HOME_FURNITURE_MAX_PLACEMENTS} pieces. Store
               a piece to make room.
             </p>
           )}
@@ -619,7 +1013,7 @@ export const HomeScene = ({
                 setStorageTargetId(null);
                 setPlacementError(null);
                 const placements = recoverHomeLayout(layout, furniture, homeType);
-                setDraft({ homeType, revision, placements });
+                setDraft({ homeType, revision, placements, styles });
                 setSelectedId(placements[0]?.id ?? null);
               }}
             >
@@ -652,7 +1046,7 @@ export const HomeScene = ({
             ? "You are asleep. Resting restores your energy."
             : "You are awake."}
       </p>
-      {!isEditing && (
+      {!isEditing && !isVisiting && (
         <fieldset
           aria-label="Home actions"
           className="grid grid-cols-2 gap-2 sm:grid-cols-4"
@@ -802,11 +1196,18 @@ export const HOME_SCENE_IMAGES = {
   MARSHMALLOWOPOLIS: "https://ui0arpl8sm.ufs.sh/f/IYFSPADWRNvdav7MrmsFO.webp",
 } satisfies Record<HomeType, string>;
 
-type HomeDraft = { homeType: HomeType; revision: number; placements: HomePlacement[] };
+export type HomeDraft = {
+  homeType: HomeType;
+  revision: number;
+  placements: HomePlacement[];
+  styles: HomeRoomStyle[];
+};
 
 /** Draft editing changes placements only; game actions and persistence retain their existing page contracts. */
 type HomeSceneProps = {
   homeType: HomeType;
+  styles?: HomeRoomStyle[];
+  isVisiting?: boolean;
   isGuest: boolean;
   isAsleep: boolean;
   isTogglingSleep: boolean;

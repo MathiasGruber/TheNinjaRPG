@@ -1031,6 +1031,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
                 </TooltipProvider>
               </>
             )}
+            {userData && !profile.isAi && (
+              <Link href={`/home/visit/${encodeURIComponent(profile.userId)}`}>
+                <Button variant="outline" size="sm">
+                  View home
+                </Button>
+              </Link>
+            )}
             {userData && !userData.isBanned && !userData.isSilenced && (
               <NewConversationPrompt
                 newButton={

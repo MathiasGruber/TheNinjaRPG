@@ -9,6 +9,11 @@ import {
   type HomeFurnitureRotation,
   type HomeType,
 } from "@/drizzle/constants";
+import {
+  getHomePlacementRoom,
+  getHomeRooms,
+  homeRoomLayoutError,
+} from "@/libs/homeProperty";
 import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
@@ -113,6 +118,8 @@ export const homeLayoutPlacementError = (
   furniture: HomeFurniture[],
   homeType: HomeType,
 ) => {
+  const roomError = homeRoomLayoutError(placements, homeType);
+  if (roomError) return roomError;
   const available = new Map(furniture.map((piece) => [piece.id, piece]));
   for (const placement of placements) {
     const piece = available.get(placement.id);
@@ -136,6 +143,7 @@ export const homeLayoutPlacementError = (
       const otherPiece = available.get(other.id);
       if (
         !otherPiece ||
+        getHomePlacementRoom(other) !== getHomePlacementRoom(placement) ||
         otherPiece.isFloor ||
         (piece.action === "farm") !== (otherPiece.action === "farm")
       )
@@ -159,6 +167,8 @@ export const clampHomeFurniturePlacement = (
   furniture: HomeFurniture,
   homeType: HomeType,
 ): HomePlacement | null => {
+  if (!getHomeRooms(homeType).some(({ id }) => id === getHomePlacementRoom(placement)))
+    return null;
   const polygon = getHomeAnchorPolygon(furniture, placement, homeType);
   if (!polygon.length) return null;
   const anchor = projectHomePlacement(placement);
@@ -183,6 +193,7 @@ export const fitHomeFurniturePlacement = (
     : placements.flatMap((other) => {
         const piece = available.get(other.id);
         return other.id !== placement.id &&
+          getHomePlacementRoom(other) === getHomePlacementRoom(placement) &&
           piece &&
           !piece.isFloor &&
           (piece.action === "farm") === (furniture.action === "farm")
@@ -231,9 +242,15 @@ export const recoverHomeLayout = (
 ): HomePlacement[] => {
   const available = new Map(furniture.map((piece) => [piece.id, piece]));
   const recovered: HomePlacement[] = [];
-  for (const placement of placements) {
-    const piece = available.get(placement.id);
+  for (const original of placements) {
+    const piece = available.get(original.id);
     if (!piece) continue;
+    const placement =
+      piece.action === "farm" &&
+      getHomeRooms(homeType).length > 1 &&
+      getHomePlacementRoom(original) === "main"
+        ? { ...original, room: "yard" as const }
+        : original;
     const rotation = getHomeFurnitureRotations(piece).includes(placement.rotation)
       ? placement.rotation
       : 0;
@@ -281,7 +298,11 @@ export const completeHomeLayoutEssentials = (
       .filter(({ action }) => action === essential.action)
       .sort((a, b) => a.id.localeCompare(b.id));
     const fit = (pieces: HomePlacement[]) => {
-      if (pieces.length >= HOME_FURNITURE_MAX_PLACEMENTS) return null;
+      if (
+        pieces.filter((piece) => getHomePlacementRoom(piece) === "main").length >=
+        HOME_FURNITURE_MAX_PLACEMENTS
+      )
+        return null;
       for (const piece of candidates) {
         for (const rotation of getHomeFurnitureRotations(piece)) {
           const fitted = fitHomeFurniturePlacement(
@@ -341,7 +362,10 @@ export const completeHomeLayoutEssentials = (
         )
       );
     });
-    while (completed.length >= HOME_FURNITURE_MAX_PLACEMENTS) {
+    while (
+      completed.filter((piece) => getHomePlacementRoom(piece) === "main").length >=
+      HOME_FURNITURE_MAX_PLACEMENTS
+    ) {
       const index = completed.findIndex(({ id }) => optionalIds.has(id));
       if (index < 0) break;
       completed.splice(index, 1);
@@ -358,6 +382,7 @@ export const getHomeLayout = (
     homeX: number | null;
     homeY: number | null;
     homeRotation: number;
+    homeRoom?: HomePlacement["room"];
   }[],
 ): HomePlacement[] =>
   items.flatMap((piece) =>
@@ -365,6 +390,9 @@ export const getHomeLayout = (
       ? [
           {
             id: piece.id,
+            ...(piece.homeRoom && piece.homeRoom !== "main"
+              ? { room: piece.homeRoom }
+              : {}),
             x: piece.homeX,
             y: piece.homeY,
             rotation: HOME_FURNITURE_ROTATIONS.includes(
@@ -409,6 +437,11 @@ const getHomeAnchorPolygon = (
   placement: HomePlacement,
   homeType: HomeType,
 ) => {
+  const isYard = getHomePlacementRoom(placement) === "yard";
+  // The yard separates decorative lawn from the existing farm strip.
+  if (isYard && furniture.action && furniture.action !== "farm") return [];
+  if (!isYard && furniture.action === "farm" && getHomeRooms(homeType).length > 1)
+    return [];
   const region =
     furniture.action === "farm"
       ? HOME_ROOM_GEOMETRY[homeType].outdoor

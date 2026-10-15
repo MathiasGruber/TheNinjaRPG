@@ -3,6 +3,8 @@ import { and, eq, gt, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import type { UserStatus } from "@/drizzle/constants";
 import {
   HOME_FURNITURE_ESSENTIALS,
+  HOME_FURNITURE_STORAGE_CAPACITY,
+  HOME_MAX_INVITATIONS,
   HomeTypeDetails,
   HomeTypes,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -19,6 +21,7 @@ import {
   homeLayoutPlacementError,
   recoverHomeLayout,
 } from "@/libs/home";
+import { getHomeRooms, homeRoomStylesError } from "@/libs/homeProperty";
 import {
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
@@ -43,14 +46,109 @@ import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
   type HomePlacement,
+  type HomeRoomStyle,
   homeFurnitureSaveInputSchema,
+  homeSharingInputSchema,
   homeSleepResponseSchema,
   homeStorageInputSchema,
   homeUpgradeInputSchema,
+  homeVisitInputSchema,
 } from "@/validators/home";
 import { DEFAULT_FURNITURE_DATA } from "@/validators/itemFurniture";
 
 export const homeRouter = createTRPCRouter({
+  getVisitedHome: protectedProcedure
+    .input(homeVisitInputSchema)
+    .query(async ({ ctx, input }) => {
+      const owner = await fetchHomeFurnitureUser(ctx.drizzle, input.userId);
+      if (
+        !owner ||
+        owner.isBanned ||
+        owner.isAi ||
+        owner.deletionAt ||
+        (input.userId !== ctx.userId &&
+          !owner.homePublic &&
+          !owner.homeInvitations.some(({ userId }) => userId === ctx.userId))
+      ) {
+        return {
+          success: false as const,
+          message:
+            "This home is private or unavailable. Ask its owner for an invitation.",
+          home: null,
+        };
+      }
+      const owned = owner.items.filter(isAvailableOwnedFurniture);
+      const furniture = owned.map(homeFurnitureDetails);
+      const layout = recoverHomeLayout(getHomeLayout(owned), furniture, owner.homeType);
+      const placed = new Set(layout.map(({ id }) => id));
+      return {
+        success: true as const,
+        message: "",
+        home: {
+          username: owner.username,
+          homeType: owner.homeType,
+          styles: owner.homeRoomStyles,
+          layout,
+          furniture: furniture.filter(({ id }) => placed.has(id)),
+        },
+      };
+    }),
+
+  setHomeSharing: protectedProcedure
+    .input(homeSharingInputSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [owner, invitee] = await Promise.all([
+        fetchHomeFurnitureUser(ctx.drizzle, ctx.userId),
+        input.inviteUsername
+          ? ctx.drizzle.query.userData.findFirst({
+              where: eq(userData.username, input.inviteUsername),
+              columns: {
+                userId: true,
+                username: true,
+                isAi: true,
+                isBanned: true,
+                deletionAt: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+      if (!owner || owner.isBanned) return errorResponse("Home unavailable");
+      if (
+        input.inviteUsername &&
+        (!invitee ||
+          invitee.isAi ||
+          invitee.isBanned ||
+          invitee.deletionAt ||
+          invitee.userId === ctx.userId)
+      )
+        return errorResponse("Choose another active player to invite");
+      const invitations = owner.homeInvitations.filter(
+        ({ userId }) => userId !== input.revokeUserId,
+      );
+      if (invitee && !invitations.some(({ userId }) => userId === invitee.userId))
+        invitations.push({ userId: invitee.userId, username: invitee.username });
+      if (invitations.length > HOME_MAX_INVITATIONS)
+        return errorResponse(`You can invite up to ${HOME_MAX_INVITATIONS} players`);
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({
+          homePublic: input.isPublic,
+          homeInvitations: invitations,
+          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
+        })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            eq(userData.isBanned, false),
+            eq(userData.homeFurnitureRevision, input.revision),
+          ),
+        );
+      return result.rowsAffected
+        ? { success: true, message: "Home access updated" }
+        : errorResponse("Your home changed. Refresh and try again");
+    }),
+
   toggleSleep: protectedProcedure
     .meta({
       mcp: { description: "Toggle between awake and asleep status" },
@@ -150,11 +248,12 @@ export const homeRouter = createTRPCRouter({
         ? await ensureHomeFurnitureEssentials(ctx.drizzle, ctx.userId, snapshot)
         : snapshot;
       if (!user) return null;
-      const furnitureItems = user.items.filter(
-        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
-      );
+      const furnitureItems = user.items.filter(isAvailableOwnedFurniture);
       return {
         homeType: user.homeType,
+        styles: user.homeRoomStyles,
+        isPublic: user.homePublic,
+        invitations: user.homeInvitations,
         regen: HomeTypeDetails[user.homeType].regen,
         storage: HomeTypeDetails[user.homeType].storage,
         furniture: furnitureItems.map(homeFurnitureDetails),
@@ -177,11 +276,30 @@ export const homeRouter = createTRPCRouter({
       ) {
         return errorResponse("Your home changed. Refresh and try again");
       }
-      const furniture = user.items.filter(
-        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
+      const furniture = user.items.filter(isAvailableOwnedFurniture);
+      const stylesError = homeRoomStylesError(
+        input.styles ??
+          user.homeRoomStyles.filter(({ room }) =>
+            getHomeRooms(user.homeType).some(({ id }) => id === room),
+          ),
+        user.homeType,
       );
+      if (stylesError) return errorResponse(stylesError);
       const ownershipError = homeLayoutOwnershipError(input.placements, furniture);
       if (ownershipError) return errorResponse(ownershipError);
+      const placedIds = new Set(input.placements.map(({ id }) => id));
+      const projectedStorage = user.items.filter(
+        (owned) =>
+          owned.item.itemType === "FURNITURE" &&
+          !owned.item.hidden &&
+          (owned.storedAtHome ||
+            (isAvailableOwnedFurniture(owned) &&
+              (owned.homeX !== null || placedIds.has(owned.id)))),
+      ).length;
+      if (projectedStorage > HOME_FURNITURE_STORAGE_CAPACITY)
+        return errorResponse(
+          "Your furniture storage is full. Retrieve some furniture before saving",
+        );
       const pieces = furniture.map(homeFurnitureDetails);
       const orientationError = homeLayoutOrientationError(input.placements, pieces);
       if (orientationError) return errorResponse(orientationError);
@@ -199,6 +317,7 @@ export const homeRouter = createTRPCRouter({
         user,
         input.placements,
         input.revision,
+        input.styles,
       );
       // MySQL counts changed inventory rows as well as the account revision.
       if (result.rowsAffected === 0) {
@@ -270,6 +389,7 @@ export const homeRouter = createTRPCRouter({
         const result = await ctx.drizzle
           .update(userData)
           .set({
+            homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
             money: sql`${userData.money} - ${upgradeCost}`,
             homeType: input.homeType,
             updatedAt: getNextUserSnapshotAt(user.updatedAt),
@@ -278,6 +398,7 @@ export const homeRouter = createTRPCRouter({
             and(
               eq(userData.userId, ctx.userId),
               eq(userData.homeType, user.homeType),
+              eq(userData.homeFurnitureRevision, user.homeFurnitureRevision),
               eq(userData.updatedAt, user.updatedAt),
               gte(userData.money, upgradeCost),
             ),
@@ -289,6 +410,17 @@ export const homeRouter = createTRPCRouter({
         }
         return { success: true, message: `Upgraded to ${targetHome.name}` };
       } else {
+        const retainedRooms = new Set(getHomeRooms(input.homeType).map(({ id }) => id));
+        const projectedFurnitureStorage = useritems.filter(
+          (owned) =>
+            owned.item.itemType === "FURNITURE" &&
+            (owned.storedAtHome ||
+              (!retainedRooms.has(owned.homeRoom) && owned.homeX !== null)),
+        ).length;
+        if (projectedFurnitureStorage > HOME_FURNITURE_STORAGE_CAPACITY)
+          return errorResponse(
+            "Your furniture storage is full. Retrieve some furniture before downgrading",
+          );
         const storedNormalItems =
           storedItems.filter((ui) => getHomeStorageBucket(ui.item) === "normal")
             .length || 0;
@@ -324,20 +456,47 @@ export const homeRouter = createTRPCRouter({
           );
         }
         const downgradeRefund = Math.floor((currentHomeCost - targetHome.cost) * 0.75);
-        const result = await ctx.drizzle
-          .update(userData)
-          .set({
-            homeType: input.homeType,
-            money: sql`${userData.money} + ${downgradeRefund}`,
-            updatedAt: getNextUserSnapshotAt(user.updatedAt),
-          })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              eq(userData.homeType, user.homeType),
-              eq(userData.updatedAt, user.updatedAt),
-            ),
-          );
+        const result = await ctx.drizzle.transaction(async (tx) => {
+          const changed = await tx
+            .update(userData)
+            .set({
+              homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
+              homeRoomStyles: user.homeRoomStyles.filter(({ room }) =>
+                getHomeRooms(input.homeType).some(({ id }) => id === room),
+              ),
+              homeType: input.homeType,
+              money: sql`${userData.money} + ${downgradeRefund}`,
+              updatedAt: getNextUserSnapshotAt(user.updatedAt),
+            })
+            .where(
+              and(
+                eq(userData.userId, ctx.userId),
+                eq(userData.homeType, user.homeType),
+                eq(userData.homeFurnitureRevision, user.homeFurnitureRevision),
+                eq(userData.updatedAt, user.updatedAt),
+              ),
+            );
+          if (changed.rowsAffected)
+            await tx
+              .update(userItem)
+              .set({
+                homeX: null,
+                homeY: null,
+                homeRoom: "main",
+                homeRotation: 0,
+                storedAtHome: true,
+              })
+              .where(
+                and(
+                  eq(userItem.userId, ctx.userId),
+                  sql`${userItem.homeRoom} NOT IN (${sql.join(
+                    getHomeRooms(input.homeType).map(({ id }) => sql`${id}`),
+                    sql`, `,
+                  )})`,
+                ),
+              );
+          return changed;
+        });
         if (result.rowsAffected === 0) {
           return errorResponse("Home inventory changed. Refresh and try again");
         }
@@ -456,6 +615,13 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
     columns: {
       homeType: true,
       homeFurnitureRevision: true,
+      updatedAt: true,
+      homeRoomStyles: true,
+      homePublic: true,
+      homeInvitations: true,
+      username: true,
+      isAi: true,
+      deletionAt: true,
       isBanned: true,
       status: true,
       sector: true,
@@ -465,7 +631,7 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
     with: {
       village: { columns: { sector: true } },
       items: {
-        where: availableHomeFurnitureItems(),
+        where: gt(userItem.quantity, 0),
         with: { item: { with: { variants: true } } },
       },
     },
@@ -475,6 +641,13 @@ type HomeFurnitureUser = NonNullable<
   Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
 >;
 
+/** Read all owned rows once so storage counts include pending crafts and auction escrow. */
+const isAvailableOwnedFurniture = (owned: HomeFurnitureUser["items"][number]) =>
+  owned.item.itemType === "FURNITURE" &&
+  !owned.item.hidden &&
+  !owned.isInAuction &&
+  (!owned.craftingFinishedAt || owned.craftingFinishedAt <= new Date());
+
 /** Repair legacy rooms once; a complete room remains a single coherent read with no writes. */
 const ensureHomeFurnitureEssentials = async (
   client: DrizzleClient,
@@ -482,9 +655,7 @@ const ensureHomeFurnitureEssentials = async (
   user: HomeFurnitureUser,
 ) => {
   if (homeFurnitureAccessError(user)) return user;
-  const owned = user.items.filter(
-    (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
-  );
+  const owned = user.items.filter(isAvailableOwnedFurniture);
   const furniture = owned.map(homeFurnitureDetails);
   const recovered = recoverHomeLayout(getHomeLayout(owned), furniture, user.homeType);
   if (!homeLayoutEssentialsError(recovered, furniture)) return user;
@@ -555,9 +726,7 @@ const ensureHomeFurnitureEssentials = async (
         resultSnapshot.homeType !== user.homeType
       )
         return resultSnapshot;
-      const available = resultSnapshot.items.filter(
-        (owned) => owned.item?.itemType === "FURNITURE" && !owned.item.hidden,
-      );
+      const available = resultSnapshot.items.filter(isAvailableOwnedFurniture);
       // A no-op duplicate grant does not make an escrowed, destroyed, or unfinished row available.
       furniture.splice(0, furniture.length, ...available.map(homeFurnitureDetails));
       completed = recoverHomeLayout(getHomeLayout(available), furniture, user.homeType);
@@ -585,6 +754,7 @@ const publishHomeFurnitureLayout = (
   user: HomeFurnitureUser,
   placements: HomePlacement[],
   revision: number,
+  styles?: HomeRoomStyle[],
 ) => {
   const coordinateCase = (axis: "x" | "y" | "rotation") =>
     placements.length
@@ -606,6 +776,27 @@ const publishHomeFurnitureLayout = (
       AND ${availableHomeFurnitureItems()}
       AND ${item.itemType} = ${"FURNITURE"} AND ${item.hidden} = ${false}
     SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
+        ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
+        ${userData.homeRoomStyles} = ${JSON.stringify(styles ?? user.homeRoomStyles)},
+        ${userItem.storedAtHome} = CASE WHEN ${userItem.homeX} IS NOT NULL ${
+          placements.length
+            ? sql`OR ${inArray(
+                userItem.id,
+                placements.map(({ id }) => id),
+              )}`
+            : sql``
+        } THEN ${true} ELSE ${userItem.storedAtHome} END,
+        ${userItem.homeRoom} = ${
+          placements.length
+            ? sql`CASE ${userItem.id} ${sql.join(
+                placements.map(
+                  (placement) =>
+                    sql`WHEN ${placement.id} THEN ${placement.room ?? "main"}`,
+                ),
+                sql` `,
+              )} ELSE ${"main"} END`
+            : sql`${"main"}`
+        },
         ${userItem.homeX} = ${coordinateCase("x")},
         ${userItem.homeY} = ${coordinateCase("y")},
         ${userItem.homeRotation} = ${coordinateCase("rotation")}
@@ -671,6 +862,7 @@ const homeFurnitureWriteGuard = (
   and(
     eq(userData.userId, userId),
     eq(userData.homeFurnitureRevision, revision),
+    eq(userData.updatedAt, user.updatedAt),
     eq(userData.homeType, user.homeType),
     eq(userData.isBanned, false),
     eq(userData.villageId, user.villageId ?? ""),

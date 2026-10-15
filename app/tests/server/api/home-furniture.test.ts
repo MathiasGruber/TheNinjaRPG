@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
-import { HOME_FURNITURE_ESSENTIALS, HomeTypeDetails } from "@/drizzle/constants";
+import { HOME_FURNITURE_ESSENTIALS, HOME_FURNITURE_STORAGE_CAPACITY, HomeTypeDetails } from "@/drizzle/constants";
 import { item, itemVariant, userData, userItem, userItemVariant, village } from "@/drizzle/schema";
 import { homeRouter } from "@/server/api/routers/home";
 import { clampHomeFurniturePlacement, homeLayoutEssentialsError, homeLayoutPlacementError } from "@/libs/home";
@@ -68,6 +68,98 @@ describeWithDatabase("owned furniture persistence", () => {
     ]);
     return { owner: users[0]!, inventory };
   };
+
+  it("publishes separate rooms and finishes together, then stores removed-room furniture permanently on downgrade", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    const api = await callerFor(homeRouter, userId);
+    const placements: HomePlacement[] = [...essentialLayout, { id: "cabinet-a", x: 50, y: 50, rotation: 0, room: "room-1" }, { id: "cabinet-b", x: 50, y: 50, rotation: 0 }];
+    const styles = [{ room: "room-1", paint: "sage", floor: "slate" }] as const;
+    expect((await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements, styles: [...styles] })).success).toBe(true);
+    const home = await api.getUserHome();
+    expectLayout(home?.layout, placements);
+    expect(home?.styles).toEqual([...styles]);
+    expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const stored = (await snapshot()).inventory.find(({ id }) => id === "cabinet-a");
+    expect(stored).toMatchObject({ quantity: 1, homeX: null, homeY: null });
+    const downgraded = await api.getUserHome();
+    expect(downgraded?.styles).toEqual([]);
+    expect(downgraded?.layout.some(({ id }) => id === "cabinet-a")).toBe(false);
+    await db.update(userData).set({ money: HomeTypeDetails.TOWN_HOUSE.cost }).where(eq(userData.userId, userId));
+    expect((await api.upgradeHome({ homeType: "TOWN_HOUSE" })).success).toBe(true);
+    expect((await api.getUserHome())?.layout.some(({ id }) => id === "cabinet-a")).toBe(false);
+  });
+
+  it("rejects removed rooms and duplicate finishes before publishing", async () => {
+    const api = await callerFor(homeRouter, userId);
+    const before = await snapshot();
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [...essentialLayout, { id: "cabinet-a", x: 50, y: 50, rotation: 0, room: "room-1" }] })).success).toBe(false);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: essentialLayout, styles: [{ room: "main", paint: "sage", floor: "oak" }, { room: "main", paint: "rose", floor: "slate" }] })).success).toBe(false);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("enforces private, invited, revoked and public visits without exposing unplaced furniture or mutating the owner", async () => {
+    const api = await callerFor(homeRouter, userId);
+    const visitor = await callerFor(homeRouter, "other-owner");
+    const before = await snapshot();
+    expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
+    expect(await snapshot()).toEqual(before);
+    expect((await api.setHomeSharing({ revision: 0, isPublic: false, inviteUsername: "other-owner" })).success).toBe(true);
+    const visit = await visitor.getVisitedHome({ userId });
+    expect(visit.success).toBe(true);
+    expect(visit.home?.furniture.some(({ id }) => id === "rug-row")).toBe(false);
+    expect(visit.home && Object.keys(visit.home).sort()).toEqual(["furniture", "homeType", "layout", "styles", "username"]);
+    expect((await api.setHomeSharing({ revision: 1, isPublic: false, revokeUserId: "other-owner" })).success).toBe(true);
+    expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
+    expect((await api.setHomeSharing({ revision: 2, isPublic: true })).success).toBe(true);
+    expect((await visitor.getVisitedHome({ userId })).success).toBe(true);
+    expect((await api.setHomeSharing({ revision: 2, isPublic: false })).success).toBe(false);
+    expect((await visitor.getVisitedHome({ userId })).success).toBe(true);
+  });
+
+  it("guards a downgrade against a concurrent layout save before refunding or clearing rooms", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    const regular = await callerFor(homeRouter, userId);
+    const client = new Proxy(db, { get(target, property, receiver) {
+      if (property === "transaction") return async (...args: Parameters<typeof db.transaction>) => {
+        expect((await regular.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements: essentialLayout })).success).toBe(true);
+        return target.transaction(...args);
+      };
+      return Reflect.get(target, property, receiver);
+    } });
+    const api = callerForDatabase(homeRouter, userId, client);
+    expect((await api.upgradeHome({ homeType: "NONE" })).success).toBe(false);
+    const after = await snapshot();
+    expect(after.owner.homeType).toBe("TOWN_HOUSE");
+    expect(after.owner.money).toBe(initialMoney);
+    expect(after.owner.homeFurnitureRevision).toBe(1);
+  });
+
+  it("rejects a layout after an inventory snapshot claim without regressing its timestamp", async () => {
+    const db = await getTestDatabase();
+    const next = new Date(Date.now() + 60_000);
+    const client = beforeStatements(db, userData, [async () => db.update(userData).set({ updatedAt: next }).where(eq(userData.userId, userId))]);
+    const api = callerForDatabase(homeRouter, userId, client);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: layout() })).success).toBe(false);
+    const after = await snapshot();
+    expect(after.owner.updatedAt).toEqual(next);
+    expect(after.owner.homeFurnitureRevision).toBe(0);
+  });
+
+  it.each([{}, { isInAuction: true }, { craftingFinishedAt: new Date(Date.now() + 60_000) }])("counts stored unavailable furniture against capacity without storing a carried piece %j", async (unavailable) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    await insertUserItems(Array.from({ length: HOME_FURNITURE_STORAGE_CAPACITY - 6 }, (_, i) => ({ id: `stored-${i}`, userId, itemId: "rug", storedAtHome: true, ...(i === 0 ? unavailable : {}) })));
+    await insertUserItems([{ id: "carried-extra", userId, itemId: "rug", storedAtHome: false, homeRoom: "room-1", homeX: 50, homeY: 50 }]);
+    const before = await snapshot();
+    const api = await callerFor(homeRouter, userId);
+    const result = await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements: [...essentialLayout, { id: "carried-extra", x: 50, y: 50, rotation: 0, room: "room-1" }] });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("storage is full");
+    expect((await api.upgradeHome({ homeType: "NONE" })).success).toBe(false);
+    expect(await snapshot()).toEqual(before);
+  });
 
   it("grants and places three free basics once for a legacy empty inventory", async () => {
     const database = await getTestDatabase();

@@ -155,7 +155,7 @@ describe("Home scene", () => {
     const trigger = view.getByRole("button", { name: "Home storage" });
     fireEvent.error(view.getByAltText(`${HomeTypeDetails.NONE.name} interior`));
     view.rerender(<HomeScene {...props} homeType="PALACE" />);
-    expect(view.getByAltText("Palace interior").getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES.PALACE, 768));
+    expect(view.getByRole("button", { name: /^Room 2$/ })).toBeTruthy();
     expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();
     expect(view.getByRole("button", { name: "Home storage" })).toBe(trigger);
   });
@@ -199,7 +199,7 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     const bed = view.getByRole("button", { name: "Move Bed" });
     const rotate = view.getByRole("button", { name: "Rotate clockwise" }) as HTMLButtonElement;
-    const controls = within(view.getByRole("group", { name: "Home scene" })).getByRole("group", { name: "Furniture controls" });
+    const controls = view.getByRole("group", { name: "Furniture controls" });
     expect(controls.closest("button")).toBeNull();
     expect(view.queryByRole("button", { name: "Move Bed right" })).toBeNull();
     expect(rotate.disabled).toBe(false);
@@ -709,6 +709,56 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect(onSave.mock.calls[0]![0].placements.some((piece) => piece.id === "owned-bed")).toBe(true);
+  });
+});
+
+describe("multi-room home scene", () => {
+  beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
+  afterEach(cleanup);
+
+  it("moves furniture between rooms and publishes the room's paint and tiles with one draft", async () => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "room-1" } });
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.change(view.getByLabelText("Floor tiles"), { target: { value: "slate" } });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements.find(({ id }) => id === "owned-bed")?.room).toBe("room-1");
+    expect(onSave.mock.calls[0]![0].styles).toEqual([{ room: "room-1", paint: "sage", floor: "slate" }]);
+    expect(view.getByRole("group", { name: "Furniture controls" }).closest("[data-home-camera]")).toBeNull();
+  });
+
+  it("keeps visitors from invoking home actions or decoration", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" isVisiting />);
+    expect(view.queryByRole("group", { name: "Home actions" })).toBeNull();
+    expect(within(view.getByRole("group", { name: "Home scene" })).queryByRole("button")).toBeNull();
+    expect(props.onSleep).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Room 2" }));
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("100%");
+  });
+
+  it("accounts for camera scale when dragging furniture and resets to the main room", async () => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" layout={centeredEssentialsLayout} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: "Zoom out" }));
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    bed.setPointerCapture = vi.fn();
+    view.getByRole("group", { name: "Home scene" }).getBoundingClientRect = () => new DOMRect(0, 0, 800, 600);
+    firePointerEvent(bed, "pointerdown", 1, 300, 300);
+    firePointerEvent(bed, "pointermove", 1, 320, 310);
+    firePointerEvent(bed, "pointerup", 1, 320, 310);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements.find(({ id }) => id === "owned-bed")!;
+    expect(saved.x).toBeCloseTo(50 + 20 / (800 * 0.85) * 100 / HOME_FLOOR_PROJECTION.scaleX);
+    expect(saved.y).toBeCloseTo(50 + 10 / (600 * 0.85) * 100 / HOME_FLOOR_PROJECTION.scaleY);
+    fireEvent.click(view.getByRole("button", { name: "Room 2" }));
+    fireEvent.click(view.getByRole("button", { name: "Reset view" }));
+    expect(view.getByLabelText("Camera zoom").textContent).toBe("100%");
+    expect(view.getByRole("group", { name: "Home scene" }).querySelector("[data-home-camera]")?.getAttribute("style")).toContain("translate(0%, 0%)");
   });
 });
 

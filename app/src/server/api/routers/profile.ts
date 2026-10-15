@@ -2503,7 +2503,7 @@ export const profileRouter = createTRPCRouter({
         user.isBanned = false;
         user.aiProfileId = null;
       }
-      if (!isSelf && requester?.role === "USER") {
+      if (!isSelf && (!requester || !canSeeSecretData(requester.role))) {
         user.jutsus = [];
         user.items = [];
       }

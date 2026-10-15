@@ -15,6 +15,7 @@ import {
   FED_MATERIALS_SILVER_SLOTS,
   FED_NORMAL_INVENTORY_SLOTS,
   FED_SILVER_INVENTORY_SLOTS,
+  HOME_FURNITURE_STORAGE_CAPACITY,
   type ItemSlot,
   ItemSlots,
   ItemSlotTypes,
@@ -161,7 +162,7 @@ export const calcMaxHouseCookingItems = (_user: UserData, homeStorage: number) =
 export type InventoryBucket = "normal" | "event" | "materials" | "cooking";
 
 /** Home storage bucket. Event items share ordinary (normal) home capacity. */
-export type HomeStorageBucket = "normal" | "materials" | "cooking";
+export type HomeStorageBucket = "normal" | "materials" | "cooking" | "furniture";
 
 type BucketItemFields = {
   itemType: string;
@@ -186,6 +187,7 @@ export const getInventoryBucket = (item: BucketItemFields): InventoryBucket => {
 export const getHomeStorageBucket = (
   item: Pick<BucketItemFields, "itemType">,
 ): HomeStorageBucket => {
+  if (item.itemType === "FURNITURE") return "furniture";
   if (item.itemType === "COOKING" || item.itemType === "MEAL") return "cooking";
   if (item.itemType === "MATERIAL") return "materials";
   return "normal";
@@ -226,6 +228,8 @@ export const getHomeStorageBucketCapacity = (
   homeStorage: number,
 ): number => {
   switch (bucket) {
+    case "furniture":
+      return HOME_FURNITURE_STORAGE_CAPACITY;
     case "cooking":
       return calcMaxHouseCookingItems(user, homeStorage);
     case "materials":
@@ -237,6 +241,8 @@ export const getHomeStorageBucketCapacity = (
 
 export const getHomeStorageBucketFullMessage = (bucket: HomeStorageBucket): string => {
   switch (bucket) {
+    case "furniture":
+      return "Your home furniture storage is full";
     case "cooking":
       return "Your home cooking storage is full";
     case "materials":

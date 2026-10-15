@@ -940,7 +940,7 @@ describe("FURNITURE item type", () => {
     expect(NonActionItemTypes).toContain("FURNITURE");
     const furniture = { itemType: "FURNITURE", slot: "NONE" };
     expect(getInventoryBucket(furniture)).toBe("normal");
-    expect(getHomeStorageBucket(furniture)).toBe("normal");
+    expect(getHomeStorageBucket(furniture)).toBe("furniture");
     expect(showsItemLevelBadge(furniture)).toBe(false);
     expect(userItemActionBadges([{ id: "chair-row", quantity: 2, level: 20, item: furniture }])).toEqual({
       counts: [{ id: "chair-row", quantity: 2 }],

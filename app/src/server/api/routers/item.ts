@@ -3222,6 +3222,7 @@ export const itemRouter = createTRPCRouter({
         homeX: null,
         homeY: null,
         homeRotation: 0,
+        homeRoom: "main",
         isInAuction: false,
         craftingFinishedAt: null,
         activeVariantId: null,

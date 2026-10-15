@@ -55,6 +55,7 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
+import type { HomeRoomStyle } from "@/validators/home";
 import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
 
@@ -2736,6 +2737,9 @@ export const userData = mysqlTable(
     tutorialOn: boolean("tutorialOn").default(true).notNull(),
     homeType: mysqlEnum("homeType", consts.HomeTypes).default("NONE").notNull(),
     homeFurnitureRevision: int("homeFurnitureRevision", { unsigned: true }).default(0).notNull(),
+    homeRoomStyles: json("homeRoomStyles").$type<HomeRoomStyle[]>().default([]).notNull(),
+    homePublic: boolean("homePublic").default(false).notNull(),
+    homeInvitations: json("homeInvitations").$type<{ userId: string; username: string }[]>().default([]).notNull(),
     staffAccount: boolean("staffAccount").default(false).notNull(),
     rankedLp: int("rankedLp").default(0).notNull(),
     rankedBattles: int("rankedBattles").default(0).notNull(),
@@ -2816,6 +2820,9 @@ export const insertAiSchema = createInsertSchema(userData)
     warMission: true,
     bracketImmunityPausedAt: true,
     homeFurnitureRevision: true,
+    homeRoomStyles: true,
+    homePublic: true,
+    homeInvitations: true,
     occupationSignupAt: true,
     masteryTrainingStartedAt: true,
     currentlyTrainingMastery: true,
@@ -3071,6 +3078,7 @@ export const userItem = mysqlTable(
     homeX: double("homeX"),
     homeY: double("homeY"),
     homeRotation: tinyint("homeRotation", { unsigned: true }).default(0).notNull(),
+    homeRoom: mysqlEnum("homeRoom", consts.HOME_ROOM_IDS).default("main").notNull(),
     craftingFinishedAt: datetime("craftingFinishedAt", { mode: "date", fsp: 3 }),
     isInAuction: boolean("isInAuction").default(false).notNull(),
     activeVariantId: varchar("activeVariantId", { length: 191 }),

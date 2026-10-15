@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { userData } from "@/drizzle/schema";
+import { item, userItem, userData } from "@/drizzle/schema";
 import { profileRouter } from "@/server/api/routers/profile";
-import { insertUsers } from "../../setup/factories";
+import { insertUsers, insertItems, insertUserItems } from "../../setup/factories";
 import {
   callerFor,
   describeWithDatabase,
@@ -32,7 +32,7 @@ const stubRateLimitTransport = () => {
 describeWithDatabase("public PvP record visibility", () => {
   beforeEach(async () => {
     stubRateLimitTransport();
-    await resetTables(userData);
+    await resetTables(userItem, item, userData);
     await insertUsers([
       {
         userId: "owner",
@@ -48,6 +48,13 @@ describeWithDatabase("public PvP record visibility", () => {
     ]);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["viewer", "signed-out"])("does not expose private furniture placements through public profiles to %s", async (viewer) => {
+    await insertItems([{ id: "private-chair", name: "Private chair", itemType: "FURNITURE" }]);
+    await insertUserItems([{ id: "private-placement", userId: "owner", itemId: "private-chair", homeX: 50, homeY: 50, homeRoom: "main" }]);
+    const result = await (await callerFor(profileRouter, viewer)).getPublicUser({ userId: "owner" });
+    expect(result?.items).toEqual([]);
+  });
 
   it.each(["viewer", "signed-out"])("hides private records from %s", async (viewer) => {
     const profile = await (await callerFor(profileRouter, viewer)).getPublicUser({

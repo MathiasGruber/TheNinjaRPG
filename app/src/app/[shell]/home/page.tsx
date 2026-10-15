@@ -41,10 +41,12 @@ import BanInfo from "@/layout/BanInfo";
 import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
 import { HomeScene } from "@/layout/HomeScene";
+import { HomeSharing } from "@/layout/HomeSharing";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { MergeAllStacksButton } from "@/layout/MergeAllStacksButton";
 import Modal from "@/layout/Modal";
+import { getHomeRooms } from "@/libs/homeProperty";
 import {
   byItemName,
   calcMaxHouseCookingItems,
@@ -58,7 +60,7 @@ import { showMutationToast } from "@/libs/toast";
 import { remainingXpToLevel } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
-import type { HomePlacement } from "@/validators/home";
+import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 // Load the farm and food menu only when their dialogs are opened.
 const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
@@ -176,6 +178,7 @@ export default function HomePage() {
     homeType: HomeType;
     revision: number;
     placements: HomePlacement[];
+    styles: HomeRoomStyle[];
   }) => {
     setFurnitureError(null);
     try {
@@ -217,7 +220,9 @@ export default function HomePage() {
     filteredItems
       ?.filter((useritem) => !useritem.storedAtHome)
       .filter((useritem) => useritem.equipped === "NONE")
-      .filter((useritem) => getHomeStorageBucket(useritem.item) === "normal")
+      .filter((useritem) =>
+        ["normal", "furniture"].includes(getHomeStorageBucket(useritem.item)),
+      )
       .sort(byItemName) ?? [];
 
   // Filter materials separately
@@ -250,11 +255,17 @@ export default function HomePage() {
       .filter((useritem) => getHomeStorageBucket(useritem.item) === "cooking")
       .sort(byItemName) ?? [];
 
+  const storedFurniture =
+    filteredItems
+      ?.filter((owned) => owned.storedAtHome && owned.item.itemType === "FURNITURE")
+      .sort(byItemName) ?? [];
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const matchesFilters = (userItem: UserItemWithItem) =>
     userItem.item.name.toLowerCase().includes(normalizedSearch) &&
     (itemTypeFilter === "ALL" || userItem.item.itemType === itemTypeFilter) &&
     (rarityFilter === "ALL" || userItem.item.rarity === rarityFilter);
+  const visibleStoredFurniture = storedFurniture.filter(matchesFilters);
+  const storedFurnitureBadges = userItemActionBadges(storedFurniture);
   const visibleStoredItems = storedItems.filter(matchesFilters);
   const visibleStoredMaterials = storedMaterials.filter(matchesFilters);
   const visibleStoredCooking = storedCooking.filter(matchesFilters);
@@ -339,7 +350,9 @@ export default function HomePage() {
           <Loader explanation="Loading your home" />
         ) : (
           <HomeScene
+            key={homeType}
             homeType={homeType}
+            styles={homeData?.styles}
             isGuest={!ownVillage}
             isAsleep={userData.status === "ASLEEP"}
             isTogglingSleep={isTogglingSleep}
@@ -377,6 +390,17 @@ export default function HomePage() {
           </div>
         )}
       </ContentBox>
+      {ownVillage && homeData && !isDecorating && (
+        <div className="mb-4">
+          <HomeSharing
+            isPublic={homeData.isPublic}
+            invitations={homeData.invitations}
+            revision={homeData.furnitureRevision}
+            userId={userData.userId}
+            onChanged={userHomeRefetch}
+          />
+        </div>
+      )}
       <Modal
         title="Kitchen"
         isOpen={isKitchenOpen}
@@ -483,6 +507,19 @@ export default function HomePage() {
                                         {upgrade.name}
                                       </span>
                                       <div className="flex flex-col font-normal text-muted-foreground italic sm:flex-row sm:gap-3">
+                                        <span>
+                                          {
+                                            getHomeRooms(upgrade.type).filter(
+                                              (room) => !room.isYard,
+                                            ).length
+                                          }{" "}
+                                          room(s)
+                                          {getHomeRooms(upgrade.type).some(
+                                            (room) => room.isYard,
+                                          )
+                                            ? " + yard"
+                                            : ""}
+                                        </span>
                                         {upgrade.regen > 0 && (
                                           <span>+{upgrade.regen} Regen</span>
                                         )}
@@ -523,6 +560,11 @@ export default function HomePage() {
                   </TabsContent>
 
                   <TabsContent value="downgrades">
+                    <p className="mb-3 text-sm">
+                      Furniture in removed rooms returns to furniture storage. Room
+                      bonuses are cosmetic; sleep, storage, kitchen and farm remain
+                      global.
+                    </p>
                     {downgrades.length === 0 ? (
                       <div className="p-4 text-center">
                         You already have the lowest tier home!
@@ -675,7 +717,7 @@ export default function HomePage() {
                     Clear filters
                   </Button>
                 </div>
-                <TabsList className="grid w-full grid-cols-2 items-stretch sm:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 items-stretch sm:grid-cols-5">
                   <TabsTrigger
                     value="stored"
                     className="min-w-0 flex-wrap gap-x-1 px-2"
@@ -712,6 +754,9 @@ export default function HomePage() {
                       ({storedCooking.length} / {maxHouseCooking})
                     </span>
                   </TabsTrigger>
+                  <TabsTrigger value="furniture" className="min-w-0 px-2">
+                    Furniture ({storedFurniture.length})
+                  </TabsTrigger>
                   <TabsTrigger value="inventory" className="min-w-0 px-2">
                     <ShoppingBag className="mr-1 h-4 w-4 shrink-0" /> Inventory
                   </TabsTrigger>
@@ -742,6 +787,44 @@ export default function HomePage() {
                             setIsModalOpen(false);
                           } else {
                             const item = visibleStoredItems?.find(
+                              (item) => item.id === id,
+                            );
+                            if (item) {
+                              setSelectedItem(item);
+                              setIsModalOpen(true);
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="furniture">
+                  {visibleStoredFurniture.length === 0 ? (
+                    <div className="p-4 text-center">
+                      {storedFurniture.length === 0
+                        ? "Unplaced furniture remains here. Use Decorate to place it in a room."
+                        : "No items match your filters."}
+                    </div>
+                  ) : (
+                    <div className="p-3">
+                      <ActionSelector
+                        items={visibleStoredFurniture?.map((useritem) => ({
+                          ...useritem.item,
+                          ...useritem,
+                        }))}
+                        counts={storedFurnitureBadges.counts}
+                        levels={storedFurnitureBadges.levels}
+                        selectedId={selectedItem?.id}
+                        showBgColor={false}
+                        showLabels={false}
+                        onClick={(id) => {
+                          if (id === selectedItem?.id) {
+                            setSelectedItem(undefined);
+                            setIsModalOpen(false);
+                          } else {
+                            const item = visibleStoredFurniture?.find(
                               (item) => item.id === id,
                             );
                             if (item) {
@@ -867,11 +950,13 @@ export default function HomePage() {
                             selectedId={selectedItem?.id}
                             showBgColor={false}
                             showLabels={false}
-                            greyedIds={
-                              !canStoreMoreItems
-                                ? visibleInventoryItems?.map((useritem) => useritem.id)
-                                : undefined
-                            }
+                            greyedIds={visibleInventoryItems
+                              ?.filter(
+                                (owned) =>
+                                  getHomeStorageBucket(owned.item) === "normal" &&
+                                  !canStoreMoreItems,
+                              )
+                              .map((owned) => owned.id)}
                             onClick={(id) => {
                               if (id === selectedItem?.id) {
                                 setSelectedItem(undefined);

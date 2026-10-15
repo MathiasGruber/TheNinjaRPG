@@ -502,6 +502,7 @@ export const hydrateUserForQuests = (battle: CompleteBattle, user: BattleUserSta
       homeX: null,
       homeY: null,
       homeRotation: 0,
+      homeRoom: "main",
       craftingFinishedAt: null,
       isInAuction: false,
       activeVariantId: bi.activeVariantId ?? null,
