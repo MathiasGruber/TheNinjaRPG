@@ -139,6 +139,7 @@ export default function ManualJutsus() {
               detailHref={`/manual/jutsu/${jutsu.id}`}
               onDelete={(id: string) => remove({ id })}
               showEdit="jutsu"
+              showCopy="jutsu"
               showStatistic="jutsu"
             />
           </div>

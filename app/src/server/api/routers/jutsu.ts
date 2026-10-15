@@ -564,6 +564,53 @@ export const jutsuRouter = createTRPCRouter({
     }
   }),
 
+  clone: protectedProcedure
+    .meta({ mcp: { description: "Clone an existing jutsu (content editors)" } })
+    .input(idSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, source] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchJutsu(ctx.drizzle, input.id),
+      ]);
+      if (user.isBanned)
+        return errorResponse("You are banned and cannot perform this action");
+      if (!canChangeContent(user.role))
+        return errorResponse("Not allowed to clone jutsu");
+      if (!source) return errorResponse("Jutsu not found");
+
+      const id = nanoid();
+      const suffix = ` - copy ${id}`;
+      const name = `${source.name.slice(0, 191 - suffix.length)}${suffix}`;
+      // The copy and its provenance must commit together; an audit failure must not
+      // leave an unlogged copy and invite a duplicate on retry.
+      await ctx.drizzle.transaction(async (tx) => {
+        await tx.insert(jutsu).values({
+          ...source,
+          id,
+          name,
+          hidden: true,
+          // Copies start independently; attaching them through the editor validates
+          // evolution limits and synchronizes linked-reskin mechanics.
+          parentJutsuId: null,
+          reskinParentJutsuId: null,
+          bloodlineReskinId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        await tx.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "jutsu",
+          relatedId: id,
+          changes: [`Cloned from ${source.name}`],
+          relatedMsg: `Clone: ${name}`.slice(0, 191),
+          relatedImage: source.image,
+        });
+      });
+      return { success: true, message: id };
+    }),
+
   delete: protectedProcedure
     .input(idSchema)
     .output(baseServerResponse)
