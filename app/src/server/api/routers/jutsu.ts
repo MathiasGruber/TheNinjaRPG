@@ -604,7 +604,7 @@ export const jutsuRouter = createTRPCRouter({
           tableName: "jutsu",
           relatedId: id,
           changes: [`Cloned from ${source.name}`],
-          relatedMsg: `Clone: ${name}`,
+          relatedMsg: `Clone: ${name}`.slice(0, 191),
           relatedImage: source.image,
         });
       });

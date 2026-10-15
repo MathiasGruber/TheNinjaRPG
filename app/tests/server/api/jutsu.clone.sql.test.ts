@@ -1,4 +1,5 @@
 import { beforeEach, expect, it } from "bun:test";
+import { eq } from "drizzle-orm";
 import { actionLog, jutsu, userData } from "@/drizzle/schema";
 import { jutsuRouter } from "@/server/api/routers/jutsu";
 import { insertUsers } from "../../setup/factories";
@@ -56,5 +57,21 @@ describeWithDatabase("jutsu clone audit atomicity", () => {
       relatedMsg: `Clone: Fireball - copy ${result.message}`,
       changes: ["Cloned from Fireball"],
     });
+  });
+
+  it("clones maximum-length names repeatedly within the audit summary limit", async () => {
+    const database = await getTestDatabase();
+    await database
+      .update(jutsu)
+      .set({ name: "a".repeat(191) })
+      .where(eq(jutsu.id, "clone-source"));
+    const caller = await callerFor(jutsuRouter, "clone-editor");
+    const first = await caller.clone({ id: "clone-source" });
+    const second = await caller.clone({ id: "clone-source" });
+    expect(first.success && second.success).toBe(true);
+    expect(first.message).not.toBe(second.message);
+    const logs = await database.select().from(actionLog);
+    expect(logs).toHaveLength(2);
+    expect(logs.every((log) => log.relatedMsg?.length === 191)).toBe(true);
   });
 });
