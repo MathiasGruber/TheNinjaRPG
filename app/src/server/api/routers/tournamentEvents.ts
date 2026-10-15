@@ -545,15 +545,8 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
         now,
         true,
       );
-      // Withdrawal is an immediate series forfeit, including best-of formats.
-      series.complete = true;
-      series.winnerId =
-        series.seats.find(
-          (sid) => sid && !event.participants.find((p) => p.id === sid)?.withdrawn,
-        ) ?? null;
+      // Withdrawn entrants do not advance into the losers bracket.
       series.loserId = null;
-      series.winnerUserId =
-        event.participants.find((p) => p.id === series.winnerId)?.userId ?? null;
     } else if (
       ["STARTING", "FIGHTING"].includes(game.status) &&
       now > game.deadline + EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS * 1000
