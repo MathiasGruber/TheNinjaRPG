@@ -581,10 +581,11 @@ export const jutsuRouter = createTRPCRouter({
 
       const id = nanoid();
       const suffix = ` - copy ${id}`;
+      const name = `${source.name.slice(0, 191 - suffix.length)}${suffix}`;
       await ctx.drizzle.insert(jutsu).values({
         ...source,
         id,
-        name: `${source.name.slice(0, 191 - suffix.length)}${suffix}`,
+        name,
         hidden: true,
         // Copies start independently; attaching them through the editor validates
         // evolution limits and synchronizes linked-reskin mechanics.
@@ -593,6 +594,15 @@ export const jutsuRouter = createTRPCRouter({
         bloodlineReskinId: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+      });
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        tableName: "jutsu",
+        relatedId: id,
+        changes: [`Cloned from ${source.name}`],
+        relatedMsg: `Clone: ${name}`,
+        relatedImage: source.image,
       });
       return { success: true, message: id };
     }),

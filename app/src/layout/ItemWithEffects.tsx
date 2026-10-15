@@ -397,6 +397,7 @@ const ItemCloneControl: React.FC<{ source: ItemCloneSource }> = ({ source }) => 
   );
 };
 
+/** Keeps the confirmed jutsu identity stable through cloning and opens its hidden copy. */
 const JutsuCloneControl: React.FC<{ source: Pick<Jutsu, "id" | "name"> }> = ({
   source,
 }) => {
@@ -468,8 +469,9 @@ const JutsuCloneControl: React.FC<{ source: Pick<Jutsu, "id" | "name"> }> = ({
             effects and requirements. The original jutsu will not be changed.
           </p>
           <p>
-            Evolution and reskin links are cleared. You will be taken to the new copy to
-            review and edit it.
+            Evolution and reskin links are cleared. The copy keeps its current rank and
+            mechanics, including H-rank for linked reskins, but no longer receives
+            parent updates. You will be taken to the new copy to review and edit it.
           </p>
         </Modal>
       )}

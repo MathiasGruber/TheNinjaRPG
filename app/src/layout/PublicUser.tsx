@@ -3908,6 +3908,8 @@ const badgeAssignmentKey = (badgeId: string, createdAt: Date) =>
 const BadgesTab: React.FC<BadgesTabProps> = ({ userId, username, currentBadges }) => {
   const { data: currentUser } = useUserData();
   const canModify = currentUser && canModifyUserBadges(currentUser.role);
+  const canAssign =
+    canModify && (!canOnlyEditSelf(currentUser.role) || currentUser.userId === userId);
 
   // Only fetch the list of all badges when the add-badge popover is opened
   const [popoverOpen, setPopoverOpen] = useState(false);
@@ -4178,7 +4180,7 @@ const BadgesTab: React.FC<BadgesTabProps> = ({ userId, username, currentBadges }
         subtitle={`Badges earned by ${username}`}
         initialBreak={true}
         topRightContent={
-          canModify && (
+          canAssign && (
             <Popover
               open={popoverOpen}
               onOpenChange={(open) => {
@@ -4242,7 +4244,7 @@ const BadgesTab: React.FC<BadgesTabProps> = ({ userId, username, currentBadges }
               <div>
                 <div className="font-bold">{displayedBadge.name}</div>
               </div>
-              {canModify && userBadge && (
+              {canAssign && userBadge && (
                 <Button
                   type="button"
                   variant="ghost"

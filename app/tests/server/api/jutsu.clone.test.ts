@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "bun:test";
-import { jutsu } from "@/drizzle/schema";
+import { actionLog, jutsu } from "@/drizzle/schema";
 import { jutsuRouter } from "@/server/api/routers/jutsu";
 
 const source = {
@@ -26,7 +26,10 @@ const setup = (
   user = { role: "CONTENT", isBanned: false },
 ) => {
   const values = vi.fn(async (_row: Record<string, unknown>) => ({ rowsAffected: 1 }));
-  const insert = vi.fn(() => ({ values }));
+  const logValues = vi.fn(async (_row: Record<string, unknown>) => ({ rowsAffected: 1 }));
+  const insert = vi.fn((table: object) => ({
+    values: table === actionLog ? logValues : values,
+  }));
   const { resolver } = jutsuRouter._def.procedures.clone._def as unknown as {
     resolver: (options: {
       ctx: { drizzle: object; userId: string };
@@ -47,7 +50,7 @@ const setup = (
       },
       input: { id: source.id },
     });
-  return { clone, insert, values };
+  return { clone, insert, values, logValues };
 };
 
 describe("jutsu.clone", () => {
@@ -88,6 +91,28 @@ describe("jutsu.clone", () => {
       jutsuRank: "H",
       effects: source.effects,
     });
+  });
+
+  it("records the actor, source and new jutsu in the audit log", async () => {
+    const { clone, logValues } = setup();
+    const result = await clone();
+    expect(logValues).toHaveBeenCalledTimes(1);
+    expect(logValues).toHaveBeenCalledWith({
+      id: expect.any(String),
+      userId: "staff",
+      tableName: "jutsu",
+      relatedId: result.message,
+      changes: ["Cloned from Fireball"],
+      relatedMsg: `Clone: Fireball - copy ${result.message}`,
+      relatedImage: source.image,
+    });
+  });
+
+  it("does not log a clone whose insert failed", async () => {
+    const { clone, values, logValues } = setup();
+    values.mockRejectedValueOnce(new Error("Insert failed"));
+    await expect(clone()).rejects.toThrow("Insert failed");
+    expect(logValues).not.toHaveBeenCalled();
   });
 
   it("supports repeated clones of a maximum-length name", async () => {
