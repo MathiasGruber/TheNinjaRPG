@@ -46,6 +46,8 @@ const setup = (
             jutsu: { findFirst: async () => row },
           },
           insert,
+          transaction: async (callback: (tx: object) => Promise<unknown>) =>
+            callback({ insert }),
         },
       },
       input: { id: source.id },

@@ -582,27 +582,31 @@ export const jutsuRouter = createTRPCRouter({
       const id = nanoid();
       const suffix = ` - copy ${id}`;
       const name = `${source.name.slice(0, 191 - suffix.length)}${suffix}`;
-      await ctx.drizzle.insert(jutsu).values({
-        ...source,
-        id,
-        name,
-        hidden: true,
-        // Copies start independently; attaching them through the editor validates
-        // evolution limits and synchronizes linked-reskin mechanics.
-        parentJutsuId: null,
-        reskinParentJutsuId: null,
-        bloodlineReskinId: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      await ctx.drizzle.insert(actionLog).values({
-        id: nanoid(),
-        userId: ctx.userId,
-        tableName: "jutsu",
-        relatedId: id,
-        changes: [`Cloned from ${source.name}`],
-        relatedMsg: `Clone: ${name}`,
-        relatedImage: source.image,
+      // The copy and its provenance must commit together; an audit failure must not
+      // leave an unlogged copy and invite a duplicate on retry.
+      await ctx.drizzle.transaction(async (tx) => {
+        await tx.insert(jutsu).values({
+          ...source,
+          id,
+          name,
+          hidden: true,
+          // Copies start independently; attaching them through the editor validates
+          // evolution limits and synchronizes linked-reskin mechanics.
+          parentJutsuId: null,
+          reskinParentJutsuId: null,
+          bloodlineReskinId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        await tx.insert(actionLog).values({
+          id: nanoid(),
+          userId: ctx.userId,
+          tableName: "jutsu",
+          relatedId: id,
+          changes: [`Cloned from ${source.name}`],
+          relatedMsg: `Clone: ${name}`,
+          relatedImage: source.image,
+        });
       });
       return { success: true, message: id };
     }),
