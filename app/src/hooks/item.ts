@@ -157,6 +157,7 @@ export const useItemEditForm = (
     previousItemType.current = itemType;
   }, [form, isFurniture, itemType]);
 
+  // Hidden combat fields must still satisfy meal validation when switching item types.
   const isMeal = itemType === "MEAL";
   useEffect(() => {
     if (!isMeal) return;

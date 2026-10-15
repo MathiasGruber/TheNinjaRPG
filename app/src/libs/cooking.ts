@@ -4,7 +4,9 @@ import { getStatTypeLabels } from "@/libs/combat/util";
 import { getFarmingLevel, getFarmingLevelProgress } from "@/libs/farming";
 import { calcLevelRequirements } from "@/libs/profile";
 
+/** Cooking levels use the existing Farming experience curve. */
 export const getCookingLevel = getFarmingLevel;
+/** Progress to the next Cooking level on the shared Farming curve. */
 export const getCookingLevelProgress = getFarmingLevelProgress;
 /** Highest Cooking title unlocked on the shared Farming experience curve. */
 export const getCookingRank = (experience: number) => {
@@ -38,7 +40,7 @@ export const getCookingRankProgress = (experience: number) => {
           ),
   };
 };
-/** Batch duration counts each output meal and applies the Crafting shrine modifier. */
+/** Time counts every output meal; Crafting shrine bonuses increase Cooking duration. */
 export const getCookingSeconds = (
   meal: Pick<Item, "cookingTimeSeconds" | "cookingOutputQuantity">,
   batches: number,

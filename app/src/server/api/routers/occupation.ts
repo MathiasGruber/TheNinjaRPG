@@ -92,6 +92,7 @@ export const occupationRouter = createTRPCRouter({
       });
     }),
 
+  /** Visible meal recipes and ingredient requirements; Cooking needs no occupation. */
   getCookingRecipes: protectedProcedure.query(({ ctx }) =>
     ctx.drizzle.query.item.findMany({
       where: and(

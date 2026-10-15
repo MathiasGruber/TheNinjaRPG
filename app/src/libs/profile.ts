@@ -386,7 +386,10 @@ export const showUserRank = (user?: { rank?: UserRank; isOutlaw?: boolean }) => 
   return capitalizeFirstLetter(user.rank);
 };
 
-// Calculate user stats
+/**
+ * Current regeneration, including active timed bonuses by default. Interval settlement
+ * excludes them here and integrates their activation/expiry against the retained clock.
+ */
 export const calcActiveUserRegen = (
   user: UserData & {
     raidBuffs?: TimedBuff[];

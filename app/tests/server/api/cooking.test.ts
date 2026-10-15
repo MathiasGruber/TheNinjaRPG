@@ -10,19 +10,26 @@ import { craftingRequirement, item, userCookingJob, userData, userItem, userQueu
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { itemRouter } from "@/server/api/routers/item";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
-import type { DrizzleClient } from "@/server/db";
-import { settleCookingExperience } from "@/server/utils/cooking";
+import { consumeMeal, settleCookingExperience } from "@/server/utils/cooking";
 import { settleCraftingQueue } from "@/server/utils/userQueue";
 import { IncreaseStatTag, IncreaseRegenerationTag } from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import { insertItems, insertUsers, insertUserItems } from "../../setup/factories";
-import { failStatements } from "../../setup/statements";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const userId = "cook";
 const past = () => new Date(Date.now() - 60000);
 const readUser = async () => (await getTestDatabase()).query.userData.findFirst({ where: eq(userData.userId, userId) });
 const materials = async () => (await getTestDatabase()).query.userItem.findMany({ where: and(eq(userItem.userId, userId), eq(userItem.itemId, "rice")) });
+const mealSnapshot = async (id = "edible") => {
+  const db = await getTestDatabase();
+  const [user, owned] = await Promise.all([
+    db.query.userData.findFirst({ where: eq(userData.userId, userId), with: { raidBuffs: true } }),
+    db.query.userItem.findFirst({ where: eq(userItem.id, id), with: { item: true } }),
+  ]);
+  return { client: db, user: user!, owned: owned!, expectedQuantity: owned!.quantity };
+};
 
 describeWithDatabase("Cooking production and consumption", () => {
   beforeEach(async () => {
@@ -93,14 +100,7 @@ describeWithDatabase("Cooking production and consumption", () => {
     const db = await getTestDatabase();
     const receipt = { id: "cooking-retry", userId, experience: 30, finishesAt: past() };
     await db.insert(userCookingJob).values(receipt);
-    const failing = new Proxy(db, {
-      get(target, key, receiver) {
-        if (key !== "transaction") return Reflect.get(target, key, receiver);
-        return (callback: Parameters<typeof db.transaction>[0]) => target.transaction((tx) =>
-          callback(failStatements(tx as unknown as DrizzleClient, userData) as typeof tx),
-        );
-      },
-    });
+    const failing = failStatements(db, userData);
     const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
 
     const failed = await fetchUpdatedUser({ client: failing, userId });
@@ -118,6 +118,73 @@ describeWithDatabase("Cooking production and consumption", () => {
     expect(await db.query.userCookingJob.findMany()).toEqual([]);
     expect((await fetchUpdatedUser({ client: db, userId })).user?.cookingExperience).toBe(30);
     expect((await readUser())?.cookingExperience).toBe(30);
+  });
+
+  it("reconciles committed receipts when another receipt fails, then retries only the pending XP", async () => {
+    const db = await getTestDatabase();
+    const receipts = [
+      { id: "first", userId, experience: 20, finishesAt: past() },
+      { id: "second", userId, experience: 30, finishesAt: past() },
+      { id: "third", userId, experience: 40, finishesAt: past() },
+    ];
+    await db.insert(userCookingJob).values(receipts);
+    const failure = new Error("Second receipt failed");
+    const failing = beforeStatements(db, userData, [async () => {}, async () => { throw failure; }]);
+    const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
+
+    const result = await fetchUpdatedUser({ client: failing, userId });
+    expect(result.user?.cookingExperience).toBe(60);
+    expect(result.requiresUserRefresh).toBe(true);
+    expect((await readUser())?.cookingExperience).toBe(60);
+    expect((await db.query.userCookingJob.findMany()).map((job) => job.experience)).toEqual([30]);
+    expect(warning).toHaveBeenCalledWith(failure, { level: "warning", tags: { source: "settleCookingExperience" } });
+
+    expect((await fetchUpdatedUser({ client: db, userId })).user?.cookingExperience).toBe(90);
+    expect(await db.query.userCookingJob.findMany()).toEqual([]);
+    expect((await fetchUpdatedUser({ client: db, userId })).user?.cookingExperience).toBe(90);
+  });
+
+  it("keeps a zero-XP delivery marker when cleanup fails and cannot replay a stale receipt", async () => {
+    const db = await getTestDatabase();
+    const receipt = { id: "cleanup-retry", userId, experience: 30, finishesAt: past() };
+    await db.insert(userCookingJob).values(receipt);
+    const failure = new Error("Receipt cleanup failed");
+    const failing = beforeStatements(db, userCookingJob, [async () => {}, async () => { throw failure; }]);
+    const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
+
+    expect(await settleCookingExperience(failing, userId, [receipt])).toBe(true);
+    expect((await readUser())?.cookingExperience).toBe(30);
+    expect(await db.query.userCookingJob.findMany()).toEqual([{ ...receipt, experience: 0 }]);
+    expect(warning).toHaveBeenCalledWith(failure, { level: "warning", tags: { source: "settleCookingExperience" } });
+    expect(await settleCookingExperience(db, userId, [receipt])).toBe(true);
+    expect((await readUser())?.cookingExperience).toBe(30);
+    expect(await db.query.userCookingJob.findMany()).toEqual([]);
+  });
+
+  it("guards receipt owner, exact XP and due time while cleaning up due zero-XP recipes", async () => {
+    const db = await getTestDatabase();
+    const due = past();
+    await db.insert(userCookingJob).values([
+      { id: "changed", userId, experience: 31, finishesAt: due },
+      { id: "foreign", userId: "other", experience: 30, finishesAt: due },
+      { id: "future", userId, experience: 30, finishesAt: new Date(Date.now() + 60000) },
+      { id: "zero", userId, experience: 0, finishesAt: due },
+    ]);
+    const stale = ["changed", "foreign", "future"].map((id) => ({ id, experience: 30, finishesAt: due }));
+    expect(await settleCookingExperience(db, userId, stale)).toBe(true);
+    expect((await readUser())?.cookingExperience).toBe(0);
+    expect((await db.query.userCookingJob.findMany()).map((job) => job.id).sort()).toEqual(["changed", "foreign", "future"]);
+  });
+
+  it("increments XP once per receipt across simultaneous settlements of several jobs", async () => {
+    const db = await getTestDatabase();
+    const receipts = [10, 20, 30].map((experience) => ({ id: `parallel-${experience}`, userId, experience, finishesAt: past() }));
+    await db.insert(userCookingJob).values(receipts);
+    expect(await Promise.all([settleCookingExperience(db, userId, receipts), settleCookingExperience(db, userId, receipts)])).toEqual([true, true]);
+    expect((await readUser())?.cookingExperience).toBe(60);
+    expect(await db.query.userCookingJob.findMany()).toEqual([]);
+    expect(await settleCookingExperience(db, userId, receipts)).toBe(true);
+    expect((await readUser())?.cookingExperience).toBe(60);
   });
 
   it("keeps profile reconciliation after Cooking XP commits but the refreshed profile read fails", async () => {
@@ -177,6 +244,96 @@ describeWithDatabase("Cooking production and consumption", () => {
     expect(replaced[0]!.expiresAt.getTime()).toBeLessThan(extended.expiresAt.getTime());
     expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "soup") })).toBeUndefined();
     expect((await caller.consume({ userItemId: "edible", expectedQuantity: 3 })).success).toBe(false);
+  });
+
+  it("allows only one competing meal to debit its stack and replace the account effect", async () => {
+    const db = await getTestDatabase();
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }, { id: "soup", userId, itemId: "meal2", quantity: 1 }]);
+    const [rice, soup] = await Promise.all([mealSnapshot(), mealSnapshot("soup")]);
+    const results = await Promise.all([consumeMeal(rice), consumeMeal(soup)]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    const buff = (await db.query.userRaidBuff.findMany())[0]!;
+    const remaining = await db.query.userItem.findMany({ where: and(eq(userItem.userId, userId), eq(userItem.quantity, 1)) });
+    expect(remaining.map((row) => row.itemId)).toEqual([buff.itemId === "meal" ? "meal2" : "meal"]);
+    expect(buff.effects).toEqual(buff.itemId === "meal" ? rice.owned.item.effects : soup.owned.item.effects);
+  });
+
+  it.each([
+    ["quantity", { quantity: 2 }],
+    ["owner", { userId: "other" }],
+    ["item", { itemId: "meal2" }],
+    ["storage", { storedAtHome: true }],
+    ["auction", { isInAuction: true }],
+    ["equipment", { equipped: "HAND_1" }],
+    ["unfinished output", { craftingFinishedAt: new Date(Date.now() + 60000) }],
+  ] as const)("preserves the current meal and item when its %s changes after validation", async (_, change) => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "other", username: "Other" }]);
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }]);
+    const snapshot = await mealSnapshot();
+    const client = beforeStatements(db, userData, [async () => db.update(userItem).set(change).where(eq(userItem.id, "edible"))]);
+    expect((await consumeMeal({ ...snapshot, client })).success).toBe(false);
+    expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "edible") })).toMatchObject({ quantity: 1, ...change });
+    const placeholder = (await db.query.userRaidBuff.findMany())[0]!;
+    expect(placeholder.effects).toEqual([]);
+    expect(placeholder.itemId).toBeNull();
+    expect(placeholder.expiresAt.getTime()).toBeLessThanOrEqual(Date.now());
+    expect((await readUser())?.updatedAt).toEqual(snapshot.user.updatedAt);
+  });
+
+  it.each([
+    ["snapshot", { updatedAt: new Date(Date.now() + 60000) }],
+    ["status", { status: "ASLEEP" }],
+    ["battle", { battleId: "busy" }],
+  ] as const)("leaves the meal available when account %s changes after validation", async (_, change) => {
+    const db = await getTestDatabase();
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }]);
+    const snapshot = await mealSnapshot();
+    const client = beforeStatements(db, userData, [async () => db.update(userData).set(change).where(eq(userData.userId, userId))]);
+    expect((await consumeMeal({ ...snapshot, client })).success).toBe(false);
+    expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "edible") })).toMatchObject({ quantity: 1 });
+    expect((await db.query.userRaidBuff.findMany())[0]?.effects).toEqual([]);
+    expect(await readUser()).toMatchObject(change);
+  });
+
+  it("rejects a meal buff owned by another account without altering it", async () => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "other", username: "Other" }]);
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }]);
+    const foreign = { id: `meal-${userId}`, userId: "other", itemId: "meal2", effects: [], expiresAt: new Date(Date.now() + 60000), createdAt: past() };
+    await db.insert(userRaidBuff).values(foreign);
+    const snapshot = await mealSnapshot();
+    expect((await consumeMeal(snapshot)).success).toBe(false);
+    expect(await db.query.userRaidBuff.findMany()).toEqual([{ ...foreign, questId: null }]);
+    expect((await db.query.userItem.findFirst({ where: eq(userItem.id, "edible") }))?.quantity).toBe(1);
+  });
+
+  it("preserves the stack and active effect when the atomic meal write fails", async () => {
+    const db = await getTestDatabase();
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }]);
+    const current = { id: `meal-${userId}`, userId, itemId: "meal2", effects: [IncreaseRegenerationTag.parse({ power: 20 })], expiresAt: new Date(Date.now() + 60000), createdAt: past() };
+    await db.insert(userRaidBuff).values(current);
+    const snapshot = await mealSnapshot();
+    await expect(consumeMeal({ ...snapshot, client: failStatements(db, userData) })).rejects.toThrow("Statement failed on purpose");
+    expect(await db.query.userRaidBuff.findMany()).toEqual([{ ...current, questId: null }]);
+    expect((await db.query.userItem.findFirst({ where: eq(userItem.id, "edible") }))?.quantity).toBe(1);
+    expect((await readUser())?.updatedAt).toEqual(snapshot.user.updatedAt);
+  });
+
+  it("reports committed consumption as success when empty-stack cleanup fails", async () => {
+    const db = await getTestDatabase();
+    await insertUserItems([{ id: "edible", userId, itemId: "meal", quantity: 1 }]);
+    const snapshot = await mealSnapshot();
+    const failure = new Error("Empty stack cleanup failed");
+    const client = beforeStatements(db, userItem, [async () => {}, async () => { throw failure; }]);
+    const warning = vi.spyOn(Sentry, "captureException").mockReturnValue("warning-event");
+    expect(await consumeMeal({ ...snapshot, client })).toMatchObject({ success: true, userRefresh: true });
+    expect((await db.query.userItem.findFirst({ where: eq(userItem.id, "edible") }))?.quantity).toBe(0);
+    const buff = (await db.query.userRaidBuff.findMany())[0]!;
+    expect(buff.effects).toEqual(snapshot.owned.item.effects);
+    expect(warning).toHaveBeenCalledWith(failure, { level: "warning", tags: { source: "consumeMeal" } });
+    expect((await consumeMeal(snapshot)).success).toBe(false);
+    expect(await db.query.userRaidBuff.findMany()).toEqual([buff]);
   });
 
   it("settles expired regeneration before the normal five-minute throttle and includes queued Energy", async () => {

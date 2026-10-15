@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { waitFor } from "@testing-library/react";
-import { QueryClient, QueryObserver, type QueryObserverOptions } from "@tanstack/react-query";
-import { describe, expect, it } from "bun:test";
+import { MutationObserver, type MutationObserverOptions, QueryClient, QueryObserver, type QueryObserverOptions } from "@tanstack/react-query";
+import { describe, expect, it, vi } from "bun:test";
 
 const sourceRoot = join(import.meta.dirname, "../../src");
 const read = (file: string) => readFileSync(join(sourceRoot, file), "utf8");
@@ -37,6 +37,59 @@ const queryOptions = (file: string, procedure: string) => {
 };
 
 describe("inventory pages", () => {
+  it("refreshes a rejected meal's stale modal snapshot and clears pending state", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime, retry: false } } });
+    let quantity = 3;
+    let activeMeal = "old meal";
+    const inventory = new QueryObserver(client, { queryKey: ["inventory"], queryFn: async () => quantity });
+    const profile = new QueryObserver(client, { queryKey: ["profile"], queryFn: async () => activeMeal });
+    const unsubscribeInventory = inventory.subscribe(() => {});
+    const unsubscribeProfile = profile.subscribe(() => {});
+    let isOpen = true;
+    let selected: unknown = { item: { itemType: "MEAL" }, quantity: 3 };
+    const toast = vi.fn();
+    const backpack = read("app/[shell]/items/page.tsx").split("const Backpack:")[1]!;
+    const settled = backpack.match(/const onSettled = (\(\) => \{[\s\S]*?\n  \});/)?.[1];
+    const callbacks = backpack.match(/api\.item\.consume\.useMutation\((\{[\s\S]*?\n  \})\);/)?.[1];
+    if (!settled || !callbacks) throw new Error("Backpack consume callbacks were not found");
+    const onSettled = new Function("setIsOpen", "setUserItem", `return (${settled});`)(
+      (value: boolean) => { isOpen = value; },
+      (value: unknown) => { selected = value; },
+    );
+    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", `return (${callbacks});`)(
+      {
+        profile: { getUser: { invalidate: () => client.invalidateQueries({ queryKey: ["profile"] }) } },
+        item: { getUserItemsWithVariants: { invalidate: () => client.invalidateQueries({ queryKey: ["inventory"] }) } },
+      },
+      selected,
+      toast,
+      vi.fn(),
+      onSettled,
+    ) as MutationObserverOptions<{ success: boolean; message: string }, Error, void>;
+    const consume = new MutationObserver(client, { ...options, mutationFn: async () => ({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" }) });
+    try {
+      await waitFor(() => expect(inventory.getCurrentResult().data).toBe(3));
+      await waitFor(() => expect(profile.getCurrentResult().data).toBe("old meal"));
+      // Another tab consumes a meal while this modal still holds its earlier quantity.
+      quantity = 2;
+      activeMeal = "Rice Bowl";
+      document.body.style.cursor = "wait";
+      await consume.mutate();
+
+      expect(toast).toHaveBeenCalledWith({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" });
+      expect(inventory.getCurrentResult().data).toBe(2);
+      expect(profile.getCurrentResult().data).toBe("Rice Bowl");
+      expect(consume.getCurrentResult().isPending).toBe(false);
+      expect(isOpen).toBe(false);
+      expect(selected).toBeUndefined();
+      expect(document.body.style.cursor).toBe("default");
+    } finally {
+      unsubscribeInventory();
+      unsubscribeProfile();
+      client.clear();
+    }
+  });
+
   for (const { file, procedure } of inventoryQueries) {
     it(`${file} shows items obtained since its last visit`, async () => {
       const client = new QueryClient({ defaultOptions: { queries: { staleTime, retry: false } } });

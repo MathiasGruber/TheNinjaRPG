@@ -875,6 +875,12 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           utils.bloodline.getItemRolls.invalidate(),
           utils.raids.getUserRaidBuffs.invalidate(),
         ]);
+      } else if (useritem?.item.itemType === "MEAL") {
+        // A rejected snapshot must refresh the next modal's quantity and account state.
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
+        ]);
       }
     },
     onSettled,

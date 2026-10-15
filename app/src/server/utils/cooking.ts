@@ -1,4 +1,5 @@
-import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import * as Sentry from "@sentry/nextjs";
+import { and, eq, lte, sql } from "drizzle-orm";
 import {
   type Item,
   type UserData,
@@ -10,14 +11,16 @@ import {
   userRaidBuff,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
-import {
-  claimUserSnapshot,
-  consumeUserItemAtomically,
-} from "@/server/utils/concurrency";
+import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { isMealEffect } from "@/validators/cooking";
 
-/** Claim completion receipts and award XP together; output stacks can move independently. */
+/**
+ * Atomically exchanges each due receipt's XP for an account increment, independently of
+ * output stacks. Zero XP marks a delivered receipt until best-effort cleanup removes it.
+ * Returns true for every due snapshot, including lost claims and partial failures, so
+ * callers reload account XP instead of returning a snapshot from before another claim.
+ */
 export const settleCookingExperience = async (
   client: DrizzleClient,
   userId: string,
@@ -26,35 +29,64 @@ export const settleCookingExperience = async (
 ) => {
   const due = jobs.filter((job) => job.finishesAt <= now);
   if (!due.length) return false;
-  return retryOnDeadlock(() =>
-    client.transaction(async (tx) => {
-      let experience = 0;
-      for (const job of due) {
-        const claimed = await tx
-          .delete(userCookingJob)
-          .where(
-            and(
-              eq(userCookingJob.id, job.id),
-              eq(userCookingJob.userId, userId),
-              lte(userCookingJob.finishesAt, now),
-            ),
-          );
-        if (claimed.rowsAffected === 1) experience += job.experience;
-      }
-      if (experience > 0)
-        await tx
-          .update(userData)
-          .set({
-            cookingExperience: sql`${userData.cookingExperience} + ${experience}`,
-            updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
-          })
-          .where(eq(userData.userId, userId));
-      return true;
-    }),
-  );
+  for (const job of due) {
+    if (job.experience <= 0) continue;
+    try {
+      // Drizzle cannot express this joined UPDATE. Claim one receipt per statement:
+      // MySQL updates a joined account row only once even if several receipts match.
+      // Use the guarded literal XP because multi-table assignment order is unspecified;
+      // reading receipt.experience while also zeroing it could otherwise award zero.
+      await retryOnDeadlock(() =>
+        client.execute(sql`
+          UPDATE ${userData}
+          INNER JOIN ${userCookingJob} ON ${userCookingJob.userId} = ${userData.userId}
+          SET ${userData.cookingExperience} = ${userData.cookingExperience} + ${job.experience},
+              ${userData.updatedAt} = GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt})),
+              ${userCookingJob.experience} = 0
+          WHERE ${userData.userId} = ${userId}
+            AND ${userCookingJob.id} = ${job.id}
+            AND ${userCookingJob.userId} = ${userId}
+            AND ${userCookingJob.finishesAt} <= ${now}
+            AND ${userCookingJob.experience} = ${job.experience}
+            AND ${userCookingJob.experience} > 0
+        `),
+      );
+    } catch (error) {
+      // Other receipts may already have committed. Keep this one retryable and finish
+      // reconciliation rather than hiding successful grants behind a stale profile.
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "settleCookingExperience" },
+      });
+    }
+  }
+  try {
+    await retryOnDeadlock(() =>
+      client
+        .delete(userCookingJob)
+        .where(
+          and(
+            eq(userCookingJob.userId, userId),
+            lte(userCookingJob.finishesAt, now),
+            eq(userCookingJob.experience, 0),
+          ),
+        ),
+    );
+  } catch (error) {
+    // A zero marker cannot grant XP again; cleanup failure must not undo reconciliation.
+    Sentry.captureException(error, {
+      level: "warning",
+      tags: { source: "settleCookingExperience" },
+    });
+  }
+  return true;
 };
 
-/** One account snapshot guards inventory removal and replacement of its single meal buff. */
+/**
+ * One joined update claims the account snapshot, debits the exact carried stack and
+ * replaces its single meal buff together. Only expired empty placeholders and harmless
+ * zero-quantity stacks can remain if preparatory or cleanup work loses a race.
+ */
 export const consumeMeal = async ({
   client,
   user,
@@ -104,56 +136,83 @@ export const consumeMeal = async ({
     (extendsMeal ? previous.expiresAt.getTime() : now.getTime()) +
       owned.item.mealDurationSeconds * 1000,
   );
-  const inventoryConflict = Symbol("inventoryConflict");
-  try {
-    return await retryOnDeadlock(() =>
-      client.transaction(async (tx) => {
-        const claim = await claimUserSnapshot({
-          client: tx,
-          userId: user.userId,
-          updatedAt: user.updatedAt,
-          where: [eq(userData.status, "AWAKE"), isNull(userData.battleId)],
-        });
-        if (!claim.success)
-          return { success: false, message: "Your state changed. Please try again" };
-        const taken = await consumeUserItemAtomically({
-          client: tx,
-          userId: user.userId,
-          userItemId: owned.id,
-          expectedQuantity,
-          where: [
-            eq(userItem.itemId, owned.itemId),
-            eq(userItem.storedAtHome, false),
-            eq(userItem.isInAuction, false),
-            eq(userItem.equipped, "NONE"),
-            or(
-              isNull(userItem.craftingFinishedAt),
-              lte(userItem.craftingFinishedAt, now),
+  // A rejected same-account race may leave this expired, effect-free row. That
+  // reversible residue costs no item or active effect; an existing buff is untouched.
+  await retryOnDeadlock(() =>
+    client
+      .insert(userRaidBuff)
+      .values({
+        id,
+        userId: user.userId,
+        itemId: null,
+        questId: null,
+        effects: [],
+        expiresAt: now,
+        createdAt: now,
+      })
+      .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
+  );
+  // Drizzle cannot express this joined UPDATE. Every guard is checked in the same
+  // statement as both value changes, so a lost account/item race changes neither.
+  const consumed = await retryOnDeadlock(() =>
+    client.execute(sql`
+      UPDATE ${userData}
+      INNER JOIN ${userItem} ON ${userItem.userId} = ${userData.userId}
+      INNER JOIN ${userRaidBuff} ON ${userRaidBuff.userId} = ${userData.userId}
+      SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+          ${userItem.quantity} = ${expectedQuantity - 1},
+          ${userRaidBuff.itemId} = ${owned.itemId},
+          ${userRaidBuff.questId} = NULL,
+          ${userRaidBuff.effects} = ${JSON.stringify(owned.item.effects)},
+          ${userRaidBuff.expiresAt} = ${expiresAt},
+          ${userRaidBuff.createdAt} = ${extendsMeal ? previous.createdAt : now}
+      WHERE ${userData.userId} = ${user.userId}
+        AND ${userData.updatedAt} = ${user.updatedAt}
+        AND ${userData.status} = 'AWAKE'
+        AND ${userData.battleId} IS NULL
+        AND ${userItem.id} = ${owned.id}
+        AND ${userItem.userId} = ${user.userId}
+        AND ${userItem.itemId} = ${owned.itemId}
+        AND ${userItem.quantity} = ${expectedQuantity}
+        AND ${userItem.quantity} > 0
+        AND ${userItem.storedAtHome} = FALSE
+        AND ${userItem.isInAuction} = FALSE
+        AND ${userItem.equipped} = 'NONE'
+        AND (${userItem.craftingFinishedAt} IS NULL OR ${userItem.craftingFinishedAt} <= ${now})
+        AND ${userRaidBuff.id} = ${id}
+        AND ${userRaidBuff.userId} = ${user.userId}
+    `),
+  );
+  if (consumed.rowsAffected === 0)
+    return {
+      success: false,
+      message: "Your state or meal stack changed. Please try again",
+    };
+  if (expectedQuantity === 1) {
+    try {
+      await retryOnDeadlock(() =>
+        client
+          .delete(userItem)
+          .where(
+            and(
+              eq(userItem.id, owned.id),
+              eq(userItem.userId, user.userId),
+              eq(userItem.quantity, 0),
             ),
-          ],
-        });
-        if (!taken) throw inventoryConflict;
-        const buff = {
-          itemId: owned.itemId,
-          questId: null,
-          effects: owned.item.effects,
-          expiresAt,
-          createdAt: extendsMeal ? previous.createdAt : now,
-        };
-        await tx
-          .insert(userRaidBuff)
-          .values({ id, userId: user.userId, ...buff })
-          .onDuplicateKeyUpdate({ set: buff });
-        return {
-          success: true,
-          message: `Ate ${owned.item.name}. ${extendsMeal ? "Extended" : "Applied"} its meal effect.`,
-          userRefresh: true,
-        };
-      }),
-    );
-  } catch (error) {
-    if (error === inventoryConflict)
-      return { success: false, message: "Your meal stack changed. Please try again" };
-    throw error;
+          ),
+      );
+    } catch (error) {
+      // Consumption already committed. Inventory reads hide zero stacks and reclaim
+      // stale tombstones; report success so the player does not retry the same meal.
+      Sentry.captureException(error, {
+        level: "warning",
+        tags: { source: "consumeMeal" },
+      });
+    }
   }
+  return {
+    success: true,
+    message: `Ate ${owned.item.name}. ${extendsMeal ? "Extended" : "Applied"} its meal effect.`,
+    userRefresh: true,
+  };
 };

@@ -423,6 +423,7 @@ export const DecreaseCooldownTag = z.object({
   actionsAffected: z.array(z.enum(AdjustableBasicActions)).optional(),
 });
 
+/** Recovery-rate bonus evaluated on the pool clock rather than as a per-round battle action. */
 export const IncreaseRegenerationTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,

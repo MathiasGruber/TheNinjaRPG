@@ -3269,7 +3269,7 @@ const fetchUpdatedUserOnce = async (props: {
         user = await queryUpdatedUser();
       }
     } catch (error) {
-      // Keep the loaded profile usable; rolled-back receipts settle on the next refresh.
+      // Keep the loaded profile usable; unclaimed receipts retry on the next refresh.
       Sentry.captureException(error, {
         level: "warning",
         tags: { source: "settleCookingExperience" },

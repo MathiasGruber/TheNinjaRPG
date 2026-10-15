@@ -2,8 +2,10 @@ import type { UserRaidBuff } from "@/drizzle/schema";
 import { getEffectPower } from "@/libs/combat/power";
 import type { BattleUserState, UserEffect } from "@/libs/combat/types";
 
+/** Persisted meal or raid bonuses, active from creation until their exclusive expiry. */
 export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt">;
 
+/** Base regeneration plus the strongest active bonus, comparing static and percentage gains. */
 export const getTimedRegeneration = (
   base: number,
   buffs: readonly TimedBuff[],
@@ -25,7 +27,10 @@ export const getTimedRegeneration = (
   return base + increase;
 };
 
-/** Integrate discrete regeneration ticks across activation and expiry, including offline time. */
+/**
+ * Recover complete ticks, sampling each at from + tick * tickSeconds. Grouping by
+ * activation/expiry boundaries preserves earned bonuses without iterating every offline tick.
+ */
 export const getTimedRegenerationGain = (
   base: number,
   buffs: readonly TimedBuff[],
@@ -70,6 +75,7 @@ const statFields = [
   "willpower",
 ] as const;
 type StatField = (typeof statFields)[number];
+/** Resolve unified combat-stat selectors and Highest generals into concrete affected fields. */
 const affectedFields = (effect: UserEffect, target: BattleUserState): StatField[] => {
   if (effect.type !== "increasestat") return [];
   const fields: StatField[] = [];
@@ -84,7 +90,10 @@ const affectedFields = (effect: UserEffect, target: BattleUserState): StatField[
   return [...new Set(fields)].filter((field) => statFields.includes(field));
 };
 
-/** Keep the strongest timed bonus per statistic; ordinary combat tags retain their stacking. */
+/**
+ * Keep each statistic's strongest timed bonus against its saved unmodified baseline.
+ * Equal bonuses use effect IDs to select one stable winner; ordinary combat tags still stack.
+ */
 export const nonStackingTimedStatEffect = (
   effect: UserEffect,
   effects: UserEffect[],
@@ -138,6 +147,7 @@ export const nonStackingTimedStatEffect = (
 
 /** Disjoint continuous bonus intervals for combat's fractional Energy recovery. */
 export type RegenerationPeriod = { startsAt: number; endsAt: number; bonus: number };
+/** Preload bonus-only intervals so combat settlement needs no further buff queries. */
 export const getTimedRegenerationPeriods = (
   base: number,
   buffs: readonly TimedBuff[],
@@ -155,6 +165,7 @@ export const getTimedRegenerationPeriods = (
     return bonus > 0 ? [{ startsAt, endsAt: boundaries[index + 1]!, bonus }] : [];
   });
 };
+/** Prorate overlapping bonus intervals; callers add ordinary base regeneration separately. */
 export const getRegenerationPeriodGain = (
   periods: readonly RegenerationPeriod[],
   from: Date,

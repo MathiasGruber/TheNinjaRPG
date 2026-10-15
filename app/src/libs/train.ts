@@ -1130,6 +1130,7 @@ export const settleMasteryTrainingQueue = (
 /**
  * Settle one-time entries (`queue`, oldest first) chronologically, so offline spending
  * frees capacity for later ticks.
+ * regenerationGain measures recovery over (fromTick, toTick] on the original clock.
  */
 export const settleEnergyTrainingQueue = (
   user: NonNullable<UserWithRelations>,
@@ -1167,7 +1168,7 @@ export const settleEnergyTrainingQueue = (
     if (energy < spent) {
       const fromTick = ticks - remainingTicks;
       if (energy + regenerationGain(fromTick, ticks) < spent) break;
-      // Find the first affordable tick across timed regeneration changes.
+      // Recovery is monotone; find the first affordable tick without scanning offline time.
       let low = 1;
       let high = remainingTicks;
       while (low < high) {
@@ -1207,6 +1208,7 @@ export const settleEnergyTrainingQueue = (
  * queue rows, shared by account refresh and combat setup. Uses the already loaded rows, so it
  * costs no query; the caller persists the result together with the new queue heads,
  * which consume the settled rows in the same write as the gains.
+ * An optional regenerationGain integrates timed bonuses as the Energy queue advances.
  */
 export const settleQueuedTraining = (
   user: NonNullable<UserWithRelations>,

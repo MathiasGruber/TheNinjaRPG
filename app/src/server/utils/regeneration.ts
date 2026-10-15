@@ -12,6 +12,7 @@ type RegenerationUser = Pick<UserData, "regenAt" | "regeneration"> & {
   raidBuffs?: readonly TimedBuff[];
 };
 
+/** Recover complete pool ticks from the retained clock, including bonuses that have expired. */
 export const getUserRegenerationGain = (user: RegenerationUser, at: Date) =>
   getTimedRegenerationGain(
     user.regenerationWithoutTimedBuffs ?? user.regeneration,
