@@ -12,6 +12,7 @@ import type {
 import { MASTERY_REQUIREMENT_FIELDS, MASTERY_TYPE_TO_STAT } from "@/libs/mastery";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import { boostPvpGain } from "@/libs/pvpExperience";
+import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 
 /** Count the disciplines of a successfully performed action once, not once per effect. */
 export const recordMasteryUsage = (user: BattleUserState, action: CombatAction) => {
@@ -62,12 +63,16 @@ export const combatMasteryGains = (
   const total = Object.values(usage).reduce((sum, n) => sum + n, 0);
   if (total <= 0) return {};
   const isPvp = targets.some((target) => !target.isAi && !target.isSummon);
+  // Loyalty augments the open-world human budget; AI growth and earned caps remain unchanged.
+  const loyaltyFactor = percentageMultiplier(
+    battle.battleType === "COMBAT" ? getVillageLoyaltyBonuses(user).pvpRewards : 0,
+  );
   const budget = isPvp
     ? boostPvpGain(
         (outcome === "Won" ? PVP_MASTERY_WIN_REWARD : PVP_MASTERY_LOSS_REWARD) *
           battle.rewardScaling,
         user.pvpBoostPercent ?? 0,
-      )
+      ) * loyaltyFactor
     : Math.max(0, pveGrowth);
   const base = { ...user, ...user.baseStatsForModifiers };
   return allocateMasteryGains(

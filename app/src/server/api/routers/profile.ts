@@ -3055,10 +3055,23 @@ export const updateUserContent = async (props: {
 };
 
 /**
- * Fetch user with bloodline & village relations. Occasionally updates the user with regeneration
- * of pools, or optionally forces regeneration with forceRegen=true
+ * Load user relations and settle passive regeneration when due or forceRegen=true.
+ * A lost expulsion CAS discards the snapshot; at most three complete attempts are made.
+ * Repeated concurrent membership changes produce a conflict instead of stale user data.
  */
-export const fetchUpdatedUser = async (props: {
+export const fetchUpdatedUser = async (
+  props: Parameters<typeof fetchUpdatedUserOnce>[0],
+) => {
+  // A lost village-state CAS invalidates the entire snapshot, including its relations.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const result = await fetchUpdatedUserOnce(props);
+    if (result !== null) return result;
+  }
+  throw serverError("CONFLICT", "User state changed concurrently; please try again");
+};
+
+/** One snapshot/regen pass; null requests a fresh attempt after a lost expulsion CAS. */
+const fetchUpdatedUserOnce = async (props: {
   client: DrizzleClient;
   userId: string;
   userIp?: string;
@@ -3408,6 +3421,9 @@ export const fetchUpdatedUser = async (props: {
     (user as NonNullable<UserWithRelations>).activeRaids = userActiveRaids;
   }
 
+  // Retain the stored base rate separately from the derived rate for accrued ticks.
+  const storedRegeneration = user?.regeneration;
+  let regenerationAfterExpulsion: number | undefined;
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
     user.regeneration = calcActiveUserRegen(user, settings);
@@ -3439,10 +3455,42 @@ export const fetchUpdatedUser = async (props: {
     };
   }
 
+  // Surviving memberships are durable retry markers after failed expulsion cleanup.
+  if (user?.isOutlaw) {
+    const [squadData, clanData] = await Promise.all([
+      user.anbuId ? fetchSquad(client, user.anbuId) : null,
+      user.clanId && user.clan?.villageId !== user.villageId
+        ? fetchClan(client, user.clanId)
+        : null,
+    ]);
+    // Outlaws retain factions belonging to Syndicate, hideouts and strongholds.
+    const needsClanCleanup = clanData?.village?.type === "VILLAGE";
+    const [removedFromSquad] = await Promise.all([
+      squadData ? removeFromSquad(client, squadData, user.userId) : false,
+      needsClanCleanup
+        ? removeFromClan(client, clanData, user, ["Turned outlaw"])
+        : null,
+    ]);
+    if (removedFromSquad) {
+      user.anbuId = null;
+      user.anbuSquad = null;
+    }
+    if (needsClanCleanup) {
+      user.clanId = null;
+      user.clan = null;
+      requiresUserRefresh = true;
+      requiresProgressionRefresh = true;
+    }
+  }
+
   // Handle village prestige situations
   if (user) {
     // If prestige below 0, reset to 0 and move to outlaw faction
-    if (user.villagePrestige < 0 && user.village?.type === "VILLAGE") {
+    if (
+      !user.isOutlaw &&
+      user.villagePrestige < 0 &&
+      user.village?.type === "VILLAGE"
+    ) {
       // Check if we need to remove the kage
       const needNewKage =
         user.villageId &&
@@ -3452,6 +3500,7 @@ export const fetchUpdatedUser = async (props: {
       const [syndicate, clanData, squadData, elder] = await Promise.all([
         client.query.village.findFirst({
           where: eq(village.type, "OUTLAW"),
+          with: { structures: true },
         }),
         user.clanId ? fetchClan(client, user.clanId) : null,
         user.anbuId ? fetchSquad(client, user.anbuId) : null,
@@ -3460,37 +3509,60 @@ export const fetchUpdatedUser = async (props: {
           : null,
       ]);
       if (syndicate) {
-        // Immidiate update of user. Will be effectuated now (forceRegen)
-        user.villagePrestige = -user.villagePrestige;
-        user.villageId = syndicate.id;
-        user.isOutlaw = true;
+        const previousVillageId = user.villageId;
+        // Membership and tenure change together only while the prestige/village snapshot matches.
+        const kickUpdate = {
+          villagePrestige: Math.abs(user.villagePrestige),
+          villageId: syndicate.id,
+          isOutlaw: true,
+          joinedVillageAt: new Date(),
+        };
+        const expectedVillage = previousVillageId
+          ? eq(userData.villageId, previousVillageId)
+          : isNull(userData.villageId);
+        const kickResult = await client
+          .update(userData)
+          .set(kickUpdate)
+          .where(
+            and(
+              eq(userData.userId, user.userId),
+              eq(userData.villagePrestige, user.villagePrestige),
+              eq(userData.isOutlaw, false),
+              expectedVillage,
+            ),
+          );
+        if (kickResult.rowsAffected !== 1) return null;
+        Object.assign(user, kickUpdate);
+        if (storedRegeneration !== undefined) {
+          // Keep accrued ticks at the member rate; future ticks use the new membership.
+          regenerationAfterExpulsion = calcActiveUserRegen(
+            { ...user, regeneration: storedRegeneration, village: syndicate },
+            settings,
+          );
+        }
         forceRegen = true;
         requiresUserRefresh = true;
         requiresProgressionRefresh = true;
-        // Trigger message to user
         void pusher.trigger(user.userId, "event", {
           type: "userMessage",
           message: "You have been kicked out of your village due to negative prestige",
           route: "/profile",
           routeText: "To Profile",
         });
-        // Queries to be run now
+        // Complete the guarded transition before starting related membership cleanup.
         await Promise.all([
-          // Squad updates
           ...(user.anbuId && squadData
             ? [removeFromSquad(client, squadData, user.userId)]
             : []),
-          // Clan updates
           ...(user.clanId && clanData
             ? [removeFromClan(client, clanData, user, ["Turned outlaw"])]
             : []),
-          // Kage updates
-          ...(needNewKage && elder
+          ...(needNewKage && elder && previousVillageId
             ? [
                 client
                   .update(village)
                   .set({ kageId: elder.userId, leaderUpdatedAt: new Date() })
-                  .where(eq(village.id, user.villageId)),
+                  .where(eq(village.id, previousVillageId)),
                 client
                   .update(userData)
                   .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
@@ -3743,7 +3815,11 @@ export const fetchUpdatedUser = async (props: {
     // Mask response copies only: trackerResults is reused by server-side quest updates.
     const responseUser = hideInformation ? getPublicQuestUser(user) : user;
     return {
-      user: { ...responseUser, effectiveMasteries: effectiveMasteries(user) },
+      user: {
+        ...responseUser,
+        regeneration: regenerationAfterExpulsion ?? responseUser.regeneration,
+        effectiveMasteries: effectiveMasteries(user),
+      },
       settings,
       publishedAchievementIds,
       progressionQuestCandidates,
@@ -3777,7 +3853,7 @@ export const fetchUpdatedUser = async (props: {
   }
 };
 
-/** Writes passive regen fields to userData; merges fresh village prestige/id/outlaw when persisting village state (not the separate negative-prestige kick flow above). */
+/** Writes passive regen fields to userData after refreshing any included village state. */
 const persistPassiveRegenToDb = async ({
   client,
   userId,

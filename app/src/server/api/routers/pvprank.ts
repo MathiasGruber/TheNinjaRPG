@@ -112,7 +112,7 @@ export const pvpRankRouter = createTRPCRouter({
           .map((r) => r.seasonRewards)
           .filter((r): r is NonNullable<typeof r> => r !== undefined && r !== null),
       );
-      const processedRewards = postProcessRewards(collapsedRewards);
+      const processedRewards = postProcessRewards(collapsedRewards, user);
       await updateRewards({
         client: ctx.drizzle,
         user,

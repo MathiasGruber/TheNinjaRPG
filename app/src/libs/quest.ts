@@ -57,7 +57,7 @@ import {
   isSupportedOverworldBindingTask,
   pickPlaceableSector,
 } from "@/libs/overworldAi";
-import { boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
+import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import { recordPartyContributions } from "@/libs/questParty";
 import {
   getIsolatedPyramid,
@@ -75,6 +75,7 @@ import { getSageMasteryDisplayRank, isSageRankAtLeast } from "@/libs/sageMode";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
 import { availableQuestLetterRanks } from "@/libs/train";
+import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
@@ -419,6 +420,7 @@ export const getReward = (
     const clanMissionBoost = user.isOutlaw
       ? 0
       : (user.clan?.missionRewardBoost ?? 0) / 100;
+    const loyalty = getVillageLoyaltyBonuses(user);
     let boostFactor = 1;
     if (userQuest?.quest.questType) {
       if (["mission", "crime", "medical"].includes(userQuest.quest.questType)) {
@@ -428,6 +430,9 @@ export const getReward = (
         boostFactor = 1 + errandsBoost + villageMissionBoost;
       }
     }
+    const missionLoyalty = ["mission", "errand"].includes(userQuest.quest.questType)
+      ? loyalty.missionRewards
+      : 0;
     // Get rewards
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
@@ -491,27 +496,36 @@ export const getReward = (
     });
     // Scale rewards
     const missionLike = ["mission", "crime"].includes(userQuest.quest.questType);
-    let factor = boostFactor; // Start with shrine boost factor
-
-    // Apply daily mission limit penalty if applicable, but keep shrine boost
-    if (
+    const reducedRewardFactor =
       missionLike &&
       isReducedMissionReward(user.dailyMissions, { phase: "in-progress" })
-    ) {
-      factor = ADDITIONAL_MISSION_REWARD_MULTIPLIER * boostFactor;
-    }
+        ? ADDITIONAL_MISSION_REWARD_MULTIPLIER
+        : 1;
+    const factor = boostFactor * reducedRewardFactor;
+    /** Preserve the floored base reward; only positive gains receive rounded additive loyalty. */
+    const scaleReward = (value: number, loyaltyPercent = 0) =>
+      Math.floor(value * factor) +
+      (value > 0
+        ? Math.round((value * loyaltyPercent * reducedRewardFactor) / 100)
+        : 0);
 
-    // Boosts, penalties and multipliers; applied identically to a reward-choice offer.
+    /** Apply the same scaling once to immediate rewards, packages and frozen choice offers. */
     const scaleRewards = (target: ObjectiveRewardType) => {
       // Apply only the listed gain categories, including frozen reward-choice offers.
       const pvpPercent = getPvpBoost(user, settings).totalPercent;
       boostPvpRewards(target, pvpPercent);
-      target.reward_money = Math.floor(target.reward_money * factor);
+      target.reward_money = scaleReward(target.reward_money, missionLoyalty);
       target.reward_clanpoints = Math.floor(target.reward_clanpoints * factor);
       target.reward_anbupoints = Math.floor(target.reward_anbupoints * factor);
-      target.reward_exp = Math.floor(target.reward_exp * factor);
-      target.reward_tokens = Math.floor(target.reward_tokens * factor);
-      target.reward_prestige = Math.floor(target.reward_prestige * factor);
+      target.reward_exp = scaleReward(target.reward_exp, missionLoyalty);
+      target.reward_tokens = scaleReward(
+        target.reward_tokens,
+        missionLoyalty + loyalty.villageRewards,
+      );
+      target.reward_prestige = scaleReward(
+        target.reward_prestige,
+        missionLoyalty + loyalty.villageRewards,
+      );
       target.reward_reputation = Math.floor(target.reward_reputation * factor);
       target.reward_medical_experience = Math.floor(
         target.reward_medical_experience * factor,
@@ -527,9 +541,10 @@ export const getReward = (
       );
       for (const field of MASTERY_EXPERIENCE_FIELDS)
         if (target[field] !== undefined)
-          target[field] = Math.floor((target[field] ?? 0) * factor);
-      target.reward_sage_mastery_experience = Math.floor(
-        target.reward_sage_mastery_experience * factor,
+          target[field] = scaleReward(target[field] ?? 0, missionLoyalty);
+      target.reward_sage_mastery_experience = scaleReward(
+        target.reward_sage_mastery_experience,
+        missionLoyalty,
       );
       target.reward_seichi_silver = Math.floor(target.reward_seichi_silver * factor);
 
@@ -694,6 +709,7 @@ export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
 /**
  * Post-process rewards to ensure that the rewards are valid
  * @param rewards - Rewards to post-process
+ * @param user - Recipient of an unscaled configured payout; omit for getReward outputs
  * @returns Post-processed rewards with item IDs as flat string array
  *
  * NOTE: Return type is explicitly annotated with PostProcessedRewards from
@@ -702,11 +718,26 @@ export type GetRewardResult = ReturnType<typeof getReward>["rewards"];
  */
 export const postProcessRewards = (
   rewards: ObjectiveRewardType,
+  user?: Parameters<typeof getVillageLoyaltyBonuses>[0],
 ): PostProcessedRewards => {
   // Defensive check: ensure reward_items is an array (handles malformed DB data)
   const rewardItems = Array.isArray(rewards?.reward_items) ? rewards.reward_items : [];
+  // Pass user for unscaled configured payouts; getReward already applies its quest factors.
+  const villageRewardBonus = user ? getVillageLoyaltyBonuses(user).villageRewards : 0;
   return {
     ...rewards,
+    ...(villageRewardBonus > 0
+      ? {
+          reward_tokens:
+            rewards.reward_tokens > 0
+              ? Math.round(boostPvpGain(rewards.reward_tokens, villageRewardBonus))
+              : rewards.reward_tokens,
+          reward_prestige:
+            rewards.reward_prestige > 0
+              ? Math.round(boostPvpGain(rewards.reward_prestige, villageRewardBonus))
+              : rewards.reward_prestige,
+        }
+      : {}),
     reward_items: rewardItems
       .filter((reward) => {
         // Use 'number' as drop chance (default 100 = guaranteed)

@@ -33,7 +33,6 @@ import {
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
-  MEDNIN_HEAL_ITEM_DISCOUNT_PERC,
   TUTORIAL_ITEM_ID,
 } from "@/drizzle/constants";
 import type {
@@ -117,9 +116,14 @@ import {
 import { hasEnergyQueue } from "@/libs/queue";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { filterRollableSageModes } from "@/libs/sageMode";
+import { shopItemDiscountFactor } from "@/libs/shop";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { callDiscordContent } from "@/libs/socials";
 import { hasRequiredLevel } from "@/libs/train";
+import {
+  getVillageLoyaltyBonuses,
+  getVillageLoyaltyShopCost,
+} from "@/libs/villageLoyalty";
 import { fetchBloodlines, fetchItemBloodlineRolls } from "@/routers/bloodline";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchMasterySources, fetchUserSkills } from "@/routers/skillTree";
@@ -190,8 +194,6 @@ import type { PostProcessedRewards } from "@/validators/rewards";
 import { ObjectiveReward, type ObjectiveRewardType } from "@/validators/rewards";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 import { updateRewards } from "./quests";
-
-const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -1346,14 +1348,18 @@ export const itemRouter = createTRPCRouter({
       if (!ownershipRows.length) return errorResponse("You don't own this item");
       if (existingUnlock) return errorResponse("Variant already unlocked");
 
-      // Currency checks
-      const currency = getVariantCurrencyOps(variant.costType, variant.cost, user);
-      if (currency.balance < variant.cost) {
-        return errorResponse(`Insufficient ${currency.label}. Need ${variant.cost}`);
+      // Prestige variants share the preview's loyalty price; other currencies keep their cost.
+      const cost =
+        variant.costType === "VILLAGE_PRESTIGE"
+          ? getVillageLoyaltyShopCost(variant.cost, user)
+          : variant.cost;
+      const currency = getVariantCurrencyOps(variant.costType, cost, user);
+      if (currency.balance < cost) {
+        return errorResponse(`Insufficient ${currency.label}. Need ${cost}`);
       }
 
       // Mutate — deduct currency first with CAS guard (skip for free variants)
-      if (variant.cost > 0) {
+      if (cost > 0) {
         const deductResult = await ctx.drizzle
           .update(userData)
           .set(currency.decrementSet)
@@ -1366,7 +1372,7 @@ export const itemRouter = createTRPCRouter({
 
       // Refund the deducted currency (no-op for free variants).
       const refundCurrency = async () => {
-        if (variant.cost > 0) {
+        if (cost > 0) {
           await ctx.drizzle
             .update(userData)
             .set(currency.incrementSet)
@@ -2270,7 +2276,7 @@ export const itemRouter = createTRPCRouter({
       let processedRewards: PostProcessedRewards | null = null;
       if (rewards.length > 0) {
         const collapsedRewards = collapseRewards(rewards);
-        processedRewards = postProcessRewards(collapsedRewards);
+        processedRewards = postProcessRewards(collapsedRewards, user);
       }
       // Claim the account, apply its effects and debit the stack together. A run
       // or battle that wins the account race leaves the item available for retry.
@@ -2858,16 +2864,16 @@ export const itemRouter = createTRPCRouter({
       };
       const sDiscount = getStrucBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
-      const hDiscount = info?.effects.find((e) => e.type === "heal")
-        ? MEDNIN_HEAL_ITEM_DISCOUNT_PERC
-        : 0;
-      const factor = Math.max(
-        MIN_ITEM_SHOP_DISCOUNT_FACTOR,
-        (100 - sDiscount - aDiscount - hDiscount) / 100,
-      );
+      const loyaltyDiscount = getVillageLoyaltyBonuses(user).shopDiscount;
       // Guard
       if (user.villageId !== input.villageId) return errorResponse("Wrong village");
       if (!info) return errorResponse("Item not found");
+      const factor = shopItemDiscountFactor(
+        info,
+        sDiscount,
+        aDiscount,
+        loyaltyDiscount,
+      );
       const allowance = getItemPurchaseAllowance(info, purchaseCounters, purchaseTime);
       if (allowance.remaining != null && input.stack > allowance.remaining) {
         return errorResponse(itemPurchaseLimitMessage(allowance));

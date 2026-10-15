@@ -31,6 +31,7 @@ import {
   PVP_EXPERIENCE_WIN_REWARD,
   PVP_WEEKLY_KILL_BOOST,
   PVP_WEEKLY_KILL_BOOST_CAP,
+  VILLAGE_LOYALTY_TIERS,
 } from "@/drizzle/constants";
 import { safeLocalStorageSetItem } from "@/hooks/localstorage";
 import ContentBox from "@/layout/ContentBox";
@@ -56,6 +57,10 @@ import { calcLevelRequirements, showUserRank } from "@/libs/profile";
 import { getRankedRank } from "@/libs/ranked_pvp";
 import { getSageMasteryDisplayRank } from "@/libs/sageMode";
 import { isTutorialActive } from "@/libs/tutorial";
+import {
+  getVillageLoyaltyDays,
+  getVillageLoyaltyTierDescription,
+} from "@/libs/villageLoyalty";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { nextRegenerationTickAt } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -276,6 +281,11 @@ function CharacterProfile() {
   }
 
   const equippedSageMode = userData.sageMode;
+  const loyaltyDays = getVillageLoyaltyDays(userData);
+  const activeLoyaltyTiers = VILLAGE_LOYALTY_TIERS.filter(
+    (tier) => loyaltyDays >= tier.days,
+  );
+  const nextLoyaltyTier = VILLAGE_LOYALTY_TIERS.find((tier) => loyaltyDays < tier.days);
 
   return (
     <>
@@ -393,6 +403,51 @@ function CharacterProfile() {
                 {differenceInHours(new Date(), new Date(userData.joinedVillageAt)) % 24}{" "}
                 hours
               </p>
+            )}
+            {!userData.isOutlaw && userData.villageId && (
+              <div className="flex items-center gap-1">
+                <span>
+                  Village loyalty: {loyaltyDays} day{loyaltyDays === 1 ? "" : "s"} (
+                  {activeLoyaltyTiers.length}/{VILLAGE_LOYALTY_TIERS.length} bonuses)
+                </span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-foreground"
+                      aria-label="Village loyalty details"
+                    >
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[360px] max-w-[90vw]">
+                    <p className="font-semibold">Village loyalty</p>
+                    <p className="mb-2 text-muted-foreground text-sm">
+                      Bonuses stack while you remain in your village and reset when you
+                      leave your village.
+                    </p>
+                    <ul className="space-y-1 text-sm">
+                      {VILLAGE_LOYALTY_TIERS.map((tier) => (
+                        <li
+                          key={`${tier.days}-${tier.bonus}`}
+                          className={
+                            loyaltyDays >= tier.days
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {tier.days} days: {getVillageLoyaltyTierDescription(tier)}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-sm">
+                      {nextLoyaltyTier
+                        ? `${nextLoyaltyTier.days - loyaltyDays} day${nextLoyaltyTier.days - loyaltyDays === 1 ? "" : "s"} until the next bonus.`
+                        : "All loyalty bonuses are active."}
+                    </p>
+                  </PopoverContent>
+                </Popover>
+              </div>
             )}
           </div>
           <div>

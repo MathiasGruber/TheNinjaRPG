@@ -43,6 +43,7 @@ import { getPvpBoost } from "@/libs/pvpExperience";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import type { SectorUser } from "@/libs/threejs/types";
 import { getReducedGainsDays } from "@/libs/train";
+import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { getStrucBoost } from "@/utils/village";
 import type { AssignableUserStats } from "@/validators/combat";
@@ -428,6 +429,8 @@ export const calcActiveUserRegen = (
   if (reducedDays > 0) {
     regeneration *= 0.5;
   }
+
+  regeneration *= percentageMultiplier(getVillageLoyaltyBonuses(user).regen);
 
   // Increase by event
   const setting = getGameSettingBoost("regenGainMultiplier", settings);

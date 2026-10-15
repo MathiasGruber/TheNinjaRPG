@@ -36,7 +36,7 @@ export const buildDerivedUserRegenUpdate = (props: {
   includeVillageState?: boolean;
 }) => {
   const { user, userIp, includeVillageState = false } = props;
-  // When true, villagePrestige / villageId / isOutlaw are written (see fetchUpdatedUser negative-prestige kick is separate).
+  // When true, villagePrestige / villageId / isOutlaw are written.
   const derivedUserUpdate: Record<string, unknown> = {
     curHealth: user.curHealth,
     curStamina: user.curStamina,

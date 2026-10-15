@@ -1,7 +1,9 @@
 import { and, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { quest, userData, village } from "@/drizzle/schema";
+import { boostPvpGain } from "@/libs/pvpExperience";
 import { collapseRewards } from "@/libs/rewards";
+import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import {
   getVillageMissionProgress,
   isVillageMissionAvailable,
@@ -190,10 +192,20 @@ export const villageMissionRouter = createTRPCRouter({
         return errorResponse("The Village Mission changed; refresh and try again");
       if (!mission.completed)
         return errorResponse("Complete every Village Mission objective first");
+      // Round the claiming leader's loyalty-adjusted tokens once before the guarded payout.
+      const rewardTokens =
+        mission.rewardTokens > 0
+          ? Math.round(
+              boostPvpGain(
+                mission.rewardTokens,
+                getVillageLoyaltyBonuses(user).villageRewards,
+              ),
+            )
+          : mission.rewardTokens;
       const result = await ctx.drizzle
         .update(village)
         .set({
-          tokens: sql`${village.tokens} + ${mission.rewardTokens}`,
+          tokens: sql`${village.tokens} + ${rewardTokens}`,
           activeMission: null,
         })
         .where(
@@ -214,7 +226,7 @@ export const villageMissionRouter = createTRPCRouter({
         );
       return {
         success: true,
-        message: `${mission.rewardTokens.toLocaleString()} tokens awarded to the village`,
+        message: `${rewardTokens.toLocaleString()} tokens awarded to the village`,
       };
     }),
 });

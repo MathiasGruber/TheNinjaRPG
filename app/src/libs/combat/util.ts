@@ -85,7 +85,8 @@ import { dungeonCombatResult } from "@/libs/dungeon";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
-import { randomInt, secureRandomInt } from "@/utils/math";
+import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
+import { randomInt, round, secureRandomInt } from "@/utils/math";
 import { secondsPassed } from "@/utils/time";
 import { getShrineBoost, getStrucBoost } from "@/utils/village";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
@@ -1958,11 +1959,21 @@ export const calcBattleResult = (
   const users = battle.usersState;
   const user = users.find((u) => u.userId === userId);
   if (user && !user.leftBattle) {
+    // Membership fields come from battle initiation; loyalty needs no additional combat reads.
+    const loyalty = getVillageLoyaltyBonuses(user);
     // Faction identities still determine reward eligibility and political consequences.
     const villageIds = [
       ...new Set(users.filter((u) => !u.isSummon).map((u) => u.villageId)),
     ];
     const targets = users.filter((u) => !u.isSummon && !areBattleAllies(u, user));
+    // The PvP milestone covers open-world human stat gains and experience, excluding money.
+    const pvpRewardBoost =
+      battleType === "COMBAT" &&
+      !user.isAi &&
+      !user.isSummon &&
+      targets.some((target) => !target.isAi)
+        ? loyalty.pvpRewards
+        : 0;
     const friends = getBattleTeamMembers(battle, user);
     const effects = battle.usersEffects;
     const survivingTargets = targets.filter((t) => stillInBattle(t, effects));
@@ -2050,6 +2061,7 @@ export const calcBattleResult = (
           }
         }
       }
+      experience *= percentageMultiplier(pvpRewardBoost);
 
       // Find users who did not leave battle yet
       const friendsUsers = friends.filter((u) => !u.isAi);
@@ -2642,6 +2654,10 @@ export const calcBattleResult = (
           });
       }
 
+      // Positive generated prestige/tokens gain loyalty; penalties retain their existing values.
+      deltaTokens = boostPvpGain(deltaTokens, loyalty.villageRewards);
+      deltaPrestige = boostPvpGain(deltaPrestige, loyalty.villageRewards);
+
       // Result object
       const result: CombatResult = {
         outcome: outcome,
@@ -2827,6 +2843,11 @@ export const calcBattleResult = (
             battle.extraState.pvpExperienceScaling ?? battle.rewardScaling,
           )
         : 0;
+      if (result.pvpExperience > 0)
+        result.pvpExperience = round(
+          result.pvpExperience * percentageMultiplier(pvpRewardBoost),
+          2,
+        );
       result.weeklyPvpKills =
         earnsPvpExperience && outcome === "Won"
           ? targetUsers.filter((target) => wasDefeated(target, effects)).length

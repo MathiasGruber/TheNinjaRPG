@@ -21,6 +21,8 @@ export const MAX_ITEM_PURCHASE_LIMIT = 100;
 export const MAX_ITEM_STACK_SIZE = 9_999;
 export const MAX_ITEM_CRAFTING_REQUIREMENT_QUANTITY = MAX_ITEM_STACK_SIZE;
 export const MAX_ITEM_SHOP_PURCHASE_QUANTITY = 50;
+/** Minimum fraction of the configured Ryo price retained after item-shop discounts. */
+export const MIN_ITEM_SHOP_DISCOUNT_FACTOR = 0.05;
 
 export const ActivityStreakTypes = ["RECURRING", "EVENT_PASS"] as const;
 export type ActivityStreakType = (typeof ActivityStreakTypes)[number];
@@ -1490,6 +1492,22 @@ export const COST_RESKIN_JUTSU = 60;
 export const VILLAGE_LEAVE_REQUIRED_RANK = "CHUNIN";
 export const VILLAGE_REDUCED_GAINS_DAYS = 7;
 export const VILLAGE_SYNDICATE_ID = "ryBk0qD4EgvPPyav2K4OC";
+/** Ascending, incremental milestones; repeated categories add percentage points. */
+export const VILLAGE_LOYALTY_TIERS = [
+  { days: 7, bonus: "regen", percent: 5 },
+  { days: 14, bonus: "villageRewards", percent: 3 },
+  { days: 20, bonus: "statGains", percent: 5 },
+  { days: 30, bonus: "pvpRewards", percent: 5 },
+  { days: 40, bonus: "shopDiscount", percent: 5 },
+  { days: 50, bonus: "regen", percent: 10 },
+  { days: 60, bonus: "missionRewards", percent: 5 },
+  { days: 70, bonus: "statGains", percent: 10 },
+  { days: 80, bonus: "masteryTraining", percent: 15 },
+  { days: 90, bonus: "villageRewards", percent: 10 },
+  { days: 100, bonus: "masteryTraining", percent: 15 },
+] as const;
+/** Bonus categories named by the configured loyalty milestones. */
+export type VillageLoyaltyBonus = (typeof VILLAGE_LOYALTY_TIERS)[number]["bonus"];
 export const ALLIANCE_VILLAGE_TYPES = ["VILLAGE", "HIDEOUT", "STRONGHOLD"] as const;
 /** Village types owned by a faction (clan), led by its leader without an elder council */
 export const FACTION_VILLAGE_TYPES = ["HIDEOUT", "STRONGHOLD"] as const;

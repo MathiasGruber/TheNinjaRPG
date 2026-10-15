@@ -256,6 +256,8 @@ export const registerRouter = createTRPCRouter({
         gender: input.gender,
         avatar: IMG_DEFAULT_PROFILE_PICTURE,
         villageId: villageData.id,
+        // New characters start at day zero rather than inheriting the backdated schema default.
+        joinedVillageAt: new Date(),
         bloodlineId: selectedBloodline.id,
         approvedTos: true,
         sector: villageData.sector,
