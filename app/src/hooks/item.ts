@@ -15,6 +15,7 @@ import {
 } from "@/drizzle/constants";
 import type { CraftingRequirement, Item } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
+import { focusWeightedCacheError } from "@/layout/WeightedCacheEditor";
 import { EVOLUTION_STAT_FORM_FIELDS } from "@/libs/evolution";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
@@ -92,7 +93,12 @@ export const useItemEditForm = (
         }
       }
     },
-    (errors) => showFormErrorsToast(errors),
+    (errors) => {
+      const cacheError = errors.effects ? focusWeightedCacheError() : undefined;
+      if (cacheError)
+        showMutationToast({ success: false, message: `Cannot save. ${cacheError}` });
+      else showFormErrorsToast(errors);
+    },
   );
 
   // Watch the effects
