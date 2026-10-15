@@ -31,6 +31,7 @@ import {
   type SanctionIdentity,
 } from "@/server/utils/sanctionTombstone";
 import { insertUsers } from "../../setup/factories";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import {
   callerFor,
   describeWithDatabase,
@@ -242,30 +243,10 @@ describeWithDatabase("sanction tombstones", () => {
       const ipGate = new Promise<void>((resolve) => {
         releaseIp = resolve;
       });
-      const profileClient = new Proxy(database, {
-        get(target, property, receiver) {
-          if (property === "insert")
-            return (table: Parameters<typeof target.insert>[0]) => {
-              const builder = target.insert(table);
-              if (table !== historicalIp) return builder;
-              return {
-                values: (...args: Parameters<typeof builder.values>) => {
-                  const insert = builder.values(...args);
-                  return {
-                    onDuplicateKeyUpdate: async (
-                      ...options: Parameters<typeof insert.onDuplicateKeyUpdate>
-                    ) => {
-                      enterIp();
-                      await ipGate;
-                      return insert.onDuplicateKeyUpdate(...options);
-                    },
-                  };
-                },
-              };
-            };
-          return Reflect.get(target, property, receiver);
-        },
-      });
+      const profileClient = beforeStatements(database, historicalIp, [async () => {
+        enterIp();
+        await ipGate;
+      }]);
       const profile = profileRouter
         .createCaller({
           drizzle: profileClient,
@@ -282,58 +263,44 @@ describeWithDatabase("sanction tombstones", () => {
       const deletionGate = new Promise<void>((resolve) => {
         releaseDeletion = resolve;
       });
-      const deletionClient = new Proxy(database, {
-        get(target, property, receiver) {
-          if (property === "insert" && boundary === "before sources")
-            return (table: Parameters<typeof target.insert>[0]) => {
-              const builder = target.insert(table);
-              if (table !== sanctionTombstone) return builder;
-              return {
-                select: (...args: Parameters<typeof builder.select>) => {
-                  const insert = builder.select(...args);
-                  return {
-                    onDuplicateKeyUpdate: async (
-                      ...options: Parameters<typeof insert.onDuplicateKeyUpdate>
+      const deletionClient = boundary === "before sources"
+        ? beforeStatements(database, sanctionTombstone, [async () => {
+            enterDeletion();
+            await deletionGate;
+          }])
+        : new Proxy(database, {
+            get(target, property, receiver) {
+              if (property === "query" && boundary === "history snapshot")
+                return {
+                  ...target.query,
+                  historicalIp: {
+                    ...target.query.historicalIp,
+                    findMany: async (
+                      ...args: Parameters<typeof target.query.historicalIp.findMany>
                     ) => {
+                      const result = await target.query.historicalIp.findMany(...args);
                       enterDeletion();
                       await deletionGate;
-                      return insert.onDuplicateKeyUpdate(...options);
+                      return result;
+                    },
+                  },
+                };
+              if (property === "delete" && boundary === "history removed")
+                return (table: Parameters<typeof target.delete>[0]) => {
+                  const builder = target.delete(table);
+                  if (table !== historicalIp) return builder;
+                  return {
+                    where: async (...args: Parameters<typeof builder.where>) => {
+                      const result = await builder.where(...args);
+                      enterDeletion();
+                      await deletionGate;
+                      return result;
                     },
                   };
-                },
-              };
-            };
-          if (property === "query" && boundary === "history snapshot")
-            return {
-              ...target.query,
-              historicalIp: {
-                ...target.query.historicalIp,
-                findMany: async (
-                  ...args: Parameters<typeof target.query.historicalIp.findMany>
-                ) => {
-                  const result = await target.query.historicalIp.findMany(...args);
-                  enterDeletion();
-                  await deletionGate;
-                  return result;
-                },
-              },
-            };
-          if (property === "delete" && boundary === "history removed")
-            return (table: Parameters<typeof target.delete>[0]) => {
-              const builder = target.delete(table);
-              if (table !== historicalIp) return builder;
-              return {
-                where: async (...args: Parameters<typeof builder.where>) => {
-                  const result = await builder.where(...args);
-                  enterDeletion();
-                  await deletionGate;
-                  return result;
-                },
-              };
-            };
-          return Reflect.get(target, property, receiver);
-        },
-      });
+                };
+              return Reflect.get(target, property, receiver);
+            },
+          });
       const capture = sanctions.recordSanctionTombstone;
       if (boundary === "captured")
         vi.spyOn(sanctions, "recordSanctionTombstone").mockImplementation(
@@ -415,17 +382,9 @@ describeWithDatabase("sanction tombstones", () => {
         .update(sanctionTombstone)
         .set({ sanctionEndsAt: new Date(Date.now() - 1) });
       if (failsOnce) {
-        const broken = new Proxy(database, {
-          get(target, property, receiver) {
-            if (property === "execute")
-              return async () => {
-                throw new Error("closure unavailable");
-              };
-            return Reflect.get(target, property, receiver);
-          },
-        });
+        const broken = failStatements(database, userReport);
         await expect(removeExpiredSanctionTombstones(broken)).rejects.toThrow(
-          "closure unavailable",
+          "Statement failed on purpose",
         );
         const before = await tombstonesOf(SANCTIONED);
         expect(before).toHaveLength(1);
@@ -440,23 +399,13 @@ describeWithDatabase("sanction tombstones", () => {
       const gate = new Promise<void>((resolve) => {
         release = resolve;
       });
-      const paused = new Proxy(database, {
-        get(target, property, receiver) {
-          if (property === "delete")
-            return (table: Parameters<typeof target.delete>[0]) => {
-              const builder = target.delete(table);
-              if (table !== sanctionTombstone) return builder;
-              return {
-                where: async (...args: Parameters<typeof builder.where>) => {
-                  enter();
-                  await gate;
-                  return builder.where(...args);
-                },
-              };
-            };
-          return Reflect.get(target, property, receiver);
+      const paused = beforeStatements(database, sanctionTombstone, [
+        async () => {}, // Let report closure run before pausing source deletion.
+        async () => {
+          enter();
+          await gate;
         },
-      });
+      ]);
       const pruning = removeExpiredSanctionTombstones(paused);
       await entered;
       try {

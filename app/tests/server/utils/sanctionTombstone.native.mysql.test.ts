@@ -28,6 +28,7 @@ import {
   type SanctionIdentity,
 } from "@/server/utils/sanctionTombstone";
 import { insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
   callerForDatabase,
@@ -653,30 +654,10 @@ describeWithDatabase("original sanctions during native deletion", () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const paused = new Proxy(database, {
-      get(target, property, receiver) {
-        if (property === "insert")
-          return (table: Parameters<typeof target.insert>[0]) => {
-            const builder = target.insert(table);
-            if (table !== historicalIp) return builder;
-            return {
-              values: (...args: Parameters<typeof builder.values>) => {
-                const insert = builder.values(...args);
-                return {
-                  onDuplicateKeyUpdate: async (
-                    ...options: Parameters<typeof insert.onDuplicateKeyUpdate>
-                  ) => {
-                    enter();
-                    await gate;
-                    return insert.onDuplicateKeyUpdate(...options);
-                  },
-                };
-              },
-            };
-          };
-        return Reflect.get(target, property, receiver);
-      },
-    });
+    const paused = beforeStatements(database, historicalIp, [async () => {
+      enter();
+      await gate;
+    }]);
     const pending = profileRouter
       .createCaller({
         drizzle: paused,
