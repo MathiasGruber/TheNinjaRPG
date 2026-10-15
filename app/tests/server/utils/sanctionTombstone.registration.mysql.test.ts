@@ -65,12 +65,12 @@ const claimIdentity = (userId: string, email = EMAIL) => {
   owners.set(userId, identity(email));
 };
 
-const register = async (userId: string, database?: DrizzleClient) =>
-  callerForDatabase(
-    registerRouter,
+const register = async (userId: string, database?: DrizzleClient, userIp?: string) =>
+  registerRouter.createCaller({
+    drizzle: database ?? (await getTestDatabase()),
     userId,
-    database ?? (await getTestDatabase()),
-  ).createCharacter({
+    userIp,
+  } as never).createCharacter({
     username: userId,
     gender: "Male",
     hair_color: "Black",
@@ -263,6 +263,37 @@ describeWithDatabase("registration claims current sanction sources", () => {
     // Registration in other suites must not meet this suite's unexpired tombstones.
     await resetTables(sanctionTombstone);
   });
+
+  it.each(["appears", "changes"] as const)(
+    "refuses publication when an IP source %s after the snapshot, then retries current decisions",
+    async (change) => {
+      const database = await getTestDatabase();
+      const ipHashes = [hashSanctionIdentifier("ip", "192.0.2.1")];
+      if (change === "changes")
+        await database.update(sanctionTombstone).set({ ipHashes });
+      claimIdentity("Concurrent", "different@example.com");
+      const { entered, release } = prepareAndPause();
+      const pending = register("Concurrent", database, "192.0.2.1");
+      await entered;
+      try {
+        await database
+          .update(sanctionTombstone)
+          .set({ ipHashes: change === "appears" ? ipHashes : [] });
+      } finally {
+        release();
+      }
+      expect(await pending).toMatchObject({ success: false });
+      await expectUnpublished();
+      expect(await register("Concurrent", database, "192.0.2.1")).toMatchObject({
+        success: true,
+      });
+      expect(
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, "Concurrent"),
+        }),
+      ).toMatchObject({ isBanned: change === "appears" });
+    },
+  );
 
   it.each(["ban", "silence"] as const)(
     "clears an inherited %s when only expired or inactive cases remain",

@@ -1,0 +1,1 @@
+ALTER TABLE `SanctionTombstone` ADD `ipHashes` json DEFAULT ('[]') NOT NULL;

@@ -6385,7 +6385,7 @@ export const accountDeletion = mysqlTable(
  * Minimal record of a ban or silence that was still running when its account was deleted,
  * so a new account for the same person serves the remainder (see
  * `server/utils/sanctionTombstone.ts`). Identifiers are keyed hashes, never plain email or
- * provider ids, and nothing about the character, its chat or its IPs is kept. The hourly
+ * provider ids or IP addresses, and no character or chat content is kept. The hourly
  * cleaner removes a row once `sanctionEndsAt` passes.
  */
 export const sanctionTombstone = mysqlTable(
@@ -6402,6 +6402,8 @@ export const sanctionTombstone = mysqlTable(
     emailHash: varchar("emailHash", { length: 64 }),
     /** Keyed hashes of each linked OAuth provider and provider user id. */
     accountHashes: json("accountHashes").$type<string[]>().notNull(),
+    /** Keyed hashes of valid last-used and historical IP addresses. */
+    ipHashes: json("ipHashes").$type<string[]>().notNull().default([]),
     /** Carryover reports whose clearing must also retire this retained sanction. */
     carryoverReportIds: json("carryoverReportIds")
       .$type<string[]>()

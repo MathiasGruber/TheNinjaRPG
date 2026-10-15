@@ -5,6 +5,7 @@ import {
   accountDeletion,
   actionLog,
   bloodline,
+  historicalIp,
   sanctionTombstone,
   storeUserIdAlias,
   userData,
@@ -14,6 +15,7 @@ import {
   village,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
+import { profileRouter } from "@/server/api/routers/profile";
 import { registerRouter } from "@/server/api/routers/register";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { removeAccountGameData } from "@/server/utils/accountDeletion/cleanup";
@@ -21,10 +23,12 @@ import { processAccountDeletions } from "@/server/utils/accountDeletion/process"
 import * as sanctions from "@/server/utils/sanctionTombstone";
 import {
   hashSanctionIdentifier,
+  hashSanctionIp,
   recordSanctionTombstone,
   type SanctionIdentity,
 } from "@/server/utils/sanctionTombstone";
 import { insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
   callerForDatabase,
@@ -113,23 +117,29 @@ const finishDeletion = async (userId = NATIVE_USER) => {
   ).toBeUndefined();
 };
 
-const register = async (userId: string) => {
+const register = async (userId: string, userIp?: string) => {
   expect(
-    await (await callerFor(registerRouter, userId)).createCharacter({
-      username: userId,
-      gender: "Male",
-      hair_color: "Black",
-      eye_color: "Blue",
-      skin_color: "Light",
-      attribute_1: "Soft features",
-      attribute_2: "Glasses",
-      attribute_3: "Short Hair",
-      read_tos: true,
-      read_privacy: true,
-      read_earlyaccess: true,
-      utm_source: null,
-      bloodlineId: "native-bloodline",
-    }),
+    await registerRouter
+      .createCaller({
+        drizzle: await getTestDatabase(),
+        userId,
+        userIp,
+      } as never)
+      .createCharacter({
+        username: userId,
+        gender: "Male",
+        hair_color: "Black",
+        eye_color: "Blue",
+        skin_color: "Light",
+        attribute_1: "Soft features",
+        attribute_2: "Glasses",
+        attribute_3: "Short Hair",
+        read_tos: true,
+        read_privacy: true,
+        read_earlyaccess: true,
+        utm_source: null,
+        bloodlineId: "native-bloodline",
+      }),
   ).toMatchObject({ success: true });
   return (await getTestDatabase()).query.userReport.findMany({
     where: eq(userReport.reportedUserId, userId),
@@ -160,10 +170,10 @@ const stubSingleIdentity = (afterDelete?: () => Promise<void>) => {
     },
   } as never);
   return {
-    register: async (userId: string, ownerIdentity = identity) => {
+    register: async (userId: string, ownerIdentity = identity, userIp?: string) => {
       expect(liveOwners.size).toBe(0);
       liveOwners.set(userId, ownerIdentity);
-      return register(userId);
+      return register(userId, userIp);
     },
     replace: (userId: string, replacement: SanctionIdentity) => {
       expect(liveOwners.has(userId)).toBe(true);
@@ -226,6 +236,7 @@ describeWithDatabase("original sanctions during native deletion", () => {
       accountDeletion,
       actionLog,
       bloodline,
+      historicalIp,
       sanctionTombstone,
       storeUserIdAlias,
       userData,
@@ -267,6 +278,105 @@ describeWithDatabase("original sanctions during native deletion", () => {
     vi.restoreAllMocks();
     await resetTables(sanctionTombstone);
   });
+
+  it.each(["clear", "silence", "ban"] as const)(
+    "preserves carryover %s while the original Clerk deletion retries",
+    async (decision) => {
+      const database = await getTestDatabase();
+      const ip = "192.0.2.71";
+      await database
+        .update(userData)
+        .set({ lastIp: ip })
+        .where(eq(userData.userId, NATIVE_USER));
+      await addReport("original", "BAN_ACTIVATED", new Date(Date.now() + 10 * DAY));
+      let failsOnce = true;
+      const deleted = new Set<string>();
+      vi.spyOn(clerk, "clerkClient").mockResolvedValue({
+        users: {
+          getUser: vi.fn(async (userId: string) => {
+            if (deleted.has(userId))
+              throw Object.assign(new Error("not found"), { status: 404 });
+            return {
+              ...identity,
+              emailAddresses: [
+                { ...identity.emailAddresses[0]!, emailAddress: `${userId}@example.com` },
+              ],
+              externalAccounts: [],
+            };
+          }),
+          deleteUser: vi.fn(async (userId: string) => {
+            if (failsOnce) {
+              failsOnce = false;
+              throw new Error("Clerk temporarily unavailable");
+            }
+            deleted.add(userId);
+          }),
+        },
+      } as never);
+      await database.insert(accountDeletion).values({ userId: NATIVE_USER });
+      expect(await processAccountDeletions(NATIVE_USER)).toEqual({
+        processed: 0,
+        failed: 1,
+      });
+      expect(await database.query.accountDeletion.findFirst()).toMatchObject({
+        phase: "QUEUED",
+      });
+      const [inherited] = await register("DuringDelay", ip);
+      expect(inherited).toMatchObject({ status: "BAN_ACTIVATED" });
+      const paused = await pauseNextDecision();
+      const deciding = callerForDatabase(reportsRouter, "staff", paused.client)[decision](
+        {
+          ...decisionInput,
+          object_id: inherited!.id,
+          banTime: 30,
+        },
+      );
+      await paused.entered;
+      try {
+        // Recapture after the decision but before closure/pruning must not revive it.
+        const before = await database.query.sanctionTombstone.findMany();
+        await recordSanctionTombstone(database, NATIVE_USER);
+        expect(await database.query.sanctionTombstone.findMany()).toEqual(before);
+      } finally {
+        paused.release();
+        await deciding;
+      }
+      expect(await deciding).toMatchObject({ success: true });
+      const expected = await database.query.sanctionTombstone.findMany();
+      if (decision === "clear") {
+        expect(expected).toHaveLength(0);
+        expect(
+          await database.query.userReport.findFirst({
+            where: eq(userReport.id, "original"),
+          }),
+        ).toMatchObject({ status: "REPORT_CLEARED" });
+      } else {
+        expect(expected).toMatchObject([
+          { sanction: decision === "ban" ? "BAN" : "SILENCE" },
+        ]);
+        expect(expected[0]!.sanctionEndsAt.getTime()).toBeGreaterThan(
+          Date.now() + 29 * DAY,
+        );
+      }
+      await database
+        .update(accountDeletion)
+        .set({ nextAttemptAt: new Date(Date.now() - 1) })
+        .where(eq(accountDeletion.userId, NATIVE_USER));
+      expect(await processAccountDeletions(NATIVE_USER)).toEqual({
+        processed: 1,
+        failed: 0,
+      });
+      expect(await database.query.sanctionTombstone.findMany()).toEqual(expected);
+      const later = await register("AfterRetry", ip);
+      expect(later).toHaveLength(decision === "clear" ? 0 : 1);
+      if (decision !== "clear")
+        expect(later[0]).toMatchObject({
+          status: decision === "ban" ? "BAN_ACTIVATED" : "SILENCE_ACTIVATED",
+          banEnd: expected[0]!.sanctionEndsAt,
+        });
+      await finishDeletion();
+    },
+  );
 
   it.each([false, true])(
     "finishes a clear after source pruning (deadlock: %p)",
@@ -520,15 +630,130 @@ describeWithDatabase("original sanctions during native deletion", () => {
     ]);
   });
 
+  it("retains late IPs after the original report expires and staff extends its carryover", async () => {
+    const { register: registerIdentity } = stubSingleIdentity();
+    const database = await getTestDatabase();
+    const oldIp = "192.0.2.10";
+    const lateIp = "192.0.2.20";
+    const end = new Date(Date.now() + 2_000);
+    await addReport("original", "BAN_ACTIVATED", end);
+    await database
+      .update(userData)
+      .set({
+        lastIp: oldIp,
+        isBanned: true,
+        villageId: "native-horizon",
+        updatedAt: new Date(Date.now() - 360_000),
+      })
+      .where(eq(userData.userId, NATIVE_USER));
+    let enter!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paused = beforeStatements(database, historicalIp, [async () => {
+      enter();
+      await gate;
+    }]);
+    const pending = profileRouter
+      .createCaller({
+        drizzle: paused,
+        userId: NATIVE_USER,
+        userIp: lateIp,
+      } as never)
+      .getUser();
+    await entered;
+    try {
+      await startDeletion();
+    } finally {
+      release();
+    }
+    await pending;
+    expect(
+      await database.query.historicalIp.findFirst({
+        where: eq(historicalIp.userId, NATIVE_USER),
+      }),
+    ).toMatchObject({ ip: lateIp });
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, NATIVE_USER),
+      }),
+    ).toMatchObject({ lastIp: lateIp });
+    const [inherited] = await registerIdentity("DuringDelay", identity, oldIp);
+    expect(inherited).toBeDefined();
+    expect(
+      await (await callerFor(reportsRouter, "staff")).ban({
+        ...decisionInput,
+        object_id: inherited!.id,
+      }),
+    ).toMatchObject({ success: true });
+    const revised = await database.query.userReport.findFirst({
+      where: eq(userReport.id, inherited!.id),
+    });
+    expect(revised!.banEnd!.getTime()).toBeGreaterThan(end.getTime());
+    // The raw report can expire during the native drain while its retained case runs on.
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.max(0, end.getTime() - Date.now() + 30)),
+    );
+    expect(
+      await database.query.userReport.findFirst({
+        where: eq(userReport.id, "original"),
+      }),
+    ).toMatchObject({ banEnd: end });
+    expect(end.getTime()).toBeLessThan(Date.now());
+    await finishDeletion();
+    expect(
+      await database.query.historicalIp.findMany({
+        where: eq(historicalIp.userId, NATIVE_USER),
+      }),
+    ).toHaveLength(0);
+    const retained = await database.query.sanctionTombstone.findFirst();
+    await deleteReplacement();
+    expect(
+      await registerIdentity(
+        "AfterCleanup",
+        {
+          ...identity,
+          emailAddresses: [
+            {
+              id: "primary",
+              emailAddress: "new@example.com",
+              verification: { status: "verified" },
+            },
+          ],
+          externalAccounts: [],
+        },
+        lateIp,
+      ),
+    ).toMatchObject([{ status: "BAN_ACTIVATED", banEnd: revised!.banEnd }]);
+    expect(
+      await database.query.userData.findFirst({
+        where: eq(userData.userId, "AfterCleanup"),
+      }),
+    ).toMatchObject({ isBanned: true });
+    expect(retained).toMatchObject({
+      ...hashes,
+      sanction: "BAN",
+      sanctionEndsAt: revised!.banEnd,
+      ipHashes: expect.arrayContaining([hashSanctionIp(oldIp), hashSanctionIp(lateIp)]),
+    });
+  });
+
   it.each([
-    ["ban", true],
-    ["silence", true],
-    ["clear", true],
-    ["silence", false],
-    ["clear", false],
+    ["ban", true, false],
+    ["silence", true, false],
+    ["clear", true, false],
+    ["silence", false, false],
+    ["clear", false, false],
+    ["ban", false, true],
+    ["silence", false, true],
+    ["clear", false, true],
   ] as const)(
-    "preserves carryover %s through native cleanup with independent silence: %p",
-    async (decision, hasIndependentSilence) => {
+    "preserves carryover %s through cleanup with independent silence: %p, raw reports removed: %p",
+    async (decision, hasIndependentSilence, reportsRemoved) => {
       const database = await getTestDatabase();
       const originalEnd = new Date(Date.now() + 10 * DAY);
       const independentEnd = new Date(Date.now() + 20 * DAY);
@@ -564,25 +789,41 @@ describeWithDatabase("original sanctions during native deletion", () => {
           },
         );
       }
-      await recordSanctionTombstone(database, NATIVE_USER, null);
+      // Late IP capture must leave the carryover's decision authoritative over the original report.
+      const lateIp = "192.0.2.30";
+      await database
+        .update(userData)
+        .set({ lastIp: lateIp })
+        .where(eq(userData.userId, NATIVE_USER));
+      const withLateIp = snapshot.map((source) => ({
+        ...source,
+        ipHashes: [...new Set([...source.ipHashes, hashSanctionIp(lateIp)!])],
+      }));
+      if (reportsRemoved)
+        await database
+          .delete(userReport)
+          .where(eq(userReport.reportedUserId, NATIVE_USER));
+      const clerkLookup = vi.spyOn(clerk, "clerkClient").mockClear();
+      await recordSanctionTombstone(database, NATIVE_USER);
+      if (reportsRemoved) expect(clerkLookup).not.toHaveBeenCalled();
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
       await finishDeletion();
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
       // A retry after the reports are gone must preserve the retained staff decision.
       await removeAccountGameData(NATIVE_USER);
       expect(
         await database.query.sanctionTombstone.findMany({
           where: eq(sanctionTombstone.userId, NATIVE_USER),
         }),
-      ).toEqual(snapshot);
+      ).toEqual(withLateIp);
 
       // Release the replacement's sign-in identity before another account reuses it.
       await database.insert(accountDeletion).values({ userId: "DuringDelay" });

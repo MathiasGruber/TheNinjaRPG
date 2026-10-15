@@ -240,6 +240,7 @@ export const registerRouter = createTRPCRouter({
         tombstones,
         ctx.userId,
         sanctionIdentity ?? null,
+        ctx.userIp,
       );
       const sanctionGuard = await reapplySanctions(
         ctx.drizzle,
@@ -247,6 +248,7 @@ export const registerRouter = createTRPCRouter({
         sanctions,
         carryoverReports.map((report) => report.id),
         sanctionIdentity,
+        ctx.userIp,
       );
       const values = {
         userId: ctx.userId,
