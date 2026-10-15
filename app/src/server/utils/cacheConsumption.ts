@@ -10,11 +10,13 @@ import {
   type cacheConsumptionResponseSchema,
 } from "@/validators/weightedCache";
 
+/** Namespace a retry identity by account so another user cannot replay its receipt. */
 export const cacheReceiptId = (userId: string, requestId: string) =>
   `cache:${createHash("sha256")
     .update(JSON.stringify([userId, requestId]))
     .digest("hex")}`;
 
+/** Decode an audit receipt and reject reuse of its request ID for a different stack. */
 export const readCacheReceipt = (changes: unknown, userItemId: string) => {
   let receipt: unknown;
   try {
@@ -31,7 +33,13 @@ export const readCacheReceipt = (changes: unknown, userItemId: string) => {
     : errorResponse("This opening request was already used for another item");
 };
 
-/** Claim, effects, grants, audit and the replayable response share one commit. */
+/**
+ * Commit a cache debit, all grants/effects and its replay receipt atomically.
+ * Bundles can insert several inventory rows, so a single guarded UPDATE cannot
+ * preserve this invariant. Validate configurations and select outcomes beforehand;
+ * consume must use the supplied client and remain safe to rerun after a deadlock.
+ * Return success:false only before side effects; throw after a mutation to roll back.
+ */
 export const commitCacheConsumption = async ({
   client,
   receiptId,

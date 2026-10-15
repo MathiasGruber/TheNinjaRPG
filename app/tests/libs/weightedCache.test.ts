@@ -4,6 +4,7 @@ import { cacheItemChance, resolveWeightedCache } from "@/libs/weightedCache";
 import { NonCombatConsumeRewardTag } from "@/validators/combat";
 import { type WeightedCache, weightedCacheSchema } from "@/validators/weightedCache";
 
+/** Include shared items and bundles so selection tests also exercise quantity aggregation. */
 const cache = (): WeightedCache => ({
   version: 1, displayName: "Chakra Pill Cache",
   rolls: [{ count: 1, probability: 5000 }, { count: 2, probability: 5000 }],
@@ -13,6 +14,7 @@ const cache = (): WeightedCache => ({
     { name: "Rare", probability: 2500, entries: [{ items: [{ itemId: "pill", quantity: 3 }, { itemId: "gem", quantity: 2 }, { itemId: "pill", quantity: 1 }] }] },
   ],
 });
+/** Supply exact boundary draws and fail if selection unexpectedly consumes another draw. */
 const sequence = (...values: number[]) => { let index = 0; return () => { const value = values[index++]; if (value === undefined) throw new Error("Unexpected extra random draw"); return value; }; };
 
 describe("weighted cache selection", () => {

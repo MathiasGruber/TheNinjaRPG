@@ -4,7 +4,9 @@ import {
   safeSessionStorageSetItem,
 } from "@/hooks/localstorage";
 
+// Memory retains retries when browser storage is unavailable; session storage survives reloads.
 const pending = new Map<string, string>();
+/** Keep pending openings separate across account switches and inventory stacks. */
 const storageKey = (userId: string, userItemId: string) =>
   `tnr:item-consume:${userId}:${userItemId}`;
 

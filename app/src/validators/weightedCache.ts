@@ -10,7 +10,9 @@ import {
 } from "@/drizzle/constants";
 import { PostProcessedRewardSchema } from "@/validators/rewards";
 
+/** Persist probabilities as integer basis points, including zero-weight draft outcomes. */
 const probability = z.number().int().min(0).max(CACHE_PROBABILITY_TOTAL);
+/** Bound each bundle quantity before expanding it into the existing reward grant format. */
 const cacheItemSchema = z.object({
   itemId: z.string().min(1).max(191),
   quantity: z.number().int().min(1).max(CACHE_MAX_QUANTITY),
@@ -45,6 +47,7 @@ export const weightedCacheDraftSchema = z.object({
     .max(CACHE_MAX_TIERS),
 });
 
+/** Active caches require complete distributions, selectable rewards and bounded delivery. */
 export const weightedCacheSchema = weightedCacheDraftSchema.superRefine(
   (cache, ctx) => {
     if (!cache.displayName)
@@ -98,6 +101,7 @@ export const weightedCacheSchema = weightedCacheDraftSchema.superRefine(
 );
 export type WeightedCache = z.infer<typeof weightedCacheSchema>;
 
+/** Worst-case delivery across selectable outcomes; zero-weight drafts cannot add rewards. */
 export const maximumCacheItems = (cache: z.infer<typeof weightedCacheDraftSchema>) => {
   const rolls = Math.max(
     0,
@@ -116,6 +120,7 @@ export const maximumCacheItems = (cache: z.infer<typeof weightedCacheDraftSchema
   return rolls * bundle;
 };
 
+/** Player-facing item odds describe at least one award per opening, expressed as percentages. */
 export const cacheRewardDisplaySchema = z.object({
   displayName: z.string(),
   items: z.array(z.object({ name: z.string(), chance: z.number().min(0).max(100) })),
@@ -130,6 +135,7 @@ export const cacheConsumptionResponseSchema = z.object({
   rewards: PostProcessedRewardSchema.nullable(),
   cacheRewards: z.array(cacheRewardDisplaySchema),
 });
+/** Bind the saved response to its inventory stack before accepting a replay. */
 export const cacheConsumptionReceiptSchema = z.object({
   userItemId: z.string(),
   response: cacheConsumptionResponseSchema,

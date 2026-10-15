@@ -2391,10 +2391,12 @@ export const itemRouter = createTRPCRouter({
           ),
         );
       }
+      /** Share the guarded claim and grants; only weighted caches supply a transaction client. */
       const commitConsumption = async (
         client: DrizzleClient,
         inTransaction: boolean,
       ) => {
+        // Isolate each deadlock attempt from reward boosts and response name resolution.
         const grantedRewards = processedRewards
           ? structuredClone(processedRewards)
           : null;
@@ -2475,6 +2477,7 @@ export const itemRouter = createTRPCRouter({
         const [granted] = await runRewardTasks(inTransaction)([rewardTask, ...tasks]);
         const { items, jutsus, bloodlines, badges, sageModes } = granted;
         if (inTransaction) {
+          // Catalog deletion after validation must roll back the debit and every partial grant.
           const expected = new Map<string, number>();
           for (const cache of cacheResults)
             for (const reward of cache.items)
@@ -2525,6 +2528,7 @@ export const itemRouter = createTRPCRouter({
           },
         });
       }
+      // Ordinary consumables retain the existing guarded claim and parallel mutation path.
       return commitConsumption(ctx.drizzle, false);
     }),
   // Repair user item

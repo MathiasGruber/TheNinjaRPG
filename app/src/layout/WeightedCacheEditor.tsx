@@ -21,6 +21,10 @@ import {
   weightedCacheSchema,
 } from "@/validators/weightedCache";
 
+/**
+ * Edit the parent-owned cache draft without discarding incomplete or inactive settings.
+ * Schema and catalog errors stay rendered inside collapsible sections for Save to reveal.
+ */
 export const WeightedCacheEditor = ({
   cache,
   onChange,
@@ -429,6 +433,7 @@ export const WeightedCacheEditor = ({
   );
 };
 
+/** Collapse visual detail while keeping draft controls and validation errors mounted. */
 const CacheSection = ({
   title,
   initiallyOpen,
@@ -456,6 +461,7 @@ const CacheSection = ({
   );
 };
 
+/** Convert percentages to basis points while preserving invalid precision for validation. */
 const ProbabilityInput = ({
   value,
   onChange,
@@ -477,6 +483,7 @@ const ProbabilityInput = ({
   </Label>
 );
 
+/** Show whether a roll or tier distribution fills the complete probability interval. */
 const ProbabilityTotal = ({
   label,
   values,
@@ -510,6 +517,7 @@ export const focusWeightedCacheError = (container: ParentNode = document) => {
   return error.textContent;
 };
 
+/** Turn schema paths into named tier/entry locations and actionable numeric feedback. */
 const cacheIssueMessage = (cache: WeightedCache, issue: CacheIssue) => {
   const [field, index, , entryIndex, , itemIndex] = issue.path;
   const location =

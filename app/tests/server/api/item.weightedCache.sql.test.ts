@@ -7,6 +7,7 @@ import { NonCombatConsumeRewardTag } from "@/validators/combat";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
+/** Exercise repeated bundle grants across both stackable and non-stackable inventory rows. */
 const cacheEffect = () => NonCombatConsumeRewardTag.parse({ rewardMode: "weightedCache", weightedCache: {
   version: 1, displayName: "Chakra Pill Cache",
   rolls: [{ count: 2, probability: 10_000 }],

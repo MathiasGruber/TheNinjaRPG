@@ -15,7 +15,10 @@ const selectWeighted = <T extends { probability: number }>(
   throw new Error("Random source must return a value in [0, 1)");
 };
 
-/** Cache selection is independent of ordinary objective drop checks. */
+/**
+ * Validate, draw a roll count, then independently select a tier and uniform entry per roll.
+ * Combine item quantities for delivery while retaining each selection for the audit receipt.
+ */
 export const resolveWeightedCache = (input: WeightedCache, random = Math.random) => {
   const cache = weightedCacheSchema.parse(input);
   const rollCount = selectWeighted(cache.rolls, random).count;
@@ -42,6 +45,7 @@ export const resolveWeightedCache = (input: WeightedCache, random = Math.random)
   };
 };
 
+/** Include inactive tiers so authoring checks catch references before a mode switch. */
 export const cacheItemIds = (cache: WeightedCache) => [
   ...new Set(
     cache.tiers.flatMap((tier) =>
@@ -79,6 +83,7 @@ export const cacheItemChance = (cache: WeightedCache, itemId: string) => {
   );
 };
 
+/** Start an editable draft that requires rewards before it can be saved in active mode. */
 export const defaultWeightedCache = (): WeightedCache => ({
   version: 1,
   displayName: "Reward Cache",

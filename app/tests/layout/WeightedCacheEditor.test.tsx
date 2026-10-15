@@ -26,6 +26,7 @@ afterEach(() => {
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
 });
 
+/** Keep the controlled editor's draft in parent state, as the item form does. */
 const CacheForm = () => {
   const [cache, setCache] = useState<WeightedCache>({
     version: 1,
