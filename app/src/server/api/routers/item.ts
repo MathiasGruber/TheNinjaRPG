@@ -213,7 +213,7 @@ import {
   type WeightedCache,
   weightedCacheSchema,
 } from "@/validators/weightedCache";
-import { updateRewards } from "./quests";
+import { runRewardTasks, updateRewards } from "./quests";
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -2472,13 +2472,7 @@ export const itemRouter = createTRPCRouter({
               : undefined,
           ...mutations.map((mutate) => () => mutate(client)),
         ];
-        let granted: Awaited<ReturnType<typeof rewardTask>>;
-        if (inTransaction) {
-          granted = await rewardTask();
-          for (const task of tasks) await task();
-        } else {
-          [granted] = await Promise.all([rewardTask(), ...tasks.map((task) => task())]);
-        }
+        const [granted] = await runRewardTasks(inTransaction)([rewardTask, ...tasks]);
         const { items, jutsus, bloodlines, badges, sageModes } = granted;
         if (inTransaction) {
           const expected = new Map<string, number>();

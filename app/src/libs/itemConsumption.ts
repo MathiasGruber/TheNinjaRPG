@@ -1,4 +1,8 @@
 import { nanoid } from "nanoid";
+import {
+  safeSessionStorageGetItem,
+  safeSessionStorageSetItem,
+} from "@/hooks/localstorage";
 
 const pending = new Map<string, string>();
 const storageKey = (userId: string, userItemId: string) =>
@@ -7,19 +11,9 @@ const storageKey = (userId: string, userItemId: string) =>
 /** Retain the opening identity through a lost response, dialog closure and page reload. */
 export const getItemConsumeRequestId = (userId: string, userItemId: string) => {
   const key = storageKey(userId, userItemId);
-  let requestId = pending.get(key);
-  try {
-    requestId ??= sessionStorage.getItem(key) ?? undefined;
-  } catch {
-    // Private/storage-restricted clients still retain the identity for this page's lifetime.
-  }
-  requestId ??= nanoid();
+  const requestId = pending.get(key) ?? safeSessionStorageGetItem(key) ?? nanoid();
   pending.set(key, requestId);
-  try {
-    sessionStorage.setItem(key, requestId);
-  } catch {
-    // The in-memory fallback above remains available when browser storage is disabled.
-  }
+  safeSessionStorageSetItem(key, requestId);
   return requestId;
 };
 

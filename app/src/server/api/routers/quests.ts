@@ -4883,7 +4883,7 @@ const describePackageRewards = (
  * Transaction callers must pass unevaluated tasks: each statement starts after the previous
  * statement supplies the driver's next session token. Results preserve the input tuple order.
  */
-const runRewardTasks =
+export const runRewardTasks =
   (inTransaction: boolean) =>
   async <T extends readonly (() => unknown)[]>(
     tasks: readonly [...T],

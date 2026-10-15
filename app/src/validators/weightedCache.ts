@@ -88,21 +88,7 @@ export const weightedCacheSchema = weightedCacheDraftSchema.superRefine(
             });
         });
     });
-    const maxRolls = Math.max(
-      0,
-      ...cache.rolls.filter((roll) => roll.probability > 0).map((roll) => roll.count),
-    );
-    const maxBundle = Math.max(
-      0,
-      ...cache.tiers
-        .filter((tier) => tier.probability > 0)
-        .flatMap((tier) =>
-          tier.entries.map((entry) =>
-            entry.items.reduce((sum, item) => sum + item.quantity, 0),
-          ),
-        ),
-    );
-    if (maxRolls * maxBundle > CACHE_MAX_GRANTED_ITEMS)
+    if (maximumCacheItems(cache) > CACHE_MAX_GRANTED_ITEMS)
       ctx.addIssue({
         code: "custom",
         path: ["tiers"],
@@ -112,7 +98,7 @@ export const weightedCacheSchema = weightedCacheDraftSchema.superRefine(
 );
 export type WeightedCache = z.infer<typeof weightedCacheSchema>;
 
-export const maximumCacheItems = (cache: WeightedCache) => {
+export const maximumCacheItems = (cache: z.infer<typeof weightedCacheDraftSchema>) => {
   const rolls = Math.max(
     0,
     ...cache.rolls.filter((roll) => roll.probability > 0).map((roll) => roll.count),
