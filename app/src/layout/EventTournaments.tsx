@@ -14,6 +14,7 @@ import {
   EVENT_TOURNAMENT_MIN_CAPACITY,
   EVENT_TOURNAMENT_READY_SECONDS,
   EVENT_TOURNAMENT_RETENTION_DAYS,
+  XP_BRACKETS,
 } from "@/drizzle/constants";
 import { useLiveCountdown } from "@/hooks/useLiveCountdown";
 import ContentBox from "@/layout/ContentBox";
@@ -182,6 +183,9 @@ export const EventTournaments = ({
     (p) => p.userId === user?.userId && !p.withdrawn,
   );
   const rounds = [...new Set(event.series.map((s) => s.round))].sort((a, b) => a - b);
+  const currentRound = Math.min(
+    ...event.series.filter((s) => !s.complete).map((s) => s.round),
+  );
   const seatName = (id: string | null) =>
     event.participants.find((p) => p.id === id)?.username ??
     "Bye / no advancing player";
@@ -288,6 +292,7 @@ export const EventTournaments = ({
       {canManage && (
         <StaffTournamentControls
           event={event}
+          currentRound={currentRound}
           tournamentId={tournamentId ?? ""}
           pending={pending}
           onEdit={() => setEditing(true)}
@@ -368,6 +373,8 @@ export const EventTournaments = ({
                             ? `Advances: ${seatName(series.winnerId)}`
                             : "No advancing player"}
                         </p>
+                      ) : event.status === "CANCELLED" ? (
+                        <p className="text-sm">Cancelled</p>
                       ) : game?.status === "READY" ? (
                         <ReadyCheck
                           game={game}
@@ -395,6 +402,8 @@ export const EventTournaments = ({
                       )}
                       {canManage &&
                         event.config.scheduling === "SEQUENTIAL" &&
+                        ["PREPARED", "RUNNING"].includes(event.status) &&
+                        series.round === currentRound &&
                         !series.begun &&
                         !series.complete &&
                         series.resolved && (
@@ -497,12 +506,14 @@ const ReadyCheck = ({
 
 const StaffTournamentControls = ({
   event,
+  currentRound,
   tournamentId,
   pending,
   onEdit,
   onAction,
 }: {
   event: EventTournamentState;
+  currentRound: number;
   tournamentId: string;
   pending: boolean;
   onEdit: () => void;
@@ -528,9 +539,6 @@ const StaffTournamentControls = ({
       ]);
     },
   });
-  const currentRound = Math.min(
-    ...event.series.filter((s) => !s.complete).map((s) => s.round),
-  );
   const applyRoster = (action: "INVITE" | "REMOVE_INVITE" | "SUBSTITUTE") =>
     mutation.mutate({
       tournamentId,
@@ -920,7 +928,7 @@ const defaultConfig = (): EventTournamentConfig => ({
   bestOf: 1,
   roundBestOf: [],
   minBracket: 0,
-  maxBracket: 7,
+  maxBracket: XP_BRACKETS.length,
   minPvpWins: 0,
   minWinRate: 0,
   minMasteredJutsu: 0,

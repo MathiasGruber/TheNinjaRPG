@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   EVENT_TOURNAMENT_MAX_CAPACITY,
   EVENT_TOURNAMENT_MIN_CAPACITY,
+  XP_BRACKETS,
 } from "@/drizzle/constants";
 import { ObjectiveReward } from "@/validators/rewards";
 
@@ -34,8 +35,8 @@ export const eventTournamentConfigSchema = z
       .max(EVENT_TOURNAMENT_MAX_CAPACITY),
     bestOf: seriesLength,
     roundBestOf: z.array(seriesLength).max(64),
-    minBracket: z.number().int().min(0).max(7),
-    maxBracket: z.number().int().min(0).max(7),
+    minBracket: z.number().int().min(0).max(XP_BRACKETS.length),
+    maxBracket: z.number().int().min(0).max(XP_BRACKETS.length),
     minPvpWins: z.number().int().min(0),
     minWinRate: z.number().min(0).max(100),
     minMasteredJutsu: z.number().int().min(0),
