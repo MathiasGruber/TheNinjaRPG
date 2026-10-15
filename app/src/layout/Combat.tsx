@@ -21,6 +21,7 @@ import { usePerformanceMonitor } from "@/hooks/performance-monitor";
 import { useTutorialStep } from "@/hooks/tutorial";
 import { usePageActive } from "@/hooks/usePageActive";
 import { CombatAggro } from "@/layout/CombatAggro";
+import { CombatResourceBars } from "@/layout/CombatResourceBars";
 import Image from "@/layout/Image";
 import ItemLoadoutSelector from "@/layout/ItemLoadoutSelector";
 import JutsuLoadoutSelector from "@/layout/JutsuLoadoutSelector";
@@ -1500,6 +1501,14 @@ const Combat: React.FC<CombatProps> = (props) => {
   return (
     <>
       <div id="tutorial-combat-field" ref={mountRef}></div>
+
+      {!result && !isInLobby && !webglError && battleState.battle && (
+        <CombatResourceBars
+          battle={battleState.battle}
+          userId={controlledActorId}
+          visibility={config.resourceBarsVisibility}
+        />
+      )}
 
       {/* Character aggro and effects share the same hover/touch details. */}
       {hoveredEffect && hoveredEffects && (

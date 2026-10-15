@@ -3,7 +3,15 @@
 import { RefreshCw, RotateCcw, Settings2 } from "lucide-react";
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SortableList } from "@/components/ui/sortable-list";
 import { Switch } from "@/components/ui/switch";
 import type { CombatPreferences } from "@/hooks/combat";
@@ -32,6 +40,7 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
 
   const [initialLightLayout] = React.useState<boolean>(lightLayout);
   const [lightLayoutChanged, setLightLayoutChanged] = React.useState(false);
+  const resourceBarsId = React.useId();
 
   React.useEffect(() => {
     setLightLayoutChanged(lightLayout !== initialLightLayout);
@@ -69,7 +78,10 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
           <Settings2 className="h-6 w-6" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 space-y-5" sideOffset={8}>
+      <PopoverContent
+        className="max-h-[80dvh] w-80 space-y-5 overflow-y-auto"
+        sideOffset={8}
+      >
         <section className="space-y-3 rounded-lg border p-3">
           <p className="font-semibold text-[10px] text-muted-foreground uppercase">
             Battle visuals
@@ -104,6 +116,31 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
           <p className="font-semibold text-[10px] text-muted-foreground uppercase">
             Interface
           </p>
+          <div className="space-y-2">
+            <Label htmlFor={resourceBarsId} className="font-semibold text-sm">
+              Resource bars
+            </Label>
+            <p className="text-muted-foreground text-xs">
+              HP, chakra and stamina on the battlefield
+            </p>
+            <Select
+              value={config.resourceBarsVisibility}
+              onValueChange={(value) => {
+                if (value === "mobile-only" || value === "on" || value === "off") {
+                  config.setResourceBarsVisibility(value);
+                }
+              }}
+            >
+              <SelectTrigger id={resourceBarsId}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mobile-only">Mobile only</SelectItem>
+                <SelectItem value="on">On</SelectItem>
+                <SelectItem value="off">Off</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
               <p className="font-semibold text-sm">Small action icons</p>

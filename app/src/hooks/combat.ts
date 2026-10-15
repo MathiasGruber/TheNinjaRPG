@@ -42,6 +42,8 @@ export const DEFAULT_LAYOUT_ORDER: CombatLayoutComponentId[] = [
   "battlelog",
 ];
 
+export type CombatResourceBarsVisibility = "mobile-only" | "on" | "off";
+
 /**
  * Combat UI preferences persisted in localStorage
  */
@@ -54,6 +56,11 @@ export const useCombatPreferences = () => {
     "combatSmallActions",
     false,
   );
+  const [resourceBarsVisibility, setResourceBarsVisibility] =
+    useLocalStorage<CombatResourceBarsVisibility>(
+      "combatResourceBarsVisibility",
+      "mobile-only",
+    );
   const [showBattleLog, setShowBattleLog] = useLocalStorage<boolean>(
     "combatShowBattleLog",
     false,
@@ -111,6 +118,8 @@ export const useCombatPreferences = () => {
       useSmallActions,
       setUseSmallActions,
       toggleSmallActions,
+      resourceBarsVisibility,
+      setResourceBarsVisibility,
       showBattleLog,
       setShowBattleLog,
       toggleBattleLog,
@@ -137,6 +146,8 @@ export const useCombatPreferences = () => {
       useSmallActions,
       setUseSmallActions,
       toggleSmallActions,
+      resourceBarsVisibility,
+      setResourceBarsVisibility,
       showBattleLog,
       setShowBattleLog,
       toggleBattleLog,
