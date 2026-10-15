@@ -104,7 +104,7 @@ export interface ItemWithEffectsProps {
     | "skillTree"
     | "sageMode";
   showStatistic?: "bloodline" | "item" | "jutsu" | "ai";
-  showCopy?: "quest" | "ai" | "item";
+  showCopy?: "quest" | "ai" | "item" | "jutsu";
   show3d?: boolean;
   hideTitle?: boolean;
   /** Turns the entry name into a link to its own page, so list views give search
@@ -397,6 +397,86 @@ const ItemCloneControl: React.FC<{ source: ItemCloneSource }> = ({ source }) => 
   );
 };
 
+const JutsuCloneControl: React.FC<{ source: Pick<Jutsu, "id" | "name"> }> = ({
+  source,
+}) => {
+  const router = useRouter();
+  const utils = api.useUtils();
+  const [confirmedSource, setConfirmedSource] = useState<typeof source | null>(null);
+  const sourceInFlight = useRef<string | null>(null);
+  const { mutateAsync: cloneJutsu, isPending } = api.jutsu.clone.useMutation();
+
+  const cloneConfirmedSource = async (sourceJutsuId: string) => {
+    // Claim synchronously before the pending render to prevent double submissions.
+    if (sourceInFlight.current !== null) return;
+    sourceInFlight.current = sourceJutsuId;
+    try {
+      const result = await cloneJutsu({ id: sourceJutsuId });
+      showMutationToast(result);
+      if (!result.success) return;
+
+      // Close the committed action before best-effort refresh and navigation.
+      setConfirmedSource(null);
+      const cloneId = result.message;
+      void Promise.allSettled([
+        utils.jutsu.getAll.invalidate(),
+        utils.jutsu.getAllNames.invalidate(),
+        utils.jutsu.get.invalidate({ id: cloneId }),
+      ]);
+      router.push(`/manual/jutsu/edit/${cloneId}`);
+    } catch {
+      // The shared tRPC handler reports transport errors; keep the dialog for retry.
+    } finally {
+      if (sourceInFlight.current === sourceJutsuId) sourceInFlight.current = null;
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label={`Clone ${source.name}`}
+        className="mr-1 inline-flex items-center disabled:cursor-wait disabled:opacity-50"
+        disabled={isPending}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setConfirmedSource({ ...source });
+        }}
+      >
+        <Copy className="h-6 w-6 hover:text-popover-foreground/50" />
+      </button>
+      {confirmedSource && (
+        <Modal
+          id={`clone-jutsu-${confirmedSource.id}`}
+          title={`Clone jutsu: ${confirmedSource.name}`}
+          isOpen
+          setIsOpen={(isOpen) => {
+            if (!isOpen) setConfirmedSource(null);
+          }}
+          proceed_label="Clone jutsu"
+          proceed_loading_label="Cloning"
+          isLoading={isPending}
+          keepOpenOnAccept
+          onAccept={(event) => {
+            event.preventDefault();
+            void cloneConfirmedSource(confirmedSource.id);
+          }}
+        >
+          <p>
+            This creates a hidden copy of <b>{confirmedSource.name}</b>, including its
+            effects and requirements. The original jutsu will not be changed.
+          </p>
+          <p>
+            Evolution and reskin links are cleared. You will be taken to the new copy to
+            review and edit it.
+          </p>
+        </Modal>
+      )}
+    </>
+  );
+};
+
 const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
   const {
     item,
@@ -585,6 +665,12 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                     )}
                     {showCopy === "item" && (
                       <ItemCloneControl
+                        key={item.id}
+                        source={{ id: item.id, name: item.name }}
+                      />
+                    )}
+                    {showCopy === "jutsu" && (
+                      <JutsuCloneControl
                         key={item.id}
                         source={{ id: item.id, name: item.name }}
                       />
