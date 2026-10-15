@@ -116,17 +116,6 @@ export const questPartyRouter = createTRPCRouter({
         await ctx.drizzle
           .delete(user2conversation)
           .where(eq(user2conversation.conversationId, party.id));
-        await Promise.all(
-          [...new Set(members.map((member) => member.userId))].map((userId) =>
-            getServerPusher().trigger(userId, "event", {
-              type: "questTeam",
-              message:
-                "Your quest team disbanded. Your progress and unclaimed rewards are in your Logbook.",
-              route: "/profile?tab=dashboard#progress-heading",
-              routeText: "Open Logbook",
-            }),
-          ),
-        );
       } catch (error) {
         await ctx.drizzle
           .update(questParty)
@@ -134,6 +123,18 @@ export const questPartyRouter = createTRPCRouter({
           .where(and(eq(questParty.id, party.id), eq(questParty.battleId, claimId)));
         throw error;
       }
+      // Notifications are best effort once personal progress and membership have saved.
+      await Promise.allSettled(
+        [...new Set(members.map((member) => member.userId))].map((userId) =>
+          getServerPusher().trigger(userId, "event", {
+            type: "questTeam",
+            message:
+              "Your quest team disbanded. Your progress and unclaimed rewards are in your Logbook.",
+            route: "/profile?tab=dashboard#progress-heading",
+            routeText: "Open Logbook",
+          }),
+        ),
+      );
       return {
         success: true,
         message: "Quest team disbanded. Members can continue their own quests",
@@ -494,10 +495,12 @@ export const questPartyRouter = createTRPCRouter({
         .where(and(eq(questParty.id, party.id), eq(questParty.version, party.version)));
       if (saved.rowsAffected !== 1)
         return errorResponse("Team changed. Please try again");
-      await getServerPusher().trigger(invited.userId, "event", {
-        type: "questTeam",
-        message: "You were invited to a quest team. Open Quest Teams to accept.",
-      });
+      await Promise.allSettled([
+        getServerPusher().trigger(invited.userId, "event", {
+          type: "questTeam",
+          message: "You were invited to a quest team. Open Quest Teams to accept.",
+        }),
+      ]);
       return {
         success: true,
         message: "Invitation sent. The player can accept on the Quest Teams page",
@@ -536,13 +539,15 @@ export const questPartyRouter = createTRPCRouter({
         ctx.userId,
       );
       if (result.success)
-        await getServerPusher().trigger(input.userId, "event", {
-          type: "questTeam",
-          message:
-            "You left the quest team. Your quest progress and unclaimed rewards are in your Logbook.",
-          route: "/profile?tab=dashboard#progress-heading",
-          routeText: "Open Logbook",
-        });
+        await Promise.allSettled([
+          getServerPusher().trigger(input.userId, "event", {
+            type: "questTeam",
+            message:
+              "You left the quest team. Your quest progress and unclaimed rewards are in your Logbook.",
+            route: "/profile?tab=dashboard#progress-heading",
+            routeText: "Open Logbook",
+          }),
+        ]);
       return result.success
         ? {
             success: true,

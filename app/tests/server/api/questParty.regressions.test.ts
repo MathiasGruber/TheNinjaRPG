@@ -76,6 +76,30 @@ describeWithDatabase("quest team eligibility and terminal failure", () => {
     expect((await profile.getUser()).notifications).toContainEqual(expect.objectContaining({ href: "/questteams", notificationCount: 0 }));
   });
 
+  for (const action of ["invite", "remove", "disband"] as const) {
+    it(`keeps a committed ${action} successful when notification delivery fails`, async () => {
+      const client = await getTestDatabase();
+      const { leader, helper, party } = await claimReleaseFixture();
+      if (action !== "invite") expect((await helper.join({ partyId: party.id })).success).toBe(true);
+      vi.spyOn(Pusher.prototype, "trigger").mockRejectedValue(new Error("Notification unavailable"));
+      const result = action === "invite"
+        ? await leader.invite({ partyId: party.id, username: "helper" })
+        : action === "remove"
+          ? await leader.remove({ partyId: party.id, userId: "helper" })
+          : await leader.disband({ partyId: party.id });
+      expect(result.success).toBe(true);
+      const saved = await client.query.questParty.findFirst({ where: eq(questParty.id, party.id) });
+      if (action === "invite") expect(saved?.invitedUserIds).toContain("helper");
+      else {
+        const detached = await client.query.userData.findFirst({ where: eq(userData.userId, "helper") });
+        expect(detached?.questPartyId).toBeNull();
+        expect(detached?.questData?.find((tracker) => tracker.id === party.questId)).toBeDefined();
+        if (action === "remove") expect(saved?.memberIds).toEqual(["leader"]);
+        else expect(saved).toBeUndefined();
+      }
+    });
+  }
+
   it("keeps unclaimed reward choices available after the team disbands", async () => {
     const client = await getTestDatabase();
     await insertQuests([{ id: "choice-quest", questType: "event", teamEnabled: true, hidden: false, maxAttempts: 3, retryDelay: "none", content: {
