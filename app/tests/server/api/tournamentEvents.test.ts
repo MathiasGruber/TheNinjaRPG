@@ -196,6 +196,7 @@ describeWithDatabase("event tournament persistence", () => {
       it(`preserves real entry recovery through ${battleType} settlement (queued=${queued})`, async () => {
         const database = await getTestDatabase();
         const regenAt = new Date(Date.now() - 10 * REGEN_SECONDS * 1000 - 1000);
+        const exposureEndsAt = new Date(Date.now() + 120_000);
         await insertUsers(
           ["hero", "foe"].map((userId) => ({
             userId,
@@ -213,6 +214,7 @@ describeWithDatabase("event tournament persistence", () => {
             maxChakra: 1000,
             maxStamina: 1000,
             curEnergy: 100,
+            bracketImmunityLiftedUntil: exposureEndsAt,
           })),
         );
         if (queued) await queueEnergy("hero", [{ stat: "strength", energy: 50 }]);
@@ -253,6 +255,17 @@ describeWithDatabase("event tournament persistence", () => {
           regenAt.getTime() + 10 * REGEN_SECONDS * 1000,
         );
         expect(entry.curEnergy).toBe(queued ? 150 : 200);
+        expect(entry.bracketImmunityPausedAt).not.toBeNull();
+        expect(entry.bracketImmunityLiftedUntil).toEqual(exposureEndsAt);
+        await database
+          .update(userData)
+          .set({
+            bracketImmunityPausedAt: new Date(
+              entry.bracketImmunityPausedAt!.getTime() - 600_000,
+            ),
+            bracketImmunityLiftedUntil: new Date(exposureEndsAt.getTime() - 600_000),
+          })
+          .where(eq(userData.userId, "hero"));
         const snapshot = (await database.query.battle.findFirst({
           where: eq(battle.id, "exhibition"),
         }))!;
@@ -272,6 +285,10 @@ describeWithDatabase("event tournament persistence", () => {
         }))!;
         expect(settled.status).toBe("AWAKE");
         expect(settled.battleId).toBeNull();
+        expect(settled.bracketImmunityPausedAt).toBeNull();
+        expect(settled.bracketImmunityLiftedUntil.getTime()).toBeGreaterThanOrEqual(
+          exposureEndsAt.getTime(),
+        );
         expect([settled.curHealth, settled.curChakra, settled.curStamina]).toEqual([
           200, 200, 200,
         ]);

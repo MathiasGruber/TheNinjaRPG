@@ -1401,6 +1401,8 @@ export const updateUser = async (
       .update(userData)
       .set({
         status: "AWAKE",
+        bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
+        bracketImmunityPausedAt: null,
         battleId: null,
         regenAt: settledAt,
         curEnergy: combatEnergyRecoverySql(curBattle, userId, 0, settledAt),
