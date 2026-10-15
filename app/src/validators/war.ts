@@ -37,6 +37,7 @@ export const raidOptionsSchema = z.object({
 
 const positiveRule = z.number().int().min(1).max(100000000);
 const roleRule = z.number().int().min(0).max(10000);
+/** Staff-editable rules validated before saving and frozen at declaration approval. */
 export const warRulesSchema = z.object({
   enabled: z.boolean(),
   townhallHp: positiveRule,
@@ -62,7 +63,9 @@ export const warRulesSchema = z.object({
   leaderRecovery: roleRule,
 });
 export type WarRules = z.infer<typeof warRulesSchema>;
+/** Default-off settings used when staff have not saved an override. */
 export const defaultWarRules: WarRules = { ...OBJECTIVE_WAR_DEFAULTS };
+/** Original defending side stays fixed after capture so receipt indices remain stable. */
 export type WarObjectiveState = {
   sector: number;
   villageId: string;
@@ -71,11 +74,13 @@ export type WarObjectiveState = {
   isReserve: boolean;
   destroyed: boolean;
 };
+/** Shared war progress; location masking removes objectives but retains both counters. */
 export type ObjectiveWarState = {
   objectives: WarObjectiveState[];
   attackerEspionage: number;
   defenderEspionage: number;
 };
+/** Authored mission values and ISO completion time captured independently of quest progress. */
 export type WarMissionAttempt = {
   id: string;
   warId: string;
@@ -88,6 +93,7 @@ export type WarMissionAttempt = {
   value: number;
   endsAt: string;
 };
+/** Resource identifiers only; router guards enforce participation and current eligibility. */
 export const warIdSchema = z.object({ warId: z.string().min(1) });
 export const startWarMissionSchema = warIdSchema.extend({
   questId: z.string().min(1),

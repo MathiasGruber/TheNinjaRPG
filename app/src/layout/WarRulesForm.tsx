@@ -17,6 +17,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import { showMutationToast } from "@/libs/toast";
 import { defaultWarRules, warRulesSchema } from "@/validators/war";
 
+/** Edit staff settings for future approvals; active wars retain their saved rules. */
 export const WarRulesForm = () => {
   const [message, setMessage] = useState("");
   const { data } = api.war.getRules.useQuery();

@@ -107,7 +107,9 @@ import {
 } from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  /** Read configurable defaults; approved wars use their own immutable snapshots. */
   getRules: protectedProcedure.query(({ ctx }) => fetchWarRules(ctx.drizzle)),
+  /** Save the complete staff configuration in one upsert, without a transaction. */
   setRules: protectedProcedure
     .input(warRulesSchema)
     .output(baseServerResponse)
@@ -133,6 +135,7 @@ export const warRouter = createTRPCRouter({
         message: "War settings saved. Changes apply to newly approved wars.",
       };
     }),
+  /** Load panel data together and mask locations according to the viewer's own side. */
   getObjectiveWarInfo: protectedProcedure
     .input(warIdSchema)
     .query(async ({ ctx, input }) => {
@@ -213,6 +216,7 @@ export const warRouter = createTRPCRouter({
         attempt: user.warMission,
       };
     }),
+  /** Claim one concurrent attempt with its authored value and required location frozen. */
   startWarMission: protectedProcedure
     .input(startWarMissionSchema)
     .output(baseServerResponse)
@@ -322,6 +326,7 @@ export const warRouter = createTRPCRouter({
         message: "War mission started. Remain in this sector until completion.",
       };
     }),
+  /** Consume the matching ready attempt inside the strategic effect's receipt boundary. */
   completeWarMission: protectedProcedure
     .input(completeWarMissionSchema)
     .output(baseServerResponse)
@@ -392,6 +397,7 @@ export const warRouter = createTRPCRouter({
             "The war or mission changed before completion. Refresh to continue.",
           );
     }),
+  /** Clear only the named attempt so a stale cancellation cannot delete its replacement. */
   cancelWarMission: protectedProcedure
     .input(completeWarMissionSchema)
     .output(baseServerResponse)
@@ -407,6 +413,7 @@ export const warRouter = createTRPCRouter({
         );
       return { success: true, message: "War mission cancelled" };
     }),
+  /** Enter shrine combat with the camp snapshot preloaded for later score settlement. */
   attackWarCamp: protectedProcedure
     .input(warCampSchema)
     .mutation(async ({ ctx, input }) => {
@@ -450,6 +457,7 @@ export const warRouter = createTRPCRouter({
         "SHRINE_WAR",
       );
     }),
+  /** List open camps for main villages and their accepted, active allies. */
   getWarCampNotices: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     if (!user.villageId) return [];
@@ -472,6 +480,7 @@ export const warRouter = createTRPCRouter({
         ),
       );
   }),
+  /** Expose only damage balances still eligible for their single postwar conversion. */
   getWarPointClaims: protectedProcedure.query(({ ctx }) =>
     ctx.drizzle
       .select({
@@ -491,6 +500,7 @@ export const warRouter = createTRPCRouter({
         ),
       ),
   ),
+  /** Grant prestige and consume eligibility in one guarded joined UPDATE. */
   convertWarPoints: protectedProcedure
     .input(warIdSchema)
     .output(baseServerResponse)

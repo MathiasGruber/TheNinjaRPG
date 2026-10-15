@@ -8,6 +8,7 @@ import {
 } from "@/drizzle/constants";
 import Link from "@/layout/Link";
 
+/** Surface current camp links and one-time claims during the postwar conversion window. */
 export const WarDashboardNotices = () => {
   const [message, setMessage] = useState("");
   const utils = api.useUtils();

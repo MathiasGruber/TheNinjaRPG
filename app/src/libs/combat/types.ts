@@ -400,6 +400,7 @@ export type ExtraState = {
   encounter?: import("@/libs/combat/encounters").EncounterWaveState;
   /** Private run/wave snapshot used by combat actions and atomic party settlement. */
   dungeon?: import("@/libs/dungeon").DungeonBattleState;
+  /** Encounter snapshot for strategic settlement without an intermediate combat read. */
   warCamp?: WarCamp;
   /** Definitions of publicly performed actions, retained after their caster despawns. */
   revealedActions?: { jutsuIds: string[]; itemIds: string[] };

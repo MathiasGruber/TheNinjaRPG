@@ -2248,6 +2248,7 @@ export const calcBattleResult = (
         targets.forEach((target) => {
           const wars = getOpposingBattleWars(battle, user, target);
           wars.forEach(({ war, sideVillageId }) => {
+            // Objective wars award clamped strategic damage through their own receipts.
             if (war.rules) return;
             const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
             // Get the names of the village
@@ -2467,6 +2468,7 @@ export const calcBattleResult = (
           userWars
             .filter(({ war }) => ["VILLAGE_WAR", "WAR_RAID"].includes(war.type))
             .forEach(({ war, sideVillageId }) => {
+              // Objective-war recovery shares the same receipt boundary as damage.
               if (war.rules) return;
               const isUserOnAttackerSide = war.attackerVillageId === sideVillageId;
               const isUserOnDefenderSide = !isUserOnAttackerSide;

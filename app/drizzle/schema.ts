@@ -2570,7 +2570,9 @@ export const userData = mysqlTable(
     isAi: boolean("isAi").default(false).notNull(),
     isSummon: boolean("isSummon").default(false).notNull(),
     isEvent: boolean("isEvent").default(false).notNull(),
+    /** AI templates eligible for timed camp encounters; independent of Event and shrine flags. */
     isWarCamp: boolean("isWarCamp").default(false).notNull(),
+    /** One concurrent war attempt, separate from the character's ordinary quest run. */
     warMission: json("warMission").$type<WarMissionAttempt>(),
     inShrines: boolean("inShrines").default(false).notNull(),
     inArena: boolean("inArena").default(false).notNull(),
@@ -3566,6 +3568,7 @@ export const sector = mysqlTable(
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
     shrineLevel: tinyint("shrineLevel").default(1).notNull(),
+    /** Captured reserves keep their shrine and ownership but lose boosts until this instant. */
     boostLockedUntil: datetime("boostLockedUntil", { mode: "date", fsp: 3 }),
     capturedAt: datetime("capturedAt", { mode: "date", fsp: 3 }),
     nextMaintainanceDueDate: datetime("nextMaintainanceDueDate", {
@@ -4729,6 +4732,7 @@ export const war = mysqlTable(
       .notNull(),
     endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
     settlement: json("settlement").$type<WarSettlement>(),
+    /** Null selects legacy war behavior; approved objective wars keep their rules unchanged. */
     rules: json("rules").$type<WarRules>(),
     objectiveState: json("objectiveState").$type<ObjectiveWarState>(),
     combatStartedAt: datetime("combatStartedAt", { mode: "date", fsp: 3 }),
@@ -6652,6 +6656,7 @@ export const warActionReceipt = mysqlTable("WarActionReceipt", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   warId: varchar("warId", { length: 191 }).notNull(),
 });
+/** One uniquely keyed slot per war; scores and the resolution receipt settle together. */
 export const warCamp = mysqlTable("WarCamp", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   warId: varchar("warId", { length: 191 }).notNull(),

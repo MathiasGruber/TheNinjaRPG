@@ -599,7 +599,11 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
   }
 };
 
-/** Serialize sector declarations with objective selection and charge only committed wars. */
+/**
+ * Serialize sector declarations with objective selection and charge only committed wars.
+ * A transaction is required because the guarded charge, new war and optional sector
+ * span separate rows; village locks also exclude concurrent objective declarations.
+ */
 export const startSectorWar = async (
   client: DrizzleClient,
   declaration: {
@@ -724,18 +728,25 @@ export const startDeclaredWar = async (
         .for("update");
       if (lockedVillages.length !== 2) return false;
 
-      const activeWars = await tx.query.war.findMany({
-        where: and(
-          eq(war.status, "ACTIVE"),
-          inArray(
-            war.type,
-            rules
-              ? ["VILLAGE_WAR", "WAR_RAID", "SECTOR_WAR"]
-              : ["VILLAGE_WAR", "WAR_RAID"],
+      const [activeWars, sectors] = await Promise.all([
+        tx.query.war.findMany({
+          where: and(
+            eq(war.status, "ACTIVE"),
+            inArray(
+              war.type,
+              rules
+                ? ["VILLAGE_WAR", "WAR_RAID", "SECTOR_WAR"]
+                : ["VILLAGE_WAR", "WAR_RAID"],
+            ),
           ),
-        ),
-        with: { warAllies: { where: activeWarAllyWhere() } },
-      });
+          with: { warAllies: { where: activeWarAllyWhere() } },
+        }),
+        rules
+          ? tx.query.sector.findMany({
+              where: inArray(sector.villageId, villageIds),
+            })
+          : Promise.resolve([]),
+      ]);
       if (
         villageIds.some((id) =>
           isVillageInvolvedInAnyWar(
@@ -754,11 +765,6 @@ export const startDeclaredWar = async (
       const combatStartedAt = rules
         ? secondsFromDate(rules.noticeHours * 3600, now)
         : null;
-      const sectors = rules
-        ? await tx.query.sector.findMany({
-            where: inArray(sector.villageId, villageIds),
-          })
-        : [];
       const objectives = rules
         ? lockedVillages.flatMap((v) =>
             selectWarObjectives(

@@ -12,6 +12,7 @@ import { applyObjectiveWarAction } from "@/server/utils/objectiveWar";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { WarRules } from "@/validators/war";
 
+/** Apply role precedence using only the villages and clans captured at battle initiation. */
 export const getObjectiveWarRole = (
   battle: CompleteBattle,
   user: BattleUserState,
@@ -28,7 +29,10 @@ export const getObjectiveWarRole = (
   return "regular";
 };
 
-/** Each eligible winner has a unique receipt. Combat uses only its preloaded state. */
+/**
+ * Queue strategic writes in combat's final mutation phase, using preloaded state only.
+ * A receipt per battle, winner and war prevents duplicate settlement credit.
+ */
 export const settleObjectiveWarCombat = async (
   client: DrizzleClient,
   battle: CompleteBattle,

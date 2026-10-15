@@ -1924,6 +1924,7 @@ export const initiateBattle = async (
     questAttempt?: UserQuest;
     /** Attribute battle progress to its owning objective instead of unrelated matching kills. */
     questBattleSource?: { questId: string; objectiveId: string };
+    /** Camp identity and guardian snapshot used by combat's final strategic mutation phase. */
     warCamp?: import("@/drizzle/schema").WarCamp;
     raidQuestId?: string;
     topPlayersLP?: number[];
@@ -2458,6 +2459,7 @@ export const initiateBattle = async (
   )
     return { success: false, message: "A dungeon enemy is unavailable" };
 
+  // Recheck pre-existing shrine parties too: approval may have selected their sector later.
   if (battleType === "SHRINE_WAR" && !info.warCamp) {
     for (const activeWar of activeWars.filter((w) => w.rules)) {
       const objective = activeWar.objectiveState?.objectives.find(

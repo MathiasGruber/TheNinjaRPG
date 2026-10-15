@@ -6,6 +6,7 @@ import {
 import type { SectorType, War } from "@/drizzle/schema";
 import type { WarObjectiveState, WarRules } from "@/validators/war";
 
+/** Resolve the main village credited for a participant; callers supply active allies only. */
 export const getWarSide = (
   activeWar: Pick<War, "attackerVillageId" | "defenderVillageId"> & {
     warAllies: { villageId: string; supportVillageId: string }[];
@@ -21,6 +22,7 @@ export const getWarSide = (
   );
 };
 
+/** Exclude notice, expired and defeated wars even before background settlement finishes. */
 export const isObjectiveWarActive = (
   activeWar: Pick<
     War,
@@ -44,6 +46,7 @@ export const isObjectiveWarActive = (
     new Date(activeWar.combatStartedAt).getTime() +
       activeWar.rules.durationDays * 86400000;
 
+/** Missing progress on legacy wars behaves as an empty espionage counter. */
 export const getWarEspionage = (
   activeWar: Pick<War, "objectiveState" | "attackerVillageId">,
   sideVillageId: string,
@@ -52,12 +55,16 @@ export const getWarEspionage = (
     ? activeWar.objectiveState?.attackerEspionage
     : activeWar.objectiveState?.defenderEspionage) ?? 0;
 
+/** Both sides' objective locations unlock together when the viewing side finishes espionage. */
 export const areWarObjectivesRevealed = (
   activeWar: Pick<War, "objectiveState" | "attackerVillageId">,
   sideVillageId: string,
 ) => getWarEspionage(activeWar, sideVillageId) >= WAR_ESPIONAGE_TARGET;
 
-/** Reserve sectors are used only when the village owns no ordinary objective sectors. */
+/**
+ * Choose distinct, usable shrines. Ordinary ownership blocks reserve fallback even
+ * when those ordinary shrines are destroyed, disputed or temporarily locked.
+ */
 export const selectWarObjectives = (
   sectors: Pick<
     SectorType,

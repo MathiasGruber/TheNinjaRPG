@@ -14,6 +14,7 @@ import { getWarEspionage, getWarSide } from "@/libs/objectiveWar";
 import { pushToCombat } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
 
+/** Show server-masked objectives, concurrent missions and combat actions for one war. */
 export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
   const [message, setMessage] = useState("");
   const { data: user, updateUser } = useRequiredUserData();
@@ -23,12 +24,14 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
     { warId },
     { refetchInterval: 10000 },
   );
+  /** Refresh eligibility and timers after both accepted and rejected mission responses. */
   const refresh = (result: { success: boolean; message: string }) => {
     setMessage(result.message);
     void utils.war.getObjectiveWarInfo.invalidate({ warId });
     void utils.war.getActiveWars.invalidate();
     void utils.profile.getUser.invalidate();
   };
+  /** Publish the claimed battle locally before navigation so route guards see BATTLE. */
   const onBattleSuccess = async (result: {
     success: boolean;
     message: string;
@@ -44,6 +47,7 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
       pushToCombat(router, result.battleId);
     }
   };
+  /** Keep transport failures beside the actions; mutation hooks release their pending state. */
   const onError = (error: { message: string }) => setMessage(error.message);
   const start = api.war.startWarMission.useMutation({
     onSuccess: refresh,

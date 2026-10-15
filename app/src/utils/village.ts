@@ -236,7 +236,10 @@ export const getRaidStructureMultiplier = (
     ? 1 + FACTION_RAID_BOOST_PERCENT / 100
     : 1;
 
-/** Locked reserve shrines retain ownership but provide no shrine boosts. */
+/**
+ * Count only active, unlocked shrines for every boost consumer. Omitted shrine levels
+ * preserve callers that already load only active shrines; reserve locks retain ownership.
+ */
 export const countBoostingShrines = (
   sectors:
     | {

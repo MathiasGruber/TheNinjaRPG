@@ -11,6 +11,7 @@ import { syncWarCamps } from "@/server/utils/objectiveWar";
 
 const ENDPOINT_NAME = "war-camps";
 
+/** Authenticate and lock the scheduler minute before replaying or creating camp slots. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;

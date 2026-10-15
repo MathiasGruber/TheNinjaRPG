@@ -24,6 +24,7 @@ import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { getRandomElement } from "@/utils/array";
 import { defaultWarRules, type WarRules, warRulesSchema } from "@/validators/war";
 
+/** Overlay saved staff settings on defaults; declarations persist the validated snapshot. */
 export const fetchWarRules = async (client: DrizzleClient): Promise<WarRules> => {
   const rows = await client.query.gameSetting.findMany({
     where: inArray(
@@ -46,12 +47,18 @@ export const objectiveWarCombatGuard = () => sql`(${war.rules} IS NULL OR (
   SYSDATE(3) < DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY)
   AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0))`;
 
+/** Add paused combat time once; callers clear the pause in the same guarded user update. */
 export const resumeBracketImmunitySql = () => sql`CASE
   WHEN ${userData.bracketImmunityPausedAt} IS NOT NULL THEN
     TIMESTAMPADD(MICROSECOND, GREATEST(TIMESTAMPDIFF(MICROSECOND, ${userData.bracketImmunityPausedAt}, SYSDATE(3)), 0), ${userData.bracketImmunityLiftedUntil})
   ELSE ${userData.bracketImmunityLiftedUntil} END`;
 
-/** Strategic effects and their unique receipt commit together, with no intermediate read. */
+/**
+ * Commit a unique receipt and its actual, clamped strategic deltas without a read.
+ * The transaction holds the war/sector locks between measuring and applying deltas:
+ * MySQL does not guarantee assignment order across tables in a joined UPDATE.
+ * Optional mission consumption must commit with those writes, never before them.
+ */
 export const applyObjectiveWarAction = async (
   client: DrizzleClient,
   activeWar: War,
@@ -66,6 +73,7 @@ export const applyObjectiveWarAction = async (
     shrineDamage?: number;
     camp?: WarCamp;
     allowDuringNotice?: boolean;
+    /** Consume a mission with its own CAS on the same transaction as strategic delivery. */
     claim?: (tx: DrizzleClient) => Promise<boolean>;
   },
 ) => {
@@ -153,6 +161,7 @@ export const applyObjectiveWarAction = async (
   );
 };
 
+/** Advance each due day with a timestamp CAS; overlapping jobs cannot repeat decay. */
 export const applyObjectiveWarDecay = async (
   client: DrizzleClient,
   activeWar: War,
@@ -245,7 +254,7 @@ export const settleObjectiveWarSchedule = async (
   }
 };
 
-/** Fixed slots make retries harmless. A tie applies no damage. */
+/** Settle overdue events, then create at most one camp per war/slot using its unique ID. */
 export const syncWarCamps = async (
   client: DrizzleClient,
   wars: War[],
@@ -305,6 +314,7 @@ export const syncWarCamps = async (
   );
 };
 
+/** Close unconverted balances after the postwar window while retaining historical damage. */
 export const expireWarPoints = (client: DrizzleClient) =>
   client.execute(sql`
   UPDATE ${warContribution} INNER JOIN ${war} ON ${war.id} = ${warContribution.warId}
@@ -313,6 +323,7 @@ export const expireWarPoints = (client: DrizzleClient) =>
     AND ${war.endedAt} IS NOT NULL AND DATE_ADD(${war.endedAt}, INTERVAL ${WAR_POINT_CONVERSION_DAYS} DAY) <= SYSDATE(3)
 `);
 
+/** Atomically mark each camp resolved and damage its losing side; ties deal no damage. */
 const resolveDueWarCamps = async (
   client: DrizzleClient,
   camps: WarCamp[],
