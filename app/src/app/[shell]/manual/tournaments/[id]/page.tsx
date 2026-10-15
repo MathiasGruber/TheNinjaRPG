@@ -1,4 +1,5 @@
 import { EventTournaments } from "@/layout/EventTournaments";
+/** Resolve the event route and render its authenticated staff management view. */
 export default async function StaffTournamentPage({
   params,
 }: {

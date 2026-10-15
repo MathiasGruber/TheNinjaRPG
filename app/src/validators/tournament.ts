@@ -18,7 +18,9 @@ export const tournamentCreateSchema = z.object({
 export type TournamentCreateSchema = z.infer<typeof tournamentCreateSchema>;
 export type TournamentCreateSchemaInput = z.input<typeof tournamentCreateSchema>;
 
+/** Allowed best-of settings, shared by the default and per-round overrides. */
 const seriesLength = z.union([z.literal(1), z.literal(3), z.literal(5)]);
+/** Staff configuration; schedule values are Unix milliseconds and rewards use quest schemas. */
 export const eventTournamentConfigSchema = z
   .object({
     name: z.string().trim().min(3).max(88),
@@ -56,11 +58,14 @@ export const eventTournamentConfigSchema = z
     "Tournament must end after registration",
   );
 
+/** Shared identity for authenticated event reads and mutations. */
 export const eventTournamentIdSchema = z.object({ tournamentId: z.string().min(1) });
+/** An omitted tournament ID creates a draft; an existing ID edits an editable draft. */
 export const eventTournamentSaveSchema = z.object({
   tournamentId: z.string().optional(),
   config: eventTournamentConfigSchema,
 });
+/** Staff commands; the router validates each action's fields and current event phase. */
 export const eventTournamentActionSchema = eventTournamentIdSchema.extend({
   action: z.enum([
     "PUBLISH",
@@ -78,12 +83,18 @@ export const eventTournamentActionSchema = eventTournamentIdSchema.extend({
   scheduledAt: z.number().int().positive().optional(),
   payRewards: z.boolean().optional(),
 });
+/** Player roster and ready-check commands, authorized against the current seat holder. */
 export const eventTournamentPlayerSchema = eventTournamentIdSchema.extend({
   action: z.enum(["JOIN", "WITHDRAW", "DECLINE", "ACCEPT"]),
   seriesId: z.string().optional(),
 });
 
+/** Validated staff settings persisted with the event state. */
 export type EventTournamentConfig = z.infer<typeof eventTournamentConfigSchema>;
+/**
+ * A stable bracket seat whose current player may be substituted between games.
+ * Entry statistics are frozen; former holders remain available for earned reward attribution.
+ */
 export type EventParticipant = {
   id: string;
   userId: string;
@@ -100,10 +111,12 @@ export type EventParticipant = {
   };
   previousUsers: { userId: string; username: string }[];
 };
+/** A seat, a completed series' result, or an empty bye in the bracket graph. */
 export type EventSlot =
   | { seatId: string }
   | { seriesId: string; result: "WINNER" | "LOSER" }
   | null;
+/** One ready check and battle; its identity survives launch recovery. Times are Unix milliseconds. */
 export type EventGame = {
   id: string;
   battleId: string;
@@ -112,9 +125,11 @@ export type EventGame = {
   deadline: number;
   accepted: string[];
   userIds: string[];
+  /** Winning user ID, unlike the seat IDs used by EventSeries. */
   winnerId: string | null;
   outcome: "BATTLE" | "NO_SHOW" | "DOUBLE_NO_SHOW" | "DRAW" | null;
 };
+/** A best-of series whose seats, winnerId and loserId refer to stable participant seat IDs. */
 export type EventSeries = {
   id: string;
   round: number;
@@ -125,6 +140,7 @@ export type EventSeries = {
   complete: boolean;
   winnerId: string | null;
   loserId: string | null;
+  /** The player who earned this series win, preserved across later substitutions. */
   winnerUserId: string | null;
   bestOf: 1 | 3 | 5;
   scores: [number, number];
@@ -133,6 +149,10 @@ export type EventSeries = {
   begun: boolean;
   scheduledAt: number | null;
 };
+/**
+ * Event JSON updated through the Tournament row's separate version CAS.
+ * PREPARED retains the staff start gate; standings contain participant seat IDs.
+ */
 export type EventTournamentState = {
   config: EventTournamentConfig;
   status: "DRAFT" | "REGISTRATION" | "PREPARED" | "RUNNING" | "COMPLETED" | "CANCELLED";

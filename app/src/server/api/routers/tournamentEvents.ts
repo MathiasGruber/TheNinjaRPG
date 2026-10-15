@@ -48,6 +48,7 @@ import {
 } from "@/validators/tournament";
 
 export const eventTournamentProcedures = {
+  /** Return invitations and open ready checks that still need this player's response. */
   getEventNotices: protectedProcedure.query(async ({ ctx }) => {
     const events = await ctx.drizzle.query.tournament.findMany({
       where: and(
@@ -97,6 +98,7 @@ export const eventTournamentProcedures = {
       return [];
     });
   }),
+  /** List public event summaries, including unpublished drafts only for tournament staff. */
   listEvents: protectedProcedure.query(async ({ ctx }) => {
     const [events, user] = await Promise.all([
       ctx.drizzle.query.tournament.findMany({
@@ -137,6 +139,7 @@ export const eventTournamentProcedures = {
         };
       });
   }),
+  /** Synchronize authorized event reads before returning the bracket and player eligibility. */
   getEvent: protectedProcedure
     .input(eventTournamentIdSchema)
     .query(async ({ ctx, input }) => {
@@ -163,6 +166,7 @@ export const eventTournamentProcedures = {
         participantId: participant?.id ?? null,
       };
     }),
+  /** Create or edit staff-owned drafts while registration remains in the future. */
   saveEvent: protectedProcedure
     .input(eventTournamentSaveSchema)
     .mutation(async ({ ctx, input }) => {
@@ -194,6 +198,7 @@ export const eventTournamentProcedures = {
       });
       return { success: true, message: "Tournament draft created", tournamentId: id };
     }),
+  /** Apply staff lifecycle and roster changes through the event version guard. */
   manageEvent: protectedProcedure
     .input(eventTournamentActionSchema)
     .mutation(async ({ ctx, input }) => {
@@ -364,6 +369,7 @@ export const eventTournamentProcedures = {
       if (result.success) await syncEventTournament(ctx.drizzle, input.tournamentId);
       return result;
     }),
+  /** Register, withdraw or accept a ready check after checking current player availability. */
   participateEvent: protectedProcedure
     .input(eventTournamentPlayerSchema)
     .mutation(async ({ ctx, input }) => {
@@ -428,6 +434,7 @@ export const eventTournamentProcedures = {
     }),
 };
 
+/** Load an event and its combat tokens together for synchronization and versioned edits. */
 export const fetchEvent = (client: DrizzleClient, id: string) =>
   client.query.tournament.findFirst({
     where: and(eq(tournament.id, id), eq(tournament.type, "EVENT")),
@@ -457,6 +464,7 @@ const saveEventState = async (
   return saved.rowsAffected === 1;
 };
 
+/** Retry a roster or bracket edit against the latest event when another writer wins its CAS. */
 const editEvent = async (
   client: DrizzleClient,
   id: string,
@@ -474,7 +482,10 @@ const editEvent = async (
   return errorResponse("Tournament changed; please try again");
 };
 
-/** Reads progress only games/rounds that staff have explicitly begun or scheduled. */
+/**
+ * Reconcile combat results, recover abandoned launches and apply scheduled starts or event
+ * expiry. Terminal events retry unpaid rewards; unscheduled rounds remain under staff control.
+ */
 export const syncEventTournament = async (client: DrizzleClient, id: string) => {
   const row = await fetchEvent(client, id);
   if (!row?.eventData) return;
@@ -557,27 +568,52 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
       });
       if (running) game.status = "FIGHTING";
       else {
-        // Revoke the launch token before a fresh ready check can be created. A delayed
-        // initiator's user claim verifies this row and rolls back its battle if revoked.
-        const revoked = saved
-          ? await client
-              .update(tournamentMatch)
-              .set({ state: "NO_SHOW" })
-              .where(
-                and(
-                  eq(tournamentMatch.id, game.id),
-                  eq(tournamentMatch.state, "WAITING"),
-                  isNull(tournamentMatch.winnerId),
-                  notExists(
-                    client
-                      .select({ id: battle.id })
-                      .from(battle)
-                      .where(eq(battle.id, game.battleId)),
+        let token = saved;
+        if (!token) {
+          // STARTING can survive a crash before its token insert. Reserve that same ID
+          // as revoked so the delayed launch cannot create a token after recovery.
+          await client
+            .insert(tournamentMatch)
+            .values({
+              id: game.id,
+              tournamentId: id,
+              round: series.round,
+              match: series.games.length,
+              userId1: game.userIds[0] ?? "",
+              userId2: game.userIds[1] ?? "",
+              battleId: game.battleId,
+              startedAt: new Date(),
+              state: "NO_SHOW",
+            })
+            .onDuplicateKeyUpdate({ set: { id: sql`${tournamentMatch.id}` } });
+          // FOUND_ROWS can report a matched WAITING row for the no-op duplicate branch.
+          // Read its actual state before deciding whether this recovery owns the game.
+          token = await client.query.tournamentMatch.findFirst({
+            where: eq(tournamentMatch.id, game.id),
+          });
+        }
+        // Combat verifies this token while claiming both players in its transaction.
+        // A committed battle wins; a revoked token rolls back a delayed initiation.
+        const revoked =
+          token?.state === "WAITING"
+            ? await client
+                .update(tournamentMatch)
+                .set({ state: "NO_SHOW" })
+                .where(
+                  and(
+                    eq(tournamentMatch.id, game.id),
+                    eq(tournamentMatch.state, "WAITING"),
+                    isNull(tournamentMatch.winnerId),
+                    notExists(
+                      client
+                        .select({ id: battle.id })
+                        .from(battle)
+                        .where(eq(battle.id, game.battleId)),
+                    ),
                   ),
-                ),
-              )
-          : undefined;
-        if (saved?.state === "NO_SHOW" || revoked?.rowsAffected === 1)
+                )
+            : undefined;
+        if (token?.state === "NO_SHOW" || revoked?.rowsAffected === 1)
           completeEventGame(event, series, null, "DRAW", now);
       }
     }
@@ -616,6 +652,7 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
   }
 };
 
+/** Claim the current ready roster once, then publish the revocable token combat must claim. */
 const launchEventGame = async (client: DrizzleClient, id: string, seriesId: string) => {
   const row = await fetchEvent(client, id);
   const event = row?.eventData;
@@ -632,26 +669,26 @@ const launchEventGame = async (client: DrizzleClient, id: string, seriesId: stri
   )
     return;
   game.status = "STARTING";
-  const claimed = await retryOnDeadlock(() =>
-    client.transaction(async (tx) => {
-      const database = tx as unknown as DrizzleClient;
-      if (!(await saveEventState(database, row, event))) return false;
-      // Publish STARTING and its revocable combat token together. A crashed claimant
-      // cannot leave an event that recovery advances before the token appears.
-      await database.insert(tournamentMatch).values({
-        id: game.id,
-        tournamentId: id,
-        round: series.round,
-        match: series.games.length,
-        userId1: game.userIds[0] ?? "",
-        userId2: game.userIds[1] ?? "",
-        battleId: game.battleId,
-        startedAt: new Date(),
-      });
-      return true;
-    }),
-  );
-  if (!claimed) return;
+  // READY substitutions keep the game ID but replace its users, so publish a token
+  // only after winning the roster's version. Recovery tombstones any crash gap.
+  if (!(await retryOnDeadlock(() => saveEventState(client, row, event)))) return;
+  try {
+    await client.insert(tournamentMatch).values({
+      id: game.id,
+      tournamentId: id,
+      round: series.round,
+      match: series.games.length,
+      userId1: game.userIds[0] ?? "",
+      userId2: game.userIds[1] ?? "",
+      battleId: game.battleId,
+      startedAt: new Date(),
+    });
+  } catch (error) {
+    // A duplicate belongs to another launch or recovery. Recovery alone advances
+    // a tombstoned game; recording a setup failure here could overwrite its draw.
+    if (isMysqlDuplicateKeyError(error)) return;
+    throw error;
+  }
   const [users, loadouts] = await Promise.all([
     client.query.userData.findMany({
       where: inArray(userData.userId, game.userIds),
@@ -742,6 +779,7 @@ const launchEventGame = async (client: DrizzleClient, id: string, seriesId: stri
   });
 };
 
+/** Revoke an unclaimed launch and record player absence or a repairable setup failure. */
 const recordLaunchFailure = async (
   client: DrizzleClient,
   id: string,
@@ -778,6 +816,12 @@ const recordLaunchFailure = async (
   });
 };
 
+/**
+ * Grant each entrant's configured rewards once. A single guarded update cannot deliver
+ * rewards spanning multiple tables, so retention, the receipt and recipient grants commit
+ * together. A receipt alone could lose a payout; grants without it could pay twice, and
+ * cleanup must not delete receipts while a payer is in flight.
+ */
 const payEventRewards = async (client: DrizzleClient, row: EventRow) => {
   const event = row.eventData;
   if (!event?.payRewards) return;
@@ -836,6 +880,7 @@ const payEventRewards = async (client: DrizzleClient, row: EventRow) => {
   }
 };
 
+/** Synchronize events and remove expired terminal events only after pending payouts finish. */
 export const maintainEventTournaments = async (client: DrizzleClient) => {
   const rows = await client.query.tournament.findMany({
     where: eq(tournament.type, "EVENT"),
@@ -863,6 +908,7 @@ export const maintainEventTournaments = async (client: DrizzleClient) => {
   }
 };
 
+/** Fetch the account and distinct mastered jutsu needed for event eligibility in parallel. */
 const fetchEventUser = async (client: DrizzleClient, id: string) => {
   const [user, mastered] = await Promise.all([
     client.query.userData.findFirst({ where: eq(userData.userId, id) }),
@@ -875,6 +921,7 @@ const fetchEventUser = async (client: DrizzleClient, id: string) => {
     ? { ...user, masteredJutsu: new Set(mastered.map((j) => j.jutsuId)).size }
     : null;
 };
+/** Freeze the account's current eligibility values for its registration or substitution. */
 const snapshotFor = (
   user: NonNullable<Awaited<ReturnType<typeof fetchEventUser>>>,
 ): EventParticipant["snapshot"] => ({
@@ -886,6 +933,7 @@ const snapshotFor = (
       : 0,
   masteredJutsu: user.masteredJutsu,
 });
+/** Reserve a stable bracket seat while retaining the player's eligibility snapshot. */
 const makeParticipant = (
   user: NonNullable<Awaited<ReturnType<typeof fetchEventUser>>>,
   invited: boolean,
@@ -901,8 +949,10 @@ const makeParticipant = (
   snapshot: snapshotFor(user),
   previousUsers: [],
 });
+/** Count live registrations and reserved invitations against the shared event capacity. */
 const occupiedSeats = (event: EventTournamentState) =>
   event.participants.filter((p) => !p.withdrawn).length;
+/** Append a timestamped actor action to the versioned event's audit trail. */
 const audit = (event: EventTournamentState, userId: string, action: string) => {
   event.audit.push({ userId, action, at: Date.now() });
 };

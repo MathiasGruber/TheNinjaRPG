@@ -426,7 +426,17 @@ export const combatRouter = createTRPCRouter({
                     ),
                     updateWars(ctx.drizzle, pusher, settledBattle, result, ctx.userId),
                     updateKage(ctx.drizzle, settledBattle, result),
-                    updateTournament(ctx.drizzle, settledBattle, result, ctx.userId),
+                    // Terminal event outcomes were committed with the battle version claim.
+                    ...(claim.battleOver && settledBattle.extraState.tournamentGameId
+                      ? []
+                      : [
+                          updateTournament(
+                            ctx.drizzle,
+                            settledBattle,
+                            result,
+                            ctx.userId,
+                          ),
+                        ]),
                     updateRaidProgress(ctx.drizzle, settledBattle, ctx.userId),
                   ]
                 : []),
@@ -913,7 +923,10 @@ export const combatRouter = createTRPCRouter({
                     updateClanLeaders(db, newBattle, result, suid),
                     updateVillageAnbuClan(db, newBattle, result, suid),
                     updateWars(db, pusher, newBattle, result, suid),
-                    updateTournament(db, newBattle, result, suid),
+                    // Terminal event outcomes were committed with the battle version claim.
+                    ...(battleOver && newBattle.extraState.tournamentGameId
+                      ? []
+                      : [updateTournament(db, newBattle, result, suid)]),
                     result
                       ? updateRaidProgress(db, newBattle, suid)
                       : Promise.resolve(),
@@ -1944,7 +1957,7 @@ export const initiateBattle = async (
     clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];
-    /** A launch claimed by the event tournament version CAS. */
+    /** Stable event launch identity; participant claims require its WAITING recovery token. */
     tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
   },
   battleType: BattleType,
@@ -3562,8 +3575,9 @@ export const initiateBattle = async (
     if (!committed.success) return { success: false, message: committed.message };
     result = committed.result;
   } else if (info.tournamentGame) {
-    // Recovery must see the battle and both claims together. A partial claim also
-    // rolls back entry recovery and training, which status compensation cannot undo.
+    // Battle/history inserts and both user claims must commit together. A single-row
+    // CAS cannot hide a staged battle from recovery or roll back partial claims'
+    // training and pool recovery; status compensation cannot undo those writes.
     const rejected = new Error("Tournament participant claim failed");
     try {
       result = await retryOnDeadlock(() =>

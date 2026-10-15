@@ -10,6 +10,7 @@ import { authenticateCronRequest } from "@/server/utils/cron";
 const TIMER = "tournament-maintenance";
 export const maxDuration = 300;
 
+/** Authenticate and claim the shared minute lock before reconciling event progress and payouts. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;

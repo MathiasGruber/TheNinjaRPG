@@ -12,6 +12,7 @@ import type {
   EventTournamentState,
 } from "@/validators/tournament";
 
+/** Create an unpublished event with no roster, bracket or pending reward grants. */
 export const createEventState = (
   config: EventTournamentConfig,
 ): EventTournamentState => ({
@@ -27,6 +28,7 @@ export const createEventState = (
   audit: [],
 });
 
+/** Explain eligibility failures against the player's frozen entry snapshot. */
 export const eligibilityFailures = (
   config: EventTournamentConfig,
   snapshot: EventParticipant["snapshot"],
@@ -45,7 +47,10 @@ export const eligibilityFailures = (
     : []),
 ];
 
-/** Seed order comes from the server's random permutation or frozen PvP-win ranking. */
+/**
+ * Seed accepted entrants and build the bracket in place, stopping at the staff start gate.
+ * Random order is supplied by the server; ranked seeding uses frozen entry statistics.
+ */
 export const generateEventBracket = (
   event: EventTournamentState,
   shuffledIds: string[],
@@ -175,7 +180,10 @@ export const generateEventBracket = (
   resolveEventSlots(event);
 };
 
-/** Null winners carry double no-shows through the graph, without creating phantom opponents. */
+/**
+ * Resolve completed source series in place and advance occupied seats through byes.
+ * Null winners carry double no-shows through the graph without creating opponents.
+ */
 export const resolveEventSlots = (event: EventTournamentState) => {
   for (const series of event.series) {
     if (series.resolved) continue;
@@ -204,6 +212,7 @@ export const resolveEventSlots = (event: EventTournamentState) => {
   }
 };
 
+/** Append a ready check with stable game/battle IDs; accepting it launches combat later. */
 export const openEventGame = (
   event: EventTournamentState,
   series: EventSeries,
@@ -226,6 +235,11 @@ export const openEventGame = (
   });
 };
 
+/**
+ * Open ready checks in the earliest unfinished round, mutating the event in place.
+ * Sequential events open one series; simultaneous events open all eligible series.
+ * Return a user-facing rejection or null on success.
+ */
 export const beginEventRound = (
   event: EventTournamentState,
   now: number,
@@ -262,7 +276,11 @@ export const beginEventRound = (
   return null;
 };
 
-/** Apply a game once; battle results and forfeits share the same score/dodge policy. */
+/**
+ * Complete the current game once and apply the shared score/dodge policy in place.
+ * A forced series result ends a withdrawal immediately; otherwise open the next game
+ * after the configured delay unless the score or no-show limit decides the series.
+ */
 export const completeEventGame = (
   event: EventTournamentState,
   series: EventSeries,
@@ -309,6 +327,7 @@ export const completeEventGame = (
   } else openEventGame(event, series, now, EVENT_TOURNAMENT_GAME_DELAY_SECONDS * 1000);
 };
 
+/** Resolve bracket progress, retain manual round gates, and freeze final standings in place. */
 export const advanceEvent = (event: EventTournamentState, now: number) => {
   resolveEventSlots(event);
   // A lower-bracket finalist must beat the undefeated finalist twice.
@@ -357,6 +376,7 @@ export const advanceEvent = (event: EventTournamentState, now: number) => {
   }
 };
 
+/** Return active participant seat IDs ordered by series wins, game wins and original seed. */
 export const leagueStandings = (event: EventTournamentState) => {
   const entrants = event.participants.filter((p) => p.accepted && !p.withdrawn);
   const wins = (id: string) => event.series.filter((s) => s.winnerId === id).length;
@@ -371,6 +391,7 @@ export const leagueStandings = (event: EventTournamentState) => {
     .map((p) => p.id);
 };
 
+/** Preserve empty finalist places and rank remaining eliminated seats by their last round. */
 const eliminationStandings = (event: EventTournamentState, final: EventSeries) => {
   const leaders = [final.winnerId, final.loserId];
   const eliminated = [...event.series]
@@ -379,7 +400,11 @@ const eliminationStandings = (event: EventTournamentState, final: EventSeries) =
   return [...leaders, ...new Set(eliminated.filter((id) => !leaders.includes(id)))];
 };
 
-/** Attribute a decided series to the player who won it, even after later substitutions. */
+/**
+ * Calculate deferred rewards without granting them; unseeded users receive no reward.
+ * Placement follows the current seat holder, while series wins stay with their original
+ * player after substitution. Both current and former seeded players earn participation.
+ */
 export const eventRewardFor = (event: EventTournamentState, userId: string) => {
   const seeded = event.participants.some(
     (p) =>

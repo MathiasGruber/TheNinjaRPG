@@ -36,6 +36,7 @@ import {
   eventTournamentConfigSchema,
 } from "@/validators/tournament";
 
+/** Shared player/staff tournament view; mutations refresh details, listings and global notices. */
 export const EventTournaments = ({
   tournamentId,
   staff = false,
@@ -464,6 +465,7 @@ export const EventTournaments = ({
   );
 };
 
+/** Show the current game's acceptance window, including the delay between series games. */
 const ReadyCheck = ({
   game,
   gameNumber,
@@ -504,6 +506,7 @@ const ReadyCheck = ({
   );
 };
 
+/** Staff roster and scheduling actions, using the same current round as the series cards. */
 const StaffTournamentControls = ({
   event,
   currentRound,
@@ -711,6 +714,7 @@ const StaffTournamentControls = ({
   );
 };
 
+/** Edit a draft with the shared configuration and quest-reward validators before saving. */
 const TournamentEditor = ({
   initial,
   tournamentId,
@@ -915,7 +919,9 @@ const TournamentEditor = ({
   );
 };
 
+/** Display event timestamps in the player's browser locale and time zone. */
 const date = (value: number) => new Date(value).toLocaleString();
+/** Allocate independent draft settings and reward objects for each new editor. */
 const defaultConfig = (): EventTournamentConfig => ({
   name: "New Colosseum Tournament",
   description: "A staff-hosted tournament at Wake Island.",

@@ -400,6 +400,237 @@ describeWithDatabase("event tournament persistence", () => {
     return { database, game, accept };
   };
 
+  it("recovers a crash after STARTING commits but before the launch token exists", async () => {
+    const { database, game, accept } = await readyEvent();
+    await expect(
+      accept(
+        game.userIds[1]!,
+        beforeStatements(database, tournamentMatch, [
+          async () => {
+            throw new Error("Launch token write failed");
+          },
+        ]),
+      ),
+    ).rejects.toThrow("Launch token write failed");
+    expect(
+      (await fetchEvent(database, "launch"))!.eventData!.series[0]!.games[0],
+    ).toMatchObject({ id: game.id, status: "STARTING" });
+    expect(await database.query.tournamentMatch.findMany()).toHaveLength(0);
+    vi.spyOn(Date, "now").mockReturnValue(
+      game.deadline + (EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS + 1) * 1000,
+    );
+    await syncEventTournament(database, "launch");
+    const recovered = (await fetchEvent(database, "launch"))!.eventData!;
+    expect(recovered.series[0]!.games).toHaveLength(2);
+    expect(recovered.series[0]!.games[0]).toMatchObject({
+      id: game.id,
+      status: "COMPLETE",
+      outcome: "DRAW",
+    });
+    expect(recovered.series[0]!.games[1]!.status).toBe("READY");
+    expect(await database.query.tournamentMatch.findMany()).toMatchObject([
+      { id: game.id, state: "NO_SHOW" },
+    ]);
+    expect(await database.query.battle.findMany()).toHaveLength(0);
+    expect(await database.query.battleHistory.findMany()).toHaveLength(0);
+  });
+
+  it("leaves recovery in control when a delayed launch collides with its missing-token tombstone", async () => {
+    const { database, game, accept } = await readyEvent();
+    const inserting = deferred();
+    const releaseLaunch = deferred();
+    const savingRecovery = deferred();
+    const releaseRecovery = deferred();
+    const launching = accept(
+      game.userIds[1]!,
+      beforeStatements(database, tournamentMatch, [
+        async () => {
+          inserting.resolve();
+          await releaseLaunch.promise;
+        },
+      ]),
+    );
+    let recovering: Promise<void> | undefined;
+    try {
+      await inserting.promise;
+      expect(await database.query.tournamentMatch.findMany()).toHaveLength(0);
+      vi.spyOn(Date, "now").mockReturnValue(
+        game.deadline + (EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS + 1) * 1000,
+      );
+      recovering = syncEventTournament(
+        beforeStatements(database, tournament, [
+          async () => {
+            savingRecovery.resolve();
+            await releaseRecovery.promise;
+          },
+        ]),
+        "launch",
+      );
+      await savingRecovery.promise;
+      expect((await database.query.tournamentMatch.findFirst())?.state).toBe("NO_SHOW");
+      releaseLaunch.resolve();
+      expect((await launching).success).toBe(true);
+      // The duplicate insert must return without a setup failure winning the event CAS.
+      const pending = (await fetchEvent(database, "launch"))!.eventData!.series[0]!;
+      expect(pending.games).toHaveLength(1);
+      expect(pending.games[0]!.status).toBe("STARTING");
+      releaseRecovery.resolve();
+      await recovering;
+      const recovered = (await fetchEvent(database, "launch"))!.eventData!.series[0]!;
+      expect(recovered.begun).toBe(true);
+      expect(recovered.games).toHaveLength(2);
+      expect(recovered.games[0]!.outcome).toBe("DRAW");
+      expect(recovered.games[1]!.status).toBe("READY");
+      expect(await database.query.battle.findMany()).toHaveLength(0);
+      expect(await database.query.battleHistory.findMany()).toHaveLength(0);
+      expect(await database.query.userData.findMany()).toMatchObject([
+        { status: "AWAKE", battleId: null },
+        { status: "AWAKE", battleId: null },
+      ]);
+    } finally {
+      releaseLaunch.resolve();
+      releaseRecovery.resolve();
+      await Promise.allSettled([launching, recovering]);
+    }
+  });
+
+  it("keeps a valid battle when launch wins after recovery reads a missing token and battle", async () => {
+    const { database, game, accept } = await readyEvent();
+    const inserting = deferred();
+    const releaseLaunch = deferred();
+    const committedBattle = deferred();
+    const releaseFighting = deferred();
+    const insertingRecovery = deferred();
+    const releaseRecovery = deferred();
+    const launching = accept(
+      game.userIds[1]!,
+      beforeStatements(
+        beforeStatements(database, tournament, [
+          async () => {},
+          async () => {},
+          async () => {
+            committedBattle.resolve();
+            await releaseFighting.promise;
+          },
+        ]),
+        tournamentMatch,
+        [
+          async () => {
+            inserting.resolve();
+            await releaseLaunch.promise;
+          },
+        ],
+      ),
+    );
+    let recovering: Promise<void> | undefined;
+    try {
+      await inserting.promise;
+      vi.spyOn(Date, "now").mockReturnValue(
+        game.deadline + (EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS + 1) * 1000,
+      );
+      recovering = syncEventTournament(
+        beforeStatements(database, tournamentMatch, [
+          async () => {
+            insertingRecovery.resolve();
+            await releaseRecovery.promise;
+          },
+        ]),
+        "launch",
+      );
+      await insertingRecovery.promise;
+      releaseLaunch.resolve();
+      await committedBattle.promise;
+      expect(await database.query.battle.findMany()).toMatchObject([
+        { id: game.battleId },
+      ]);
+      releaseRecovery.resolve();
+      await recovering;
+      // The no-op duplicate insert can report one affected row for this WAITING token.
+      // Recovery must reread it and let NOT EXISTS Battle arbitrate before drawing.
+      const pending = (await fetchEvent(database, "launch"))!.eventData!.series[0]!;
+      expect(pending.games).toHaveLength(1);
+      expect(pending.games[0]!.status).toBe("STARTING");
+      expect((await database.query.tournamentMatch.findFirst())?.state).toBe("WAITING");
+      releaseFighting.resolve();
+      expect((await launching).success).toBe(true);
+      const fighting = (await fetchEvent(database, "launch"))!.eventData!.series[0]!;
+      expect(fighting.games).toHaveLength(1);
+      expect(fighting.games[0]!.status).toBe("FIGHTING");
+      expect(await database.query.battleHistory.findMany()).toHaveLength(1);
+      expect(await database.query.userData.findMany()).toMatchObject([
+        { status: "BATTLE", battleId: game.battleId },
+        { status: "BATTLE", battleId: game.battleId },
+      ]);
+    } finally {
+      releaseLaunch.resolve();
+      releaseRecovery.resolve();
+      releaseFighting.resolve();
+      await Promise.allSettled([launching, recovering]);
+    }
+  });
+
+  it("claims one token and battle for concurrent ready acceptance", async () => {
+    const { database, game, accept } = await readyEvent();
+    await Promise.all([accept(game.userIds[1]!), accept(game.userIds[1]!)]);
+    expect(await database.query.tournamentMatch.findMany()).toMatchObject([
+      { id: game.id, state: "WAITING", battleId: game.battleId },
+    ]);
+    expect(await database.query.battle.findMany()).toMatchObject([
+      { id: game.battleId },
+    ]);
+    expect(await database.query.battleHistory.findMany()).toHaveLength(1);
+    const series = (await fetchEvent(database, "launch"))!.eventData!.series[0]!;
+    expect(series.games).toHaveLength(1);
+    expect(series.games[0]!.status).toBe("FIGHTING");
+  });
+
+  it("retains a READY game ID during substitution and launches only its replacement roster", async () => {
+    const { database, game, accept } = await readyEvent();
+    await insertUsers([
+      { userId: "staff", role: "CODER" },
+      {
+        userId: "replacement",
+        username: "replacement",
+        status: "AWAKE",
+        rank: "JONIN",
+        level: 50,
+        sector: MAP_WAKE_ISLAND_SECTOR,
+      },
+    ]);
+    const before = (await fetchEvent(database, "launch"))!.eventData!;
+    const original = game.userIds[0]!;
+    const seat = before.participants.find((p) => p.userId === original)!;
+    const result = await callerForDatabase(
+      tournamentRouter,
+      "staff",
+      database,
+    ).manageEvent({
+      tournamentId: "launch",
+      action: "SUBSTITUTE",
+      seatId: seat.id,
+      userId: "replacement",
+    });
+    expect(result.success).toBe(true);
+    const substituted = (await fetchEvent(database, "launch"))!.eventData!;
+    const ready = substituted.series[0]!.games[0]!;
+    expect(ready).toMatchObject({ id: game.id, status: "READY", accepted: [] });
+    expect(ready.userIds).toEqual(["replacement", game.userIds[1]!]);
+    expect(await database.query.tournamentMatch.findMany()).toHaveLength(0);
+    expect((await accept(original)).success).toBe(false);
+    for (const userId of ready.userIds)
+      expect((await accept(userId)).success).toBe(true);
+    expect(await database.query.tournamentMatch.findMany()).toMatchObject([
+      { id: game.id, userId1: "replacement", userId2: game.userIds[1]! },
+    ]);
+    const started = (await database.query.battle.findFirst())!;
+    expect(started.usersState.map((u) => u.userId).sort()).toEqual(
+      [...ready.userIds].sort(),
+    );
+    expect(
+      await database.query.userData.findFirst({ where: eq(userData.userId, original) }),
+    ).toMatchObject({ status: "AWAKE", battleId: null });
+  });
+
   it("recovers a stalled launch without exposing claims or allowing its late battle", async () => {
     const { database, game, accept } = await readyEvent();
     const reached = deferred();
@@ -502,7 +733,7 @@ describeWithDatabase("event tournament persistence", () => {
             "hero",
             beforeCommit
               ? beforeTransactionalWrite(database, tournamentMatch, wait)
-              : beforeStatements(database, tournamentMatch, [wait]),
+              : afterTransactionCommit(database, wait),
           );
           const current = (await database.query.battle.findFirst())!;
           second =
@@ -1193,6 +1424,25 @@ const beforeTransactionalWrite = (
               ]) as typeof tx,
             ),
           );
+      return Reflect.get(target, property, receiver);
+    },
+  });
+};
+
+/** Pause after the first real SQL transaction commits, before its caller can continue. */
+const afterTransactionCommit = (client: DrizzleClient, hook: () => Promise<void>) => {
+  let pending = true;
+  return new Proxy(client, {
+    get(target, property, receiver) {
+      if (property === "transaction")
+        return async (callback: Parameters<typeof client.transaction>[0]) => {
+          const result = await client.transaction(callback);
+          if (pending) {
+            pending = false;
+            await hook();
+          }
+          return result;
+        };
       return Reflect.get(target, property, receiver);
     },
   });

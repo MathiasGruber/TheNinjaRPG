@@ -2859,6 +2859,7 @@ export const calcBattleResult = (
           ? targetUsers.filter((target) => wasDefeated(target, effects)).length
           : 0;
 
+      // Keep the result summary consistent with exhibition settlement's progression bypass.
       if (battle.extraState.tournamentGameId) {
         result.experience = 0;
         result.earnedExperience = 0;
