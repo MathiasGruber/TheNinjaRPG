@@ -357,9 +357,44 @@ describe("war field objectives", () => {
     ).toBe(true);
   });
 
+  it.each([
+    { villageId: "own", side: "own", destination: "Enemy village", sector: 20 },
+    { villageId: "enemy", side: "enemy", destination: "Own village", sector: 10 },
+    { villageId: "ally", side: "own", destination: "Enemy village", sector: 20 },
+    { villageId: "ally", side: "enemy", destination: "Own village", sector: 10 },
+  ])("guides $villageId on side $side to the opposing village for espionage", (fixture) => {
+    user.villageId = fixture.villageId;
+    info!.war.objectiveState!.attackerEspionage = 0;
+    info!.war.warAllies = [
+      {
+        id: "ally-1",
+        warId: "war-1",
+        villageId: "ally",
+        supportVillageId: fixture.side,
+        tokensPaid: 0,
+        acceptedAt: new Date(NOW),
+        joinedAt: new Date(NOW),
+        endedAt: null,
+        activeVillageId: "ally",
+      },
+    ];
+    const view = mount(<ObjectiveWarPanel warId="war-1" />);
+    openTab(view, "Missions");
+    expect(
+      view
+        .getByRole("link", {
+          name: `${fixture.destination} (sector ${fixture.sector})`,
+        })
+        .getAttribute("href"),
+    ).toBe(`/travel?sector=${fixture.sector}`);
+  });
+
   it("keeps rejected and failed missions retryable with feedback beside the action", async () => {
     const view = mount(<ObjectiveWarPanel warId="war-1" />);
     openTab(view, "Missions");
+    expect(
+      view.getByText(/Travel to a revealed enemy shrine to sabotage it/),
+    ).toBeDefined();
     fireEvent.click(view.getByRole("button", { name: "Start sabotage" }));
     expect(start.mutate).toHaveBeenCalledWith({
       warId: "war-1",

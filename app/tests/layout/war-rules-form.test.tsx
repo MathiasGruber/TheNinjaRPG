@@ -92,4 +92,23 @@ describe("village war settings", () => {
       (view.getByRole("button", { name: "Save war settings" }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
+
+  it("enables saving changed numeric and checkbox fields and disables it when reverted", () => {
+    rules = { ...defaultWarRules, enabled: true };
+    isPending = false;
+    const view = render(<WarRulesForm />);
+    const button = view.getByRole("button", { name: "Save war settings" }) as HTMLButtonElement;
+    const notice = view.getByRole("spinbutton", { name: "Notice period (hours)" });
+    const enabled = view.getByRole("checkbox", { name: "Enable objective village wars" });
+
+    expect(button.disabled).toBe(true);
+    fireEvent.input(notice, { target: { value: String(rules.noticeHours + 1) } });
+    expect(button.disabled).toBe(false);
+    fireEvent.input(notice, { target: { value: String(rules.noticeHours) } });
+    expect(button.disabled).toBe(true);
+    fireEvent.click(enabled);
+    expect(button.disabled).toBe(false);
+    fireEvent.click(enabled);
+    expect(button.disabled).toBe(true);
+  });
 });

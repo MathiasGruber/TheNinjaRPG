@@ -130,6 +130,8 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
   const now = Date.now() - timeDiff;
   const isNotice = w.combatStartedAt.getTime() > now;
   const isRevealed = getWarEspionage(w, side) >= WAR_ESPIONAGE_TARGET;
+  const enemyVillage =
+    side === w.attackerVillageId ? w.defenderVillage : w.attackerVillage;
   const hasEnded =
     w.status !== "ACTIVE" ||
     !!w.endedAt ||
@@ -196,7 +198,9 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
           variant={feedback.success ? "default" : "destructive"}
           role={feedback.success ? "status" : "alert"}
         >
-          <AlertDescription>{feedback.message}</AlertDescription>
+          <AlertDescription>
+            <p className="text-foreground">{feedback.message}</p>
+          </AlertDescription>
         </Alert>
       )}
       {attempt && (
@@ -379,9 +383,20 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
         <TabsContent value="missions" className="space-y-3 pt-2">
           <p className="text-muted-foreground text-sm">
             War missions run alongside your regular quests.{" "}
-            {isRevealed
-              ? "Sabotage weakens enemy shrines."
-              : "Espionage reveals the war’s shrine locations."}
+            {isRevealed ? (
+              "Travel to a revealed enemy shrine to sabotage it."
+            ) : (
+              <>
+                Gather intelligence in{" "}
+                <Link
+                  className="font-medium underline underline-offset-4"
+                  href={`/travel?sector=${enemyVillage.sector}`}
+                >
+                  {enemyVillage.name} (sector {enemyVillage.sector})
+                </Link>{" "}
+                to reveal the war’s shrine locations.
+              </>
+            )}
           </p>
           {data.attempt && !attempt && (
             <p role="status" className="text-sm">

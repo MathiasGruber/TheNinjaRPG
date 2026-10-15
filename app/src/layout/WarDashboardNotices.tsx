@@ -143,7 +143,9 @@ export const WarDashboardNotices = () => {
               variant={feedback.success ? "default" : "destructive"}
               role={feedback.success ? "status" : "alert"}
             >
-              <AlertDescription>{feedback.message}</AlertDescription>
+              <AlertDescription>
+                <p className="text-foreground">{feedback.message}</p>
+              </AlertDescription>
             </Alert>
           )}
         </div>

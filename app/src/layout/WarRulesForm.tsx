@@ -1,7 +1,7 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFormState } from "react-hook-form";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -31,16 +31,16 @@ export const WarRulesForm = () => {
   >({
     defaultValues: defaultWarRules,
     values: data,
-    resetOptions: { keepDirtyValues: true },
+    resetOptions: { keepDirtyValues: true, keepDirty: true },
     resolver: zodResolver(warRulesSchema),
   });
-  const hasChanges = Object.keys(form.formState.dirtyFields).length > 0;
+  const { isDirty } = useFormState({ control: form.control });
   const mutation = api.war.setRules.useMutation({
     onSuccess: (result, values) => {
       setMessage(result.message);
       showMutationToast(result);
       if (result.success) {
-        form.reset(values, { keepDirtyValues: false });
+        form.reset(values, { keepDirtyValues: false, keepDirty: false });
         void utils.war.getRules.invalidate();
       }
     },
@@ -121,7 +121,7 @@ export const WarRulesForm = () => {
                   {message}
                 </p>
               )}
-              <Button disabled={mutation.isPending || !hasChanges} type="submit">
+              <Button disabled={mutation.isPending || !isDirty} type="submit">
                 {mutation.isPending ? "Saving..." : "Save war settings"}
               </Button>
             </fieldset>
