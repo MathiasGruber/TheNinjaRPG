@@ -21,6 +21,7 @@ import {
 import { isObjectiveWarActive } from "@/libs/objectiveWar";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { getRandomElement } from "@/utils/array";
 import { defaultWarRules, type WarRules, warRulesSchema } from "@/validators/war";
 
 export const fetchWarRules = async (client: DrizzleClient): Promise<WarRules> => {
@@ -291,9 +292,8 @@ export const syncWarCamps = async (
           [w.attackerVillageId, w.defenderVillageId].includes(s.villageId),
         );
         if (!owned.length) return;
-        const selectedSector = owned[Math.floor(Math.random() * owned.length)]!.sector;
-        const guardianId =
-          guardians[Math.floor(Math.random() * guardians.length)]!.userId;
+        const selectedSector = getRandomElement(owned)!.sector;
+        const guardianId = getRandomElement(guardians)!.userId;
         // Replay can have ended combat since preload; guard insertion against current health.
         await client.execute(sql`
           INSERT IGNORE INTO WarCamp (id, warId, sector, guardianId, startsAt, endsAt)

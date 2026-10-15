@@ -29,45 +29,41 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
     void utils.war.getActiveWars.invalidate();
     void utils.profile.getUser.invalidate();
   };
+  const onBattleSuccess = async (result: {
+    success: boolean;
+    message: string;
+    battleId?: string;
+  }) => {
+    setMessage(result.message);
+    if (result.success && result.battleId) {
+      await updateUser({
+        status: "BATTLE",
+        battleId: result.battleId,
+        updatedAt: new Date(),
+      });
+      pushToCombat(router, result.battleId);
+    }
+  };
+  const onError = (error: { message: string }) => setMessage(error.message);
   const start = api.war.startWarMission.useMutation({
     onSuccess: refresh,
-    onError: (error) => setMessage(error.message),
+    onError,
   });
   const finish = api.war.completeWarMission.useMutation({
     onSuccess: refresh,
-    onError: (error) => setMessage(error.message),
+    onError,
   });
   const cancel = api.war.cancelWarMission.useMutation({
     onSuccess: refresh,
-    onError: (error) => setMessage(error.message),
+    onError,
   });
   const attack = api.combat.startShrineBattle.useMutation({
-    onSuccess: async (result) => {
-      setMessage(result.message);
-      if (result.success && result.battleId) {
-        await updateUser({
-          status: "BATTLE",
-          battleId: result.battleId,
-          updatedAt: new Date(),
-        });
-        pushToCombat(router, result.battleId);
-      }
-    },
-    onError: (error) => setMessage(error.message),
+    onSuccess: onBattleSuccess,
+    onError,
   });
   const camp = api.war.attackWarCamp.useMutation({
-    onSuccess: async (result) => {
-      setMessage(result.message);
-      if (result.success && result.battleId) {
-        await updateUser({
-          status: "BATTLE",
-          battleId: result.battleId,
-          updatedAt: new Date(),
-        });
-        pushToCombat(router, result.battleId);
-      }
-    },
-    onError: (error) => setMessage(error.message),
+    onSuccess: onBattleSuccess,
+    onError,
   });
   if (isPending) return <Loader explanation="Loading war objectives" />;
   if (!data || !user) return null;
@@ -76,8 +72,6 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
   const activeAt = w.combatStartedAt!;
   const isNotice = new Date(activeAt) > new Date();
   const isRevealed = getWarEspionage(w, side) >= WAR_ESPIONAGE_TARGET;
-  const enemyVillage =
-    side === w.attackerVillageId ? w.defenderVillage : w.attackerVillage;
   const hasEnded =
     w.status !== "ACTIVE" ||
     !!w.endedAt ||
