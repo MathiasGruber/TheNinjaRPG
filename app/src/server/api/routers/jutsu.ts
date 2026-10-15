@@ -2585,21 +2585,24 @@ export const fetchUserJutsus = async (
   // Self-join alias to get the parent jutsu's parentJutsuId (grandparent)
   const parentJutsuAlias = alias(jutsu, "parentJutsu");
   // Grab all userJutsus with Jutsu data and reskin data
-  const userjutsus = await client
-    .select()
-    .from(userJutsu)
-    .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
-    .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
-    .leftJoin(jutsuReskin, eq(userJutsu.reskinId, jutsuReskin.id))
-    .leftJoin(parentJutsuAlias, eq(jutsu.parentJutsuId, parentJutsuAlias.id))
-    .where(
-      and(
-        eq(userJutsu.userId, userId),
-        ne(jutsu.jutsuType, "AI"),
-        ...jutsuDatabaseFilter(input, true),
-      ),
-    )
-    .orderBy(desc(userJutsu.level));
+  const [linkedReskins, userjutsus] = await Promise.all([
+    fetchBloodlineJutsuReskins(client, [userId]),
+    client
+      .select()
+      .from(userJutsu)
+      .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
+      .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
+      .leftJoin(jutsuReskin, eq(userJutsu.reskinId, jutsuReskin.id))
+      .leftJoin(parentJutsuAlias, eq(jutsu.parentJutsuId, parentJutsuAlias.id))
+      .where(
+        and(
+          eq(userJutsu.userId, userId),
+          ne(jutsu.jutsuType, "AI"),
+          ...jutsuDatabaseFilter(input, true),
+        ),
+      )
+      .orderBy(desc(userJutsu.level)),
+  ]);
   // First map to query-format
   const unskinnedUserJutsus = userjutsus.map((result) => ({
     ...result.UserJutsu,
@@ -2608,6 +2611,11 @@ export const fetchUserJutsus = async (
       bloodline: result.Bloodline,
     },
     activeReskin: result.JutsuReskin,
+    linkedReskin:
+      linkedReskins.find(
+        (row) =>
+          row.userId === userId && row.jutsu.reskinParentJutsuId === result.Jutsu.id,
+      )?.jutsu ?? null,
     // Grandparent ID — allows frontend to walk the full ancestor chain
     parentJutsuParentId: result.parentJutsu?.parentJutsuId ?? null,
     ancestorIds: [
@@ -2619,6 +2627,26 @@ export const fetchUserJutsus = async (
   return options.applyReskins === false
     ? unskinnedUserJutsus
     : unskinnedUserJutsus.map((userjutsu) => getReskinnedUserJutsu(userjutsu));
+};
+
+/** Load variants only for the player's selected reskin and current underlying bloodline. */
+export const fetchBloodlineJutsuReskins = async (
+  client: DrizzleClient,
+  userIds: string[],
+) => {
+  if (!userIds.length) return [];
+  return client
+    .select({ userId: userData.userId, jutsu })
+    .from(userData)
+    .innerJoin(
+      jutsu,
+      and(
+        eq(jutsu.bloodlineReskinId, userData.bloodlineReskinId),
+        eq(jutsu.bloodlineId, userData.bloodlineId),
+      ),
+    )
+    .where(inArray(userData.userId, userIds))
+    .orderBy(desc(jutsu.updatedAt), asc(jutsu.id));
 };
 
 /**

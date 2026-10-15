@@ -76,6 +76,18 @@ describe("battle response privacy", () => {
     for (const user of masked.usersState) expect(user).not.toHaveProperty("jutsus");
   });
 
+  it("includes linked variants only for their controller", () => {
+    const battle = battleWithLoadouts();
+    battle.usersState[0]!.jutsus[0]!.linkedReskinId = "me-variant";
+    battle.usersState[1]!.jutsus[0]!.linkedReskinId = "foe-variant";
+    battle.extraState.jutsus["me-variant"] = jutsu("me-variant");
+    battle.extraState.jutsus["foe-variant"] = jutsu("foe-variant");
+    const masked = maskBattle(battle, "me");
+    expect(masked.extraState.jutsus).toHaveProperty("me-variant");
+    expect(masked.extraState.jutsus).not.toHaveProperty("foe-variant");
+    expect(maskBattle(battle, "spectator").extraState.jutsus).toEqual({});
+  });
+
   it("preserves the controller's actions, reskins and cooldowns", () => {
     vi.spyOn(Date, "now").mockReturnValue(1767225600000);
     const battle = battleWithLoadouts();

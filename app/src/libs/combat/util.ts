@@ -1753,7 +1753,13 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
   );
   const controlledUsers = visibleUsers.filter((u) => u.controllerId === userId);
   const jutsuIds = new Set(
-    controlledUsers.flatMap((u) => u.jutsus?.map((j) => j.jutsuId) ?? []),
+    controlledUsers.flatMap(
+      (u) =>
+        u.jutsus?.flatMap((j) => [
+          j.jutsuId,
+          ...(j.linkedReskinId ? [j.linkedReskinId] : []),
+        ]) ?? [],
+    ),
   );
   const itemIds = new Set(
     controlledUsers.flatMap((u) => u.items?.map((i) => i.itemId) ?? []),

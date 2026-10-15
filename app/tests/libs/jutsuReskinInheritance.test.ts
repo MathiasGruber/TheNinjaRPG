@@ -1,11 +1,56 @@
 import { describe, expect, it } from "bun:test";
 import { ElementNames, StatTypes } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
-import { getJutsuReskinMechanics, inheritJutsuReskinEffects } from "@/libs/jutsu/reskins";
+import { applyLinkedJutsuReskin, getJutsuReskinMechanics, inheritJutsuReskinEffects } from "@/libs/jutsu/reskins";
+import { getReskinnedUserJutsu } from "@/libs/jutsu";
+import { userJutsuToAction } from "@/libs/combat/actions";
+import type { BattleUserJutsu, CompleteBattle } from "@/libs/combat/types";
+import type { UserJutsuWithRelations } from "@/drizzle/schema";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { DamageTag, HealTag, JutsuValidatorRawSchema } from "@/validators/combat";
 
 describe("linked jutsu reskin inheritance", () => {
+  const base = {
+    id: "base", bloodlineId: "blood", name: "Base", image: "/base.png",
+    description: "Base description", battleDescription: "Base cast", hidden: false,
+    jutsuRank: "C", cooldown: 4, chakraCost: 20, chakraCostReducePerLvl: 1,
+    effects: [DamageTag.parse({ power: 4, staticAnimation: "base-animation" })],
+  } as Jutsu;
+  const variant = {
+    ...base, id: "variant", reskinParentJutsuId: base.id, bloodlineReskinId: "group",
+    name: "Scarlet", image: "/scarlet.png", description: "Scarlet text", battleDescription: "Scarlet cast",
+    hidden: true, jutsuRank: "H", cooldown: 999, chakraCost: 999,
+    effects: [DamageTag.parse({ power: 999, staticAnimation: "scarlet-animation" })],
+  } as Jutsu;
+
+  it("uses linked cosmetics without copying hidden status, rank, identity or mechanics", () => {
+    const resolved = applyLinkedJutsuReskin(base, variant);
+    expect(resolved).toMatchObject({ id: "base", hidden: false, jutsuRank: "C", cooldown: 4, chakraCost: 20, name: "Scarlet" });
+    expect(resolved.effects[0]).toMatchObject({ power: 4, staticAnimation: "scarlet-animation" });
+    expect(base.effects[0]?.staticAnimation).toBe("base-animation");
+    expect(applyLinkedJutsuReskin(base, null)).toBe(base);
+    expect(applyLinkedJutsuReskin(base, { ...variant, reskinParentJutsuId: "other" })).toBe(base);
+    expect(applyLinkedJutsuReskin(base, { ...variant, bloodlineId: "other" })).toBe(base);
+  });
+
+  it("preserves the learned row and lets personal cosmetics override linked cosmetics", () => {
+    const owned = { id: "owned", jutsuId: "base", level: 12, experience: 55, jutsu: base, activeReskin: null, linkedReskin: variant } as unknown as UserJutsuWithRelations & { linkedReskin: Jutsu };
+    expect(getReskinnedUserJutsu(owned)).toMatchObject({ id: "owned", jutsuId: "base", level: 12, experience: 55, jutsu: { name: "Scarlet", hidden: false, jutsuRank: "C" } });
+    const personal = getReskinnedUserJutsu({ ...owned, activeReskin: { name: "Personal" } as NonNullable<typeof owned.activeReskin> });
+    expect(personal.jutsu.name).toBe("Personal");
+    expect(personal.jutsu.effects[0]?.staticAnimation).toBe("scarlet-animation");
+  });
+
+  it("isolates combat cosmetics per owner while retaining base damage and costs", () => {
+    const battle = { extraState: { jutsus: { base, variant }, jutsuReskins: {} } } as unknown as CompleteBattle;
+    const owned = { jutsuId: "base", level: 3, originalCooldown: 4, linkedReskinId: "variant" } as BattleUserJutsu;
+    const action = userJutsuToAction(owned, battle);
+    expect(action).toMatchObject({ id: "base", name: "Scarlet", image: "/scarlet.png", chakraCost: 17, level: 3 });
+    expect(action.effects[0]).toMatchObject({ power: 4, staticAnimation: "scarlet-animation" });
+    expect(userJutsuToAction({ ...owned, linkedReskinId: null }, battle).name).toBe("Base");
+    expect(battle.extraState.jutsus.base?.name).toBe("Base");
+  });
+
   it("inherits mechanics while excluding identity, cosmetics and entry-specific links", () => {
     const source = {
       id: "parent", name: "Parent", image: "/parent.png", description: "Parent text",
