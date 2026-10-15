@@ -315,6 +315,7 @@ export const advanceEvent = (event: EventTournamentState, now: number) => {
   const final = event.series.find((s) => s.bracket === "FINAL");
   if (
     final?.complete &&
+    final.seats[0] &&
     final.winnerId &&
     final.winnerId === final.seats[1] &&
     event.series.filter((s) => s.bracket === "FINAL").length === 1

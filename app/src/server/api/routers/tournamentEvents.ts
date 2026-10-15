@@ -486,7 +486,11 @@ export const syncEventTournament = async (client: DrizzleClient, id: string) => 
     await payEventRewards(client, row);
     return;
   }
-  if (event.status === "DRAFT" || event.status === "REGISTRATION") return;
+  if (
+    event.status === "DRAFT" ||
+    (event.status === "REGISTRATION" && now < event.config.endsAt)
+  )
+    return;
   for (const series of event.series.filter((s) => !s.complete)) {
     const game = series.games.at(-1);
     if (!game) continue;

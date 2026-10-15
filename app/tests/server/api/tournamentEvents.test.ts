@@ -200,6 +200,124 @@ describeWithDatabase("event tournament persistence", () => {
     };
   };
 
+  for (const published of [false, true]) {
+    it(`applies the event deadline and retention only after publication (published=${published})`, async () => {
+      const database = await getTestDatabase();
+      await insertUsers([{ userId: "staff", role: "CODER" }]);
+      const staff = await callerFor(tournamentRouter, "staff");
+      const config = eventConfig("Unseeded event");
+      const created = await staff.saveEvent({ config });
+      if (!("tournamentId" in created)) throw new Error(created.message);
+      const { tournamentId } = created;
+      if (published)
+        expect(
+          (await staff.manageEvent({ tournamentId, action: "PUBLISH" })).success,
+        ).toBe(true);
+      const clock = vi.spyOn(Date, "now").mockReturnValue(config.endsAt - 1);
+      await maintainEventTournaments(database);
+      expect((await fetchEvent(database, tournamentId))?.eventData?.status).toBe(
+        published ? "REGISTRATION" : "DRAFT",
+      );
+      clock.mockReturnValue(config.endsAt);
+      await maintainEventTournaments(database);
+      const ended = (await fetchEvent(database, tournamentId))!;
+      expect(ended.eventData?.status).toBe(published ? "CANCELLED" : "DRAFT");
+      expect(ended.eventData?.finishedAt).toBe(published ? config.endsAt : null);
+      expect(ended.eventData?.payRewards).toBe(false);
+      expect(await database.query.tournamentRewardClaim.findMany()).toHaveLength(0);
+      clock.mockReturnValue(
+        config.endsAt + EVENT_TOURNAMENT_RETENTION_DAYS * 86400_000 + 1,
+      );
+      await maintainEventTournaments(database);
+      const retained = await fetchEvent(database, tournamentId);
+      if (published) expect(retained).toBeUndefined();
+      else expect(retained?.eventData?.status).toBe("DRAFT");
+    });
+  }
+
+  it("pays the final bye as a championship after both upper finalists no-show", async () => {
+    const database = await getTestDatabase();
+    const entrants = ["first", "second", "third", "fourth"];
+    await insertUsers(
+      ["staff", ...entrants].map((userId) => ({
+        userId,
+        role: userId === "staff" ? "CODER" : "USER",
+        status: "AWAKE",
+        sector: MAP_WAKE_ISLAND_SECTOR,
+        money: 0,
+      })),
+    );
+    const staff = await callerFor(tournamentRouter, "staff");
+    const config = eventConfig("Final bye");
+    config.format = "DOUBLE_ELIMINATION";
+    config.rewards.participation.reward_money = 0;
+    config.rewards.winner.reward_money = 100;
+    config.rewards.runnerUp.reward_money = 20;
+    const created = await staff.saveEvent({ config });
+    if (!("tournamentId" in created)) throw new Error(created.message);
+    const { tournamentId } = created;
+    expect((await staff.manageEvent({ tournamentId, action: "PUBLISH" })).success).toBe(
+      true,
+    );
+    for (const userId of entrants) {
+      const player = await callerFor(tournamentRouter, userId);
+      expect(
+        (await player.participateEvent({ tournamentId, action: "JOIN" })).success,
+      ).toBe(true);
+    }
+    expect((await staff.manageEvent({ tournamentId, action: "SEED" })).success).toBe(
+      true,
+    );
+    let champion = "";
+    let championSeat = "";
+    for (const round of [1, 2]) {
+      expect((await staff.manageEvent({ tournamentId, action: "BEGIN" })).success).toBe(
+        true,
+      );
+      const event = (await fetchEvent(database, tournamentId))!.eventData!;
+      for (const series of event.series.filter((s) => s.begun && !s.complete)) {
+        if (round === 1 || series.bracket === "LOSERS") {
+          const userId = series.games.at(-1)!.userIds[0]!;
+          const player = await callerFor(tournamentRouter, userId);
+          expect(
+            (
+              await player.participateEvent({
+                tournamentId,
+                action: "ACCEPT",
+                seriesId: series.id,
+              })
+            ).success,
+          ).toBe(true);
+          if (round === 2) {
+            champion = userId;
+            championSeat = series.seats[0]!;
+          }
+        }
+      }
+      const accepted = (await fetchEvent(database, tournamentId))!.eventData!;
+      for (const series of accepted.series.filter((s) => s.begun && !s.complete))
+        series.games.at(-1)!.deadline = Date.now() - 1;
+      await database
+        .update(tournament)
+        .set({ eventData: accepted })
+        .where(eq(tournament.id, tournamentId));
+      await syncEventTournament(database, tournamentId);
+    }
+    const finished = (await fetchEvent(database, tournamentId))!.eventData!;
+    expect(finished.status).toBe("COMPLETED");
+    expect(finished.standings[0]).toBe(championSeat);
+    expect(finished.series.filter((s) => s.bracket === "FINAL")).toHaveLength(1);
+    await syncEventTournament(database, tournamentId);
+    expect(
+      (
+        await database.query.userData.findFirst({
+          where: eq(userData.userId, champion),
+        })
+      )?.money,
+    ).toBe(100);
+    expect(await database.query.tournamentRewardClaim.findMany()).toHaveLength(4);
+  });
+
   for (const registration of ["OPEN", "INVITE_ONLY"] as const) {
     for (const resolution of ["deadline", "withdrawal"] as const) {
       it(`keeps a rejoined ${registration} entrant's current seat through ${resolution}`, async () => {

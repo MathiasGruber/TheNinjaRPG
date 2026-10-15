@@ -51,6 +51,27 @@ describe("staff event tournament brackets", () => {
     expect(event.series.filter((s) => s.bracket === "FINAL")).toHaveLength(2);
     expect(event.standings[0]).toBe(event.series.at(-1)!.seats[1]!);
   });
+  it("awards a final bye when both upper finalists fail to show", () => {
+    const event = makeEvent(4, { format: "DOUBLE_ELIMINATION" });
+    beginEventRound(event, 0);
+    for (const series of event.series.filter((s) => s.begun)) {
+      const game = series.games.at(-1)!;
+      game.accepted = [...game.userIds];
+      completeEventGame(event, series, game.userIds[0]!, "BATTLE", 0);
+    }
+    advanceEvent(event, 0);
+    beginEventRound(event, 0);
+    const upper = event.series.find((s) => s.bracket === "WINNERS" && !s.complete)!;
+    const lower = event.series.find((s) => s.bracket === "LOSERS" && s.begun)!;
+    completeEventGame(event, upper, null, "DOUBLE_NO_SHOW", 0);
+    const game = lower.games.at(-1)!;
+    game.accepted = [...game.userIds];
+    completeEventGame(event, lower, game.userIds[0]!, "BATTLE", 0);
+    advanceEvent(event, 0);
+    expect(event.status).toBe("COMPLETED");
+    expect(event.series.filter((s) => s.bracket === "FINAL")).toHaveLength(1);
+    expect(event.standings[0]).toBe(lower.winnerId);
+  });
   it("sequential scheduling requires a fresh staff start for each series", () => {
     const event = makeEvent(8, { scheduling: "SEQUENTIAL" });
     expect(beginEventRound(event, 0)).toBeNull();
