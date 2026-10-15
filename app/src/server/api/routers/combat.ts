@@ -1308,10 +1308,12 @@ export const combatRouter = createTRPCRouter({
       const otherUserState = userBattle.usersState.filter(
         (u) => u.controllerId !== ctx.userId,
       );
-      const preservedSageEffects = userBattle.usersEffects.filter(
+      const preservedEffects = userBattle.usersEffects.filter(
         (e) =>
           e.creatorId === ctx.userId &&
-          (e.fromType === "sageMode" || e.fromType === "sageModeAfter"),
+          (e.fromType === "sageMode" ||
+            e.fromType === "sageModeAfter" ||
+            (e.timedBuffExpiresAt ?? 0) > Date.now()),
       );
       const otherUserEffects = userBattle.usersEffects.filter(
         (e) => e.creatorId !== ctx.userId,
@@ -1430,7 +1432,7 @@ export const combatRouter = createTRPCRouter({
 
       const completeUserEffects = [
         ...otherUserEffects,
-        ...preservedSageEffects,
+        ...preservedEffects,
         ...userEffects,
       ];
 

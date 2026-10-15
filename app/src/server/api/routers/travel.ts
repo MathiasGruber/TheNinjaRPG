@@ -56,6 +56,7 @@ import {
 } from "@/libs/sector-map/validation";
 import { isUserCurrentlyStealthed } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
+import { getTimedRegenerationGain, type TimedBuff } from "@/libs/timedBuffs";
 import {
   calcGlobalTravelTime,
   calcIsInVillage,
@@ -93,7 +94,7 @@ import {
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { groupBy } from "@/utils/grouping";
-import { secondsFromNow } from "@/utils/time";
+import { secondsFromNow, secondsPassed } from "@/utils/time";
 import { getStrucBoost } from "@/utils/village";
 import { sectorIdSchema, startGlobalMoveSchema } from "@/validators/travel";
 
@@ -685,7 +686,10 @@ export const travelRouter = createTRPCRouter({
     .meta({ mcp: { description: "Complete global travel" } })
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
-      let user = await fetchUser(ctx.drizzle, ctx.userId);
+      let user: UserData & { raidBuffs?: TimedBuff[] } = await fetchUser(
+        ctx.drizzle,
+        ctx.userId,
+      );
       if (hasEnergyQueue(user)) {
         const updated = await fetchUpdatedUser({
           client: ctx.drizzle,
@@ -693,7 +697,15 @@ export const travelRouter = createTRPCRouter({
           forceRegen: true,
         });
         if (!updated.user) return errorResponse("User not found");
-        user = updated.user;
+        user = {
+          ...updated.user,
+          // Integrate timed bonuses from the stored rate instead of applying the current bonus to every tick.
+          regeneration: calcActiveUserRegen(
+            { ...updated.user, regeneration: user.regeneration },
+            updated.settings,
+            false,
+          ),
+        };
       }
       if (!["TRAVEL", "AWAKE"].includes(user.status)) {
         return {
@@ -1121,8 +1133,21 @@ const resolveAdjacentCrossing = (
 };
 
 /** Complete travel and consume its recovery ticks without training queued stats. */
-const completeGlobalTravel = (client: DrizzleClient, user: UserData) => {
-  const recoveryTicks = sql`FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, NOW(3))) / ${REGEN_SECONDS * 1_000_000})`;
+const completeGlobalTravel = (
+  client: DrizzleClient,
+  user: UserData & { raidBuffs?: TimedBuff[] },
+) => {
+  const recoveryTicks = Math.max(
+    0,
+    Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS),
+  );
+  const recovery = getTimedRegenerationGain(
+    user.regeneration,
+    user.raidBuffs ?? [],
+    user.regenAt,
+    recoveryTicks,
+    REGEN_SECONDS,
+  );
   return retryOnDeadlock(() =>
     claimUserSnapshot({
       client,
@@ -1135,10 +1160,10 @@ const completeGlobalTravel = (client: DrizzleClient, user: UserData) => {
         ...(hasEnergyQueue(user)
           ? {
               // Travel recovers Energy, but its elapsed ticks cannot train village-only queues.
-              curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * ${recoveryTicks})`,
-              curHealth: sql`LEAST(${user.maxHealth}, ${userData.curHealth} + ${user.regeneration} * ${recoveryTicks})`,
-              curChakra: sql`LEAST(${user.maxChakra}, ${userData.curChakra} + ${user.regeneration} * ${recoveryTicks})`,
-              curStamina: sql`LEAST(${user.maxStamina}, ${userData.curStamina} + ${user.regeneration} * ${recoveryTicks})`,
+              curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${recovery})`,
+              curHealth: sql`LEAST(${user.maxHealth}, ${userData.curHealth} + ${recovery})`,
+              curChakra: sql`LEAST(${user.maxChakra}, ${userData.curChakra} + ${recovery})`,
+              curStamina: sql`LEAST(${user.maxStamina}, ${userData.curStamina} + ${recovery})`,
               regenAt: sql`TIMESTAMPADD(SECOND, ${recoveryTicks} * ${REGEN_SECONDS}, ${userData.regenAt})`,
             }
           : {}),
@@ -1161,6 +1186,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
       where: and(expiredTravel, hasQueue),
       with: {
         bloodline: true,
+        raidBuffs: true,
         clan: true,
         village: { with: { structures: true } },
         items: {
@@ -1176,7 +1202,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
     ...users.map((user) =>
       completeGlobalTravel(client, {
         ...user,
-        regeneration: calcActiveUserRegen(user, settings),
+        regeneration: calcActiveUserRegen(user, settings, false),
         maxEnergy: calcMaxEnergy(user),
       }),
     ),

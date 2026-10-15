@@ -275,6 +275,46 @@ describeWithDatabase("Energy queue state transitions", () => {
     }
   });
 
+  it.each([
+    ["endpoint", false], ["cleaner", false], ["endpoint", true], ["cleaner", true],
+  ] as const)("%s integrates timed travel recovery without stacking or training queued stats (meal still active=%s)", async (mode, live) => {
+    await prepare();
+    const db = await getTestDatabase();
+    const regenAt = new Date(Date.now() - 195_000);
+    await patch({
+      status: "TRAVEL", travelFinishAt: new Date(Date.now() - 1000), regenAt,
+      regeneration: 10, villageId: null,
+      curHealth: 0, curChakra: 0, curStamina: 0,
+      maxHealth: 1000, maxChakra: 1000, maxStamina: 1000,
+    });
+    await db.insert(userRaidBuff).values([
+      { id: "travel-meal", userId: USER, createdAt: regenAt,
+        expiresAt: new Date(regenAt.getTime() + (live ? 300_000 : 90_000)),
+        effects: [IncreaseRegenerationTag.parse({ power: 50 })] },
+      { id: "travel-raid", userId: USER, createdAt: regenAt,
+        expiresAt: new Date(regenAt.getTime() + 150_000),
+        effects: [IncreaseRegenerationTag.parse({ power: 20 })] },
+    ]);
+    const complete = async () => {
+      if (mode === "cleaner") await completeExpiredGlobalTravel(db);
+      else expect((await (await callerFor(travelRouter, USER)).finishGlobalMove()).success).toBe(true);
+    };
+    await complete();
+    const arrived = (await read())!;
+    // After meal expiry: 15 from the meal, 12 from the raid, then 10 at the base rate.
+    const recovery = live ? 45 : 37;
+    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina, arrived.curEnergy]).toEqual(Array(4).fill(recovery));
+    expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + 180_000);
+    expect([arrived.offence, arrived.defence]).toEqual([10, 10]);
+    expect(await readEnergyQueue(USER)).toEqual(entries);
+    await complete();
+    expect(await read()).toMatchObject({
+      curHealth: recovery, curChakra: recovery, curStamina: recovery, curEnergy: recovery,
+      regenAt: arrived.regenAt, offence: 10, defence: 10,
+    });
+    expect(await readEnergyQueue(USER)).toEqual(entries);
+  });
+
   it.each(["queued", "bulk"])("cleaner retries a %s deadlock without replaying recovery", async mode => {
     await prepare(mode === "queued" ? entries : []);
     const db = await getTestDatabase();
