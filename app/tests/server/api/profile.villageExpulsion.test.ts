@@ -11,7 +11,7 @@ const profileSnapshot = (isOutlaw: boolean, anbuId: string | null = null) => ({
   village: { id: isOutlaw ? "syndicate" : "village-1", type: isOutlaw ? "OUTLAW" : "VILLAGE", structures: [], sectors: [] },
   status: "BATTLE", battleId: "battle-1", anbuId, anbuSquad: anbuId ? { name: "Squad" } : null,
   clanId: null, clan: null, bloodline: null, sageMode: null, activeReskin: null,
-  queue: [], userSkills: [], items: [], userQuests: [], completedQuests: [], votes: {}, promotions: [], questData: [],
+  queue: [], cookingJobs: [], raidBuffs: [], userSkills: [], items: [], userQuests: [], completedQuests: [], votes: {}, promotions: [], questData: [],
 });
 
 const profileClient = (snapshots: ReturnType<typeof profileSnapshot>[], failCleanup = false, maxReads = Infinity) => {

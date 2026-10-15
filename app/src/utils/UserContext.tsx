@@ -20,6 +20,7 @@ import type { AchievementProgress, UserWithRelations } from "@/api/routers/profi
 import { api } from "@/app/_trpc/client";
 import type { StructureRoute } from "@/drizzle/constants";
 import { useMasteryQueueRefresh } from "@/hooks/useMasteryQueueRefresh";
+import { useRefreshAt } from "@/hooks/useRefreshAt";
 import { useSectorVillage } from "@/hooks/useSectorVillage";
 import { usePusherHandler } from "@/layout/PusherHandler";
 import type { ReturnedBattle } from "@/libs/combat/types";
@@ -143,6 +144,23 @@ export function UserContextProvider(props: {
   // Keep this independent of the visible page and its countdown components.
   useMasteryQueueRefresh(
     data?.userData,
+    () => {
+      void refetch({ cancelRefetch: false });
+    },
+    timeDiff,
+    !!userId && !!isSignedIn && isLoaded,
+  );
+
+  // Timed bonuses and Cooking completions refresh on every page, including inventory.
+  const timedDeadlines = useMemo(
+    () => [
+      ...(data?.userData?.raidBuffs?.map((buff) => buff.expiresAt) ?? []),
+      ...(data?.userData?.cookingJobs?.map((job) => job.finishesAt) ?? []),
+    ],
+    [data?.userData?.raidBuffs, data?.userData?.cookingJobs],
+  );
+  useRefreshAt(
+    timedDeadlines,
     () => {
       void refetch({ cancelRefetch: false });
     },

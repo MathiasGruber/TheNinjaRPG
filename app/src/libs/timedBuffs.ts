@@ -1,0 +1,172 @@
+import type { UserRaidBuff } from "@/drizzle/schema";
+import type { BattleUserState, UserEffect } from "@/libs/combat/types";
+
+export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt">;
+
+export const getTimedRegeneration = (
+  base: number,
+  buffs: readonly TimedBuff[],
+  at = new Date(),
+) => {
+  let increase = 0;
+  for (const buff of buffs) {
+    if (new Date(buff.createdAt) > at || new Date(buff.expiresAt) <= at) continue;
+    for (const effect of buff.effects) {
+      if (effect.type !== "increaseregeneration") continue;
+      increase = Math.max(
+        increase,
+        effect.calculation === "percentage"
+          ? (base * effect.power) / 100
+          : effect.power,
+      );
+    }
+  }
+  return base + increase;
+};
+
+/** Integrate discrete regeneration ticks across activation and expiry, including offline time. */
+export const getTimedRegenerationGain = (
+  base: number,
+  buffs: readonly TimedBuff[],
+  from: Date,
+  ticks: number,
+  tickSeconds: number,
+) => {
+  if (!buffs.length || ticks <= 0) return base * ticks;
+  const step = tickSeconds * 1000;
+  const boundaries = new Set([1, ticks + 1]);
+  for (const buff of buffs) {
+    for (const date of [buff.createdAt, buff.expiresAt]) {
+      boundaries.add(
+        Math.max(
+          1,
+          Math.min(
+            ticks + 1,
+            Math.ceil((new Date(date).getTime() - from.getTime()) / step),
+          ),
+        ),
+      );
+    }
+  }
+  const ordered = [...boundaries].sort((a, b) => a - b);
+  return ordered
+    .slice(0, -1)
+    .reduce(
+      (sum, first, i) =>
+        sum +
+        (ordered[i + 1]! - first) *
+          getTimedRegeneration(base, buffs, new Date(from.getTime() + first * step)),
+      0,
+    );
+};
+
+const statFields = [
+  "offence",
+  "defence",
+  "strength",
+  "speed",
+  "intelligence",
+  "willpower",
+] as const;
+type StatField = (typeof statFields)[number];
+const affectedFields = (effect: UserEffect, target: BattleUserState): StatField[] => {
+  if (effect.type !== "increasestat") return [];
+  const fields: StatField[] = [];
+  if (effect.statTypes?.length) {
+    if (effect.direction !== "defence") fields.push("offence");
+    if (effect.direction !== "offence") fields.push("defence");
+  }
+  for (const general of effect.generalTypes ?? []) {
+    if (general === "Highest") fields.push(...target.highestGenerals);
+    else fields.push(general.toLowerCase() as StatField);
+  }
+  return [...new Set(fields)].filter((field) => statFields.includes(field));
+};
+
+/** Keep the strongest timed bonus per statistic; ordinary combat tags retain their stacking. */
+export const nonStackingTimedStatEffect = (
+  effect: UserEffect,
+  effects: UserEffect[],
+  target: BattleUserState,
+  now = Date.now(),
+): UserEffect | null => {
+  if (!effect.timedBuffExpiresAt || effect.type !== "increasestat") return effect;
+  if (effect.timedBuffExpiresAt <= now) return null;
+  target.baseStatsForModifiers ??= {};
+  for (const field of statFields) target.baseStatsForModifiers[field] ??= target[field];
+  const remaining = affectedFields(effect, target).filter((field) => {
+    const base = target.baseStatsForModifiers?.[field] ?? target[field];
+    const amount = (entry: UserEffect) =>
+      entry.calculation === "percentage" ? (base * entry.power) / 100 : entry.power;
+    return !effects.some(
+      (other) =>
+        other.id !== effect.id &&
+        other.targetId === effect.targetId &&
+        other.type === "increasestat" &&
+        (other.timedBuffExpiresAt ?? 0) > now &&
+        affectedFields(other, target).includes(field) &&
+        (amount(other) > amount(effect) ||
+          (amount(other) === amount(effect) && other.id < effect.id)),
+    );
+  });
+  if (!remaining.length) return null;
+  return {
+    ...effect,
+    statTypes: remaining.some((field) => field === "offence" || field === "defence")
+      ? effect.statTypes
+      : [],
+    direction: remaining.includes("offence")
+      ? remaining.includes("defence")
+        ? "both"
+        : "offence"
+      : "defence",
+    generalTypes: remaining
+      .filter((field) => field !== "offence" && field !== "defence")
+      .map(
+        (field) =>
+          (field[0]?.toUpperCase() + field.slice(1)) as
+            | "Strength"
+            | "Speed"
+            | "Intelligence"
+            | "Willpower",
+      ),
+  };
+};
+
+/** Disjoint continuous bonus intervals for combat's fractional Energy recovery. */
+export type RegenerationPeriod = { startsAt: number; endsAt: number; bonus: number };
+export const getTimedRegenerationPeriods = (
+  base: number,
+  buffs: readonly TimedBuff[],
+) => {
+  const boundaries = [
+    ...new Set(
+      buffs.flatMap((buff) => [
+        new Date(buff.createdAt).getTime(),
+        new Date(buff.expiresAt).getTime(),
+      ]),
+    ),
+  ].sort((a, b) => a - b);
+  return boundaries.slice(0, -1).flatMap((startsAt, index): RegenerationPeriod[] => {
+    const bonus = getTimedRegeneration(base, buffs, new Date(startsAt)) - base;
+    return bonus > 0 ? [{ startsAt, endsAt: boundaries[index + 1]!, bonus }] : [];
+  });
+};
+export const getRegenerationPeriodGain = (
+  periods: readonly RegenerationPeriod[],
+  from: Date,
+  to: Date,
+  tickSeconds: number,
+) =>
+  periods.reduce(
+    (sum, period) =>
+      sum +
+      (period.bonus *
+        Math.max(
+          0,
+          Math.min(to.getTime(), period.endsAt) -
+            Math.max(from.getTime(), period.startsAt),
+        )) /
+        (tickSeconds * 1000),
+    0,
+  );

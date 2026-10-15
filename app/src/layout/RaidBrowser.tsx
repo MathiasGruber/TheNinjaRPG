@@ -23,11 +23,10 @@ import {
   RAID_BATTLE_LOBBY_SECONDS,
   RAID_BATTLE_MAX_USERS_PER_TEAM,
 } from "@/drizzle/constants";
+import { ActiveTimedBuffs } from "@/layout/ActiveTimedBuffs";
 import AvatarImage from "@/layout/Avatar";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
-import type { GenericObject } from "@/layout/ItemWithEffects";
-import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { TeamChatPanel } from "@/layout/TeamChatPanel";
 import { getRewardArray } from "@/libs/objectives";
@@ -82,10 +81,6 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
     api.raids.getUserRaidQueue.useQuery(undefined, {
       enabled: !!userData,
     });
-
-  const { data: userBuffsData } = api.raids.getUserRaidBuffs.useQuery(undefined, {
-    enabled: !!userData,
-  });
 
   const { data: raidDetailsData } = api.raids.getRaidDetails.useQuery(
     { questId: selectedRaidId ?? "" },
@@ -213,7 +208,6 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
   const displayedRaids = viewMode === "active" ? availableRaids : completedRaids;
   const userQueue = userQueueData?.inQueue ? userQueueData.queue : null;
   const userQueueIsClaiming = userQueueData?.isClaiming ?? false;
-  const userBuffs = userBuffsData?.buffs ?? [];
   const raidDetails = raidDetailsData?.raid;
   const participation = raidDetailsData?.participation;
   const thresholds = raidDetailsData?.thresholds ?? [];
@@ -714,33 +708,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
         </ContentBox>
       )}
 
-      {/* Active Buffs */}
-      {userBuffs.length > 0 && (
-        <ContentBox title="Active Raid Buffs" subtitle="From raids" initialBreak={true}>
-          <div className="grid gap-2">
-            {userBuffs.map((buff) => {
-              const genericBuff: GenericObject = {
-                id: buff.id,
-                name: buff.quest?.name ?? "Raid Buff",
-                description: `Expires: ${new Date(buff.expiresAt).toLocaleString()}`,
-                image: buff.quest?.image ?? undefined,
-                effects: buff.effects,
-                createdAt: buff.createdAt,
-                updatedAt: buff.createdAt,
-              };
-              return (
-                <ItemWithEffects
-                  key={buff.id}
-                  item={genericBuff}
-                  hideDetails
-                  hideDates
-                  hideData
-                />
-              );
-            })}
-          </div>
-        </ContentBox>
-      )}
+      <ActiveTimedBuffs />
     </>
   );
 };

@@ -118,6 +118,7 @@ const SHOP_ITEM_TYPE_TAB_ICON: Partial<Record<ItemType, LucideIcon>> = {
   ACCESSORY: Sparkles,
   MATERIAL: Package,
   COOKING: ChefHat,
+  MEAL: ChefHat,
   FURNITURE: Sofa,
   KEYSTONE: Gem,
   CRYSTAL: Diamond,
@@ -130,6 +131,7 @@ const SHOP_ITEM_TYPE_TAB_HINT: Record<ItemType, string> = {
   ACCESSORY: "Accessories — rings, charms, and extras that tweak your kit.",
   MATERIAL: "Materials — crafting and upgrade components.",
   COOKING: "Cooking — ingredients and prepared foods for storage.",
+  MEAL: "Meals — cooked food with a timed effect.",
   FURNITURE: "Furniture — painted props to place and arrange in your residence.",
   KEYSTONE: "Keystones — slot upgrades and build-defining modifiers.",
   CRYSTAL: "Crystals — special slot items and enhancements.",
@@ -143,6 +145,7 @@ const SHOP_ITEM_TYPE_TAB_LABEL: Record<ItemType, string> = {
   ACCESSORY: "Accessory",
   MATERIAL: "Material",
   COOKING: "Cooking",
+  MEAL: "Meals",
   FURNITURE: "Furniture",
   KEYSTONE: "Keystone",
   CRYSTAL: "Crystal",
@@ -195,13 +198,13 @@ function ShopCatalogCard({
             alt={item.name}
             rarity={item.rarity ?? undefined}
             hideBorder
-            className="h-full w-full max-h-full max-w-full object-contain"
+            className="h-full max-h-full w-full max-w-full object-contain"
           />
         </div>
       </div>
       <div className="flex min-h-0 w-full flex-1 flex-col gap-1 border-border border-t px-1.5 pt-1.5 pb-2 sm:px-2.5 sm:pt-2.5 sm:pb-3">
         <div className="min-h-0 min-w-0 flex-1 text-balance">
-          <p className="text-[11px] font-semibold leading-tight break-words sm:text-sm">
+          <p className="break-words font-semibold text-[11px] leading-tight sm:text-sm">
             {item.name}
           </p>
           {lineParts.length > 0 ? (
@@ -218,7 +221,7 @@ function ShopCatalogCard({
           className={cn(
             "-mx-1.5 flex shrink-0 items-center justify-center gap-0.5 rounded px-1.5 py-0.5 font-medium text-[9px] sm:-mx-2.5 sm:gap-1 sm:rounded-md sm:px-2.5 sm:py-1 sm:text-[11px]",
             canAfford
-              ? "bg-emerald-500/15 text-emerald-900 ring-1 ring-inset ring-emerald-600/30 dark:bg-emerald-500/20 dark:text-emerald-50 dark:ring-emerald-400/35"
+              ? "bg-emerald-500/15 text-emerald-900 ring-1 ring-emerald-600/30 ring-inset dark:bg-emerald-500/20 dark:text-emerald-50 dark:ring-emerald-400/35"
               : "bg-destructive/10 text-destructive",
           )}
         >

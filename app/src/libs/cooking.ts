@@ -1,0 +1,77 @@
+import { COOKING_RANKS } from "@/drizzle/constants";
+import type { Item } from "@/drizzle/schema";
+import { getFarmingLevel, getFarmingLevelProgress } from "@/libs/farming";
+import { calcLevelRequirements } from "@/libs/profile";
+
+export const getCookingLevel = getFarmingLevel;
+export const getCookingLevelProgress = getFarmingLevelProgress;
+export const getCookingRank = (experience: number) => {
+  const level = getCookingLevel(experience);
+  return (
+    [...COOKING_RANKS].reverse().find((rank) => level >= rank.level) ?? COOKING_RANKS[0]
+  );
+};
+export const getCookingRankProgress = (experience: number) => {
+  const rank = getCookingRank(experience);
+  const next = COOKING_RANKS.find((entry) => entry.level > rank.level);
+  const currentExperience =
+    rank.level === 1 ? 0 : calcLevelRequirements(rank.level - 1);
+  const nextExperience = next ? calcLevelRequirements(next.level - 1) : null;
+  return {
+    rank,
+    next,
+    nextExperience,
+    progress:
+      nextExperience === null
+        ? 100
+        : Math.min(
+            100,
+            Math.max(
+              0,
+              ((experience - currentExperience) /
+                (nextExperience - currentExperience)) *
+                100,
+            ),
+          ),
+  };
+};
+export const getCookingSeconds = (
+  meal: Pick<Item, "cookingTimeSeconds" | "cookingOutputQuantity">,
+  batches: number,
+  shrineBoost: number,
+) =>
+  Math.max(
+    1,
+    Math.round(
+      meal.cookingTimeSeconds *
+        meal.cookingOutputQuantity *
+        batches *
+        (1 + shrineBoost),
+    ),
+  );
+
+export const describeMealEffect = (
+  meal: Pick<Item, "effects" | "mealDurationSeconds">,
+) =>
+  `${meal.effects
+    .map((effect) => {
+      if (effect.type === "increaseregeneration")
+        return `Regeneration +${effect.power}${effect.calculation === "percentage" ? "%" : ""}`;
+      if (effect.type === "increasestat") {
+        const stats = [
+          ...(effect.statTypes?.length
+            ? [
+                effect.direction === "both"
+                  ? "Offence and defence"
+                  : effect.direction === "offence"
+                    ? "Offence"
+                    : "Defence",
+              ]
+            : []),
+          ...(effect.generalTypes ?? []),
+        ];
+        return `${stats.join(", ")} +${effect.power}${effect.calculation === "percentage" ? "%" : ""}`;
+      }
+      return effect.description;
+    })
+    .join(" · ")} for ${meal.mealDurationSeconds}s`;

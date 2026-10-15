@@ -208,6 +208,10 @@ import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import {
+  getTimedRegenerationGain,
+  getTimedRegenerationPeriods,
+} from "@/libs/timedBuffs";
+import {
   applyMasteryTrainingGains,
   calcJutsuEquipLimit,
   canUseJutsu,
@@ -241,6 +245,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { battleClaimRollbackStatus } from "@/server/utils/concurrency";
+import { settleCookingExperience } from "@/server/utils/cooking";
 import {
   elementalSnapshotConditions,
   masteryGainUpdates,
@@ -1994,6 +1999,8 @@ export const initiateBattle = async (
   const queryBattleUsers = () =>
     client.query.userData.findMany({
       with: {
+        raidBuffs: true,
+        cookingJobs: true,
         bloodline: { with: { bloodrightTiers: true } },
         sageMode: true,
         village: {
@@ -2224,6 +2231,19 @@ export const initiateBattle = async (
     }
   }
 
+  const cookingOwners = fetchedUsers.filter(
+    (user) =>
+      !user.isAi && user.cookingJobs.some((job) => job.finishesAt <= new Date()),
+  );
+  if (cookingOwners.length) {
+    await Promise.all(
+      cookingOwners.map((user) =>
+        settleCookingExperience(client, user.userId, user.cookingJobs),
+      ),
+    );
+    fetchedUsers = await queryBattleUsers();
+  }
+
   const entryCharges = info.questAttempt
     ? getQuestEntryCharges(info.questAttempt, entryInventory)
     : [];
@@ -2316,7 +2336,17 @@ export const initiateBattle = async (
   const energyRegeneration = Object.fromEntries(
     fetchedUsers.map((user) => [
       user.userId,
-      calcActiveUserRegen({ ...user, status: "AWAKE" }, settings),
+      calcActiveUserRegen({ ...user, status: "AWAKE" }, settings, false),
+    ]),
+  );
+
+  const energyRegenerationPeriods = Object.fromEntries(
+    fetchedUsers.map((user) => [
+      user.userId,
+      getTimedRegenerationPeriods(
+        energyRegeneration[user.userId] ?? 0,
+        user.raidBuffs.filter((buff) => buff.expiresAt > user.regenAt),
+      ),
     ]),
   );
 
@@ -2352,6 +2382,15 @@ export const initiateBattle = async (
       user.queue,
       settings,
       ticks,
+      new Date(),
+      (fromTick, toTick) =>
+        getTimedRegenerationGain(
+          calcActiveUserRegen(user, settings, false),
+          user.raidBuffs,
+          new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
+          toTick - fromTick,
+          REGEN_SECONDS,
+        ),
     );
     if (!energy && !mastery && !info.tournamentGame) return [];
     const amount = energy?.completed.reduce((sum, entry) => sum + entry.amount, 0) ?? 0;
@@ -3269,6 +3308,7 @@ export const initiateBattle = async (
           pvpExperienceScaling,
           energyRewardEligible: (previousBattleResults?.[0]?.count ?? 0) === 0,
           energyRegeneration,
+          energyRegenerationPeriods,
           energyCapacity,
           jutsus: {
             ...extraState.jutsus,
@@ -3831,11 +3871,17 @@ export const processUsersForBattle = async (
 
     // Add regen to pools. Pools are not updated "live" in the database, but rather are calculated on the frontend
     // Therefore we need to calculate the current pools here, before inserting the user into battle
-    const regen = calcActiveUserRegen(user, settings);
+    const baseRegen = calcActiveUserRegen(user, settings, false);
     const restored =
       inputUser.status === "BATTLE"
         ? 0
-        : regen * Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
+        : getTimedRegenerationGain(
+            baseRegen,
+            inputUser.raidBuffs ?? [],
+            user.regenAt,
+            Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
+            REGEN_SECONDS,
+          );
     user.curHealth = Math.min(user.curHealth + restored, user.maxHealth);
     user.curChakra = Math.min(user.curChakra + restored, user.maxChakra);
     user.curStamina = Math.min(user.curStamina + restored, user.maxStamina);
@@ -4112,6 +4158,27 @@ export const processUsersForBattle = async (
       );
       user.userSkills = []; // Reset to avoid storing in battle table
     }
+
+    for (const buff of inputUser.raidBuffs ?? []) {
+      if (buff.expiresAt <= new Date()) continue;
+      for (const effect of buff.effects) {
+        if (effect.type === "increaseregeneration") continue;
+        const realized = realizeTag({
+          tag: { ...effect, rounds: undefined, powerPerLevel: 0 } as UserEffect,
+          user,
+          actionId: buff.id,
+          target: user,
+          level: 0,
+        });
+        realized.isNew = false;
+        realized.castThisRound = false;
+        realized.targetId = user.userId;
+        realized.fromType = "item";
+        realized.timedBuffExpiresAt = buff.expiresAt.getTime();
+        userEffects.push(realized);
+      }
+    }
+    user.raidBuffs = undefined;
 
     // Add users effects to the battle
     if (user.effects.length > 0) {

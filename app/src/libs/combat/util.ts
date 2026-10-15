@@ -1349,6 +1349,12 @@ export const calcEffectRoundInfo = (
  * Filter for effects based on their duration
  */
 export const isEffectActive = (effect: UserEffect | GroundEffect) => {
+  if (
+    "timedBuffExpiresAt" in effect &&
+    effect.timedBuffExpiresAt &&
+    effect.timedBuffExpiresAt <= Date.now()
+  )
+    return false;
   // Check1: If rounds not specified on tag, then yes, still active
   if (effect.rounds === undefined) return true;
   // Check2: If rounds > 0 then still active
@@ -1360,6 +1366,7 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
 /** Potency for distinct selections or calculation modes can coexist. */
 export const getEffectStackKey = (effect: UserEffect) => {
   const key = `${effect.type}-${effect.creatorId}-${effect.targetId}-${effect.fromType}`;
+  if (effect.timedBuffExpiresAt) return `${key}-${effect.id}`;
   if (effect.type === "increaseaggro" || effect.type === "decreaseaggro") {
     return `${key}-${effect.aggroMode}-${effect.calculation}`;
   }

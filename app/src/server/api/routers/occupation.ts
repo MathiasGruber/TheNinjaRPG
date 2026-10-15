@@ -10,7 +10,14 @@ import {
   OCCUPATION_CHANGE_COOLDOWN_DAYS,
   OCCUPATIONS,
 } from "@/drizzle/constants";
-import { item, userData, userItem, userItemImbuement } from "@/drizzle/schema";
+import {
+  item,
+  userCookingJob,
+  userData,
+  userItem,
+  userItemImbuement,
+} from "@/drizzle/schema";
+import { getCookingLevel, getCookingSeconds } from "@/libs/cooking";
 import {
   calculateItemConsumption,
   craftingStartBlockMessage,
@@ -57,6 +64,7 @@ import { getQueueTotalCapacity } from "@/utils/paypal";
 import { canChangeContent } from "@/utils/permissions";
 import { formatSecondsToTimeDisplay, getSecondPrecisionDate } from "@/utils/time";
 import { countBoostingShrines, getShrineBoost } from "@/utils/village";
+import { cookItemInputSchema } from "@/validators/cooking";
 import {
   type CraftingQueueMaterial,
   cancelQueuedJobInputSchema,
@@ -69,7 +77,11 @@ export const occupationRouter = createTRPCRouter({
     .meta({ mcp: { description: "Get all craftable items" } })
     .query(async ({ ctx }) => {
       return await ctx.drizzle.query.item.findMany({
-        where: sql`${item.canBeCrafted} = true AND ${item.hidden} = false`,
+        where: and(
+          eq(item.canBeCrafted, true),
+          eq(item.hidden, false),
+          ne(item.itemType, "MEAL"),
+        ),
         with: {
           craftingRequirements: {
             with: {
@@ -79,6 +91,17 @@ export const occupationRouter = createTRPCRouter({
         },
       });
     }),
+
+  getCookingRecipes: protectedProcedure.query(({ ctx }) =>
+    ctx.drizzle.query.item.findMany({
+      where: and(
+        eq(item.canBeCrafted, true),
+        eq(item.hidden, false),
+        eq(item.itemType, "MEAL"),
+      ),
+      with: { craftingRequirements: { with: { requirementItem: true } } },
+    }),
+  ),
 
   selectOccupation: protectedProcedure
     .meta({ mcp: { description: "Select a crafting occupation" } })
@@ -143,12 +166,7 @@ export const occupationRouter = createTRPCRouter({
 
   craftItem: protectedProcedure
     .meta({ mcp: { description: "Craft an item using materials" } })
-    .input(
-      z.object({
-        itemId: z.string(),
-        quantity: z.int().min(1).max(10).prefault(1),
-      }),
-    )
+    .input(cookItemInputSchema)
     .mutation(async ({ ctx, input }) => {
       // Read userData before inventory. Every capacity mutation commits both rows
       // atomically and bumps updatedAt, so this ordering gives the later CAS a
@@ -171,11 +189,22 @@ export const occupationRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       const craftingBlock = craftingStartBlockMessage(user);
       if (craftingBlock) return errorResponse(craftingBlock);
-      if (user.occupation !== "CRAFTING") {
+      if (itemWithRequirements?.itemType !== "MEAL" && user.occupation !== "CRAFTING") {
         return errorResponse("You must have the Crafting occupation to craft items");
       }
       if (!itemWithRequirements) {
         return errorResponse("Item not found");
+      }
+      const isMeal = itemWithRequirements.itemType === "MEAL";
+      const outputQuantity =
+        input.quantity * (isMeal ? itemWithRequirements.cookingOutputQuantity : 1);
+      if (
+        isMeal &&
+        getCookingLevel(user.cookingExperience) < itemWithRequirements.cookingMinLevel
+      ) {
+        return errorResponse(
+          `Cooking level ${itemWithRequirements.cookingMinLevel} required`,
+        );
       }
       // Behind a running craft, this one waits in the queue with its materials taken.
       const isQueued = !!currentlyCrafting || waiting.length > 0;
@@ -204,7 +233,7 @@ export const occupationRouter = createTRPCRouter({
           (ui) => !ui.storedAtHome && getInventoryBucket(ui.item) === "cooking",
         ).length;
         const newStacksRequired = Math.ceil(
-          input.quantity / Math.max(1, itemWithRequirements.stackSize),
+          outputQuantity / Math.max(1, itemWithRequirements.stackSize),
         );
         // Queued cooking crafts land in the same bucket when they start.
         const queuedCookingStacks = waiting.reduce(
@@ -232,7 +261,7 @@ export const occupationRouter = createTRPCRouter({
           ? CONSUMABLE_CRAFTING_TIMES_MINS[itemWithRequirements.rarity]
           : rankCraftingTime;
       // Guards - check rank eligibility regardless of item type
-      if (rankCraftingTime === 0) {
+      if (!isMeal && rankCraftingTime === 0) {
         const requiredRank =
           itemWithRequirements.rarity === "RARE"
             ? "Apprentice"
@@ -273,9 +302,15 @@ export const occupationRouter = createTRPCRouter({
         clanCraftingTimeBoostCap,
       );
       const clanCraftingTimeFactor = 1 - clanCraftingTimeBoost;
-      const craftSeconds = Math.round(
-        craftingTime * 60 * shrineBoostFactor * clanCraftingTimeFactor * input.quantity,
-      );
+      const craftSeconds = isMeal
+        ? getCookingSeconds(itemWithRequirements, input.quantity, shrineBoost)
+        : Math.round(
+            craftingTime *
+              60 *
+              shrineBoostFactor *
+              clanCraftingTimeFactor *
+              input.quantity,
+          );
 
       // Calculate crafting finish time
       const finishTime = new Date(Date.now() + craftSeconds * 1000);
@@ -308,7 +343,7 @@ export const occupationRouter = createTRPCRouter({
       const craftingItemValues: (typeof userItem.$inferInsert)[] = [];
       if (itemWithRequirements.stackSize === 1) {
         // Create separate items for non-stackable items
-        for (let i = 0; i < input.quantity; i++) {
+        for (let i = 0; i < outputQuantity; i++) {
           craftingItemValues.push({
             id: nanoid(),
             userId: ctx.userId,
@@ -319,7 +354,7 @@ export const occupationRouter = createTRPCRouter({
         }
       } else {
         // Create stacked items respecting stackSize limit
-        let remainingQuantity = input.quantity;
+        let remainingQuantity = outputQuantity;
         while (remainingQuantity > 0) {
           const stackQuantity = Math.min(
             remainingQuantity,
@@ -341,8 +376,12 @@ export const occupationRouter = createTRPCRouter({
       const clanCraftingExpBoost = user.isOutlaw
         ? 0
         : (user.clan?.craftingExpBoost ?? 0) / 100;
-      const baseExpGain =
-        (itemWithRequirements.craftingExperience ?? 0) * input.quantity;
+      const baseExpGain = isMeal
+        ? 0
+        : (itemWithRequirements.craftingExperience ?? 0) * input.quantity;
+      const cookingExpGain = isMeal
+        ? itemWithRequirements.cookingExperience * outputQuantity
+        : 0;
       const expGain = Math.floor(
         boostPvpGain(
           baseExpGain * (1 + clanCraftingExpBoost),
@@ -353,15 +392,20 @@ export const occupationRouter = createTRPCRouter({
       // craft-this-specific-item objectives. Emitted here (behind the transaction's
       // craft CAS below) — NOT from the quest-reward EXP path
       // (quest.ts:367-377), which must stay experience-only to avoid double-counting.
-      const { trackers } = getNewTrackers(user, [
-        { task: "crafting_experience_gained", increment: expGain },
-        { task: "items_crafted", increment: input.quantity },
-        {
-          task: "craft_specific_item",
-          increment: input.quantity,
-          contentId: input.itemId,
-        },
-      ]);
+      const { trackers } = getNewTrackers(
+        user,
+        isMeal
+          ? []
+          : [
+              { task: "crafting_experience_gained", increment: expGain },
+              { task: "items_crafted", increment: input.quantity },
+              {
+                task: "craft_specific_item",
+                increment: input.quantity,
+                contentId: input.itemId,
+              },
+            ],
+      );
       const questDataForDb = filterQuestTrackersForDbPersist(trackers, user);
       const materials: CraftingQueueMaterial[] = allConsumptions.flatMap(
         (consumption) => {
@@ -435,7 +479,7 @@ export const occupationRouter = createTRPCRouter({
             [
               {
                 itemId: input.itemId,
-                quantity: input.quantity,
+                quantity: outputQuantity,
                 materials,
                 durationSeconds: craftSeconds,
                 ...queueSchedule,
@@ -449,7 +493,7 @@ export const occupationRouter = createTRPCRouter({
         }
         return {
           success: true,
-          message: `Queued ${input.quantity}x ${itemWithRequirements.name}. Starts in ${formatSecondsToTimeDisplay(Math.max(0, Math.round((queueSchedule.startsAt.getTime() - Date.now()) / 1000)))}.`,
+          message: `Queued ${outputQuantity}x ${itemWithRequirements.name}. Starts in ${formatSecondsToTimeDisplay(Math.max(0, Math.round((queueSchedule.startsAt.getTime() - Date.now()) / 1000)))}.`,
           finishTime: queueSchedule.finishesAt.toISOString(),
         };
       }
@@ -495,6 +539,13 @@ export const occupationRouter = createTRPCRouter({
           }
 
           await tx.insert(userItem).values(craftingItemValues);
+          if (isMeal)
+            await tx.insert(userCookingJob).values({
+              id: nanoid(),
+              userId: ctx.userId,
+              experience: cookingExpGain,
+              finishesAt: finishTime,
+            });
           return true;
         });
         if (!craftCommitted) {
@@ -513,7 +564,7 @@ export const occupationRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: `Started crafting ${input.quantity}x ${itemWithRequirements.name}. ${expGain > 0 ? `+${expGain} EXP.` : ""} Ready in ${formatSecondsToTimeDisplay(craftSeconds)}.`,
+        message: `Started ${isMeal ? "cooking" : "crafting"} ${outputQuantity}x ${itemWithRequirements.name}. ${expGain > 0 ? `+${expGain} EXP.` : ""} Ready in ${formatSecondsToTimeDisplay(craftSeconds)}.`,
         finishTime: finishTime.toISOString(),
       };
     }),
@@ -817,6 +868,17 @@ export const occupationRouter = createTRPCRouter({
         .update(userItem)
         .set({ craftingFinishedAt: new Date() })
         .where(eq(userItem.id, input.userItemId));
+      if (craftingItem.item.itemType === "MEAL") {
+        await ctx.drizzle
+          .update(userCookingJob)
+          .set({ finishesAt: new Date() })
+          .where(
+            and(
+              eq(userCookingJob.userId, ctx.userId),
+              eq(userCookingJob.finishesAt, craftingItem.craftingFinishedAt),
+            ),
+          );
+      }
       // The next queued craft starts now instead of in the finished craft's slot.
       await settleCraftingQueue(ctx.drizzle, ctx.userId);
       return {

@@ -64,12 +64,9 @@ import type { HomePlacement } from "@/validators/home";
 const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
   loading: () => <Loader explanation="Loading farm" />,
 });
-const HomeKitchen = dynamic(
-  () => import("@/layout/RamenShop").then((mod) => mod.RamenMenu),
-  {
-    loading: () => <Loader explanation="Loading kitchen" />,
-  },
-);
+const HomeKitchen = dynamic(() => import("@/layout/Kitchen"), {
+  loading: () => <Loader explanation="Loading kitchen" />,
+});
 
 /** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
@@ -290,6 +287,7 @@ export default function HomePage() {
     userData.sector === userData.village?.sector &&
     !!homeData &&
     !isHomeError;
+
   const kitchenImage =
     homeData?.furniture.find((piece) => piece.action === "kitchen")?.image ??
     IMG_HOME_KITCHEN;
@@ -384,14 +382,9 @@ export default function HomePage() {
         isOpen={isKitchenOpen}
         setIsOpen={setIsKitchenOpen}
         returnFocusRef={kitchenTriggerRef}
-        className="sm:max-w-xl md:max-w-xl"
+        className="sm:max-w-4xl md:max-w-4xl"
       >
-        {isKitchenOpen && (
-          <HomeKitchen
-            image={kitchenImage}
-            imageClassName="mx-auto h-40 w-auto max-w-full object-contain"
-          />
-        )}
+        {isKitchenOpen && <HomeKitchen image={kitchenImage} />}
       </Modal>
       <Modal
         title="Your Farm"

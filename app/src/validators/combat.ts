@@ -17,10 +17,12 @@ import {
   ItemTypes,
   JutsuTypes,
   LetterRanks,
+  MAX_COOKING_OUTPUT,
   MAX_GENS_CAP,
   MAX_ITEM_CRAFTING_REQUIREMENT_QUANTITY,
   MAX_ITEM_STACK_SIZE,
   MAX_MASTERY_CAP,
+  MAX_MEAL_DURATION_SECONDS,
   MasteryTypes,
   MaxPoolTypes,
   NonActionItemTypes,
@@ -37,6 +39,7 @@ import {
 import type { Item, UserData } from "@/drizzle/schema";
 import { DateTimeRegExp } from "@/utils/regex";
 import { makeCappedNullableNumber } from "@/validators/base";
+import { isMealEffect, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import {
   type CoordinateTargeting,
   coordinateTargetingSchema,
@@ -418,6 +421,14 @@ export const DecreaseCooldownTag = z.object({
   description: msg("Decrease cooldown of basic actions"),
   calculation: z.enum(["static"]).prefault("static"),
   actionsAffected: z.array(z.enum(AdjustableBasicActions)).optional(),
+});
+
+export const IncreaseRegenerationTag = z.object({
+  ...BaseAttributes,
+  ...PowerAttributes,
+  type: z.literal("increaseregeneration").prefault("increaseregeneration"),
+  description: msg("Increase out-of-combat regeneration"),
+  calculation: z.enum(["static", "percentage"]).prefault("percentage"),
 });
 
 export const IncreaseStatTag = z.object({
@@ -1001,6 +1012,7 @@ export type UnlockItemVariantTagType = z.infer<typeof UnlockItemVariantTag>;
 /** UNIONS OF TAGS   **/
 /******************** */
 export const AllTags = z.union([
+  IncreaseRegenerationTag.prefault({}),
   AbsorbTag.prefault({}),
   ActivateSageModeTag.prefault({}),
   AfterburnTag.prefault({}),
@@ -1296,6 +1308,7 @@ interface ItemValidatorType
     "id" | "createdAt" | "updatedAt" | "hidden" | "coordinateTargeting"
   > {
   coordinateTargeting?: CoordinateTargeting | null;
+  craftingRequirements?: { ids: string[]; number: number }[] | null;
   effects: ZodAllTags[];
 }
 
@@ -1364,6 +1377,60 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
  * Validator specific to items
  */
 const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
+  if (data.itemType === "MEAL") {
+    for (const [field, expected] of Object.entries(MEAL_ITEM_DEFAULTS)) {
+      if (
+        data[field as keyof ItemValidatorType] !== expected &&
+        !(expected === null && !data[field as keyof ItemValidatorType])
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          path: [field],
+          message:
+            "Meals must be consumable, self-targeted and unavailable as equipment or combat actions",
+        });
+      }
+    }
+    if (
+      data.isFarmSeed ||
+      data.isFarmFertilizer ||
+      data.parentItemId ||
+      data.bloodlineId ||
+      data.requiredSkillId
+    ) {
+      addIssue(
+        ctx,
+        "Meals cannot be seeds, fertilizers, evolutions or require bloodlines or skills",
+      );
+    }
+    if (data.effects.length !== 1 || !data.effects.every(isMealEffect)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["effects"],
+        message:
+          "Select one positive combat-stat or regeneration effect without rounds, scaling or elements",
+      });
+    }
+    const requirements = data.craftingRequirements ?? [];
+    const ids = requirements.flatMap((entry) => entry.ids);
+    if (
+      data.canBeCrafted &&
+      (ids.length === 0 || requirements.some((entry) => entry.ids.length === 0))
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["craftingRequirements"],
+        message: "Cooking recipes require ingredients",
+      });
+    }
+    if (new Set(ids).size !== ids.length) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["craftingRequirements"],
+        message: "Each ingredient must appear only once",
+      });
+    }
+  }
   if (data.itemType === "FURNITURE") {
     if (!data.furnitureData) {
       ctx.addIssue({
@@ -1874,6 +1941,26 @@ export const ItemValidatorRawSchema = z.object({
   isFarmFertilizer: z.coerce.boolean().prefault(false),
   farmTimeReductionSeconds: z.coerce.number().int().min(0).prefault(0),
   farmFertilizerExperience: z.coerce.number().int().min(0).prefault(0),
+  cookingMinLevel: z.coerce.number().int().min(1).max(100).prefault(1),
+  cookingTimeSeconds: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_MEAL_DURATION_SECONDS)
+    .prefault(60),
+  cookingOutputQuantity: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_COOKING_OUTPUT)
+    .prefault(1),
+  cookingExperience: z.coerce.number().int().min(0).max(1000000).prefault(0),
+  mealDurationSeconds: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_MEAL_DURATION_SECONDS)
+    .prefault(60),
   craftingExperience: z.coerce.number().int().min(0).prefault(0),
   crystalTargetTypes: z.enum(ItemTypes).nullable(),
   requiredSkillId: z

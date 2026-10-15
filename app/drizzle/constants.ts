@@ -627,6 +627,7 @@ export const ItemTypes = [
   "ACCESSORY",
   "MATERIAL",
   "COOKING",
+  "MEAL",
   "KEYSTONE",
   "CRYSTAL",
   "FURNITURE",
@@ -635,6 +636,7 @@ export const ItemTypes = [
 export type ItemType = (typeof ItemTypes)[number];
 
 export const NonActionItemTypes: ItemType[] = [
+  "MEAL",
   "MATERIAL",
   "COOKING",
   "CRYSTAL",
@@ -1692,6 +1694,18 @@ export const GATHERING_ITEM_DROP_CHANCES: Record<
     LEGENDARY: 10,
   },
 };
+
+// Cooking levels follow the Farming XP curve; ranks are milestones on that curve.
+export const COOKING_RANKS = [
+  { title: "Apprentice Cook", level: 1 },
+  { title: "Chef", level: 25 },
+  { title: "1 Star Master Chef", level: 50 },
+  { title: "2 Star Master Chef", level: 75 },
+  { title: "3 Star Master Chef", level: 100 },
+] as const;
+export const MAX_COOKING_BATCHES = 10;
+export const MAX_COOKING_OUTPUT = 100;
+export const MAX_MEAL_DURATION_SECONDS = 604800;
 
 // Crafting config
 export const CRAFTING_RANKS = [

@@ -1985,6 +1985,7 @@ export const updateUser = async (
             regeneration,
             settledAt,
             result.energyReward ?? 0,
+            curBattle.extraState.energyRegenerationPeriods?.[userId],
           ),
           regenAt: settledAt,
           stealthCooldownAt: new Date(
@@ -2030,5 +2031,18 @@ export const combatEnergyRecoverySql = (
     (userId ? snapshot?.extraState.energyCapacity?.[userId] : undefined) ??
     sql`GREATEST(${userData.maxEnergy}, ${userData.curEnergy})`;
   const recoveryAt = settledAt ?? sql`NOW(3)`;
-  return sql`LEAST(${capacity}, ${userData.curEnergy} + ${reward} + GREATEST(0, ${regeneration}) * GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${recoveryAt})) / ${REGEN_SECONDS * 1_000_000})`;
+  const periods =
+    (userId ? snapshot?.extraState.energyRegenerationPeriods?.[userId] : undefined) ??
+    [];
+  const bonus = periods.length
+    ? sql.join(
+        periods.map((period) => {
+          const start = sql.param(new Date(period.startsAt), userData.regenAt);
+          const end = sql.param(new Date(period.endsAt), userData.regenAt);
+          return sql`${period.bonus} * GREATEST(0, TIMESTAMPDIFF(MICROSECOND, GREATEST(${userData.regenAt}, ${start}), LEAST(${recoveryAt}, ${end}))) / ${REGEN_SECONDS * 1_000_000}`;
+        }),
+        sql` + `,
+      )
+    : sql`0`;
+  return sql`LEAST(${capacity}, ${userData.curEnergy} + ${reward} + ${bonus} + GREATEST(0, ${regeneration}) * GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${recoveryAt})) / ${REGEN_SECONDS * 1_000_000})`;
 };

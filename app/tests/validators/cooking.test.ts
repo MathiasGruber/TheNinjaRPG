@@ -1,0 +1,78 @@
+import { describe, expect, it } from "bun:test";
+import { IncreaseRegenerationTag, IncreaseStatTag, ItemValidator } from "@/validators/combat";
+import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
+
+const validItem = {
+  name: "Farm item",
+  image: "item.webp",
+  description: "Farm item",
+  battleDescription: "Farm item",
+  stackSize: 1,
+  chakraCost: 0,
+  healthCost: 0,
+  staminaCost: 0,
+  healthCostReducePerLvl: 0,
+  chakraCostReducePerLvl: 0,
+  staminaCostReducePerLvl: 0,
+  actionCostPerc: 100,
+  maxImbueNumber: 1,
+  maxDurability: 100,
+  hidden: false,
+  cooldown: 0,
+  cost: 1,
+  repsCost: 0,
+  seichiSilverCost: 0,
+  range: 0,
+  maxEquips: 0,
+  method: "SINGLE" as const,
+  target: "SELF" as const,
+  itemType: "MATERIAL" as const,
+  weaponType: "NONE" as const,
+  rarity: "COMMON" as const,
+  slot: "NONE" as const,
+  requiredNinjutsuMastery: null,
+  requiredGenjutsuMastery: null,
+  requiredTaijutsuMastery: null,
+  requiredBukijutsuMastery: null,
+  requiredBloodlineMastery: null,
+  requiredSageMastery: null,
+  requiredStrength: null,
+  requiredSpeed: null,
+  requiredIntelligence: null,
+  requiredWillpower: null,
+  expireFromStoreAt: null,
+  effects: [],
+  farmYieldItemId: null,
+  farmExtractSeedItemId: null,
+  crystalTargetTypes: null,
+  bloodlineId: null,
+};
+
+const meal = {
+  ...validItem, ...MEAL_ITEM_DEFAULTS, itemType: "MEAL", canBeCrafted: true,
+  effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], power: 10 })],
+  craftingRequirements: [{ ids: ["rice"], number: 2 }],
+};
+describe("meal configuration", () => {
+  it("accepts a consumable combat-stat recipe and regeneration recipe", () => {
+    expect(ItemValidator.safeParse(meal).success).toBe(true);
+    expect(ItemValidator.safeParse({ ...meal, effects: [IncreaseRegenerationTag.parse({ power: 10 })] }).success).toBe(true);
+  });
+  it.each([0, -1, 1.5])("rejects ingredient quantity %s", (number) => {
+    expect(ItemValidator.safeParse({ ...meal, craftingRequirements: [{ ids: ["rice"], number }] }).success).toBe(false);
+  });
+  it.each([0, -1, 1.5])("rejects effect duration %s", (mealDurationSeconds) => {
+    expect(ItemValidator.safeParse({ ...meal, mealDurationSeconds }).success).toBe(false);
+  });
+  it("rejects empty and duplicate recipes, combat actions, equipment and nonpositive effects", () => {
+    for (const patch of [
+      { craftingRequirements: [] }, { craftingRequirements: [{ ids: [], number: 1 }] },
+      { craftingRequirements: [{ ids: ["rice", "rice"], number: 1 }] },
+      { destroyOnUse: false }, { preventBattleUsage: false }, { slot: "HEAD" },
+      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], power: 0 })] },
+      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], rounds: 3 })] },
+      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], powerPerLevel: 0.1 })] },
+      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], elements: ["Fire"] })] },
+    ]) expect(ItemValidator.safeParse({ ...meal, ...patch }).success).toBe(false);
+  });
+});

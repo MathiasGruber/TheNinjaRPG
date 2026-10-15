@@ -865,13 +865,14 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             message += `\n${notification}`;
           }
         }
-        showMutationToast({ success: true, message });
+        showMutationToast({ success: data.success, message });
       }
       if (data.success) {
         await Promise.all([
           utils.profile.getUser.invalidate(),
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
+          utils.raids.getUserRaidBuffs.invalidate(),
         ]);
       }
     },
@@ -1122,7 +1123,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           {!isLoading && (
             <div className="flex flex-row flex-wrap gap-1">
               {useritem.equipped === "NONE" &&
-                useritem.item.itemType !== "FURNITURE" && (
+                useritem.item.itemType !== "FURNITURE" &&
+                useritem.item.itemType !== "MEAL" && (
                   <Button
                     variant="info"
                     onClick={() => equip({ userItemId: useritem.id })}
@@ -1154,13 +1156,30 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   )}
                 </>
               )}
+              {useritem.item.itemType === "MEAL" && (
+                <p className="w-full text-muted-foreground text-sm">
+                  Effect lasts {useritem.item.mealDurationSeconds} seconds. Eating the
+                  same meal extends its duration; another meal replaces it. Meals
+                  require being awake and out of combat.
+                </p>
+              )}
               {nonCombatConsume(useritem.item, userData) && (
                 <Button
                   variant="info"
-                  onClick={() => consume({ userItemId: useritem.id })}
+                  disabled={
+                    isConsuming ||
+                    (useritem.item.itemType === "MEAL" &&
+                      (userData.status !== "AWAKE" || !!userData.battleId))
+                  }
+                  onClick={() =>
+                    consume({
+                      userItemId: useritem.id,
+                      expectedQuantity: useritem.quantity,
+                    })
+                  }
                 >
                   <Cookie className="mr-2 h-5 w-5" />
-                  Consume
+                  {useritem.item.itemType === "MEAL" ? "Eat meal" : "Consume"}
                 </Button>
               )}
               <ItemDurabilityRepairActions

@@ -12,6 +12,7 @@ import { OBJECTIVE_TAG_TYPES } from "@/validators/objectives";
 //      satisfy a tag_usage_win objective).
 const EXCLUDED_TAG_TYPES = new Set([
   // Non-combat tags
+  "increaseregeneration",
   "rollbloodline",
   "rollsagemode",
   "noncombatconsumereward",

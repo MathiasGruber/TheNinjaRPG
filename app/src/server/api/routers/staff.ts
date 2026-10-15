@@ -62,6 +62,7 @@ import {
   userAttribute,
   userBadge,
   userBlackList,
+  userCookingJob,
   userData,
   userDevice,
   userItem,
@@ -594,6 +595,9 @@ export const staffRouter = createTRPCRouter({
         ctx.drizzle.delete(userJutsu).where(eq(userJutsu.userId, user.userId)),
         ctx.drizzle.delete(userItem).where(eq(userItem.userId, user.userId)),
         ctx.drizzle.delete(userQueue).where(eq(userQueue.userId, user.userId)),
+        ctx.drizzle
+          .delete(userCookingJob)
+          .where(eq(userCookingJob.userId, user.userId)),
         ctx.drizzle.delete(questHistory).where(eq(questHistory.userId, user.userId)),
         ctx.drizzle.delete(userAttribute).where(eq(userAttribute.userId, user.userId)),
         ctx.drizzle
@@ -1182,6 +1186,17 @@ export const staffRouter = createTRPCRouter({
           .set({ userId: input.newUserId })
           .where(eq(userQueue.userId, input.userId)),
         ctx.drizzle
+          .update(userCookingJob)
+          .set({ userId: input.newUserId })
+          .where(eq(userCookingJob.userId, input.userId)),
+        ctx.drizzle
+          .update(userRaidBuff)
+          .set({
+            userId: input.newUserId,
+            id: sql`CASE WHEN ${userRaidBuff.itemId} IS NOT NULL THEN ${`meal-${input.newUserId}`} ELSE ${userRaidBuff.id} END`,
+          })
+          .where(eq(userRaidBuff.userId, input.userId)),
+        ctx.drizzle
           .update(userData)
           .set({ userId: input.newUserId })
           .where(eq(userData.userId, input.userId)),
@@ -1363,6 +1378,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(farmCollectionLog).where(eq(farmCollectionLog.userId, userId)),
     client.delete(userJutsu).where(eq(userJutsu.userId, userId)),
     client.delete(userQueue).where(eq(userQueue.userId, userId)),
+    client.delete(userCookingJob).where(eq(userCookingJob.userId, userId)),
     client.delete(userSkill).where(eq(userSkill.userId, userId)),
     client.delete(userAttribute).where(eq(userAttribute.userId, userId)),
     client.delete(jutsuLoadout).where(eq(jutsuLoadout.userId, userId)),

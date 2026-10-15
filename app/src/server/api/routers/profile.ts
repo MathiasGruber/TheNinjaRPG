@@ -163,6 +163,7 @@ import {
 } from "@/libs/raids";
 import { createThumbnail } from "@/libs/replicate";
 import { callDiscordContent } from "@/libs/socials";
+import { getTimedRegenerationGain } from "@/libs/timedBuffs";
 import {
   applyMasteryTrainingGains,
   getReducedGainsDays,
@@ -190,6 +191,7 @@ import {
   adjustSeichiSilverAtomically,
   claimUserSnapshot,
 } from "@/server/utils/concurrency";
+import { settleCookingExperience } from "@/server/utils/cooking";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { hashIp } from "@/server/utils/ipHash";
 import {
@@ -3201,6 +3203,8 @@ const fetchUpdatedUserOnce = async (props: {
         },
         votes: true,
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
+        cookingJobs: true,
+        raidBuffs: true,
         // Every queue entry, in the same query: users without queues pay nothing extra.
         queue: { orderBy: asc(userQueue.position) },
       },
@@ -3246,6 +3250,11 @@ const fetchUpdatedUserOnce = async (props: {
         tags: { source: "settleUserQueues" },
       });
     }
+  }
+
+  if (user && (await settleCookingExperience(client, userId, user.cookingJobs, now))) {
+    user = await queryUpdatedUser();
+    requiresUserRefresh = true;
   }
 
   // Reskin bloodline if needed
@@ -3483,10 +3492,24 @@ const fetchUpdatedUserOnce = async (props: {
   }
 
   // Retain the stored base rate separately from the derived rate for accrued ticks.
+  // Settle accrued pools when a regeneration bonus crosses a boundary, even inside the normal throttle.
+  if (
+    user?.raidBuffs.some(
+      (buff) =>
+        buff.effects.some((effect) => effect.type === "increaseregeneration") &&
+        [buff.createdAt, buff.expiresAt].some(
+          (date) => date > user.regenAt && date <= now,
+        ),
+    )
+  )
+    forceRegen = true;
+
   const storedRegeneration = user?.regeneration;
   let regenerationAfterExpulsion: number | undefined;
+  let accruedBaseRegeneration = 0;
   if (user) {
     // Add bloodline, structure, etc.  regen to regeneration
+    accruedBaseRegeneration = calcActiveUserRegen(user, settings, false);
     user.regeneration = calcActiveUserRegen(user, settings);
     user.maxEnergy = calcMaxEnergy(user);
   }
@@ -3689,7 +3712,22 @@ const fetchUpdatedUserOnce = async (props: {
     const sinceUpdate = secondsPassed(user.updatedAt);
     const ticks = Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS));
     // Queued Energy and mastery training, settled in memory from the loaded rows.
-    const queued = settleQueuedTraining(user, user.queue, settings, ticks, now);
+    const regenerationGain = (fromTick: number, toTick: number) =>
+      getTimedRegenerationGain(
+        accruedBaseRegeneration,
+        user.raidBuffs,
+        new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
+        toTick - fromTick,
+        REGEN_SECONDS,
+      );
+    const queued = settleQueuedTraining(
+      user,
+      user.queue,
+      settings,
+      ticks,
+      now,
+      regenerationGain,
+    );
     const queuedTraining = queued.energy;
     const queuedMastery = queued.mastery;
     // A queue only bypasses the overview throttle when recovery or an entry can
@@ -3723,7 +3761,7 @@ const fetchUpdatedUserOnce = async (props: {
         queuedTraining || queuedMastery
           ? { ...user, questData: structuredClone(user.questData) }
           : null;
-      const regen = user.regeneration * ticks;
+      const regen = regenerationGain(0, ticks);
       // These pools are integer columns; expose the same rounding MySQL persists.
       user.curHealth = Math.round(Math.min(user.curHealth + regen, user.maxHealth));
       user.curStamina = Math.round(Math.min(user.curStamina + regen, user.maxStamina));

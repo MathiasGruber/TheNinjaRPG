@@ -21,6 +21,7 @@ import {
   getSageDailyCap,
   getSageModeActivationCost,
 } from "@/libs/sageMode";
+import { nonStackingTimedStatEffect } from "@/libs/timedBuffs";
 import type { ShieldTagType } from "@/validators/combat";
 import { ShieldTag, VisualTag } from "@/validators/combat";
 import { creditConsequenceEnmity, creditDamageEnmity } from "./aggro";
@@ -1212,6 +1213,7 @@ export const applySingleEffect = (
   action?: CombatAction,
   consumeByUser?: ConsumeByUser,
 ) => {
+  if (effect.timedBuffExpiresAt && effect.timedBuffExpiresAt <= Date.now()) return;
   // Derive damage config from battle state (with fallback for older battles)
   const config = battle.extraState.dmgConfig ?? defaultDmgConfig;
   // Destructure
@@ -1343,7 +1345,13 @@ export const applySingleEffect = (
         if (effect.type === "absorb") {
           info = absorb(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "increasestat") {
-          info = increaseStats(effect, newUsersEffects, curTarget);
+          const timedEffect = nonStackingTimedStatEffect(
+            effect,
+            usersEffects,
+            curTarget,
+          );
+          if (timedEffect)
+            info = increaseStats(timedEffect, newUsersEffects, curTarget);
         } else if (effect.type === "increasemastery") {
           info = increaseMastery(effect, newUsersEffects, newTarget);
         } else if (effect.type === "decreasemastery") {
@@ -2317,9 +2325,7 @@ function applyActivateSageMode(
   if (!sageModeId) {
     return { txt: `${newTarget.username} has no sage mode equipped`, color: "gray" };
   }
-  const sageMode: SageMode | undefined = (battle.extraState.sageModes ?? {})[
-    sageModeId
-  ];
+  const sageMode: SageMode | undefined = battle.extraState.sageModes?.[sageModeId];
   if (!sageMode) {
     return { txt: "Sage mode data is missing", color: "gray" };
   }
@@ -2437,7 +2443,7 @@ export function applySageModeAfterRoundTransition(battle: CompleteBattle): void 
 
     const sageModeId = u.sageModeId;
     const sageMode: SageMode | undefined = sageModeId
-      ? (battle.extraState.sageModes ?? {})[sageModeId]
+      ? battle.extraState.sageModes?.[sageModeId]
       : undefined;
 
     const afterRounds = sageMode?.afterEffectRounds ?? 0;

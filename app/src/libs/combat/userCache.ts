@@ -9,6 +9,7 @@ import {
 } from "@/libs/mastery";
 import { calcMaxEnergy } from "@/libs/profile";
 import { getMasteryQueue, hasEnergyQueue } from "@/libs/queue";
+import { getRegenerationPeriodGain, type RegenerationPeriod } from "@/libs/timedBuffs";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import type { UserDelta } from "@/validators/userCache";
 import type { BattleUserItem, CombatResult, CompleteBattle } from "./types";
@@ -174,16 +175,23 @@ export const combatProfilePatch = (
 
 /** Match the bound settlement timestamp used by combatEnergyRecoverySql. */
 export const combatCacheEnergy = (
-  snapshot: CombatCacheBaseline,
+  snapshot: Pick<CombatCacheBaseline, "curEnergy" | "regenAt">,
   capacity: number,
   regeneration: number,
   at: Date,
   reward: number,
+  periods: readonly RegenerationPeriod[] = [],
 ) =>
   Math.min(
     capacity,
     snapshot.curEnergy +
       reward +
+      getRegenerationPeriodGain(
+        periods,
+        new Date(snapshot.regenAt),
+        at,
+        REGEN_SECONDS,
+      ) +
       (Math.max(0, regeneration) *
         Math.max(0, at.getTime() - new Date(snapshot.regenAt).getTime())) /
         (REGEN_SECONDS * 1000),
