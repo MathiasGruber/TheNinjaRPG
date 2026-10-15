@@ -23,7 +23,17 @@ import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 /** Present masked objectives and war actions using the shared game surfaces and controls. */
-export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
+export const ObjectiveWarPanel = ({
+  warId,
+  isFieldView = false,
+  onNavigate,
+}: {
+  warId: string;
+  /** Travel exposes field actions; the townhall retains the strategic overview. */
+  isFieldView?: boolean;
+  /** Close the field dialog only when a link performs client-side navigation. */
+  onNavigate?: () => void;
+}) => {
   const [feedback, setFeedback] = useState<{
     success: boolean;
     message: string;
@@ -177,7 +187,9 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
       </div>
       <p className="text-muted-foreground text-sm">
         {hasEnded
-          ? "Combat and missions are closed. Review your village’s contributions below."
+          ? isFieldView
+            ? "Combat and missions are closed. Review your village’s contributions in the townhall."
+            : "Combat and missions are closed. Review your village’s contributions below."
           : isNotice
             ? "Prepare with your allies and gather intelligence before combat begins."
             : "Destroy enemy shrines and win camp battles to damage the enemy townhall."}{" "}
@@ -244,7 +256,7 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
       )}
       <Tabs defaultValue="objectives">
         <TabsList
-          className="grid grid-cols-2 sm:grid-cols-4"
+          className={`grid ${isFieldView ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}
           aria-label="War activities"
         >
           <TabsTrigger value="objectives">Objectives</TabsTrigger>
@@ -252,67 +264,71 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
           <TabsTrigger value="camps">
             Camps{openCamps.length > 0 ? ` (${openCamps.length})` : ""}
           </TabsTrigger>
-          <TabsTrigger value="contributions">Contributions</TabsTrigger>
+          {!isFieldView && (
+            <TabsTrigger value="contributions">Contributions</TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="objectives" className="space-y-4 pt-2">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              {
-                id: w.attackerVillageId,
-                name: w.attackerVillage.name,
-                health: w.attackerWarHealth,
-                maxHealth: w.attackerWarHealthMax,
-              },
-              {
-                id: w.defenderVillageId,
-                name: w.defenderVillage.name,
-                health: w.defenderWarHealth,
-                maxHealth: w.defenderWarHealthMax,
-              },
-            ].map((village) => (
-              <div
-                key={village.id}
-                className="space-y-3 rounded-lg border bg-popover p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-1">
-                  <h3 className="font-semibold">{village.name}</h3>
-                  <Badge variant="outline">
-                    {village.id === side ? "Your side" : "Enemy side"}
-                  </Badge>
+          {!isFieldView && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                {
+                  id: w.attackerVillageId,
+                  name: w.attackerVillage.name,
+                  health: w.attackerWarHealth,
+                  maxHealth: w.attackerWarHealthMax,
+                },
+                {
+                  id: w.defenderVillageId,
+                  name: w.defenderVillage.name,
+                  health: w.defenderWarHealth,
+                  maxHealth: w.defenderWarHealthMax,
+                },
+              ].map((village) => (
+                <div
+                  key={village.id}
+                  className="space-y-3 rounded-lg border bg-popover p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-1">
+                    <h3 className="font-semibold">{village.name}</h3>
+                    <Badge variant="outline">
+                      {village.id === side ? "Your side" : "Enemy side"}
+                    </Badge>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="flex justify-between gap-2 text-sm">
+                      <span>Townhall health</span>
+                      <span>
+                        {village.health.toLocaleString()} /{" "}
+                        {village.maxHealth.toLocaleString()}
+                      </span>
+                    </p>
+                    <Progress
+                      aria-label={`${village.name} townhall health`}
+                      value={(village.health / Math.max(1, village.maxHealth)) * 100}
+                      indicatorClassName={
+                        village.id === side ? "bg-green-600" : "bg-red-600"
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="flex justify-between gap-2 text-sm">
+                      <span>Espionage</span>
+                      <span>
+                        {getWarEspionage(w, village.id)} / {WAR_ESPIONAGE_TARGET}
+                      </span>
+                    </p>
+                    <Progress
+                      aria-label={`${village.name} espionage`}
+                      value={
+                        (getWarEspionage(w, village.id) / WAR_ESPIONAGE_TARGET) * 100
+                      }
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="flex justify-between gap-2 text-sm">
-                    <span>Townhall health</span>
-                    <span>
-                      {village.health.toLocaleString()} /{" "}
-                      {village.maxHealth.toLocaleString()}
-                    </span>
-                  </p>
-                  <Progress
-                    aria-label={`${village.name} townhall health`}
-                    value={(village.health / Math.max(1, village.maxHealth)) * 100}
-                    indicatorClassName={
-                      village.id === side ? "bg-green-600" : "bg-red-600"
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="flex justify-between gap-2 text-sm">
-                    <span>Espionage</span>
-                    <span>
-                      {getWarEspionage(w, village.id)} / {WAR_ESPIONAGE_TARGET}
-                    </span>
-                  </p>
-                  <Progress
-                    aria-label={`${village.name} espionage`}
-                    value={
-                      (getWarEspionage(w, village.id) / WAR_ESPIONAGE_TARGET) * 100
-                    }
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           {!isRevealed && (
             <p className="text-muted-foreground text-sm">
               Complete espionage missions to reveal the shrines to defend and attack.
@@ -352,7 +368,10 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
                   <div className="flex flex-wrap items-center gap-2">
                     {user.sector !== objective.sector && (
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/travel?sector=${objective.sector}`}>
+                        <Link
+                          href={`/travel?sector=${objective.sector}`}
+                          onNavigate={onNavigate}
+                        >
                           Travel to sector {objective.sector}
                         </Link>
                       </Button>
@@ -391,6 +410,7 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
                 <Link
                   className="font-medium underline underline-offset-4"
                   href={`/travel?sector=${enemyVillage.sector}`}
+                  onNavigate={onNavigate}
                 >
                   {enemyVillage.name} (sector {enemyVillage.sector})
                 </Link>{" "}
@@ -500,7 +520,7 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
               <div className="flex flex-wrap items-center gap-2">
                 {user.sector !== c.sector && (
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/travel?sector=${c.sector}`}>
+                    <Link href={`/travel?sector=${c.sector}`} onNavigate={onNavigate}>
                       Travel to sector {c.sector}
                     </Link>
                   </Button>
@@ -521,29 +541,31 @@ export const ObjectiveWarPanel = ({ warId }: { warId: string }) => {
             </div>
           ))}
         </TabsContent>
-        <TabsContent value="contributions" className="space-y-3 pt-2">
-          <p className="text-muted-foreground text-sm">
-            War points equal actual damage dealt to the enemy townhall. Health recovered
-            is tracked separately.
-          </p>
-          {data.contributions.length ? (
-            <Table
-              data={[...data.contributions].sort((a, b) => b.damage - a.damage)}
-              columns={[
-                { key: "username", header: "Ninja", type: "string" },
-                { key: "damage", header: "Damage / war points", type: "number" },
-                { key: "recovery", header: "Health recovered", type: "number" },
-              ]}
-              linkColumn="userId"
-              linkPrefix="/userid/"
-              compact
-            />
-          ) : (
-            <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
-              No townhall contributions have been recorded yet.
+        {!isFieldView && (
+          <TabsContent value="contributions" className="space-y-3 pt-2">
+            <p className="text-muted-foreground text-sm">
+              War points equal actual damage dealt to the enemy townhall. Health
+              recovered is tracked separately.
             </p>
-          )}
-        </TabsContent>
+            {data.contributions.length ? (
+              <Table
+                data={[...data.contributions].sort((a, b) => b.damage - a.damage)}
+                columns={[
+                  { key: "username", header: "Ninja", type: "string" },
+                  { key: "damage", header: "Damage / war points", type: "number" },
+                  { key: "recovery", header: "Health recovered", type: "number" },
+                ]}
+                linkColumn="userId"
+                linkPrefix="/userid/"
+                compact
+              />
+            ) : (
+              <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
+                No townhall contributions have been recorded yet.
+              </p>
+            )}
+          </TabsContent>
+        )}
       </Tabs>
     </section>
   );

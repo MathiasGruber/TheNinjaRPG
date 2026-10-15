@@ -1,14 +1,16 @@
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { type ReactNode, useState } from "react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 import * as client from "@/app/_trpc/client";
 import type { RouterOutputs } from "@/app/_trpc/client";
+import * as select from "@/components/ui/select";
 import {
   WAR_ESPIONAGE_TARGET,
   WAR_POINT_CONVERSION_DAYS,
   WAR_POINT_PRESTIGE_RATE,
 } from "@/drizzle/constants";
+import * as modal from "@/layout/Modal";
 import { ObjectiveWarPanel } from "@/layout/ObjectiveWarPanel";
 import { WarDashboardNotices } from "@/layout/WarDashboardNotices";
 import { WarFieldActions } from "@/layout/WarFieldActions";
@@ -273,6 +275,43 @@ beforeEach(() => {
     () => ({ data: user, timeDiff, updateUser }) as never,
   );
   vi.spyOn(routing, "pushToCombat").mockImplementation(() => {});
+  // Exercise our mounting/selection logic; shared Modal and Radix behavior have their own coverage.
+  vi.spyOn(modal, "default").mockImplementation((props) => (
+    <div role="dialog" aria-label={props.title}>
+      {props.children}
+      <button type="button" onClick={() => props.setIsOpen(false)}>
+        Close
+      </button>
+    </div>
+  ));
+  vi.spyOn(select, "Select").mockImplementation(
+    ({ value, onValueChange, children }: ComponentProps<typeof select.Select>) => (
+      <select
+        aria-label="Choose a war"
+        value={value}
+        onChange={(event) => onValueChange?.(event.target.value)}
+      >
+        {children}
+      </select>
+    ),
+  );
+  vi.spyOn(select, "SelectTrigger").mockImplementation(
+    Object.assign(() => <></>, { displayName: select.SelectTrigger.displayName }),
+  );
+  vi.spyOn(select, "SelectContent").mockImplementation(
+    Object.assign(
+      ({ children }: ComponentProps<typeof select.SelectContent>) => <>{children}</>,
+      { displayName: select.SelectContent.displayName },
+    ),
+  );
+  vi.spyOn(select, "SelectItem").mockImplementation(
+    Object.assign(
+      ({ value, children }: ComponentProps<typeof select.SelectItem>) => (
+        <option value={value}>{children}</option>
+      ),
+      { displayName: select.SelectItem.displayName },
+    ),
+  );
 });
 
 afterEach(() => {
@@ -284,32 +323,124 @@ afterEach(() => {
 });
 
 describe("war field objectives", () => {
-  it("mounts details only while the field accordion is expanded", () => {
+  it("mounts one field panel only while its toolbar dialog is open", () => {
     const view = mount(<WarFieldActions />);
     const query = client.api.war.getObjectiveWarInfo.useQuery;
-    const toggle = view.getByRole("button", {
-      name: /War objectives Own village vs Enemy village/,
-    });
+    const toggle = view.getByRole("button", { name: "War" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(query).not.toHaveBeenCalled();
+    expect(view.queryByRole("dialog")).toBeNull();
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(view.getByRole("region", { name: "War objectives" })).toBeDefined();
-    expect(query).toHaveBeenCalled();
-    fireEvent.click(toggle);
+    const dialog = view.getByRole("dialog", { name: "War" });
+    expect(
+      within(dialog).getAllByRole("region", { name: "War objectives" }),
+    ).toHaveLength(1);
+    expect(query).toHaveBeenCalledWith({ warId: "war-1" }, expect.anything());
+    expect(view.queryByRole("tab", { name: "Contributions" })).toBeNull();
+    expect(view.queryByText("Townhall health")).toBeNull();
+    expect(
+      view
+        .getByRole("link", { name: "View war overview and contributions" })
+        .getAttribute("href"),
+    ).toBe("/townhall#Wars");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(view.queryByRole("dialog")).toBeNull();
     expect(view.queryByRole("region", { name: "War objectives" })).toBeNull();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("selects one participating war at a time and falls back when the selected war ends", () => {
+    wars.push({ ...wars[0]!, id: "war-2", defenderVillage: { name: "Other village" } });
+    const view = mount(<WarFieldActions />);
+    fireEvent.click(view.getByRole("button", { name: "War" }));
+    fireEvent.change(view.getByRole("combobox", { name: "Choose a war" }), {
+      target: { value: "war-2" },
+    });
+    expect(client.api.war.getObjectiveWarInfo.useQuery).toHaveBeenLastCalledWith(
+      { warId: "war-2" },
+      expect.anything(),
+    );
+    expect(view.getAllByRole("region", { name: "War objectives" })).toHaveLength(1);
+    wars = [wars[0]!];
+    view.rerender(
+      <AppRouterContext.Provider value={router}>
+        <WarFieldActions />
+      </AppRouterContext.Provider>,
+    );
+    expect(client.api.war.getObjectiveWarInfo.useQuery).toHaveBeenLastCalledWith(
+      { warId: "war-1" },
+      expect.anything(),
+    );
+    expect(view.queryByRole("combobox")).toBeNull();
+  });
+
+  it("hides uninvolved and legacy wars and never reopens automatically after participation ends", () => {
+    const view = mount(<WarFieldActions />);
+    fireEvent.click(view.getByRole("button", { name: "War" }));
+    const saved = wars;
+    wars = [{ ...wars[0]!, rules: null }];
+    view.rerender(
+      <AppRouterContext.Provider value={router}>
+        <WarFieldActions />
+      </AppRouterContext.Provider>,
+    );
+    expect(view.queryByRole("button", { name: "War" })).toBeNull();
+    expect(view.queryByRole("dialog")).toBeNull();
+    wars = [];
+    view.rerender(
+      <AppRouterContext.Provider value={router}>
+        <WarFieldActions />
+      </AppRouterContext.Provider>,
+    );
+    expect(view.queryByRole("button", { name: "War" })).toBeNull();
+    wars = saved;
+    view.rerender(
+      <AppRouterContext.Provider value={router}>
+        <WarFieldActions />
+      </AppRouterContext.Provider>,
+    );
+    expect(
+      view.getByRole("button", { name: "War" }).getAttribute("aria-expanded"),
+    ).toBe("false");
+    expect(view.queryByRole("dialog")).toBeNull();
+  });
+
+  it("counts only unexpired camps and this participant's ready mission using server time", () => {
+    timeDiff = 5000;
+    user.warMission = readyAttempt(new Date(NOW - 3000).toISOString());
+    camps = [
+      { id: "expired", sector: 10, endsAt: new Date(NOW - 6000) },
+      { id: "open", sector: 20, endsAt: new Date(NOW + 60_000) },
+    ];
+    const view = mount(<WarFieldActions />);
+    expect(view.getByRole("button", { name: "War, 1 update" })).toBeDefined();
+    advance(3000);
+    expect(campRefetch).toHaveBeenCalledTimes(1);
+    expect(view.getByRole("button", { name: "War, 2 updates" })).toBeDefined();
+    advance(63_000);
+    expect(view.getByRole("button", { name: "War, 1 update" })).toBeDefined();
+    expect(client.api.war.getObjectiveWarInfo.useQuery).not.toHaveBeenCalled();
+    user.warMission = { ...user.warMission, warId: "unrelated" };
+    view.rerender(
+      <AppRouterContext.Provider value={router}>
+        <WarFieldActions />
+      </AppRouterContext.Provider>,
+    );
+    expect(view.getByRole("button", { name: "War" })).toBeDefined();
   });
 
   it("offers retry after the initial load fails and stops polling an ended snapshot", () => {
     info = undefined;
     isPending = true;
-    const view = mount(<ObjectiveWarPanel warId="war-1" />);
+    const view = mount(<WarFieldActions />);
+    fireEvent.click(view.getByRole("button", { name: "War" }));
     expect(view.getByText("Loading war objectives...")).toBeDefined();
     isPending = false;
     objectiveError = new Error("Connection interrupted");
     view.rerender(
       <AppRouterContext.Provider value={router}>
-        <ObjectiveWarPanel warId="war-1" />
+        <WarFieldActions />
       </AppRouterContext.Provider>,
     );
     expect(view.getByRole("alert").textContent).toContain(
@@ -321,14 +452,14 @@ describe("war field objectives", () => {
     objectiveError = null;
     view.rerender(
       <AppRouterContext.Provider value={router}>
-        <ObjectiveWarPanel warId="war-1" />
+        <WarFieldActions />
       </AppRouterContext.Provider>,
     );
     expect(pollInterval({ state: { data: info } })).toBe(10000);
     info = { ...info, war: { ...info.war, status: "DRAW", endedAt: new Date(NOW) } };
     view.rerender(
       <AppRouterContext.Provider value={router}>
-        <ObjectiveWarPanel warId="war-1" />
+        <WarFieldActions />
       </AppRouterContext.Provider>,
     );
     expect(view.getByText("War ended")).toBeDefined();
@@ -362,32 +493,35 @@ describe("war field objectives", () => {
     { villageId: "enemy", side: "enemy", destination: "Own village", sector: 10 },
     { villageId: "ally", side: "own", destination: "Enemy village", sector: 20 },
     { villageId: "ally", side: "enemy", destination: "Own village", sector: 10 },
-  ])("guides $villageId on side $side to the opposing village for espionage", (fixture) => {
-    user.villageId = fixture.villageId;
-    info!.war.objectiveState!.attackerEspionage = 0;
-    info!.war.warAllies = [
-      {
-        id: "ally-1",
-        warId: "war-1",
-        villageId: "ally",
-        supportVillageId: fixture.side,
-        tokensPaid: 0,
-        acceptedAt: new Date(NOW),
-        joinedAt: new Date(NOW),
-        endedAt: null,
-        activeVillageId: "ally",
-      },
-    ];
-    const view = mount(<ObjectiveWarPanel warId="war-1" />);
-    openTab(view, "Missions");
-    expect(
-      view
-        .getByRole("link", {
-          name: `${fixture.destination} (sector ${fixture.sector})`,
-        })
-        .getAttribute("href"),
-    ).toBe(`/travel?sector=${fixture.sector}`);
-  });
+  ])(
+    "guides $villageId on side $side to the opposing village for espionage",
+    (fixture) => {
+      user.villageId = fixture.villageId;
+      info!.war.objectiveState!.attackerEspionage = 0;
+      info!.war.warAllies = [
+        {
+          id: "ally-1",
+          warId: "war-1",
+          villageId: "ally",
+          supportVillageId: fixture.side,
+          tokensPaid: 0,
+          acceptedAt: new Date(NOW),
+          joinedAt: new Date(NOW),
+          endedAt: null,
+          activeVillageId: "ally",
+        },
+      ];
+      const view = mount(<ObjectiveWarPanel warId="war-1" />);
+      openTab(view, "Missions");
+      expect(
+        view
+          .getByRole("link", {
+            name: `${fixture.destination} (sector ${fixture.sector})`,
+          })
+          .getAttribute("href"),
+      ).toBe(`/travel?sector=${fixture.sector}`);
+    },
+  );
 
   it("keeps rejected and failed missions retryable with feedback beside the action", async () => {
     const view = mount(<ObjectiveWarPanel warId="war-1" />);

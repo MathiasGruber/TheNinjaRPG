@@ -950,7 +950,6 @@ function Travel() {
   // Render
   return (
     <>
-      <WarFieldActions />
       {locationRequest && (
         <Modal
           title="Auto Travel"
@@ -989,6 +988,7 @@ function Travel() {
         padding={false}
         topRightContent={
           <div className="flex cursor-pointer flex-row items-center">
+            <WarFieldActions />
             {!isGlobal && activeTab !== "" && (
               <>
                 {userData?.anbuId &&
