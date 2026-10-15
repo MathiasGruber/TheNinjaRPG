@@ -101,6 +101,22 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(await snapshot()).toEqual(before);
   });
 
+  it("preserves carried furniture when a downgrade requires automatic essential repair", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    const api = await callerFor(homeRouter, userId);
+    const placements = essentialLayout.map((placement, index) => index < 2 ? { ...placement, room: "room-1" as const } : placement);
+    expect((await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements })).success).toBe(true);
+    expect((await api.toggleStoreItem({ userItemId: "kitchen-row" })).success).toBe(true);
+    expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const before = await snapshot();
+    expect(before.inventory.find(({ id }) => id === "kitchen-row")).toMatchObject({ storedAtHome: false, homeX: 20, homeY: 60 });
+    const home = await api.getUserHome();
+    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
+    expect(home?.furnitureRevision).toBe(before.owner.homeFurnitureRevision + 1);
+    expect((await snapshot()).inventory.map(({ id, storedAtHome }) => ({ id, storedAtHome }))).toEqual(before.inventory.map(({ id, storedAtHome }) => ({ id, storedAtHome })));
+  });
+
   it("keeps unplaced carried furniture out of full storage when its old room is removed", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));

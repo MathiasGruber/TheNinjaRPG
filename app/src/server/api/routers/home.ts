@@ -328,6 +328,7 @@ export const homeRouter = createTRPCRouter({
         user,
         input.placements,
         input.revision,
+        true,
         input.styles,
       );
       // MySQL counts changed inventory rows as well as the account revision.
@@ -752,6 +753,7 @@ const ensureHomeFurnitureEssentials = async (
       user,
       completed,
       user.homeFurnitureRevision,
+      false,
     );
     // A concurrent editor or first view may win the revision CAS. Read its complete result once.
     return await fetchHomeFurnitureUser(client, userId);
@@ -766,6 +768,7 @@ const publishHomeFurnitureLayout = (
   user: HomeFurnitureUser,
   placements: HomePlacement[],
   revision: number,
+  storeFurniture: boolean,
   styles?: HomeRoomStyle[],
 ) => {
   const coordinateCase = (axis: "x" | "y" | "rotation") =>
@@ -790,14 +793,14 @@ const publishHomeFurnitureLayout = (
     SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
         ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
         ${userData.homeRoomStyles} = ${JSON.stringify(styles ?? user.homeRoomStyles)},
-        ${userItem.storedAtHome} = CASE WHEN ${userItem.homeX} IS NOT NULL ${
+        ${userItem.storedAtHome} = CASE WHEN ${storeFurniture} AND (${userItem.homeX} IS NOT NULL ${
           placements.length
             ? sql`OR ${inArray(
                 userItem.id,
                 placements.map(({ id }) => id),
               )}`
             : sql``
-        } THEN ${true} ELSE ${userItem.storedAtHome} END,
+        }) THEN ${true} ELSE ${userItem.storedAtHome} END,
         ${userItem.homeRoom} = ${
           placements.length
             ? sql`CASE ${userItem.id} ${sql.join(
