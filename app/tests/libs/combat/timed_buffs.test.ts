@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { applyEffects } from "@/libs/combat/process";
+import { getPower, realizeTag } from "@/libs/combat/tags";
 import { getTimedRegeneration, getTimedRegenerationGain, getTimedRegenerationPeriods, getRegenerationPeriodGain } from "@/libs/timedBuffs";
 import { IncreaseRegenerationTag } from "@/validators/combat";
 import { makeCompleteBattle, makeEffect, makeUser } from "./helpers/battleScenario";
@@ -35,6 +36,20 @@ describe("timed meal and raid effects", () => {
       applyEffects(makeCompleteBattle({ usersState: [user], usersEffects: reverse ? buffs.reverse() : buffs }), "user");
       expect(user.offence).toBe(1100);
     }
+  });
+  it.each([false, true])("compares timed bonuses by capped combat power (reverse order: %s)", (reverse) => {
+    const user = makeUser({ userId: "user", offence: 100 });
+    const live = Date.now() + 60000;
+    const buffs = [statBuff("meal", 150, live, { calculation: "static" }), statBuff("raid", 200, live)]
+      .map((tag) => ({
+        ...realizeTag({ tag, user, actionId: tag.id, target: user, level: 0 }),
+        isNew: false,
+        castThisRound: false,
+      }));
+    expect(buffs[1]!.power).toBe(200);
+    expect(getPower(buffs[1]!).power).toBe(100);
+    applyEffects(makeCompleteBattle({ usersState: [user], usersEffects: reverse ? buffs.reverse() : buffs }), "user");
+    expect(user.offence).toBe(250);
   });
   it("integrates offline regeneration without extending past expiry or stacking overlaps", () => {
     const start = new Date("2026-01-01T00:00:00Z");

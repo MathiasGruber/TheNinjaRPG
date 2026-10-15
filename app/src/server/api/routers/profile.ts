@@ -3630,9 +3630,14 @@ const fetchUpdatedUserOnce = async (props: {
         Object.assign(user, kickUpdate);
         if (storedRegeneration !== undefined) {
           // Keep accrued ticks at the member rate; future ticks use the new membership.
-          regenerationAfterExpulsion = calcActiveUserRegen(
+          user.regenerationWithoutTimedBuffs = calcActiveUserRegen(
             { ...user, regeneration: storedRegeneration, village: syndicate },
             settings,
+            false,
+          );
+          regenerationAfterExpulsion = getTimedRegeneration(
+            user.regenerationWithoutTimedBuffs,
+            user.raidBuffs,
           );
         }
         forceRegen = true;

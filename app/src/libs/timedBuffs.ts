@@ -1,4 +1,5 @@
 import type { UserRaidBuff } from "@/drizzle/schema";
+import { getEffectPower } from "@/libs/combat/power";
 import type { BattleUserState, UserEffect } from "@/libs/combat/types";
 
 export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt">;
@@ -96,8 +97,10 @@ export const nonStackingTimedStatEffect = (
   for (const field of statFields) target.baseStatsForModifiers[field] ??= target[field];
   const remaining = affectedFields(effect, target).filter((field) => {
     const base = target.baseStatsForModifiers?.[field] ?? target[field];
-    const amount = (entry: UserEffect) =>
-      entry.calculation === "percentage" ? (base * entry.power) / 100 : entry.power;
+    const amount = (entry: UserEffect) => {
+      const power = getEffectPower(entry);
+      return entry.calculation === "percentage" ? (base * power) / 100 : power;
+    };
     return !effects.some(
       (other) =>
         other.id !== effect.id &&

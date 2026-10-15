@@ -38,13 +38,14 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const first = await fetchUpdatedUser({ client: db, userId: "expelled" });
     const persisted = await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") });
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
-    expect(first.user).toMatchObject({ isOutlaw: true, regeneration: 50, curHealth: 115, curChakra: 115, curStamina: 115 });
+    expect(first.user).toMatchObject({ isOutlaw: true, regeneration: 50, regenerationWithoutTimedBuffs: 50, curHealth: 115, curChakra: 115, curStamina: 115 });
     expect(persisted).toMatchObject({ regeneration: 100, curHealth: 115, regenAt: NOW,
       villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
     });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
+    expect(next.user?.regenerationWithoutTimedBuffs).toBe(first.user?.regenerationWithoutTimedBuffs);
     setSystemTime(new Date(NOW.getTime() + 60_000));
-    expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regeneration, first.user?.regenAt).current).toBe(165);
+    expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regenerationWithoutTimedBuffs, first.user?.regenAt, 0, undefined, first.user?.raidBuffs).current).toBe(165);
   });
 
   it("returns the outlaw rate without an accrued regeneration tick", async () => {
@@ -52,7 +53,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     await db.update(userData).set({ status: "BATTLE", battleId: "battle-1", regenAt: NOW }).where(eq(userData.userId, "expelled"));
     const first = await fetchUpdatedUser({ client: db, userId: "expelled" });
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
-    expect(first.user).toMatchObject({ regeneration: 50, curHealth: 0, curEnergy: 0 });
+    expect(first.user).toMatchObject({ regeneration: 50, regenerationWithoutTimedBuffs: 50, curHealth: 0, curEnergy: 0 });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
   });
 
@@ -79,6 +80,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
     expect(first.user).toMatchObject({ isOutlaw: true, curHealth: accrued, curChakra: accrued, curStamina: accrued });
     expect(first.user?.regeneration).toBeCloseTo(future);
+    expect(first.user?.regenerationWithoutTimedBuffs).toBeCloseTo(future);
     expect(persisted).toMatchObject({ regeneration: 100, curHealth: accrued, curChakra: accrued, curStamina: accrued,
       villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
       regenAt: status === "BATTLE" ? new Date(NOW.getTime() - 60_000) : NOW,
