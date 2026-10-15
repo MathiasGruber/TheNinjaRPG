@@ -1,5 +1,6 @@
 import { COOKING_RANKS } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
+import { getStatTypeLabels } from "@/libs/combat/util";
 import { getFarmingLevel, getFarmingLevelProgress } from "@/libs/farming";
 import { calcLevelRequirements } from "@/libs/profile";
 
@@ -53,7 +54,7 @@ export const getCookingSeconds = (
     ),
   );
 
-/** Human-readable bonus and duration shared by recipe and inventory views. */
+/** Human-readable recipe bonus and duration. */
 export const describeMealEffect = (
   meal: Pick<Item, "effects" | "mealDurationSeconds">,
 ) =>
@@ -62,18 +63,7 @@ export const describeMealEffect = (
       if (effect.type === "increaseregeneration")
         return `Regeneration +${effect.power}${effect.calculation === "percentage" ? "%" : ""}`;
       if (effect.type === "increasestat") {
-        const stats = [
-          ...(effect.statTypes?.length
-            ? [
-                effect.direction === "both"
-                  ? "Offence and defence"
-                  : effect.direction === "offence"
-                    ? "Offence"
-                    : "Defence",
-              ]
-            : []),
-          ...(effect.generalTypes ?? []),
-        ];
+        const stats = [...getStatTypeLabels(effect), ...(effect.generalTypes ?? [])];
         return `${stats.join(", ")} +${effect.power}${effect.calculation === "percentage" ? "%" : ""}`;
       }
       return effect.description;
