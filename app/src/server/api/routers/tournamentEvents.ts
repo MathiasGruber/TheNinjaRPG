@@ -815,7 +815,8 @@ const payEventRewards = async (client: DrizzleClient, row: EventRow) => {
           const user = await database.query.userData.findFirst({
             where: eq(userData.userId, userId),
           });
-          if (!user) throw new Error("Tournament reward recipient missing");
+          // Deleted entrants are nonpayable; retain their receipt so payout can finish.
+          if (!user) return;
           const rewards = eventRewardFor(event, userId);
           if (!rewards) return;
           await updateRewards({

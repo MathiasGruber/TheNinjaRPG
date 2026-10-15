@@ -2294,11 +2294,13 @@ export const initiateBattle = async (
   // Settle authorized pre-combat training from the already loaded participant snapshots.
   // Battle claims commit these gains with status; failed partial claims retain earned training.
   // The same settlement as an account refresh (`settleQueuedTraining`), written back in
-  // bulk with the battle claim below.
+  // bulk with the battle claim below. Exhibitions also preserve real pool recovery here,
+  // before loadout/stat normalization, since their settlement discards battle pools.
   const queuedTraining = fetchedUsers.flatMap((user) => {
     if (
       user.isAi ||
-      (user.queue.length === 0 &&
+      (!info.tournamentGame &&
+        user.queue.length === 0 &&
         !user.currentlyTrainingMastery &&
         !user.currentlyTrainingElement)
     )
@@ -2318,7 +2320,7 @@ export const initiateBattle = async (
       settings,
       ticks,
     );
-    if (!energy && !mastery) return [];
+    if (!energy && !mastery && !info.tournamentGame) return [];
     const amount = energy?.completed.reduce((sum, entry) => sum + entry.amount, 0) ?? 0;
     const minutes =
       mastery?.completed.reduce((sum, entry) => sum + entry.minutes, 0) ?? 0;
@@ -3109,28 +3111,38 @@ export const initiateBattle = async (
       queuedParticipants.map((entry) => entry.user.userId),
     )} THEN GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt})) ELSE ${userData.updatedAt} END`;
     const energyParticipants = queuedParticipants.filter((entry) => entry.energy);
+    const recoveryParticipants = info.tournamentGame
+      ? queuedParticipants
+      : energyParticipants;
+    if (recoveryParticipants.length) {
+      queueUpdate.curEnergy = queueCase(
+        "curEnergy",
+        recoveryParticipants,
+        (entry) =>
+          entry.energy?.curEnergy ??
+          Math.min(
+            entry.original.curEnergy + entry.regen,
+            energyCapacity[entry.original.userId] ?? entry.original.maxEnergy,
+          ),
+      );
+      for (const pool of PoolTypes) {
+        const { cur, max } = getPoolKeys(pool);
+        queueUpdate[cur] = queueCase(cur, recoveryParticipants, (entry) =>
+          Math.min(entry.original[cur] + entry.regen, entry.original[max]),
+        );
+      }
+      queueUpdate.regenAt = queueCase(
+        "regenAt",
+        recoveryParticipants,
+        (entry) => entry.regenAt,
+      );
+    }
     if (energyParticipants.length) {
       // Advancing the head consumes the settled rows in this same statement.
       queueUpdate.energyQueueHead = queueCase(
         "energyQueueHead",
         energyParticipants,
         (entry) => entry.energy?.head,
-      );
-      queueUpdate.curEnergy = queueCase(
-        "curEnergy",
-        energyParticipants,
-        (entry) => entry.energy?.curEnergy,
-      );
-      for (const pool of PoolTypes) {
-        const { cur, max } = getPoolKeys(pool);
-        queueUpdate[cur] = queueCase(cur, energyParticipants, (entry) =>
-          Math.min(entry.original[cur] + entry.regen, entry.original[max]),
-        );
-      }
-      queueUpdate.regenAt = queueCase(
-        "regenAt",
-        energyParticipants,
-        (entry) => entry.regenAt,
       );
       queueUpdate.experience = queueCase(
         "experience",
