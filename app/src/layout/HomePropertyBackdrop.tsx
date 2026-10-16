@@ -2,12 +2,12 @@ import { useId } from "react";
 import {
   type CombatBiome,
   HOME_FLOOR_TILES,
+  HOME_ROOM_IDS,
   HOME_WALL_PAINTS,
   type HomeType,
   HomeTypeDetails,
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
-import { getHomeRooms } from "@/libs/homeProperty";
 import { HOME_ART_PLANS } from "@/libs/homeRoomGeometry";
 import { STRUCTURE_GROUND_TERRAIN } from "@/libs/sector-map/terrains";
 import type { HomeRoomStyle } from "@/validators/home";
@@ -26,7 +26,6 @@ export const HomePropertyBackdrop = ({
 }) => {
   const id = useId();
   const plan = HOME_ART_PLANS[homeType];
-  const rooms = getHomeRooms(homeType);
   const terrain = STRUCTURE_GROUND_TERRAIN[biome];
   const src = `/images/home/${homeType.toLowerCase()}-${terrain}.webp`;
   const size = { width: `${plan.size}%`, height: `${plan.size}%` };
@@ -50,7 +49,7 @@ export const HomePropertyBackdrop = ({
         />
       </div>
       {styles.map((style) => {
-        const index = rooms.findIndex((room) => room.id === style.room && !room.isYard);
+        const index = HOME_ROOM_IDS.indexOf(style.room);
         const surfaces = plan.floorSurfaces[index];
         const texture = HOME_FLOOR_TILES[style.floor];
         if (!surfaces || !texture) return null;
@@ -127,7 +126,7 @@ export const HomePropertyBackdrop = ({
         </div>
       ))}
       {styles.flatMap((style) => {
-        const index = rooms.findIndex((room) => room.id === style.room && !room.isYard);
+        const index = HOME_ROOM_IDS.indexOf(style.room);
         return (plan.paint[index] ?? []).map((polygon, panel) => (
           <svg
             key={`${style.room}-${panel}`}

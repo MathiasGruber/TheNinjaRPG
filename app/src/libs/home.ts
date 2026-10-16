@@ -171,8 +171,6 @@ export const clampHomeFurniturePlacement = (
   furniture: HomeFurniture,
   homeType: HomeType,
 ): HomePlacement | null => {
-  if (!getHomeRooms(homeType).some(({ id }) => id === getHomePlacementRoom(placement)))
-    return null;
   const polygon = getHomeAnchorPolygon(furniture, placement, homeType);
   if (!polygon.length) return null;
   const anchor = projectHomePlacement(placement);
@@ -255,17 +253,25 @@ export const recoverHomeLayout = (
       getHomePlacementRoom(original) === "main"
         ? { ...original, room: "yard" as const }
         : original;
-    const rotation = getHomeFurnitureRotations(piece).includes(placement.rotation)
-      ? placement.rotation
-      : 0;
-    const fitted = fitHomeFurniturePlacement(
-      { ...placement, rotation },
-      piece,
-      recovered,
-      furniture,
-      homeType,
-    );
-    if (fitted) recovered.push(fitted);
+    const rotations = getHomeFurnitureRotations(piece);
+    const preferred = rotations.includes(placement.rotation) ? placement.rotation : 0;
+    // A retained room can become shallower when the property's painting changes.
+    for (const rotation of [
+      preferred,
+      ...rotations.filter((value) => value !== preferred),
+    ]) {
+      const fitted = fitHomeFurniturePlacement(
+        { ...placement, rotation },
+        piece,
+        recovered,
+        furniture,
+        homeType,
+      );
+      if (fitted) {
+        recovered.push(fitted);
+        break;
+      }
+    }
   }
   return recovered;
 };
