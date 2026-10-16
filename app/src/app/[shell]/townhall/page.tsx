@@ -42,6 +42,7 @@ import {
   ELDER_NOMINATION_CUTOFF_DAY,
   ELDER_NOMINATION_DEADLINE_DAY,
   KAGE_ELDER_REMOVAL_LOCK_SECS,
+  KAGE_REMOVAL_COOLDOWN_DAYS,
   WAR_FUNDS_COST,
 } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -641,8 +642,9 @@ const ElderHall: React.FC<{
             )}
             {governanceMessage && <p role="status">{governanceMessage}</p>}
             <p className="text-muted-foreground text-sm">
-              Failed removal votes have a village-wide cooldown of one week, reset when
-              the Kage changes. Political removal preserves prestige.
+              Failed removal votes have a village-wide cooldown of{" "}
+              {KAGE_REMOVAL_COOLDOWN_DAYS} days, reset when the Kage changes. Political
+              removal preserves prestige.
             </p>
             {removalHistory?.map((motion) => (
               <div key={motion.id} className="space-y-2 rounded border p-3">

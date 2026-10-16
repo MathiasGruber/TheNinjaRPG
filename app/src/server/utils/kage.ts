@@ -437,8 +437,8 @@ const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) =>
     vacancy: {
       removedUserId: hall.village.kageId,
       reason: hall.state.publishedAt
-        ? "Kage removed after three missed attended defenses"
-        : "Kage removed for not publishing a defense schedule within 24 hours",
+        ? `Kage removed after ${KAGE_DEFENSE_MAX_NO_SHOWS} missed attended defenses`
+        : `Kage removed for not publishing a defense schedule within ${KAGE_DEFENSE_SETUP_HOURS} hours`,
     },
   };
   if (replacement?.rank === "ELDER" && !replacement.isAi)

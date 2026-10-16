@@ -438,9 +438,10 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
             <p>
               Check in {KAGE_DEFENSE_CHECK_IN_MINUTES} minutes early and remain awake.
               The Kage starts at the appointed time with a {KAGE_DEFENSE_GRACE_MINUTES}
-              -minute grace period. Hospital stays defer the match. Three missed
-              attended starts remove the Kage; strikes reset with each tenure. Service
-              interruptions and wars cause no attendance penalty.
+              -minute grace period. Hospital stays defer the match.{" "}
+              {KAGE_DEFENSE_MAX_NO_SHOWS} missed attended starts remove the Kage;
+              strikes reset with each tenure. Service interruptions and wars cause no
+              attendance penalty.
             </p>
             <p>
               Both fighters begin with full health, chakra and stamina. A losing

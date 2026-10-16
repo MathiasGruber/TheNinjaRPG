@@ -1,6 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
+  KAGE_CHALLENGER_DAILY_LIMIT,
+  KAGE_CHALLENGER_WEEKLY_LIMIT,
   KAGE_DEFENSE_CHECK_IN_MINUTES,
   KAGE_DEFENSE_GRACE_MINUTES,
   KAGE_DEFENSE_NOTICE_HOURS,
@@ -292,7 +294,7 @@ export const kageDefenseProcedures = {
               m.scheduledAt.getTime() + KAGE_DEFENSE_GRACE_MINUTES * 60_000
           )
             return errorResponse(
-              "Check in during the five minutes before the match or its start grace period",
+              `Check in during the ${KAGE_DEFENSE_CHECK_IN_MINUTES} minutes before the match or its start grace period`,
             );
           await tx
             .update(kageChallenge)
@@ -356,7 +358,7 @@ export const kageDefenseProcedures = {
           });
           if (!withinKageChallengeLimits(history, hall.now))
             return errorResponse(
-              "Challengers may fight once per UTC day and three times per UTC week",
+              `Challengers may fight ${KAGE_CHALLENGER_DAILY_LIMIT} time per UTC day and ${KAGE_CHALLENGER_WEEKLY_LIMIT} times per UTC week`,
             );
           if (
             row.user.status !== "AWAKE" ||

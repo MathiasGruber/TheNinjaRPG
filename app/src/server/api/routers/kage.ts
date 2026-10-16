@@ -18,6 +18,7 @@ import {
   ELDER_KAGE_REMOVAL_VOTE_DAYS,
   ELDER_MIN_VOTING_COUNT,
   KAGE_DEFAULT_PRESTIGE,
+  KAGE_DEFENSE_SETUP_HOURS,
   KAGE_DELAY_SECS,
   KAGE_ELDER_REMOVAL_LOCK_SECS,
   KAGE_MAX_WEEKLY_PRESTIGE_SEND,
@@ -480,7 +481,7 @@ export const kageRouter = createTRPCRouter({
           // Notification is a shared announcement; unread counters select its recipients.
           await tx.insert(notification).values({
             userId: user.userId,
-            content: `${user.username} proposed removing the Kage: ${input.reason}. Vote at Town Hall.`,
+            content: `${user.username} proposed removing the ${v.name} Kage: ${input.reason} Vote at Town Hall.`,
           });
           await tx
             .update(userData)
@@ -648,7 +649,7 @@ export const kageRouter = createTRPCRouter({
             .where(eq(village.id, input.villageId));
           return {
             success: true,
-            message: `${candidate.username} appointed Kage. Publish a schedule within 24 hours.`,
+            message: `${candidate.username} appointed Kage. Publish a schedule within ${KAGE_DEFENSE_SETUP_HOURS} hours.`,
           };
         })) ?? errorResponse("Village not found")
       );
