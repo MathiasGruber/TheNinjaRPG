@@ -41,7 +41,12 @@ it.each([
   expect(view.container.querySelector(`[data-home-scenery^="${tree}"]`)).not.toBeNull();
   for (const sprite of view.container.querySelectorAll<HTMLElement>("[data-home-scenery]")) {
     const key = sprite.dataset.homeScenery!;
-    expect(sprite.querySelector("img")?.getAttribute("src")).toBe(DECORATION_ASSETS_BY_KEY.get(key)?.filepath);
+    const painting = sprite.querySelector("image");
+    if (painting) {
+      expect(painting.getAttribute("href")).toBe("/images/home/scenery.webp");
+      expect(painting.getAttribute("clip-path")).toContain("url(#");
+      expect(sprite.querySelector("svg")!.getAttribute("preserveAspectRatio")).toBe("xMidYMax meet");
+    } else expect(sprite.querySelector("img")?.getAttribute("src")).toBe(DECORATION_ASSETS_BY_KEY.get(key)?.filepath);
     expect(sprite.getAttribute("aria-hidden")).toBe("true");
     expect(sprite.classList.contains("pointer-events-none")).toBe(true);
   }
@@ -84,7 +89,7 @@ it.each(HomeTypes.filter((tier) => tier !== "NONE"))("keeps %s scenery clear of 
 
 it("hides only failed optional scenery and retains its terrain and neighboring sprites", () => {
   const view = render(<HomeEnvironment homeType="STUDIO_APARTMENT" biome="ice" />);
-  const images = view.container.querySelectorAll<HTMLImageElement>("img");
+  const images = view.container.querySelectorAll<SVGImageElement | HTMLImageElement>("[data-home-scenery] image, [data-home-scenery] img");
   expect(images.length).toBeGreaterThan(1);
   fireEvent.error(images[0]!);
   expect(images[0]!.style.visibility).toBe("hidden");
@@ -98,25 +103,49 @@ it("gives tents village terrain without adding scenery over their authored exter
   expect(view.container.querySelector("[data-home-scenery]")).toBeNull();
 });
 
-it.each(["dessert", "ocean", "ice", "snow"] as const)("seasons %s yard vegetation while preserving timber, farm art and border bounds", (biome) => {
-  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome="ground" styles={[]} />);
-  const bounds = () => [...view.container.querySelectorAll("[data-home-yard-border]")].map((border) =>
-    ["x", "y", "width", "height", "viewBox"].map((attribute) => border.getAttribute(attribute)),
-  );
-  const originalBounds = bounds();
-  expect(view.container.querySelector("[data-home-yard-border] image[filter]")).toBeNull();
-  view.rerender(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome={biome} styles={[]} />);
-  expect(bounds()).toEqual(originalBounds);
-  const farm = view.container.querySelector('[data-home-room="yard"] > image')!;
-  expect(farm.getAttribute("filter")).toBeNull();
-  for (const border of view.container.querySelectorAll("[data-home-yard-border]")) {
-    const images = border.querySelectorAll("image");
-    expect(images.length).toBe(2);
-    expect(images[0]!.getAttribute("filter")).toBeNull();
-    const maskId = images[1]!.getAttribute("mask")!.slice(5, -1);
-    const mask = [...view.container.querySelectorAll("mask")].find((candidate) => candidate.id === maskId)!;
-    expect(mask.getAttribute("maskUnits")).toBe("userSpaceOnUse");
-    expect(mask.querySelectorAll('path[fill="black"]').length).toBe(2);
+it.each(["ground", "dessert", "ocean", "ice", "snow"] as const)("keeps %s fences modular, proportional and free of baked vegetation", (biome) => {
+  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome={biome} styles={[]} />);
+  const yard = view.container.querySelector('[data-home-room="yard"]')!;
+  const width = getHomeRooms("TOWN_HOUSE").find(({ isYard }) => isYard)!.width;
+  const sourceRatios = { rail: 199 / 96, side: 96 / 199, gate: 69 / 140 };
+  for (const border of yard.querySelectorAll("[data-home-yard-border]")) {
+    const kind = border.getAttribute("data-home-yard-border") as keyof typeof sourceRatios;
+    const physicalWidth = Number(border.getAttribute("width")) * width / 100 * 4 / 3;
+    expect(physicalWidth / Number(border.getAttribute("height"))).toBeCloseTo(sourceRatios[kind], 2);
+    const image = border.querySelector("image")!;
+    expect(image.getAttribute("clip-path")).toContain("url(#");
+    expect(image.getAttribute("filter")).toBeNull();
+  }
+  expect(yard.querySelectorAll("[data-home-yard-border]").length).toBe(6);
+  expect(yard.querySelector("filter")).toBeNull();
+  expect(yard.querySelector("image")!.getAttribute("mask")).toContain("-farm");
+});
+
+it("uses the same vertical wall cross-section beneath junction caps and mirrors exterior right posts", () => {
+  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" styles={[]} />);
+  const posts = [...view.container.querySelectorAll<SVGSVGElement>('[data-home-wall="post"]')];
+  const walls = getHomeWalls("TOWN_HOUSE").filter(({ kind }) => kind === "post");
+  expect(posts.length).toBe(walls.length * 2);
+  for (const [index, wall] of walls.entries()) {
+    const cap = posts[index * 2]!;
+    const shaft = posts[index * 2 + 1]!;
+    expect(cap.querySelector("image")!.getAttribute("href")).toBe("/images/home/wall-post.webp");
+    expect(shaft.querySelector("image")!.getAttribute("href")).toBe("/images/home/wall-vertical.webp");
+    expect(shaft.style.width).toBe("4%");
+    expect(shaft.style.left).toBe(`${wall.x + 0.5}%`);
+    expect(cap.style.transform).toBe(wall.isMirrored ? "scaleX(-1)" : "");
+    expect(shaft.style.transform).toBe(cap.style.transform);
+    expect(Number(shaft.style.zIndex)).toBe(Math.round(wall.depth * 10));
+  }
+  expect(walls.some(({ isMirrored }) => isMirrored)).toBe(true);
+});
+
+it.each(["snow", "dessert"] as const)("adapts only %s window glass while preserving the authored frame", (biome) => {
+  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome={biome} styles={[]} />);
+  for (const window of view.container.querySelectorAll('[data-home-wall="window"]')) {
+    expect(window.querySelectorAll("image").length).toBe(2);
+    expect(window.querySelector("image")!.getAttribute("filter")).toBeNull();
+    expect(window.querySelector("image[filter]")!.getAttribute("clip-path")).toContain("-glass");
   }
 });
 
@@ -159,7 +188,7 @@ it("keeps the complete home and furniture actions available after a scenery fail
   const ground = view.container.querySelector("[data-home-grounds]");
   const walls = view.container.querySelectorAll("[data-home-wall]").length;
   expect(walls).toBeGreaterThan(0);
-  const scenery = view.container.querySelector<HTMLImageElement>("[data-home-scenery] img")!;
+  const scenery = view.container.querySelector<SVGImageElement>("[data-home-scenery] image")!;
   fireEvent.error(scenery);
   expect(scenery.style.visibility).toBe("hidden");
   expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();

@@ -95,7 +95,6 @@ export const HomePropertyBackdrop = ({
   }
   const walls = getHomeWalls(homeType);
   const terrain = STRUCTURE_GROUND_TERRAIN[biome];
-  const yardSeason = terrain === "snow" || terrain === "dessert" ? terrain : undefined;
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
       <svg aria-hidden="true" className="absolute h-0 w-0">
@@ -123,79 +122,6 @@ export const HomePropertyBackdrop = ({
             {room.isYard ? (
               <>
                 <defs>
-                  {yardSeason && (
-                    <>
-                      <filter
-                        id={`${clipId}-yard-season`}
-                        colorInterpolationFilters="sRGB"
-                      >
-                        <feColorMatrix type="saturate" values="0" />
-                        <feComponentTransfer>
-                          <feFuncR
-                            type="linear"
-                            slope="0.35"
-                            intercept={yardSeason === "snow" ? 0.62 : 0.48}
-                          />
-                          <feFuncG
-                            type="linear"
-                            slope="0.35"
-                            intercept={yardSeason === "snow" ? 0.64 : 0.36}
-                          />
-                          <feFuncB
-                            type="linear"
-                            slope="0.35"
-                            intercept={yardSeason === "snow" ? 0.65 : 0.2}
-                          />
-                        </feComponentTransfer>
-                      </filter>
-                      {/* Source-space timber and lantern cutouts keep their painted colors while the baked plants follow the terrain. */}
-                      <mask
-                        id={`${clipId}-yard-terrain`}
-                        maskUnits="userSpaceOnUse"
-                        x="0"
-                        y="0"
-                        width="1448"
-                        height="1086"
-                      >
-                        <rect width="1448" height="1086" fill="white" />
-                        <path
-                          fill="black"
-                          d="M98 22H132V34H303V23H331V34H550V12H599L617 152H548V87H331V117H303V87H126L121 166H132L124 307H157L160 432H81L80 328H77L88 183H96ZM49 534H89L84 762H49ZM68 525H104V558H68Z"
-                        />
-                        <path
-                          fill="black"
-                          d="M1349 22H1320V34H1138V23H1110V34H899V12H848L831 152H900V87H1110V117H1138V87H1324L1330 166H1318L1325 307H1290L1288 432H1373L1371 328H1374L1363 183H1355ZM1359 534H1399L1399 762H1364ZM1344 525H1380V558H1344Z"
-                        />
-                      </mask>
-                    </>
-                  )}
-                  <pattern
-                    id={`${clipId}-fence`}
-                    patternUnits="userSpaceOnUse"
-                    width={8000 / room.width}
-                    height="8"
-                  >
-                    <YardArt
-                      x={0}
-                      y={0}
-                      width={4000 / room.width}
-                      height={8}
-                      viewBox="135 0 400 150"
-                      seasonId={yardSeason ? clipId : undefined}
-                      onError={onError}
-                    />
-                    <g transform={`translate(${8000 / room.width} 0) scale(-1 1)`}>
-                      <YardArt
-                        x={0}
-                        y={0}
-                        width={4000 / room.width}
-                        height={8}
-                        viewBox="135 0 400 150"
-                        seasonId={yardSeason ? clipId : undefined}
-                        onError={onError}
-                      />
-                    </g>
-                  </pattern>
                   <linearGradient
                     id={`${clipId}-soil-edge`}
                     x1="0"
@@ -225,59 +151,7 @@ export const HomePropertyBackdrop = ({
                   mask={`url(#${clipId}-farm)`}
                   onError={onError}
                 />
-                {/* Painted perimeter details stay outside the lawn and farm placement regions. */}
-                <rect
-                  x={2 - 600 / room.width}
-                  y="0"
-                  width={96 + 1200 / room.width}
-                  height="8"
-                  fill={`url(#${clipId}-fence)`}
-                />
-                <g transform="translate(0 79)">
-                  <rect
-                    x={2 - 600 / room.width}
-                    y="0"
-                    width={96 + 1200 / room.width}
-                    height="7.3"
-                    fill={`url(#${clipId}-fence)`}
-                  />
-                </g>
-                <YardArt
-                  x={2 - 600 / room.width}
-                  y={0}
-                  width={600 / room.width}
-                  height={86.3}
-                  viewBox="0 40 210 720"
-                  seasonId={yardSeason ? clipId : undefined}
-                  onError={onError}
-                />
-                <YardArt
-                  x={98}
-                  y={0}
-                  width={600 / room.width}
-                  height={86.3}
-                  viewBox="1238 40 210 720"
-                  seasonId={yardSeason ? clipId : undefined}
-                  onError={onError}
-                />
-                <YardArt
-                  x={4000 / room.width}
-                  y={0}
-                  width={2000 / room.width}
-                  height={8}
-                  viewBox="548 0 352 150"
-                  seasonId={yardSeason ? clipId : undefined}
-                  onError={onError}
-                />
-                <YardArt
-                  x={50 - 1000 / room.width}
-                  y={79}
-                  width={2000 / room.width}
-                  height={7.3}
-                  viewBox="548 0 352 150"
-                  seasonId={yardSeason ? clipId : undefined}
-                  onError={onError}
-                />
+                <YardFence width={room.width} onError={onError} />
               </>
             ) : (
               <>
@@ -321,6 +195,7 @@ export const HomePropertyBackdrop = ({
           key={wall.id}
           wall={wall}
           paint={styles.find(({ room }) => room === wall.room)?.paint ?? "ivory"}
+          terrain={terrain}
           onError={onError}
         />
       ))}
@@ -328,74 +203,183 @@ export const HomePropertyBackdrop = ({
   );
 };
 
-/** Reuse measured landscape details without stretching the legal decoration ground. */
-const YardArt = ({
-  x,
-  y,
-  width,
-  height,
-  viewBox,
-  seasonId,
-  onError,
-}: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  viewBox: string;
-  seasonId?: string;
-  onError?: () => void;
-}) => (
-  <svg
-    aria-hidden="true"
-    x={x}
-    y={y}
-    width={width}
-    height={height}
-    viewBox={viewBox}
-    preserveAspectRatio="none"
-    data-home-yard-border
-  >
-    <image href="/images/home/yard.webp" width="1448" height="1086" onError={onError} />
-    {seasonId && (
-      <image
-        href="/images/home/yard.webp"
-        width="1448"
-        height="1086"
-        filter={`url(#${seasonId}-yard-season)`}
-        mask={`url(#${seasonId}-yard-terrain)`}
-      />
-    )}
-  </svg>
-);
+/** Isolate the original painting's timber and repeat it at its native aspect ratio. */
+const YardFence = ({ width, onError }: { width: number; onError?: () => void }) => {
+  const fenceId = useId();
+  const unit = 100 / width;
+  const railWidth = 11.2 * unit;
+  const railHeight = (11.2 * 4 * 96) / (3 * 199);
+  const sideWidth = 4 * unit;
+  const sideHeight = (4 * 4 * 199) / (3 * 96);
+  const left = 2 - sideWidth;
+  const right = 98;
+  return (
+    <>
+      <defs>
+        <clipPath id={`${fenceId}-timber`}>
+          <path d="M132 34H303V60H132ZM303 23H331V117H303Z" />
+        </clipPath>
+        <clipPath id={`${fenceId}-gate`}>
+          <path d="M556 12H598L617 151H548Z" />
+        </clipPath>
+        <pattern
+          id={`${fenceId}-rail`}
+          patternUnits="userSpaceOnUse"
+          width={railWidth}
+          height={railHeight}
+        >
+          <svg
+            aria-hidden="true"
+            width={railWidth}
+            height={railHeight}
+            viewBox="132 23 199 96"
+            preserveAspectRatio="none"
+            data-home-yard-border="rail"
+          >
+            <image
+              href="/images/home/yard.webp"
+              width="1448"
+              height="1086"
+              clipPath={`url(#${fenceId}-timber)`}
+              onError={onError}
+            />
+          </svg>
+        </pattern>
+        <pattern
+          id={`${fenceId}-side`}
+          patternUnits="userSpaceOnUse"
+          width={sideWidth}
+          height={sideHeight}
+        >
+          <svg
+            aria-hidden="true"
+            width={sideWidth}
+            height={sideHeight}
+            viewBox="0 0 96 199"
+            preserveAspectRatio="none"
+            data-home-yard-border="side"
+          >
+            <g transform="translate(96 0) rotate(90) translate(-132 -23)">
+              <image
+                href="/images/home/yard.webp"
+                width="1448"
+                height="1086"
+                clipPath={`url(#${fenceId}-timber)`}
+                onError={onError}
+              />
+            </g>
+          </svg>
+        </pattern>
+      </defs>
+      {[
+        { y: 0, entrance: 50 * unit },
+        { y: 79, entrance: 50 },
+      ].map(({ y, entrance }) => (
+        <g key={y} transform={`translate(0 ${y})`}>
+          <rect
+            x={left}
+            y="0"
+            width={entrance - 8 * unit - left}
+            height={railHeight}
+            fill={`url(#${fenceId}-rail)`}
+          />
+          <rect
+            x={entrance + 8 * unit}
+            y="0"
+            width={right + sideWidth - entrance - 8 * unit}
+            height={railHeight}
+            fill={`url(#${fenceId}-rail)`}
+          />
+          {[-1, 1].map((side) => (
+            <svg
+              aria-hidden="true"
+              key={side}
+              x={entrance + (side < 0 ? -11.4 : 8) * unit}
+              y="-2"
+              width={3.4 * unit}
+              height="9.2"
+              viewBox="548 12 69 140"
+              preserveAspectRatio="none"
+              data-home-yard-border="gate"
+            >
+              <image
+                href="/images/home/yard.webp"
+                width="1448"
+                height="1086"
+                clipPath={`url(#${fenceId}-gate)`}
+                onError={onError}
+              />
+            </svg>
+          ))}
+        </g>
+      ))}
+      {[left, right].map((x) => (
+        <rect
+          key={x}
+          x={x}
+          y="0"
+          width={sideWidth}
+          height={79 + railHeight}
+          fill={`url(#${fenceId}-side)`}
+        />
+      ))}
+    </>
+  );
+};
 
 /** Keep junction caps at beam height and slice capless side walls by ground depth for furniture occlusion. */
 const PaintedWall = ({
   wall,
   paint,
+  terrain,
   onError,
 }: {
   wall: HomeWall;
   paint: HomeRoomStyle["paint"];
+  terrain: string;
   onError?: () => void;
 }) => {
   const paintId = useId();
-  const art = WALL_ART[wall.kind];
   const slices = wall.kind === "vertical" ? Math.ceil(wall.height / 6) : 1;
-  // The cap owns the wall junction; only the shaft stretches to meet the floor.
+  // Every shaft has the side wall's cross-section; the wider cap covers its junction.
   const frames =
     wall.kind === "post"
       ? [
-          { viewBox: "390 179 474 486", y: wall.y, height: 5.5 },
-          { viewBox: "390 665 474 413", y: wall.y + 5.5, height: wall.height - 5.5 },
+          {
+            art: WALL_ART.post,
+            viewBox: "390 179 474 486",
+            x: wall.x,
+            y: wall.y,
+            width: wall.width,
+            height: 5.5,
+          },
+          {
+            art: WALL_ART.vertical,
+            viewBox: `321 180 244 ${(1400 * (wall.height - 5.5)) / 84}`,
+            x: wall.x + 0.5,
+            y: wall.y + 5.5,
+            width: 4,
+            height: wall.height - 5.5,
+          },
         ]
-      : [{ viewBox: art.viewBox, y: wall.y, height: wall.height }];
+      : [
+          {
+            art: WALL_ART[wall.kind],
+            viewBox: WALL_ART[wall.kind].viewBox,
+            x: wall.x,
+            y: wall.y,
+            width: wall.width,
+            height: wall.height,
+          },
+        ];
   const color = HOME_WALL_PAINTS[paint];
   const channels = [1, 3, 5].map(
     (start) => Number.parseInt(color.slice(start, start + 2), 16) / 180,
   );
   return frames.flatMap((frame, frameIndex) =>
     Array.from({ length: slices }, (_, index) => {
+      const art = frame.art;
+      const frameId = `${paintId}-${frameIndex}`;
       const top = (index / slices) * 100;
       const bottom = ((index + 1) / slices) * 100;
       return (
@@ -408,9 +392,9 @@ const PaintedWall = ({
           preserveAspectRatio="none"
           className="pointer-events-none absolute"
           style={{
-            left: `${wall.x}%`,
+            left: `${frame.x}%`,
             top: `${frame.y}%`,
-            width: `${wall.width}%`,
+            width: `${frame.width}%`,
             height: `${frame.height}%`,
             zIndex: Math.round(
               (wall.kind === "vertical"
@@ -431,16 +415,16 @@ const PaintedWall = ({
           {/* Neutralize the warm plaster before tinting its luminance; timber and glass keep their colors. */}
           {paint !== "ivory" && art.plaster && (
             <>
-              {index === 0 && frameIndex === 0 && (
+              {index === 0 && (
                 <defs>
-                  <clipPath id={`${paintId}-plaster`}>
+                  <clipPath id={`${frameId}-plaster`}>
                     <path
                       d={art.plaster}
                       fill={color}
                       transform={`translate(${art.x} ${art.y}) scale(${art.cropWidth / 100} ${art.cropHeight / 100})`}
                     />
                   </clipPath>
-                  <filter id={`${paintId}-paint`} colorInterpolationFilters="sRGB">
+                  <filter id={`${frameId}-paint`} colorInterpolationFilters="sRGB">
                     <feColorMatrix type="saturate" values="0" />
                     <feComponentTransfer>
                       <feFuncR type="linear" slope={channels[0]} />
@@ -454,8 +438,44 @@ const PaintedWall = ({
                 href={art.src}
                 width={art.width}
                 height={art.height}
-                filter={`url(#${paintId}-paint)`}
-                clipPath={`url(#${paintId}-plaster)`}
+                filter={`url(#${frameId}-paint)`}
+                clipPath={`url(#${frameId}-plaster)`}
+              />
+            </>
+          )}
+          {wall.kind === "window" && (terrain === "snow" || terrain === "dessert") && (
+            <>
+              <defs>
+                <clipPath id={`${frameId}-glass`}>
+                  <path d="M988 307H1074V346H988ZM1098 307H1187V346H1098ZM988 365H1074V414H988ZM1098 365H1187V414H1098Z" />
+                </clipPath>
+                <filter id={`${frameId}-season`} colorInterpolationFilters="sRGB">
+                  <feColorMatrix type="saturate" values="0" />
+                  <feComponentTransfer>
+                    <feFuncR
+                      type="linear"
+                      slope="0.4"
+                      intercept={terrain === "snow" ? 0.53 : 0.52}
+                    />
+                    <feFuncG
+                      type="linear"
+                      slope="0.4"
+                      intercept={terrain === "snow" ? 0.59 : 0.42}
+                    />
+                    <feFuncB
+                      type="linear"
+                      slope="0.4"
+                      intercept={terrain === "snow" ? 0.63 : 0.24}
+                    />
+                  </feComponentTransfer>
+                </filter>
+              </defs>
+              <image
+                href={art.src}
+                width={art.width}
+                height={art.height}
+                filter={`url(#${frameId}-season)`}
+                clipPath={`url(#${frameId}-glass)`}
               />
             </>
           )}
@@ -520,6 +540,6 @@ const WALL_ART = {
     y: 179,
     cropWidth: 474,
     cropHeight: 899,
-    plaster: "M38 57H73V91H38Z",
+    plaster: "",
   },
 } as const;

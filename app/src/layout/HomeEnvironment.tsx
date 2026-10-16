@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   type CombatBiome,
   type HomeType,
@@ -22,6 +23,7 @@ export const HomeEnvironment = ({
   homeType: HomeType;
   biome: CombatBiome;
 }) => {
+  const sceneryId = useId();
   const rooms = getHomeRooms(homeType);
   const building = rooms.filter(({ isYard }) => !isYard);
   const width = Math.max(...rooms.map(({ x, width }) => x + width));
@@ -39,32 +41,75 @@ export const HomeEnvironment = ({
       : terrain === "snow"
         ? HOME_SCENERY.snow
         : HOME_SCENERY.ground;
-  // Entire sprite bounds stay beyond exterior walls; missing room slots become small groves.
-  const scenery = (homeType === "NONE" ? [] : building).flatMap((room, index) =>
-    ([-1, 1] as const).flatMap((side) => {
-      const hasNeighbor = building.some(
-        ({ x, y }) =>
-          x === room.x + side * HOME_BUILDING_GEOMETRY.stepX && y === room.y,
+  // Merge exposed wall runs before placing groves, so planting follows the silhouette rather than the room grid.
+  const edges: { x: number; top: number; bottom: number; side: -1 | 1 }[] = [];
+  for (const room of homeType === "NONE" ? [] : building) {
+    for (const side of [-1, 1] as const) {
+      if (
+        building.some(
+          ({ x, y }) =>
+            x === room.x + side * HOME_BUILDING_GEOMETRY.stepX && y === room.y,
+        )
+      )
+        continue;
+      const x = room.x + (side < 0 ? 8 : 94);
+      const previous = edges.find(
+        (edge) => edge.x === x && edge.side === side && edge.bottom >= room.y + 3,
       );
-      if (hasNeighbor) return [];
+      if (previous) previous.bottom = room.y + 87;
+      else edges.push({ x, top: room.y + 3, bottom: room.y + 87, side });
+    }
+  }
+  const scenery = edges.flatMap((edge, index) => {
+    const span = edge.bottom - edge.top;
+    return (span > 140 ? [0.24, 0.72] : [0.86]).flatMap((fraction, cluster) => {
+      const size = [34, 40, 30][(index + cluster) % 3] ?? 34;
+      const y = edge.top + span * fraction;
       return [
         {
-          key: species.trees[index % species.trees.length],
-          x: room.x + (side < 0 ? -4 : 104),
-          y: room.y + 64,
-          width: 18,
-          height: 28,
+          key: species.trees[(index + cluster) % species.trees.length],
+          x: edge.x + edge.side * (size / 2 + 2),
+          y,
+          width: size,
+          height: size * 1.3,
         },
-        ...[30, 72].map((y, offset) => ({
-          key: species.plants[(index + offset) % species.plants.length],
-          x: room.x + (side < 0 ? 3 : 97),
-          y: room.y + y,
+        {
+          key: species.plants[index % species.plants.length],
+          x: edge.x + edge.side * 6,
+          y: Math.min(y + 7, edge.bottom - 5),
           width: 5,
           height: 7,
-        })),
+        },
+        {
+          key: species.plants[(index + 1) % species.plants.length],
+          x: edge.x + edge.side * 18,
+          y: Math.min(y + 10, edge.bottom - 2),
+          width: 7,
+          height: 8,
+        },
       ];
-    }),
-  );
+    });
+  });
+  // A deep L-shaped setback has space for a second grove beyond the planting beside its exposed wall.
+  for (const room of homeType === "NONE" ? [] : building) {
+    const x = room.x + HOME_BUILDING_GEOMETRY.stepX * 2;
+    if (
+      x + 100 > width ||
+      building.some((other) => other.y === room.y && other.x > room.x)
+    )
+      continue;
+    scenery.push(
+      {
+        key: species.trees[2 % species.trees.length],
+        x: x + 47,
+        y: room.y + 74,
+        width: 38,
+        height: 50,
+      },
+      { key: species.plants[0], x: x + 28, y: room.y + 83, width: 7, height: 8 },
+      { key: species.plants[1], x: x + 62, y: room.y + 80, width: 5, height: 7 },
+    );
+  }
   return (
     <>
       <div
@@ -84,6 +129,9 @@ export const HomeEnvironment = ({
       />
       {scenery.map(({ key, x, y, width, height }) => {
         const asset = key ? DECORATION_ASSETS_BY_KEY.get(key) : undefined;
+        const painted = key ? HOME_SCENERY_ART[key] : undefined;
+        const crop = painted?.split(" ").map(Number);
+        const cropId = `${sceneryId}-${key}-${x}-${y}`;
         if (!asset) return null;
         return (
           <div
@@ -99,23 +147,58 @@ export const HomeEnvironment = ({
               zIndex: Math.round(y * 10),
             }}
           >
-            <Image
-              src={asset.filepath}
-              alt=""
-              fill
-              sizes="180px"
-              className="object-contain object-bottom"
-              draggable={false}
-              // Optional scenery failures must not trigger the home's artwork recovery state.
-              onError={(event) => {
-                event.currentTarget.style.visibility = "hidden";
-              }}
-            />
+            {painted && crop ? (
+              <svg
+                aria-hidden="true"
+                className="h-full w-full"
+                viewBox={painted}
+                preserveAspectRatio="xMidYMax meet"
+              >
+                <defs>
+                  <clipPath id={cropId}>
+                    <rect x={crop[0]} y={crop[1]} width={crop[2]} height={crop[3]} />
+                  </clipPath>
+                </defs>
+                <image
+                  href="/images/home/scenery.webp"
+                  width="1536"
+                  height="1024"
+                  clipPath={`url(#${cropId})`}
+                  // Optional scenery failures must not trigger the home's artwork recovery state.
+                  onError={(event) => {
+                    event.currentTarget.style.visibility = "hidden";
+                  }}
+                />
+              </svg>
+            ) : (
+              <Image
+                src={asset.filepath}
+                alt=""
+                fill
+                sizes="(max-width: 768px) 7vw, 54px"
+                className="object-contain object-bottom"
+                draggable={false}
+                onError={(event) => {
+                  event.currentTarget.style.visibility = "hidden";
+                }}
+              />
+            )}
           </div>
         );
       })}
     </>
   );
+};
+
+/** Painted interpretations retain the sector map's species, with measured bounds and room-scale detail. */
+const HOME_SCENERY_ART: Record<string, string> = {
+  "tree.green.round": "49 59 438 423",
+  "tree.green.tall": "646 31 246 452",
+  "tree.green.wide": "997 63 509 418",
+  "tree.snow.pine": "85 543 368 417",
+  "cactus.saguaro": "650 530 244 429",
+  "cactus.cluster": "1103 580 309 378",
+  "cactus.barrel": "1103 580 309 378",
 };
 
 /** Reuse the sector map's species so each village has a consistent surrounding landscape. */

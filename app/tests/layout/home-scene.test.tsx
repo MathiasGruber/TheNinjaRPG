@@ -144,7 +144,7 @@ describe("Home scene", () => {
 
   it("keeps furniture actions and property navigation usable when an indoor painting fails", () => {
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
-    fireEvent.error(view.getByRole("group", { name: "Home scene" }).querySelector("image")!);
+    fireEvent.error(view.getByRole("group", { name: "Home scene" }).querySelector("[data-home-room] image")!);
     const scene = view.getByRole("group", { name: "Home scene" });
     expect(scene.querySelector("[data-home-room]")).toBeNull();
     expect(scene.querySelector("[data-home-room-foreground]")).toBeNull();

@@ -12,7 +12,7 @@ export const HOME_FLOOR_PROJECTION = {
 export const HOME_BUILDING_GEOMETRY = {
   stepX: 82,
   stepY: 67,
-  margin: 14,
+  margin: 36,
   interior: [
     { x: 12, y: 20 },
     { x: 90, y: 20 },

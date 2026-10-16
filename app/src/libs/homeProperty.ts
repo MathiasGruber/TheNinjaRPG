@@ -147,7 +147,7 @@ export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
         isMirrored,
       });
     };
-    const post = (x: number, y: number, height = 17) => {
+    const post = (x: number, y: number, height = 17, isMirrored = false) => {
       const id = `${room.x + x}-${room.y + y}`;
       posts.set(id, {
         id,
@@ -158,7 +158,7 @@ export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
         width: 5,
         height,
         depth: room.y + y + 0.2,
-        isMirrored: false,
+        isMirrored,
       });
     };
     if (!hasAbove) {
@@ -180,12 +180,12 @@ export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
       add("solid", 10, 70, 33, 17, below?.id);
       add("solid", 57, 70, 37, 17, below?.id);
       post(42, 87);
-      post(58, 87);
+      post(58, 87, 17, true);
     } else add("solid", 10, 70, 84, 17);
     post(10, 20);
-    post(92, 20);
+    post(92, 20, 17, !right);
     post(10, 87);
-    post(92, 87);
+    post(92, 87, 17, !right);
   }
   return [...walls, ...posts.values()];
 };
