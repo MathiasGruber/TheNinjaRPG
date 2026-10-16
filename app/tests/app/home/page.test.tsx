@@ -8,13 +8,15 @@ import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import HomePage from "@/app/[shell]/home/page";
 import * as dialog from "@/components/ui/dialog";
-import { HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
+import { type HomeType, HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
 import * as sleep from "@/hooks/sleep";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as Link from "@/layout/Link";
 import * as Modal from "@/layout/Modal";
-import type { HomeFurniture } from "@/libs/home";
+import { getHomeFurnitureGeometry, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
+import { getHomeRooms } from "@/libs/homeProperty";
+import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import * as Kitchen from "@/layout/Kitchen";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
@@ -615,13 +617,27 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
     fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
     fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "room-1" } });
     fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "rose" } });
-    const position = view.getByRole("button", { name: "Move Bed" }).style.left;
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    /** A tier changes painted world bounds; the captured draft must retain its room-local anchors. */
+    const normalizedPosition = (homeType: HomeType) => {
+      const room = getHomeRooms(homeType).find(({ id }) => id === "room-1")!;
+      const origin = getHomeFurnitureGeometry(furniture[0]!, { id: furniture[0]!.id, x: 0, y: 0, rotation: 0, room: room.id }, homeType).visibleBounds;
+      return unprojectHomePlacement({
+        x: (Number.parseFloat(bed.style.left) - room.x) * 100 / room.width - origin.x + HOME_FLOOR_PROJECTION.x,
+        y: (Number.parseFloat(bed.style.top) - room.y) * 100 / room.height - origin.y + HOME_FLOOR_PROJECTION.y,
+      });
+    };
+    const position = normalizedPosition("TOWN_HOUSE");
     await act(async () => {
       queryClient.setQueryData(homeKey, { ...home, homeType: "SMALL_MANSION", furnitureRevision: 4 });
     });
     await within(view.getByLabelText("Jump to room")).findByRole("option", { name: "Room 6" });
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
-    expect(view.getByRole("button", { name: "Move Bed" }).style.left).toBe(position);
+    expect(normalizedPosition("SMALL_MANSION").x).toBeCloseTo(position.x, 8);
+    expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(normalizedPosition("SMALL_MANSION").x).toBeCloseTo(position.x, 8);
+    expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
     expect(view.getByRole("alert").textContent).toContain("Your home tier changed. Cancel and reopen");
     expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "room-1" } });

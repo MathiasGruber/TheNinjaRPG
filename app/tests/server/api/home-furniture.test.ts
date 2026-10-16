@@ -23,7 +23,7 @@ const initialMoney = HomeTypeDetails.STUDIO_APARTMENT.cost + 200_000;
 const essentialLayout: HomePlacement[] = [
   { id: "bed-row", x: 22, y: 15.15, rotation: 0 },
   { id: "storage-row", x: 75, y: 15.15, rotation: 0 },
-  { id: "kitchen-row", x: 20, y: 60, rotation: 0 },
+  { id: "kitchen-row", x: 50, y: 15.15, rotation: 0 },
 ];
 const layout = (x = 30): HomePlacement[] => [
   { id: "cabinet-a", x, y: 40, rotation: 0 },
@@ -61,7 +61,7 @@ describeWithDatabase("owned furniture persistence", () => {
       { id: "rug-row", userId, itemId: "rug", storedAtHome: true },
       { id: "bed-row", userId, itemId: "home-bed", storedAtHome: true, homeX: 22, homeY: 15.15 },
       { id: "storage-row", userId, itemId: "home-storage", storedAtHome: true, homeX: 75, homeY: 15.15 },
-      { id: "kitchen-row", userId, itemId: "home-cooking", storedAtHome: true, homeX: 20, homeY: 60 },
+      { id: "kitchen-row", userId, itemId: "home-cooking", storedAtHome: true, homeX: essentialLayout[2]!.x, homeY: essentialLayout[2]!.y },
       { id: "material-row", userId, itemId: "material", storedAtHome: true },
       { id: "foreign-cabinet", userId: "other-owner", itemId: "cabinet", storedAtHome: true },
     ]);
@@ -133,7 +133,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect((await api.toggleStoreItem({ userItemId: "kitchen-row" })).success).toBe(true);
     expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
     const before = await snapshot();
-    expect(before.inventory.find(({ id }) => id === "kitchen-row")).toMatchObject({ storedAtHome: false, homeX: 20, homeY: 60 });
+    expect(before.inventory.find(({ id }) => id === "kitchen-row")).toMatchObject({ storedAtHome: false, homeX: essentialLayout[2]!.x, homeY: essentialLayout[2]!.y });
     const home = await api.getUserHome();
     expectLayout(home?.layout, [essentialLayout[2]!]);
     expect(home?.furnitureRevision).toBe(before.owner.homeFurnitureRevision);
@@ -444,7 +444,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(rejected.success).toBe(false);
     expect(rejected.message).toContain("outside");
     expect(await snapshot()).toEqual(before);
-    const outdoor = clampHomeFurniturePlacement({ id: piece.id, x: 50, y: 100, rotation: 0 }, piece, "NONE");
+    const outdoor = clampHomeFurniturePlacement({ id: piece.id, room: "yard", x: 50, y: 100, rotation: 0 }, piece, "NONE");
     expect(outdoor).not.toBeNull();
     expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: [outdoor!, ...essentialLayout] })).success).toBe(true);
   });

@@ -3113,8 +3113,8 @@ export const HOME_MAX_INVITATIONS = 100;
 export const HOME_ROOM_IDS = ["main", "room-1", "room-2", "room-3", "room-4", "room-5", "room-6", "room-7", "room-8", "room-9", "yard"] as const;
 /** Persist palette keys so editor choices and rendered wall finishes share one source. */
 export const HOME_WALL_PAINTS = { ivory: "#ddd0ac", sage: "#a9ba9a", indigo: "#8b96b7", rose: "#cfaaa3", charcoal: "#777b80" } as const;
-/** Neutral painted materials keep room finishes independent of window and wall placement. */
-export const HOME_FLOOR_TILES = { cedar: "/images/home/floor-cedar.webp", oak: "/images/home/floor-oak.webp", slate: "/images/home/floor-slate.webp", terracotta: "/images/home/floor-terracotta.webp" } as const;
+/** Original retains the authored floor; other finishes use measured room surface masks. */
+export const HOME_FLOOR_TILES = { original: null, cedar: "/images/home/floor-cedar.webp", oak: "/images/home/floor-oak.webp", slate: "/images/home/floor-slate.webp", terracotta: "/images/home/floor-terracotta.webp" } as const;
 /** Furniture storage is independent of item storage and can hold every room's display capacity. */
 export const HOME_FURNITURE_STORAGE_CAPACITY = HOME_FURNITURE_MAX_PLACEMENTS * HOME_MAX_ROOMS;
 

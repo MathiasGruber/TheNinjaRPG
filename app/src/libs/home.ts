@@ -12,11 +12,7 @@ import {
   getHomeRooms,
   homeRoomLayoutError,
 } from "@/libs/homeProperty";
-import {
-  HOME_BUILDING_GEOMETRY,
-  HOME_FLOOR_PROJECTION,
-  HOME_ROOM_GEOMETRY,
-} from "@/libs/homeRoomGeometry";
+import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
 import type {
@@ -94,12 +90,13 @@ export const getHomeFurnitureGeometry = (
 ) => {
   const view = getHomeFurnitureView(furniture, placement.rotation);
   const anchor = projectHomePlacement(placement);
-  const roomWidth =
-    getHomeRooms(homeType).find(({ id }) => id === getHomePlacementRoom(placement))
-      ?.width ?? 100;
-  const width = (view.width * 100) / roomWidth;
-  // The room is 4:3; vertical percentages account for the source image's own aspect ratio.
-  const height = (view.width * (4 / 3)) / view.geometry.aspectRatio;
+  const room = getHomeRooms(homeType).find(
+    ({ id }) => id === getHomePlacementRoom(placement),
+  );
+  const width = (view.width * 100) / (room?.width ?? 100);
+  // Scale against the 4:3 world canvas before converting into room-local vertical percentages.
+  const height =
+    (view.width * (4 / 3) * 100) / view.geometry.aspectRatio / (room?.height ?? 100);
   const image = {
     x: anchor.x - width / 2,
     y: anchor.y - (height * view.groundAnchor) / 100,
@@ -329,23 +326,20 @@ export const homeLayoutOrientationError = (
     : null;
 };
 
-/** Rooms have convex floor regions; shrinking their edges by the footprint gives valid anchors. */
+/** Measured convex floor regions shrink by the footprint to keep every piece on usable ground. */
 const getHomeAnchorPolygon = (
   furniture: HomeFurniture,
   placement: HomePlacement,
   homeType: HomeType,
 ) => {
-  const isYard = getHomePlacementRoom(placement) === "yard";
-  // The yard separates decorative lawn from the existing farm strip.
+  const room = getHomeRooms(homeType).find(
+    ({ id }) => id === getHomePlacementRoom(placement),
+  );
+  const isYard = room?.isYard;
+  // Decorative lawn and cultivation ground remain separate within the garden.
   if (isYard && furniture.action && furniture.action !== "farm") return [];
-  if (!isYard && furniture.action === "farm" && getHomeRooms(homeType).length > 1)
-    return [];
-  const region =
-    furniture.action === "farm"
-      ? HOME_ROOM_GEOMETRY[homeType].outdoor
-      : isYard
-        ? HOME_BUILDING_GEOMETRY.lawn
-        : HOME_ROOM_GEOMETRY[homeType].interior;
+  if (!room || (!isYard && furniture.action === "farm")) return [];
+  const region = furniture.action === "farm" ? room.outdoor : room.interior;
   if (region.length < 3) return [];
   const anchor = projectHomePlacement(placement);
   const geometry = getHomeFurnitureGeometry(furniture, placement, homeType);

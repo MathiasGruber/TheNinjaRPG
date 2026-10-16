@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { HOME_FURNITURE_MAX_PLACEMENTS } from "@/drizzle/constants";
 import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, fitHomeFurniturePlacement, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
-import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import { getHomeRooms } from "@/libs/homeProperty";
 
 const fixture = (id: string, patch: Partial<HomeFurniture> = {}): HomeFurniture => ({
   id, itemId: `content-${id}`, name: id, image: "/furniture.webp",
@@ -89,14 +89,17 @@ describe("painted furniture geometry", () => {
     const anchor = projectHomePlacement(position);
     expect(unprojectHomePlacement(anchor)).toEqual({ x: 50, y: 50 });
     const geometry = getHomeFurnitureGeometry(piece, position, "NONE");
-    expect(geometry.image.width).toBe(20);
-    expect(geometry.image.height).toBeCloseTo(40 / 3);
-    expect(geometry.visibleBounds.width).toBe(12);
-    expect(geometry.visibleBounds.height).toBeCloseTo(32 / 3);
-    expect(geometry.footprint.width).toBe(10);
-    expect(geometry.footprint.height).toBeCloseTo(2);
-    expect(geometry.visibleBounds.x).toBeCloseTo(anchor.x - 6);
-    expect(geometry.footprint.y).toBeCloseTo(anchor.y - 10 / 3);
+    const room = getHomeRooms("NONE")[0]!;
+    const sx = room.width / 100;
+    const sy = room.height / 100;
+    expect(geometry.image.width*sx).toBeCloseTo(20);
+    expect(geometry.image.height*sy).toBeCloseTo(40 / 3);
+    expect(geometry.visibleBounds.width*sx).toBeCloseTo(12);
+    expect(geometry.visibleBounds.height*sy).toBeCloseTo(32 / 3);
+    expect(geometry.footprint.width*sx).toBeCloseTo(10);
+    expect(geometry.footprint.height*sy).toBeCloseTo(2);
+    expect(geometry.visibleBounds.x).toBeCloseTo(anchor.x - 6/sx);
+    expect(geometry.footprint.y).toBeCloseTo(anchor.y - 10 / 3/sy);
   });
 
   it("uses a direction's own source geometry and never reuses another image's padding", () => {
@@ -104,12 +107,12 @@ describe("painted furniture geometry", () => {
       ...piece,
       views: { "90": { image: "/table-90.webp", width: 15, geometry: { ...piece.geometry!, aspectRatio: 1 } } },
     });
-    expect(getHomeFurnitureGeometry(rotated, { ...placement(piece.id), rotation: 1 }, "NONE").image.height).toBe(20);
+    expect(getHomeFurnitureGeometry(rotated, { ...placement(piece.id), rotation: 1 }, "NONE").image.height * getHomeRooms("NONE")[0]!.height / 100).toBeCloseTo(20);
     expect(getHomeFurnitureView({ ...rotated, views: { "90": { image: "/uncalibrated.webp" } } }, 1).geometry).toEqual(DEFAULT_HOME_FURNITURE_GEOMETRY);
   });
 
   it("fits tight visible bounds at the right wall instead of reserving transparent frame padding", () => {
-    const rightWall = Math.max(...HOME_ROOM_GEOMETRY.NONE.interior.map(({ x }) => x));
+    const rightWall = Math.max(...getHomeRooms("NONE")[0]!.interior.map(({ x }) => x));
     const fitted = clampHomeFurniturePlacement({ ...placement(piece.id), x: 100 }, piece, "NONE");
     expect(fitted).not.toBeNull();
     const geometry = getHomeFurnitureGeometry(piece, fitted!, "NONE");
@@ -122,19 +125,19 @@ describe("painted furniture geometry", () => {
     const other = fixture("chair", { ...piece, id: "chair" });
     expect(homeLayoutPlacementError([placement(piece.id), placement(other.id)], [piece, other], "NONE")).toContain("overlaps");
     expect(homeLayoutPlacementError([placement(piece.id), placement(other.id)], [piece, { ...other, isFloor: true }], "NONE")).toBeNull();
-    const touching = { ...placement(other.id), ...unprojectHomePlacement({ x: projectHomePlacement(placement(piece.id)).x + 10, y: projectHomePlacement(placement(piece.id)).y }) };
+    const touching = { ...placement(other.id), ...unprojectHomePlacement({ x: projectHomePlacement(placement(piece.id)).x + getHomeFurnitureGeometry(piece, placement(piece.id), "NONE").footprint.width, y: projectHomePlacement(placement(piece.id)).y }) };
     expect(homeLayoutPlacementError([placement(piece.id), touching], [piece, other], "NONE")).toBeNull();
     // These sprites overlap above the floor, while their ground strips have separate space.
     expect(homeLayoutPlacementError([placement(piece.id), { ...placement(other.id), y: 60 }], [piece, other], "NONE")).toBeNull();
   });
 
   it("rejects walls and the front curtains, with farm pieces confined to outdoor ground", () => {
-    const curtain = { ...placement(piece.id), ...unprojectHomePlacement({ x: 50, y: 80 }) };
+    const curtain = { ...placement(piece.id), ...unprojectHomePlacement({ x: 50, y: 90 }) };
     expect(homeLayoutPlacementError([curtain], [piece], "NONE")).toContain("walls and curtains");
     expect(homeLayoutPlacementError([{ ...placement(piece.id), ...unprojectHomePlacement({ x: 5, y: 60 }) }], [piece], "NONE")).toContain("walls and curtains");
     const farm = { ...piece, groundAnchor: 90, action: "farm" as const };
     expect(homeLayoutPlacementError([placement(piece.id)], [farm], "NONE")).toContain("outside");
-    const outdoor = clampHomeFurniturePlacement(placement(piece.id), farm, "NONE");
+    const outdoor = clampHomeFurniturePlacement({...placement(piece.id),room:"yard"}, farm, "NONE");
     expect(outdoor).not.toBeNull();
     expect(homeLayoutPlacementError([outdoor!], [farm], "NONE")).toBeNull();
     expect(homeLayoutPlacementError([outdoor!], [piece], "NONE")).toContain("walls and curtains");
