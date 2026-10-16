@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { advanceEvent, beginEventRound, completeEventGame, createEventState, eventRewardFor, generateEventBracket } from "@/libs/tournament/events";
+import { advanceEvent, beginEventRound, completeEventGame, createEventState, eventRewardFor, generateEventBracket, isActiveEventEntrant } from "@/libs/tournament/events";
 import { eventTournamentConfigSchema, type EventTournamentConfig, type EventTournamentState } from "@/validators/tournament";
 
 const makeEvent = (count = 8, overrides: Partial<EventTournamentConfig> = {}) => {
@@ -143,6 +143,41 @@ describe("staff event tournament brackets", () => {
     const event = makeEvent(8, { seeding: "PVP_WINS", roundBestOf: [1, 3, 5] });
     expect(event.participants[0]!.seed).toBe(1);
     expect(event.series.filter((s) => s.round === 3)[0]!.bestOf).toBe(5);
+  });
+  it("shields registered and surviving entrants from open-world attacks until eliminated", () => {
+    const event = makeEvent(4);
+    const registering = createEventState(event.config);
+    registering.status = "REGISTRATION";
+    registering.participants = event.participants.map((p) => ({ ...p }));
+    registering.participants[1]!.withdrawn = true;
+    registering.participants[2]!.accepted = false;
+    expect(isActiveEventEntrant(registering, "user-0")).toBe(true);
+    expect(isActiveEventEntrant(registering, "user-1")).toBe(false);
+    expect(isActiveEventEntrant(registering, "user-2")).toBe(false);
+    expect(isActiveEventEntrant(registering, "stranger")).toBe(false);
+    expect(isActiveEventEntrant({ ...registering, status: "DRAFT" }, "user-0")).toBe(false);
+    // Prepared bracket: every seeded entrant waits for a first-round ready check.
+    expect(event.participants.every((p) => isActiveEventEntrant(event, p.userId))).toBe(true);
+    beginEventRound(event, 0);
+    const first = event.series.find((s) => s.begun)!;
+    const game = first.games.at(-1)!; game.accepted = [...game.userIds];
+    completeEventGame(event, first, game.userIds[0]!, "BATTLE", 0);
+    advanceEvent(event, 0);
+    // The winner waits on the other semifinal; the loser is out and attackable again.
+    expect(isActiveEventEntrant(event, game.userIds[0]!)).toBe(true);
+    expect(isActiveEventEntrant(event, game.userIds[1]!)).toBe(false);
+    eventAfterFirstGame(event);
+    playOut(event);
+    expect(event.participants.some((p) => isActiveEventEntrant(event, p.userId))).toBe(false);
+  });
+  it("keeps a double-elimination upper-bracket loser shielded for the lower bracket", () => {
+    const event = makeEvent(4, { format: "DOUBLE_ELIMINATION" });
+    beginEventRound(event, 0);
+    const first = event.series.find((s) => s.begun)!;
+    const game = first.games.at(-1)!; game.accepted = [...game.userIds];
+    completeEventGame(event, first, game.userIds[0]!, "BATTLE", 0);
+    advanceEvent(event, 0);
+    expect(isActiveEventEntrant(event, game.userIds[1]!)).toBe(true);
   });
 });
 const eventAfterFirstGame = (event: EventTournamentState) => {

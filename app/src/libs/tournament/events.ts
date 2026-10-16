@@ -212,6 +212,35 @@ export const resolveEventSlots = (event: EventTournamentState) => {
   }
 };
 
+/**
+ * Whether a player holds a live seat that the event may still call to a ready check:
+ * a registration before the bracket exists, or a seat not yet eliminated from it.
+ * Used to shield waiting entrants from open-world attacks that would fail their ready check.
+ */
+export const isActiveEventEntrant = (event: EventTournamentState, userId: string) => {
+  const seat = event.participants.find(
+    (p) => p.userId === userId && p.accepted && !p.withdrawn,
+  );
+  if (!seat || !["REGISTRATION", "PREPARED", "RUNNING"].includes(event.status))
+    return false;
+  if (!event.series.length) return true;
+  // A seat stays live while it occupies an unfinished series or a finished series
+  // routes it onward (bye, win, or a double-elimination drop) into an unresolved one.
+  return event.series.some(
+    (s) =>
+      (!s.complete && s.seats.includes(seat.id)) ||
+      (!s.resolved &&
+        s.slots.some((slot) => {
+          if (!slot || !("seriesId" in slot)) return false;
+          const source = event.series.find((x) => x.id === slot.seriesId);
+          return (
+            source?.complete &&
+            (slot.result === "WINNER" ? source.winnerId : source.loserId) === seat.id
+          );
+        })),
+  );
+};
+
 /** Append a ready check with stable game/battle IDs; accepting it launches combat later. */
 export const openEventGame = (
   event: EventTournamentState,
