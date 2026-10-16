@@ -18,6 +18,7 @@ import {
   storeUserIdAlias,
   userAttribute,
   userData,
+  userItem,
   userReport,
   village,
   visitorLog,
@@ -28,7 +29,7 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
-import { initializeStarterHomeItems } from "@/server/utils/homeFurniture";
+import { createStarterHomeItems } from "@/server/utils/homeFurniture";
 import { hashIp } from "@/server/utils/ipHash";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
@@ -336,7 +337,7 @@ export const registerRouter = createTRPCRouter({
         .delete(userAttribute)
         .where(eq(userAttribute.userId, ctx.userId));
       await Promise.all([
-        initializeStarterHomeItems(ctx.drizzle, ctx.userId),
+        ctx.drizzle.insert(userItem).values(createStarterHomeItems(ctx.userId)),
         ctx.drizzle
           .insert(questHistory)
           .values({

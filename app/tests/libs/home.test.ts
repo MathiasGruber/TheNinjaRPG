@@ -1,10 +1,8 @@
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "bun:test";
-import { HOME_FURNITURE_ESSENTIALS, HOME_FURNITURE_MAX_PLACEMENTS } from "@/drizzle/constants";
-import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, completeHomeLayoutEssentials, fitHomeFurniturePlacement, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
+import { HOME_FURNITURE_MAX_PLACEMENTS } from "@/drizzle/constants";
+import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, fitHomeFurniturePlacement, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
-import { furnitureDataSchema } from "@/validators/itemFurniture";
 
 const fixture = (id: string, patch: Partial<HomeFurniture> = {}): HomeFurniture => ({
   id, itemId: `content-${id}`, name: id, image: "/furniture.webp",
@@ -63,87 +61,6 @@ describe("owned furniture layouts", () => {
     expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: [...placements, placement("overflow")] }).success).toBe(false);
     expect(homeFurnitureSaveInputSchema.safeParse({ ...input, placements: [placement("same"), placement("same")] }).success).toBe(false);
     expect(homeFurnitureSaveInputSchema.safeParse({ ...input, owned: ["foreign"] }).success).toBe(false);
-  });
-
-  it("fills missing actions around valid furniture without changing their existing positions", () => {
-    const decoration = fixture("decoration", { width: 6 });
-    const pieces = [decoration, ...HOME_FURNITURE_ESSENTIALS.map(({ action, itemId }) => fixture(itemId, { action, width: 6 }))];
-    const existing = [placement(decoration.id)];
-    const completed = completeHomeLayoutEssentials(existing, pieces, "NONE");
-    expect(completed).toContainEqual(existing[0]!);
-    expectStarterActions(completed, pieces);
-    expect(homeLayoutPlacementError(completed, pieces, "NONE")).toBeNull();
-    expect(existing).toEqual([placement(decoration.id)]);
-  });
-
-  it("returns only a blocking decoration to storage when an essential needs its ground", () => {
-    const pieces = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS }, (_, index) => fixture(`decoration-${index}`, { width: 6, isFloor: true }));
-    pieces.push(...HOME_FURNITURE_ESSENTIALS.map(({ action, itemId }) => fixture(itemId, { action, width: 6 })));
-    const existing = pieces.slice(0, HOME_FURNITURE_MAX_PLACEMENTS).map(({ id }) => placement(id));
-    const completed = completeHomeLayoutEssentials(existing, pieces, "NONE");
-    expect(completed).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
-    expect(completed.filter(({ id }) => id.startsWith("decoration-"))).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS - 3);
-    expectStarterActions(completed, pieces);
-    expect(homeLayoutPlacementError(completed, pieces, "NONE")).toBeNull();
-    expect(pieces).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS + 3);
-  });
-
-  it("frees redundant essential furniture at the placement cap while preserving each required action", () => {
-    const beds = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS }, (_, index) => fixture(`bed-${index}`, { action: "sleep", width: 6 }));
-    const pieces = [...beds, fixture("box", { action: "storage", width: 6 }), fixture("utensils", { action: "kitchen", width: 6 })];
-    const existing = beds.map(({ id }, index) => ({ id, x: 15 + (index % 10) * 7, y: 20 + Math.floor(index / 10) * 8, rotation: 0 as const }));
-    expect(homeLayoutPlacementError(existing, pieces, "NONE")).toBeNull();
-    const completed = completeHomeLayoutEssentials(existing, pieces, "NONE");
-    expect(completed).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
-    expect(completed).toContainEqual(existing[0]!);
-    expect(completed.filter(({ id }) => id.startsWith("bed-"))).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS - 2);
-    expectStarterActions(completed, pieces);
-    expect(homeLayoutPlacementError(completed, pieces, "NONE")).toBeNull();
-    expect(beds).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
-  });
-
-  it("keeps farming reachable while freeing redundant garden copies at the placement cap", () => {
-    const gardens = Array.from({ length: HOME_FURNITURE_MAX_PLACEMENTS }, (_, index) => fixture(`garden-${index}`, {
-      action: "farm", width: 6, geometry: { ...DEFAULT_HOME_FURNITURE_GEOMETRY, aspectRatio: 10 },
-    }));
-    const pieces = [...gardens, ...HOME_FURNITURE_ESSENTIALS.map(({ action, itemId }) => fixture(itemId, { action, width: 6 }))];
-    const existing = gardens.map(({ id }, index) => ({ id, x: 10 + (index % 10) * 7, y: 85 + Math.floor(index / 10) * 3, rotation: 0 as const }));
-    expect(homeLayoutPlacementError(existing, pieces, "NONE")).toBeNull();
-    const completed = completeHomeLayoutEssentials(existing, pieces, "NONE");
-    expect(completed).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
-    expect(completed).toContainEqual(existing[0]!);
-    expect(completed.filter(({ id }) => id.startsWith("garden-"))).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS - 3);
-    expectStarterActions(completed, pieces);
-    expect(homeLayoutPlacementError(completed, pieces, "NONE")).toBeNull();
-    expect(gardens).toHaveLength(HOME_FURNITURE_MAX_PLACEMENTS);
-  });
-
-  it("fits a published side view of the basic storage box when its canonical footprint cannot fit", async () => {
-    const catalogue = await readFile("data/item.sql", "utf8");
-    const definition = catalogue.split("\n").find((line) => line.includes("('home-storage-box',"))!;
-    const data = furnitureDataSchema.parse(JSON.parse(definition.match(/'FURNITURE', '(.+?)', 'COMMON'/)![1]!));
-    const fullFloorPiece = (id: string, action: "kitchen" | "sleep", width: number) => fixture(id, {
-      action, width, geometry: {
-        aspectRatio: width * (4 / 3) / 55,
-        visibleBounds: { x: 0, y: 0, width: 100, height: 100 },
-        footprint: { x: 0, y: 0, width: 100, height: 100 },
-      },
-    });
-    const box = fixture("box", { ...data, itemId: "home-storage-box" });
-    const pieces = [fullFloorPiece("kitchen", "kitchen", 40), fullFloorPiece("bed", "sleep", 28), box];
-    const existing = [
-      { id: "kitchen", ...unprojectHomePlacement({ x: 33.5, y: 75 }), rotation: 0 as const },
-      { id: "bed", ...unprojectHomePlacement({ x: 67.5, y: 75 }), rotation: 0 as const },
-    ];
-    expect(getHomeFurnitureRotations(box)).toEqual([0, 1, 2, 3]);
-    expect(homeLayoutPlacementError(existing, pieces, "NONE")).toBeNull();
-    expect(fitHomeFurniturePlacement({ id: box.id, x: 75, y: 15.15, rotation: 0 }, box, existing, pieces, "NONE")).toBeNull();
-    const completed = completeHomeLayoutEssentials(existing, pieces, "NONE");
-    expect(completed.find(({ id }) => id === box.id)?.rotation).toBe(1);
-    expect(completed).toContainEqual(existing[0]!);
-    expect(completed).toContainEqual(existing[1]!);
-    expectStarterActions(completed, pieces);
-    expect(homeLayoutPlacementError(completed, pieces, "NONE")).toBeNull();
   });
 
   it.each([
@@ -237,10 +154,3 @@ describe("painted furniture geometry", () => {
     expect(saved[2]!.y).toBe(40);
   });
 });
-
-/** Initial layouts expose each starter action without making later decoration require them. */
-const expectStarterActions = (placements: { id: string }[], furniture: HomeFurniture[]) => {
-  const placed = new Set(placements.map(({ id }) => id));
-  const actions = new Set(furniture.filter(({ id }) => placed.has(id)).map(({ action }) => action));
-  for (const { action } of HOME_FURNITURE_ESSENTIALS) expect(actions.has(action)).toBe(true);
-};

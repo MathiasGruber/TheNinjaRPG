@@ -3101,13 +3101,6 @@ export const HOME_FURNITURE_STARTERS = [
   { itemId: "home-garden", x: 86, y: 90.91 },
 ] as const;
 
-/** First home initialization supplies free basics when available owned furniture cannot fit. */
-export const HOME_FURNITURE_ESSENTIALS = [
-  { action: "sleep", itemId: "home-sleeping-mat", name: "sleeping area", x: 22, y: 15.15 },
-  { action: "storage", itemId: "home-storage-box", name: "storage", x: 75, y: 15.15 },
-  { action: "kitchen", itemId: "home-kitchen-utensils", name: "kitchen", x: 76, y: 57.58 },
-] as const;
-
 /** Floor-space margins keep furniture reachable at scene edges on every home tier. */
 export const HOME_FURNITURE_POSITION_MIN = 0;
 export const HOME_FURNITURE_POSITION_MAX = 100;
