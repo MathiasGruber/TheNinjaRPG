@@ -493,10 +493,8 @@ export const kageRouter = createTRPCRouter({
           .update(village)
           .set({ kageId: user.userId, leaderUpdatedAt: new Date() })
           .where(eq(village.id, user.villageId ?? "")),
-        ctx.drizzle
-          .update(userData)
-          .set({ villagePrestige: KAGE_PRESTIGE_REQUIREMENT })
-          .where(eq(userData.userId, user?.village?.kageId ?? "")),
+        // The outgoing kage keeps their village prestige: a staff takeover is an
+        // administrative action and must not cost the displaced player anything.
         ctx.drizzle
           .update(userData)
           .set({
