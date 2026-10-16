@@ -2,7 +2,7 @@
 
 import { PawPrint, RefreshCw, Sparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api, type RouterInputs } from "@/app/_trpc/client";
 import { Badge } from "@/components/ui/badge";
@@ -72,14 +72,6 @@ import {
 } from "@/validators/pets";
 
 export function PetProfile() {
-  return (
-    <Suspense fallback={<Loader explanation="Loading your companions..." />}>
-      <PetProfileContent />
-    </Suspense>
-  );
-}
-
-function PetProfileContent() {
   const { data: userData } = useRequiredUserData();
   const searchParams = useSearchParams();
   const requestedPetId = searchParams.get("petId") ?? undefined;
