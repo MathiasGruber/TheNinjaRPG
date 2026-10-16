@@ -110,7 +110,6 @@ describeWithDatabase("faction war declarations", () => {
     await resetTables(
       gameSetting,
       notification,
-      gameSetting,
       clan,
       userData,
       village,
