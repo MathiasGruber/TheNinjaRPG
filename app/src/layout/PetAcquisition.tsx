@@ -319,8 +319,8 @@ export function PetAcquisition() {
               />
             )}
           </div>
-          <div className="grow space-y-2">
-            <h3 className="font-semibold">
+          <div className="min-w-0 grow space-y-2">
+            <h3 className="break-words font-semibold">
               {pet.name} · {getPetRank(pet.rank).name}
             </h3>
             {!appearanceReady && (
@@ -358,6 +358,7 @@ export function PetAcquisition() {
               )}
               <Confirm
                 title={`Release ${pet.name}?`}
+                className="break-words [&>div]:min-w-0"
                 disabled={!canRelease}
                 button={
                   <Button variant="destructive" disabled={!canRelease}>
@@ -510,7 +511,7 @@ export function PetAcquisition() {
               </div>
             )}
             <div className="mt-4 rounded border bg-muted/30 p-3 text-sm">
-              <h4 className="font-semibold">
+              <h4 className="break-words font-semibold">
                 Your bond{name.trim() && ` · ${name.trim()}`}
               </h4>
               <p className="mt-1 text-muted-foreground">

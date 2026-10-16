@@ -427,7 +427,7 @@ export default function HomePage() {
               aria-label="Pet collection"
             >
               {pets.data.pets.map((pet) => (
-                <li key={pet.id}>
+                <li key={pet.id} className="min-w-0">
                   <Link
                     href={`/profile?tab=pet&petId=${encodeURIComponent(pet.id)}`}
                     className="flex h-full flex-col items-center gap-2 rounded-lg border p-3 text-center hover:bg-muted/40"
@@ -446,7 +446,7 @@ export default function HomePage() {
                         aria-hidden="true"
                       />
                     )}
-                    <span className="font-semibold">{pet.name}</span>
+                    <span className="w-full break-words font-semibold">{pet.name}</span>
                     {pet.id === pets.data.activePetId && (
                       <span className="text-muted-foreground text-sm">
                         Active companion

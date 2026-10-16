@@ -476,7 +476,7 @@ function PetProfileContent() {
     pet.skillIds.some((id) => !data.abilities.skills.some((entry) => entry.id === id));
 
   return (
-    <>
+    <div className="break-words [&_.self-start]:min-w-0">
       {collection}
       <ContentBox
         title={pet.name}
@@ -751,6 +751,7 @@ function PetProfileContent() {
                 </p>
                 <Confirm
                   title={`Evolve ${pet.name} to ${nextRank.name}?`}
+                  className="break-words [&>div]:min-w-0"
                   disabled={!canEvolve}
                   button={
                     <Button disabled={!canEvolve}>
@@ -1163,6 +1164,7 @@ function PetProfileContent() {
             </p>
             <Confirm
               title={`Release ${pet.name}?`}
+              className="break-words [&>div]:min-w-0"
               disabled={
                 settingsDisabled ||
                 (pet.generationStatus === "GENERATING" && !canRetryGeneration)
@@ -1189,7 +1191,7 @@ function PetProfileContent() {
           </ContentBox>
         </TabsContent>
       </Tabs>
-    </>
+    </div>
   );
 }
 
