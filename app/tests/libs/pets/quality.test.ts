@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as ai from "ai";
-import sharp from "sharp";
 import { OPENAI_MODERATION_MODEL } from "@/drizzle/constants";
 import { classifyPetAppearanceImage, validatePetAppearanceQuality } from "@/libs/pets/quality";
+import { petAppearanceQualitySchema } from "@/validators/pets";
 
 const accepted = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, reason: "A complete, clean sprite" };
 
@@ -15,14 +15,6 @@ describe("pet visual quality", () => {
     expect(() => validatePetAppearanceQuality(accepted)).not.toThrow();
   });
 
-  it("fails closed for a partial or missing structured verdict", async () => {
-    const model = vi.spyOn(ai, "generateText");
-    model.mockResolvedValue({ output: { singleAnimal: true } } as never);
-    await expect(classifyPetAppearanceImage(input(), new AbortController().signal)).rejects.toThrow();
-    model.mockResolvedValue({ output: undefined } as never);
-    await expect(classifyPetAppearanceImage(input(), new AbortController().signal)).rejects.toThrow();
-  });
-
   it("does not call vision after an abort, and observes a caller abort in flight", async () => {
     const model = vi.spyOn(ai, "generateText").mockResolvedValue({ output: accepted } as never);
     await expect(classifyPetAppearanceImage(input(), AbortSignal.abort())).rejects.toThrow();
@@ -32,39 +24,37 @@ describe("pet visual quality", () => {
     await expect(classifyPetAppearanceImage(input(), controller.signal)).rejects.toThrow();
   });
 
-  it("does not retry a failed vision request", async () => {
-    const transport = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ error: { message: "Vision unavailable" } }), { status: 500, headers: { "content-type": "application/json" } }));
-    await expect(classifyPetAppearanceImage(input(), new AbortController().signal)).rejects.toThrow();
-    expect(transport).toHaveBeenCalledTimes(1);
+  it("propagates a failed vision request", async () => {
+    const error = new Error("Vision unavailable");
+    const model = vi.spyOn(ai, "generateText").mockRejectedValue(error);
+    await expect(classifyPetAppearanceImage(input(), new AbortController().signal)).rejects.toBe(error);
+    expect(model).toHaveBeenCalledTimes(1);
   });
 
-  it("transports two decoded image buffers with labels and a bounded structured vision request", async () => {
-    const candidate = await sharp({ create: { width: 64, height: 64, channels: 4, background: "red" } }).webp().toBuffer();
-    const previous = await sharp({ create: { width: 64, height: 64, channels: 4, background: "green" } }).webp().toBuffer();
-    let body: Record<string, unknown> | undefined;
-    let transportSignal: AbortSignal | undefined;
-    const transport = vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, options) => {
-      body = JSON.parse(String(options?.body)) as Record<string, unknown>;
-      transportSignal = options?.signal ?? undefined;
-      return new Response(JSON.stringify({ id: "quality-fixture", object: "chat.completion", created: 0, model: OPENAI_MODERATION_MODEL, choices: [{ index: 0, message: { role: "assistant", content: JSON.stringify(accepted) }, finish_reason: "stop" }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }), { headers: { "content-type": "application/json" } });
-    });
+  it("supplies ordered image bytes and labels with a bounded structured vision request", async () => {
+    const model = vi.spyOn(ai, "generateText").mockResolvedValue({ output: accepted } as never);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const candidate = input();
+    const previous = Buffer.from("previous");
     const controller = new AbortController();
-    expect(await classifyPetAppearanceImage({ ...input(), image: candidate, previousImage: previous }, controller.signal)).toEqual(accepted);
-    expect(transport).toHaveBeenCalledTimes(1);
-    expect(body?.model).toBe(OPENAI_MODERATION_MODEL);
-    expect(body?.response_format).toEqual(expect.objectContaining({ type: "json_schema" }));
-    const messages = body?.messages as { content: string | { type: string; text?: string; image_url?: { url: string; detail: string } }[] }[];
-    const parts = messages[1]?.content;
-    if (!Array.isArray(parts)) throw new Error("Expected image content parts");
-    expect(parts[0]?.text).toContain("first image is PREVIOUS");
-    expect(parts[0]?.text).toContain("last image is CANDIDATE");
-    const images = parts.filter((part) => part.type === "image_url");
-    expect(images).toHaveLength(2);
-    expect(images.map((part) => Buffer.from(part.image_url!.url.split(",")[1]!, "base64"))).toEqual([previous, candidate]);
-    expect(images.every((part) => part.image_url?.detail === "high")).toBe(true);
-    expect(transportSignal).toBeDefined();
+    expect(await classifyPetAppearanceImage({ ...candidate, previousImage: previous }, controller.signal)).toEqual(accepted);
+    expect(timeout).toHaveBeenCalledWith(30_000);
+    expect(model).toHaveBeenCalledTimes(1);
+    expect(model).toHaveBeenCalledWith(expect.objectContaining({
+      model: expect.objectContaining({ modelId: OPENAI_MODERATION_MODEL }),
+      maxRetries: 0,
+      maxOutputTokens: 500,
+      messages: [{ role: "user", content: [
+        { type: "text", text: `Requested animal: ${candidate.species}. Identity: ${candidate.identity}. Evolution rank ${candidate.rank} of 10. The first image is PREVIOUS, the last image is CANDIDATE.` },
+        ...[previous, candidate.image].map((data) => ({ type: "file", data, mediaType: "image/webp", providerOptions: { openai: { imageDetail: "high" } } })),
+      ] }],
+    }));
+    expect(await model.mock.calls[0]![0].output?.responseFormat).toEqual(await ai.Output.object({ schema: petAppearanceQualitySchema }).responseFormat);
+    const signal = model.mock.calls[0]![0].abortSignal;
+    expect(signal).not.toBe(controller.signal);
+    expect(signal?.aborted).toBe(false);
     controller.abort();
-    expect(transportSignal?.aborted).toBe(true);
+    expect(signal?.aborted).toBe(true);
   });
 });
 

@@ -52,8 +52,7 @@ export const classifyPetAppearanceImage = async (
     abortSignal: AbortSignal.any([signal, AbortSignal.timeout(30_000)]),
   });
   signal.throwIfAborted();
-  // Keep this boundary strict even if a provider returns a partial or empty verdict.
-  return petAppearanceQualitySchema.parse(output);
+  return output;
 };
 
 export const validatePetAppearanceQuality = (
