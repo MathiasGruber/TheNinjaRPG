@@ -33,7 +33,7 @@ it("loads combat rendering only when requested and releases it when help closes"
   fireEvent.click(trigger);
   await view.findByRole("button", { name: "A1 (0, 0)" });
   expect(createPreview).toHaveBeenCalledTimes(1);
-  expect(setTargeting).toHaveBeenCalled();
+  await waitFor(() => expect(setTargeting).toHaveBeenCalled());
   fireEvent.click(view.getAllByRole("button", { name: "Close" }).at(-1)!);
   await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
   expect(dispose).toHaveBeenCalledTimes(1);
