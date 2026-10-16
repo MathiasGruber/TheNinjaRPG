@@ -3870,8 +3870,8 @@ export const initiateBattle = async (
         .update(userData)
         .set({
           status: info.questAttempt?.isolated
-            ? sql`CASE WHEN ${userData.userId} = ${info.questAttempt.userId} THEN 'BATTLE' ELSE ${battleClaimRollbackStatus(client, battleType, userIds)} END`
-            : battleClaimRollbackStatus(client, battleType, userIds),
+            ? sql`CASE WHEN ${userData.userId} = ${info.questAttempt.userId} THEN 'BATTLE' ELSE ${battleClaimRollbackStatus(client, battleType)} END`
+            : battleClaimRollbackStatus(client, battleType),
           bracketImmunityLiftedUntil: resumeBracketImmunitySql(),
           bracketImmunityPausedAt: null,
           battleId: null,

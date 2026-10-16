@@ -358,7 +358,6 @@ export const clearActiveNpcQuest = async ({
 export const battleClaimRollbackStatus = (
   client: DrizzleClient,
   battleType: BattleType,
-  _challengerIds: string[],
 ) => {
   if (battleType === "RANKED_PVP") {
     return sql`CASE WHEN ${exists(

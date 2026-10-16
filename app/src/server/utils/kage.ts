@@ -316,8 +316,8 @@ const resetMatch = async (
   m: KageChallenge,
   outcome: string,
 ) => {
-  Object.assign(m, {
-    status: "QUEUED",
+  const update = {
+    status: "QUEUED" as const,
     scheduledAt: null,
     checkedInAt: null,
     hospitalDeferred: false,
@@ -326,21 +326,9 @@ const resetMatch = async (
     aiAccepted: false,
     notBefore: secondsFromDate(KAGE_DEFENSE_NOTICE_HOURS * 3600, hall.now),
     outcome,
-  });
-  await client
-    .update(kageChallenge)
-    .set({
-      status: "QUEUED",
-      scheduledAt: null,
-      checkedInAt: null,
-      hospitalDeferred: false,
-      kageId: m.kageId,
-      tenure: m.tenure,
-      aiAccepted: false,
-      notBefore: m.notBefore,
-      outcome,
-    })
-    .where(eq(kageChallenge.id, m.id));
+  };
+  Object.assign(m, update);
+  await client.update(kageChallenge).set(update).where(eq(kageChallenge.id, m.id));
 };
 
 export const assignKageMatches = async (
@@ -402,23 +390,16 @@ export const assignKageMatches = async (
         ),
     );
     if (!assigned) continue;
-    Object.assign(m, {
-      status: "SCHEDULED",
+    const update = {
+      status: "SCHEDULED" as const,
       scheduledAt: assigned,
       kageId: hall.village.kageId,
       tenure: hall.village.leaderUpdatedAt,
-    });
+    };
+    Object.assign(m, update);
     occupied.add(assigned.getTime());
     after = secondsFromDate(KAGE_DEFENSE_SLOT_MINUTES * 60, assigned);
-    await client
-      .update(kageChallenge)
-      .set({
-        status: "SCHEDULED",
-        scheduledAt: assigned,
-        kageId: m.kageId,
-        tenure: m.tenure,
-      })
-      .where(eq(kageChallenge.id, m.id));
+    await client.update(kageChallenge).set(update).where(eq(kageChallenge.id, m.id));
   }
 };
 

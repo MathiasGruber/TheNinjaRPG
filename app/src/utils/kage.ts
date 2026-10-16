@@ -52,23 +52,6 @@ const getDaysInVillage = (user: UserData) => {
 };
 
 /**
- * Checks if a user can challenge the Kage.
- * @param user - The user data.
- * @returns True if the user can challenge the Kage, false otherwise.
- */
-export const canChallengeKage = (user: UserData) => {
-  const daysInVillage = getDaysInVillage(user);
-  if (
-    user.villagePrestige >= KAGE_PRESTIGE_REQUIREMENT &&
-    hasRequiredRank(user.rank, KAGE_RANK_REQUIREMENT) &&
-    daysInVillage >= KAGE_MIN_DAYS_IN_VILLAGE
-  ) {
-    return true;
-  }
-  return false;
-};
-
-/**
  * Checks if a user can be an elder.
  * @param user - The user data.
  * @returns True if the user can be an elder, false otherwise.

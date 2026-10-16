@@ -11,9 +11,7 @@ export const getWeeklyWindowSlots = (
   slotMinutes: number,
 ) => {
   const slots: Date[] = [];
-  const midnight = new Date(
-    Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), earliest.getUTCDate()),
-  );
+  const midnight = periodStart("daily", earliest);
   for (let offset = 0; offset < days; offset++) {
     const date = new Date(midnight.getTime() + offset * 86_400_000);
     for (const window of windows.filter((w) => w.day === date.getUTCDay())) {

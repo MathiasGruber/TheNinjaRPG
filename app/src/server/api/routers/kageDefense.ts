@@ -16,7 +16,6 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import {
-  activeKageMatchStatuses,
   assignKageMatches,
   getKageDefensePublic,
   saveKageSchedule,
@@ -92,15 +91,7 @@ export const kageDefenseProcedures = {
             where: eq(userData.userId, ctx.userId),
           });
           if (!user) return errorResponse("Character not found");
-          if (
-            hall.rows.some(
-              (r) =>
-                r.match.challengerId === ctx.userId &&
-                activeKageMatchStatuses.includes(
-                  r.match.status as (typeof activeKageMatchStatuses)[number],
-                ),
-            )
-          )
+          if (hall.rows.some((r) => r.match.challengerId === ctx.userId))
             return errorResponse("You already have an active queue entry");
           const reason = getKageEligibility(user, input.villageId);
           if (reason) return errorResponse(reason);
@@ -369,7 +360,7 @@ export const kageDefenseProcedures = {
             return errorResponse(
               "Both participants must be awake and free of other activities",
             );
-          return { success: true as const, message: "Ready", match: m, npcIncumbent };
+          return { success: true as const, message: "Ready", match: m };
         },
       );
       if (!admission?.success || !("match" in admission))

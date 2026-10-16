@@ -280,11 +280,11 @@ describe("battleClaimRollbackStatus", () => {
   };
 
   it("restores scheduled Kage participants to ordinary play", () => {
-    expect(battleClaimRollbackStatus(qb as never, "KAGE_PVP", ["challenger-1"])).toBe("AWAKE");
+    expect(battleClaimRollbackStatus(qb as never, "KAGE_PVP")).toBe("AWAKE");
   });
 
   it("restores RANKED_PVP rows to QUEUED only while their queue row exists", () => {
-    const expr = battleClaimRollbackStatus(qb as never, "RANKED_PVP", ["challenger-1"]);
+    const expr = battleClaimRollbackStatus(qb as never, "RANKED_PVP");
     const { sql: rendered } = render(expr);
     expect(rendered).toMatch(/exists/i);
     expect(rendered).toContain("RankedPvpQueue");
@@ -292,12 +292,8 @@ describe("battleClaimRollbackStatus", () => {
   });
 
   it("restores plain AWAKE for battle types claimed from AWAKE", () => {
-    expect(battleClaimRollbackStatus(qb as never, "COMBAT", ["challenger-1"])).toBe(
-      "AWAKE",
-    );
-    expect(battleClaimRollbackStatus(qb as never, "KAGE_AI", ["challenger-1"])).toBe(
-      "AWAKE",
-    );
+    expect(battleClaimRollbackStatus(qb as never, "COMBAT")).toBe("AWAKE");
+    expect(battleClaimRollbackStatus(qb as never, "KAGE_AI")).toBe("AWAKE");
   });
 });
 

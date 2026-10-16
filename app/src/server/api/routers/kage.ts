@@ -35,7 +35,6 @@ import {
   villageStructure,
 } from "@/drizzle/schema";
 import { castElderVoteEntry, fetchElderVote } from "@/libs/elder";
-import { getServerPusher } from "@/libs/pusher";
 import { fetchClan } from "@/routers/clan";
 import { kageDefenseProcedures } from "@/routers/kageDefense";
 import { fetchUpdatedUser, fetchUser, updateNindo } from "@/routers/profile";
@@ -65,8 +64,6 @@ import {
   structureUpgradeSchema,
   villageMaintenancePaymentSchema,
 } from "@/validators/villageMission";
-
-const _pusher = getServerPusher();
 
 export const kageRouter = createTRPCRouter({
   ...kageDefenseProcedures,
