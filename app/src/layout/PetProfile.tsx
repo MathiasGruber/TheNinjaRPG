@@ -459,9 +459,8 @@ function PetProfileContent() {
         a.item.name.localeCompare(b.item.name),
     );
   const abilityCount = abilities.jutsuIds.length + abilities.skillIds.length;
-  const abilityCost = abilityChoices.reduce(
-    (total, choice) =>
-      total + (abilities[choice.field].includes(choice.item.id) ? choice.cost : 0),
+  const abilityCost = selectedAbilityChoices.reduce(
+    (total, choice) => total + choice.cost,
     0,
   );
   const abilityError = validatePetAbilities({

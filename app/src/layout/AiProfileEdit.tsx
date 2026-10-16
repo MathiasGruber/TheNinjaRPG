@@ -869,17 +869,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             labelInactive="No CatchAll"
           />
         )}
-        {!isSaving && canEdit && (
+        {canEdit && (
           <Button onClick={() => addRule()}>
             <FilePlus className="mr-2 h-6 w-6" /> Add Rule
           </Button>
         )}
-        {!isSaving && canEdit && (
+        {canEdit && (
           <Button variant="outline" onClick={() => addRule(true)}>
             Add Group
           </Button>
         )}
-        {!isSaving && canEdit && rules.length > 0 && (
+        {canEdit && rules.length > 0 && (
           <Button
             onClick={() => {
               const parsed = updateAiProfileSchema.safeParse({
