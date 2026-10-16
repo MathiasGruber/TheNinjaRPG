@@ -50,3 +50,12 @@ export const travelPinSchema = travelLocationSchema.extend({
 });
 export const travelPinsSchema = z.array(travelPinSchema).max(20);
 export type TravelPin = z.infer<typeof travelPinSchema>;
+
+/** Reads stored pins one by one, so a single stale or invalid pin does not drop the rest. */
+export const parseTravelPins = (stored: unknown): TravelPin[] =>
+  (Array.isArray(stored) ? stored : [])
+    .flatMap((entry) => {
+      const parsed = travelPinSchema.safeParse(entry);
+      return parsed.success ? [parsed.data] : [];
+    })
+    .slice(0, 20);

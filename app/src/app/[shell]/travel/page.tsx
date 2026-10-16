@@ -117,13 +117,13 @@ import {
   type FindSectorSchema,
   type FindSectorSchemaInput,
   findSectorSchema,
+  parseTravelPins,
   type QuickTravelSchema,
   type QuickTravelSchemaInput,
   quickTravelSchema,
   type TravelLocation,
   type TravelPin,
   travelLocationSchema,
-  travelPinsSchema,
 } from "@/validators/travel";
 
 const GlobalMap = dynamic(() => import("@/layout/Map"), { ssr: false });
@@ -208,8 +208,7 @@ function Travel() {
 
   // Data from database
   const { data: userData, timeDiff, updateUser } = useRequiredUserData();
-  const pinsResult = travelPinsSchema.safeParse(storedPins?.[userData?.userId ?? ""]);
-  const pins = pinsResult.success ? pinsResult.data : [];
+  const pins = parseTravelPins(storedPins?.[userData?.userId ?? ""]);
   const savePins = (next: TravelPin[]) => {
     if (userData) setStoredPins({ ...storedPins, [userData.userId]: next });
   };
