@@ -2456,11 +2456,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           if (form.formState.isDirty) {
             void form.trigger();
           }
-          const hasErrors = Object.keys(form.formState.errors).length > 0;
-          if (!hasErrors) {
-            setObjectives(newObjectives);
-            form.reset(watchAll);
-          }
+          // Parent save validation must see current drafts, including invalid numbers.
+          setObjectives(newObjectives);
+          // Invalid NaN drafts diff as changed; resetting them would repeat this effect.
+          if (parsedTag.success) form.reset(watchAll);
         }
       }
     }

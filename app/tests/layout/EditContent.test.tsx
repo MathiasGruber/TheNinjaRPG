@@ -6,10 +6,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import type { Item } from "@/drizzle/schema";
+import type { Item, Quest } from "@/drizzle/schema";
 import { RewardEditor } from "@/layout/RewardEditor";
 import { ObjectiveReward } from "@/validators/rewards";
 import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
+import { getObjectiveSchema, QuestValidator } from "@/validators/objectives";
+import * as toastHelpers from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
 import {
   DamageTag,
@@ -26,6 +28,7 @@ const save = vi.fn(async (_input: { id: string; data: { effects: ZodAllTags[] } 
 }));
 const pending = vi.fn();
 const toast = vi.fn();
+const saveQuest = vi.fn(async (_input: unknown) => ({ success: true }));
 const names = { useQuery: () => ({ data: [] }) };
 let rewardCatalog: { packages: []; nodes: { id: string; name: string; fields: string[] }[] } | undefined;
 let rewardCatalogError = false;
@@ -35,6 +38,7 @@ const update: { useMutation: () => { mutateAsync: (...args: Parameters<typeof sa
 
 vi.mock("@/app/_trpc/client", () => ({
   api: {
+    useUtils: () => ({}),
     profile: { getAllAiNames: names },
     item: { getAllNames: names, update },
     jutsu: { getAllNames: names, update },
@@ -43,10 +47,14 @@ vi.mock("@/app/_trpc/client", () => ({
     skillTree: { getAllNames: names },
     badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
+    village: { getAllNames: names },
+    quests: { getAllNames: names, update: { useMutation: () => ({ mutateAsync: saveQuest }) } },
+    overworldAi: { getAllPlacementNames: names },
     rewardPackages: {
       getCatalog: rewardCatalogQuery,
     },
     gameAsset: {
+      getAllNames: names,
       getNameTags: names,
       getSceneAssets: names,
       getAll: { useInfiniteQuery: () => ({ data: { pages: [] } }) },
@@ -61,8 +69,9 @@ vi.mock("@radix-ui/react-use-size", () => ({
   useSize: () => ({ width: 0, height: 0 }),
 }));
 
-const { MassEffectEditor, EffectFormWrapper } = await import("@/layout/EditContent");
+const { MassEffectEditor, EffectFormWrapper, ObjectiveFormWrapper } = await import("@/layout/EditContent");
 const { useItemEditForm } = await import("@/hooks/item");
+const { useQuestEditForm } = await import("@/hooks/quest");
 
 beforeEach(() => {
   ensureDom();
@@ -214,7 +223,72 @@ const SnapshotRewardForm = ({ packageId, onUpdate, onSave, onInvalid }: {
   </>;
 };
 
+const savedObjectiveQuest = {
+  ...QuestValidator.parse({
+    name: "Objective rewards", description: "Complete the objective", successDescription: "Done",
+    questType: "story", hidden: false, consecutiveObjectives: false,
+    endsAt: null, startsAt: null, tierLevel: null,
+    content: {
+      objectives: [getObjectiveSchema("pvp_kills").parse({
+        id: "objective", task: "pvp_kills", reward_money: 100, reward_ninjutsu_experience: 100,
+      })],
+      reward: {},
+    },
+  }),
+  id: "quest", createdAt: new Date(), updatedAt: new Date(),
+} as Quest;
+
+/** Exercise direct objectives through the quest editor's real content setter and save validator. */
+const ObjectiveRewardForm = ({ onUpdate }: { onUpdate: () => void }) => {
+  const { objectives, setObjectives, handleQuestSubmit } = useQuestEditForm(savedObjectiveQuest, async () => undefined);
+  return <>
+    <ObjectiveFormWrapper
+      idx={0} quest={savedObjectiveQuest} availableTags={["pvp_kills"]} hideTagType
+      objective={objectives[0]!} objectives={objectives}
+      setObjectives={(next) => { onUpdate(); setObjectives(next); }}
+    />
+    <output data-testid="objective-money">{String(objectives[0]?.reward_money)}</output>
+    <output data-testid="objective-experience">{String(objectives[0]?.reward_ninjutsu_experience)}</output>
+    <button type="button" onClick={() => void handleQuestSubmit()}>Save objective</button>
+  </>;
+};
+
 describe("reward node editing", () => {
+  it("keeps direct objective drafts editable and validates the current values on save", async () => {
+    const onUpdate = vi.fn(() => {
+      // Bound a reset/update regression before it can hang the test process.
+      if (onUpdate.mock.calls.length > 20) throw new Error("Repeated objective updates");
+    });
+    const view = render(<ObjectiveRewardForm onUpdate={onUpdate} />);
+    const initialOrder = [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+    const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-money").textContent).toBe("NaN"));
+    expect(ryo.value).toBe("");
+    expect(document.activeElement).toBe(ryo);
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect(onUpdate.mock.calls.length).toBeLessThan(10);
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(saveQuest).not.toHaveBeenCalled();
+    const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+    await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-experience").textContent).toBe("undefined"));
+    expect(experience.value).toBe("");
+    expect(document.activeElement).toBe(experience);
+    expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "300" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-money").textContent).toBe("300"));
+    expect(document.activeElement).toBe(ryo);
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(initialOrder);
+    expect(onUpdate.mock.calls.length).toBeLessThan(10);
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(saveQuest).toHaveBeenCalledTimes(1));
+    expect(saveQuest.mock.calls[0]?.[0]).toMatchObject({ data: { content: { objectives: [{
+      id: "objective", task: "pvp_kills", reward_money: 300, reward_ninjutsu_experience: undefined,
+    }] } } });
+  });
   it.each([undefined, "catalog-package"])(
     "retains invalid and optional drafts in a nested snapshot (package: %s)",
     async (packageId) => {
