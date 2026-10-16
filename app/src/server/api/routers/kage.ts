@@ -582,25 +582,36 @@ export const kageRouter = createTRPCRouter({
     .input(kageNominationSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const motion = input.voteId
-        ? await ctx.drizzle.query.villageElderVote.findFirst({
-            where: eq(villageElderVote.id, input.voteId),
-          })
-        : null;
-      if (
-        input.voteId &&
-        (motion?.type !== "KAGE_REMOVAL" ||
-          motion.status !== "APPROVED" ||
-          !motion.resolvedAt ||
-          motion.villageId !== input.villageId)
-      )
-        return errorResponse("A successful removal vote for this village is required");
       return (
         (await withKageDefense(ctx.drizzle, input.villageId, async (tx, hall) => {
-          const [elder, candidate] = await queryInTransaction([
+          const [elder, candidate, motion] = await queryInTransaction([
             tx.query.userData.findFirst({ where: eq(userData.userId, ctx.userId) }),
             tx.query.userData.findFirst({ where: eq(userData.userId, input.userId) }),
+            tx.query.villageElderVote.findFirst({
+              where: input.voteId
+                ? eq(villageElderVote.id, input.voteId)
+                : and(
+                    eq(villageElderVote.villageId, input.villageId),
+                    eq(villageElderVote.type, "KAGE_REMOVAL"),
+                    eq(villageElderVote.status, "APPROVED"),
+                    eq(villageElderVote.resolvedAt, hall.village.leaderUpdatedAt),
+                    eq(
+                      villageElderVote.targetId,
+                      hall.state.vacancy?.removedUserId ?? "",
+                    ),
+                  ),
+            }),
           ]);
+          if (
+            input.voteId &&
+            (motion?.type !== "KAGE_REMOVAL" ||
+              motion.status !== "APPROVED" ||
+              !motion.resolvedAt ||
+              motion.villageId !== input.villageId)
+          )
+            return errorResponse(
+              "A successful removal vote for this village is required",
+            );
           if (
             elder?.rank !== "ELDER" ||
             elder.isBanned ||

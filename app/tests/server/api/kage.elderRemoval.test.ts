@@ -96,7 +96,7 @@ describeWithDatabase("elder kage removal protection", () => {
       expect(notices.length).toBeGreaterThan(0);
     }
   });
-  it("publishes a reason and tally, preserves prestige, and allows an eligible elder successor", async () => {
+  it.each([true, false])("records an eligible elder successor with the public reason and tally (explicit motion: %s)", async (withVoteId) => {
     const elder = await callerFor(kageRouter, "elder-1");
     expect((await elder.initiateKageRemovalVote({ villageId: "removal-village", reason: "The council requests accountable leadership" })).success).toBe(true);
     const db = await getTestDatabase(); const vote = (await db.query.villageElderVote.findFirst())!;
@@ -104,11 +104,55 @@ describeWithDatabase("elder kage removal protection", () => {
     expect((await (await callerFor(kageRouter, "elder-2")).voteOnKageRemoval({ voteId: vote.id, vote: "YES" })).success).toBe(true);
     expect((await db.query.village.findFirst())?.kageId).toBe("");
     await db.update(userData).set({ joinedVillageAt: new Date("2026-01-01") }).where(eq(userData.userId, "elder-3"));
-    expect((await elder.nominateKage({ villageId: "removal-village", voteId: vote.id, userId: "elder-3" })).success).toBe(true);
+    expect((await elder.nominateKage({ villageId: "removal-village", voteId: withVoteId ? vote.id : undefined, userId: "elder-3" })).success).toBe(true);
     expect((await db.query.village.findFirst())?.kageId).toBe("elder-3");
     expect((await db.query.userData.findFirst({ where: eq(userData.userId, "elder-3") }))?.rank).toBe("JONIN");
     expect((await elder.getRemovalHistory({ villageId: "removal-village" }))[0]).toMatchObject({ status: "APPROVED", yes: 2, no: 0, successorId: "elder-3", reason: "The council requests accountable leadership" });
     expect((await elder.nominateKage({ villageId: "removal-village", voteId: vote.id, userId: "elder-3" })).success).toBe(false);
+  });
+  it.each(["missing", "stale", "wrong-village", "wrong-type", "pending", "unresolved"])("rejects an explicit %s motion and associates an omitted ID with only the current removal", async (invalid) => {
+    const db = await getTestDatabase();
+    await db.update(village).set({
+      kageId: "", leaderUpdatedAt: now,
+      kageSchedule: { kageId: "", tenure: now.toISOString(), windows: [], publishedAt: null, missedStarts: 0, paused: false, observedAt: now.toISOString(), vacancy: { removedUserId: "kage", reason: "Current removal" } },
+    }).where(eq(village.id, "removal-village"));
+    await db.update(userData).set({ joinedVillageAt: new Date("2026-01-01"), rank: "JONIN" }).where(eq(userData.userId, "elder-3"));
+    await db.insert(villageElderVote).values({
+      id: "current", villageId: "removal-village", type: "KAGE_REMOVAL", status: "APPROVED", resolvedAt: now,
+      targetId: "kage", initiatedByUserId: "elder-1", endsAt: now,
+    });
+    if (invalid !== "missing") await db.insert(villageElderVote).values({
+      id: "invalid", villageId: invalid === "wrong-village" ? "other-village" : "removal-village",
+      type: invalid === "wrong-type" ? "WAR_DECLARATION" : "KAGE_REMOVAL",
+      status: invalid === "pending" ? "PENDING" : "APPROVED",
+      resolvedAt: invalid === "unresolved" ? null : invalid === "stale" ? tenureStart : now,
+      targetId: "kage", initiatedByUserId: "elder-1", endsAt: now,
+    });
+    const elder = await callerFor(kageRouter, "elder-1");
+    expect((await elder.nominateKage({ villageId: "removal-village", voteId: "invalid", userId: "elder-3" })).success).toBe(false);
+    expect((await db.query.village.findFirst())?.kageId).toBe("");
+    expect((await db.query.villageElderVote.findFirst({ where: eq(villageElderVote.id, "current") }))?.successorId).toBeNull();
+    expect((await elder.nominateKage({ villageId: "removal-village", userId: "elder-3" })).success).toBe(true);
+    expect((await db.query.villageElderVote.findFirst({ where: eq(villageElderVote.id, "current") }))?.successorId).toBe("elder-3");
+    expect((await db.query.villageElderVote.findFirst({ where: eq(villageElderVote.id, "invalid") }))?.successorId ?? null).toBeNull();
+  });
+  it("serializes council and defense appointments onto one successor receipt", async () => {
+    const elder = await callerFor(kageRouter, "elder-1");
+    await elder.initiateKageRemovalVote({ villageId: "removal-village", reason: "The council requests accountable leadership" });
+    const db = await getTestDatabase(); const vote = (await db.query.villageElderVote.findFirst())!;
+    await elder.voteOnKageRemoval({ voteId: vote.id, vote: "YES" });
+    await (await callerFor(kageRouter, "elder-2")).voteOnKageRemoval({ voteId: vote.id, vote: "YES" });
+    await db.update(userData).set({ joinedVillageAt: new Date("2026-01-01") });
+    const results = await Promise.all([
+      elder.nominateKage({ villageId: "removal-village", voteId: vote.id, userId: "elder-2" }),
+      elder.nominateKage({ villageId: "removal-village", userId: "elder-3" }),
+    ]);
+    expect(results.filter((r) => r.success)).toHaveLength(1);
+    const incumbent = (await db.query.village.findFirst())!.kageId;
+    expect(["elder-2", "elder-3"]).toContain(incumbent);
+    expect((await db.query.villageElderVote.findFirst())?.successorId).toBe(incumbent);
+    expect((await elder.nominateKage({ villageId: "removal-village", userId: "elder-3" })).success).toBe(false);
+    expect((await db.query.villageElderVote.findFirst())?.successorId).toBe(incumbent);
   });
   it("rejects an orphaned motion once without losing the settlement announcement", async () => {
     const db = await getTestDatabase();

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { battle, kageChallenge, kageDefendedChallenges, userData, village, war } from "@/drizzle/schema";
+import { battle, kageChallenge, kageDefendedChallenges, userData, village, villageElderVote, war } from "@/drizzle/schema";
 import * as combat from "@/server/api/routers/combat";
 import { updateBattle, updateKage } from "@/libs/combat/database";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
@@ -21,7 +21,7 @@ const villageId = "defense-home";
 describeWithDatabase("scheduled Kage defenses", () => {
   beforeEach(async () => {
     setSystemTime(now);
-    await resetTables(battle, kageDefendedChallenges, kageChallenge, userData, village, war);
+    await resetTables(battle, kageDefendedChallenges, kageChallenge, userData, village, villageElderVote, war);
     const db = await getTestDatabase();
     await db.insert(village).values({ id: villageId, name: "Defense home", kageId: "defender", leaderUpdatedAt: now, kageScheduleAvailableAt: now });
     await insertUsers(["defender", "first", "second", "third"].map((id) => ({ userId: id, username: id, villageId, rank: "JONIN", status: "AWAKE", villagePrestige: KAGE_PRESTIGE_REQUIREMENT, joinedVillageAt: new Date("2026-01-01") })));
@@ -293,9 +293,14 @@ describeWithDatabase("scheduled Kage defenses", () => {
     setSystemTime(new Date(now.getTime() + 86400_000));
     await syncKageDefense(db, villageId);
     expect((await db.query.village.findFirst())?.kageId).toBe("");
+    await db.insert(villageElderVote).values([
+      { id: "old-removal", villageId, type: "KAGE_REMOVAL", status: "APPROVED", resolvedAt: now, targetId: "defender", initiatedByUserId: "second", endsAt: now },
+      { id: "other-removal", villageId, type: "KAGE_REMOVAL", status: "APPROVED", resolvedAt: new Date(), targetId: "other-kage", initiatedByUserId: "second", endsAt: now },
+    ]);
     await db.update(userData).set({ rank: "ELDER" }).where(eq(userData.userId, "second"));
     expect((await (await callerFor(kageRouter, "second")).nominateKage({ villageId, userId: "first" })).success).toBe(true);
     expect((await db.query.village.findFirst())?.kageId).toBe("first");
+    expect((await db.query.villageElderVote.findMany()).every((motion) => motion.successorId === null)).toBe(true);
     expect((await db.query.userData.findFirst({ where: eq(userData.userId, "defender") }))?.villagePrestige).toBe(KAGE_PRESTIGE_REQUIREMENT);
   });
 });
