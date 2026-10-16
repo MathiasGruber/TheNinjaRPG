@@ -3045,6 +3045,25 @@ export const initiateBattle = async (
       leftSideUserIds: userIds,
       leftSideUserCount,
       isSummon: false,
+      petPreload: {
+        pets,
+        ownerRanks: Object.fromEntries(
+          fetchedUsers
+            .filter((user) => !user.isAi)
+            .map((user) => [user.userId, user.rank]),
+        ),
+        abilitiesByOwner: Object.fromEntries(
+          fetchedUsers
+            .filter((user) => !user.isAi)
+            .map((user) => [
+              user.userId,
+              {
+                jutsus: petJutsus.filter((entry) => entry.userId === user.userId),
+                skills: user.userSkills,
+              },
+            ]),
+        ),
+      },
     });
 
   if (dungeonEncounter) {
@@ -3088,30 +3107,6 @@ export const initiateBattle = async (
     extraState.tournamentGameId = info.tournamentGame.id;
     extraState.tournamentAiOnly = info.tournamentGame.aiOnly;
   }
-
-  addPetsToBattle({
-    pets,
-    usersState,
-    extraState,
-    battleType,
-    width: gridSize.width,
-    height: gridSize.height,
-    ownerRanks: Object.fromEntries(
-      fetchedUsers.filter((user) => !user.isAi).map((user) => [user.userId, user.rank]),
-    ),
-    usersEffects: userEffects,
-    abilitiesByOwner: Object.fromEntries(
-      fetchedUsers
-        .filter((user) => !user.isAi)
-        .map((user) => [
-          user.userId,
-          {
-            jutsus: petJutsus.filter((entry) => entry.userId === user.userId),
-            skills: user.userSkills,
-          },
-        ]),
-    ),
-  });
 
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
@@ -4052,6 +4047,10 @@ export const processUsersForBattle = async (
     isSummon: boolean;
     width: number;
     height: number;
+    petPreload?: Pick<
+      Parameters<typeof addPetsToBattle>[0],
+      "pets" | "ownerRanks" | "abilitiesByOwner"
+    >;
   },
 ) => {
   // Destructure
@@ -4793,35 +4792,6 @@ export const processUsersForBattle = async (
     }
   }
 
-  // Apply ally passives after every participant has been assigned a team.
-  if (pendingSkillEffects.length > 0) {
-    for (const pending of pendingSkillEffects) {
-      const creator = usersState.find((u) => u.userId === pending.creatorId);
-      if (!creator) continue;
-      const targets = usersState.filter(
-        (u) => stillInBattle(u) && u.direction === creator.direction,
-      );
-      for (const target of targets) {
-        for (const effect of pending.effects) {
-          const realized = realizeTag({
-            tag: structuredClone(effect),
-            user: creator,
-            actionId: pending.skillId,
-            target,
-            level: pending.level,
-          });
-          realized.isNew = false;
-          realized.castThisRound = false;
-          realized.targetId = target.userId;
-          realized.fromType = "skill";
-          if (checkFriendlyFire(realized, target, usersState)) {
-            userEffects.push(realized);
-          }
-        }
-      }
-    }
-  }
-
   // Compute initial durability before conversion (needs item.item access)
   const initialDurability: Record<string, Record<string, number>> = {};
   usersState.forEach((user) => {
@@ -5061,6 +5031,46 @@ export const processUsersForBattle = async (
     convertedUsersState.push(...summonUsersState);
   }
   mergeExtraState(extraState, summonExtraState);
+
+  if (info.petPreload) {
+    addPetsToBattle({
+      ...info.petPreload,
+      usersState: convertedUsersState,
+      usersEffects: userEffects,
+      extraState,
+      battleType,
+      width,
+      height,
+    });
+  }
+
+  // Apply ally passives after initial companions have been assigned a team.
+  for (const pending of pendingSkillEffects) {
+    const creator = convertedUsersState.find((u) => u.userId === pending.creatorId);
+    if (!creator) continue;
+    const targets = convertedUsersState.filter(
+      (u) =>
+        !u.isSummonTemplate && stillInBattle(u) && u.direction === creator.direction,
+    );
+    for (const target of targets) {
+      for (const effect of pending.effects) {
+        const realized = realizeTag({
+          tag: structuredClone(effect),
+          user: creator,
+          actionId: pending.skillId,
+          target,
+          level: pending.level,
+        });
+        realized.isNew = false;
+        realized.castThisRound = false;
+        realized.targetId = target.userId;
+        realized.fromType = "skill";
+        if (checkFriendlyFire(realized, target, convertedUsersState)) {
+          userEffects.push(realized);
+        }
+      }
+    }
+  }
 
   const userIds = convertedUsersState.map((u) => u.userId);
   const { preBattleGearModifiers, filteredEffects } =
