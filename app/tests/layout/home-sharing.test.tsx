@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCReact } from "@trpc/react-query";
 import { observable } from "@trpc/server/observable";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as navigation from "next/navigation";
 import * as Pusher from "pusher-js";
 import type { ComponentProps } from "react";
 import type { AppRouter } from "@/api/root";
@@ -34,6 +35,7 @@ const request = (overrides: Partial<HomeRequest> = {}): HomeRequest => ({
 
 beforeEach(() => {
   ensureDom();
+  vi.spyOn(navigation, "useRouter").mockReturnValue(router);
   Object.assign(vi.spyOn(client, "api" as never), { home: testApi.home, useUtils: testApi.useUtils });
   vi.spyOn(Link, "default").mockImplementation(({ children, href, onClick }) => (
     <a href={String(href)} onClick={onClick}>{children}</a>
