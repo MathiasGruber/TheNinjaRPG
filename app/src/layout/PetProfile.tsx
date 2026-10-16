@@ -3,10 +3,19 @@
 import { PawPrint, RefreshCw, Sparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { api, type RouterInputs } from "@/app/_trpc/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -18,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CombatStatNames,
   PET_RANKS,
@@ -80,7 +90,11 @@ function PetProfileContent() {
     RouterInputs["pets"]["updateAbilities"] | null
   >(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [petName, setPetName] = useState("");
+  const nameForm = useForm({ defaultValues: { name: "" } });
+  const petName = useWatch({ control: nameForm.control, name: "name" });
+  const [activity, setActivity] = useState("care");
+  const [abilitySearch, setAbilitySearch] = useState("");
+  const [abilityKind, setAbilityKind] = useState("all");
   const [isEvolving, setIsEvolving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const inFlight = useRef(false);
@@ -134,9 +148,9 @@ function PetProfileContent() {
     utils,
   ]);
   useEffect(() => {
-    setPetName(pet?.name ?? "");
+    nameForm.reset({ name: pet?.name ?? "" });
     setMessage(null);
-  }, [pet?.id, pet?.name]);
+  }, [pet?.id, pet?.name, nameForm]);
 
   const finishMutation = async (result: { success: boolean; message: string }) => {
     setMessage(result.success ? null : result.message);
@@ -283,51 +297,33 @@ function PetProfileContent() {
       title="Your companions"
       subtitle={`${data.pets.length} / ${data.slots} collection slots`}
     >
-      <p className="mb-4 text-sm">
-        Choose a companion to manage. One active companion joins battle and receives new
-        pet experience; your other companions keep their progress.
-      </p>
-      {message && (
-        <p
-          role="alert"
-          className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-red-600"
-        >
+      {!pet && message && (
+        <p role="alert" className="mb-3 text-red-600">
           {message}
         </p>
       )}
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Pet collection">
-        {data.pets.map((entry) => (
-          <li key={entry.id}>
-            <button
-              type="button"
-              disabled={isBusy}
-              aria-pressed={entry.id === pet?.id}
-              onClick={() => setSelectedPetId(entry.id)}
-              className={`flex h-full w-full flex-col items-center gap-2 rounded-lg border p-3 text-center disabled:opacity-60 ${entry.id === pet?.id ? "border-primary bg-primary/10" : "hover:bg-muted/40"}`}
-            >
-              {entry.avatar ? (
-                <Image
-                  src={entry.avatar}
-                  alt={entry.name}
-                  width={96}
-                  height={96}
-                  className="h-24 w-24 object-contain"
-                />
-              ) : (
-                <PawPrint
-                  className="h-24 w-24 p-5 text-muted-foreground"
-                  aria-hidden="true"
-                />
-              )}
-              <span className="font-semibold">{entry.name}</span>
-              <span className="text-muted-foreground text-sm">
-                {getPetRank(entry.rank).name}
-              </span>
-              {entry.id === data.activePetId && <Badge>Active companion</Badge>}
-            </button>
-          </li>
-        ))}
-      </ul>
+      {data.pets.length > 0 && (
+        <div className="space-y-2">
+          <Label htmlFor="pet-collection">Companion</Label>
+          <Select
+            value={pet?.id ?? ""}
+            disabled={isBusy}
+            onValueChange={setSelectedPetId}
+          >
+            <SelectTrigger id="pet-collection">
+              <SelectValue placeholder="Choose a companion" />
+            </SelectTrigger>
+            <SelectContent>
+              {data.pets.map((entry) => (
+                <SelectItem key={entry.id} value={entry.id}>
+                  {entry.name} · {getPetRank(entry.rank).name}
+                  {entry.id === data.activePetId ? " · Active" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <Button variant="outline" asChild>
           <Link href="/pets">Visit the sanctuary</Link>
@@ -447,6 +443,21 @@ function PetProfileContent() {
       label: `Skill · Tier ${entry.tier}`,
     })),
   ];
+  const selectedAbilityChoices = abilityChoices.filter((choice) =>
+    abilities[choice.field].includes(choice.item.id),
+  );
+  const visibleAbilityChoices = abilityChoices
+    .filter(
+      (choice) =>
+        (abilityKind === "all" || choice.field === abilityKind) &&
+        choice.item.name.toLowerCase().includes(abilitySearch.trim().toLowerCase()),
+    )
+    .sort(
+      (a, b) =>
+        Number(abilities[b.field].includes(b.item.id)) -
+          Number(abilities[a.field].includes(a.item.id)) ||
+        a.item.name.localeCompare(b.item.name),
+    );
   const abilityCount = abilities.jutsuIds.length + abilities.skillIds.length;
   const abilityCost = abilityChoices.reduce(
     (total, choice) =>
@@ -472,91 +483,83 @@ function PetProfileContent() {
         subtitle="Train and care for your companion"
         initialBreak
       >
-        <div className="grid gap-5 sm:grid-cols-[minmax(150px,220px)_1fr]">
-          <div className="flex aspect-square items-center justify-center rounded-lg border bg-muted/30">
+        <div className="flex items-start gap-4">
+          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg border bg-muted/30 sm:h-36 sm:w-36">
             {pet.avatar ? (
               <Image
                 src={pet.avatar}
                 alt={pet.name}
-                width={320}
-                height={320}
+                width={160}
+                height={160}
                 className="h-full w-full object-contain"
               />
             ) : (
               <PawPrint
-                className="h-20 w-20 text-muted-foreground"
+                className="h-14 w-14 text-muted-foreground"
                 aria-hidden="true"
               />
             )}
           </div>
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-bold text-xl">{pet.name}</h3>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Badge>{rank.name}</Badge>
-                <Badge variant="outline">
-                  Level {level} / {rank.levelCap}
-                </Badge>
-                <Badge variant="outline">
-                  Rank {pet.rank} / {PET_RANKS.length}
-                </Badge>
-              </div>
-              <p className="mt-3 text-muted-foreground text-sm">
-                {traits
-                  .map((trait) => trait?.name)
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-              {pet.id === data.activePetId ? (
-                <Badge className="mt-3">Active companion</Badge>
-              ) : (
-                <Button
-                  className="mt-3"
-                  disabled={settingsDisabled}
-                  onClick={() => activate.mutate({ petId: pet.id })}
-                >
-                  {activate.isPending ? "Activating..." : "Make active companion"}
-                </Button>
-              )}
+          <div className="min-w-0 grow space-y-2">
+            <div className="flex flex-wrap gap-2">
+              <Badge>{rank.name}</Badge>
+              <Badge variant="outline">
+                Level {level} / {rank.levelCap}
+              </Badge>
+              <Badge variant="outline">
+                Rank {pet.rank} / {PET_RANKS.length}
+              </Badge>
             </div>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <dt className="text-muted-foreground">Assigned experience</dt>
-                <dd className="font-semibold">{formatStat(pet.experience)}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Available experience</dt>
-                <dd className="font-semibold">{formatStat(data.unusedExperience)}</dd>
-              </div>
-            </dl>
-            {nextRank && (
-              <div className="space-y-1 text-sm">
-                <p>
-                  {formatStat(pet.experience)} /{" "}
-                  {formatStat(nextRank.experienceRequired)} experience toward{" "}
-                  {nextRank.name}
-                </p>
-                <Progress
-                  value={Math.min(
-                    100,
-                    (pet.experience / nextRank.experienceRequired) * 100,
-                  )}
-                  aria-label={`Experience toward ${nextRank.name}`}
-                />
-              </div>
+            <p className="text-muted-foreground text-sm">
+              {traits
+                .map((trait) => trait?.name)
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {pet.id === data.activePetId ? (
+              <Badge>Active companion</Badge>
+            ) : (
+              <Button
+                size="sm"
+                disabled={settingsDisabled}
+                onClick={() => activate.mutate({ petId: pet.id })}
+              >
+                {activate.isPending ? "Activating..." : "Make active companion"}
+              </Button>
             )}
             <p className="text-sm">
-              While your eligible active pet joins battle, new player experience also
-              earns pet experience. Switching companions saves each pet's unused
-              experience.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              Companions join ordinary PvP and standard PvE. Ranked matches and
-              automatically resolved Kage and clan challenges exclude companions.
+              <strong>{formatStat(data.unusedExperience)}</strong> experience available
             </p>
           </div>
         </div>
-
+        {nextRank && (
+          <div className="mt-3 space-y-1 text-sm">
+            <p>
+              {formatStat(pet.experience)} / {formatStat(nextRank.experienceRequired)}{" "}
+              assigned experience toward {nextRank.name}
+            </p>
+            <Progress
+              value={Math.min(
+                100,
+                (pet.experience / nextRank.experienceRequired) * 100,
+              )}
+              aria-label={`Experience toward ${nextRank.name}`}
+            />
+          </div>
+        )}
+        <details className="mt-3 text-muted-foreground text-sm">
+          <summary className="cursor-pointer">
+            How companion experience and battles work
+          </summary>
+          <p className="mt-2">
+            While your eligible active companion joins battle, new player experience
+            also earns pet experience. Switching companions keeps each pet's progress
+            and unused experience. Companions join ordinary PvP and standard PvE. Ranked
+            matches and automatically resolved Kage and clan challenges exclude
+            companions.
+          </p>
+          <p className="mt-2">Assigned experience: {formatStat(pet.experience)}.</p>
+        </details>
         {!appearanceReady && (
           <div
             className="mt-5 space-y-3 rounded border bg-muted/30 p-4"
@@ -616,467 +619,576 @@ function PetProfileContent() {
           </p>
         )}
 
-        <div className="mt-6 grid gap-5 sm:grid-cols-2">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const parsed = updatePetSchema.safeParse({
-                petId: pet.id,
-                name: petName,
-              });
-              if (!parsed.success) {
-                setMessage(
-                  parsed.error.issues[0]?.message ?? "Choose a valid pet name.",
-                );
-                return;
-              }
-              setMessage(null);
-              update.mutate(parsed.data);
-            }}
-            className="space-y-2"
+        {message && (
+          <p
+            role="alert"
+            className="mt-3 rounded border border-red-500/40 bg-red-500/10 p-3 text-red-600"
           >
-            <Label htmlFor="pet-name">Companion name</Label>
-            <div className="flex gap-2">
-              <Input
-                id="pet-name"
-                value={petName}
-                maxLength={40}
-                disabled={settingsDisabled}
-                onChange={(event) => setPetName(event.target.value)}
-              />
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={settingsDisabled || petName.trim() === pet.name}
-              >
-                Save
-              </Button>
-            </div>
-          </form>
-          <div className="space-y-2">
-            <Label htmlFor="pet-spawn-position">Starting position</Label>
-            <Select
-              value={pet.spawnPosition}
-              disabled={settingsDisabled}
-              onValueChange={(value) => {
-                const position = PetSpawnPositions.find((entry) => entry === value);
-                if (position) update.mutate({ petId: pet.id, spawnPosition: position });
-              }}
-            >
-              <SelectTrigger id="pet-spawn-position">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PetSpawnPositions.map((position) => (
-                  <SelectItem key={position} value={position}>
-                    {PET_SPAWN_LABELS[position]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-3">
-            <Switch
-              id="pet-battle-enabled"
-              checked={pet.battleEnabled}
-              disabled={
-                settingsDisabled ||
-                (!pet.battleEnabled && (!rankAllowed || !appearanceReady))
-              }
-              onCheckedChange={(battleEnabled) =>
-                update.mutate({ petId: pet.id, battleEnabled })
-              }
-            />
-            <Label htmlFor="pet-battle-enabled">Join me in battle</Label>
-            <Badge variant="outline">
-              {pet.id === data.activePetId && canUsePet(pet, userData)
-                ? "Joining battle"
-                : "Paused"}
-            </Badge>
-          </div>
-        </div>
-        <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {CombatStatNames.map((stat) => (
-            <div key={stat} className="rounded border p-3">
-              <dt className="text-muted-foreground text-sm">
-                {capitalizeFirstLetter(stat)}
-              </dt>
-              <dd className="font-semibold">
-                {formatStat(pet[stat])}
-                <span className="font-normal text-muted-foreground text-xs">
-                  {" "}
-                  /{" "}
-                  {formatStat(
-                    stat === "offence" || stat === "defence"
-                      ? caps.stats_cap
-                      : caps.gens_cap,
-                  )}
-                </span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </ContentBox>
-
-      <ContentBox
-        title="Feed your companion"
-        subtitle="Share a meal once each UTC day"
-        initialBreak
-      >
-        <p className="mb-3 text-sm">
-          One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
-          {pet.name}. You can assign these points to its stats below.
-        </p>
-        {pet.feedDay === data.dayKey ? (
-          <p role="status">
-            {pet.name} has already been fed today. Return after midnight UTC.
+            {message}
           </p>
-        ) : data.feedMeals.length === 0 ? (
-          <p>
-            Prepare a meal in your{" "}
-            <Link href="/home" className="underline">
-              home kitchen
-            </Link>{" "}
-            and keep it in your inventory to feed your companion.
-          </p>
-        ) : (
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="min-w-48 grow space-y-2">
-              <Label htmlFor="pet-feed-meal">Meal</Label>
-              <Select
-                value={selectedMeal?.id ?? ""}
-                onValueChange={setSelectedMealId}
-                disabled={settingsDisabled || !data.canFeed}
-              >
-                <SelectTrigger id="pet-feed-meal">
-                  <SelectValue placeholder="Choose a meal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {data.feedMeals.map((meal) => (
-                    <SelectItem key={meal.id} value={meal.id}>
-                      {meal.name} · {meal.quantity} available
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              disabled={settingsDisabled || !data.canFeed || !selectedMeal}
-              onClick={() =>
-                selectedMeal &&
-                feed.mutate({
-                  petId: pet.id,
-                  userItemId: selectedMeal.id,
-                  expectedQuantity: selectedMeal.quantity,
-                })
-              }
-            >
-              {feed.isPending ? "Feeding..." : "Feed one meal"}
-            </Button>
-            {!data.canFeed && (
-              <p className="w-full text-muted-foreground text-sm">
-                Finish this companion's appearance, meet its shinobi rank requirement
-                and return to the awake state to feed it.
-              </p>
-            )}
-          </div>
         )}
       </ContentBox>
-
-      <div className="mt-4">
-        <DistributeStatsForm
-          key={`${pet.id}:${pet.rank}`}
-          userData={statsUser}
-          availableStats={Math.floor(data.unusedExperience)}
-          onAccept={assignExperience}
-          includeMasteries={false}
-          advanceTutorial={false}
-          disabled={
-            settingsDisabled ||
-            !rankAllowed ||
-            !appearanceReady ||
-            data.unusedExperience < 1
-          }
-          title="Assign Pet Experience"
-          subtitle={`${formatStat(data.unusedExperience)} points available for your companion${!rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn experience with your pet joining battle to allocate points" : ""}`}
-          isPending={assign.isPending}
-        />
-      </div>
-
-      <ContentBox
-        title="Evolution"
-        subtitle="Grow the same companion through ten ranks"
-        initialBreak
-      >
-        <p className="mb-3">
-          Each evolution builds on your pet's previous portrait, preserving its species,
-          colours and distinctive traits. Your shinobi rank and assigned pet experience
-          determine when it can evolve.
-        </p>
-        {nextRank ? (
-          <div className="space-y-3">
-            <p>
-              Next: <strong>{nextRank.name}</strong> ·{" "}
-              {formatStat(nextRank.experienceRequired)} assigned experience ·{" "}
-              {nextRank.minUserRank} shinobi rank
+      <Tabs value={activity} onValueChange={setActivity} className="mt-4">
+        <TabsList aria-label="Companion activities" className="grid grid-cols-4">
+          <TabsTrigger
+            value="care"
+            className="min-h-9 whitespace-normal px-1 text-xs leading-tight sm:text-sm"
+          >
+            Care & training
+          </TabsTrigger>
+          <TabsTrigger value="abilities" className="min-h-9 px-1 text-xs sm:text-sm">
+            Abilities
+          </TabsTrigger>
+          <TabsTrigger value="battle" className="min-h-9 px-1 text-xs sm:text-sm">
+            Battle
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="min-h-9 px-1 text-xs sm:text-sm">
+            Settings
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="care" forceMount hidden={activity !== "care"}>
+          <ContentBox
+            title="Feed your companion"
+            subtitle="Share a meal once each UTC day"
+            alreadyHasH1
+          >
+            <p className="mb-3 text-sm">
+              One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
+              {pet.name}. You can assign these points to its stats below.
             </p>
-            <Confirm
-              title={`Evolve ${pet.name} to ${nextRank.name}?`}
-              disabled={!canEvolve}
-              button={
-                <Button disabled={!canEvolve}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {isEvolving ? "Evolving..." : `Evolve to ${nextRank.name}`}
-                </Button>
-              }
-              onAccept={() => void evolvePet()}
-            >
+            {pet.feedDay === data.dayKey ? (
+              <p role="status">
+                {pet.name} has already been fed today. Return after midnight UTC.
+              </p>
+            ) : data.feedMeals.length === 0 ? (
               <p>
-                Your pet advances to rank {nextRank.rank}, then receives an evolved
-                portrait based on its current image. If image creation fails, you can
-                retry this evolution for free.
+                Prepare a meal in your{" "}
+                <Link href="/home" className="underline">
+                  home kitchen
+                </Link>{" "}
+                and keep it in your inventory to feed your companion.
               </p>
-            </Confirm>
-            {data.rankUpReason && (
-              <p className="text-muted-foreground text-sm">{data.rankUpReason}</p>
-            )}
-            {data.remainingGenerations <= 0 && (
-              <p className="text-muted-foreground text-sm">
-                Image attempts reset at midnight UTC. Evolution will be available once
-                an attempt remains.
-              </p>
-            )}
-          </div>
-        ) : (
-          <p>Your companion has reached its final evolution.</p>
-        )}
-        <details className="mt-5">
-          <summary className="cursor-pointer font-semibold">
-            All pet ranks and requirements
-          </summary>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="p-2">Rank</th>
-                  <th className="p-2">Companion</th>
-                  <th className="p-2">Shinobi rank</th>
-                  <th className="p-2">Experience</th>
-                  <th className="p-2">Level cap</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PET_RANKS.map((entry) => (
-                  <tr
-                    key={entry.rank}
-                    className={entry.rank === pet.rank ? "bg-muted" : "border-b"}
+            ) : (
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="min-w-48 grow space-y-2">
+                  <Label htmlFor="pet-feed-meal">Meal</Label>
+                  <Select
+                    value={selectedMeal?.id ?? ""}
+                    onValueChange={setSelectedMealId}
+                    disabled={settingsDisabled || !data.canFeed}
                   >
-                    <td className="p-2">{entry.rank}</td>
-                    <td className="p-2">{entry.name}</td>
-                    <td className="whitespace-nowrap p-2">{entry.minUserRank}</td>
-                    <td className="p-2">{formatStat(entry.experienceRequired)}</td>
-                    <td className="p-2">{entry.levelCap}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </details>
-      </ContentBox>
-
-      <ContentBox
-        title="Companion abilities"
-        subtitle="Share compatible jutsu and skills you have unlocked"
-        initialBreak
-      >
-        <p className="mb-3 text-sm">
-          Jutsu and passive skills share {pet.abilitySlots} purchased slots and this
-          companion's rank-based power budget. Jutsu start at level 1; their power
-          follows your pet's rank and stats.
-        </p>
-        <div className="mb-4 flex flex-wrap gap-2">
-          <Badge variant="outline">
-            {abilityCount} /{" "}
-            {Math.min(pet.abilitySlots, data.abilityCapacity?.maxSlots ?? 0)} slots used
-          </Badge>
-          <Badge variant="outline">
-            {abilityCost} / {data.abilityCapacity?.budget ?? 0} power budget
-          </Badge>
-        </div>
-        {hasUnavailableAbilities && (
-          <p className="mb-3 text-sm" role="status">
-            Saved abilities that are no longer supported are omitted. Save this
-            selection to remove them.
-          </p>
-        )}
-        <div className="space-y-3">
-          {abilityChoices.map((choice) => {
-            const selected = abilities[choice.field].includes(choice.item.id);
-            const next = {
-              ...abilities,
-              [choice.field]: selected
-                ? abilities[choice.field].filter((id) => id !== choice.item.id)
-                : [...abilities[choice.field], choice.item.id],
-            };
-            const blocked = validatePetAbilities({
-              pet: { ...pet, ...next },
-              owner: userData,
-              ...data.abilities,
-            });
-            const id = `pet-ability-${choice.field}-${choice.item.id}`;
-            return (
-              <div key={id} className="rounded border p-3">
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id={id}
-                    checked={selected}
-                    disabled={
-                      settingsDisabled ||
-                      !rankAllowed ||
-                      (!selected && Boolean(blocked))
-                    }
-                    onCheckedChange={() => setAbilityDraft({ ...next, petId: pet.id })}
-                  />
-                  <Label htmlFor={id} className="grow">
-                    {choice.item.name}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      · {choice.label} · {choice.cost} power
-                    </span>
-                  </Label>
+                    <SelectTrigger id="pet-feed-meal">
+                      <SelectValue placeholder="Choose a meal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {data.feedMeals.map((meal) => (
+                        <SelectItem key={meal.id} value={meal.id}>
+                          {meal.name} · {meal.quantity} available
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                {!selected && blocked && (
-                  <p className="mt-2 text-muted-foreground text-sm">{blocked}</p>
+                <Button
+                  disabled={settingsDisabled || !data.canFeed || !selectedMeal}
+                  onClick={() =>
+                    selectedMeal &&
+                    feed.mutate({
+                      petId: pet.id,
+                      userItemId: selectedMeal.id,
+                      expectedQuantity: selectedMeal.quantity,
+                    })
+                  }
+                >
+                  {feed.isPending ? "Feeding..." : "Feed one meal"}
+                </Button>
+                {!data.canFeed && (
+                  <p className="w-full text-muted-foreground text-sm">
+                    Finish this companion's appearance, meet its shinobi rank
+                    requirement and return to the awake state to feed it.
+                  </p>
                 )}
-                <details className="mt-2 text-sm">
-                  <summary className="cursor-pointer text-muted-foreground">
-                    Effects and requirements
-                  </summary>
-                  <div className="mt-2">
-                    <ItemWithEffects item={choice.item} hideDates />
-                  </div>
-                </details>
               </div>
-            );
-          })}
-          {abilityChoices.length === 0 && (
-            <p className="text-sm">
-              Learn compatible non-elemental jutsu or activate standalone self skills to
-              share them with your companion.
-            </p>
-          )}
-        </div>
-        {abilityError && (
-          <p role="alert" className="mt-3 text-red-600 text-sm">
-            {abilityError}
-          </p>
-        )}
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button
-            disabled={settingsDisabled || Boolean(abilityError)}
-            onClick={() => updateAbilities.mutate({ ...abilities, petId: pet.id })}
-          >
-            {updateAbilities.isPending ? "Saving..." : "Save abilities"}
-          </Button>
-          <Button
-            variant="outline"
-            disabled={settingsDisabled || abilityCount === 0}
-            onClick={() =>
-              setAbilityDraft({ petId: pet.id, jutsuIds: [], skillIds: [] })
-            }
-          >
-            Clear selection
-          </Button>
-          {data.abilityCapacity && pet.abilitySlots < data.abilityCapacity.maxSlots && (
-            <Confirm
-              title={`Unlock an ability slot for ${data.abilitySlotCost} reputation?`}
+            )}
+          </ContentBox>
+
+          <div className="mt-4">
+            <DistributeStatsForm
+              key={`${pet.id}:${pet.rank}`}
+              userData={statsUser}
+              availableStats={Math.floor(data.unusedExperience)}
+              onAccept={assignExperience}
+              includeMasteries={false}
+              advanceTutorial={false}
               disabled={
                 settingsDisabled ||
                 !rankAllowed ||
-                userData.reputationPoints < data.abilitySlotCost
+                !appearanceReady ||
+                data.unusedExperience < 1
               }
-              button={
+              title="Assign Pet Experience"
+              subtitle={`${formatStat(data.unusedExperience)} points available for your companion${!rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn experience with your pet joining battle to allocate points" : ""}`}
+              isPending={assign.isPending}
+            />
+          </div>
+
+          <ContentBox
+            title="Evolution"
+            subtitle="Grow the same companion through ten ranks"
+            initialBreak
+          >
+            <p className="mb-3">
+              Each evolution builds on your pet's previous portrait, preserving its
+              species, colours and distinctive traits. Your shinobi rank and assigned
+              pet experience determine when it can evolve.
+            </p>
+            {nextRank ? (
+              <div className="space-y-3">
+                <p>
+                  Next: <strong>{nextRank.name}</strong> ·{" "}
+                  {formatStat(nextRank.experienceRequired)} assigned experience ·{" "}
+                  {nextRank.minUserRank} shinobi rank
+                </p>
+                <Confirm
+                  title={`Evolve ${pet.name} to ${nextRank.name}?`}
+                  disabled={!canEvolve}
+                  button={
+                    <Button disabled={!canEvolve}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {isEvolving ? "Evolving..." : `Evolve to ${nextRank.name}`}
+                    </Button>
+                  }
+                  onAccept={() => void evolvePet()}
+                >
+                  <p>
+                    Your pet advances to rank {nextRank.rank}, then receives an evolved
+                    portrait based on its current image. If image creation fails, you
+                    can retry this evolution for free.
+                  </p>
+                </Confirm>
+                {data.rankUpReason && (
+                  <p className="text-muted-foreground text-sm">{data.rankUpReason}</p>
+                )}
+                {data.remainingGenerations <= 0 && (
+                  <p className="text-muted-foreground text-sm">
+                    Image attempts reset at midnight UTC. Evolution will be available
+                    once an attempt remains.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p>Your companion has reached its final evolution.</p>
+            )}
+            <details className="mt-5">
+              <summary className="cursor-pointer font-semibold">
+                All pet ranks and requirements
+              </summary>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="p-2">Rank</th>
+                      <th className="p-2">Companion</th>
+                      <th className="p-2">Shinobi rank</th>
+                      <th className="p-2">Experience</th>
+                      <th className="p-2">Level cap</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PET_RANKS.map((entry) => (
+                      <tr
+                        key={entry.rank}
+                        className={entry.rank === pet.rank ? "bg-muted" : "border-b"}
+                      >
+                        <td className="p-2">{entry.rank}</td>
+                        <td className="p-2">{entry.name}</td>
+                        <td className="whitespace-nowrap p-2">{entry.minUserRank}</td>
+                        <td className="p-2">{formatStat(entry.experienceRequired)}</td>
+                        <td className="p-2">{entry.levelCap}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </ContentBox>
+
+          <ContentBox title="Companion stats" alreadyHasH1 initialBreak>
+            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {CombatStatNames.map((stat) => (
+                <div key={stat} className="rounded border p-3">
+                  <dt className="text-muted-foreground text-sm">
+                    {capitalizeFirstLetter(stat)}
+                  </dt>
+                  <dd className="font-semibold">
+                    {formatStat(pet[stat])}
+                    <span className="font-normal text-muted-foreground text-xs">
+                      {" "}
+                      /{" "}
+                      {formatStat(
+                        stat === "offence" || stat === "defence"
+                          ? caps.stats_cap
+                          : caps.gens_cap,
+                      )}
+                    </span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </ContentBox>
+        </TabsContent>
+        <TabsContent value="abilities" forceMount hidden={activity !== "abilities"}>
+          <ContentBox
+            title="Companion abilities"
+            subtitle="Share compatible jutsu and skills you have unlocked"
+            alreadyHasH1
+          >
+            <p className="mb-3 text-sm">
+              Choose compatible jutsu and passive skills within your companion's slots
+              and power budget. Pet rank and level determine availability. Unselect an
+              ability to make room. Jutsu start at level 1 and scale with your pet.
+            </p>
+            <div className="mb-4 flex flex-wrap gap-2">
+              <Badge variant="outline">
+                {abilityCount} /{" "}
+                {Math.min(pet.abilitySlots, data.abilityCapacity?.maxSlots ?? 0)} slots
+                used
+              </Badge>
+              <Badge variant="outline">
+                {abilityCost} / {data.abilityCapacity?.budget ?? 0} power budget
+              </Badge>
+            </div>
+            {hasUnavailableAbilities && (
+              <p className="mb-3 text-sm" role="status">
+                Saved abilities that are no longer supported are omitted. Save this
+                selection to remove them.
+              </p>
+            )}
+            <div className="rounded border bg-muted/30 p-3">
+              <p className="font-semibold text-sm">Selected loadout</p>
+              <p className="mt-1 text-sm">
+                {selectedAbilityChoices.length
+                  ? selectedAbilityChoices.map((choice) => choice.item.name).join(" · ")
+                  : "No abilities selected."}
+              </p>
+              {abilityError && (
+                <p role="alert" className="mt-3 text-red-600 text-sm">
+                  {abilityError}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Button
-                  variant="outline"
-                  disabled={
-                    settingsDisabled ||
-                    !rankAllowed ||
-                    userData.reputationPoints < data.abilitySlotCost
+                  disabled={settingsDisabled || Boolean(abilityError)}
+                  onClick={() =>
+                    updateAbilities.mutate({ ...abilities, petId: pet.id })
                   }
                 >
-                  Unlock ability slot · {data.abilitySlotCost} reputation
+                  {updateAbilities.isPending ? "Saving..." : "Save abilities"}
                 </Button>
-              }
-              onAccept={() => unlockAbilitySlot.mutate({ petId: pet.id })}
+                <Button
+                  variant="outline"
+                  disabled={settingsDisabled || abilityCount === 0}
+                  onClick={() =>
+                    setAbilityDraft({ petId: pet.id, jutsuIds: [], skillIds: [] })
+                  }
+                >
+                  Clear selection
+                </Button>
+                {data.abilityCapacity &&
+                  pet.abilitySlots < data.abilityCapacity.maxSlots && (
+                    <Confirm
+                      title={`Unlock an ability slot for ${data.abilitySlotCost} reputation?`}
+                      disabled={
+                        settingsDisabled ||
+                        !rankAllowed ||
+                        userData.reputationPoints < data.abilitySlotCost
+                      }
+                      button={
+                        <Button
+                          variant="outline"
+                          disabled={
+                            settingsDisabled ||
+                            !rankAllowed ||
+                            userData.reputationPoints < data.abilitySlotCost
+                          }
+                        >
+                          Unlock ability slot · {data.abilitySlotCost} reputation
+                        </Button>
+                      }
+                      onAccept={() => unlockAbilitySlot.mutate({ petId: pet.id })}
+                    >
+                      <p>
+                        This companion gains one permanent ability slot. Its power
+                        budget still follows its rank.
+                      </p>
+                    </Confirm>
+                  )}
+              </div>
+            </div>
+            <div className="my-3 flex gap-2">
+              <div className="min-w-0 grow space-y-1">
+                <Label htmlFor="pet-ability-search">Find an ability</Label>
+                <Input
+                  id="pet-ability-search"
+                  placeholder="Search by name"
+                  value={abilitySearch}
+                  onChange={(event) => setAbilitySearch(event.target.value)}
+                />
+              </div>
+              <div className="w-28 space-y-1">
+                <Label htmlFor="pet-ability-kind">Type</Label>
+                <Select value={abilityKind} onValueChange={setAbilityKind}>
+                  <SelectTrigger id="pet-ability-kind">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="jutsuIds">Jutsu</SelectItem>
+                    <SelectItem value="skillIds">Skills</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <fieldset
+              className="max-h-80 space-y-1 overflow-y-auto overscroll-contain rounded border p-1"
+              aria-label="Available companion abilities"
             >
-              <p>
-                This companion gains one permanent ability slot. Its power budget still
-                follows its rank.
-              </p>
-            </Confirm>
-          )}
-        </div>
-        {data.abilityCapacity && pet.abilitySlots >= data.abilityCapacity.maxSlots && (
-          <p className="mt-3 text-muted-foreground text-sm">
-            Evolving increases your companion's power budget and can make more ability
-            slots available.
-          </p>
-        )}
-      </ContentBox>
-
-      <AiProfileEdit
-        key={pet.id}
-        userData={{ aiProfileId: null, userId: pet.id, jutsus: [], items: [] }}
-        availableActionTypes={PET_AI_ACTION_TYPES}
-        availableActionEffects={PET_AI_EFFECT_TYPES}
-        configuration={{
-          profile: aiProfile,
-          isSaving: updateAi.isPending,
-          disabled: settingsDisabled || !rankAllowed,
-          onSave: (profile) => updateAi.mutate({ ...profile, petId: pet.id }),
-        }}
-      />
-      <p className="mt-3 text-muted-foreground text-sm">
-        Pet rules control battle actions, including compatible equipped jutsu.
-      </p>
-      <ContentBox
-        title="Release companion"
-        subtitle="Return your pet to the sanctuary"
-        initialBreak
-      >
-        <p className="mb-4">
-          Releasing {pet.name} removes its progress and unused experience. Your other
-          companions stay in your collection. A new companion at the{" "}
-          <Link href="/pets" className="underline">
-            {PET_SANCTUARY_NAME}
-          </Link>{" "}
-          on Wake Island costs {PET_REPLACEMENT_COST} reputation points.
-        </p>
-        <Confirm
-          title={`Release ${pet.name}?`}
-          disabled={
-            settingsDisabled ||
-            (pet.generationStatus === "GENERATING" && !canRetryGeneration)
-          }
-          button={
-            <Button
-              variant="destructive"
+              {visibleAbilityChoices.map((choice) => {
+                const selected = abilities[choice.field].includes(choice.item.id);
+                const next = {
+                  ...abilities,
+                  [choice.field]: selected
+                    ? abilities[choice.field].filter((id) => id !== choice.item.id)
+                    : [...abilities[choice.field], choice.item.id],
+                };
+                const blocked = validatePetAbilities({
+                  pet: { ...pet, ...next },
+                  owner: userData,
+                  ...data.abilities,
+                });
+                const id = `pet-ability-${choice.field}-${choice.item.id}`;
+                return (
+                  <div
+                    key={id}
+                    className={`rounded p-2 ${selected ? "bg-primary/10" : "bg-muted/30"}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id={id}
+                        checked={selected}
+                        disabled={
+                          settingsDisabled ||
+                          !rankAllowed ||
+                          (!selected && Boolean(blocked))
+                        }
+                        onCheckedChange={() =>
+                          setAbilityDraft({ ...next, petId: pet.id })
+                        }
+                      />
+                      <Label htmlFor={id} className="grow leading-snug">
+                        {choice.item.name}{" "}
+                        <span className="mt-1 block font-normal text-muted-foreground text-xs">
+                          {choice.label} · {choice.cost} power
+                        </span>
+                      </Label>
+                    </div>
+                    <details className="mt-1 ml-7 text-xs">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        Effects and requirements
+                      </summary>
+                      <div className="mt-2">
+                        {!selected && blocked && (
+                          <p className="mb-2 text-muted-foreground">{blocked}</p>
+                        )}
+                        <ItemWithEffects item={choice.item} hideDates />
+                      </div>
+                    </details>
+                  </div>
+                );
+              })}
+              {visibleAbilityChoices.length === 0 && abilityChoices.length > 0 && (
+                <p className="p-2 text-sm">No abilities match your search.</p>
+              )}
+              {abilityChoices.length === 0 && (
+                <p className="text-sm">
+                  Learn compatible non-elemental jutsu or activate standalone self
+                  skills to share them with your companion.
+                </p>
+              )}
+            </fieldset>
+            {data.abilityCapacity &&
+              pet.abilitySlots >= data.abilityCapacity.maxSlots && (
+                <p className="mt-3 text-muted-foreground text-sm">
+                  Evolving increases your companion's power budget and can make more
+                  ability slots available.
+                </p>
+              )}
+          </ContentBox>
+        </TabsContent>
+        <TabsContent value="battle" forceMount hidden={activity !== "battle"}>
+          <ContentBox title="Battle settings" alreadyHasH1>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="pet-spawn-position">Starting position</Label>
+                <Select
+                  value={pet.spawnPosition}
+                  disabled={settingsDisabled}
+                  onValueChange={(value) => {
+                    const position = PetSpawnPositions.find((entry) => entry === value);
+                    if (position)
+                      update.mutate({ petId: pet.id, spawnPosition: position });
+                  }}
+                >
+                  <SelectTrigger id="pet-spawn-position">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PetSpawnPositions.map((position) => (
+                      <SelectItem key={position} value={position}>
+                        {PET_SPAWN_LABELS[position]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-3">
+                <Switch
+                  id="pet-battle-enabled"
+                  checked={pet.battleEnabled}
+                  disabled={
+                    settingsDisabled ||
+                    (!pet.battleEnabled && (!rankAllowed || !appearanceReady))
+                  }
+                  onCheckedChange={(battleEnabled) =>
+                    update.mutate({ petId: pet.id, battleEnabled })
+                  }
+                />
+                <Label htmlFor="pet-battle-enabled">Join me in battle</Label>
+                <Badge variant="outline">
+                  {pet.id === data.activePetId && canUsePet(pet, userData)
+                    ? "Joining battle"
+                    : "Paused"}
+                </Badge>
+              </div>
+            </div>
+          </ContentBox>
+          <div className="mt-4">
+            <AiProfileEdit
+              key={pet.id}
+              userData={{ aiProfileId: null, userId: pet.id, jutsus: [], items: [] }}
+              availableActionTypes={PET_AI_ACTION_TYPES}
+              availableActionEffects={PET_AI_EFFECT_TYPES}
+              configuration={{
+                profile: aiProfile,
+                isSaving: updateAi.isPending,
+                disabled: settingsDisabled || !rankAllowed,
+                onSave: (profile) => updateAi.mutate({ ...profile, petId: pet.id }),
+              }}
+            />
+            <p className="mt-3 text-muted-foreground text-sm">
+              Pet rules control battle actions, including compatible equipped jutsu.
+            </p>
+          </div>
+        </TabsContent>
+        <TabsContent value="settings" forceMount hidden={activity !== "settings"}>
+          <ContentBox title="Companion settings" alreadyHasH1>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Form {...nameForm}>
+                <form
+                  onSubmit={nameForm.handleSubmit(({ name }) => {
+                    const parsed = updatePetSchema.safeParse({ petId: pet.id, name });
+                    if (!parsed.success) {
+                      nameForm.setError(
+                        "name",
+                        {
+                          message: !name.trim()
+                            ? "Enter a companion name."
+                            : "Use 1–40 characters without control characters.",
+                        },
+                        { shouldFocus: true },
+                      );
+                      return;
+                    }
+                    nameForm.clearErrors("name");
+                    setMessage(null);
+                    update.mutate(parsed.data);
+                  })}
+                >
+                  <FormField
+                    control={nameForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Companion name</FormLabel>
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input
+                              {...field}
+                              maxLength={40}
+                              disabled={settingsDisabled}
+                              onChange={(event) => {
+                                field.onChange(event);
+                                nameForm.clearErrors("name");
+                              }}
+                            />
+                          </FormControl>
+                          <Button
+                            type="submit"
+                            variant="outline"
+                            disabled={settingsDisabled || petName.trim() === pet.name}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                        <FormMessage role="alert" />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </div>
+          </ContentBox>
+          <ContentBox
+            title="Release companion"
+            subtitle="Return your pet to the sanctuary"
+            initialBreak
+          >
+            <p className="mb-4">
+              Releasing {pet.name} removes its progress and unused experience. Your
+              other companions stay in your collection. A new companion at the{" "}
+              <Link href="/pets" className="underline">
+                {PET_SANCTUARY_NAME}
+              </Link>{" "}
+              on Wake Island costs {PET_REPLACEMENT_COST} reputation points.
+            </p>
+            <Confirm
+              title={`Release ${pet.name}?`}
               disabled={
                 settingsDisabled ||
                 (pet.generationStatus === "GENERATING" && !canRetryGeneration)
               }
+              button={
+                <Button
+                  variant="destructive"
+                  disabled={
+                    settingsDisabled ||
+                    (pet.generationStatus === "GENERATING" && !canRetryGeneration)
+                  }
+                >
+                  {release.isPending ? "Releasing..." : "Release companion"}
+                </Button>
+              }
+              onAccept={() => release.mutate({ petId: pet.id })}
             >
-              {release.isPending ? "Releasing..." : "Release companion"}
-            </Button>
-          }
-          onAccept={() => release.mutate({ petId: pet.id })}
-        >
-          <p>
-            {pet.name} will return to the sanctuary. Its stats, rank and artwork are
-            removed, including its unused experience. Your next adoption will cost{" "}
-            {PET_REPLACEMENT_COST} reputation points.
-          </p>
-        </Confirm>
-      </ContentBox>
+              <p>
+                {pet.name} will return to the sanctuary. Its stats, rank and artwork are
+                removed, including its unused experience. Your next adoption will cost{" "}
+                {PET_REPLACEMENT_COST} reputation points.
+              </p>
+            </Confirm>
+          </ContentBox>
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

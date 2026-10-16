@@ -285,7 +285,7 @@ it("links every owned companion image to its selected profile and identifies onl
     );
     for (const pet of collection.pets) {
       const image = await view.findByAltText(pet.name);
-      expect(image.closest("a")?.getAttribute("href")).toBe(`/profile/pet?petId=${pet.id}`);
+      expect(image.closest("a")?.getAttribute("href")).toBe(`/profile?tab=pet&petId=${pet.id}`);
     }
     expect(view.getAllByText("Active companion")).toHaveLength(1);
     expect(view.getByText("Active companion").closest("li")?.textContent).toContain("Pippin");

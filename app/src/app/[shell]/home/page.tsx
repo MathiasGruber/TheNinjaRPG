@@ -429,7 +429,7 @@ export default function HomePage() {
               {pets.data.pets.map((pet) => (
                 <li key={pet.id}>
                   <Link
-                    href={`/profile/pet?petId=${encodeURIComponent(pet.id)}`}
+                    href={`/profile?tab=pet&petId=${encodeURIComponent(pet.id)}`}
                     className="flex h-full flex-col items-center gap-2 rounded-lg border p-3 text-center hover:bg-muted/40"
                   >
                     {pet.avatar ? (

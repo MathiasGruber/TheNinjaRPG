@@ -32,7 +32,12 @@ export default function PetSanctuaryPage() {
           className="w-full"
           priority
         />
-        <p className="p-4 leading-relaxed">{PET_SANCTUARY_LORE}</p>
+        <details className="p-3 text-sm">
+          <summary className="cursor-pointer font-semibold">
+            About the sanctuary
+          </summary>
+          <p className="mt-2 leading-relaxed">{PET_SANCTUARY_LORE}</p>
+        </details>
       </ContentBox>
       <PetAcquisition />
     </>
