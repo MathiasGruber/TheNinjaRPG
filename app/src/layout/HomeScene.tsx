@@ -801,23 +801,23 @@ export const HomeScene = ({
           (() => {
             const rotations = getHomeFurnitureRotations(selectedFurniture);
             const { left, top, width } = selectedScreenBounds;
-            // Screen-space controls follow the highlight without growing with camera zoom.
-            const controlWidth = `clamp(4.5rem, ${width}%, 100%)`;
+            // Center fixed-size actions on the highlight corners, keeping each button inside the scene.
+            const controlWidth = `clamp(4.5rem, ${width}%, calc(100% - 2rem))`;
             return (
               <fieldset
                 aria-label="Furniture controls"
                 data-home-controls
                 className="pointer-events-none absolute z-[10000] flex justify-between"
                 style={{
-                  left: `clamp(0px, ${left}%, calc(100% - ${controlWidth}))`,
-                  top: `clamp(0px, ${top}%, calc(100% - 2rem))`,
+                  left: `clamp(1rem, ${left}%, calc(100% - 1rem - ${controlWidth}))`,
+                  top: `clamp(1rem, ${top}%, calc(100% - 1rem))`,
                   width: controlWidth,
                 }}
               >
                 <Button
                   variant="outline"
                   size="icon"
-                  className="pointer-events-auto h-8 w-8 shadow-md"
+                  className="pointer-events-auto h-8 w-8 -translate-x-1/2 -translate-y-1/2 shadow-md"
                   aria-label="Rotate clockwise"
                   aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
                   hoverText="Rotate clockwise"
@@ -832,7 +832,7 @@ export const HomeScene = ({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="pointer-events-auto h-8 w-8 shadow-md"
+                  className="pointer-events-auto h-8 w-8 translate-x-1/2 -translate-y-1/2 shadow-md"
                   aria-label="Store"
                   hoverText="Store in inventory"
                   disabled={isMovementDisabled}
