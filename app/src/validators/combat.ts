@@ -1358,10 +1358,8 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
       message: "Configure coordinates for the COORDINATES method.",
     });
   }
-  if (
-    data.effects.some((tag) => tag.type === "move") &&
-    ((data.methodSize?.x ?? 0) > 0 || (data.methodSize?.y ?? 0) > 0)
-  ) {
+  const hasMove = data.effects.find((e) => e.type === "move");
+  if (hasMove && ((data.methodSize?.x ?? 0) > 0 || (data.methodSize?.y ?? 0) > 0)) {
     ctx.addIssue({
       code: "custom",
       path: ["methodSize"],
@@ -1369,7 +1367,6 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
     });
   }
   // Pick out various effect types
-  const hasMove = data.effects.find((e) => e.type === "move");
   const hasClone = data.effects.find((e) => e.type === "clone");
   const hasSummon = data.effects.find((e) => e.type === "summon");
   const hasBarrier = data.effects.find((e) => e.type === "barrier");
