@@ -13,7 +13,6 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
-import { isMealEffect } from "@/validators/cooking";
 
 /**
  * Atomically exchanges each due receipt's XP for an account increment, independently of
@@ -120,11 +119,7 @@ export const consumeMeal = async ({
       success: false,
       message: "Your meal stack changed. Refresh your inventory and try again",
     };
-  if (
-    owned.item.effects.length !== 1 ||
-    !owned.item.effects.every(isMealEffect) ||
-    owned.item.mealDurationSeconds < 1
-  ) {
+  if (owned.item.effects.length !== 1 || owned.item.mealDurationSeconds < 1) {
     return { success: false, message: "This meal has an invalid effect or duration" };
   }
   const id = `meal-${user.userId}`;

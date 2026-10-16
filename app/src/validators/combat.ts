@@ -44,7 +44,7 @@ import {
 } from "@/libs/weightedCache";
 import { DateTimeRegExp } from "@/utils/regex";
 import { makeCappedNullableNumber } from "@/validators/base";
-import { isMealEffect, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
+import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import {
   type CoordinateTargeting,
   coordinateTargetingSchema,
@@ -1413,12 +1413,11 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
         });
       }
     }
-    if (data.effects.length !== 1 || !data.effects.every(isMealEffect)) {
+    if (data.effects.length !== 1) {
       ctx.addIssue({
         code: "custom",
         path: ["effects"],
-        message:
-          "Select one positive combat-stat or regeneration effect without rounds, scaling or elements",
+        message: "Select one meal effect",
       });
     }
     const requirements = data.craftingRequirements ?? [];

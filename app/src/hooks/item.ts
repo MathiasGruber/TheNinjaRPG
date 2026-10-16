@@ -288,7 +288,11 @@ export const useItemEditForm = (
     { id: "preventBattleUsage", type: "boolean" },
     { id: "canBeHunted", type: "boolean" },
     { id: "canBeGathered", type: "boolean" },
-    { id: "canBeCrafted", type: "boolean" },
+    {
+      id: "canBeCrafted",
+      type: "boolean",
+      label: isMeal ? "Can be cooked in the kitchen" : "Can Be Crafted",
+    },
     { id: "canBeTraded", type: "boolean" },
     {
       id: "auctionMinPrice",
@@ -386,11 +390,13 @@ export const useItemEditForm = (
     { id: "expireFromStoreAt", type: "date", label: "Remove from store at" },
   ];
 
-  if (canBeCrafted) {
+  if (canBeCrafted || isMeal) {
     formData.push({
       id: "craftingRequirements",
       doubleWidth: true,
-      label: "Crafting Requirements [and quantity]",
+      label: isMeal
+        ? "Recipe ingredients [and quantity per batch]"
+        : "Crafting Requirements [and quantity]",
       type: "db_values_with_number",
       values: allItemNames?.filter((i) => i.id !== item.id) || [],
     });
