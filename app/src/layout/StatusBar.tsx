@@ -8,7 +8,13 @@ import {
 } from "@/components/ui/tooltip";
 import { REGEN_SECONDS } from "@/drizzle/constants";
 import type { UserStatus } from "@/drizzle/schema";
+import { combatCacheEnergy } from "@/libs/combat/userCache";
 import { cn } from "@/libs/shadui";
+import {
+  getTimedRegenerationGain,
+  type RegenerationPeriod,
+  type TimedBuff,
+} from "@/libs/timedBuffs";
 import { nextRegenerationTickAt, secondsPassed } from "@/utils/time";
 
 interface StatusBarProps {
@@ -19,6 +25,10 @@ interface StatusBarProps {
   showText?: boolean;
   status?: UserStatus;
   timeDiff?: number;
+  /** Combat Energy uses continuous recovery, including captured timed bonuses. */
+  combatRegenerationPeriods?: readonly RegenerationPeriod[];
+  /** Discrete recovery uses the base regen rate and retains expired bonus history. */
+  timedBuffs?: readonly TimedBuff[];
   color:
     | "bg-red-500"
     | "bg-blue-500"
@@ -39,6 +49,8 @@ export const calcCurrent = (
   regen?: number,
   regenAt?: Date | null,
   timeDiff?: number,
+  combatRegenerationPeriods?: readonly RegenerationPeriod[],
+  timedBuffs?: readonly TimedBuff[],
 ) => {
   const end = total ?? 100;
   let current = Math.max(start ?? 0, 0);
@@ -56,12 +68,34 @@ export const calcCurrent = (
       Math.floor(secondsPassed(regenAt, timeDiff) / REGEN_SECONDS),
     );
     if (regen >= 0) {
-      current = Math.min(end, start + regen * minutes);
+      current = combatRegenerationPeriods
+        ? combatCacheEnergy(
+            { curEnergy: start, regenAt: regenAt.toISOString() },
+            end,
+            regen,
+            new Date(Date.now() - (timeDiff ?? 0)),
+            0,
+            combatRegenerationPeriods,
+          )
+        : Math.min(
+            end,
+            start +
+              getTimedRegenerationGain(
+                regen,
+                timedBuffs ?? [],
+                regenAt,
+                minutes,
+                REGEN_SECONDS,
+              ),
+          );
     } else {
       current = Math.max(0, start + regen * minutes);
     }
     // Seconds until the next one-minute regeneration tick, shown while the bar still moves
-    if ((regen > 0 && current < end) || (regen < 0 && current > 0)) {
+    if (
+      !combatRegenerationPeriods &&
+      ((regen > 0 && current < end) || (regen < 0 && current > 0))
+    ) {
       nextTickSeconds = Math.max(
         1,
         Math.ceil(
@@ -77,7 +111,7 @@ export const calcCurrent = (
 
 const StatusBar: React.FC<StatusBarProps> = (props) => {
   // Destructure props
-  const { regen, lastRegenAt, timeDiff } = props;
+  const { regen, lastRegenAt, timeDiff, combatRegenerationPeriods, timedBuffs } = props;
   const { showText, title, current, total, status } = props;
 
   // Is the user in battle?
@@ -86,7 +120,16 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
 
   // Calculate initial state
   const [state, setState] = useState(() =>
-    calcCurrent(current, total, status, regen, lastRegenAt, timeDiff),
+    calcCurrent(
+      current,
+      total,
+      status,
+      regen,
+      lastRegenAt,
+      timeDiff,
+      combatRegenerationPeriods,
+      timedBuffs,
+    ),
   );
 
   // Color for the bars
@@ -109,6 +152,8 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
             regen,
             lastRegenAt,
             timeDiff,
+            combatRegenerationPeriods,
+            timedBuffs,
           );
           // Capacity can change while the bar is full; suppress only unchanged values.
           if (
@@ -129,7 +174,17 @@ const StatusBar: React.FC<StatusBarProps> = (props) => {
     return () => {
       clearInterval(interval);
     };
-  }, [isAwake, regen, lastRegenAt, current, total, status, timeDiff]);
+  }, [
+    isAwake,
+    regen,
+    lastRegenAt,
+    current,
+    total,
+    status,
+    timeDiff,
+    combatRegenerationPeriods,
+    timedBuffs,
+  ]);
 
   return (
     <div className="group relative flex-row">

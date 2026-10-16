@@ -147,6 +147,7 @@ import {
   updateUserItemQuantityAtomically,
   userItemMergeQuantityCase,
 } from "@/server/utils/concurrency";
+import { consumeMeal } from "@/server/utils/cooking";
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import {
   applyLoadoutRename,
@@ -172,6 +173,7 @@ import type { QueryCondition } from "@/utils/typeutils";
 import { getStrucBoost } from "@/utils/village";
 import type { ZodAllTags } from "@/validators/combat";
 import { HealTag, ItemValidator, NonCombatGainSkill } from "@/validators/combat";
+import { consumeItemInputSchema, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import type { ItemFilteringSchema } from "@/validators/item";
 import {
   adjustUserItemSchema,
@@ -381,6 +383,9 @@ export const itemRouter = createTRPCRouter({
           target: "CHARACTER",
           effects: [],
           hidden: true,
+          ...(input.type === "MEAL"
+            ? { ...MEAL_ITEM_DEFAULTS, inShop: false, canBeTraded: true }
+            : {}),
           ...(input.type === "FURNITURE"
             ? {
                 ...FURNITURE_ITEM_DEFAULTS,
@@ -590,10 +595,7 @@ export const itemRouter = createTRPCRouter({
             })
           : Promise.resolve([]),
       ]);
-      if (
-        input.data.requiredSkillId &&
-        (!requiredSkill || requiredSkill.pathType !== "SKILL")
-      ) {
+      if (input.data.requiredSkillId && requiredSkill?.pathType !== "SKILL") {
         return errorResponse("Select a valid SkillTree skill entry");
       }
       // Guard
@@ -1986,7 +1988,7 @@ export const itemRouter = createTRPCRouter({
   // Consume item — atomic quantity decrement runs before effects (see handler below).
   consume: protectedProcedure
     .meta({ mcp: { description: "Consume a consumable item" } })
-    .input(z.object({ userItemId: z.string() }))
+    .input(consumeItemInputSchema)
     .mutation(async ({ ctx, input }) => {
       // Query
       const [
@@ -2016,6 +2018,14 @@ export const itemRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       if (!useritem) return errorResponse("User item not found");
       if (useritem.userId !== user.userId) return errorResponse("Not yours to consume");
+      if (useritem.item.itemType === "MEAL") {
+        return consumeMeal({
+          client: ctx.drizzle,
+          user,
+          owned: useritem,
+          expectedQuantity: input.expectedQuantity,
+        });
+      }
       if (useritem.isInAuction) {
         return errorResponse("Cannot consume an item listed in an auction");
       }
@@ -3741,6 +3751,8 @@ export const toggleEquipItem = async (
 
   // Only check requirements when equipping (not when unequipping)
   if (doEquip) {
+    if (useritem.item.itemType === "MEAL")
+      return errorResponse("Meals can be eaten from inventory and cannot be equipped");
     if (!hasRequiredSkill(useritem.item, user)) {
       return errorResponse("Activate the required skill to equip this item");
     }

@@ -46,7 +46,7 @@ const proposalChangeSchema = z.object({
   entityId: z.string().min(1).max(191).nullable(),
   operation: z.enum(ContentProposalOperations),
   // A new entity may set every editable field, and an item has over 70 of them.
-  set: z.array(proposalSetSchema).max(80),
+  set: z.array(proposalSetSchema).max(100),
   media: z.array(proposalMediaRequestSchema).max(3),
 });
 

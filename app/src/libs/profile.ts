@@ -42,6 +42,7 @@ import { masteryGainRoom } from "@/libs/masteryProgression";
 import { getPvpBoost } from "@/libs/pvpExperience";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import type { SectorUser } from "@/libs/threejs/types";
+import { getTimedRegeneration, type TimedBuff } from "@/libs/timedBuffs";
 import { getReducedGainsDays } from "@/libs/train";
 import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import { capitalizeFirstLetter } from "@/utils/string";
@@ -385,14 +386,19 @@ export const showUserRank = (user?: { rank?: UserRank; isOutlaw?: boolean }) => 
   return capitalizeFirstLetter(user.rank);
 };
 
-// Calculate user stats
+/**
+ * Current regeneration, including active timed bonuses by default. Interval settlement
+ * excludes them here and integrates their activation/expiry against the retained clock.
+ */
 export const calcActiveUserRegen = (
   user: UserData & {
+    raidBuffs?: TimedBuff[];
     clan?: Clan | null;
     bloodline?: Bloodline | null;
     village?: (Village & { structures?: VillageStructure[] }) | null;
   },
   settings: GameSetting[],
+  includeTimedBuffs = true,
 ) => {
   let regeneration = user.regeneration;
 
@@ -442,7 +448,8 @@ export const calcActiveUserRegen = (
   const warFactor = warSetting?.value || 0;
   regeneration *= (100 + warFactor) / 100;
 
-  return regeneration * (1 + getPvpBoost(user, settings).totalPercent / 100);
+  const base = regeneration * (1 + getPvpBoost(user, settings).totalPercent / 100);
+  return includeTimedBuffs ? getTimedRegeneration(base, user.raidBuffs ?? []) : base;
 };
 
 /** Energy capacity includes usable worn gear, bloodline and activated skill pool effects. */

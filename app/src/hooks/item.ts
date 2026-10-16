@@ -19,7 +19,8 @@ import { EVOLUTION_STAT_FORM_FIELDS } from "@/libs/evolution";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags, ZodItemInput, ZodItemType } from "@/validators/combat";
-import { ItemValidator } from "@/validators/combat";
+import { IncreaseStatTag, ItemValidator } from "@/validators/combat";
+import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
 
 /**
@@ -156,6 +157,19 @@ export const useItemEditForm = (
     previousItemType.current = itemType;
   }, [form, isFurniture, itemType]);
 
+  // Hidden combat fields must still satisfy meal validation when switching item types.
+  const isMeal = itemType === "MEAL";
+  useEffect(() => {
+    if (!isMeal) return;
+    for (const [field, value] of Object.entries(MEAL_ITEM_DEFAULTS)) {
+      form.setValue(field as keyof ZodItemInput, value, { shouldDirty: true });
+    }
+    if (!form.getValues("effects")?.length)
+      form.setValue("effects", [
+        IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], target: "SELF" }),
+      ]);
+  }, [form, isMeal]);
+
   // All item names, shared by the crafting, farming, and evolution pickers.
   const { data: allItemNames } = api.item.getAllNames.useQuery();
 
@@ -276,7 +290,41 @@ export const useItemEditForm = (
       label: "Auction maximum ryo per unit (blank for none)",
     },
     { id: "canBeImbued", type: "boolean" },
-    { id: "craftingExperience", type: "number", label: "Crafting Experience" },
+    ...(isMeal
+      ? [
+          {
+            id: "cookingMinLevel" as const,
+            type: "number" as const,
+            label: "Required Cooking level",
+          },
+          {
+            id: "cookingTimeSeconds" as const,
+            type: "number" as const,
+            label: "Cooking time per meal (seconds)",
+          },
+          {
+            id: "cookingOutputQuantity" as const,
+            type: "number" as const,
+            label: "Meals per batch",
+          },
+          {
+            id: "cookingExperience" as const,
+            type: "number" as const,
+            label: "Cooking XP per meal (on completion)",
+          },
+          {
+            id: "mealDurationSeconds" as const,
+            type: "number" as const,
+            label: "Meal effect duration (seconds)",
+          },
+        ]
+      : [
+          {
+            id: "craftingExperience" as const,
+            type: "number" as const,
+            label: "Crafting Experience",
+          },
+        ]),
     { id: "isFarmSeed", type: "boolean", label: "Farm Seed" },
     { id: "farmGrowTimeSeconds", type: "number", label: "Grow Time (seconds)" },
     {
@@ -347,9 +395,36 @@ export const useItemEditForm = (
     });
   }
 
-  const visibleFormData = isFurniture
-    ? formData.filter((field) => FURNITURE_FORM_FIELDS.has(field.id))
-    : formData;
+  const mealFields = new Set([
+    "name",
+    "image",
+    "itemType",
+    "rarity",
+    "description",
+    "cost",
+    "repsCost",
+    "seichiSilverCost",
+    "stackSize",
+    "canStack",
+    "hidden",
+    "isEventItem",
+    "inShop",
+    "canBeCrafted",
+    "canBeTraded",
+    "auctionMinPrice",
+    "auctionMaxPrice",
+    "craftingRequirements",
+    "cookingMinLevel",
+    "cookingTimeSeconds",
+    "cookingOutputQuantity",
+    "cookingExperience",
+    "mealDurationSeconds",
+  ]);
+  const visibleFormData = isMeal
+    ? formData.filter((field) => mealFields.has(field.id))
+    : isFurniture
+      ? formData.filter((field) => FURNITURE_FORM_FIELDS.has(field.id))
+      : formData;
   if (isFurniture) {
     visibleFormData.splice(
       3,

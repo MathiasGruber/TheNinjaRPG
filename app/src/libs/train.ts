@@ -1130,12 +1130,15 @@ export const settleMasteryTrainingQueue = (
 /**
  * Settle one-time entries (`queue`, oldest first) chronologically, so offline spending
  * frees capacity for later ticks.
+ * regenerationGain measures recovery over (fromTick, toTick] on the original clock.
  */
 export const settleEnergyTrainingQueue = (
   user: NonNullable<UserWithRelations>,
   queue: readonly EnergyTrainingQueueEntry[],
   settings: GameSetting[],
   ticks: number,
+  regenerationGain = (fromTick: number, toTick: number) =>
+    (toTick - fromTick) * user.regeneration,
 ) => {
   const entries = [...queue];
   const gains: Partial<Record<CombatStatName, number>> = {};
@@ -1163,11 +1166,22 @@ export const settleEnergyTrainingQueue = (
     const spent = Math.min(entry.energy, user.maxEnergy, room / rate);
     if (spent <= 0) break;
     if (energy < spent) {
-      if (user.regeneration <= 0) break;
-      const neededTicks = Math.ceil((spent - energy) / user.regeneration);
-      if (neededTicks > remainingTicks) break;
-      energy = Math.min(user.maxEnergy, energy + neededTicks * user.regeneration);
-      remainingTicks -= neededTicks;
+      const fromTick = ticks - remainingTicks;
+      if (energy + regenerationGain(fromTick, ticks) < spent) break;
+      // Recovery is monotone; find the first affordable tick without scanning offline time.
+      let low = 1;
+      let high = remainingTicks;
+      while (low < high) {
+        const middle = Math.floor((low + high) / 2);
+        if (energy + regenerationGain(fromTick, fromTick + middle) >= spent)
+          high = middle;
+        else low = middle + 1;
+      }
+      energy = Math.min(
+        user.maxEnergy,
+        energy + regenerationGain(fromTick, fromTick + low),
+      );
+      remainingTicks -= low;
     }
     if (energy - spent === energy) break;
     energy -= spent;
@@ -1180,7 +1194,10 @@ export const settleEnergyTrainingQueue = (
     /** Entries taken off the front of the queue: trained or dropped as capped */
     consumed: queue.length - entries.length,
     remaining: entries,
-    curEnergy: Math.min(user.maxEnergy, energy + remainingTicks * user.regeneration),
+    curEnergy: Math.min(
+      user.maxEnergy,
+      energy + regenerationGain(ticks - remainingTicks, ticks),
+    ),
     gains,
     completed,
   };
@@ -1191,6 +1208,7 @@ export const settleEnergyTrainingQueue = (
  * queue rows, shared by account refresh and combat setup. Uses the already loaded rows, so it
  * costs no query; the caller persists the result together with the new queue heads,
  * which consume the settled rows in the same write as the gains.
+ * An optional regenerationGain integrates timed bonuses as the Energy queue advances.
  */
 export const settleQueuedTraining = (
   user: NonNullable<UserWithRelations>,
@@ -1198,10 +1216,17 @@ export const settleQueuedTraining = (
   settings: GameSetting[],
   ticks: number,
   now = new Date(),
+  regenerationGain?: (fromTick: number, toTick: number) => number,
 ) => {
   const energyRows = liveQueueRows(rows, "ENERGY", user.energyQueueHead);
   const energy = energyRows.length
-    ? settleEnergyTrainingQueue(user, toEnergyEntries(energyRows), settings, ticks)
+    ? settleEnergyTrainingQueue(
+        user,
+        toEnergyEntries(energyRows),
+        settings,
+        ticks,
+        regenerationGain,
+      )
     : null;
   const update: Partial<UserData> = {};
   const gains: Partial<Record<TimedMasteryName, number>> = {};

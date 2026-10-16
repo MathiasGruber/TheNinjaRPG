@@ -21,6 +21,7 @@ import {
 import type { Battle } from "@/drizzle/schema";
 import { damageDerivedTagTypes, damageModifierTypes } from "@/libs/combat/constants";
 import { getPotencyDescription } from "@/libs/combat/potency";
+import { getEffectPower } from "@/libs/combat/power";
 import {
   isClone,
   isLiveSummon,
@@ -3411,10 +3412,7 @@ const getInfo = (
 
 /** Convenience method used by a lot of tags */
 export const getPower = (effect: UserEffect | GroundEffect) => {
-  let power = effect.power + effect.level * effect.powerPerLevel;
-  if (effect.calculation === "percentage") {
-    power = power > 100 ? 100 : power;
-  }
+  const power = getEffectPower(effect);
   const adverb = power > 0 ? "increased" : "decreased";
   const value = Math.abs(power);
   const qualifier = effect.calculation === "percentage" ? `${value}%` : value;

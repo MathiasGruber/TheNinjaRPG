@@ -28,6 +28,7 @@ import {
   questHistory,
   type UserData,
   type UserQueue,
+  userCookingJob,
   userData,
   userItem,
   userJutsu,
@@ -918,7 +919,11 @@ const startQueuedCraft = async (
   // Cooking output must still fit the carried cooking bucket when the craft starts.
   if (getInventoryBucket(entry.item) === "cooking") {
     const carried = user.items.filter(
-      (row) => !row.storedAtHome && row.item?.itemType === "COOKING",
+      (row) =>
+        row.quantity > 0 &&
+        !row.storedAtHome &&
+        row.item &&
+        getInventoryBucket(row.item) === "cooking",
     ).length;
     if (carried + outputs.length > getInventoryBucketCapacity("cooking", user)) {
       await returnMaterials(client, entry.userId, entry.materials, true);
@@ -927,6 +932,15 @@ const startQueuedCraft = async (
   }
   // Rollback retains the queue receipt and its reserved materials on insert failure.
   await client.insert(userItem).values(outputs);
+  if (entry.item.itemType === "MEAL") {
+    await client.insert(userCookingJob).values({
+      id: nanoid(),
+      userId: entry.userId,
+      experience: entry.item.cookingExperience * entry.quantity,
+      finishesAt,
+    });
+    return { finishesAt };
+  }
   // Clan boosts apply to the experience as they do for a direct craft.
   const clanBoost = user.isOutlaw ? 0 : (user.clan?.craftingExpBoost ?? 0) / 100;
   const expGain = Math.floor(

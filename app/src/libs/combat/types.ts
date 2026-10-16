@@ -112,6 +112,10 @@ export type CombatQueryCompletedQuest = {
  * Some fields are optional as they're not included in all combat queries (e.g., summons).
  */
 export type CombatQueryUser = UserData & {
+  /** Loaded at initiation and realized into battle effects; never fetched during an action. */
+  raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
+  /** Completion receipts loaded only for settlement before entering combat. */
+  cookingJobs?: { id: string; experience: number; finishesAt: Date }[];
   bloodline: (Bloodline & { bloodrightTiers?: SkillTree[] }) | null;
   activeReskin?: BloodlineReskin | null; // For bloodline reskinning
   sageMode?: SageMode | null; // Sage mode (must be manually activated)
@@ -416,6 +420,11 @@ export type ExtraState = {
   pvpExperienceScaling?: number;
   energyCapacity?: Record<string, number>;
   energyRegeneration?: Record<string, number>;
+  /** Preloaded timed bonuses for fractional Energy settlement and the matching client cache. */
+  energyRegenerationPeriods?: Record<
+    string,
+    import("@/libs/timedBuffs").RegenerationPeriod[]
+  >;
   // Static data - never changes during battle (looked up by ID)
   jutsus: Record<string, Jutsu>; // jutsuId -> Jutsu (includes user jutsus + injectable jutsus)
   jutsuReskins: Record<string, JutsuReskin>; // reskinId -> Reskin data
@@ -691,6 +700,8 @@ export type BattleEffect = ZodAllTags & {
 export type GroundEffect = BattleEffect;
 
 export type UserEffect = BattleEffect & {
+  /** Absolute expiry in milliseconds; independent of the battle's round counter. */
+  timedBuffExpiresAt?: number;
   targetId: string;
   fromEffectId?: string;
   fromGround?: boolean;

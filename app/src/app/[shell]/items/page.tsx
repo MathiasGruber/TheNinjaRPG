@@ -78,6 +78,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { displayCostType } from "@/validators/item";
 
+/** Carried inventory, equipment loadouts, and item actions across capacity buckets. */
 export default function MyItems() {
   // State
   const availableTabs = ["normal", "event", "materials", "cooking"];
@@ -865,13 +866,20 @@ const Backpack: React.FC<BackpackProps> = (props) => {
             message += `\n${notification}`;
           }
         }
-        showMutationToast({ success: true, message });
+        showMutationToast({ success: data.success, message });
       }
       if (data.success) {
         await Promise.all([
           utils.profile.getUser.invalidate(),
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
+          utils.raids.getUserRaidBuffs.invalidate(),
+        ]);
+      } else if (useritem?.item.itemType === "MEAL") {
+        // A rejected snapshot must refresh the next modal's quantity and account state.
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
         ]);
       }
     },
@@ -993,6 +1001,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
     isEvolving ||
     isRemovingImbuement ||
     isRepairingWithRyo;
+  const isMeal = useritem?.item.itemType === "MEAL";
+  const canEatMeal = !isLoading && userData.status === "AWAKE" && !userData.battleId;
   const items = useritems
     ?.map((useritem) => ({
       ...applyActiveVariant(useritem as UserItemWithVariants),
@@ -1049,6 +1059,47 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           isOpen={isOpen}
           setIsOpen={setIsOpen}
           isValid={false}
+          isLoading={isMeal && isLoading}
+          footerClassName={
+            isMeal
+              ? "flex-row items-center justify-between gap-2 sm:justify-between"
+              : undefined
+          }
+          footerExtra={
+            // Explain replacement when confirming a meal, keeping inventory controls compact.
+            isMeal && (
+              <Confirm
+                title={`Eat ${useritem.item.name}?`}
+                proceed_label="Eat meal"
+                proceed_loading_label="Eating…"
+                disabled={isLoading}
+                confirmDisabled={!canEatMeal}
+                isLoading={isConsuming}
+                keepOpenOnAccept
+                button={
+                  <Button variant="info" disabled={isLoading}>
+                    <Cookie className="mr-2 h-5 w-5" />
+                    Eat meal
+                  </Button>
+                }
+                onAccept={() =>
+                  consume({
+                    userItemId: useritem.id,
+                    expectedQuantity: useritem.quantity,
+                  })
+                }
+              >
+                <p>
+                  Eat one <b>{useritem.item.name}</b>? Its effect lasts{" "}
+                  {useritem.item.mealDurationSeconds} seconds.
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Eating the same meal extends its duration; another meal replaces it.
+                  You must be awake and out of combat.
+                </p>
+              </Confirm>
+            )
+          }
         >
           <div>
             {showsItemLevelBadge(useritem.item) && useritem.level < ITEM_LEVEL_CAP && (
@@ -1120,9 +1171,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
               </div>
             )}
           {!isLoading && (
-            <div className="flex flex-row flex-wrap gap-1">
+            <div className="flex flex-row flex-wrap items-center gap-2">
               {useritem.equipped === "NONE" &&
-                useritem.item.itemType !== "FURNITURE" && (
+                useritem.item.itemType !== "FURNITURE" &&
+                useritem.item.itemType !== "MEAL" && (
                   <Button
                     variant="info"
                     onClick={() => equip({ userItemId: useritem.id })}
@@ -1134,7 +1186,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
               {useritem.item.canStack && (
                 <>
                   <Button
-                    variant="info"
+                    variant={isMeal ? "outline" : "info"}
                     onClick={() => merge({ itemId: useritem.itemId })}
                   >
                     <Merge className="mr-2 h-5 w-5" />
@@ -1142,7 +1194,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   </Button>
                   {useritem.quantity > 1 && (
                     <Button
-                      variant="info"
+                      variant={isMeal ? "outline" : "info"}
                       onClick={() => {
                         setIsSplitDialogOpen(true);
                         setQuantityToKeep(Number.NaN);
@@ -1154,10 +1206,16 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   )}
                 </>
               )}
-              {nonCombatConsume(useritem.item, userData) && (
+              {!isMeal && nonCombatConsume(useritem.item, userData) && (
                 <Button
                   variant="info"
-                  onClick={() => consume({ userItemId: useritem.id })}
+                  disabled={isConsuming}
+                  onClick={() =>
+                    consume({
+                      userItemId: useritem.id,
+                      expectedQuantity: useritem.quantity,
+                    })
+                  }
                 >
                   <Cookie className="mr-2 h-5 w-5" />
                   Consume
@@ -1559,6 +1617,7 @@ const Character: React.FC<CharacterProps> = (props) => {
                 items={items?.filter(
                   (item) =>
                     item.itemType !== "FURNITURE" &&
+                    item.itemType !== "MEAL" &&
                     slot?.includes(item.slot) &&
                     isEquippableUserItem(item),
                 )}

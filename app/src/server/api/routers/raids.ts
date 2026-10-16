@@ -2,6 +2,7 @@ import {
   and,
   desc,
   eq,
+  gt,
   gte,
   inArray,
   isNull,
@@ -388,7 +389,7 @@ export const raidsRouter = createTRPCRouter({
       });
 
       // Guard
-      if (!queue || queue.clanBattle?.battleType !== "RAID_BATTLE") {
+      if (queue?.clanBattle?.battleType !== "RAID_BATTLE") {
         return { inQueue: false, queue: null, isClaiming: false };
       }
 
@@ -448,9 +449,10 @@ export const raidsRouter = createTRPCRouter({
       const buffs = await ctx.drizzle.query.userRaidBuff.findMany({
         where: and(
           eq(userRaidBuff.userId, ctx.userId),
-          gte(userRaidBuff.expiresAt, now),
+          gt(userRaidBuff.expiresAt, now),
         ),
         with: {
+          item: { columns: { name: true, image: true } },
           quest: {
             columns: {
               name: true,
@@ -1278,7 +1280,7 @@ export const raidsRouter = createTRPCRouter({
       if (!raid) return errorResponse("Raid quest not found");
 
       const raidData = getRaidObjectiveData(raid);
-      if (!raidData || !raidData.firstAiId) {
+      if (!raidData?.firstAiId) {
         return errorResponse("Raid boss AI not configured");
       }
 

@@ -175,6 +175,10 @@ import {
   resetQuestPartyProgress,
 } from "@/server/utils/questParty";
 import { awardRecruitRankMilestonesSafely } from "@/server/utils/recruitment";
+import {
+  getUserRegenerationGain,
+  userRegenerationGainSql,
+} from "@/server/utils/regeneration";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import {
   extendWarParticipantSql,
@@ -753,7 +757,7 @@ export const questsRouter = createTRPCRouter({
             SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
                 ${userData.questFinishAt} = ${now},
                 ${userData.questData} = CAST(${JSON.stringify(questData)} AS JSON),
-                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${user.regenAt}, ${now})) / ${REGEN_SECONDS * 1_000_000})), ${userData.curEnergy}),
+                ${userData.curEnergy} = IF(${questHistory.isolated}, LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${userRegenerationGainSql(user, userData.regenAt, now)}), ${userData.curEnergy}),
                 ${userData.regenAt} = IF(${questHistory.isolated}, ${now}, ${userData.regenAt}),
                 ${userData.status} = IF(${questHistory.isolated}, 'AWAKE', ${userData.status}),
                 ${userData.activeNpcQuestId} = IF(${userData.activeNpcQuestId} = ${input.id}, NULL, ${userData.activeNpcQuestId}),
@@ -3818,14 +3822,13 @@ export const commitQuestObjectiveRewards = async (info: {
     !!info.postClaimUserDataPatch?.status;
   const releasedAt = new Date();
   const energyRecovery = releaseIsolation
-    ? user.regeneration *
-      Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS))
+    ? getUserRegenerationGain(user, releasedAt)
     : 0;
   const energyPatch =
     energyReward > 0 || releaseIsolation
       ? {
           maxEnergy: user.maxEnergy,
-          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward} + ${releaseIsolation ? sql`${user.regeneration} * FLOOR(GREATEST(0, TIMESTAMPDIFF(MICROSECOND, ${userData.regenAt}, ${releasedAt})) / ${REGEN_SECONDS * 1_000_000})` : sql`0`})`,
+          curEnergy: sql`LEAST(${user.maxEnergy}, ${userData.curEnergy} + ${energyReward} + ${releaseIsolation ? userRegenerationGainSql(user, userData.regenAt, releasedAt) : sql`0`})`,
           ...(releaseIsolation ? { regenAt: releasedAt } : {}),
           // Invalidate passive-regeneration snapshots taken between the claim and payout.
           updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,

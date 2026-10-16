@@ -50,6 +50,7 @@ import {
   furnitureGeometrySchema,
 } from "@/validators/itemFurniture";
 
+/** Staff item editor with type-specific configuration and validated effects. */
 export default function ItemEdit(props: { params: Promise<{ itemid: string }> }) {
   const params = use(props.params);
   const router = useRouter();
@@ -287,7 +288,23 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                   )
                 }
                 tag={tag}
-                availableTags={tagTypes}
+                editableFields={
+                  itemType === "MEAL"
+                    ? [
+                        "power",
+                        "calculation",
+                        "description",
+                        "statTypes",
+                        "generalTypes",
+                        "direction",
+                      ]
+                    : undefined
+                }
+                availableTags={
+                  itemType === "MEAL"
+                    ? ["increasestat", "increaseregeneration"]
+                    : tagTypes
+                }
                 effects={validEffects}
                 setEffects={setEffects}
                 submitLoading={isUpdating}

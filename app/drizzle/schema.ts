@@ -1534,6 +1534,11 @@ export const item = mysqlTable(
     isFarmFertilizer: boolean("isFarmFertilizer").default(false).notNull(),
     farmTimeReductionSeconds: int("farmTimeReductionSeconds").default(0).notNull(),
     farmFertilizerExperience: int("farmFertilizerExperience").default(0).notNull(),
+    cookingMinLevel: int("cookingMinLevel").default(1).notNull(),
+    cookingTimeSeconds: int("cookingTimeSeconds").default(60).notNull(),
+    cookingOutputQuantity: int("cookingOutputQuantity").default(1).notNull(),
+    cookingExperience: int("cookingExperience").default(0).notNull(),
+    mealDurationSeconds: int("mealDurationSeconds").default(60).notNull(),
     craftingExperience: int("craftingExperience").default(0).notNull(),
     crystalTargetTypes: mysqlEnum("crystalTargetTypes", consts.ItemTypes),
     bloodlineId: varchar("bloodlineId", { length: 191 }),
@@ -2651,6 +2656,7 @@ export const userData = mysqlTable(
     huntingExperience: int("huntingExperience").default(0).notNull(),
     gatheringExperience: int("gatheringExperience").default(0).notNull(),
     farmingExperience: int("farmingExperience").default(0).notNull(),
+    cookingExperience: int("cookingExperience").default(0).notNull(),
     farmCurrency: int("farmCurrency").default(0).notNull(),
     farmPlotsPurchased: smallint("farmPlotsPurchased", { unsigned: true })
       .default(0)
@@ -2953,6 +2959,7 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   streakProgress: many(userStreakProgress),
   raidParticipations: many(raidParticipation),
   raidBuffs: many(userRaidBuff),
+  cookingJobs: many(userCookingJob),
 }));
 
 export const userActivityEvent = mysqlTable(
@@ -4320,12 +4327,28 @@ export const raidDamageThresholdRelations = relations(
   }),
 );
 
+/** Completion receipts keep XP independent of output stacks being traded or merged. */
+export const userCookingJob = mysqlTable(
+  "UserCookingJob",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    experience: int("experience").notNull(),
+    finishesAt: datetime("finishesAt", { mode: "date", fsp: 3 }).notNull(),
+  },
+  (table) => ({ userFinishIdx: index("UserCookingJob_userId_finishesAt_idx").on(table.userId, table.finishesAt) }),
+);
+export const userCookingJobRelations = relations(userCookingJob, ({ one }) => ({
+  user: one(userData, { fields: [userCookingJob.userId], references: [userData.userId] }),
+}));
+
 export const userRaidBuff = mysqlTable(
   "UserRaidBuff",
   {
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
-    questId: varchar("questId", { length: 191 }).notNull(),
+    questId: varchar("questId", { length: 191 }),
+    itemId: varchar("itemId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
     expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
@@ -4348,6 +4371,7 @@ export const userRaidBuff = mysqlTable(
 export type UserRaidBuff = InferSelectModel<typeof userRaidBuff>;
 
 export const userRaidBuffRelations = relations(userRaidBuff, ({ one }) => ({
+  item: one(item, { fields: [userRaidBuff.itemId], references: [item.id] }),
   user: one(userData, {
     fields: [userRaidBuff.userId],
     references: [userData.userId],

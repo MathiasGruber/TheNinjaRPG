@@ -15,7 +15,7 @@ import * as Image from "@/layout/Image";
 import * as Link from "@/layout/Link";
 import * as Modal from "@/layout/Modal";
 import type { HomeFurniture } from "@/libs/home";
-import * as RamenShop from "@/layout/RamenShop";
+import * as Kitchen from "@/layout/Kitchen";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../../setup-dom.mjs";
@@ -102,7 +102,7 @@ beforeEach(() => {
   vi.spyOn(Link, "default").mockImplementation(({ children, href }) => (
     <a href={String(href)}>{children}</a>
   ));
-  vi.spyOn(RamenShop, "RamenMenu").mockImplementation(() => <p>Kitchen menu</p>);
+  vi.spyOn(Kitchen, "default").mockImplementation(() => <p>Kitchen recipes</p>);
   vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
 });
 afterEach(async () => {
@@ -520,10 +520,9 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
       expect(view.queryByRole("link", { name: /ramen shop/i })).toBeNull();
       fireEvent.click(trigger);
       const kitchenDialog = within(view.getByRole("dialog"));
-      expect(await kitchenDialog.findByText("Kitchen menu")).toBeTruthy();
-      expect(RamenShop.RamenMenu).toHaveBeenLastCalledWith({
+      expect(await kitchenDialog.findByText("Kitchen recipes")).toBeTruthy();
+      expect(Kitchen.default).toHaveBeenLastCalledWith({
         image: hasKitchen ? "/kitchen.webp" : IMG_HOME_KITCHEN,
-        imageClassName: "mx-auto h-40 w-auto max-w-full object-contain",
       }, undefined);
       fireEvent.click(kitchenDialog.getAllByRole("button", { name: "Close" })[0]!);
       await waitFor(() => expect(document.activeElement).toBe(trigger));

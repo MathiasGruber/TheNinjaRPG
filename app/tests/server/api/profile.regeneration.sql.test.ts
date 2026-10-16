@@ -1,13 +1,16 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
-import { bloodline, gameSetting, trainingLog, userData, userQueue, userVote, village, villageStructure } from "@/drizzle/schema";
+import * as nextServer from "next/server";
+import { REGEN_SECONDS, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
+import { bloodline, gameSetting, trainingLog, userData, userQueue, userRaidBuff, userVote, village, villageStructure } from "@/drizzle/schema";
 import { calcCurrent } from "@/layout/StatusBar";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import { travelRouter } from "@/server/api/routers/travel";
+import { IncreaseRegenerationTag } from "@/validators/combat";
 import { insertUsers } from "../../setup/factories";
-import { queueEnergy } from "../../setup/queues";
-import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { queueEnergy, readEnergyQueue } from "../../setup/queues";
+import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const NOW = new Date("2026-10-14T12:00:00Z");
 
@@ -15,7 +18,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
   beforeEach(async () => {
     setSystemTime(NOW);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
-    await resetTables(trainingLog, userQueue, userVote, userData, village, villageStructure, bloodline, gameSetting);
+    await resetTables(trainingLog, userQueue, userRaidBuff, userVote, userData, village, villageStructure, bloodline, gameSetting);
     const db = await getTestDatabase();
     await db.insert(village).values([
       { id: "home", name: "Home", type: "VILLAGE", sector: 1, kageId: "" },
@@ -38,13 +41,14 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const first = await fetchUpdatedUser({ client: db, userId: "expelled" });
     const persisted = await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") });
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
-    expect(first.user).toMatchObject({ isOutlaw: true, regeneration: 50, curHealth: 115, curChakra: 115, curStamina: 115 });
+    expect(first.user).toMatchObject({ isOutlaw: true, regeneration: 50, regenerationWithoutTimedBuffs: 50, curHealth: 115, curChakra: 115, curStamina: 115 });
     expect(persisted).toMatchObject({ regeneration: 100, curHealth: 115, regenAt: NOW,
       villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
     });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
+    expect(next.user?.regenerationWithoutTimedBuffs).toBe(first.user?.regenerationWithoutTimedBuffs);
     setSystemTime(new Date(NOW.getTime() + 60_000));
-    expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regeneration, first.user?.regenAt).current).toBe(165);
+    expect(calcCurrent(first.user?.curHealth, first.user?.maxHealth, first.user?.status, first.user?.regenerationWithoutTimedBuffs, first.user?.regenAt, 0, undefined, first.user?.raidBuffs).current).toBe(165);
   });
 
   it("returns the outlaw rate without an accrued regeneration tick", async () => {
@@ -52,7 +56,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     await db.update(userData).set({ status: "BATTLE", battleId: "battle-1", regenAt: NOW }).where(eq(userData.userId, "expelled"));
     const first = await fetchUpdatedUser({ client: db, userId: "expelled" });
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
-    expect(first.user).toMatchObject({ regeneration: 50, curHealth: 0, curEnergy: 0 });
+    expect(first.user).toMatchObject({ regeneration: 50, regenerationWithoutTimedBuffs: 50, curHealth: 0, curEnergy: 0 });
     expect(next.user?.regeneration).toBe(first.user?.regeneration);
   });
 
@@ -79,6 +83,7 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
     expect(first.user).toMatchObject({ isOutlaw: true, curHealth: accrued, curChakra: accrued, curStamina: accrued });
     expect(first.user?.regeneration).toBeCloseTo(future);
+    expect(first.user?.regenerationWithoutTimedBuffs).toBeCloseTo(future);
     expect(persisted).toMatchObject({ regeneration: 100, curHealth: accrued, curChakra: accrued, curStamina: accrued,
       villagePrestige: 100, villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, joinedVillageAt: NOW,
       regenAt: status === "BATTLE" ? new Date(NOW.getTime() - 60_000) : NOW,
@@ -112,5 +117,35 @@ describeWithDatabase("profile regeneration after village expulsion", () => {
     expect(first.user?.curEnergy).toBeCloseTo(15);
     expect(first.user?.energyQueueHead).toBe(1);
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") })).toMatchObject({ energyQueueHead: 1 });
+  });
+
+  it.each([false, true])("finishes queued travel at the expelled destination rate, expired meal=%s", async (hasMeal) => {
+    const db = await getTestDatabase();
+    const from = new Date(NOW.getTime() - 2 * REGEN_SECONDS * 1000);
+    vi.spyOn(nextServer, "after").mockImplementation(() => {});
+    await db.insert(villageStructure).values({ id: "home-regen", villageId: "home", name: "Recovery", image: "", level: 1, regenIncreasePerLvl: 20 });
+    await db.update(userData).set({ status: "TRAVEL", sector: 3, regenAt: from, travelFinishAt: new Date(NOW.getTime() - 1000) }).where(eq(userData.userId, "expelled"));
+    if (hasMeal) {
+      await db.insert(userRaidBuff).values({
+        id: "travel-meal", userId: "expelled", itemId: "meal",
+        createdAt: from, expiresAt: new Date(NOW.getTime() - 30_000),
+        effects: [IncreaseRegenerationTag.parse({ power: 70 })],
+      });
+    }
+    await queueEnergy("expelled", [{ stat: "offence", energy: 1000 }]);
+    const result = await (await callerFor(travelRouter, "expelled")).finishGlobalMove();
+    const saved = await db.query.userData.findFirst({ where: eq(userData.userId, "expelled") });
+    // Travel settles at the returned destination rate; only the first tick earns the meal bonus.
+    const recovery = hasMeal ? 135 : 100;
+    expect(result.success).toBe(true);
+    expect(saved).toMatchObject({
+      status: "AWAKE", travelFinishAt: null, regenAt: NOW,
+      villageId: VILLAGE_SYNDICATE_ID, isOutlaw: true, regeneration: 100,
+      curHealth: recovery, curChakra: recovery, curStamina: recovery, curEnergy: recovery,
+      energyQueueHead: 0,
+    });
+    expect(await readEnergyQueue("expelled")).toMatchObject([{ stat: "offence", energy: 1000 }]);
+    const next = await fetchUpdatedUser({ client: db, userId: "expelled" });
+    expect(next.user?.regenerationWithoutTimedBuffs).toBe(50);
   });
 });

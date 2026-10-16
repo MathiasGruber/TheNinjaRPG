@@ -16,13 +16,16 @@ import {
   userData,
   userQueue,
   userVote,
+  userRaidBuff,
   village,
+  villageStructure,
 } from "@/drizzle/schema";
 import { getServerPusher } from "@/libs/pusher";
 import { getEnergyQueue } from "@/libs/queue";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { trainRouter } from "@/server/api/routers/train";
+import { IncreaseRegenerationTag } from "@/validators/combat";
 import { completeExpiredGlobalTravel, travelRouter } from "@/server/api/routers/travel";
 import {
   invalidatePublishedMapCache,
@@ -149,6 +152,7 @@ describeWithDatabase("Energy queue state transitions", () => {
   });
   beforeEach(async () => {
     await resetTables(
+      userRaidBuff,
       battle,
       battleHistory,
       userItem,
@@ -165,6 +169,7 @@ describeWithDatabase("Energy queue state transitions", () => {
       userVote,
       userData,
       village,
+      villageStructure,
     );
     invalidatePublishedMapCache();
   });
@@ -270,6 +275,46 @@ describeWithDatabase("Energy queue state transitions", () => {
       expect((await read())!.defence).toBe(10);
       expect(await readEnergyQueue(USER)).toEqual<Array<(typeof entries)[number] | undefined>>([entries[1]]);
     }
+  });
+
+  it.each([
+    ["endpoint", false], ["cleaner", false], ["endpoint", true], ["cleaner", true],
+  ] as const)("%s integrates timed travel recovery without stacking or training queued stats (meal still active=%s)", async (mode, live) => {
+    await prepare();
+    const db = await getTestDatabase();
+    const regenAt = new Date(Date.now() - 195_000);
+    await patch({
+      status: "TRAVEL", travelFinishAt: new Date(Date.now() - 1000), regenAt,
+      regeneration: 10, villageId: null,
+      curHealth: 0, curChakra: 0, curStamina: 0,
+      maxHealth: 1000, maxChakra: 1000, maxStamina: 1000,
+    });
+    await db.insert(userRaidBuff).values([
+      { id: "travel-meal", userId: USER, createdAt: regenAt,
+        expiresAt: new Date(regenAt.getTime() + (live ? 300_000 : 90_000)),
+        effects: [IncreaseRegenerationTag.parse({ power: 50 })] },
+      { id: "travel-raid", userId: USER, createdAt: regenAt,
+        expiresAt: new Date(regenAt.getTime() + 150_000),
+        effects: [IncreaseRegenerationTag.parse({ power: 20 })] },
+    ]);
+    const complete = async () => {
+      if (mode === "cleaner") await completeExpiredGlobalTravel(db);
+      else expect((await (await callerFor(travelRouter, USER)).finishGlobalMove()).success).toBe(true);
+    };
+    await complete();
+    const arrived = (await read())!;
+    // After meal expiry: 15 from the meal, 12 from the raid, then 10 at the base rate.
+    const recovery = live ? 45 : 37;
+    expect([arrived.curHealth, arrived.curChakra, arrived.curStamina, arrived.curEnergy]).toEqual(Array(4).fill(recovery));
+    expect(arrived.regenAt.getTime()).toBe(regenAt.getTime() + 180_000);
+    expect([arrived.offence, arrived.defence]).toEqual([10, 10]);
+    expect(await readEnergyQueue(USER)).toEqual(entries);
+    await complete();
+    expect(await read()).toMatchObject({
+      curHealth: recovery, curChakra: recovery, curStamina: recovery, curEnergy: recovery,
+      regenAt: arrived.regenAt, offence: 10, defence: 10,
+    });
+    expect(await readEnergyQueue(USER)).toEqual(entries);
   });
 
   it.each(["queued", "bulk"])("cleaner retries a %s deadlock without replaying recovery", async mode => {
@@ -638,6 +683,14 @@ describeWithDatabase("Energy queue state transitions", () => {
         maxChakra: 1000,
         maxStamina: 1000,
       });
+      // The first two earned ticks include the meal; the third is after expiry.
+      await db.insert(userRaidBuff).values({
+        id: "expired-training-meal",
+        userId: USER,
+        effects: [IncreaseRegenerationTag.parse({ power: 50 })],
+        createdAt: new Date(Date.now() - 200_000),
+        expiresAt: new Date(Date.now() - 60_000),
+      });
       await insertUsers([
         {
           userId: "attacker",
@@ -719,9 +772,9 @@ describeWithDatabase("Energy queue state transitions", () => {
         expect(user.offence).toBe(27);
         expect(user.defence).toBe(27);
         expect(user.experience).toBe(34);
-        expect(user.curHealth).toBe(300);
-        expect(user.curChakra).toBe(300);
-        expect(user.curStamina).toBe(300);
+        expect(user.curHealth).toBe(400);
+        expect(user.curChakra).toBe(400);
+        expect(user.curStamina).toBe(400);
         if (result) {
           const state = await db.query.battle.findFirst({
             where: eq(battle.id, result.battleId!),

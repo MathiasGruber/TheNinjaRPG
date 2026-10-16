@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { RANKED_PVP_STATS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
+import { applyEffects } from "@/libs/combat/process";
 import { refreshMasteries } from "@/libs/combat/util";
 import { effectiveMasteries } from "@/libs/mastery";
 import { jutsuRequirementWarning } from "@/libs/train";
@@ -30,6 +31,7 @@ import {
 import { fetchUserItemsWithVariants } from "@/server/api/routers/item";
 import { fetchUserJutsus } from "@/server/api/routers/jutsu";
 import { getTagSchema } from "@/validators/combat";
+import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import {
   callerFor,
@@ -41,7 +43,10 @@ import {
 const USER = "lobby-mastery-user";
 const BATTLE = "lobby-mastery-battle";
 
-const seedLobby = async (wearArmor = false) => {
+const seedLobby = async (
+  wearArmor = false,
+  raidBuffs: NonNullable<CombatQueryUser["raidBuffs"]> = [],
+) => {
   const db = await getTestDatabase();
   await insertUsers([
     {
@@ -133,6 +138,7 @@ const seedLobby = async (wearArmor = false) => {
     bloodline: null,
     village: null,
     aiProfile: essentials.defaultProfile,
+    raidBuffs,
   } as CombatQueryUser;
   const processed = await processUsersForBattle(db, {
     users: [raw],
@@ -184,6 +190,47 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("keeps live timed bonuses once across loadout switches and drops expired and removed equipment effects", async () => {
+    const expiresAt = new Date(Date.now() + 60_000);
+    await seedLobby(true, [
+      {
+        id: "meal-bonus", userId: USER, questId: null, itemId: null,
+        createdAt: new Date(), expiresAt,
+        effects: [getTagSchema("increasestat").parse({ statTypes: ["Ninjutsu"], power: 20 })],
+      },
+      {
+        id: "raid-bonus", userId: USER, questId: null, itemId: null,
+        createdAt: new Date(), expiresAt,
+        effects: [getTagSchema("increasestat").parse({ generalTypes: ["Strength"], power: 10 })],
+      },
+    ]);
+    const db = await getTestDatabase();
+    const initial = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+    expect(initial.usersState[0]).not.toHaveProperty("raidBuffs");
+    expect(initial.usersEffects.filter((effect) => effect.timedBuffExpiresAt)).toHaveLength(2);
+    initial.usersEffects.push({
+      ...initial.usersEffects.find((effect) => effect.timedBuffExpiresAt)!,
+      id: "expired-bonus", timedBuffExpiresAt: Date.now() - 1,
+    });
+    await db.update(battle).set({ usersEffects: initial.usersEffects }).where(eq(battle.id, BATTLE));
+    const caller = await callerFor(combatRouter, USER);
+    for (const itemLoadoutId of ["without-armor", "with-armor", "without-armor"]) {
+      expect((await caller.updateCombatLoadout({ battleId: BATTLE, itemLoadoutId })).success).toBe(true);
+      const updated = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+      expect(updated.usersEffects.filter((effect) => effect.timedBuffExpiresAt)).toEqual(
+        initial.usersEffects.filter((effect) => (effect.timedBuffExpiresAt ?? 0) > Date.now()),
+      );
+      expect(updated.usersEffects.filter((effect) => effect.type === "increasemastery")).toHaveLength(itemLoadoutId === "with-armor" ? 1 : 0);
+      const current = makeCompleteBattle(updated);
+      const { newBattle } = applyEffects(current, USER);
+      expect(current.usersState[0]!.offence).toBeCloseTo(initial.usersState[0]!.offence * 1.2);
+      expect(current.usersState[0]!.strength).toBeCloseTo(initial.usersState[0]!.strength * 1.1);
+      applyEffects(newBattle, USER);
+      expect(newBattle.usersState[0]!.offence).toBeCloseTo(current.usersState[0]!.offence);
+      expect(newBattle.usersState[0]!.strength).toBeCloseTo(current.usersState[0]!.strength);
+    }
+  });
 
   it("preserves the initiating team and its faction credit when the initiator changes loadout", async () => {
     await seedLobby();

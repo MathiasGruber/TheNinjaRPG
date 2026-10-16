@@ -49,6 +49,7 @@ import { getStrucBoost } from "@/utils/village";
  * @returns True if the item is consumable outside of combat, false otherwise.
  */
 export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
+  if (item.itemType === "MEAL") return true;
   if (item.itemType !== "CONSUMABLE") {
     return false;
   }
@@ -172,7 +173,7 @@ type BucketItemFields = {
  * Priority: COOKING → Cooking, MATERIAL → Materials, event → Event, else Normal.
  */
 export const getInventoryBucket = (item: BucketItemFields): InventoryBucket => {
-  if (item.itemType === "COOKING") return "cooking";
+  if (item.itemType === "COOKING" || item.itemType === "MEAL") return "cooking";
   if (item.itemType === "MATERIAL") return "materials";
   if (item.isEventItem) return "event";
   return "normal";
@@ -185,7 +186,7 @@ export const getInventoryBucket = (item: BucketItemFields): InventoryBucket => {
 export const getHomeStorageBucket = (
   item: Pick<BucketItemFields, "itemType">,
 ): HomeStorageBucket => {
-  if (item.itemType === "COOKING") return "cooking";
+  if (item.itemType === "COOKING" || item.itemType === "MEAL") return "cooking";
   if (item.itemType === "MATERIAL") return "materials";
   return "normal";
 };
@@ -328,7 +329,11 @@ export const calcItemRepairCost = (useritem: UserItemWithItem) => {
  * imbuement check.
  */
 export const getEquipBlockReason = (
-  ui: { storedAtHome: boolean; isInAuction: boolean; craftingFinishedAt: Date | null },
+  ui: {
+    storedAtHome: boolean;
+    isInAuction: boolean;
+    craftingFinishedAt: Date | null;
+  },
   now: Date = new Date(),
 ): string | null => {
   if (ui.storedAtHome) return "is stored at home";
@@ -412,6 +417,7 @@ export const canEquipAdditional = (
   candidate: Pick<EquipConstraintInfo, "bloodlineId" | "itemType" | "slot">,
   equippedItems: EquippedConstraintState[],
 ): string | null => {
+  if (candidate.itemType === "MEAL") return "Meals cannot be equipped";
   if (candidate.itemType === "FURNITURE") {
     return "Furniture belongs in your home and cannot be equipped";
   }
@@ -780,6 +786,7 @@ export const showsItemLevelBadge = (item: {
   item.itemType !== "CONSUMABLE" &&
   item.itemType !== "MATERIAL" &&
   item.itemType !== "COOKING" &&
+  item.itemType !== "MEAL" &&
   item.itemType !== "CRYSTAL" &&
   item.itemType !== "FURNITURE" &&
   item.slot !== "THROWN";
