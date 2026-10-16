@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   KAGE_CHALLENGER_DAILY_LIMIT,
@@ -8,7 +8,7 @@ import {
   KAGE_DEFENSE_NOTICE_HOURS,
   KAGE_DEFENSE_SLOT_MINUTES,
 } from "@/drizzle/constants";
-import { kageChallenge, userData } from "@/drizzle/schema";
+import { kageChallenge, userData, village } from "@/drizzle/schema";
 import { initiateBattle } from "@/routers/combat";
 import {
   baseServerResponse,
@@ -23,7 +23,7 @@ import {
   withinKageChallengeLimits,
   withKageDefense,
 } from "@/server/utils/kage";
-import { isMysqlDuplicateKeyError } from "@/server/utils/mysqlErrors";
+import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { getKageEligibility } from "@/utils/kage";
 import { secondsFromDate } from "@/utils/time";
 import {
@@ -35,7 +35,9 @@ import {
   kageVillageSchema,
 } from "@/validators/kage";
 
+/** Authenticated title-defense scheduling, queue participation and battle admission. */
 export const kageDefenseProcedures = {
+  /** Return the public hall snapshot and the caller's current challenger eligibility. */
   getDefenses: protectedProcedure
     .input(kageVillageSchema)
     .query(async ({ ctx, input }) => {
@@ -52,6 +54,7 @@ export const kageDefenseProcedures = {
           : "Character not found",
       };
     }),
+  /** Publish UTC windows only while the current tenure has no assigned or running match. */
   publishSchedule: protectedProcedure
     .input(kageScheduleSchema)
     .output(baseServerResponse)
@@ -60,6 +63,7 @@ export const kageDefenseProcedures = {
         (await withKageDefense(ctx.drizzle, input.villageId, async (tx, hall) => {
           if (hall.village.kageId !== ctx.userId)
             return errorResponse("Only the current Kage can publish defense times");
+          // Reconcile first: an existing queue can acquire assignments that lock these windows.
           if (!(await syncLockedKageDefense(tx, hall)))
             return errorResponse("Leadership changed. Refresh the defense schedule.");
           if (
@@ -81,6 +85,7 @@ export const kageDefenseProcedures = {
         })) ?? errorResponse("Village not found")
       );
     }),
+  /** Admit one eligible challenger per active queue entry without reserving their character. */
   joinDefenseQueue: protectedProcedure
     .input(kageJoinSchema)
     .output(baseServerResponse)
@@ -128,6 +133,7 @@ export const kageDefenseProcedures = {
         })) ?? errorResponse("Village not found")
       );
     }),
+  /** Cancel the caller's waiting entry atomically against schedule assignment and battle launch. */
   withdrawDefense: protectedProcedure
     .input(kageMatchSchema)
     .output(baseServerResponse)
@@ -136,28 +142,37 @@ export const kageDefenseProcedures = {
         where: eq(kageChallenge.id, input.id),
       });
       if (!match) return errorResponse("Match not found");
-      return (
-        (await withKageDefense(ctx.drizzle, match.villageId, async (tx) => {
-          const result = await tx
-            .update(kageChallenge)
-            .set({
-              status: "CANCELLED",
-              resolvedAt: new Date(),
-              outcome: "Challenger withdrew; no prestige charged",
-            })
-            .where(
-              and(
-                eq(kageChallenge.id, input.id),
-                eq(kageChallenge.challengerId, ctx.userId),
-                inArray(kageChallenge.status, ["QUEUED", "SCHEDULED"]),
-              ),
-            );
-          return result.rowsAffected
-            ? { success: true, message: "Withdrawn from the queue" }
-            : errorResponse("Only your waiting entry can be withdrawn");
-        })) ?? errorResponse("Village not found")
+      // Drizzle has no multi-table UPDATE builder. STRAIGHT_JOIN keeps the village
+      // first, matching schedule/launch locks so a loaded assignment cannot revive this entry.
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${village}
+          STRAIGHT_JOIN ${kageChallenge} ON ${kageChallenge.villageId} = ${village.id}
+          SET ${village.kageScheduleVersion} = ${village.kageScheduleVersion} + 1,
+              ${kageChallenge.status} = 'CANCELLED',
+              ${kageChallenge.resolvedAt} = ${new Date()},
+              ${kageChallenge.outcome} = 'Challenger withdrew; no prestige charged'
+          WHERE ${village.id} = ${match.villageId}
+            AND ${village.type} = 'VILLAGE'
+            AND ${kageChallenge.id} = ${input.id}
+            AND ${kageChallenge.challengerId} = ${ctx.userId}
+            AND ${kageChallenge.status} IN ('QUEUED', 'SCHEDULED')
+        `),
+      );
+      // Joined writes count both changed rows rather than one queue receipt.
+      if (result.rowsAffected > 0)
+        return { success: true, message: "Withdrawn from the queue" };
+      const home = await ctx.drizzle.query.village.findFirst({
+        columns: { type: true },
+        where: eq(village.id, match.villageId),
+      });
+      return errorResponse(
+        home?.type === "VILLAGE"
+          ? "Only your waiting entry can be withdrawn"
+          : "Village not found",
       );
     }),
+  /** Move one assigned match and its followers together while retaining FIFO priority. */
   rescheduleDefense: protectedProcedure
     .input(kageMatchSchema)
     .output(baseServerResponse)
@@ -218,6 +233,7 @@ export const kageDefenseProcedures = {
         })) ?? errorResponse("Village not found")
       );
     }),
+  /** Save waiting-match AI consent using the current incumbent and invalidate acceptance on requests. */
   setDefenseAi: protectedProcedure
     .input(kageAiSchema)
     .output(baseServerResponse)
@@ -226,33 +242,54 @@ export const kageDefenseProcedures = {
         where: eq(kageChallenge.id, input.id),
       });
       if (!match) return errorResponse("Match not found");
-      return (
-        (await withKageDefense(ctx.drizzle, match.villageId, async (tx, hall) => {
-          const m = hall.rows.find((r) => r.match.id === input.id)?.match;
-          if (!m || !["QUEUED", "SCHEDULED"].includes(m.status))
-            return errorResponse("The match can no longer change combat mode");
-          const isKage = hall.village.kageId === ctx.userId;
-          if (!isKage && m.challengerId !== ctx.userId)
-            return errorResponse("Only participants can select combat mode");
-          if (isKage && input.consent && !m.aiRequested)
-            return errorResponse("The challenger must request AI combat first");
-          await tx
-            .update(kageChallenge)
-            .set(
-              isKage
-                ? { aiAccepted: input.consent }
-                : { aiRequested: input.consent, aiAccepted: false },
+      // Share the village-first atomic boundary with reconciliation and launch. Consent
+      // is checked against the locked incumbent/request, never the initial match snapshot.
+      const result = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${village}
+          STRAIGHT_JOIN ${kageChallenge} ON ${kageChallenge.villageId} = ${village.id}
+          SET ${village.kageScheduleVersion} = ${village.kageScheduleVersion} + 1,
+              ${kageChallenge.aiRequested} = IF(${village.kageId} = ${ctx.userId}, ${kageChallenge.aiRequested}, ${input.consent}),
+              ${kageChallenge.aiAccepted} = IF(${village.kageId} = ${ctx.userId}, ${input.consent}, FALSE)
+          WHERE ${village.id} = ${match.villageId}
+            AND ${village.type} = 'VILLAGE'
+            AND ${kageChallenge.id} = ${input.id}
+            AND ${kageChallenge.status} IN ('QUEUED', 'SCHEDULED')
+            AND (
+              (${village.kageId} = ${ctx.userId} AND (${!input.consent} OR ${kageChallenge.aiRequested} = TRUE))
+              OR (${kageChallenge.challengerId} = ${ctx.userId} AND ${village.kageId} != ${ctx.userId})
             )
-            .where(eq(kageChallenge.id, input.id));
-          return {
-            success: true,
-            message: input.consent
-              ? "AI preference saved; both players must agree"
-              : "Manual PvP selected",
-          };
-        })) ?? errorResponse("Village not found")
+        `),
       );
+      // The village increment also makes an unchanged preference a successful guarded write.
+      if (result.rowsAffected > 0)
+        return {
+          success: true,
+          message: input.consent
+            ? "AI preference saved; both players must agree"
+            : "Manual PvP selected",
+        };
+      // Diagnose only rejected writes; successful preference saves need no hall reload.
+      const [home, current] = await Promise.all([
+        ctx.drizzle.query.village.findFirst({
+          columns: { type: true, kageId: true },
+          where: eq(village.id, match.villageId),
+        }),
+        ctx.drizzle.query.kageChallenge.findFirst({
+          where: eq(kageChallenge.id, input.id),
+        }),
+      ]);
+      if (home?.type !== "VILLAGE") return errorResponse("Village not found");
+      if (!current || !["QUEUED", "SCHEDULED"].includes(current.status))
+        return errorResponse("The match can no longer change combat mode");
+      const isKage = home.kageId === ctx.userId;
+      if (!isKage && current.challengerId !== ctx.userId)
+        return errorResponse("Only participants can select combat mode");
+      if (isKage && input.consent && !current.aiRequested)
+        return errorResponse("The challenger must request AI combat first");
+      return errorResponse("Combat mode changed. Refresh the schedule and try again.");
     }),
+  /** Record an awake challenger's attendance within the assigned match's check-in window. */
   checkInDefense: protectedProcedure
     .input(kageMatchSchema)
     .output(baseServerResponse)
@@ -300,6 +337,7 @@ export const kageDefenseProcedures = {
         })) ?? errorResponse("Village not found")
       );
     }),
+  /** Validate the scheduled start, then preload combat and recheck admission at its atomic launch. */
   startDefense: protectedProcedure
     .input(kageMatchSchema)
     .output(kageBattleResponseSchema)
@@ -366,6 +404,8 @@ export const kageDefenseProcedures = {
       if (!admission?.success || !("match" in admission))
         return admission ?? errorResponse("Village not found");
       const m = admission.match;
+      // Combat preload runs without holding the schedule transaction; launch rechecks
+      // the tenure, slot, attendance and selected AI mode before claiming either player.
       let result: Awaited<ReturnType<typeof initiateBattle>>;
       try {
         result = await initiateBattle(
@@ -396,7 +436,7 @@ export const kageDefenseProcedures = {
     }),
 };
 
-/** Failed system admissions receive another published slot without spending the player's reschedule. */
+/** Requeue a failed system launch and its waiting followers without spending a voluntary reschedule. */
 const resetFailedLaunch = (
   client: import("@/server/db").DrizzleClient,
   id: string,
@@ -407,6 +447,8 @@ const resetFailedLaunch = (
       (r) => r.match.id === id && r.match.status === "SCHEDULED",
     );
     if (index < 0) return;
+    // A running/finished match is never reset. Waiting followers move together so a
+    // service failure preserves queue order and cannot become an attendance penalty.
     await tx
       .update(kageChallenge)
       .set({

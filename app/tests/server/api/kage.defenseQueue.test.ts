@@ -6,13 +6,13 @@ import * as combat from "@/server/api/routers/combat";
 import { updateBattle, updateKage } from "@/libs/combat/database";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 import { kageRouter } from "@/server/api/routers/kage";
-import { syncKageDefense, withinKageChallengeLimits } from "@/server/utils/kage";
+import { syncKageDefense, syncLockedKageDefense, withinKageChallengeLimits, withKageDefense } from "@/server/utils/kage";
 import { calcBattleResult } from "@/libs/combat/util";
 import type { DrizzleClient } from "@/server/db";
-import { failStatements } from "../../setup/statements";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { getKageSlots } from "@/utils/kage";
 import { insertUsers } from "../../setup/factories";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 const now = new Date("2026-10-12T12:00:00Z");
 const windows = [{ day: 2, hour: 14 }, { day: 4, hour: 14 }];
@@ -109,17 +109,136 @@ describeWithDatabase("scheduled Kage defenses", () => {
     expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("CANCELLED");
     expect((await db.query.userData.findFirst({ where: eq(userData.userId, "defender") }))?.villagePrestige).toBe(KAGE_PRESTIGE_REQUIREMENT);
   });
+  it("withdraws a waiting entry once with one joined write and rejects outsiders", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    expect(await (await callerFor(kageRouter, "second")).withdrawDefense({ id: m.id })).toEqual({ success: false, message: "Only your waiting entry can be withdrawn" });
+    const initialVersion = (await db.query.village.findFirst())!.kageScheduleVersion;
+    const challenger = await callerFor(kageRouter, "first");
+    const recorded = await recordQueries(() => challenger.withdrawDefense({ id: m.id }));
+    expect(recorded.result).toEqual({ success: true, message: "Withdrawn from the queue" });
+    expect(recorded.statements.filter((statement) => /^\s*update /i.test(statement))).toHaveLength(1);
+    expect(recorded.statements.some((statement) => /begin|start transaction|commit/i.test(statement))).toBe(false);
+    expect((await db.query.village.findFirst())!.kageScheduleVersion).toBe(initialVersion + 1);
+    expect((await challenger.withdrawDefense({ id: m.id })).success).toBe(false);
+    await syncKageDefense(db, villageId);
+    const stored = await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) });
+    expect(stored?.status).toBe("CANCELLED"); expect(stored?.resolvedAt).toEqual(now);
+    expect(stored?.outcome).toBe("Challenger withdrew; no prestige charged");
+  });
+  it("claims one concurrent withdrawal while AI saves and synchronization contend", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    const challenger = await callerFor(kageRouter, "first");
+    const [first, second] = await Promise.all([
+      challenger.withdrawDefense({ id: m.id }),
+      challenger.withdrawDefense({ id: m.id }),
+      challenger.setDefenseAi({ id: m.id, consent: true }),
+      syncKageDefense(db, villageId),
+    ]);
+    expect([first, second].filter((result) => result.success)).toHaveLength(1);
+    expect((await db.query.kageChallenge.findFirst())?.status).toBe("CANCELLED");
+  });
+  it("serializes withdrawal behind a loaded sync snapshot without resurrecting the entry", async () => {
+    const db = await getTestDatabase();
+    const challenger = await callerFor(kageRouter, "first");
+    expect((await challenger.joinDefenseQueue({ villageId })).success).toBe(true);
+    const m = (await db.query.kageChallenge.findFirst())!;
+    let markLoaded = () => {}; let resumeSync = () => {}; let markSubmitted = () => {};
+    const loaded = new Promise<void>((resolve) => { markLoaded = resolve; });
+    const resume = new Promise<void>((resolve) => { resumeSync = resolve; });
+    const submitted = new Promise<void>((resolve) => { markSubmitted = resolve; });
+    const syncing = withKageDefense(db, villageId, async (tx, hall) => {
+      markLoaded(); await resume;
+      return syncLockedKageDefense(tx, hall);
+    });
+    await loaded;
+    const withdrawing = callerForDatabase(kageRouter, "first", beforeStatements(db, kageChallenge, [async () => { markSubmitted(); }])).withdrawDefense({ id: m.id });
+    try {
+      await submitted;
+      // A queue-only write would complete here while sync still owns a stale QUEUED snapshot.
+      const pending = await Promise.race([withdrawing.then(() => false), new Promise<true>((resolve) => setTimeout(() => resolve(true), 50))]);
+      expect(pending).toBe(true);
+    } finally {
+      resumeSync(); await syncing; await withdrawing;
+    }
+    expect((await withdrawing).success).toBe(true);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("CANCELLED");
+    await syncKageDefense(db, villageId);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("CANCELLED");
+  });
   it("requires check-in near the match and mutual AI consent", async () => {
     const m = await join();
     const challenger = await callerFor(kageRouter, "first");
     const defender = await callerFor(kageRouter, "defender");
     expect((await challenger.checkInDefense({ id: m.id })).success).toBe(false);
-    expect((await defender.setDefenseAi({ id: m.id, consent: true })).success).toBe(false);
+    expect(await defender.setDefenseAi({ id: m.id, consent: true })).toEqual({ success: false, message: "The challenger must request AI combat first" });
+    expect(await (await callerFor(kageRouter, "second")).setDefenseAi({ id: m.id, consent: true })).toEqual({ success: false, message: "Only participants can select combat mode" });
     expect((await challenger.setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
     expect((await defender.setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
-    expect((await challenger.setDefenseAi({ id: m.id, consent: false })).success).toBe(true);
     const db = await getTestDatabase();
+    const version = (await db.query.village.findFirst())!.kageScheduleVersion;
+    const recorded = await recordQueries(() => defender.setDefenseAi({ id: m.id, consent: true }));
+    expect(recorded.result.success).toBe(true);
+    expect(recorded.statements.filter((statement) => /^\s*update /i.test(statement))).toHaveLength(1);
+    expect(recorded.statements.some((statement) => /begin|start transaction|commit/i.test(statement))).toBe(false);
+    expect((await db.query.village.findFirst())!.kageScheduleVersion).toBe(version + 1);
+    expect((await defender.setDefenseAi({ id: m.id, consent: false })).success).toBe(true);
+    expect((await db.query.kageChallenge.findFirst())?.aiRequested).toBe(true);
     expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(false);
+    expect((await defender.setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
+    // Repeating the challenger's request invalidates the incumbent's prior acceptance.
+    expect((await challenger.setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
+    expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(false);
+    expect((await defender.setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
+    expect((await challenger.setDefenseAi({ id: m.id, consent: false })).success).toBe(true);
+    expect((await db.query.kageChallenge.findFirst())?.aiRequested).toBe(false);
+    expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(false);
+  });
+  it("uses the incumbent at the AI write boundary after leadership changes", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    await (await callerFor(kageRouter, "first")).setDefenseAi({ id: m.id, consent: true });
+    const formerKage = callerForDatabase(kageRouter, "defender", beforeStatements(db, kageChallenge, [async () => {
+      await db.update(village).set({ kageId: "third", leaderUpdatedAt: new Date(now.getTime() + 1) }).where(eq(village.id, villageId));
+    }]));
+    expect(await formerKage.setDefenseAi({ id: m.id, consent: true })).toEqual({ success: false, message: "Only participants can select combat mode" });
+    expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(false);
+    expect((await (await callerFor(kageRouter, "third")).setDefenseAi({ id: m.id, consent: true })).success).toBe(true);
+    expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(true);
+  });
+  it("rechecks revoked AI requests and a launch claim after the initial match read", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    const challenger = await callerFor(kageRouter, "first");
+    await challenger.setDefenseAi({ id: m.id, consent: true });
+    const defender = callerForDatabase(kageRouter, "defender", beforeStatements(db, kageChallenge, [async () => {
+      await challenger.setDefenseAi({ id: m.id, consent: false });
+    }]));
+    expect(await defender.setDefenseAi({ id: m.id, consent: true })).toEqual({ success: false, message: "The challenger must request AI combat first" });
+    const launching = callerForDatabase(kageRouter, "first", beforeStatements(db, kageChallenge, [async () => {
+      await db.update(kageChallenge).set({ status: "BATTLE", aiRequested: true, aiAccepted: true }).where(eq(kageChallenge.id, m.id));
+    }]));
+    expect(await launching.setDefenseAi({ id: m.id, consent: false })).toEqual({ success: false, message: "The match can no longer change combat mode" });
+    expect((await db.query.kageChallenge.findFirst())?.aiRequested).toBe(true);
+    expect((await db.query.kageChallenge.findFirst())?.aiAccepted).toBe(true);
+  });
+  it.each(["STARTING", "BATTLE", "COMPLETED", "CANCELLED", "FORFEITED"] as const)("rejects withdrawal and AI changes for a %s match", async (status) => {
+    const m = await join(); const db = await getTestDatabase();
+    await db.update(kageChallenge).set({ status, aiRequested: true, aiAccepted: true }).where(eq(kageChallenge.id, m.id));
+    const version = (await db.query.village.findFirst())!.kageScheduleVersion;
+    const caller = await callerFor(kageRouter, "first");
+    expect(await caller.withdrawDefense({ id: m.id })).toEqual({ success: false, message: "Only your waiting entry can be withdrawn" });
+    expect(await caller.setDefenseAi({ id: m.id, consent: false })).toEqual({ success: false, message: "The match can no longer change combat mode" });
+    const stored = await db.query.kageChallenge.findFirst();
+    expect(stored?.status).toBe(status); expect(stored?.aiRequested).toBe(true); expect(stored?.aiAccepted).toBe(true);
+    expect((await db.query.village.findFirst())!.kageScheduleVersion).toBe(version);
+  });
+  it("retains missing-match and unsupported-village errors", async () => {
+    const caller = await callerFor(kageRouter, "first");
+    expect(await caller.withdrawDefense({ id: "missing" })).toEqual({ success: false, message: "Match not found" });
+    expect(await caller.setDefenseAi({ id: "missing", consent: true })).toEqual({ success: false, message: "Match not found" });
+    const m = await join(); const db = await getTestDatabase();
+    await db.update(village).set({ type: "HIDEOUT" }).where(eq(village.id, villageId));
+    expect(await caller.withdrawDefense({ id: m.id })).toEqual({ success: false, message: "Village not found" });
+    expect(await caller.setDefenseAi({ id: m.id, consent: true })).toEqual({ success: false, message: "Village not found" });
+    expect((await db.query.kageChallenge.findFirst())?.status).toBe("SCHEDULED");
   });
   it("defers hospital stays only when the scheduled match is due", async () => {
     const m = await join(); const db = await getTestDatabase();
