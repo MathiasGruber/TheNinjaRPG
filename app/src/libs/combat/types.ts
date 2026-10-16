@@ -70,6 +70,7 @@ export type CombatQueryUserItem = UserItem & {
  */
 export type CombatQueryUserJutsu = UserJutsu & {
   jutsu: Jutsu;
+  linkedReskin?: Jutsu | null;
   activeReskin?: JutsuReskin | null;
 };
 
@@ -308,6 +309,7 @@ export type BattleUserJutsu = {
   equipped: boolean;
   experience: number;
   reskinId?: string | null; // Reference to extraState.jutsuReskins[reskinId]
+  linkedReskinId?: string | null; // Cosmetic variant in extraState.jutsus
   lastUsedRound: number;
   originalCooldown: number;
   origin?: "user" | "bloodline" | "injected";

@@ -71,6 +71,7 @@ import {
 import type { TerrainHex } from "@/libs/hexgrid";
 import { getPossibleActionTiles, PathCalculator } from "@/libs/hexgrid";
 import { calcCombatHealPercentage } from "@/libs/hospital";
+import { applyLinkedJutsuReskin } from "@/libs/jutsu/reskins";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
 import { hasMasteryRequirements } from "@/libs/mastery";
 import { getSageDailyCap, getSageModeActivationCost } from "@/libs/sageMode";
@@ -763,10 +764,14 @@ export const userJutsuToAction = (
   userjutsu: BattleUserJutsu,
   battle: ReturnedBattle | CompleteBattle,
 ) => {
-  const jutsu = getJutsu(battle, userjutsu.jutsuId);
-  if (!jutsu) throw new Error(`Jutsu not found: ${userjutsu.jutsuId}`);
+  const base = getJutsu(battle, userjutsu.jutsuId);
+  if (!base) throw new Error(`Jutsu not found: ${userjutsu.jutsuId}`);
+  const jutsu = applyLinkedJutsuReskin(
+    base,
+    userjutsu.linkedReskinId ? getJutsu(battle, userjutsu.linkedReskinId) : null,
+  );
 
-  // Apply reskin if the user has one for this jutsu
+  // Personal reskins override text and images while retaining linked effect cosmetics.
   const reskin = getJutsuReskin(battle, userjutsu.reskinId);
   const name = reskin?.name || jutsu.name;
   const image = reskin?.image || jutsu.image;

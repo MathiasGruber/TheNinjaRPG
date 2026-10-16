@@ -11,6 +11,7 @@ import {
   like,
   ne,
   or,
+  type SQL,
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
@@ -2584,22 +2585,46 @@ export const fetchUserJutsus = async (
 ) => {
   // Self-join alias to get the parent jutsu's parentJutsuId (grandparent)
   const parentJutsuAlias = alias(jutsu, "parentJutsu");
-  // Grab all userJutsus with Jutsu data and reskin data
-  const userjutsus = await client
-    .select()
-    .from(userJutsu)
-    .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
-    .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
-    .leftJoin(jutsuReskin, eq(userJutsu.reskinId, jutsuReskin.id))
-    .leftJoin(parentJutsuAlias, eq(jutsu.parentJutsuId, parentJutsuAlias.id))
-    .where(
+  const linkedReskinAlias = alias(jutsu, "linkedReskinName");
+  // Use the same ordering as fetchBloodlineJutsuReskins so only the resolved
+  // variant's name matches when a group contains multiple variants of a parent.
+  const linkedReskinName = client
+    .select({ name: linkedReskinAlias.name })
+    .from(userData)
+    .innerJoin(
+      linkedReskinAlias,
       and(
-        eq(userJutsu.userId, userId),
-        ne(jutsu.jutsuType, "AI"),
-        ...jutsuDatabaseFilter(input, true),
+        eq(linkedReskinAlias.bloodlineReskinId, userData.bloodlineReskinId),
+        eq(linkedReskinAlias.bloodlineId, userData.bloodlineId),
       ),
     )
-    .orderBy(desc(userJutsu.level));
+    .where(
+      and(
+        eq(userData.userId, userId),
+        eq(linkedReskinAlias.reskinParentJutsuId, jutsu.id),
+      ),
+    )
+    .orderBy(desc(linkedReskinAlias.updatedAt), asc(linkedReskinAlias.id))
+    .limit(1);
+  // Grab all userJutsus with Jutsu data and reskin data
+  const [linkedReskins, userjutsus] = await Promise.all([
+    fetchBloodlineJutsuReskins(client, [userId]),
+    client
+      .select()
+      .from(userJutsu)
+      .innerJoin(jutsu, eq(userJutsu.jutsuId, jutsu.id))
+      .leftJoin(bloodline, eq(jutsu.bloodlineId, bloodline.id))
+      .leftJoin(jutsuReskin, eq(userJutsu.reskinId, jutsuReskin.id))
+      .leftJoin(parentJutsuAlias, eq(jutsu.parentJutsuId, parentJutsuAlias.id))
+      .where(
+        and(
+          eq(userJutsu.userId, userId),
+          ne(jutsu.jutsuType, "AI"),
+          ...jutsuDatabaseFilter(input, true, sql`(${linkedReskinName})`),
+        ),
+      )
+      .orderBy(desc(userJutsu.level)),
+  ]);
   // First map to query-format
   const unskinnedUserJutsus = userjutsus.map((result) => ({
     ...result.UserJutsu,
@@ -2608,6 +2633,11 @@ export const fetchUserJutsus = async (
       bloodline: result.Bloodline,
     },
     activeReskin: result.JutsuReskin,
+    linkedReskin:
+      linkedReskins.find(
+        (row) =>
+          row.userId === userId && row.jutsu.reskinParentJutsuId === result.Jutsu.id,
+      )?.jutsu ?? null,
     // Grandparent ID — allows frontend to walk the full ancestor chain
     parentJutsuParentId: result.parentJutsu?.parentJutsuId ?? null,
     ancestorIds: [
@@ -2621,19 +2651,47 @@ export const fetchUserJutsus = async (
     : unskinnedUserJutsus.map((userjutsu) => getReskinnedUserJutsu(userjutsu));
 };
 
+/** Load variants only for the player's selected reskin and current underlying bloodline. */
+export const fetchBloodlineJutsuReskins = async (
+  client: DrizzleClient,
+  userIds: string[],
+) => {
+  if (!userIds.length) return [];
+  return client
+    .select({ userId: userData.userId, jutsu })
+    .from(userData)
+    .innerJoin(
+      jutsu,
+      and(
+        eq(jutsu.bloodlineReskinId, userData.bloodlineReskinId),
+        eq(jutsu.bloodlineId, userData.bloodlineId),
+      ),
+    )
+    .where(inArray(userData.userId, userIds))
+    .orderBy(desc(jutsu.updatedAt), asc(jutsu.id));
+};
+
 /**
  * Build the DB filtering array, including new EXCLUSIONS.
  */
 export const jutsuDatabaseFilter = (
   input?: JutsuFilteringSchema,
   includeHidden = false,
+  additionalName?: SQL,
 ) => {
   return [
     // -----------------------------
     // Existing "include" conditions
     // -----------------------------
     ...(input?.name
-      ? [like(sql`LOWER(${jutsu.name})`, `%${input.name.toLowerCase()}%`)]
+      ? [
+          or(
+            like(sql`LOWER(${jutsu.name})`, `%${input.name.toLowerCase()}%`),
+            additionalName
+              ? like(sql`LOWER(${additionalName})`, `%${input.name.toLowerCase()}%`)
+              : undefined,
+          ),
+        ]
       : []),
     ...(input?.bloodline ? [eq(jutsu.bloodlineId, input.bloodline)] : []),
     ...(input?.jutsuType ? [inArray(jutsu.jutsuType, input.jutsuType)] : []),

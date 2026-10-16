@@ -12,6 +12,7 @@ import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import {
   aiProfile,
   battle,
+  bloodlineReskin,
   item,
   itemLoadout,
   jutsu,
@@ -181,6 +182,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       aiProfile,
       userJutsu,
       jutsuReskin,
+      bloodlineReskin,
       jutsuLoadout,
       jutsu,
       userItem,
@@ -230,6 +232,38 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       expect(newBattle.usersState[0]!.offence).toBeCloseTo(current.usersState[0]!.offence);
       expect(newBattle.usersState[0]!.strength).toBeCloseTo(current.usersState[0]!.strength);
     }
+  });
+
+  it("preloads linked bloodline cosmetics and retains them after a lobby loadout switch", async () => {
+    const { raw, essentials } = await seedLobby();
+    const db = await getTestDatabase();
+    await db.insert(bloodlineReskin).values({ id: "scarlet", bloodlineId: "blood", name: "Scarlet", description: "Scarlet", image: "", createdBy: USER });
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "scarlet" }).where(eq(userData.userId, USER));
+    await db.update(jutsu).set({ bloodlineId: "blood", jutsuType: "BLOODLINE" }).where(eq(jutsu.id, "usable"));
+    const parent = await db.query.jutsu.findFirst({ where: eq(jutsu.id, "usable") });
+    if (!parent) throw new Error("Missing usable jutsu");
+    await db.insert(jutsu).values({ ...parent, id: "scarlet-jutsu", name: "Scarlet cast", reskinParentJutsuId: "usable", bloodlineReskinId: "scarlet", hidden: true, jutsuRank: "H" });
+    // Battle initialization receives relational rows without resolved variants.
+    const owned = await db.query.userJutsu.findMany({ where: eq(userJutsu.userId, USER), with: { jutsu: true } });
+    const processed = await processUsersForBattle(db, {
+      users: [{ ...raw, bloodlineId: "blood", bloodlineReskinId: "scarlet", jutsus: owned.filter((row) => row.equipped) }],
+      ...essentials, wars: essentials.activeWars, battleType: "COMBAT", hide: false, isSummon: false, width: 13, height: 9,
+    });
+    await db.update(battle).set({ usersState: processed.usersState, extraState: processed.extraState }).where(eq(battle.id, BATTLE));
+    const assertCosmetics = async () => {
+      const stored = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
+      if (!stored) throw new Error("Missing battle");
+      const ref = stored.usersState[0]?.jutsus.find((row) => row.jutsuId === "usable");
+      if (!ref) throw new Error("Missing learned jutsu");
+      expect(ref.linkedReskinId).toBe("scarlet-jutsu");
+      expect(userJutsuToAction(ref, stored)).toMatchObject({ id: "usable", name: "Scarlet cast" });
+      expect(stored.extraState.jutsus.usable?.name).toBe("Usable");
+    };
+    await assertCosmetics();
+    const result = await (await callerFor(combatRouter, USER)).updateCombatLoadout({ battleId: BATTLE, jutsuLoadoutId: "new-jutsus" });
+    expect(result.success).toBe(true);
+    await assertCosmetics();
+    expect(await equippedIds()).toEqual(["usable"]);
   });
 
   it("preserves the initiating team and its faction credit when the initiator changes loadout", async () => {

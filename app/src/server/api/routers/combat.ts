@@ -231,6 +231,7 @@ import {
   selectItemLoadout,
 } from "@/server/api/routers/item";
 import {
+  fetchBloodlineJutsuReskins,
   fetchJutsuLoadouts,
   fetchUserJutsus,
   selectJutsuLoadout,
@@ -3814,6 +3815,25 @@ export const processUsersForBattle = async (
     width,
     height,
   } = info;
+  // Snapshot owner-specific variants before building battle state. Action processing
+  // subsequently resolves cosmetics entirely from extraState, without database reads.
+  const linkedJutsuReskins = await fetchBloodlineJutsuReskins(
+    client,
+    users
+      .filter((user) => !user.isAi && user.bloodlineReskinId)
+      .map((user) => user.userId),
+  );
+  for (const user of users) {
+    user.jutsus = user.jutsus.map((owned) => ({
+      ...owned,
+      linkedReskin:
+        linkedJutsuReskins.find(
+          (row) =>
+            row.userId === user.userId &&
+            row.jutsu.reskinParentJutsuId === owned.jutsuId,
+        )?.jutsu ?? null,
+    }));
+  }
   // Collect user effects here
   const allSummons: string[] = [];
   const userEffects: UserEffect[] = [];
@@ -4608,6 +4628,7 @@ export const processUsersForBattle = async (
   for (const user of usersState) {
     // Add jutsus
     for (const uj of user.jutsus) {
+      if (uj.linkedReskin) extraState.jutsus[uj.linkedReskin.id] = uj.linkedReskin;
       if (uj.jutsu && !extraState.jutsus[uj.jutsuId]) {
         extraState.jutsus[uj.jutsuId] = uj.jutsu;
       }
@@ -4704,6 +4725,7 @@ export const processUsersForBattle = async (
       lastUsedRound: uj.lastUsedRound ?? -(uj.jutsu?.cooldown ?? 0),
       originalCooldown: uj.originalCooldown ?? uj.jutsu?.cooldown ?? 0,
       reskinId: uj.reskinId ?? null,
+      linkedReskinId: uj.linkedReskin?.id ?? null,
     }));
 
     // Convert items to reference format

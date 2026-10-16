@@ -3,7 +3,7 @@ import { beforeEach, expect, it, setSystemTime } from "bun:test";
 import { actionLog, bloodlineReskin, contentProposal, contentProposalBasis, item, jutsu, userData, userJutsu } from "@/drizzle/schema";
 import { loadEntities, entityKey } from "@/libs/contentReview/entities";
 import { bloodlineRouter } from "@/server/api/routers/bloodline";
-import { jutsuRouter } from "@/server/api/routers/jutsu";
+import { fetchUserJutsus, jutsuRouter } from "@/server/api/routers/jutsu";
 import type { DrizzleClient } from "@/server/db";
 import { DamageTag, JutsuValidator } from "@/validators/combat";
 import { insertItems, insertUsers } from "../../setup/factories";
@@ -54,6 +54,68 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
       range: 1, target: "OTHER_USER", requiredRank: "GENIN", jutsuType: "BLOODLINE", bloodlineId: "blood", hidden: true,
     });
     await db.insert(bloodlineReskin).values({ id: "group", bloodlineId: "blood", name: "Scarlet", description: "Scarlet", image: "/scarlet.png", createdBy: "staff" });
+  });
+
+  it("resolves only the selected bloodline's cosmetics onto learned base jutsu", async () => {
+    const id = await createChild();
+    const db = await getTestDatabase();
+    await db.update(jutsu).set({ hidden: false, jutsuRank: "C" }).where(eq(jutsu.id, "parent"));
+    await db.update(jutsu).set({ name: "Scarlet attack", effects: [DamageTag.parse({ power: 999, staticAnimation: "scarlet" })] }).where(eq(jutsu.id, id));
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "group", rank: "GENIN" }).where(eq(userData.userId, "player"));
+    await db.insert(userJutsu).values({ id: "learned", userId: "player", jutsuId: "parent", level: 8 });
+    const [resolved] = await fetchUserJutsus(db, "player");
+    expect(resolved).toMatchObject({ id: "learned", jutsuId: "parent", level: 8, jutsu: { id: "parent", name: "Scarlet attack", hidden: false, jutsuRank: "C" } });
+    expect(resolved?.jutsu.effects[0]).toMatchObject({ power: 4, staticAnimation: "scarlet" });
+    const [snapshot] = await fetchUserJutsus(db, "player", undefined, { applyReskins: false });
+    expect(snapshot?.jutsu.name).toBe("Parent");
+    expect(snapshot?.linkedReskin?.id).toBe(id);
+    // Choosing a cosmetic grants neither a new jutsu nor access to another bloodline.
+    expect(await fetchUserJutsus(db, "staff")).toHaveLength(0);
+    await db.update(userData).set({ bloodlineId: "other" }).where(eq(userData.userId, "player"));
+    expect((await fetchUserJutsus(db, "player"))[0]?.linkedReskin).toBeNull();
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: null }).where(eq(userData.userId, "player"));
+    expect((await fetchUserJutsus(db, "player"))[0]?.jutsu.name).toBe("Parent");
+  });
+
+  it("searches linked names and retains base-name filtering for unlinked jutsu", async () => {
+    const id = await createChild();
+    const db = await getTestDatabase();
+    await db.update(jutsu).set({ name: "Scarlet attack" }).where(eq(jutsu.id, id));
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "group" }).where(eq(userData.userId, "player"));
+    await db.insert(jutsu).values({ ...await read("parent"), id: "unlinked", name: "Plain attack", bloodlineId: null });
+    await db.insert(userJutsu).values([
+      { id: "learned-parent", userId: "player", jutsuId: "parent" },
+      { id: "learned-plain", userId: "player", jutsuId: "unlinked" },
+    ]);
+    for (const name of ["sCaRlEt", "Scarlet attack", "Scar%attack"]) {
+      const found = await fetchUserJutsus(db, "player", { name });
+      expect(found.map((owned) => owned.jutsuId)).toEqual(["parent"]);
+      expect(found[0]?.jutsu.name).toBe("Scarlet attack");
+    }
+    expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+    expect((await fetchUserJutsus(db, "player", { name: "pLaIn" })).map((owned) => owned.jutsuId)).toEqual(["unlinked"]);
+    expect(await fetchUserJutsus(db, "player", { name: "missing" })).toEqual([]);
+    expect(await fetchUserJutsus(db, "player", { name: "Scarlet", jutsuType: ["NORMAL"] })).toEqual([]);
+    await db.update(userData).set({ bloodlineReskinId: null }).where(eq(userData.userId, "player"));
+    expect(await fetchUserJutsus(db, "player", { name: "Scarlet" })).toEqual([]);
+    expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+  });
+
+  it("searches only the selected variant when a group has multiple variants of one parent", async () => {
+    const db = await getTestDatabase();
+    const template = await read(await createChild());
+    const updatedAt = new Date("2026-01-01T00:00:00Z");
+    await db.update(jutsu).set({ name: "Older variant", updatedAt: new Date(updatedAt.getTime() - 1000) }).where(eq(jutsu.id, template.id));
+    await db.insert(jutsu).values([
+      { ...template, id: "variant-a", name: "Selected variant", updatedAt },
+      { ...template, id: "variant-b", name: "Unselected variant", updatedAt },
+    ]);
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "group" }).where(eq(userData.userId, "player"));
+    await db.insert(userJutsu).values({ id: "learned-parent", userId: "player", jutsuId: "parent" });
+    expect((await fetchUserJutsus(db, "player"))[0]?.jutsu.name).toBe("Selected variant");
+    expect((await fetchUserJutsus(db, "player", { name: "Selected variant" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+    expect(await fetchUserJutsus(db, "player", { name: "Older variant" })).toEqual([]);
+    expect(await fetchUserJutsus(db, "player", { name: "Unselected variant" })).toEqual([]);
   });
 
   it("copies mechanics on creation and parent updates while preserving H rank and cosmetics", async () => {

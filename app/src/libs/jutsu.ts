@@ -22,6 +22,7 @@ import {
   RANKED_LOADOUT_MAX_SUMMON_JUTSUS,
 } from "@/drizzle/constants";
 import type { Jutsu, UserJutsuWithRelations } from "@/drizzle/schema";
+import { applyLinkedJutsuReskin } from "@/libs/jutsu/reskins";
 import type { MasteryStatSource } from "@/libs/mastery";
 import { calcJutsuEquipLimit, canUseJutsu } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
@@ -369,12 +370,19 @@ export const computeJutsuLoadoutAssignments = (args: {
  * @param userJutsu
  * @returns
  */
-export const getReskinnedUserJutsu = <T extends UserJutsuWithRelations>(
+export const getReskinnedUserJutsu = <
+  T extends UserJutsuWithRelations & { linkedReskin?: Jutsu | null },
+>(
   userJutsu: T,
 ): T => {
+  userJutsu = {
+    ...userJutsu,
+    jutsu: applyLinkedJutsuReskin(userJutsu.jutsu, userJutsu.linkedReskin),
+  };
   if (!userJutsu.activeReskin) {
     return userJutsu;
   }
+  // Personal reskins override text and images; linked variants supply effect cosmetics.
   return {
     ...userJutsu,
     jutsu: {

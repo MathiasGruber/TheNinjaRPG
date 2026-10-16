@@ -1,6 +1,27 @@
 import type { Jutsu } from "@/drizzle/schema";
 import type { ZodAllTags, ZodJutsuType } from "@/validators/combat";
 
+/** Apply only cosmetics; ownership, eligibility, progression and mechanics stay on the base. */
+export const applyLinkedJutsuReskin = <T extends Jutsu>(
+  base: T,
+  reskin?: Jutsu | null,
+): T => {
+  if (
+    !reskin ||
+    reskin.reskinParentJutsuId !== base.id ||
+    reskin.bloodlineId !== base.bloodlineId
+  )
+    return base;
+  return {
+    ...base,
+    name: reskin.name,
+    image: reskin.image,
+    description: reskin.description,
+    battleDescription: reskin.battleDescription,
+    effects: inheritJutsuReskinEffects(base.effects, reskin.effects),
+  };
+};
+
 /**
  * Shared by the editor preview and authoritative server saves. Operational flags,
  * identity, cosmetics and links stay local; all other fields inherit by default,
