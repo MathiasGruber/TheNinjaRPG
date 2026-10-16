@@ -207,11 +207,11 @@ import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
-import { isActiveEventEntrant } from "@/libs/tournament/events";
 import {
   getTimedRegenerationGain,
   getTimedRegenerationPeriods,
 } from "@/libs/timedBuffs";
+import { isActiveEventEntrant } from "@/libs/tournament/events";
 import {
   applyMasteryTrainingGains,
   calcJutsuEquipLimit,

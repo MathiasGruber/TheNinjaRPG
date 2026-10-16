@@ -1337,6 +1337,28 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
               const result = schema.safeParse(effect);
               const parsedEffect = result.success ? result.data : undefined;
 
+              if (
+                parsedEffect?.type === "noncombatconsumereward" &&
+                parsedEffect.rewardMode === "weightedCache" &&
+                parsedEffect.weightedCache
+              ) {
+                const cache = parsedEffect.weightedCache;
+                return (
+                  <div key={effect.type + i.toString()} className="my-2 rounded-lg p-2">
+                    <b>{cache.displayName}</b>
+                    <p>Open to receive item rewards.</p>
+                    <p>
+                      {cache.rolls
+                        .map(
+                          (roll) =>
+                            `${roll.count} roll${roll.count === 1 ? "" : "s"}: ${roll.probability / 100}%`,
+                        )
+                        .join("; ")}
+                    </p>
+                  </div>
+                );
+              }
+
               // Include the configured target of selective effects in descriptions.
               const getEffectDescription = () => {
                 if (

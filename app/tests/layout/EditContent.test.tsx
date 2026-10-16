@@ -1,15 +1,18 @@
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
-const { cleanup, fireEvent, render, waitFor } = await import("@testing-library/react");
+const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import type { Item } from "@/drizzle/schema";
 import { RewardEditor } from "@/layout/RewardEditor";
 import { ObjectiveReward } from "@/validators/rewards";
 import {
   DamageTag,
+  NonCombatConsumeRewardTag,
   HealTag,
   JutsuValidatorRawSchema,
+  ItemValidator,
   type ZodAllTags,
 } from "@/validators/combat";
 
@@ -20,7 +23,7 @@ const save = vi.fn(async (_input: { id: string; data: { effects: ZodAllTags[] } 
 const pending = vi.fn();
 const toast = vi.fn();
 const names = { useQuery: () => ({ data: [] }) };
-const update = { useMutation: () => ({ mutateAsync: save }) };
+const update: { useMutation: () => { mutateAsync: (...args: Parameters<typeof save>) => ReturnType<typeof save>; isPending?: boolean } } = { useMutation: () => ({ mutateAsync: save }) };
 
 vi.mock("@/app/_trpc/client", () => ({
   api: {
@@ -51,6 +54,7 @@ vi.mock("@radix-ui/react-use-size", () => ({
 }));
 
 const { MassEffectEditor, EffectFormWrapper } = await import("@/layout/EditContent");
+const { useItemEditForm } = await import("@/hooks/item");
 
 beforeEach(() => {
   ensureDom();
@@ -296,7 +300,7 @@ const CoordinateDraftForm = () => {
   );
 };
 
-describe("coordinate effect drafts", () => {
+describe("effect drafts", () => {
   const globals = [
     "Event",
     "CustomEvent",
@@ -418,4 +422,161 @@ describe("coordinate effect drafts", () => {
       );
     },
   );
+const CacheDraftForm = () => {
+  const [effects, setEffects] = useState<ZodAllTags[]>([
+    NonCombatConsumeRewardTag.parse({ reward_money: 17, rewardMode: "weightedCache", weightedCache: {
+      version: 1, displayName: "Pill Cache", rolls: [{ count: 1, probability: 5000 }, { count: 2, probability: 5000 }],
+      tiers: [{ name: "Common", probability: 10_000, entries: [{ items: [{ itemId: "pill", quantity: 2 }] }] }],
+    } }),
+  ]);
+  return <>
+    <EffectFormWrapper type="item" idx={0} tag={effects[0]!} effects={effects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} />
+    <button type="button" onClick={() => { if (NonCombatConsumeRewardTag.safeParse(effects[0]).success) void save({ id: "cache", data: { effects } }); }}>Save cache effects</button>
+  </>;
+};
+
+describe("weighted cache effect drafts", () => {
+  beforeEach(() => {
+    vi.spyOn(names, "useQuery").mockReturnValue({ data: [{ id: "pill", name: "Chakra Pill" }] } as never);
+  });
+  afterEach(() => vi.restoreAllMocks());
+  it("propagates invalid probability totals to the parent and allows correction", async () => {
+    const view = render(<CacheDraftForm />);
+    const probabilities = view.getAllByRole("spinbutton", { name: "Probability (%)" });
+    fireEvent.input(probabilities[0]!, { target: { value: "49" } });
+    await waitFor(() => expect(view.getByText("Roll probability total: 99% / 100%")).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.input(probabilities[0]!, { target: { value: "50" } });
+    await waitFor(() => expect(view.getByText("Roll probability total: 100% / 100%")).toBeTruthy());
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ reward_money: 17, weightedCache: { displayName: "Pill Cache" } });
+  });
+  it("retains a blank quantity draft instead of silently saving the previous quantity", async () => {
+    const view = render(<CacheDraftForm />);
+    fireEvent.input(view.getByRole("spinbutton", { name: /quantity/ }), { target: { value: "" } });
+    fireEvent.click(view.getByRole("button", { name: "Save cache effects" }));
+    expect(save).not.toHaveBeenCalled();
+    await waitFor(() => expect(view.getByRole("alert").textContent).toBe("Common · Entry 1 · Item 1: Enter a valid number"));
+  });
+
+  it("locks cache controls and closes an open item picker throughout a pending save", async () => {
+    let finishSave: (value: { success: boolean; message: string }) => void;
+    save.mockImplementationOnce(() => new Promise((resolve) => { finishSave = resolve; }));
+    vi.spyOn(update, "useMutation").mockImplementation(() => {
+      const [isPending, setIsPending] = useState(false);
+      return { isPending, mutateAsync: async (input: Parameters<typeof save>[0]) => {
+        setIsPending(true);
+        try { return await save(input); }
+        finally { setIsPending(false); }
+      } };
+    });
+    const view = render(<ItemCacheDraftForm />);
+    fireEvent.change(view.getByRole("textbox", { name: "Cache display name" }), { target: { value: "Saved Cache" } });
+    const picker = view.container.querySelector<HTMLElement>('[role="combobox"][aria-disabled]')!;
+    fireEvent.click(picker);
+    expect(await view.findByPlaceholderText("Search ...")).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(view.getByRole("combobox", { name: "Reward mode" }).matches(":disabled")).toBe(true);
+    const editor = view.getByRole("region", { name: "Weighted Cache editor" });
+    for (const control of editor.querySelectorAll("input, button")) expect(control.matches(":disabled")).toBe(true);
+    expect(picker.getAttribute("aria-disabled")).toBe("true");
+    await waitFor(() => expect(view.queryByPlaceholderText("Search ...")).toBeNull());
+    fireEvent.click(picker);
+    expect(view.queryByPlaceholderText("Search ...")).toBeNull();
+    await act(async () => finishSave!({ success: true, message: "Saved" }));
+    await waitFor(() => expect(view.getByRole("combobox", { name: "Reward mode" }).matches(":disabled")).toBe(false));
+    expect((view.getByRole("textbox", { name: "Cache display name" }) as HTMLInputElement).value).toBe("Saved Cache");
+  });
+
+  it("reveals a hidden invalid cache on failed save and repairs it without changing Standard mode", async () => {
+    const view = render(<ItemCacheDraftForm />);
+    fireEvent.input(view.getByRole("spinbutton", { name: /quantity/ }), { target: { value: "" } });
+    fireEvent.click(view.getByRole("combobox", { name: "Reward mode" }));
+    fireEvent.click(await view.findByRole("option", { name: "Standard rewards" }));
+    const inactive = view.getByText("Inactive Weighted Cache · Needs attention").closest("details")!;
+    expect(inactive.open).toBe(false);
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Reward mode"));
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(inactive.open).toBe(true));
+    const error = view.getByRole("alert");
+    await waitFor(() => expect(document.activeElement === error).toBe(true));
+    expect(error.textContent).toBe("Common · Entry 1 · Item 1: Enter a valid number");
+    expect(toast).toHaveBeenCalledWith({ success: false, message: `Cannot save. ${error.textContent}` });
+    expect(save).not.toHaveBeenCalled();
+    const quantity = within(inactive).getByRole("spinbutton", { name: /quantity/ }) as HTMLInputElement;
+    expect(quantity.value).toBe("");
+    fireEvent.input(quantity, { target: { value: "3" } });
+    await waitFor(() => expect(view.queryByText("Inactive Weighted Cache · Needs attention")).toBeNull());
+    expect(view.getByRole("combobox", { name: "Reward mode" }).textContent).toBe("Standard rewards");
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ rewardMode: "standard", reward_money: 17, weightedCache: { tiers: [{ entries: [{ items: [{ itemId: "pill", quantity: 3 }] }] }] } });
+  });
+
+  it("keeps incomplete inactive probability totals saveable without a repair section", async () => {
+    const view = render(<ItemCacheDraftForm />);
+    fireEvent.input(view.getAllByRole("spinbutton", { name: "Probability (%)" })[0]!, { target: { value: "49" } });
+    fireEvent.click(view.getByRole("combobox", { name: "Reward mode" }));
+    fireEvent.click(await view.findByRole("option", { name: "Standard rewards" }));
+    expect(view.queryByText("Inactive Weighted Cache · Needs attention")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ rewardMode: "standard", weightedCache: { rolls: [{ count: 1, probability: 4900 }, { count: 2, probability: 5000 }] } });
+  });
+
+  it("reveals and replaces missing rewards in a saved Standard cache without enforcing active totals", async () => {
+    vi.spyOn(names, "useQuery").mockReturnValue({ data: [{ id: "replacement", name: "Replacement Pill" }] } as never);
+    const effect = NonCombatConsumeRewardTag.parse({ ...cacheItem.effects[0], rewardMode: "standard" });
+    effect.weightedCache!.rolls[0]!.probability = 4900;
+    const view = render(<ItemCacheDraftForm item={{ ...cacheItem, effects: [effect] }} />);
+    const inactive = view.getByText("Inactive Weighted Cache · Needs attention").closest("details")!;
+    expect(inactive.open).toBe(false);
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(inactive.open).toBe(true));
+    const error = view.getByRole("alert");
+    expect(error.textContent).toBe("Common · Entry 1 · Item 1: Remove or replace missing item: pill");
+    expect(document.activeElement).toBe(error);
+    expect(toast).toHaveBeenCalledWith({ success: false, message: `Cannot save. ${error.textContent}` });
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(within(inactive).getByRole("combobox"));
+    fireEvent.click(await view.findByRole("option", { name: "Replacement Pill" }));
+    fireEvent.click(view.getByRole("button", { name: "Remove pill" }));
+    await waitFor(() => expect(view.queryByText("Inactive Weighted Cache · Needs attention")).toBeNull());
+    expect(view.getByRole("combobox", { name: "Reward mode" }).textContent).toBe("Standard rewards");
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ rewardMode: "standard", reward_money: 17, weightedCache: { rolls: [{ count: 1, probability: 4900 }, { count: 2, probability: 5000 }], tiers: [{ entries: [{ items: [{ itemId: "replacement", quantity: 1 }] }] }] } });
+  });
+});
+
+const cacheItem = {
+  ...ItemValidator.parse({
+    name: "Cache item", image: "cache.webp", description: "Cache", battleDescription: "",
+    stackSize: 10, chakraCost: 0, healthCost: 0, staminaCost: 0,
+    healthCostReducePerLvl: 0, chakraCostReducePerLvl: 0, staminaCostReducePerLvl: 0,
+    actionCostPerc: 100, maxImbueNumber: 1, maxDurability: 100, hidden: false,
+    cooldown: 0, cost: 1, repsCost: 0, seichiSilverCost: 0, range: 0, maxEquips: 0,
+    method: "SINGLE", target: "SELF", itemType: "CONSUMABLE", weaponType: "NONE",
+    destroyOnUse: true, preventBattleUsage: true,
+    rarity: "COMMON", slot: "NONE", expireFromStoreAt: null, bloodlineId: null,
+    farmYieldItemId: null, farmExtractSeedItemId: null, crystalTargetTypes: null,
+    effects: [NonCombatConsumeRewardTag.parse({ reward_money: 17, rewardMode: "weightedCache", weightedCache: {
+      version: 1, displayName: "Pill Cache", rolls: [{ count: 1, probability: 5000 }, { count: 2, probability: 5000 }],
+      tiers: [{ name: "Common", probability: 10_000, entries: [{ items: [{ itemId: "pill", quantity: 2 }] }] }],
+    } })],
+  }),
+  id: "cache", craftingRequirements: [],
+} as unknown as Item & { craftingRequirements: [] };
+
+const ItemCacheDraftForm = ({ item = cacheItem }: { item?: typeof cacheItem }) => {
+  const { effects, setEffects, handleItemSubmit, isUpdating } = useItemEditForm(item, async () => undefined);
+  const validEffects = (effects?.filter((effect): effect is ZodAllTags => effect !== undefined) ?? []) as ZodAllTags[];
+  return <>
+    <EffectFormWrapper type="item" idx={0} tag={validEffects[0]!} effects={validEffects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} submitLoading={isUpdating} />
+    <button type="button" onClick={() => void handleItemSubmit()}>Save item</button>
+  </>;
+};
 });

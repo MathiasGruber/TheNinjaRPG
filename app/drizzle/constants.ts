@@ -3734,3 +3734,12 @@ export const EVENT_TOURNAMENT_RETENTION_DAYS = 30;
 export const EVENT_TOURNAMENT_MAX_CAPACITY = 64;
 export const EVENT_TOURNAMENT_MIN_CAPACITY = 8;
 export const EVENT_TOURNAMENT_LAUNCH_RECOVERY_SECONDS = 120;
+
+/** Weighted-cache probabilities use integer basis points (100 units = 1%). */
+export const CACHE_PROBABILITY_TOTAL = 10_000;
+export const CACHE_MAX_ROLLS = 20;
+export const CACHE_MAX_TIERS = 20;
+export const CACHE_MAX_ENTRIES = 50;
+export const CACHE_MAX_BUNDLE_ITEMS = 10;
+export const CACHE_MAX_QUANTITY = 100;
+export const CACHE_MAX_GRANTED_ITEMS = 2_000;

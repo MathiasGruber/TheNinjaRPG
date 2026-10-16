@@ -3,6 +3,10 @@ import { join } from "node:path";
 import { waitFor } from "@testing-library/react";
 import { MutationObserver, type MutationObserverOptions, QueryClient, QueryObserver, type QueryObserverOptions } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "bun:test";
+import type { z } from "zod";
+import { finishItemConsumeRequest } from "@/libs/itemConsumption";
+import { isRetryableTrpcError } from "@/utils/error";
+import type { consumeItemInputSchema } from "@/validators/cooking";
 
 const sourceRoot = join(import.meta.dirname, "../../src");
 const read = (file: string) => readFileSync(join(sourceRoot, file), "utf8");
@@ -56,7 +60,7 @@ describe("inventory pages", () => {
       (value: boolean) => { isOpen = value; },
       (value: unknown) => { selected = value; },
     );
-    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", `return (${callbacks});`)(
+    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", `return (${callbacks});`)(
       {
         profile: { getUser: { invalidate: () => client.invalidateQueries({ queryKey: ["profile"] }) } },
         item: { getUserItemsWithVariants: { invalidate: () => client.invalidateQueries({ queryKey: ["inventory"] }) } },
@@ -65,7 +69,9 @@ describe("inventory pages", () => {
       toast,
       vi.fn(),
       onSettled,
-    ) as MutationObserverOptions<{ success: boolean; message: string }, Error, void>;
+      finishItemConsumeRequest,
+      { userId: "user" },
+    ) as MutationObserverOptions<{ success: boolean; message: string }, Error, z.input<typeof consumeItemInputSchema>>;
     const consume = new MutationObserver(client, { ...options, mutationFn: async () => ({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" }) });
     try {
       await waitFor(() => expect(inventory.getCurrentResult().data).toBe(3));
@@ -74,7 +80,7 @@ describe("inventory pages", () => {
       quantity = 2;
       activeMeal = "Rice Bowl";
       document.body.style.cursor = "wait";
-      await consume.mutate();
+      await consume.mutate({ userItemId: "meal-stack", expectedQuantity: 3 });
 
       expect(toast).toHaveBeenCalledWith({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" });
       expect(inventory.getCurrentResult().data).toBe(2);
@@ -89,6 +95,44 @@ describe("inventory pages", () => {
       client.clear();
     }
   });
+
+  for (const file of ["app/[shell]/items/page.tsx", "app/[shell]/travel/page.tsx"]) {
+    it.each([
+      { message: "Internal server error", cache: true, expected: undefined },
+      { message: "Invalid input", cache: false, expected: undefined },
+      { message: "Failed to fetch", cache: true, expected: "Could not confirm item use. Try Consume again to check the opening." },
+      { message: "Failed to fetch", cache: false, expected: "Could not confirm item use. Refresh your inventory to check the result." },
+    ])(`${file} handles $message for cache: $cache without duplicating global error feedback`, async ({ message, cache, expected }) => {
+      const source = read(file);
+      const callbacks = source.match(/api\.item\.consume\.useMutation\((\{[\s\S]*?\n  \})\);/)?.[1];
+      if (!callbacks) throw new Error("Consume callbacks were not found");
+      const toast = vi.fn();
+      let isOpen = true;
+      let selected: unknown = { item: { itemType: cache ? "CONSUMABLE" : "MEAL", effects: cache ? [{ type: "noncombatconsumereward", rewardMode: "weightedCache" }] : [] } };
+      const setIsOpen = (value: boolean) => { isOpen = value; };
+      const setUserItem = (value: unknown) => { selected = value; };
+      const settled = source.split("const Backpack:")[1]?.match(/const onSettled = (\(\) => \{[\s\S]*?\n  \});/)?.[1];
+      const onSettled = settled ? new Function("setIsOpen", "setUserItem", `return (${settled});`)(setIsOpen, setUserItem) : undefined;
+      const options = new Function("showMutationToast", "isRetryableTrpcError", "useritem", "onSettled", "setIsOpen", "setUserItem", `return (${callbacks});`)(
+        toast, isRetryableTrpcError, selected, onSettled, setIsOpen, setUserItem,
+      ) as MutationObserverOptions<never, Error, z.input<typeof consumeItemInputSchema>>;
+      const client = new QueryClient();
+      const error = new Error(message);
+      const consume = new MutationObserver(client, { ...options, mutationFn: async () => { throw error; } });
+      try {
+        await expect(consume.mutate({ userItemId: "selected-item" })).rejects.toBe(error);
+        if (expected) {
+          expect(toast).toHaveBeenCalledTimes(1);
+          expect(toast).toHaveBeenCalledWith({ success: false, message: expected });
+        } else expect(toast).not.toHaveBeenCalled();
+        expect(consume.getCurrentResult().isPending).toBe(false);
+        expect(isOpen).toBe(false);
+        expect(selected).toBeUndefined();
+      } finally {
+        client.clear();
+      }
+    });
+  }
 
   for (const { file, procedure } of inventoryQueries) {
     it(`${file} shows items obtained since its last visit`, async () => {

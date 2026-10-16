@@ -68,6 +68,10 @@ import {
   showsItemLevelBadge,
   userItemActionBadges,
 } from "@/libs/item";
+import {
+  finishItemConsumeRequest,
+  getItemConsumeRequestId,
+} from "@/libs/itemConsumption";
 import { gearMissingMastery } from "@/libs/mastery";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
@@ -75,6 +79,7 @@ import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { hasRequiredLevel, remainingXpToLevel } from "@/libs/train";
 import { getVillageLoyaltyShopCost } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
+import { isRetryableTrpcError } from "@/utils/error";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { displayCostType } from "@/validators/item";
 
@@ -856,9 +861,18 @@ const Backpack: React.FC<BackpackProps> = (props) => {
   });
 
   const { mutate: consume, isPending: isConsuming } = api.item.consume.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: async (data, variables) => {
+      finishItemConsumeRequest(userData?.userId ?? "", variables.userItemId);
       if (data.success && "rewards" in data && data.rewards) {
-        showRewardToast(data.notifications, data.rewards, data.message, false);
+        showRewardToast(
+          data.notifications,
+          data.rewards,
+          data.message,
+          false,
+          undefined,
+          undefined,
+          data.cacheRewards,
+        );
       } else {
         let message = data.message || "Consume failed";
         if ("notifications" in data && data.notifications) {
@@ -882,6 +896,21 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           utils.item.getUserItemsWithVariants.invalidate(),
         ]);
       }
+    },
+    onError: (error) => {
+      // Transport failures are suppressed globally; server rejections already show a toast.
+      if (!isRetryableTrpcError(error)) return;
+      const isCache = useritem?.item.effects.some(
+        (effect) =>
+          effect.type === "noncombatconsumereward" &&
+          effect.rewardMode === "weightedCache",
+      );
+      showMutationToast({
+        success: false,
+        message: isCache
+          ? "Could not confirm item use. Try Consume again to check the opening."
+          : "Could not confirm item use. Refresh your inventory to check the result.",
+      });
     },
     onSettled,
   });
@@ -1214,6 +1243,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                     consume({
                       userItemId: useritem.id,
                       expectedQuantity: useritem.quantity,
+                      requestId: getItemConsumeRequestId(
+                        userData?.userId ?? "",
+                        useritem.id,
+                      ),
                     })
                   }
                 >

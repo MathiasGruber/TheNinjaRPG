@@ -24,6 +24,7 @@ import { z } from "zod";
 import type { ItemSlot } from "@/drizzle/constants";
 import {
   ANBU_ITEMSHOP_DISCOUNT_PERC,
+  CACHE_MAX_GRANTED_ITEMS,
   DURABILITY_MAX_DEFAULT,
   EVOLUTION_MAX_CHILDREN,
   HomeTypeDetails,
@@ -36,6 +37,7 @@ import {
   TUTORIAL_ITEM_ID,
 } from "@/drizzle/constants";
 import type {
+  Item,
   ItemLoadout,
   UserData,
   UserItem,
@@ -124,6 +126,13 @@ import {
   getVillageLoyaltyBonuses,
   getVillageLoyaltyShopCost,
 } from "@/libs/villageLoyalty";
+import {
+  CACHE_RESTRICTED_REWARD_MESSAGE,
+  cacheItemChance,
+  cacheItemIds,
+  isRestrictedCacheReward,
+  resolveWeightedCache,
+} from "@/libs/weightedCache";
 import { fetchBloodlines, fetchItemBloodlineRolls } from "@/routers/bloodline";
 import { fetchUpdatedUser, fetchUser } from "@/routers/profile";
 import { fetchMasterySources, fetchUserSkills } from "@/routers/skillTree";
@@ -138,6 +147,11 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import {
+  cacheReceiptId,
+  commitCacheConsumption,
+  readCacheReceipt,
+} from "@/server/utils/cacheConsumption";
 import {
   consumeUserItemAtomically,
   getNextUserSnapshotAt,
@@ -195,7 +209,14 @@ import { idSchema } from "@/validators/misc";
 import type { PostProcessedRewards } from "@/validators/rewards";
 import { ObjectiveReward, type ObjectiveRewardType } from "@/validators/rewards";
 import { userDeltaResponseSchema } from "@/validators/userCache";
-import { updateRewards } from "./quests";
+import {
+  type CacheRewardDisplay,
+  cacheConsumptionResponseSchema,
+  maximumCacheItems,
+  type WeightedCache,
+  weightedCacheSchema,
+} from "@/validators/weightedCache";
+import { runRewardTasks, updateRewards } from "./quests";
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -265,16 +286,22 @@ export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure
     .meta({ mcp: { description: "Get all item names and images" } })
     .query(async ({ ctx }) => {
-      return await ctx.drizzle.query.item.findMany({
+      const items = await ctx.drizzle.query.item.findMany({
         columns: {
           id: true,
           name: true,
           image: true,
           canBeHunted: true,
           canBeGathered: true,
+          bloodlineId: true,
+          effects: true,
         },
         orderBy: (table, { asc }) => [asc(table.name)],
       });
+      return items.map(({ bloodlineId, effects, ...entry }) => ({
+        ...entry,
+        isRestrictedCacheReward: isRestrictedCacheReward({ bloodlineId, effects }),
+      }));
     }),
   getBloodlineItemNames: publicProcedure
     .meta({
@@ -566,6 +593,7 @@ export const itemRouter = createTRPCRouter({
         parent,
         siblings,
         evolutionGraph,
+        cacheItems,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItemWithCraftingRequirements(ctx.drizzle, input.id),
@@ -594,6 +622,11 @@ export const itemRouter = createTRPCRouter({
               where: isNotNull(item.parentItemId),
             })
           : Promise.resolve([]),
+        fetchCacheReferencedItems(ctx.drizzle, {
+          ...input.data,
+          id: input.id,
+          bloodlineId: input.data.bloodlineId ?? null,
+        }),
       ]);
       if (input.data.requiredSkillId && requiredSkill?.pathType !== "SKILL") {
         return errorResponse("Select a valid SkillTree skill entry");
@@ -609,6 +642,14 @@ export const itemRouter = createTRPCRouter({
       }
       if (entry.id === TUTORIAL_ITEM_ID && input?.data?.hidden)
         return errorResponse("Cannot hide tutorial item");
+      if (cacheItems.missing.length > 0)
+        return errorResponse(
+          `Cache rewards reference missing items: ${cacheItems.missing.join(", ")}`,
+        );
+      if (cacheItems.restricted.length > 0)
+        return errorResponse(
+          `${CACHE_RESTRICTED_REWARD_MESSAGE}: ${cacheItems.restricted.join(", ")}`,
+        );
       // Validate evolution chain constraints
       if (input.data.parentItemId) {
         const graphValidation = validateEvolutionGraph({
@@ -1990,6 +2031,9 @@ export const itemRouter = createTRPCRouter({
     .meta({ mcp: { description: "Consume a consumable item" } })
     .input(consumeItemInputSchema)
     .mutation(async ({ ctx, input }) => {
+      const receiptId = input.requestId
+        ? cacheReceiptId(ctx.userId, input.requestId)
+        : undefined;
       // Query
       const [
         updatedUser,
@@ -1999,6 +2043,7 @@ export const itemRouter = createTRPCRouter({
         previousSageRolls,
         allSageModes,
         userSkills,
+        previousOpening,
       ] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
@@ -2011,8 +2056,16 @@ export const itemRouter = createTRPCRouter({
         fetchSageModeRolls(ctx.drizzle, ctx.userId),
         fetchSageModes(ctx.drizzle),
         fetchUserSkills(ctx.drizzle, ctx.userId),
+        receiptId
+          ? ctx.drizzle.query.actionLog.findFirst({
+              where: eq(actionLog.id, receiptId),
+            })
+          : undefined,
       ]);
       const { user } = updatedUser;
+
+      if (previousOpening)
+        return readCacheReceipt(previousOpening.changes, input.userItemId);
 
       // Guard
       if (!user) return errorResponse("User not found");
@@ -2040,6 +2093,69 @@ export const itemRouter = createTRPCRouter({
       if (!nonCombatConsume(useritem.item, user)) {
         return errorResponse("Not consumable");
       }
+
+      if (
+        useritem.item.effects.some(
+          (effect) =>
+            effect.type === "noncombatconsumereward" &&
+            effect.rewardMode !== undefined &&
+            effect.rewardMode !== "standard" &&
+            effect.rewardMode !== "weightedCache",
+        )
+      )
+        return errorResponse(
+          "This item has an unsupported reward mode. Please contact staff.",
+        );
+      const cacheEffects = useritem.item.effects.filter(
+        (effect) =>
+          effect.type === "noncombatconsumereward" &&
+          effect.rewardMode === "weightedCache",
+      );
+      const caches: WeightedCache[] = [];
+      for (const effect of cacheEffects) {
+        const parsed = weightedCacheSchema.safeParse(
+          "weightedCache" in effect ? effect.weightedCache : undefined,
+        );
+        if (!parsed.success)
+          return errorResponse(
+            "This cache has an invalid reward configuration. Please contact staff.",
+          );
+        caches.push(parsed.data);
+      }
+      if (caches.length > 0 && !receiptId)
+        return errorResponse("Please reload before opening this cache");
+      if (
+        caches.length > 0 &&
+        isRestrictedCacheReward({ effects: useritem.item.effects })
+      )
+        return errorResponse(CACHE_RESTRICTED_REWARD_MESSAGE);
+      const cacheReferences =
+        caches.length > 0
+          ? await fetchCacheReferencedItems(ctx.drizzle, useritem.item)
+          : { items: [], missing: [], restricted: [] };
+      if (cacheReferences.missing.length > 0)
+        return errorResponse(
+          "This cache references unavailable rewards. Please contact staff.",
+        );
+      if (cacheReferences.restricted.length > 0)
+        return errorResponse(CACHE_RESTRICTED_REWARD_MESSAGE);
+      if (
+        caches.reduce((sum, cache) => sum + maximumCacheItems(cache), 0) >
+        CACHE_MAX_GRANTED_ITEMS
+      )
+        return errorResponse(
+          "This cache exceeds the reward limit. Please contact staff.",
+        );
+      const cacheResults = caches.map((cache) => resolveWeightedCache(cache));
+      const cacheRewards: CacheRewardDisplay[] = caches.map((cache, index) => ({
+        displayName: cache.displayName,
+        items: (cacheResults[index]?.items ?? []).map((reward) => ({
+          name:
+            cacheReferences.items.find((item) => item.id === reward.itemId)?.name ??
+            reward.itemId,
+          chance: cacheItemChance(cache, reward.itemId),
+        })),
+      }));
 
       // Validate the same snapshot used below before consuming any quantity.
       const hasUnavailableBloodlineRoll = useritem.item.effects.some(
@@ -2097,7 +2213,7 @@ export const itemRouter = createTRPCRouter({
       }
 
       // Calculations
-      const promises: Promise<any>[] = [];
+      const mutations: ((client: DrizzleClient) => PromiseLike<unknown>)[] = [];
       // Only set when THIS request rolls a new sage mode; used as the COALESCE fallback at the
       // flush below so the snapshot write never resurrects a mode a concurrent removal cleared.
       let grantedSageModeId: string | null = null;
@@ -2126,15 +2242,15 @@ export const itemRouter = createTRPCRouter({
               : r.goal === effect.rank && !r.bloodlineId,
           );
           if (previousRoll) {
-            promises.push(
-              ctx.drizzle
+            mutations.push((client) =>
+              client
                 .update(bloodlineRolls)
                 .set({ used: sql`${bloodlineRolls.used} + 1`, updatedAt: new Date() })
                 .where(eq(bloodlineRolls.id, previousRoll.id)),
             );
           } else {
-            promises.push(
-              ctx.drizzle.insert(bloodlineRolls).values({
+            mutations.push((client) =>
+              client.insert(bloodlineRolls).values({
                 id: nanoid(),
                 userId: ctx.userId,
                 type: "ITEM",
@@ -2179,8 +2295,8 @@ export const itemRouter = createTRPCRouter({
           const success = roll < effect.power;
           data.push({ roll, success });
           if (success) {
-            promises.push(
-              ctx.drizzle.insert(sageModeRolls).values({
+            mutations.push((client) =>
+              client.insert(sageModeRolls).values({
                 id: nanoid(),
                 userId: ctx.userId,
                 type: "ITEM",
@@ -2194,14 +2310,15 @@ export const itemRouter = createTRPCRouter({
             messages.push(`You rolled for a new sage mode, but none was found. `);
           }
         } else if (effect.type === "noncombatconsumereward") {
-          rewards.push(ObjectiveReward.parse(effect));
+          if (effect.rewardMode !== "weightedCache")
+            rewards.push(ObjectiveReward.parse(effect));
         } else if (effect.type === "noncombatgainskill") {
           const parsedEffect = NonCombatGainSkill.parse(effect);
           if (parsedEffect.skillId) {
             const skill = userSkills.find((s) => s.skill.id === parsedEffect.skillId);
             if (!skill) {
-              promises.push(
-                ctx.drizzle.insert(userSkill).values({
+              mutations.push((client) =>
+                client.insert(userSkill).values({
                   id: nanoid(),
                   userId: ctx.userId,
                   skillId: parsedEffect.skillId,
@@ -2288,12 +2405,31 @@ export const itemRouter = createTRPCRouter({
         const collapsedRewards = collapseRewards(rewards);
         processedRewards = postProcessRewards(collapsedRewards, user);
       }
-      // Claim the account, apply its effects and debit the stack together. A run
-      // or battle that wins the account race leaves the item available for retry.
-      // Drizzle cannot express this joined UPDATE. Empty stacks are cleaned up
-      // after the claim; quantity zero cannot be consumed or used as an entry item.
-      const consumeResult = await retryOnDeadlock(() =>
-        ctx.drizzle.execute(sql`
+      if (cacheResults.length > 0) {
+        processedRewards ??= postProcessRewards(ObjectiveReward.parse({}), user);
+        processedRewards.reward_items.push(
+          ...cacheResults.flatMap((cache) =>
+            cache.items.flatMap((reward) =>
+              Array<string>(reward.quantity).fill(reward.itemId),
+            ),
+          ),
+        );
+      }
+      /** Share the guarded claim and grants; only weighted caches supply a transaction client. */
+      const commitConsumption = async (
+        client: DrizzleClient,
+        inTransaction: boolean,
+      ) => {
+        // Isolate each deadlock attempt from reward boosts and response name resolution.
+        const grantedRewards = processedRewards
+          ? structuredClone(processedRewards)
+          : null;
+        // Claim the account, apply its effects and debit the stack together. A run
+        // or battle that wins the account race leaves the item available for retry.
+        // Drizzle cannot express this joined UPDATE. Empty stacks are cleaned up
+        // after the claim; quantity zero cannot be consumed or used as an entry item.
+        const claim = () =>
+          client.execute(sql`
           UPDATE ${userData}
           INNER JOIN ${userItem} ON ${userItem.userId} = ${userData.userId}
           SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
@@ -2310,65 +2446,114 @@ export const itemRouter = createTRPCRouter({
             AND ${userData.battleId} IS NULL
             AND ${userItem.id} = ${input.userItemId}
             AND ${userItem.quantity} = ${useritem.quantity}
+            AND ${userItem.itemId} = ${useritem.itemId}
             AND ${userItem.quantity} > 0
             AND ${userItem.isInAuction} = FALSE
-        `),
-      );
-      if (consumeResult.rowsAffected === 0) {
-        return errorResponse("Item no longer available — please refresh and try again");
-      }
-      // Mutate
-      const [{ items, jutsus, bloodlines, badges, sageModes }] = await Promise.all([
-        processedRewards
-          ? updateRewards({
-              client: ctx.drizzle,
-              user,
-              rewards: processedRewards,
-              reason: "ITEM/CONSUME",
-            })
-          : { items: [], jutsus: [], bloodlines: [], badges: [], sageModes: [] },
-        changedBloodlineId !== undefined
-          ? ctx.drizzle
-              .update(userData)
-              .set({
-                ...bloodrightSwapRefund(changedBloodlineId),
-                bloodlineId: changedBloodlineId,
+        `);
+        const consumeResult = await (inTransaction ? claim() : retryOnDeadlock(claim));
+        if (consumeResult.rowsAffected === 0) {
+          return errorResponse(
+            "Item no longer available — please refresh and try again",
+          );
+        }
+        // Mutate
+        const rewardTask = () =>
+          grantedRewards
+            ? updateRewards({
+                client: client,
+                user,
+                rewards: grantedRewards,
+                reason: "ITEM/CONSUME",
+                inTransaction,
               })
-              .where(eq(userData.userId, ctx.userId))
-          : undefined,
-        useritem.quantity === 1
-          ? ctx.drizzle
-              .delete(userItem)
-              .where(
-                and(
-                  eq(userItem.id, input.userItemId),
-                  eq(userItem.userId, ctx.userId),
-                  eq(userItem.quantity, 0),
-                ),
-              )
-          : undefined,
-        useritem.quantity === 1
-          ? ctx.drizzle
-              .delete(userItemImbuement)
-              .where(eq(userItemImbuement.userItemId, input.userItemId))
-          : undefined,
-        ...promises,
-      ]);
-      // Prettify rewards
-      if (processedRewards) {
-        processedRewards.reward_items = items.map((i) => i.name);
-        processedRewards.reward_jutsus = jutsus.map((i) => i.name);
-        processedRewards.reward_bloodlines = bloodlines.map((i) => i.name);
-        processedRewards.reward_sage_modes = sageModes.map((i) => i.name);
-        processedRewards.reward_badges = badges.map((i) => i.name);
-      }
-      // Return
-      return {
-        success: true,
-        message: `You used ${useritem.item.name}`,
-        notifications: messages,
-        rewards: processedRewards,
+            : { items: [], jutsus: [], bloodlines: [], badges: [], sageModes: [] };
+        const tasks = [
+          () =>
+            changedBloodlineId !== undefined
+              ? client
+                  .update(userData)
+                  .set({
+                    ...bloodrightSwapRefund(changedBloodlineId),
+                    bloodlineId: changedBloodlineId,
+                  })
+                  .where(eq(userData.userId, ctx.userId))
+              : undefined,
+          () =>
+            useritem.quantity === 1
+              ? client
+                  .delete(userItem)
+                  .where(
+                    and(
+                      eq(userItem.id, input.userItemId),
+                      eq(userItem.userId, ctx.userId),
+                      eq(userItem.quantity, 0),
+                    ),
+                  )
+              : undefined,
+          () =>
+            useritem.quantity === 1
+              ? client
+                  .delete(userItemImbuement)
+                  .where(eq(userItemImbuement.userItemId, input.userItemId))
+              : undefined,
+          ...mutations.map((mutate) => () => mutate(client)),
+        ];
+        const [granted] = await runRewardTasks(inTransaction)([rewardTask, ...tasks]);
+        const { items, jutsus, bloodlines, badges, sageModes } = granted;
+        if (inTransaction) {
+          // Catalog deletion after validation must roll back the debit and every partial grant.
+          const expected = new Map<string, number>();
+          for (const cache of cacheResults)
+            for (const reward of cache.items)
+              expected.set(
+                reward.itemId,
+                (expected.get(reward.itemId) ?? 0) + reward.quantity,
+              );
+          for (const [id, quantity] of expected) {
+            const delivered = items
+              .filter((item) => item.id === id)
+              .reduce((sum, item) => sum + item.quantity, 0);
+            if (delivered < quantity)
+              throw new Error("Cache reward became unavailable during delivery");
+          }
+        }
+        // Prettify rewards
+        if (grantedRewards) {
+          grantedRewards.reward_items = items.flatMap((i) =>
+            Array<string>(i.quantity).fill(i.name),
+          );
+          grantedRewards.reward_jutsus = jutsus.map((i) => i.name);
+          grantedRewards.reward_bloodlines = bloodlines.map((i) => i.name);
+          grantedRewards.reward_sage_modes = sageModes.map((i) => i.name);
+          grantedRewards.reward_badges = badges.map((i) => i.name);
+        }
+        // Return
+        return {
+          success: true as const,
+          message: `You used ${useritem.item.name}`,
+          notifications: messages,
+          rewards: grantedRewards,
+          cacheRewards,
+        };
       };
+      if (caches.length > 0 && receiptId) {
+        return commitCacheConsumption({
+          client: ctx.drizzle,
+          receiptId,
+          userId: ctx.userId,
+          userItemId: input.userItemId,
+          itemId: useritem.item.id,
+          selections: cacheResults,
+          consume: async (tx) => {
+            const response = await commitConsumption(tx, true);
+            return response.success
+              ? cacheConsumptionResponseSchema.parse(response)
+              : response;
+          },
+        });
+      }
+      // Ordinary consumables retain the existing guarded claim and parallel mutation path.
+      return commitConsumption(ctx.drizzle, false);
     }),
   // Repair user item
   repair: protectedProcedure
@@ -4670,5 +4855,109 @@ const getRepairedEquipmentUpdate = (
   return {
     userPatch,
     userDelta: userPatch ? { money: cost > 0 ? -cost : 0 } : undefined,
+  };
+};
+
+/**
+ * Validate current reward sources, including nested containers and dynamic item pools.
+ * Batch each dependent layer and visit each ID once, so self-rewards and cycles terminate.
+ * The candidate row replaces its saved version when an editor changes a self-rewarding cache.
+ */
+const fetchCacheReferencedItems = async (
+  client: DrizzleClient,
+  source: Pick<Item, "id" | "name" | "bloodlineId" | "effects">,
+) => {
+  const cacheEffects = source.effects.flatMap((effect) =>
+    effect.type === "noncombatconsumereward" && effect.weightedCache ? [effect] : [],
+  );
+  const hasActiveCache = cacheEffects.some(
+    (effect) => effect.rewardMode === "weightedCache",
+  );
+  // Validate retained cache pools too, without activating their retained Standard grants.
+  let effectGroups = [
+    [
+      ...(hasActiveCache ? source.effects : []),
+      ...cacheEffects
+        .filter((effect) => effect.rewardMode !== "weightedCache")
+        .map((effect) => ({
+          ...effect,
+          rewardMode: "weightedCache" as const,
+        })),
+    ],
+  ];
+  const requested = new Set<string>();
+  const found = new Map<string, typeof source>();
+  let hasCheckedHunting = false;
+  let hasCheckedGathering = false;
+  while (effectGroups.length > 0) {
+    const rewards = effectGroups.map((effects) => {
+      const rewards = effects.filter(
+        (effect) => effect.type === "noncombatconsumereward",
+      );
+      // Consumption merges sibling material flags and allowlists within each item.
+      return {
+        caches: rewards.filter((effect) => effect.rewardMode === "weightedCache"),
+        standard: collapseRewards(
+          rewards.filter((effect) => effect.rewardMode !== "weightedCache"),
+        ),
+      };
+    });
+    const ids = [
+      ...new Set(
+        rewards.flatMap(({ caches, standard }) => [
+          ...caches.flatMap((effect) =>
+            effect.weightedCache ? cacheItemIds(effect.weightedCache) : [],
+          ),
+          ...standard.reward_items.flatMap((reward) => reward.ids),
+          ...(standard.reward_hunter_items ? standard.reward_hunter_items_ids : []),
+          ...(standard.reward_gathering_items
+            ? standard.reward_gathering_items_ids
+            : []),
+        ]),
+      ),
+    ].filter((id) => !requested.has(id) && !found.has(id));
+    const hunting: boolean =
+      !hasCheckedHunting &&
+      rewards.some(
+        ({ standard }) =>
+          standard.reward_hunter_items && !standard.reward_hunter_items_ids.length,
+      );
+    const gathering: boolean =
+      !hasCheckedGathering &&
+      rewards.some(
+        ({ standard }) =>
+          standard.reward_gathering_items &&
+          !standard.reward_gathering_items_ids.length,
+      );
+    if (ids.length === 0 && !hunting && !gathering) break;
+    for (const id of ids) requested.add(id);
+    hasCheckedHunting ||= hunting;
+    hasCheckedGathering ||= gathering;
+    const queryIds = ids.filter((id) => id !== source.id);
+    const rows =
+      queryIds.length > 0 || hunting || gathering
+        ? await client.query.item.findMany({
+            columns: { id: true, name: true, bloodlineId: true, effects: true },
+            where: or(
+              queryIds.length > 0 ? inArray(item.id, queryIds) : undefined,
+              hunting ? eq(item.canBeHunted, true) : undefined,
+              gathering ? eq(item.canBeGathered, true) : undefined,
+            ),
+          })
+        : [];
+    if (ids.includes(source.id)) rows.push(source);
+    effectGroups = [];
+    for (const row of rows) {
+      if (found.has(row.id)) continue;
+      const entry = row.id === source.id ? source : row;
+      found.set(entry.id, entry);
+      effectGroups.push(entry.effects);
+    }
+  }
+  const items = [...found.values()];
+  return {
+    items,
+    missing: [...requested].filter((id) => !found.has(id)),
+    restricted: items.filter(isRestrictedCacheReward).map((entry) => entry.name),
   };
 };

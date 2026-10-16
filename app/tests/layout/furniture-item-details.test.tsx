@@ -7,6 +7,7 @@ import * as client from "@/app/_trpc/client";
 import * as UserContext from "@/utils/UserContext";
 import * as ContentImage from "@/layout/ContentImage";
 import * as DurabilityBar from "@/layout/DurabilityBar";
+import { NonCombatConsumeRewardTag } from "@/validators/combat";
 import { actualItemWithEffects } from "../setup/preload";
 
 const names = { useQuery: () => ({ data: [] }) };
@@ -60,4 +61,13 @@ describe("furniture item details", () => {
     expect(durability).not.toHaveBeenCalled();
     expect(evolutions.useQuery).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ enabled: false }));
   });
+});
+
+it("shows the active cache display and distribution instead of inactive standard rewards", () => {
+  const view = render(<ItemWithEffects item={{ ...furniture, itemType: "CONSUMABLE", effects: [NonCombatConsumeRewardTag.parse({ reward_money: 17, rewardMode: "weightedCache", weightedCache: {
+    version: 1, displayName: "Chakra Pill Cache", rolls: [{ count: 1, probability: 5000 }, { count: 2, probability: 5000 }], tiers: [{ name: "Common", probability: 10_000, entries: [{ items: [{ itemId: "pill", quantity: 2 }] }] }],
+  } })] } as ItemWithEffectsProps["item"]} />);
+  expect(view.getByText("Chakra Pill Cache")).toBeTruthy();
+  expect(view.getByText("1 roll: 50%; 2 rolls: 50%")).toBeTruthy();
+  expect(view.queryByText("Reward Money")).toBeNull();
 });

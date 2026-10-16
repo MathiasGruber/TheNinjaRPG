@@ -15,6 +15,7 @@ import {
 import {
   notification,
   clan,
+  gameSetting,
   userData,
   village,
   villageAlliance,
@@ -107,6 +108,7 @@ const readFaction = async () => {
 describeWithDatabase("faction war declarations", () => {
   beforeEach(async () => {
     await resetTables(
+      gameSetting,
       notification,
       clan,
       userData,
