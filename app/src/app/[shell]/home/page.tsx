@@ -356,6 +356,7 @@ export default function HomePage() {
         ) : (
           <HomeScene
             homeType={homeType}
+            biome={homeData?.biome}
             styles={homeData?.styles}
             isGuest={!ownVillage}
             isAsleep={userData.status === "ASLEEP"}

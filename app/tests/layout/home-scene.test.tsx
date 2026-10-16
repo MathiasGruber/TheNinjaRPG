@@ -86,6 +86,17 @@ describe("Home scene", () => {
     expect(view.queryByLabelText("Jump to room")).toBeNull();
   });
 
+  it.each([['ground', 'ground'], ['dessert', 'dessert'], ['ice', 'snow']] as const)("changes only the tent exterior for %s village terrain without requiring finishes", (biome, terrain) => {
+    const view = render(<HomeScene {...props} biome={biome} />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    expect(view.getByAltText("Tent interior").getAttribute("src")).toBe(bunnyImageUrl(HOME_TENT_IMAGE, 768));
+    expect(scene.querySelector("[data-home-grounds]")?.getAttribute("data-home-grounds")).toBe(terrain);
+    expect(scene.querySelector("mask polygon")).not.toBeNull();
+    expect(scene.querySelector("[data-home-room-foreground='main']")).not.toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Bed: Go to sleep" }));
+    expect(props.onSleep).toHaveBeenCalledTimes(1);
+  });
+
   it.each([...HomeTypes].filter((tier) => tier !== "NONE"))("composes %s from connected floor regions and independently layered walls", (homeType) => {
     const view = render(<HomeScene {...props} homeType={homeType} />);
     const scene = view.getByRole("group", { name: "Home scene" });

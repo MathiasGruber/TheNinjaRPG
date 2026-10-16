@@ -1,21 +1,24 @@
 import { useId } from "react";
-import { HOME_FLOOR_TILES, HOME_WALL_PAINTS, type HomeType } from "@/drizzle/constants";
 import {
-  getHomeOverviewCamera,
-  getHomeRooms,
-  getHomeWalls,
-  type HomeWall,
-} from "@/libs/homeProperty";
+  type CombatBiome,
+  HOME_FLOOR_TILES,
+  HOME_WALL_PAINTS,
+  type HomeType,
+} from "@/drizzle/constants";
+import { HomeEnvironment } from "@/layout/HomeEnvironment";
+import { getHomeRooms, getHomeWalls, type HomeWall } from "@/libs/homeProperty";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import type { HomeRoomStyle } from "@/validators/home";
 
 /** Floors, shared walls and furniture use the same plan, without baking partitions into the floor art. */
 export const HomePropertyBackdrop = ({
   homeType,
+  biome = "ground",
   styles,
   onError,
 }: {
   homeType: HomeType;
+  biome?: CombatBiome;
   styles: HomeRoomStyle[];
   onError?: () => void;
 }) => {
@@ -23,46 +26,73 @@ export const HomePropertyBackdrop = ({
   const rooms = getHomeRooms(homeType);
   if (homeType === "NONE") {
     const style = styles.find(({ room }) => room === "main");
-    if (!style) return null;
     return (
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute inset-0 h-full w-full"
-        data-home-room-style="main"
-      >
-        <defs>
-          <clipPath id={clipId}>
-            <polygon
-              points={HOME_ROOM_GEOMETRY.NONE.interior
-                .map(({ x, y }) => `${x},${y}`)
-                .join(" ")}
-            />
-          </clipPath>
-        </defs>
-        {style.floor !== "cedar" && (
-          <image
-            href={HOME_FLOOR_TILES[style.floor]}
-            width="100"
-            height="100"
+      <>
+        {/* Feather only the exterior terrain; the authored canvas, foliage and entrance keep their coordinates. */}
+        <svg aria-hidden="true" className="absolute h-0 w-0">
+          <defs>
+            <filter id={`${clipId}-edge`}>
+              <feGaussianBlur stdDeviation="0.5" />
+            </filter>
+            <mask id={`${clipId}-exterior`} maskContentUnits="objectBoundingBox">
+              <rect width="1" height="1" fill="white" />
+              <g transform="scale(.01)" filter={`url(#${clipId}-edge)`}>
+                <path d="M7 2H93L98 85H3ZM44 86H56L59 100H38Z" fill="black" />
+                {HOME_ROOM_GEOMETRY.NONE.foreground.map((polygon, index) => (
+                  <polygon
+                    key={index}
+                    points={polygon.map(({ x, y }) => `${x},${y}`).join(" ")}
+                    fill="black"
+                  />
+                ))}
+              </g>
+            </mask>
+          </defs>
+        </svg>
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ mask: `url(#${clipId}-exterior)` }}
+        >
+          <HomeEnvironment homeType={homeType} biome={biome} />
+        </div>
+        {style && (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            clipPath={`url(#${clipId})`}
-            onError={onError}
-          />
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            data-home-room-style="main"
+          >
+            <defs>
+              <clipPath id={clipId}>
+                <polygon
+                  points={HOME_ROOM_GEOMETRY.NONE.interior
+                    .map(({ x, y }) => `${x},${y}`)
+                    .join(" ")}
+                />
+              </clipPath>
+            </defs>
+            {style.floor !== "cedar" && (
+              <image
+                href={HOME_FLOOR_TILES[style.floor]}
+                width="100"
+                height="100"
+                preserveAspectRatio="none"
+                clipPath={`url(#${clipId})`}
+                onError={onError}
+              />
+            )}
+            <path
+              d="M13 9H87V19H13Z"
+              fill={HOME_WALL_PAINTS[style.paint]}
+              style={{ mixBlendMode: "color", opacity: 0.65 }}
+            />
+          </svg>
         )}
-        <path
-          d="M13 9H87V19H13Z"
-          fill={HOME_WALL_PAINTS[style.paint]}
-          style={{ mixBlendMode: "color", opacity: 0.65 }}
-        />
-      </svg>
+      </>
     );
   }
   const walls = getHomeWalls(homeType);
-  const width = Math.max(...rooms.map(({ x, width }) => x + width));
-  const height = Math.max(...rooms.map(({ y }) => y + 100));
-  const groundMargin = 100 / Math.min(0.3, getHomeOverviewCamera(homeType).scale);
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
       <svg aria-hidden="true" className="absolute h-0 w-0">
@@ -73,18 +103,7 @@ export const HomePropertyBackdrop = ({
           </radialGradient>
         </defs>
       </svg>
-      <div
-        data-home-grounds
-        className="absolute"
-        style={{
-          left: `${-groundMargin}%`,
-          top: `${-groundMargin}%`,
-          width: `${width + groundMargin * 2}%`,
-          height: `${height + groundMargin * 2}%`,
-          backgroundImage: "url(/images/home/ground.webp)",
-          backgroundSize: `${10000 / (width + groundMargin * 2)}% ${10000 / (height + groundMargin * 2)}%`,
-        }}
-      />
+      <HomeEnvironment homeType={homeType} biome={biome} />
       {rooms.map((room) => {
         const style = styles.find(({ room: id }) => id === room.id);
         return (
@@ -284,7 +303,7 @@ const YardArt = ({
   </svg>
 );
 
-/** Slice one continuous side-wall painting by ground depth so tall furniture occludes it naturally. */
+/** Keep junction caps at beam height and slice capless side walls by ground depth for furniture occlusion. */
 const PaintedWall = ({
   wall,
   paint,
@@ -297,71 +316,86 @@ const PaintedWall = ({
   const paintId = useId();
   const art = WALL_ART[wall.kind];
   const slices = wall.kind === "vertical" ? Math.ceil(wall.height / 6) : 1;
+  // The cap owns the wall junction; only the shaft stretches to meet the floor.
+  const frames =
+    wall.kind === "post"
+      ? [
+          { viewBox: "390 179 474 486", y: wall.y, height: 5.5 },
+          { viewBox: "390 665 474 413", y: wall.y + 5.5, height: wall.height - 5.5 },
+        ]
+      : [{ viewBox: art.viewBox, y: wall.y, height: wall.height }];
   const color = HOME_WALL_PAINTS[paint];
   const channels = [1, 3, 5].map(
     (start) => Number.parseInt(color.slice(start, start + 2), 16) / 180,
   );
-  return Array.from({ length: slices }, (_, index) => {
-    const top = (index / slices) * 100;
-    const bottom = ((index + 1) / slices) * 100;
-    return (
-      <svg
-        aria-hidden="true"
-        key={index}
-        data-home-wall={wall.kind}
-        data-home-wall-room={wall.room}
-        viewBox={art.viewBox}
-        preserveAspectRatio="none"
-        className="pointer-events-none absolute"
-        style={{
-          left: `${wall.x}%`,
-          top: `${wall.y}%`,
-          width: `${wall.width}%`,
-          height: `${wall.height}%`,
-          zIndex: Math.round(
-            (wall.kind === "vertical"
-              ? wall.y + (wall.height * bottom) / 100
-              : wall.depth) * 10,
-          ),
-          clipPath: `inset(${top}% 0 ${100 - bottom}% 0)`,
-          transform: wall.isMirrored ? "scaleX(-1)" : undefined,
-        }}
-      >
-        <image href={art.src} width={art.width} height={art.height} onError={onError} />
-        {/* Neutralize the warm plaster before tinting its luminance; timber and glass keep their colors. */}
-        {paint !== "ivory" && art.plaster && (
-          <>
-            {index === 0 && (
-              <defs>
-                <clipPath id={`${paintId}-plaster`}>
-                  <path
-                    d={art.plaster}
-                    fill={color}
-                    transform={`translate(${art.x} ${art.y}) scale(${art.cropWidth / 100} ${art.cropHeight / 100})`}
-                  />
-                </clipPath>
-                <filter id={`${paintId}-paint`} colorInterpolationFilters="sRGB">
-                  <feColorMatrix type="saturate" values="0" />
-                  <feComponentTransfer>
-                    <feFuncR type="linear" slope={channels[0]} />
-                    <feFuncG type="linear" slope={channels[1]} />
-                    <feFuncB type="linear" slope={channels[2]} />
-                  </feComponentTransfer>
-                </filter>
-              </defs>
-            )}
-            <image
-              href={art.src}
-              width={art.width}
-              height={art.height}
-              filter={`url(#${paintId}-paint)`}
-              clipPath={`url(#${paintId}-plaster)`}
-            />
-          </>
-        )}
-      </svg>
-    );
-  });
+  return frames.flatMap((frame, frameIndex) =>
+    Array.from({ length: slices }, (_, index) => {
+      const top = (index / slices) * 100;
+      const bottom = ((index + 1) / slices) * 100;
+      return (
+        <svg
+          aria-hidden="true"
+          key={`${frameIndex}-${index}`}
+          data-home-wall={wall.kind}
+          data-home-wall-room={wall.room}
+          viewBox={frame.viewBox}
+          preserveAspectRatio="none"
+          className="pointer-events-none absolute"
+          style={{
+            left: `${wall.x}%`,
+            top: `${frame.y}%`,
+            width: `${wall.width}%`,
+            height: `${frame.height}%`,
+            zIndex: Math.round(
+              (wall.kind === "vertical"
+                ? wall.y + (wall.height * bottom) / 100
+                : wall.depth) * 10,
+            ),
+            clipPath: `inset(${top}% 0 ${100 - bottom}% 0)`,
+            transform: wall.isMirrored ? "scaleX(-1)" : undefined,
+          }}
+        >
+          <image
+            href={art.src}
+            width={art.width}
+            height={art.height}
+            onError={onError}
+          />
+          {/* Neutralize the warm plaster before tinting its luminance; timber and glass keep their colors. */}
+          {paint !== "ivory" && art.plaster && (
+            <>
+              {index === 0 && frameIndex === 0 && (
+                <defs>
+                  <clipPath id={`${paintId}-plaster`}>
+                    <path
+                      d={art.plaster}
+                      fill={color}
+                      transform={`translate(${art.x} ${art.y}) scale(${art.cropWidth / 100} ${art.cropHeight / 100})`}
+                    />
+                  </clipPath>
+                  <filter id={`${paintId}-paint`} colorInterpolationFilters="sRGB">
+                    <feColorMatrix type="saturate" values="0" />
+                    <feComponentTransfer>
+                      <feFuncR type="linear" slope={channels[0]} />
+                      <feFuncG type="linear" slope={channels[1]} />
+                      <feFuncB type="linear" slope={channels[2]} />
+                    </feComponentTransfer>
+                  </filter>
+                </defs>
+              )}
+              <image
+                href={art.src}
+                width={art.width}
+                height={art.height}
+                filter={`url(#${paintId}-paint)`}
+                clipPath={`url(#${paintId}-plaster)`}
+              />
+            </>
+          )}
+        </svg>
+      );
+    }),
+  );
 };
 
 /** Source bounds remove transparent canvas padding without resampling or rotating wall faces. */
@@ -381,18 +415,18 @@ const WALL_ART = {
     src: "/images/home/wall-window.webp",
     width: 2172,
     height: 724,
-    viewBox: "860 141 455 394",
-    x: 860,
-    y: 141,
-    cropWidth: 455,
-    cropHeight: 394,
-    plaster: "M0 31H11V85H0ZM89 31H100V85H89Z",
+    viewBox: "911 255 352 250",
+    x: 911,
+    y: 255,
+    cropWidth: 352,
+    cropHeight: 250,
+    plaster: "",
   },
   vertical: {
     src: "/images/home/wall-vertical.webp",
     width: 887,
     height: 1774,
-    viewBox: "321 16 244 1739",
+    viewBox: "321 180 244 1400",
     x: 321,
     y: 16,
     cropWidth: 244,

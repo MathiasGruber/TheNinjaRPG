@@ -12,6 +12,7 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
+  type CombatBiome,
   HOME_FLOOR_TILES,
   HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_ROTATION_DEGREES,
@@ -49,6 +50,7 @@ import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 /** A furnished residence with a reversible draft; the page owns persistence and game actions. */
 export const HomeScene = ({
   homeType,
+  biome = "ground",
   isGuest,
   isAsleep,
   isTogglingSleep,
@@ -579,6 +581,7 @@ export const HomeScene = ({
               )}
               <HomePropertyBackdrop
                 homeType={homeType}
+                biome={biome}
                 styles={draft?.styles ?? styles}
                 onError={() => setFailedHomeType(homeType)}
               />
@@ -1247,6 +1250,7 @@ export type HomeDraft = {
 /** Draft editing covers placements and finishes; the page owns persistence and game actions. */
 type HomeSceneProps = {
   homeType: HomeType;
+  biome?: CombatBiome;
   styles?: HomeRoomStyle[];
   isVisiting?: boolean;
   isGuest: boolean;

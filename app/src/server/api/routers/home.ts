@@ -39,7 +39,7 @@ import {
   getInventoryBucketFullMessage,
 } from "@/libs/item";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
-import { calcIsInVillage } from "@/libs/travel";
+import { calcIsInVillage, getBiomeFromTileType } from "@/libs/travel";
 import { fetchUserItems } from "@/routers/item";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { fetchSectorVillage } from "@/routers/village";
@@ -52,6 +52,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { getSectorTileType } from "@/server/utils/sectorMap";
 import {
   type HomePlacement,
   type HomeRoomStyle,
@@ -96,6 +97,7 @@ export const homeRouter = createTRPCRouter({
         home: {
           username: owner.username,
           homeType: owner.homeType,
+          biome: getHomeBiome(owner),
           styles: owner.homeRoomStyles,
           layout,
           furniture: furniture.filter(({ id }) => placed.has(id)),
@@ -258,6 +260,7 @@ export const homeRouter = createTRPCRouter({
       const furnitureItems = user.items.filter(isAvailableOwnedFurniture);
       return {
         homeType: user.homeType,
+        biome: getHomeBiome(user),
         styles: user.homeRoomStyles,
         isPublic: user.homePublic,
         invitations: user.homeInvitations,
@@ -630,6 +633,12 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
 type HomeFurnitureUser = NonNullable<
   Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
 >;
+
+/** Home scenery follows the owner's village even while the owner or visitor travels. */
+const getHomeBiome = (user: HomeFurnitureUser) =>
+  user.village
+    ? getBiomeFromTileType(getSectorTileType(user.village.sector))
+    : "ground";
 
 /** Only visible, completed furniture outside auction escrow is available for placement. */
 const isAvailableOwnedFurniture = (owned: HomeFurnitureUser["items"][number]) =>

@@ -155,6 +155,34 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(inventory.filter((owned) => owned.userId === userId && owned.storedAtHome && owned.itemId !== "material")).toHaveLength(HOME_FURNITURE_STORAGE_CAPACITY);
   });
 
+  it.each([
+    [271, "ground"],
+    [203, "ice"],
+    [305, "dessert"],
+    [296, "ocean"],
+  ] as const)("uses owner village sector %s for both home views while players travel", async (sector, biome) => {
+    const db = await getTestDatabase();
+    await db.update(village).set({ sector }).where(eq(village.id, homeVillage));
+    await db.insert(village).values({ id: "visitor-village", name: "Visitor", sector: sector === 203 ? 271 : 203, kageId: "visitor-kage" });
+    await db.update(userData).set({ sector: sector === 305 ? 203 : 305, homePublic: true }).where(eq(userData.userId, userId));
+    await db.update(userData).set({ villageId: "visitor-village", sector: 296 }).where(eq(userData.userId, "other-owner"));
+    const owner = await callerFor(homeRouter, userId);
+    const visitor = await callerFor(homeRouter, "other-owner");
+    const read = await recordQueries(() => Promise.all([owner.getUserHome(), visitor.getVisitedHome({ userId })]));
+    expect(read.result[0]?.biome).toBe(biome);
+    expect(read.result[1].home?.biome).toBe(biome);
+    expect(read.statements).toHaveLength(2);
+  });
+
+  it("uses grassland for village-less homes without depending on current travel location", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ villageId: null, sector: 203, homePublic: true }).where(eq(userData.userId, userId));
+    const owner = await callerFor(homeRouter, userId);
+    const visitor = await callerFor(homeRouter, "other-owner");
+    expect((await owner.getUserHome())?.biome).toBe("ground");
+    expect((await visitor.getVisitedHome({ userId })).home?.biome).toBe("ground");
+  });
+
   it("enforces private, invited, revoked and public visits without exposing unplaced furniture or mutating the owner", async () => {
     const api = await callerFor(homeRouter, userId);
     const visitor = await callerFor(homeRouter, "other-owner");
@@ -165,7 +193,7 @@ describeWithDatabase("owned furniture persistence", () => {
     const visit = await visitor.getVisitedHome({ userId });
     expect(visit.success).toBe(true);
     expect(visit.home?.furniture.some(({ id }) => id === "rug-row")).toBe(false);
-    expect(visit.home && Object.keys(visit.home).sort()).toEqual(["furniture", "homeType", "layout", "styles", "username"]);
+    expect(visit.home && Object.keys(visit.home).sort()).toEqual(["biome", "furniture", "homeType", "layout", "styles", "username"]);
     expect((await api.setHomeSharing({ revision: 1, isPublic: false, revokeUserId: "other-owner" })).success).toBe(true);
     expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
     expect((await api.setHomeSharing({ revision: 2, isPublic: true })).success).toBe(true);

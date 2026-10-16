@@ -45,7 +45,7 @@ const ownedItems = basics.map((piece) => ({
   item: { id: piece.itemId, name: piece.name, image: piece.image, itemType: "FURNITURE", slot: "NONE", rarity: "COMMON", hidden: false },
 })) as unknown as RouterOutputs["item"]["getUserItems"];
 const essentialHome: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-  homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+  homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
   furniture: basics, furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: [...layout],
 };
 
@@ -284,7 +284,7 @@ it("refreshes a selected furniture variant when returning from inventory", async
     if (op.path === "home.getUserHome") {
       homeQueries++;
       const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-        homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+        homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
         furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3, styles: [], isPublic: false, invitations: [],
         layout: [{ id: chair.id, x: 50, y: 50, rotation: 0 }],
       };
@@ -424,6 +424,7 @@ for (const success of [true, false]) {
     let homeQueries = 0;
     const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
       homeType: "NONE",
+      biome: "ground",
       regen: HomeTypeDetails.NONE.regen,
       storage: HomeTypeDetails.NONE.storage,
       furniture,
@@ -534,7 +535,7 @@ it("opens home management from the header and waits for refreshed inventory befo
   const refreshed = new Promise<void>((resolve) => { finishRefresh = resolve; });
   let homeQueries = 0;
   const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-    homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+    homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
     furniture: [...furniture], furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: [...layout],
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
@@ -652,7 +653,7 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
       if (op.path === "home.getUserHome") {
         observer.next({ result: { data: {
-          homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+          homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
           furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
         } } });
       } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {

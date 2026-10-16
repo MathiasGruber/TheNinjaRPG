@@ -27,15 +27,19 @@ export const getHomeOverviewCamera = (homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
   const width = Math.max(...rooms.map(({ x, width }) => x + width));
   const height = Math.max(...rooms.map(({ y }) => y + 100));
-  const scale = Math.min(1, 100 / Math.max(width, height));
+  const margin = homeType === "NONE" ? 0 : HOME_BUILDING_GEOMETRY.margin;
+  const scale = Math.min(1, 100 / Math.max(width + 2 * margin, height + 2 * margin));
   return { x: (100 - width * scale) / 2, y: (100 - height * scale) / 2, scale };
 };
 
 /** Keep a room visible while preserving property fits, passages and shared zoom limits. */
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
-  const extent = Math.max(...rooms.flatMap(({ x, y, width }) => [x + width, y + 100]));
-  const scale = clamp(camera.scale, Math.min(0.3, 100 / extent), 1.8);
+  const scale = clamp(
+    camera.scale,
+    Math.min(0.3, getHomeOverviewCamera(homeType).scale),
+    1.8,
+  );
   const width = Math.max(...rooms.map((room) => room.x + room.width)) * scale;
   const height = Math.max(...rooms.map((room) => room.y + 100)) * scale;
   const bounded = {
@@ -158,9 +162,9 @@ export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
       });
     };
     if (!hasAbove) {
-      add("solid", 10, 3, 34, 17);
-      add("window", 44, 3, 16, 17);
-      add("solid", 60, 3, 34, 17);
+      // Windows sit on one continuous wall, so its timber and brass rails never change at the frame.
+      add("solid", 10, 3, 84, 17);
+      add("window", 46, 8.5, 12, 11.5);
     }
     add("lantern", 17, 7, 4, 10);
     add("lantern", 79, 7, 4, 10);

@@ -41,6 +41,7 @@ export default function HomeVisitPage() {
           </p>
           <HomeScene
             homeType={home.homeType}
+            biome={home.biome}
             styles={home.styles}
             furniture={home.furniture}
             layout={home.layout}
