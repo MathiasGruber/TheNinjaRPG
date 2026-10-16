@@ -275,7 +275,10 @@ const createConsumeShieldEffect = (
   };
 };
 
-/** Expire battlefield entities and visuals as soon as their round duration ends. */
+/**
+ * Remove expired battlefield entities in place and return their history effects.
+ * Preserve this request's visuals and unapplied instant effects for action processing.
+ */
 export const expireGroundEffects = (battle: CompleteBattle, actionRounds: number[]) => {
   const actionEffects: ActionEffect[] = [];
   const visuals: GroundEffect[] = [];

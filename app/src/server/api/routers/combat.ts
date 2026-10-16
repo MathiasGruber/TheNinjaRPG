@@ -387,6 +387,7 @@ export const combatRouter = createTRPCRouter({
               return true; // Keep active effects
             });
 
+            // Expiry and idle damage share one history key for this round/version.
             history.push({
               battleRound: actionRound,
               appliedEffects: [...expiredEffects, ...actionEffects],
@@ -705,7 +706,7 @@ export const combatRouter = createTRPCRouter({
           userId?: string;
         }[] = [];
 
-        // Remember original values before the in-memory battle state changes.
+        // Actionless updates mutate the fetched object in place; retain its version for CAS.
         const fetchedVersion = battle.version;
         const originalRound = battle.round;
         const originalActiveUserId = battle.activeUserId;
@@ -857,7 +858,7 @@ export const combatRouter = createTRPCRouter({
             description += `${dot ? "" : ". "} It is now ${newActor.username}'s turn.`;
           }
 
-          // Add history entry for what happened during this round
+          // Round expiry can change the battlefield without an action description.
           if (description || actionEffects.length) {
             history.push({
               battleRound: actionRound,

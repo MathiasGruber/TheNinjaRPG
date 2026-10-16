@@ -855,6 +855,7 @@ export const profileRouter = createTRPCRouter({
           !party.tracker.failed &&
           !isQuestComplete(party.quest, party.tracker),
       );
+      // Keep team navigation available while a team-enabled quest is active and unfinished.
       const hasActiveTeamQuest = user?.userQuests.some((entry) => {
         const tracker = user.questData?.find((tracker) => tracker.id === entry.questId);
         return (

@@ -126,6 +126,7 @@ describeWithDatabase("event tournament persistence", () => {
 
   it("returns invitations and ready matches after unrelated active events fill the notice limit", async () => {
     const database = await getTestDatabase();
+    /** Build pending or confirmed seats with the same neutral eligibility snapshot. */
     const participant = (userId: string, accepted: boolean): EventParticipant => ({
       id: `seat-${userId}`, userId, username: userId, accepted,
       invited: true, withdrawn: false, seed: 0,
@@ -154,6 +155,7 @@ describeWithDatabase("event tournament persistence", () => {
       { tournamentId: "900-invite", message: "You have a tournament invitation" },
       { tournamentId: "901-ready", message: "Your tournament match is ready" },
     ];
+    /** Compare actionable notices independently of their generated timestamps. */
     const notices = async () => (await fetchEventNotices(database, "target"))
       .map(({ tournamentId, message }) => ({ tournamentId, message }))
       .sort((a, b) => a.tournamentId.localeCompare(b.tournamentId));

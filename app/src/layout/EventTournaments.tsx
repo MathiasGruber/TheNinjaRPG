@@ -37,7 +37,10 @@ import {
   eventTournamentConfigSchema,
 } from "@/validators/tournament";
 
-/** Shared player/staff tournament view; mutations refresh details, listings and global notices. */
+/**
+ * Shared player/staff view with advisory series readiness separate from match acceptance.
+ * Mutations refresh details, listings and both global notice surfaces.
+ */
 export const EventTournaments = ({
   tournamentId,
   staff = false,
@@ -358,6 +361,7 @@ export const EventTournaments = ({
                 .map((series) => {
                   const game = series.games.at(-1);
                   const inSeries = !!seat && series.seats.includes(seat.id);
+                  // Readiness tracks players, while bracket rows use stable seat IDs.
                   const readySeatIds = new Set(
                     event.participants
                       .filter(

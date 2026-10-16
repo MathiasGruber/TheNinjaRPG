@@ -3012,9 +3012,10 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
   });
 };
 
-/** Align battle based on timestamp to update:
- * - The proper round & activeUserId
- * - The action points of all users, in case of next round */
+/**
+ * Align the round, active actor and action points in place using the battle timer.
+ * Expire battlefield entities before exposing the next turn and return teardown effects for history.
+ */
 export const alignBattle = (
   battle: CompleteBattle,
   actionRounds: number[], // Rounds present in this endpoint call
@@ -3085,8 +3086,8 @@ export const alignBattle = (
       ...battle.usersState.slice(0, actorIndex),
     ];
     expiredEffects = expireGroundEffects(battle, actionRounds);
-    // An expiring summon can have been next in initiative order. Select from the
-    // surviving combatants before exposing the new turn to any caller.
+    // Preserve cyclic initiative if the next actor expired; refilled action
+    // points can make recalculation restart at a different combatant.
     if (!battle.usersState.some((user) => user.userId === actor.userId)) {
       actor =
         nextActors.find(

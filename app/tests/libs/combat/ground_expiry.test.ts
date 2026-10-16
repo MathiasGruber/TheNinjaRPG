@@ -4,6 +4,7 @@ import { alignBattle } from "@/libs/combat/util";
 import type { GroundEffect } from "@/libs/combat/types";
 import { makeBattleUser, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 
+/** Create a round-boundary fixture with a temporary creature next in initiative order. */
 const scenario = (type: "summon" | "clone", expires = true) => {
   const users = [
     makeBattleUser("caster", { round: 3, initiative: 30 }),

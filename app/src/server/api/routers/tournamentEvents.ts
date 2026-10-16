@@ -297,6 +297,7 @@ export const eventTournamentProcedures = {
           seat.username = target.username;
           seat.snapshot = snapshotFor(target);
           seat.withdrawn = false;
+          // Clear readiness tied to the outgoing player when reassigning their seat.
           for (const series of event.series)
             series.readyUserIds = series.readyUserIds?.filter(
               (id) => id !== originalId,
@@ -327,7 +328,7 @@ export const eventTournamentProcedures = {
       if (result.success) await syncEventTournament(ctx.drizzle, input.tournamentId);
       return result;
     }),
-  /** Register, withdraw or accept a ready check after checking current player availability. */
+  /** Manage registration, advisory readiness and match acceptance through the event version guard. */
   participateEvent: protectedProcedure
     .input(eventTournamentPlayerSchema)
     .mutation(async ({ ctx, input }) => {
@@ -384,6 +385,7 @@ export const eventTournamentProcedures = {
             !series.seats.includes(seat.id)
           )
             return "This series is not waiting for staff to begin";
+          // Players can cancel readiness anywhere; marking ready requires availability.
           if (
             input.action === "READY" &&
             (user.status !== "AWAKE" ||
@@ -941,7 +943,10 @@ const audit = (event: EventTournamentState, userId: string, action: string) => {
   event.audit.push({ userId, action, at: Date.now() });
 };
 
-/** Read actionable event notices for both the global prompt and the notification menu. */
+/**
+ * Share actionable invitations and match notices between global prompts and navigation.
+ * Restrict the capped query to this player, then discard withdrawn seats and closed checks.
+ */
 export const fetchEventNotices = async (client: DrizzleClient, userId: string) => {
   const now = Date.now();
   const events = await client.query.tournament.findMany({

@@ -83,7 +83,7 @@ export const eventTournamentActionSchema = eventTournamentIdSchema.extend({
   scheduledAt: z.number().int().positive().optional(),
   payRewards: z.boolean().optional(),
 });
-/** Player roster and ready-check commands, authorized against the current seat holder. */
+/** Player commands for registration, advisory series readiness and timed match acceptance. */
 export const eventTournamentPlayerSchema = eventTournamentIdSchema.extend({
   action: z.enum(["JOIN", "WITHDRAW", "DECLINE", "ACCEPT", "READY", "NOT_READY"]),
   seriesId: z.string().optional(),
