@@ -1,7 +1,7 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export const RewardEditor = ({
     enabled: isStaffRole(user?.role),
   });
   const values = useWatch({ control: form.control });
-  const [addedNodes, setAddedNodes] = useState<string[]>([]);
+  const [openedNodeIds, setOpenedNodeIds] = useState<string[]>([]);
   const [selectedPackage, setSelectedPackage] = useState("");
   const packages = (values.reward_packages ?? []) as RewardPackageSnapshotType[];
   const defaultValues = ObjectiveReward.parse({});
@@ -72,7 +72,18 @@ export const RewardEditor = ({
       : value !== undefined &&
           value !== defaultValues[field as keyof typeof defaultValues];
   };
-  const activeNodes = getActiveRewardNodes(groups, addedNodes, hasValue);
+  const activeNodes = getActiveRewardNodes(groups, openedNodeIds, hasValue);
+  // Remember inferred groups too: editing a value to zero must not remove or move its controls.
+  useEffect(() => {
+    // Fallback groups are provisional until the custom catalog has loaded or failed.
+    if (!catalog && !isError && (!user || isStaffRole(user.role))) return;
+    const nextIds = activeNodes.map((node) => node.id);
+    if (
+      nextIds.length !== openedNodeIds.length ||
+      nextIds.some((id, index) => id !== openedNodeIds[index])
+    )
+      setOpenedNodeIds(nextIds);
+  }, [activeNodes, openedNodeIds, catalog, isError, user]);
   /** Keep snapshot edits in the parent form's dirty state and validation lifecycle. */
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
@@ -201,7 +212,7 @@ export const RewardEditor = ({
             const node = groups.find((node) => node.id === event.target.value);
             if (!node) return;
             if (!activeNodes.some((active) => active.id === node.id)) {
-              setAddedNodes([...addedNodes, node.id]);
+              setOpenedNodeIds([...activeNodes.map((node) => node.id), node.id]);
               return;
             }
             if (packages.length >= 50) return;
@@ -290,7 +301,11 @@ export const RewardEditor = ({
                   defaultValues[field as keyof typeof defaultValues],
                   { shouldDirty: true, shouldValidate: true },
                 );
-              setAddedNodes(addedNodes.filter((id) => id !== node.id));
+              setOpenedNodeIds(
+                activeNodes
+                  .filter((active) => active.id !== node.id)
+                  .map((node) => node.id),
+              );
             }}
           >
             Clear Node

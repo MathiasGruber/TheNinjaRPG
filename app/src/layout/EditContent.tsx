@@ -659,6 +659,11 @@ export const EditContent = <
                       control={form.control}
                       name={id}
                       render={({ field, fieldState }) => {
+                        // Defaulted numbers need a numeric draft: undefined restores Controller's saved default.
+                        const emptyValue = props.schema.shape[id]?.safeParse(undefined);
+                        const isOptional =
+                          emptyValue?.success &&
+                          (emptyValue.data === undefined || emptyValue.data === null);
                         return (
                           <FormItem>
                             <FormLabel>
@@ -673,17 +678,14 @@ export const EditContent = <
                                   name={field.name}
                                   ref={field.ref}
                                   onBlur={field.onBlur}
-                                  value={field.value as number | undefined}
-                                  optional={props.schema.shape[id]?.isOptional()}
+                                  // Read explicit undefined without Controller's saved-value fallback.
+                                  value={form.getValues(id) as number | undefined}
+                                  optional={isOptional}
                                   onValueChange={
-                                    props.schema.shape[id]?.isOptional()
-                                      ? undefined
-                                      : field.onChange
+                                    isOptional ? undefined : field.onChange
                                   }
                                   onOptionalValueChange={
-                                    props.schema.shape[id]?.isOptional()
-                                      ? field.onChange
-                                      : undefined
+                                    isOptional ? field.onChange : undefined
                                   }
                                   step="any"
                                 />
