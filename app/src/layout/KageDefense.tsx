@@ -28,7 +28,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
-import type { KageWindow } from "@/validators/kage";
+import { type KageWindow, kageScheduleSchema } from "@/validators/kage";
 import type { UserSearchResult } from "@/validators/register";
 
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
@@ -110,6 +110,20 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   const paused = hall?.schedule?.paused;
   const setWindow = (index: number, field: "day" | "hour", value: number) =>
     setDraft(windows.map((w, i) => (i === index ? { ...w, [field]: value } : w)));
+  const publishSchedule = () => {
+    const parsed = kageScheduleSchema.safeParse({
+      villageId: user.villageId ?? "",
+      windows,
+    });
+    if (!parsed.success) {
+      setMessage({
+        success: false,
+        message: parsed.error.issues.map((issue) => issue.message).join(". "),
+      });
+      return;
+    }
+    publish.mutate(parsed.data);
+  };
 
   return (
     <ContentBox
@@ -238,12 +252,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                 </div>
               ))}
               <div className="flex flex-wrap gap-2">
-                <Button
-                  disabled={pending}
-                  onClick={() =>
-                    publish.mutate({ villageId: user.villageId ?? "", windows })
-                  }
-                >
+                <Button disabled={pending} onClick={publishSchedule}>
                   Publish schedule
                 </Button>
                 <Button
