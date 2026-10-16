@@ -55,13 +55,16 @@ export const HomeSharing = ({
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
+          className="hover:text-black"
           disabled={mutation.isPending}
           onClick={() => void change({ isPublic: !isPublic })}
         >
           {isPublic ? "Make private" : "Make public"}
         </Button>
         <Link href={`/home/visit/${encodeURIComponent(userId)}`}>
-          <Button variant="outline">Preview home visit</Button>
+          <Button variant="outline" className="hover:text-black">
+            Preview home visit
+          </Button>
         </Link>
       </div>
       <form
@@ -91,6 +94,7 @@ export const HomeSharing = ({
           <Button
             size="sm"
             variant="outline"
+            className="hover:text-black"
             aria-label={`Revoke invitation for ${invitation.username}`}
             disabled={mutation.isPending}
             onClick={() => void change({ isPublic, revokeUserId: invitation.userId })}

@@ -1033,7 +1033,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             )}
             {userData && !profile.isAi && (
               <Link href={`/home/visit/${encodeURIComponent(profile.userId)}`}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="hover:text-black">
                   View home
                 </Button>
               </Link>
