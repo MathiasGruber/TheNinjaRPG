@@ -737,7 +737,15 @@ export const villageRouter = createTRPCRouter({
         }),
         ctx.drizzle
           .update(userData)
-          .set({ unreadNotifications: sql`unreadNotifications + 1` }),
+          .set({ unreadNotifications: sql`unreadNotifications + 1` })
+          // Only members of the two villages; the kage's own row is bumped by the
+          // prestige update below, as overlapping UserData updates can deadlock.
+          .where(
+            and(
+              inArray(userData.villageId, [villageId, targetId]),
+              ne(userData.userId, user.userId),
+            ),
+          ),
         ctx.drizzle
           .update(village)
           .set({ tokens: sql`${village.tokens} - ${WAR_FUNDS_COST}` })
@@ -746,6 +754,7 @@ export const villageRouter = createTRPCRouter({
           .update(userData)
           .set({
             villagePrestige: sql`${userData.villagePrestige} - ${KAGE_WAR_DECLARE_COST}`,
+            unreadNotifications: sql`${userData.unreadNotifications} + 1`,
           })
           .where(eq(userData.userId, user.userId)),
       ]);
