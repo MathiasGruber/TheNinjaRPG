@@ -29,66 +29,20 @@ export const getTargetTiles = ({
     tiles = grid.traverse(spiral<TerrainHex>({ start: [b.q, b.r], radius: 1 }));
   } else if (action.method === "AOE_LINE_SHOOT") {
     tiles = grid.traverse(line<TerrainHex>({ start: [b.q, b.r], stop: [a.q, a.r] }));
-  } else if (action.method === "AOE_WALL_SHOOT") {
-    const deltaX = Math.abs(a.q - b.q);
-    const deltaY = Math.abs(a.r - b.r);
-    if (deltaX >= deltaY) {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.N,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.S,
-        }),
-      ]);
-    } else {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.W,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.E,
-        }),
-      ]);
-    }
-  } else if (action.method === "AOE_LARGE_WALL_SHOOT") {
-    const deltaX = Math.abs(a.q - b.q);
-    const deltaY = Math.abs(a.r - b.r);
-    if (deltaX >= deltaY) {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.N,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.S,
-        }),
-      ]);
-    } else {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.W,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.E,
-        }),
-      ]);
-    }
+  } else if (
+    action.method === "AOE_WALL_SHOOT" ||
+    action.method === "AOE_LARGE_WALL_SHOOT"
+  ) {
+    const length = action.method === "AOE_WALL_SHOOT" ? 2 : 3;
+    const directions =
+      Math.abs(a.q - b.q) >= Math.abs(a.r - b.r)
+        ? [Direction.N, Direction.S]
+        : [Direction.W, Direction.E];
+    tiles = grid.traverse(
+      directions.map((direction) =>
+        line<TerrainHex>({ start: [b.q, b.r], length, direction }),
+      ),
+    );
   } else if (action.method === "AOE_CIRCLE_SHOOT") {
     tiles = grid.traverse(ring<TerrainHex>({ center: [a.q, a.r], radius }));
   } else if (action.method === "AOE_SPIRAL_SHOOT") {

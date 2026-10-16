@@ -22,7 +22,11 @@ export const CombatTargetPreview = ({
   const [focusedTile, setFocusedTile] = useState({ col: 0, row: 0 });
   const focusedCol = Math.min(focusedTile.col, width - 1);
   const focusedRow = Math.min(focusedTile.row, height - 1);
-  const Tile = defineHex({ dimensions: 20, orientation: Orientation.FLAT });
+  const Tile = defineHex({
+    dimensions: 20,
+    orientation: Orientation.FLAT,
+    origin: "topLeft",
+  });
   const grid = new Grid(Tile, rectangle({ width, height }));
   const a = grid.getHex({
     col: Math.min(caster.col, width - 1),
@@ -35,11 +39,6 @@ export const CombatTargetPreview = ({
   const tiles = grid.toArray();
   if (!a || !b) return null;
   const affected = new Set(getTargetTiles({ a, b, action, grid }));
-  const corners = tiles.flatMap((tile) => tile.corners);
-  const minX = Math.min(...corners.map((point) => point.x));
-  const minY = Math.min(...corners.map((point) => point.y));
-  const maxX = Math.max(...corners.map((point) => point.x));
-  const maxY = Math.max(...corners.map((point) => point.y));
   const random =
     action.method === "COORDINATES" &&
     action.coordinateTargeting?.selection === "RANDOM";
@@ -96,7 +95,7 @@ export const CombatTargetPreview = ({
       </p>
       <svg
         aria-label="Combat grid preview"
-        viewBox={`${minX - 2} ${minY - 2} ${maxX - minX + 4} ${maxY - minY + 4}`}
+        viewBox={`-2 -2 ${grid.pixelWidth + 4} ${grid.pixelHeight + 4}`}
         className="w-full max-w-md"
       >
         {tiles.map((tile) => {
