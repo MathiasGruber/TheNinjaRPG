@@ -948,6 +948,7 @@ export const fetchEventNotices = async (client: DrizzleClient, userId: string) =
     where: and(
       eq(tournament.type, "EVENT"),
       inArray(tournament.status, ["OPEN", "IN_PROGRESS"]),
+      sql`JSON_CONTAINS(JSON_EXTRACT(${tournament.eventData}, '$.participants[*].userId'), JSON_QUOTE(${userId}))`,
     ),
     columns: { id: true, eventData: true },
     limit: 100,

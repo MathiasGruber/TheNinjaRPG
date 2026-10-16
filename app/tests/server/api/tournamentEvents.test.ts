@@ -34,11 +34,12 @@ import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { tournamentRouter } from "@/server/api/routers/tournament";
 import {
   fetchEvent,
+  fetchEventNotices,
   maintainEventTournaments,
   syncEventTournament,
 } from "@/server/api/routers/tournamentEvents";
 import type { DrizzleClient } from "@/server/db";
-import { eventTournamentConfigSchema } from "@/validators/tournament";
+import { eventTournamentConfigSchema, type EventParticipant } from "@/validators/tournament";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertUsers } from "../../setup/factories";
 import { queueEnergy } from "../../setup/queues";
@@ -121,6 +122,50 @@ describeWithDatabase("event tournament persistence", () => {
     expect((await first.participateEvent({ tournamentId, seriesId, action: "READY" })).success).toBe(false);
     expect((await first.participateEvent({ tournamentId, seriesId, action: "ACCEPT" })).success).toBe(true);
     expect(await first.getEventNotices()).toEqual([]);
+  });
+
+  it("returns invitations and ready matches after unrelated active events fill the notice limit", async () => {
+    const database = await getTestDatabase();
+    const participant = (userId: string, accepted: boolean): EventParticipant => ({
+      id: `seat-${userId}`, userId, username: userId, accepted,
+      invited: true, withdrawn: false, seed: 0,
+      snapshot: { bracket: 0, pvpWins: 0, winRate: 0, masteredJutsu: 0 },
+      previousUsers: [],
+    });
+    const invitation = createEventState({ ...eventConfig("Invitation"), registration: "INVITE_ONLY" });
+    invitation.status = "REGISTRATION";
+    invitation.participants = [participant("target", false)];
+    const ready = createEventState(eventConfig("Ready match"));
+    ready.participants = [participant("target", true), participant("opponent", true)];
+    generateEventBracket(ready, ready.participants.map((seat) => seat.id));
+    beginEventRound(ready, Date.now() - 1000);
+    const game = ready.series[0]!.games[0]!;
+    game.opensAt = Date.now() - 1000;
+    game.deadline = Date.now() + 3600_000;
+    const base = { image: "", description: "", type: "EVENT" as const, rewards: ObjectiveReward.parse({}) };
+    await database.insert(tournament).values([
+      { ...base, id: "900-invite", name: "Invitation", status: "OPEN", eventData: invitation },
+      { ...base, id: "901-ready", name: "Ready match", status: "IN_PROGRESS", eventData: ready },
+      { ...base, id: "902-withdrawn", name: "Withdrawn", status: "OPEN", eventData: {
+        ...invitation, participants: [{ ...participant("target", false), withdrawn: true }],
+      } },
+    ]);
+    const expected = [
+      { tournamentId: "900-invite", message: "You have a tournament invitation" },
+      { tournamentId: "901-ready", message: "Your tournament match is ready" },
+    ];
+    const notices = async () => (await fetchEventNotices(database, "target"))
+      .map(({ tournamentId, message }) => ({ tournamentId, message }))
+      .sort((a, b) => a.tournamentId.localeCompare(b.tournamentId));
+    expect(await notices()).toEqual(expected);
+    await database.insert(tournament).values(Array.from({ length: 100 }, (_, index) => ({
+      ...base, id: `000-${String(index).padStart(3, "0")}`, name: `Unrelated ${index}`,
+      status: "OPEN" as const, eventData: {
+        ...invitation, participants: [participant(`other-${index}`, false)],
+      },
+    })));
+    expect(await notices()).toEqual(expected);
+    expect(await fetchEventNotices(database, "unregistered")).toEqual([]);
   });
 
   for (const [battleType, isEvent] of [

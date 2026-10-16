@@ -705,7 +705,8 @@ export const combatRouter = createTRPCRouter({
           userId?: string;
         }[] = [];
 
-        // Remember original values for round & activeUserId
+        // Remember original values before the in-memory battle state changes.
+        const fetchedVersion = battle.version;
         const originalRound = battle.round;
         const originalActiveUserId = battle.activeUserId;
 
@@ -857,11 +858,11 @@ export const combatRouter = createTRPCRouter({
           }
 
           // Add history entry for what happened during this round
-          if (description) {
+          if (description || actionEffects.length) {
             history.push({
               battleRound: actionRound,
               appliedEffects: actionEffects,
-              description: description,
+              description: description || "Battlefield effects expire.",
               battleVersion: newBattle.version + nActions,
               actionId: performedActionId ?? "unknown",
               userId: performedByUserId ?? actor.userId,
@@ -923,7 +924,7 @@ export const combatRouter = createTRPCRouter({
               result,
               suid,
               newBattle,
-              battle.version,
+              fetchedVersion,
               pusher,
             );
             if (!claim) return { updateClient: true };
