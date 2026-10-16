@@ -802,12 +802,12 @@ export const HomeScene = ({
             const rotations = getHomeFurnitureRotations(selectedFurniture);
             const { left, top, width } = selectedScreenBounds;
             // Center fixed-size actions on the highlight corners, keeping each button inside the scene.
-            const controlWidth = `clamp(3rem, ${width}%, calc(100% - 2rem))`;
+            const controlWidth = `clamp(2rem, ${width}%, calc(100% - 2rem))`;
             return (
               <fieldset
                 aria-label="Furniture controls"
                 data-home-controls
-                className="pointer-events-none absolute z-[10000] flex justify-between"
+                className="pointer-events-none absolute z-[10000] min-w-0"
                 style={{
                   left: `clamp(1rem, ${left}%, calc(100% - 1rem - ${controlWidth}))`,
                   top: `clamp(1rem, ${top}%, calc(100% - 1rem))`,
@@ -817,7 +817,7 @@ export const HomeScene = ({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="pointer-events-auto h-8 w-8 -translate-x-1/2 -translate-y-1/2 shadow-md"
+                  className="pointer-events-auto absolute top-0 left-0 h-8 w-8 -translate-x-1/2 -translate-y-1/2 shadow-md"
                   aria-label="Rotate clockwise"
                   aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
                   hoverText="Rotate clockwise"
@@ -832,7 +832,7 @@ export const HomeScene = ({
                 <Button
                   variant="outline"
                   size="icon"
-                  className="pointer-events-auto h-8 w-8 translate-x-1/2 -translate-y-1/2 shadow-md"
+                  className="pointer-events-auto absolute top-0 right-0 h-8 w-8 translate-x-1/2 -translate-y-1/2 shadow-md"
                   aria-label="Store"
                   hoverText="Store in inventory"
                   disabled={isMovementDisabled}
