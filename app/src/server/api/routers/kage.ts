@@ -477,12 +477,11 @@ export const kageRouter = createTRPCRouter({
           if (!inserted.rowsAffected)
             return errorResponse("There is already a pending Kage removal vote");
           const recipients = eligibleElders.map((e) => e.userId);
-          await tx.insert(notification).values(
-            recipients.map((userId) => ({
-              userId,
-              content: `${user.username} proposed removing the Kage: ${input.reason}. Vote at Town Hall.`,
-            })),
-          );
+          // Notification is a shared announcement; unread counters select its recipients.
+          await tx.insert(notification).values({
+            userId: user.userId,
+            content: `${user.username} proposed removing the Kage: ${input.reason}. Vote at Town Hall.`,
+          });
           await tx
             .update(userData)
             .set({ unreadNotifications: sql`${userData.unreadNotifications} + 1` })

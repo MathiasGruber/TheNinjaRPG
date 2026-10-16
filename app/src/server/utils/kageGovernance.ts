@@ -2,6 +2,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   ELDER_MIN_VOTING_COUNT,
   KAGE_ELDER_REMOVAL_LOCK_SECS,
+  TERR_BOT_ID,
 } from "@/drizzle/constants";
 import { notification, userData, village, villageElderVote } from "@/drizzle/schema";
 import { resolveElderVote } from "@/libs/elder";
@@ -105,15 +106,14 @@ export const settleKageRemoval = async (
           .where(eq(village.id, v.id));
       }
       const recipients = [...new Set([motion.targetId, ...electorate])];
-      await tx.insert(notification).values(
-        recipients.map((userId) => ({
-          userId,
-          content:
-            outcome === "APPROVED"
-              ? "The Elder Council removed the Kage. Village prestige is retained. Elders may nominate an eligible villager at Town Hall."
-              : "The Kage removal vote did not pass. The result and reason are published at Town Hall.",
-        })),
-      );
+      // Publish one system announcement; unread counters determine who receives it.
+      await tx.insert(notification).values({
+        userId: TERR_BOT_ID,
+        content:
+          outcome === "APPROVED"
+            ? "The Elder Council removed the Kage. Village prestige is retained. Elders may nominate an eligible villager at Town Hall."
+            : "The Kage removal vote did not pass. The result and reason are published at Town Hall.",
+      });
       await tx
         .update(userData)
         .set({ unreadNotifications: sql`${userData.unreadNotifications} + 1` })

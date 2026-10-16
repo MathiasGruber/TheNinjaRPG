@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, setSystemTime } from "bun:test";
 import { eq } from "drizzle-orm";
-import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
+import { KAGE_PRESTIGE_REQUIREMENT, TERR_BOT_ID } from "@/drizzle/constants";
 import {
   notification,
   userData,
@@ -56,7 +56,12 @@ describeWithDatabase("elder kage removal protection", () => {
     expect(result.success).toBe(true);
     const db = await getTestDatabase();
     expect(await db.query.villageElderVote.findMany()).toHaveLength(1);
-    expect(await db.query.notification.findMany()).toHaveLength(3);
+    const notices = await db.query.notification.findMany();
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.userId).toBe("elder-1");
+    const recipients = await db.query.userData.findMany();
+    expect(recipients.filter((u) => u.rank === "ELDER").every((u) => u.unreadNotifications === 1)).toBe(true);
+    expect(recipients.find((u) => u.userId === "kage")?.unreadNotifications).toBe(0);
   });
 
   it.each([true, false])("enforces protection on existing motions at removal time (protected: %s)", async (isProtected) => {
@@ -74,6 +79,8 @@ describeWithDatabase("elder kage removal protection", () => {
       db.query.village.findFirst(), db.query.userData.findFirst({ where: eq(userData.userId, "kage") }),
       db.query.villageElderVote.findFirst(), db.query.notification.findMany(),
     ]);
+    expect(notices).toHaveLength(1);
+    expect(notices[0]?.userId).toBe(TERR_BOT_ID);
     expect(result.success).toBe(!isProtected);
     expect(vote?.status).toBe(isProtected ? "REJECTED" : "APPROVED");
     if (isProtected) {
