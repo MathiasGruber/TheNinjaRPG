@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { ShapeUtils, Vector2 } from "three";
 import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes } from "@/drizzle/constants";
-import { clampHomeFurniturePlacement, getHomeFurnitureGeometry, homeLayoutPlacementError, recoverHomeLayout, type HomeFurniture } from "@/libs/home";
+import { clampHomeFurniturePlacement, getHomeFurnitureGeometry, homeLayoutPlacementError, isPointInHomePolygon, recoverHomeLayout, type HomeFurniture } from "@/libs/home";
 import { boundHomeCamera, getHomeOverviewCamera, getHomeRoomCamera, getHomeRooms, homeRoomLayoutError, zoomHomeCamera } from "@/libs/homeProperty";
 import { HOME_ART_PLANS } from "@/libs/homeRoomGeometry";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
@@ -28,6 +29,50 @@ describe("painted home properties", () => {
       expect(fitted).not.toBeNull();
       expect(homeLayoutPlacementError([fitted!],[farm],homeType)).toBeNull();
       expect(homeLayoutPlacementError([{...placement}],[farm],homeType)).toContain("garden");
+    }
+  });
+
+  it.each([
+    { homeType: "NONE", room: 0, wall: [461, 300], floor: [484, 300] },
+    { homeType: "NONE", room: 0, wall: [982, 360], floor: [970, 360] },
+    { homeType: "STUDIO_APARTMENT", room: 0, wall: [285, 480], floor: [300, 480] },
+    { homeType: "STUDIO_APARTMENT", room: 1, wall: [1197, 480], floor: [1180, 480] },
+    { homeType: "ONE_BED_APARTMENT", room: 0, wall: [278, 220], floor: [285, 220] },
+    { homeType: "ONE_BED_APARTMENT", room: 1, wall: [1186, 180], floor: [1175, 180] },
+    { homeType: "TWO_BED_HOUSE", room: 0, wall: [254, 480], floor: [280, 480] },
+    { homeType: "TWO_BED_HOUSE", room: 1, wall: [500, 377], floor: [500, 362] },
+    { homeType: "TWO_BED_HOUSE", room: 2, wall: [997, 350], floor: [950, 355] },
+    { homeType: "TWO_BED_HOUSE", room: 0, wall: [700, 625], floor: [700, 610] },
+    { homeType: "TOWN_HOUSE", room: 2, wall: [225, 525], floor: [255, 525] },
+    { homeType: "TOWN_HOUSE", room: 1, wall: [514, 310], floor: [507, 310] },
+    { homeType: "TOWN_HOUSE", room: 4, wall: [1230, 550], floor: [1200, 550] },
+    { homeType: "SMALL_MANSION", room: 1, wall: [530, 270], floor: [510, 270] },
+    { homeType: "SMALL_MANSION", room: 1, wall: [255, 219], floor: [280, 230] },
+    { homeType: "SMALL_MANSION", room: 2, wall: [350, 386], floor: [350, 410] },
+    { homeType: "SMALL_MANSION", room: 2, wall: [254, 397], floor: [280, 420] },
+    { homeType: "SMALL_MANSION", room: 3, wall: [240, 561], floor: [270, 570] },
+    { homeType: "SMALL_MANSION", room: 4, wall: [1238, 350], floor: [1200, 350] },
+    { homeType: "SMALL_MANSION", room: 5, wall: [915, 600], floor: [950, 600] },
+    { homeType: "SMALL_MANSION", room: 5, wall: [910, 530], floor: [920, 532] },
+    { homeType: "SMALL_ESTATE", room: 0, wall: [568, 500], floor: [580, 500] },
+    { homeType: "SMALL_ESTATE", room: 2, wall: [240, 380], floor: [256, 384] },
+    { homeType: "SMALL_ESTATE", room: 4, wall: [1233, 290], floor: [1215, 290] },
+    { homeType: "LARGE_ESTATE", room: 1, wall: [198, 325], floor: [216, 325] },
+    { homeType: "LARGE_ESTATE", room: 2, wall: [706, 270], floor: [693, 270] },
+    { homeType: "LARGE_ESTATE", room: 7, wall: [1262, 535], floor: [1240, 535] },
+    { homeType: "PALACE", room: 1, wall: [495, 190], floor: [484, 190] },
+    { homeType: "PALACE", room: 8, wall: [1290, 600], floor: [1275, 600] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 1, wall: [363, 310], floor: [350, 310] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 0, wall: [829, 420], floor: [816, 420] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 9, wall: [1300, 490], floor: [1280, 490] },
+  ] as const)("keeps $homeType room $room finishes off measured walls and fixtures", ({ homeType, room, wall, floor }) => {
+    // Finish contours can be concave; triangulate them before using the convex placement helper.
+    const triangles = HOME_ART_PLANS[homeType].floorSurfaces[room]!.flatMap((polygon) => {
+      const contour = polygon.map(([x, y]) => new Vector2(x * 1448 / 100, y * 1086 / 100));
+      return ShapeUtils.triangulateShape(contour, []).map((indices) => indices.map((index) => contour[index]!));
+    });
+    for (const [point, expected] of [[wall, false], [floor, true]] as const) {
+      expect(triangles.some((triangle) => isPointInHomePolygon({ x: point[0], y: point[1] }, triangle))).toBe(expected);
     }
   });
 
