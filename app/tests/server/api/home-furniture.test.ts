@@ -80,14 +80,14 @@ describeWithDatabase("owned furniture persistence", () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
     const api = await callerFor(homeRouter, userId);
-    const placements: HomePlacement[] = [...essentialLayout, { id: "cabinet-a", x: 50, y: 50, rotation: 0, room: "room-1" }, { id: "cabinet-b", x: 50, y: 50, rotation: 0 }];
-    const styles = [{ room: "room-1", paint: "sage", floor: "slate" }] as const;
+    const placements: HomePlacement[] = [...essentialLayout, { id: "cabinet-a", x: 50, y: 50, rotation: 0, room: "room-4" }, { id: "cabinet-b", x: 50, y: 50, rotation: 0 }];
+    const styles = [{ room: "room-4", paint: "sage", floor: "slate" }] as const;
     expect((await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements, styles: [...styles] })).success).toBe(true);
     const home = await api.getUserHome();
     expectLayout(home?.layout, placements);
     expect(home?.styles).toEqual([...styles]);
     expect((await api.toggleStoreItem({ userItemId: "cabinet-a" })).success).toBe(true);
-    expect((await snapshot()).inventory.find(({ id }) => id === "cabinet-a")).toMatchObject({ storedAtHome: false, homeRoom: "room-1", homeX: 50, homeY: 50 });
+    expect((await snapshot()).inventory.find(({ id }) => id === "cabinet-a")).toMatchObject({ storedAtHome: false, homeRoom: "room-4", homeX: 50, homeY: 50 });
     expect((await api.getUserHome())?.layout.some(({ id }) => id === "cabinet-a")).toBe(true);
     const downgrade = await recordQueries(() => api.upgradeHome({ homeType: "TWO_BED_HOUSE" }));
     expect(downgrade.result.success).toBe(true);
@@ -114,7 +114,7 @@ describeWithDatabase("owned furniture persistence", () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
     const api = await callerFor(homeRouter, userId);
-    const placements = essentialLayout.map((placement, index) => index < 2 ? { ...placement, room: "room-1" as const } : placement);
+    const placements = essentialLayout.map((placement, index) => index < 2 ? { ...placement, room: "room-4" as const } : placement);
     expect((await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements })).success).toBe(true);
     expect((await api.toggleStoreItem({ userItemId: "kitchen-row" })).success).toBe(true);
     expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
@@ -192,7 +192,7 @@ describeWithDatabase("owned furniture persistence", () => {
   it("refunds a concurrent downgrade once while storing every removed-room placement", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
-    await db.update(userItem).set({ homeRoom: "room-1" }).where(eq(userItem.userId, userId));
+    await db.update(userItem).set({ homeRoom: "room-4" }).where(eq(userItem.userId, userId));
     const before = await snapshot();
     const api = await callerFor(homeRouter, userId);
     const results = await Promise.all([api.upgradeHome({ homeType: "TWO_BED_HOUSE" }), api.upgradeHome({ homeType: "TWO_BED_HOUSE" })]);

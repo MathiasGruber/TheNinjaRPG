@@ -618,14 +618,14 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
     await act(async () => {
       queryClient.setQueryData(homeKey, { ...home, homeType: "SMALL_MANSION", furnitureRevision: 4 });
     });
-    await view.findByRole("button", { name: "Room 3" });
+    await within(view.getByLabelText("Jump to room")).findByRole("option", { name: "Room 6" });
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
     expect(view.getByRole("button", { name: "Move Bed" }).style.left).toBe(position);
     expect(view.getByRole("alert").textContent).toContain("Your home tier changed. Cancel and reopen");
     expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(view.getByRole("button", { name: "Room 2" }));
+    fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "room-1" } });
     expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("rose");
-    fireEvent.click(view.getByRole("button", { name: "Main room" }));
+    fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "main" } });
     expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("sage");
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     expect(save).not.toHaveBeenCalled();

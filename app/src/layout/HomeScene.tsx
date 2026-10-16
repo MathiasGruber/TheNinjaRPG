@@ -18,7 +18,6 @@ import {
   HOME_WALL_PAINTS,
   type HomeFurnitureRotation,
   type HomeType,
-  HomeTypeDetails,
 } from "@/drizzle/constants";
 import { HomePropertyBackdrop } from "@/layout/HomePropertyBackdrop";
 import Image from "@/layout/Image";
@@ -28,18 +27,20 @@ import {
   getHomeFurnitureRotations,
   getHomeFurnitureView,
   type HomeFurniture,
+  isPointInHomePolygon,
   projectHomePlacement,
   recoverHomeLayout,
   unprojectHomePlacement,
 } from "@/libs/home";
 import {
   boundHomeCamera,
+  getHomeOverviewCamera,
   getHomePlacementRoom,
   getHomeRooms,
   type HomeRoomId,
   zoomHomeCamera,
 } from "@/libs/homeProperty";
-import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import { HOME_BUILDING_GEOMETRY, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
 import { clamp } from "@/utils/math";
@@ -79,7 +80,7 @@ export const HomeScene = ({
   const rooms = getHomeRooms(homeType);
   const isProperty = rooms.length > 1;
   const [activeRoom, setActiveRoom] = useState<HomeRoomId>("main");
-  const [camera, setCamera] = useState({ x: 0, y: 0, scale: 1 });
+  const [camera, setCamera] = useState(() => getHomeOverviewCamera(homeType));
   const cameraPointers = useRef(
     new Map<number, { x: number; y: number; canPan: boolean }>(),
   );
@@ -90,20 +91,26 @@ export const HomeScene = ({
       id: "main" as const,
       x: 0,
       y: 0,
+      width: 100,
     };
     setActiveRoom(room.id);
-    setCamera({ x: -room.x, y: -room.y, scale: 1 });
+    setCamera({ x: -room.x - (room.width - 100) / 2, y: -room.y, scale: 1 });
   };
   /** Translate local furniture bounds into the continuous property's coordinate system. */
   const roomBounds = (piece: HomeFurniture, placement: HomePlacement) => {
     const room = rooms.find(({ id }) => id === getHomePlacementRoom(placement));
-    const bounds = getHomeFurnitureGeometry(piece, placement).visibleBounds;
-    return { ...bounds, x: bounds.x + (room?.x ?? 0), y: bounds.y + (room?.y ?? 0) };
+    const bounds = getHomeFurnitureGeometry(piece, placement, homeType).visibleBounds;
+    return {
+      ...bounds,
+      width: (bounds.width * (room?.width ?? 100)) / 100,
+      x: (bounds.x * (room?.width ?? 100)) / 100 + (room?.x ?? 0),
+      y: bounds.y + (room?.y ?? 0),
+    };
   };
   useEffect(() => {
     cameraPointers.current.clear();
     hasPinched.current = false;
-    setCamera({ x: 0, y: 0, scale: 1 });
+    setCamera(getHomeOverviewCamera(homeType));
     setActiveRoom("main");
   }, [homeType]);
   useEffect(() => {
@@ -116,7 +123,11 @@ export const HomeScene = ({
       const x = ((event.clientX - rect.left) / rect.width) * 100;
       const y = ((event.clientY - rect.top) / rect.height) * 100;
       setCamera((current) => {
-        const scale = clamp(current.scale * (event.deltaY > 0 ? 0.9 : 1.1), 0.3, 1.8);
+        const scale = clamp(
+          current.scale * (event.deltaY > 0 ? 0.9 : 1.1),
+          Math.min(0.3, getHomeOverviewCamera(homeType).scale),
+          1.8,
+        );
         return boundHomeCamera(zoomHomeCamera(current, scale, { x, y }), homeType);
       });
     };
@@ -334,8 +345,12 @@ export const HomeScene = ({
     const rotation =
       rotations[(rotations.indexOf(selected.rotation) + 1) % rotations.length] ?? 0;
     const next = { ...selected, rotation };
-    const before = getHomeFurnitureGeometry(selectedFurniture, selected).footprint;
-    const after = getHomeFurnitureGeometry(selectedFurniture, next).footprint;
+    const before = getHomeFurnitureGeometry(
+      selectedFurniture,
+      selected,
+      homeType,
+    ).footprint;
+    const after = getHomeFurnitureGeometry(selectedFurniture, next, homeType).footprint;
     const anchor = projectHomePlacement(next);
     const candidate = {
       ...next,
@@ -378,26 +393,35 @@ export const HomeScene = ({
           className="flex flex-wrap items-center gap-2"
           aria-label="Property navigation"
         >
-          {rooms.map((room) => (
-            <Button
-              key={room.id}
-              variant={activeRoom === room.id ? "default" : "outline"}
-              className="h-10"
-              onClick={() => focusRoom(room.id)}
-            >
-              {room.name}
-            </Button>
-          ))}
+          <select
+            aria-label="Jump to room"
+            className="h-10 rounded-md border bg-background px-3 text-sm"
+            value={activeRoom}
+            onChange={(event) => focusRoom(event.target.value as HomeRoomId)}
+          >
+            {rooms.map((room) => (
+              <option key={room.id} value={room.id}>
+                {room.name}
+              </option>
+            ))}
+          </select>
           <Button
             variant="outline"
             aria-label="Zoom out"
             onClick={() =>
               setCamera((current) =>
                 boundHomeCamera(
-                  zoomHomeCamera(current, Math.max(0.3, current.scale - 0.15), {
-                    x: 50,
-                    y: 50,
-                  }),
+                  zoomHomeCamera(
+                    current,
+                    Math.max(
+                      Math.min(0.3, getHomeOverviewCamera(homeType).scale),
+                      current.scale - 0.15,
+                    ),
+                    {
+                      x: 50,
+                      y: 50,
+                    },
+                  ),
                   homeType,
                 ),
               )
@@ -425,7 +449,10 @@ export const HomeScene = ({
           >
             +
           </Button>
-          <Button variant="outline" onClick={() => focusRoom("main")}>
+          <Button
+            variant="outline"
+            onClick={() => setCamera(getHomeOverviewCamera(homeType))}
+          >
             Reset view
           </Button>
         </fieldset>
@@ -495,7 +522,11 @@ export const HomeScene = ({
               ? Math.hypot(event.clientX - other.x, event.clientY - other.y)
               : 0;
             if (other && before > 0) {
-              const scale = clamp((current.scale * after) / before, 0.3, 1.8);
+              const scale = clamp(
+                (current.scale * after) / before,
+                Math.min(0.3, getHomeOverviewCamera(homeType).scale),
+                1.8,
+              );
               const midpoint = {
                 x: (((previous.x + other.x) / 2 - rect.left) / rect.width) * 100,
                 y: (((previous.y + other.y) / 2 - rect.top) / rect.height) * 100,
@@ -532,39 +563,23 @@ export const HomeScene = ({
         >
           {!hasImageError && (
             <>
-              {rooms.map((room) => (
+              {!isProperty && (
                 <div
-                  key={room.id}
-                  data-home-room={room.id}
+                  data-home-room="main"
                   className="pointer-events-none absolute h-full w-full"
-                  style={{ left: `${room.x}%`, top: `${room.y}%` }}
                 >
-                  {room.isYard ? (
-                    <Image
-                      src="/images/home/yard.webp"
-                      alt="Yard"
-                      fill
-                      className="object-contain"
-                      loading="eager"
-                      onError={() => setFailedHomeType(homeType)}
-                    />
-                  ) : (
-                    <RoomImage
-                      homeType={homeType}
-                      roomName={isProperty ? room.name : undefined}
-                      onError={() => setFailedHomeType(homeType)}
-                    />
-                  )}
+                  <RoomImage onError={() => setFailedHomeType(homeType)} />
                 </div>
-              ))}
+              )}
               <HomePropertyBackdrop
                 homeType={homeType}
                 styles={draft?.styles ?? styles}
+                onError={() => setFailedHomeType(homeType)}
               />
             </>
           )}
           {isEditing && (
-            <span className="pointer-events-none absolute top-3 left-3 z-[140] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
+            <span className="pointer-events-none absolute top-3 left-3 z-[10000] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
               Decorating
             </span>
           )}
@@ -592,7 +607,14 @@ export const HomeScene = ({
               height: `${bounds.height}%`,
               zIndex: details.isFloor
                 ? 1
-                : Math.round(projectHomePlacement(placement).y) + 2,
+                : isProperty
+                  ? Math.round(
+                      ((rooms.find(({ id }) => id === getHomePlacementRoom(placement))
+                        ?.y ?? 0) +
+                        projectHomePlacement(placement).y) *
+                        10,
+                    ) + 2
+                  : Math.round(projectHomePlacement(placement).y) + 2,
             };
             const className = cn(
               "group absolute rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-white",
@@ -690,7 +712,7 @@ export const HomeScene = ({
                   const point = {
                     x:
                       (origin?.x ?? 0) +
-                      anchor.x +
+                      (anchor.x * (origin?.width ?? 100)) / 100 +
                       ((event.clientX - drag.clientX) / (scene.width * camera.scale)) *
                         100,
                     y:
@@ -699,16 +721,24 @@ export const HomeScene = ({
                       ((event.clientY - drag.clientY) / (scene.height * camera.scale)) *
                         100,
                   };
-                  const target = rooms.find(
-                    (room) =>
-                      point.x >= room.x &&
-                      point.x <= room.x + 100 &&
-                      point.y >= room.y &&
-                      point.y <= room.y + 100,
+                  const target = rooms.find((room) =>
+                    isPointInHomePolygon(
+                      {
+                        x: ((point.x - room.x) * 100) / room.width,
+                        y: point.y - room.y,
+                      },
+                      details.action === "farm"
+                        ? room.isYard
+                          ? HOME_ROOM_GEOMETRY[homeType].outdoor
+                          : []
+                        : room.isYard
+                          ? HOME_BUILDING_GEOMETRY.lawn
+                          : HOME_ROOM_GEOMETRY[homeType].interior,
+                    ),
                   );
                   if (!target) return;
                   const local = unprojectHomePlacement({
-                    x: point.x - target.x,
+                    x: ((point.x - target.x) * 100) / target.width,
                     y: point.y - target.y,
                   });
                   moveFurniture(placement.id, local.x, local.y, target.id);
@@ -766,7 +796,7 @@ export const HomeScene = ({
               </button>
             );
           })}
-          {!hasImageError && (
+          {!hasImageError && !isProperty && (
             <>
               <svg aria-hidden className="absolute h-0 w-0">
                 <defs>
@@ -782,7 +812,7 @@ export const HomeScene = ({
                   </clipPath>
                 </defs>
               </svg>
-              {/* Each room reuses its painting above indoor sprites, sharing the background's downloaded image. */}
+              {/* The tent retains its authored canvas foreground; composed buildings use individual wall layers. */}
               {rooms
                 .filter((room) => !room.isYard)
                 .map((room) => (
@@ -796,7 +826,7 @@ export const HomeScene = ({
                       clipPath: `url(#${foregroundId})`,
                     }}
                   >
-                    <RoomImage homeType={homeType} isForeground />
+                    <RoomImage isForeground />
                   </div>
                 ))}
             </>
@@ -805,7 +835,7 @@ export const HomeScene = ({
         {hasImageError && (
           <p
             role="status"
-            className="pointer-events-none absolute inset-x-4 top-4 z-[140] text-center text-sm text-white"
+            className="pointer-events-none absolute inset-x-4 top-4 z-[10000] text-center text-sm text-white"
           >
             Home artwork is unavailable. Your furniture and text controls still work.
           </p>
@@ -1161,28 +1191,22 @@ const FurnitureImage = ({
 
 /** Background and foreground reuse identical responsive URLs so the browser shares the downloaded image. */
 const RoomImage = ({
-  homeType,
-  roomName,
   isForeground = false,
   onError,
 }: {
-  homeType: HomeType;
-  roomName?: string;
   isForeground?: boolean;
   onError?: () => void;
 }) => (
   <picture className="pointer-events-none absolute inset-0">
     <source
       srcSet={[480, 768, 1024, 1448]
-        .map(
-          (width) => `${bunnyImageUrl(HOME_SCENE_IMAGES[homeType], width)} ${width}w`,
-        )
+        .map((width) => `${bunnyImageUrl(HOME_TENT_IMAGE, width)} ${width}w`)
         .join(", ")}
       sizes="(max-width: 768px) 100vw, 768px"
     />
     <Image
-      src={bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768)}
-      alt={isForeground ? "" : `${roomName ?? HomeTypeDetails[homeType].name} interior`}
+      src={bunnyImageUrl(HOME_TENT_IMAGE, 768)}
+      alt={isForeground ? "" : "Tent interior"}
       fill
       className="object-contain"
       loading="eager"
@@ -1200,19 +1224,8 @@ const FURNITURE_DIRECTIONS = [
   { key: "ArrowRight", dx: 2, dy: 0 },
 ] as const;
 
-/** Unfurnished room shells share the editor's overhead floor projection. */
-export const HOME_SCENE_IMAGES = {
-  NONE: "https://ui0arpl8sm.ufs.sh/f/Wn3b08fT6eLPpAlBHGmOT.webp",
-  STUDIO_APARTMENT: "https://ui0arpl8sm.ufs.sh/f/f4UiNvK2MUR1t4jryeYVP.webp",
-  ONE_BED_APARTMENT: "https://ui0arpl8sm.ufs.sh/f/9hq1imSs_I40NmFQhl6sV.webp",
-  TWO_BED_HOUSE: "https://ui0arpl8sm.ufs.sh/f/tWAQ50J2WaslX7Cgo2kKI.webp",
-  TOWN_HOUSE: "https://ui0arpl8sm.ufs.sh/f/bLmh_Na-sWSSS3xJKKssa.webp",
-  SMALL_MANSION: "https://ui0arpl8sm.ufs.sh/f/Pet3rpFBBOgHMOgSfRjoe.webp",
-  SMALL_ESTATE: "https://ui0arpl8sm.ufs.sh/f/wQN5IE2zpgd2-C1n8Y0Mg.webp",
-  LARGE_ESTATE: "https://ui0arpl8sm.ufs.sh/f/5IN8T8Hd4oR8J2vtBciPj.webp",
-  PALACE: "https://ui0arpl8sm.ufs.sh/f/WDu6t6mmPUhMf-md-xPio.webp",
-  MARSHMALLOWOPOLIS: "https://ui0arpl8sm.ufs.sh/f/IYFSPADWRNvdav7MrmsFO.webp",
-} satisfies Record<HomeType, string>;
+/** Canvas artwork remains authored as one piece; built houses use shared wall and floor assets. */
+export const HOME_TENT_IMAGE = "https://ui0arpl8sm.ufs.sh/f/Wn3b08fT6eLPpAlBHGmOT.webp";
 
 /** A draft captures its home tier and revision once; refreshes cannot silently rebase unsaved edits. */
 export type HomeDraft = {

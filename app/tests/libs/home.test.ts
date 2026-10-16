@@ -88,7 +88,7 @@ describe("painted furniture geometry", () => {
     const position = placement(piece.id);
     const anchor = projectHomePlacement(position);
     expect(unprojectHomePlacement(anchor)).toEqual({ x: 50, y: 50 });
-    const geometry = getHomeFurnitureGeometry(piece, position);
+    const geometry = getHomeFurnitureGeometry(piece, position, "NONE");
     expect(geometry.image.width).toBe(20);
     expect(geometry.image.height).toBeCloseTo(40 / 3);
     expect(geometry.visibleBounds.width).toBe(12);
@@ -104,7 +104,7 @@ describe("painted furniture geometry", () => {
       ...piece,
       views: { "90": { image: "/table-90.webp", width: 15, geometry: { ...piece.geometry!, aspectRatio: 1 } } },
     });
-    expect(getHomeFurnitureGeometry(rotated, { ...placement(piece.id), rotation: 1 }).image.height).toBe(20);
+    expect(getHomeFurnitureGeometry(rotated, { ...placement(piece.id), rotation: 1 }, "NONE").image.height).toBe(20);
     expect(getHomeFurnitureView({ ...rotated, views: { "90": { image: "/uncalibrated.webp" } } }, 1).geometry).toEqual(DEFAULT_HOME_FURNITURE_GEOMETRY);
   });
 
@@ -112,7 +112,7 @@ describe("painted furniture geometry", () => {
     const rightWall = Math.max(...HOME_ROOM_GEOMETRY.NONE.interior.map(({ x }) => x));
     const fitted = clampHomeFurniturePlacement({ ...placement(piece.id), x: 100 }, piece, "NONE");
     expect(fitted).not.toBeNull();
-    const geometry = getHomeFurnitureGeometry(piece, fitted!);
+    const geometry = getHomeFurnitureGeometry(piece, fitted!, "NONE");
     expect(geometry.visibleBounds.x + geometry.visibleBounds.width).toBeCloseTo(rightWall);
     expect(geometry.image.x + geometry.image.width).toBeGreaterThan(rightWall);
     expect(homeLayoutPlacementError([fitted!], [piece], "NONE")).toBeNull();

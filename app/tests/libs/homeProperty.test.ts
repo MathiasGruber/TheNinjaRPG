@@ -1,24 +1,47 @@
 import { describe, expect, it } from "bun:test";
 import { HOME_FURNITURE_MAX_PLACEMENTS, type HomeType, HomeTypes } from "@/drizzle/constants";
 import { homeLayoutPlacementError, recoverHomeLayout, type HomeFurniture } from "@/libs/home";
-import { boundHomeCamera, getHomeRooms, type HomeCamera, homeRoomLayoutError, zoomHomeCamera } from "@/libs/homeProperty";
+import { boundHomeCamera, getHomeOverviewCamera, getHomeRooms, getHomeWalls, type HomeCamera, homeRoomLayoutError, zoomHomeCamera } from "@/libs/homeProperty";
+import { HOME_BUILDING_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 
 const piece: HomeFurniture = { id: "chair", itemId: "chair", name: "Chair", image: "/chair.webp", width: 10, groundAnchor: 95, action: null, isFloor: false, quantity: 1, views: {} };
 const placement = { id: piece.id, x: 50, y: 50, rotation: 0 as const };
 
 describe("home properties", () => {
-  it("keeps smaller homes fixed and adds an indoor room at every tier from Town House", () => {
+  it("keeps the tent distinct and adds connected rooms as the building grows", () => {
+    expect(getHomeRooms("NONE")).toHaveLength(1);
     let previousCount = 1;
-    for (const tier of HomeTypes) {
+    for (const tier of HomeTypes.slice(1)) {
       const rooms = getHomeRooms(tier);
-      if (HomeTypes.indexOf(tier) < HomeTypes.indexOf("TOWN_HOUSE")) expect(rooms).toHaveLength(1);
-      else {
-        expect(rooms.filter(({ isYard }) => !isYard)).toHaveLength(previousCount + 1);
-        expect(rooms.filter(({ isYard }) => isYard)).toHaveLength(1);
-        previousCount++;
-      }
+      const indoor = rooms.filter(({ isYard }) => !isYard);
+      expect(indoor.length).toBe(previousCount + 1);
+      expect(rooms.filter(({ isYard }) => isYard)).toHaveLength(1);
       expect(new Set(rooms.map(({ id }) => id)).size).toBe(rooms.length);
+      const yard = rooms.find(({ isYard }) => isYard)!;
+      expect(yard.width).toBe(Math.max(...indoor.map(({ x }) => x + 100)));
+      previousCount = indoor.length;
+    }
+  });
+
+  it("uses shared partitions with open doorways and exterior-only windows at every tier", () => {
+    for (const tier of HomeTypes.slice(1)) {
+      const rooms = getHomeRooms(tier).filter(({ isYard }) => !isYard);
+      const walls = getHomeWalls(tier);
+      expect(new Set(walls.map(({ id }) => id)).size).toBe(walls.length);
+      const blocks = (x: number, y: number) => walls.some((wall) =>
+        wall.kind !== "lantern" && x > wall.x && x < wall.x + wall.width && y > wall.y && y < wall.y + wall.height,
+      );
+      for (const room of rooms) {
+        const right = rooms.find(({ x, y }) => x === room.x + HOME_BUILDING_GEOMETRY.stepX && y === room.y);
+        const below = rooms.find(({ x, y }) => x === room.x && y === room.y + HOME_BUILDING_GEOMETRY.stepY);
+        if (right) expect(blocks(room.x + 92, room.y + 49)).toBe(false);
+        if (below) expect(blocks(room.x + 50, room.y + 81)).toBe(false);
+      }
+      for (const wall of walls.filter(({ kind }) => kind === "window")) {
+        const owner = rooms.find(({ id }) => id === wall.room)!;
+        expect(rooms.some(({ x, y }) => x === owner.x && y === owner.y - HOME_BUILDING_GEOMETRY.stepY)).toBe(false);
+      }
     }
   });
 
@@ -27,7 +50,7 @@ describe("home properties", () => {
     const rooms = [placement, { ...placement, id: other.id, room: "room-1" as const }];
     expect(homeLayoutPlacementError(rooms, [piece, other], "TOWN_HOUSE")).toBeNull();
     expect(homeLayoutPlacementError(rooms.map((p) => ({ ...p, room: "main" })), [piece, other], "TOWN_HOUSE")).toContain("overlaps");
-    expect(recoverHomeLayout(rooms, [piece, other], "TWO_BED_HOUSE")).toEqual([placement]);
+    expect(recoverHomeLayout(rooms, [piece, other], "NONE")).toEqual([placement]);
   });
 
   it("allows the full furniture limit in each room and rejects unknown rooms", () => {
@@ -55,7 +78,7 @@ describe("home properties", () => {
     const pinch = zoomHomeCamera(camera, 1.2, focal, moved);
     expect((moved.x - pinch.x) / pinch.scale).toBeCloseTo((focal.x - camera.x) / camera.scale);
     expect((moved.y - pinch.y) / pinch.scale).toBeCloseTo((focal.y - camera.y) / camera.scale);
-    expect(boundHomeCamera({ x: 9999, y: -9999, scale: 0.5 }, "TOWN_HOUSE")).toEqual({ x: 0, y: -2, scale: 0.5 });
+    expect(boundHomeCamera({ x: 9999, y: -9999, scale: 0.5 }, "TOWN_HOUSE")).toEqual({ x: 0, y: -23, scale: 0.5 });
   });
 
   it("keeps a substantial part of a room visible at every property boundary and zoom", () => {
@@ -72,11 +95,11 @@ describe("home properties", () => {
         }
       }
     }
-    let camera = { x: -208, y: 0, scale: 1 };
+    let camera = { x: -164, y: 0, scale: 1 };
     for (let step = 0; step < 6; step++) {
       camera = boundHomeCamera({ ...camera, y: camera.y - 10 }, "SMALL_MANSION");
     }
-    expect(camera.x).toBe(-208);
+    expect(camera.x).toBe(-164);
     expect(visibleRoomArea(camera, "SMALL_MANSION")).toBeGreaterThan(2000);
   });
 
@@ -87,13 +110,13 @@ describe("home properties", () => {
         expect(boundHomeCamera(camera, homeType)).toEqual(camera);
       }
     }
-    const camera = { x: 0, y: 0, scale: 0.3 };
-    const rooms = getHomeRooms("SMALL_MANSION");
+    const camera = getHomeOverviewCamera("TWO_BED_HOUSE");
+    const rooms = getHomeRooms("TWO_BED_HOUSE");
     expect(rooms.some((room) =>
-      room.x <= 50 / camera.scale && room.x + 100 >= 50 / camera.scale &&
+      room.x <= 50 / camera.scale && room.x + room.width >= 50 / camera.scale &&
       room.y <= 50 / camera.scale && room.y + 100 >= 50 / camera.scale,
     )).toBe(false);
-    expect(boundHomeCamera(camera, "SMALL_MANSION")).toEqual(camera);
+    expect(boundHomeCamera(camera, "TWO_BED_HOUSE")).toEqual(camera);
   });
 
   it("pans continuously across horizontal and vertical room passages", () => {
@@ -101,15 +124,15 @@ describe("home properties", () => {
       const rooms = getHomeRooms(homeType);
       for (const room of rooms) {
         const neighbors = rooms.filter((other) =>
-          (other.x === room.x + 104 && other.y === room.y) ||
-          (other.y === room.y + 104 && other.x === room.x),
+          (other.x === room.x + HOME_BUILDING_GEOMETRY.stepX && other.y === room.y) ||
+          (other.y === room.y + HOME_BUILDING_GEOMETRY.stepY && other.x === room.x),
         );
         for (const neighbor of neighbors) {
           for (const scale of [1, 1.8]) {
-            for (let step = 0; step <= 104; step++) {
+            for (let step = 0; step <= 100; step++) {
               const camera = {
-                x: 50 - (room.x + 50 + (neighbor.x - room.x) * step / 104) * scale,
-                y: 50 - (room.y + 50 + (neighbor.y - room.y) * step / 104) * scale,
+                x: 50 - (room.x + 50 + (neighbor.x - room.x) * step / 100) * scale,
+                y: 50 - (room.y + 50 + (neighbor.y - room.y) * step / 100) * scale,
                 scale,
               };
               const bounded = boundHomeCamera(camera, homeType);
@@ -135,7 +158,7 @@ describe("home properties", () => {
 
 const visibleRoomArea = (camera: HomeCamera, homeType: HomeType) => Math.max(
   ...getHomeRooms(homeType).map((room) => {
-    const width = Math.max(0, Math.min(100, camera.x + (room.x + 100) * camera.scale) - Math.max(0, camera.x + room.x * camera.scale));
+    const width = Math.max(0, Math.min(100, camera.x + (room.x + room.width) * camera.scale) - Math.max(0, camera.x + room.x * camera.scale));
     const height = Math.max(0, Math.min(100, camera.y + (room.y + 100) * camera.scale) - Math.max(0, camera.y + room.y * camera.scale));
     return width * height;
   }),

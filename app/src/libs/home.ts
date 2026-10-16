@@ -12,7 +12,11 @@ import {
   getHomeRooms,
   homeRoomLayoutError,
 } from "@/libs/homeProperty";
-import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import {
+  HOME_BUILDING_GEOMETRY,
+  HOME_FLOOR_PROJECTION,
+  HOME_ROOM_GEOMETRY,
+} from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
 import type {
@@ -86,15 +90,20 @@ export const unprojectHomePlacement = (point: HomePoint) => ({
 export const getHomeFurnitureGeometry = (
   furniture: HomeFurniture,
   placement: HomePlacement,
+  homeType: HomeType,
 ) => {
   const view = getHomeFurnitureView(furniture, placement.rotation);
   const anchor = projectHomePlacement(placement);
+  const roomWidth =
+    getHomeRooms(homeType).find(({ id }) => id === getHomePlacementRoom(placement))
+      ?.width ?? 100;
+  const width = (view.width * 100) / roomWidth;
   // The room is 4:3; vertical percentages account for the source image's own aspect ratio.
   const height = (view.width * (4 / 3)) / view.geometry.aspectRatio;
   const image = {
-    x: anchor.x - view.width / 2,
+    x: anchor.x - width / 2,
     y: anchor.y - (height * view.groundAnchor) / 100,
-    width: view.width,
+    width,
     height,
   };
   const bounds = (rect: FurnitureImageBounds) => ({
@@ -136,7 +145,7 @@ export const homeLayoutPlacementError = (
   for (const [index, placement] of placements.entries()) {
     const piece = available.get(placement.id);
     if (!piece || piece.isFloor) continue;
-    const footprint = getHomeFurnitureGeometry(piece, placement).footprint;
+    const footprint = getHomeFurnitureGeometry(piece, placement, homeType).footprint;
     for (const other of placements.slice(index + 1)) {
       const otherPiece = available.get(other.id);
       if (
@@ -149,7 +158,7 @@ export const homeLayoutPlacementError = (
       if (
         doHomeBoundsOverlap(
           footprint,
-          getHomeFurnitureGeometry(otherPiece, other).footprint,
+          getHomeFurnitureGeometry(otherPiece, other, homeType).footprint,
         )
       ) {
         return `${piece.name} overlaps ${otherPiece.name}. Move them apart before saving`;
@@ -195,10 +204,10 @@ export const fitHomeFurniturePlacement = (
           piece &&
           !piece.isFloor &&
           (piece.action === "farm") === (furniture.action === "farm")
-          ? [getHomeFurnitureGeometry(piece, other).footprint]
+          ? [getHomeFurnitureGeometry(piece, other, homeType).footprint]
           : [];
       });
-  const footprint = getHomeFurnitureGeometry(furniture, clamped).footprint;
+  const footprint = getHomeFurnitureGeometry(furniture, clamped, homeType).footprint;
   if (!obstacles.some((other) => doHomeBoundsOverlap(footprint, other))) return clamped;
 
   const anchor = projectHomePlacement(clamped);
@@ -225,7 +234,7 @@ export const fitHomeFurniturePlacement = (
   );
   for (const point of candidates) {
     const candidate = { ...clamped, ...unprojectHomePlacement(point) };
-    const bounds = getHomeFurnitureGeometry(furniture, candidate).footprint;
+    const bounds = getHomeFurnitureGeometry(furniture, candidate, homeType).footprint;
     if (!obstacles.some((other) => doHomeBoundsOverlap(bounds, other)))
       return candidate;
   }
@@ -334,10 +343,12 @@ const getHomeAnchorPolygon = (
   const region =
     furniture.action === "farm"
       ? HOME_ROOM_GEOMETRY[homeType].outdoor
-      : HOME_ROOM_GEOMETRY[homeType].interior;
+      : isYard
+        ? HOME_BUILDING_GEOMETRY.lawn
+        : HOME_ROOM_GEOMETRY[homeType].interior;
   if (region.length < 3) return [];
   const anchor = projectHomePlacement(placement);
-  const geometry = getHomeFurnitureGeometry(furniture, placement);
+  const geometry = getHomeFurnitureGeometry(furniture, placement, homeType);
   const footprint = {
     ...geometry.footprint,
     x: geometry.footprint.x - anchor.x,
@@ -415,7 +426,11 @@ const clipHomeAnchorPolygon = (
   return clipped;
 };
 
-const isPointInHomePolygon = (point: HomePoint, polygon: readonly HomePoint[]) => {
+/** Use the placement polygon for room targeting as well as furniture boundary checks. */
+export const isPointInHomePolygon = (
+  point: HomePoint,
+  polygon: readonly HomePoint[],
+) => {
   if (polygon.length < 3) return false;
   const orientation = homePolygonOrientation(polygon);
   return polygon.every((edge, index) => {

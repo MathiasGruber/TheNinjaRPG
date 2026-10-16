@@ -4,31 +4,47 @@ import {
   type HomeType,
   HomeTypes,
 } from "@/drizzle/constants";
+import { HOME_BUILDING_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 /** Stable identities tie saved placements and finishes to rooms across home tier changes. */
 export type HomeRoomId = (typeof HOME_ROOM_IDS)[number];
-/** Room origins use scene percentages; each tile spans 100 units with a four-unit passage. */
+/** Saved room coordinates share a 100-unit canvas; neighboring floors meet at shared walls. */
 export type HomeRoom = {
   id: HomeRoomId;
   name: string;
   x: number;
   y: number;
+  width: number;
   isYard: boolean;
 };
 /** Translation is measured in viewport percentages and applied after scaling the property. */
 export type HomeCamera = { x: number; y: number; scale: number };
 
+/** Fit the connected building and its yard into one overview without changing saved placement coordinates. */
+export const getHomeOverviewCamera = (homeType: HomeType): HomeCamera => ({
+  x: 0,
+  y: 0,
+  scale: Math.min(
+    1,
+    100 /
+      Math.max(
+        ...getHomeRooms(homeType).flatMap(({ x, y, width }) => [x + width, y + 100]),
+      ),
+  ),
+});
+
 /** Keep a room visible while preserving property fits, passages and shared zoom limits. */
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
-  const scale = clamp(camera.scale, 0.3, 1.8);
+  const extent = Math.max(...rooms.flatMap(({ x, y, width }) => [x + width, y + 100]));
+  const scale = clamp(camera.scale, Math.min(0.3, 100 / extent), 1.8);
   const bounded = {
     scale,
     x: clamp(
       camera.x,
-      Math.min(0, 100 - Math.max(...rooms.map((room) => room.x + 100)) * scale),
+      Math.min(0, 100 - Math.max(...rooms.map((room) => room.x + room.width)) * scale),
       0,
     ),
     y: clamp(
@@ -37,14 +53,14 @@ export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCam
       0,
     ),
   };
-  // Half the smaller room/viewport stays visible; half a four-unit passage joins adjacent bounds.
+  // Keep a useful part of a room visible, including while crossing shared walls.
   const overlap = Math.min(100, 100 * scale) / 2 - 2 * scale;
   return rooms
     .map((room) => ({
       scale,
       x: clamp(
         bounded.x,
-        overlap - (room.x + 100) * scale,
+        overlap - (room.x + room.width) * scale,
         100 - overlap - room.x * scale,
       ),
       y: clamp(
@@ -75,24 +91,101 @@ export const zoomHomeCamera = (
 
 /** Stable room IDs preserve the main room on upgrades and make removed rooms unplaced. */
 export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
-  const tier = HomeTypes.indexOf(homeType) - HomeTypes.indexOf("TOWN_HOUSE");
-  const count = tier < 0 ? 1 : tier + 2;
+  const tier = HomeTypes.indexOf(homeType);
+  const count = tier === 0 ? 1 : tier + 1;
   const rooms: HomeRoom[] = Array.from({ length: count }, (_, index) => ({
     id: HOME_ROOM_IDS[index] ?? "main",
     name: index === 0 ? "Main room" : `Room ${index + 1}`,
-    x: (index % 3) * 104,
-    y: Math.floor(index / 3) * 104,
+    x: (index % 3) * HOME_BUILDING_GEOMETRY.stepX,
+    y: Math.floor(index / 3) * HOME_BUILDING_GEOMETRY.stepY,
+    width: 100,
     isYard: false,
   }));
-  if (tier >= 0)
+  if (tier > 0)
     rooms.push({
       id: "yard",
       name: "Yard",
       x: 0,
-      y: Math.ceil(count / 3) * 104,
+      y: Math.ceil(count / 3) * HOME_BUILDING_GEOMETRY.stepY + 12,
+      width: Math.max(...rooms.map(({ x }) => x + 100)),
       isYard: true,
     });
   return rooms;
+};
+
+/** Each shared wall is authored once; gaps join adjacent floors through genuine doorways. */
+export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
+  if (homeType === "NONE") return [];
+  const rooms = getHomeRooms(homeType).filter(({ isYard }) => !isYard);
+  const walls: HomeWall[] = [];
+  const posts = new Map<string, HomeWall>();
+  for (const room of rooms) {
+    const right = rooms.find(({ x, y }) => x === room.x + 82 && y === room.y);
+    const below = rooms.find(({ x, y }) => x === room.x && y === room.y + 67);
+    const hasLeft = rooms.some(({ x, y }) => x === room.x - 82 && y === room.y);
+    const hasAbove = rooms.some(({ x, y }) => x === room.x && y === room.y - 67);
+    const add = (
+      kind: HomeWall["kind"],
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+      owner = room.id,
+      isMirrored = false,
+    ) => {
+      walls.push({
+        id: `${room.id}-${kind}-${x}-${y}`,
+        room: owner,
+        kind,
+        x: room.x + x,
+        y: room.y + y,
+        width,
+        height,
+        depth: room.y + y + height,
+        isMirrored,
+      });
+    };
+    const post = (x: number, y: number) => {
+      const id = `${room.x + x}-${room.y + y}`;
+      posts.set(id, {
+        id,
+        room: room.id,
+        kind: "post",
+        x: room.x + x - 2.5,
+        y: room.y + y - 11,
+        width: 5,
+        height: 11,
+        depth: room.y + y + 0.2,
+        isMirrored: false,
+      });
+    };
+    if (!hasAbove) {
+      add("solid", 10, 9, 27, 11);
+      add("window", 37, 9, 30, 11);
+      add("solid", 67, 9, 27, 11);
+    }
+    add("lantern", 17, 12, 4, 9);
+    add("lantern", 79, 12, 4, 9);
+    if (!hasLeft) add("vertical", 8, 9, 4, 78);
+    if (right) {
+      add("vertical", 90, 9, 4, 30, right.id);
+      add("vertical", 90, 58, 4, 29, right.id);
+      post(92, 39);
+      post(92, 69);
+    } else add("vertical", 90, 9, 4, 78, room.id, true);
+    const isEntrance = room.x === 0 && !below;
+    if (below || isEntrance) {
+      add("solid", 10, 75, 33, 12, below?.id);
+      add("solid", 57, 75, 37, 12, below?.id);
+      post(42, 87);
+      post(58, 87);
+    } else add("solid", 10, 75, 84, 12);
+    post(10, 20);
+    post(92, 20);
+    post(10, 87);
+    post(92, 87);
+  }
+  return [...walls, ...posts.values()];
 };
 
 /** Placements without an explicit room retain the original main-room coordinates. */
@@ -127,4 +220,17 @@ export const homeRoomStylesError = (styles: HomeRoomStyle[], homeType: HomeType)
     styles.some(({ room }) => !rooms.some(({ id }) => id === room))
     ? "Choose finishes once for each available room"
     : null;
+};
+
+/** Wall faces and furniture share global ground depth; art orientation is never inferred by rotation. */
+export type HomeWall = {
+  id: string;
+  room: HomeRoomId;
+  kind: "solid" | "window" | "vertical" | "post" | "lantern";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  depth: number;
+  isMirrored: boolean;
 };

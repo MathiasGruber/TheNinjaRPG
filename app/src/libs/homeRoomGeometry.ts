@@ -8,6 +8,24 @@ export const HOME_FLOOR_PROJECTION = {
   scaleY: 0.72,
 } as const;
 
+/** Shared floor rectangles leave room for the wall face between adjoining placement regions. */
+export const HOME_BUILDING_GEOMETRY = {
+  stepX: 82,
+  stepY: 67,
+  interior: [
+    { x: 12, y: 20 },
+    { x: 90, y: 20 },
+    { x: 90, y: 75 },
+    { x: 12, y: 75 },
+  ],
+  lawn: [
+    { x: 2, y: 8 },
+    { x: 98, y: 8 },
+    { x: 98, y: 79 },
+    { x: 2, y: 79 },
+  ],
+} as const;
+
 type HomePoint = { x: number; y: number };
 type RoomGeometry = {
   interior: HomePoint[];
@@ -22,51 +40,6 @@ const outdoor = [
   { x: 99.0331, y: 98.9871 },
   { x: 0.9669, y: 98.9871 },
 ];
-
-/** Front walls share a silhouette; only their painted floor edge changes between buildings. */
-const buildingForeground = [
-  [
-    { x: 2.9696, y: 74.5856 },
-    { x: 35.1519, y: 74.5856 },
-    { x: 35.1519, y: 74.1252 },
-    { x: 40.0552, y: 74.1252 },
-    { x: 40.1934, y: 75.4144 },
-    { x: 42.6796, y: 75.4144 },
-    { x: 42.6796, y: 86.5562 },
-    { x: 40.3315, y: 87.0166 },
-    { x: 40.1243, y: 90.1473 },
-    { x: 35.6354, y: 90.1473 },
-    { x: 35.2901, y: 86.2799 },
-    { x: 6.6989, y: 86.2799 },
-    { x: 4.6961, y: 83.7937 },
-    { x: 2.9696, y: 80.9392 },
-  ],
-  [
-    { x: 57.5276, y: 75.4144 },
-    { x: 59.9448, y: 75.4144 },
-    { x: 60.0138, y: 74.1252 },
-    { x: 64.9171, y: 74.1252 },
-    { x: 64.9862, y: 74.5856 },
-    { x: 97.9282, y: 74.5856 },
-    { x: 97.9282, y: 80.9392 },
-    { x: 95.9945, y: 84.4383 },
-    { x: 93.9227, y: 86.4641 },
-    { x: 65.1243, y: 86.4641 },
-    { x: 64.9171, y: 90.1473 },
-    { x: 60.2901, y: 90.1473 },
-    { x: 60.0829, y: 87.0166 },
-    { x: 57.5276, y: 86.5562 },
-  ],
-];
-
-/** Move the front wall's upper silhouette with its floor edge, retaining the garden-facing base. */
-const frontWallsAt = (floorEdge: number) =>
-  buildingForeground.map((polygon) =>
-    polygon.map((point) => ({
-      x: point.x,
-      y: point.y < 80 ? point.y + floorEdge - 75.2302 : point.y,
-    })),
-  );
 
 /** Measured floor edges keep indoor footprints clear of walls while the foreground covers their shadows. */
 export const HOME_ROOM_GEOMETRY = {
@@ -117,93 +90,44 @@ export const HOME_ROOM_GEOMETRY = {
     ],
   },
   STUDIO_APARTMENT: {
-    interior: [
-      { x: 13.1906, y: 18.9687 },
-      { x: 86.1878, y: 18.8766 },
-      { x: 89.0884, y: 75.2302 },
-      { x: 10.8425, y: 75.2302 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(75.2302),
+    foreground: [],
   },
   ONE_BED_APARTMENT: {
-    interior: [
-      { x: 13.1215, y: 19.1529 },
-      { x: 86.1188, y: 19.1529 },
-      { x: 89.0884, y: 74.954 },
-      { x: 10.7044, y: 74.954 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(74.954),
+    foreground: [],
   },
   TWO_BED_HOUSE: {
-    interior: [
-      { x: 12.8453, y: 18.7845 },
-      { x: 86.326, y: 18.7845 },
-      { x: 89.1575, y: 72.8361 },
-      { x: 10.7044, y: 72.8361 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(72.8361),
+    foreground: [],
   },
   TOWN_HOUSE: {
-    interior: [
-      { x: 12.9144, y: 19.0608 },
-      { x: 86.5331, y: 19.0608 },
-      { x: 89.0193, y: 74.8619 },
-      { x: 10.6354, y: 74.8619 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(74.8619),
+    foreground: [],
   },
   SMALL_MANSION: {
-    interior: [
-      { x: 13.1215, y: 19.6133 },
-      { x: 86.6022, y: 19.6133 },
-      { x: 89.2956, y: 75.1381 },
-      { x: 10.7044, y: 75.1381 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(75.1381),
+    foreground: [],
   },
   SMALL_ESTATE: {
-    interior: [
-      { x: 13.1215, y: 19.2449 },
-      { x: 86.6022, y: 19.2449 },
-      { x: 89.2956, y: 75.046 },
-      { x: 10.7044, y: 75.046 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(75.046),
+    foreground: [],
   },
   LARGE_ESTATE: {
-    interior: [
-      { x: 13.1215, y: 19.7974 },
-      { x: 86.6713, y: 19.7974 },
-      { x: 89.2956, y: 74.5856 },
-      { x: 10.7044, y: 74.5856 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(74.5856),
+    foreground: [],
   },
-  PALACE: {
-    interior: [
-      { x: 12.9834, y: 20.3499 },
-      { x: 86.7403, y: 20.3499 },
-      { x: 89.2956, y: 74.6777 },
-      { x: 10.6354, y: 74.6777 },
-    ],
-    outdoor,
-    foreground: frontWallsAt(74.6777),
-  },
+  PALACE: { interior: [...HOME_BUILDING_GEOMETRY.interior], outdoor, foreground: [] },
   MARSHMALLOWOPOLIS: {
-    interior: [
-      { x: 12.9834, y: 18.8766 },
-      { x: 86.6022, y: 18.8766 },
-      { x: 89.2956, y: 75.046 },
-      { x: 10.6354, y: 75.046 },
-    ],
+    interior: [...HOME_BUILDING_GEOMETRY.interior],
     outdoor,
-    foreground: frontWallsAt(75.046),
+    foreground: [],
   },
 } satisfies Record<HomeType, RoomGeometry>;
