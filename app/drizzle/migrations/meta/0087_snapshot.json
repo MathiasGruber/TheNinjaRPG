@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "d48305ec-85c8-4d72-880c-c76496e4f0fb",
+  "id": "bebbf5b1-faf7-4e7f-b34c-ab82431a621e",
   "prevId": "c9158972-b12e-4e8f-bd2e-f52ab7040371",
   "tables": {
     "AbEvent": {
@@ -15915,30 +15915,6 @@
           "autoincrement": false,
           "default": 0
         },
-        "homeRoomStyles": {
-          "name": "homeRoomStyles",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "('[]')"
-        },
-        "homePublic": {
-          "name": "homePublic",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "homeInvitations": {
-          "name": "homeInvitations",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "('[]')"
-        },
         "staffAccount": {
           "name": "staffAccount",
           "type": "boolean",
@@ -16424,6 +16400,46 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "UserHome": {
+      "name": "UserHome",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "roomStyles": {
+          "name": "roomStyles",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "('[]')"
+        },
+        "isPublic": {
+          "name": "isPublic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "UserHome_userId": {
+          "name": "UserHome_userId",
+          "columns": [
+            "userId"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "UserItem": {
       "name": "UserItem",
       "columns": {
@@ -16536,7 +16552,7 @@
         },
         "homeRoom": {
           "name": "homeRoom",
-          "type": "enum('main','room-1','room-2','room-3','room-4','room-5','room-6','yard')",
+          "type": "enum('main','room-1','room-2','room-3','room-4','room-5','room-6','room-7','room-8','room-9','yard')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
@@ -17881,7 +17897,7 @@
         },
         "type": {
           "name": "type",
-          "type": "enum('SPAR','ALLIANCE','SURRENDER','SENSEI','ANBU','CLAN','MARRIAGE','KAGE','WAR_ALLY')",
+          "type": "enum('SPAR','ALLIANCE','SURRENDER','SENSEI','ANBU','CLAN','MARRIAGE','KAGE','WAR_ALLY','HOME')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -17900,6 +17916,17 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "activeHomeReceiverId": {
+          "name": "activeHomeReceiverId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "generated": {
+            "as": "CASE WHEN `type` = 'HOME' AND `status` IN ('PENDING', 'ACCEPTED') THEN `receiverId` ELSE NULL END",
+            "type": "stored"
+          }
         },
         "pendingAnbuSenderId": {
           "name": "pendingAnbuSenderId",
@@ -17990,6 +18017,13 @@
           "name": "UserRequest_pending_anbu_sender_unique",
           "columns": [
             "pendingAnbuSenderId"
+          ]
+        },
+        "UserRequest_active_home_pair_unique": {
+          "name": "UserRequest_active_home_pair_unique",
+          "columns": [
+            "senderId",
+            "activeHomeReceiverId"
           ]
         }
       },
