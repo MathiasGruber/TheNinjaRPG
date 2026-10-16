@@ -728,7 +728,7 @@ export const HomeScene = ({
                         y: point.y - room.y,
                       },
                       details.action === "farm"
-                        ? room.isYard
+                        ? room.isYard || !isProperty
                           ? HOME_ROOM_GEOMETRY[homeType].outdoor
                           : []
                         : room.isYard

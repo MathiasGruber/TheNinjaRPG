@@ -102,6 +102,20 @@ describeWithDatabase("owned furniture persistence", () => {
     expect((await api.getUserHome())?.layout.some(({ id }) => id === "cabinet-a")).toBe(false);
   });
 
+  it.each([
+    { homeType: "LARGE_ESTATE", room: "room-7" },
+    { homeType: "PALACE", room: "room-8" },
+    { homeType: "MARSHMALLOWOPOLIS", room: "room-9" },
+  ] as const)("persists furniture in the highest room of $homeType", async ({ homeType, room }) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType }).where(eq(userData.userId, userId));
+    const api = await callerFor(homeRouter, userId);
+    const placements: HomePlacement[] = [...essentialLayout, { id: "cabinet-a", x: 50, y: 50, rotation: 0, room }];
+    expect((await api.saveFurnitureLayout({ homeType, revision: 0, placements })).success).toBe(true);
+    expectLayout((await api.getUserHome())?.layout, placements);
+    expect((await snapshot()).inventory.find(({ id }) => id === "cabinet-a")).toMatchObject({ homeRoom: room, homeX: 50, homeY: 50 });
+  });
+
   it("rejects removed rooms and duplicate finishes before publishing", async () => {
     const api = await callerFor(homeRouter, userId);
     const before = await snapshot();

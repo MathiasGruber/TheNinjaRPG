@@ -5,6 +5,35 @@ import mysql from "mysql2/promise";
 import { describeWithDatabase } from "../setup/testDatabase";
 
 describeWithDatabase("home furniture inventory migration", () => {
+  it("expands existing room enums while preserving placed furniture and accepting every added room", async () => {
+    const connection = await mysql.createConnection({ uri: process.env.TEST_MYSQL_URL });
+    const tableName = `home_rooms_${randomUUID().replaceAll("-", "")}`;
+    try {
+      const snapshot = JSON.parse(
+        await readFile("drizzle/migrations/meta/0087_snapshot.json", "utf8"),
+      ) as { tables: Record<string, SnapshotTable> };
+      await connection.query(baselineTableSql({ ...snapshot.tables.UserItem!, name: tableName }));
+      const insert = (id: string, room: string) => connection.query(
+        `INSERT INTO ${quoteIdentifier(tableName)} (id, userId, itemId, homeRoom, homeX, homeY) VALUES (?, 'owner', 'furniture', ?, 50, 50)`,
+        [id, room],
+      );
+      for (const room of ["main", "room-6", "yard"]) await insert(room, room);
+      const migration = await readFile("drizzle/migrations/0088_mixed_abomination.sql", "utf8");
+      expect(migration).not.toContain("--> statement-breakpoint");
+      await connection.query(migration.replaceAll("`UserItem`", quoteIdentifier(tableName)));
+      for (const room of ["room-7", "room-8", "room-9"]) await insert(room, room);
+      const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        `SELECT id, homeRoom, homeX, homeY FROM ${quoteIdentifier(tableName)} ORDER BY id`,
+      );
+      expect(rows.map((row) => [row.id, row.homeRoom, row.homeX, row.homeY])).toEqual(
+        ["main", "room-6", "room-7", "room-8", "room-9", "yard"].map((room) => [room, room, 50, 50]),
+      );
+    } finally {
+      await connection.query(`DROP TABLE IF EXISTS ${quoteIdentifier(tableName)}`);
+      await connection.end();
+    }
+  });
+
   it("seeds ordinary furniture and grants starter copies without changing balances or existing inventory", async () => {
     const connection = await mysql.createConnection({
       uri: process.env.TEST_MYSQL_URL,
