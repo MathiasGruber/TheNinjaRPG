@@ -288,23 +288,7 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                   )
                 }
                 tag={tag}
-                editableFields={
-                  itemType === "MEAL"
-                    ? [
-                        "power",
-                        "calculation",
-                        "description",
-                        "statTypes",
-                        "generalTypes",
-                        "direction",
-                      ]
-                    : undefined
-                }
-                availableTags={
-                  itemType === "MEAL"
-                    ? ["increasestat", "increaseregeneration"]
-                    : tagTypes
-                }
+                availableTags={tagTypes}
                 effects={validEffects}
                 setEffects={setEffects}
                 submitLoading={isUpdating}

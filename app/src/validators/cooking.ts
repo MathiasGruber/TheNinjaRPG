@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { MAX_COOKING_BATCHES } from "@/drizzle/constants";
-import type { ZodAllTags } from "@/validators/combat";
 
 /** Shared editor/validation restrictions keep meals out of equipment and combat actions. */
 export const MEAL_ITEM_DEFAULTS = {
@@ -34,14 +33,3 @@ export const consumeItemInputSchema = z.object({
     .regex(/^[\w-]{10,64}$/)
     .optional(),
 });
-
-/** A fixed positive stat or regeneration bonus whose duration is controlled by the meal. */
-export const isMealEffect = (effect: ZodAllTags) =>
-  (effect.type === "increasestat" || effect.type === "increaseregeneration") &&
-  effect.power > 0 &&
-  effect.powerPerLevel === 0 &&
-  effect.rounds === undefined &&
-  !effect.coordinateTargeting &&
-  (effect.type === "increaseregeneration" ||
-    (!effect.elements?.length &&
-      (!!effect.statTypes?.length || !!effect.generalTypes?.length)));

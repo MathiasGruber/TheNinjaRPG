@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { IncreaseRegenerationTag, IncreaseStatTag, ItemValidator } from "@/validators/combat";
+import { DamageTag, IncreaseRegenerationTag, IncreaseStatTag, ItemValidator } from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 
 const validItem = {
@@ -54,6 +54,16 @@ const meal = {
   craftingRequirements: [{ ids: ["rice"], number: 2 }],
 };
 describe("meal configuration", () => {
+  it("accepts other tags and their configurable fields", () => {
+    expect(ItemValidator.safeParse({
+      ...meal,
+      effects: [DamageTag.parse({ power: 10, rounds: 3, powerPerLevel: 0.1, elements: ["Fire"] })],
+    }).success).toBe(true);
+  });
+  it("requires exactly one effect", () => {
+    expect(ItemValidator.safeParse({ ...meal, effects: [] }).success).toBe(false);
+    expect(ItemValidator.safeParse({ ...meal, effects: [...meal.effects, ...meal.effects] }).success).toBe(false);
+  });
   it("accepts a consumable combat-stat recipe and regeneration recipe", () => {
     expect(ItemValidator.safeParse(meal).success).toBe(true);
     expect(ItemValidator.safeParse({ ...meal, effects: [IncreaseRegenerationTag.parse({ power: 10 })] }).success).toBe(true);
@@ -64,15 +74,11 @@ describe("meal configuration", () => {
   it.each([0, -1, 1.5])("rejects effect duration %s", (mealDurationSeconds) => {
     expect(ItemValidator.safeParse({ ...meal, mealDurationSeconds }).success).toBe(false);
   });
-  it("rejects empty and duplicate recipes, combat actions, equipment and nonpositive effects", () => {
+  it("rejects empty and duplicate recipes, combat actions, equipment", () => {
     for (const patch of [
       { craftingRequirements: [] }, { craftingRequirements: [{ ids: [], number: 1 }] },
       { craftingRequirements: [{ ids: ["rice", "rice"], number: 1 }] },
       { destroyOnUse: false }, { preventBattleUsage: false }, { slot: "HEAD" },
-      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], power: 0 })] },
-      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], rounds: 3 })] },
-      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], powerPerLevel: 0.1 })] },
-      { effects: [IncreaseStatTag.parse({ statTypes: ["Ninjutsu"], elements: ["Fire"] })] },
     ]) expect(ItemValidator.safeParse({ ...meal, ...patch }).success).toBe(false);
   });
 });
