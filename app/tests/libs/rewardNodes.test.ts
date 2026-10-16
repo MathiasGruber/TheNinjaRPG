@@ -26,4 +26,14 @@ describe("active reward nodes", () => {
     expect(getActiveRewardNodes(nodes, [], () => false)).toEqual([]);
     expect(getActiveRewardNodes(nodes, ["items"], () => false)).toEqual([nodes[3]]);
   });
+  it("retains opened groups in selection order even when their values are cleared", () => {
+    expect(getActiveRewardNodes(nodes, ["items", "currency"], () => false)).toEqual([
+      nodes[3], nodes[1],
+    ]);
+  });
+  it("ignores removed catalog nodes and appends uncovered saved rewards", () => {
+    expect(getActiveRewardNodes(nodes, ["removed", "items"], active)).toEqual([
+      nodes[3], nodes[1],
+    ]);
+  });
 });

@@ -2,11 +2,17 @@ import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
-import type { Item } from "@/drizzle/schema";
+import { useForm, useWatch } from "react-hook-form";
+import type { Item, Quest } from "@/drizzle/schema";
 import { RewardEditor } from "@/layout/RewardEditor";
 import { ObjectiveReward } from "@/validators/rewards";
+import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
+import { getObjectiveSchema, QuestValidator } from "@/validators/objectives";
+import * as toastHelpers from "@/libs/toast";
+import * as UserContext from "@/utils/UserContext";
 import {
   DamageTag,
   NonCombatConsumeRewardTag,
@@ -22,11 +28,15 @@ const save = vi.fn(async (_input: { id: string; data: { effects: ZodAllTags[] } 
 }));
 const pending = vi.fn();
 const toast = vi.fn();
+const saveQuest = vi.fn(async (_input: unknown) => ({ success: true }));
 const names = { useQuery: () => ({ data: [] }) };
+let rewardCatalog: { packages: []; nodes: { id: string; name: string; fields: string[] }[] } | undefined;
+const rewardCatalogQuery = { useQuery: (_input?: unknown, _options?: { enabled: boolean; retryOnMount?: boolean }) => ({ data: rewardCatalog, isFetched: !!rewardCatalog, isError: false, refetch: vi.fn() }) };
 const update: { useMutation: () => { mutateAsync: (...args: Parameters<typeof save>) => ReturnType<typeof save>; isPending?: boolean } } = { useMutation: () => ({ mutateAsync: save }) };
 
 vi.mock("@/app/_trpc/client", () => ({
   api: {
+    useUtils: () => ({}),
     profile: { getAllAiNames: names },
     item: { getAllNames: names, update },
     jutsu: { getAllNames: names, update },
@@ -35,10 +45,14 @@ vi.mock("@/app/_trpc/client", () => ({
     skillTree: { getAllNames: names },
     badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
+    village: { getAllNames: names },
+    quests: { getAllNames: names, update: { useMutation: () => ({ mutateAsync: saveQuest }) } },
+    overworldAi: { getAllPlacementNames: names },
     rewardPackages: {
-      getCatalog: { useQuery: () => ({ data: { packages: [], nodes: [] } }) },
+      getCatalog: rewardCatalogQuery,
     },
     gameAsset: {
+      getAllNames: names,
       getNameTags: names,
       getSceneAssets: names,
       getAll: { useInfiniteQuery: () => ({ data: { pages: [] } }) },
@@ -53,12 +67,14 @@ vi.mock("@radix-ui/react-use-size", () => ({
   useSize: () => ({ width: 0, height: 0 }),
 }));
 
-const { MassEffectEditor, EffectFormWrapper } = await import("@/layout/EditContent");
+const { MassEffectEditor, EffectFormWrapper, ObjectiveFormWrapper } = await import("@/layout/EditContent");
 const { useItemEditForm } = await import("@/hooks/item");
+const { useQuestEditForm } = await import("@/hooks/quest");
 
 beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
+  rewardCatalog = { packages: [], nodes: [] };
 });
 afterEach(cleanup);
 
@@ -148,6 +164,315 @@ describe("grouped material rewards", () => {
     expect(
       view.getByRole("switch", { name: "Gathering material drops" }),
     ).toBeDefined();
+  });
+});
+
+/** Exercise saved groups through the shared editor used by quests and package payloads. */
+const SavedRewardForm = ({ allowPackages = true, optionalExperience }: { allowPackages?: boolean; optionalExperience?: number }) => {
+  const form = useForm({
+    defaultValues: ObjectiveReward.parse({
+      reward_money: 100,
+      reward_tokens: 10,
+      reward_prestige: 20,
+      reward_ninjutsu_experience: optionalExperience,
+    }),
+  });
+  return (
+    <RewardEditor
+      form={form}
+      allowPackages={allowPackages}
+      formData={[
+        { id: "reward_money", label: "Ryo", type: "number" },
+        { id: "reward_tokens", label: "Tokens", type: "number" },
+        { id: "reward_prestige", label: "Prestige", type: "number" },
+        { id: "reward_exp", label: "Experience", type: "number" },
+        { id: "reward_ninjutsu_experience", label: "Ninjutsu Experience", type: "number" },
+      ]}
+    />
+  );
+};
+
+/** Keep nested snapshot edits in the same parent form and validation lifecycle as quests. */
+const SnapshotRewardForm = ({ packageId, onUpdate, onSave, onInvalid }: {
+  packageId?: string;
+  onUpdate: () => void;
+  onSave: (data: QuestRewardType) => void;
+  onInvalid: () => void;
+}) => {
+  const form = useForm<any>({
+    defaultValues: QuestReward.parse({
+      reward_packages: [{
+        id: "snapshot", packageId, name: "Saved rewards",
+        rewards: { reward_money: 100, reward_ninjutsu_experience: 100 },
+      }],
+    }),
+    resolver: zodResolver(QuestReward),
+  });
+  const values = useWatch({ control: form.control });
+  return <>
+    <RewardEditor form={{ ...form, setValue: (...args) => {
+      onUpdate();
+      form.setValue(...args);
+    } }} formData={[]} />
+    <output data-testid="snapshot-money">{String(values.reward_packages?.[0]?.rewards?.reward_money)}</output>
+    <output data-testid="snapshot-experience">{String(values.reward_packages?.[0]?.rewards?.reward_ninjutsu_experience)}</output>
+    <button type="button" onClick={() => void form.handleSubmit(onSave, onInvalid)()}>Save rewards</button>
+  </>;
+};
+
+const savedObjectiveQuest = {
+  ...QuestValidator.parse({
+    name: "Objective rewards", description: "Complete the objective", successDescription: "Done",
+    questType: "story", hidden: false, consecutiveObjectives: false,
+    endsAt: null, startsAt: null, tierLevel: null,
+    content: {
+      objectives: [getObjectiveSchema("pvp_kills").parse({
+        id: "objective", task: "pvp_kills", reward_money: 100, reward_ninjutsu_experience: 100,
+      })],
+      reward: {},
+    },
+  }),
+  id: "quest", createdAt: new Date(), updatedAt: new Date(),
+} as Quest;
+
+/** Exercise direct objectives through the quest editor's real content setter and save validator. */
+const ObjectiveRewardForm = ({ onUpdate }: { onUpdate: () => void }) => {
+  const { objectives, setObjectives, handleQuestSubmit } = useQuestEditForm(savedObjectiveQuest, async () => undefined);
+  return <>
+    <ObjectiveFormWrapper
+      idx={0} quest={savedObjectiveQuest} availableTags={["pvp_kills"]} hideTagType
+      objective={objectives[0]!} objectives={objectives}
+      setObjectives={(next) => { onUpdate(); setObjectives(next); }}
+    />
+    <output data-testid="objective-money">{String(objectives[0]?.reward_money)}</output>
+    <output data-testid="objective-experience">{String(objectives[0]?.reward_ninjutsu_experience)}</output>
+    <button type="button" onClick={() => void handleQuestSubmit()}>Save objective</button>
+  </>;
+};
+
+describe("reward node editing", () => {
+  it.each(["button", "selector"])("validates drafts before copying a reward group via the %s", async (control) => {
+    const view = render(<SavedRewardForm />);
+    const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    const currency = ryo.closest("details")!;
+    const initialOrder = [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+    const copy = () => control === "button"
+      ? fireEvent.click(within(currency).getByRole("button", { name: "Add Another Node" }))
+      : fireEvent.change(view.getByRole("combobox", { name: "Add reward node" }), { target: { value: "currency" } });
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "" } }); });
+    copy();
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledWith({
+      reward_money: { type: "invalid_type", message: expect.stringContaining("number") },
+    });
+    expect(view.queryByRole("button", { name: "Remove Node" })).toBeNull();
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect(ryo.value).toBe("");
+    expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(initialOrder);
+    await act(async () => { fireEvent.input(ryo, { target: { value: "350" } }); });
+    copy();
+    await waitFor(() => expect(view.getAllByRole("button", { name: "Remove Node" })).toHaveLength(1));
+    const snapshot = view.getByRole("button", { name: "Remove Node" }).closest("details")!;
+    const copiedRyo = snapshot.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    expect(copiedRyo.value).toBe("350");
+    expect(copiedRyo).not.toBe(ryo);
+    fireEvent.input(ryo, { target: { value: "400" } });
+    expect(copiedRyo.value).toBe("350");
+    expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1);
+  });
+  it("keeps direct objective drafts editable and validates the current values on save", async () => {
+    const onUpdate = vi.fn(() => {
+      // Bound a reset/update regression before it can hang the test process.
+      if (onUpdate.mock.calls.length > 20) throw new Error("Repeated objective updates");
+    });
+    const view = render(<ObjectiveRewardForm onUpdate={onUpdate} />);
+    const initialOrder = [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+    const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-money").textContent).toBe("NaN"));
+    expect(ryo.value).toBe("");
+    expect(document.activeElement).toBe(ryo);
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect(onUpdate.mock.calls.length).toBeLessThan(10);
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(saveQuest).not.toHaveBeenCalled();
+    const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+    await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-experience").textContent).toBe("undefined"));
+    expect(experience.value).toBe("");
+    expect(document.activeElement).toBe(experience);
+    expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "300" } }); });
+    await waitFor(() => expect(view.getByTestId("objective-money").textContent).toBe("300"));
+    expect(document.activeElement).toBe(ryo);
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(initialOrder);
+    expect(onUpdate.mock.calls.length).toBeLessThan(10);
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(saveQuest).toHaveBeenCalledTimes(1));
+    expect(saveQuest.mock.calls[0]?.[0]).toMatchObject({ data: { content: { objectives: [{
+      id: "objective", task: "pvp_kills", reward_money: 300, reward_ninjutsu_experience: undefined,
+    }] } } });
+  });
+  it.each([undefined, "catalog-package"])(
+    "retains invalid and optional drafts in a nested snapshot (package: %s)",
+    async (packageId) => {
+      const onSave = vi.fn();
+      const onInvalid = vi.fn();
+      const onUpdate = vi.fn(() => {
+        // Bound a regression before React's repeated reset/update cycle can hang the suite.
+        if (onUpdate.mock.calls.length > 20) throw new Error("Repeated snapshot updates");
+      });
+      const view = render(<SnapshotRewardForm packageId={packageId} onUpdate={onUpdate} onSave={onSave} onInvalid={onInvalid} />);
+      const input = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      input.focus();
+      fireEvent.input(input, { target: { value: "" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-money").textContent).toBe("NaN"));
+      expect(input.value).toBe("");
+      expect(document.activeElement).toBe(input);
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(input);
+      expect(onUpdate.mock.calls.length).toBeLessThan(10);
+      fireEvent.click(view.getByRole("button", { name: "Save rewards" }));
+      await waitFor(() => expect(onInvalid).toHaveBeenCalledTimes(1));
+      expect(onSave).not.toHaveBeenCalled();
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      fireEvent.input(experience, { target: { value: "" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-experience").textContent).toBe("undefined"));
+      expect(experience.value).toBe("");
+      fireEvent.input(input, { target: { value: "300" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-money").textContent).toBe("300"));
+      fireEvent.click(view.getByRole("button", { name: "Save rewards" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0]?.[0].reward_packages[0].rewards).toMatchObject({
+        reward_money: 300, reward_ninjutsu_experience: undefined,
+      });
+    },
+  );
+  it("preserves an optional saved number when cleared and replaced", () => {
+    const view = render(<SavedRewardForm optionalExperience={100} />);
+    const input = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+    fireEvent.input(input, { target: { value: "" } });
+    expect(input.value).toBe("");
+    expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(input);
+    fireEvent.input(input, { target: { value: "250" } });
+    expect(input.value).toBe("250");
+  });
+  it.each([undefined, "CONTENT-ADMIN"])("waits for custom catalog groups before exposing saved controls (role: %s)", async (role) => {
+    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: role ? { role } : undefined } as never);
+    try {
+      rewardCatalog = undefined;
+      const view = render(<SavedRewardForm optionalExperience={100} />);
+      expect(view.getByText("Loading rewards")).toBeDefined();
+      expect(view.queryByRole("spinbutton")).toBeNull();
+      expect(view.queryByRole("combobox", { name: "Add reward node" })).toBeNull();
+      user.mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+      rewardCatalog = {
+        packages: [],
+        nodes: [{ id: "custom-money", name: "Custom Money", fields: ["reward_money"] }],
+      };
+      view.rerender(<SavedRewardForm optionalExperience={100} />);
+      expect(view.queryByText("Loading rewards")).toBeNull();
+      expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(["Organization", "Custom Money", "Progression"]);
+      const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "0" } }); });
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(document.activeElement).toBe(ryo);
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(document.activeElement).toBe(experience);
+    } finally {
+      user.mockRestore();
+    }
+  });
+  it("keeps a failed catalog stable with nested snapshots and recovers on explicit retry", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const read = vi.fn(async (): Promise<NonNullable<typeof rewardCatalog>> => {
+      // Bound a mount/refetch regression before repeated nested mounts can hang the suite.
+      if (read.mock.calls.length > 3) return new Promise(() => {});
+      throw new Error("Catalog unavailable");
+    });
+    const query = vi.spyOn(rewardCatalogQuery, "useQuery").mockImplementation((_input, options) => useQuery({ queryKey: ["reward-catalog"], queryFn: read, ...options }) as never);
+    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+    try {
+      const view = render(<QueryClientProvider client={client}><SnapshotRewardForm onUpdate={vi.fn()} onSave={vi.fn()} onInvalid={vi.fn()} /></QueryClientProvider>);
+      await waitFor(() => expect(view.getAllByRole("alert")).toHaveLength(2));
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(view.getAllByRole("alert")[0]!.textContent).toContain("Could not load reward packages and nodes.");
+      const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "0" } }); });
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(document.activeElement).toBe(ryo);
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(document.activeElement).toBe(experience);
+      expect(read).toHaveBeenCalledTimes(1);
+      let resolveCatalog: (catalog: NonNullable<typeof rewardCatalog>) => void = () => {};
+      read.mockImplementation(() => new Promise((resolve) => { resolveCatalog = resolve; }));
+      await act(async () => { fireEvent.click(view.getAllByRole("button", { name: "Retry" })[0]!); });
+      await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+      expect(view.queryByText("Loading rewards")).toBeNull();
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      await act(async () => { resolveCatalog({ packages: [], nodes: [] }); });
+      await waitFor(() => expect(client.getQueryState(["reward-catalog"])?.status).toBe("success"));
+      expect(view.queryByRole("alert")).toBeNull();
+      expect(read).toHaveBeenCalledTimes(2);
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(experience.value).toBe("");
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(ryo.value).toBe("0");
+    } finally {
+      cleanup();
+      query.mockRestore();
+      user.mockRestore();
+      client.clear();
+    }
+  });
+  it.each([true, false])(
+    "keeps saved nodes mounted and ordered while editing (packages: %s)",
+    (allowPackages) => {
+      const view = render(<SavedRewardForm allowPackages={allowPackages} />);
+      const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      const tokens = view.container.querySelector<HTMLInputElement>('input[name="reward_tokens"]')!;
+      const prestige = view.container.querySelector<HTMLInputElement>('input[name="reward_prestige"]')!;
+      const summaries = () => [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+      const initialOrder = summaries();
+      ryo.focus();
+      fireEvent.input(ryo, { target: { value: "0" } });
+      expect(view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!).toBe(ryo);
+      expect(document.activeElement).toBe(ryo);
+      expect(summaries()).toEqual(initialOrder);
+      fireEvent.input(ryo, { target: { value: "250" } });
+      fireEvent.input(tokens, { target: { value: "0" } });
+      fireEvent.input(prestige, { target: { value: "0" } });
+      expect(summaries()).toEqual(initialOrder);
+      expect(view.container.querySelector<HTMLInputElement>('input[name="reward_tokens"]')!).toBe(tokens);
+      fireEvent.input(ryo, { target: { value: "" } });
+      expect(ryo.value).toBe("");
+      expect(view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!).toBe(ryo);
+      fireEvent.input(ryo, { target: { value: "350" } });
+      expect(ryo.value).toBe("350");
+    },
+  );
+
+  it("appends newly opened nodes and removes a saved node only on Clear Node", async () => {
+    const view = render(<SavedRewardForm />);
+    const initialOrder = [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+    fireEvent.change(view.getByRole("combobox", { name: "Add reward node" }), {
+      target: { value: "progression" },
+    });
+    expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual([...initialOrder, "Progression"]);
+    const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    const currency = ryo.closest("details")!;
+    fireEvent.click(within(currency).getByRole("button", { name: "Clear Node" }));
+    await waitFor(() => expect(view.container.querySelector('input[name="reward_money"]')).toBeNull());
+    fireEvent.change(view.getByRole("combobox", { name: "Add reward node" }), {
+      target: { value: "currency" },
+    });
+    expect((view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!).value).toBe("0");
+    expect([...view.container.querySelectorAll("summary")].at(-1)?.textContent).toBe("Currency");
   });
 });
 

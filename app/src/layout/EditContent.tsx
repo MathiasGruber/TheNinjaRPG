@@ -659,6 +659,11 @@ export const EditContent = <
                       control={form.control}
                       name={id}
                       render={({ field, fieldState }) => {
+                        // Defaulted numbers need a numeric draft: undefined restores Controller's saved default.
+                        const emptyValue = props.schema.shape[id]?.safeParse(undefined);
+                        const isOptional =
+                          emptyValue?.success &&
+                          (emptyValue.data === undefined || emptyValue.data === null);
                         return (
                           <FormItem>
                             <FormLabel>
@@ -673,17 +678,14 @@ export const EditContent = <
                                   name={field.name}
                                   ref={field.ref}
                                   onBlur={field.onBlur}
-                                  value={field.value as number | undefined}
-                                  optional={props.schema.shape[id]?.isOptional()}
+                                  // Read explicit undefined without Controller's saved-value fallback.
+                                  value={form.getValues(id) as number | undefined}
+                                  optional={isOptional}
                                   onValueChange={
-                                    props.schema.shape[id]?.isOptional()
-                                      ? undefined
-                                      : field.onChange
+                                    isOptional ? undefined : field.onChange
                                   }
                                   onOptionalValueChange={
-                                    props.schema.shape[id]?.isOptional()
-                                      ? field.onChange
-                                      : undefined
+                                    isOptional ? field.onChange : undefined
                                   }
                                   step="any"
                                 />
@@ -2454,11 +2456,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           if (form.formState.isDirty) {
             void form.trigger();
           }
-          const hasErrors = Object.keys(form.formState.errors).length > 0;
-          if (!hasErrors) {
-            setObjectives(newObjectives);
-            form.reset(watchAll);
-          }
+          // Parent save validation must see current drafts, including invalid numbers.
+          setObjectives(newObjectives);
+          // Invalid NaN drafts diff as changed; resetting them would repeat this effect.
+          if (parsedTag.success) form.reset(watchAll);
         }
       }
     }
@@ -2928,11 +2929,10 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   // Watch form values
   const watchAll = useWatch({ control: form.control });
 
-  // Update parent when form is valid and has changes
+  // Sync changed drafts; grouped editors include invalid values for parent validation.
   useEffect(() => {
     const newRewards = [...rewards];
     const parsed = ObjectiveReward.safeParse(watchAll);
-    // Grouped drafts must propagate invalid edits so parent preview/save validation sees them.
     if (parsed.success || props.grouped) {
       newRewards[idx] = parsed.success
         ? parsed.data
@@ -2940,7 +2940,8 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
       const diff = calculateContentDiff(rewards, newRewards);
       if (diff.length > 0) {
         setRewards(newRewards);
-        form.reset(watchAll);
+        // Keep invalid drafts without repeatedly resetting NaN values that diff as changed.
+        if (parsed.success) form.reset(watchAll);
       }
     }
   }, [watchAll]);

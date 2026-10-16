@@ -1,15 +1,17 @@
 "use client";
 
 import { nanoid } from "nanoid";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ContentType } from "@/drizzle/constants";
 import { EditContent, type FormEntry, RewardFormWrapper } from "@/layout/EditContent";
+import Loader from "@/layout/Loader";
 import { getRewardPreview } from "@/libs/objectives";
 import { getActiveRewardNodes } from "@/libs/rewardNodes";
+import { showFormErrorsToast } from "@/libs/toast";
 import { isStaffRole } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import {
@@ -38,12 +40,15 @@ export const RewardEditor = ({
   const {
     data: catalog,
     isError,
+    isFetched,
     refetch,
   } = api.rewardPackages.getCatalog.useQuery(undefined, {
     enabled: isStaffRole(user?.role),
+    // Nested editors reuse catalog errors; the Retry action controls recovery.
+    retryOnMount: false,
   });
   const values = useWatch({ control: form.control });
-  const [addedNodes, setAddedNodes] = useState<string[]>([]);
+  const [openedNodeIds, setOpenedNodeIds] = useState<string[]>([]);
   const [selectedPackage, setSelectedPackage] = useState("");
   const packages = (values.reward_packages ?? []) as RewardPackageSnapshotType[];
   const defaultValues = ObjectiveReward.parse({});
@@ -72,11 +77,57 @@ export const RewardEditor = ({
       : value !== undefined &&
           value !== defaultValues[field as keyof typeof defaultValues];
   };
-  const activeNodes = getActiveRewardNodes(groups, addedNodes, hasValue);
+  const activeNodes = getActiveRewardNodes(groups, openedNodeIds, hasValue);
+  // Fallback groups are provisional until the custom catalog has loaded or failed.
+  // isFetched persists through retries, keeping mounted controls and drafts intact.
+  const isCatalogPending = !catalog && !isFetched && (!user || isStaffRole(user.role));
+  // Remember inferred groups too: editing a value to zero must not remove or move its controls.
+  useEffect(() => {
+    if (isCatalogPending) return;
+    const nextIds = activeNodes.map((node) => node.id);
+    if (
+      nextIds.length !== openedNodeIds.length ||
+      nextIds.some((id, index) => id !== openedNodeIds[index])
+    )
+      setOpenedNodeIds(nextIds);
+  }, [activeNodes, openedNodeIds, isCatalogPending]);
   /** Keep snapshot edits in the parent form's dirty state and validation lifecycle. */
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
+  /** Validate only the copied group's fields, leaving invalid drafts available for correction. */
+  const copyNode = (node: (typeof groups)[number]) => {
+    if (packages.length >= 50) return;
+    const rewards = ObjectiveReward.safeParse(
+      Object.fromEntries(node.fields.map((field) => [field, values[field]])),
+    );
+    if (!rewards.success) {
+      showFormErrorsToast(
+        Object.fromEntries(
+          rewards.error.issues.map((issue) => [
+            issue.path.join("."),
+            { type: issue.code, message: issue.message },
+          ]),
+        ),
+      );
+      return;
+    }
+    setPackages([
+      ...packages,
+      {
+        id: nanoid(),
+        name: node.name,
+        description: "",
+        rewards: rewards.data,
+      },
+    ]);
+  };
   const source = catalog?.packages.find((pack) => pack.id === selectedPackage);
+  if (isCatalogPending)
+    return (
+      <div className="col-span-full">
+        <Loader explanation="Loading rewards" />
+      </div>
+    );
   return (
     <div className="col-span-full space-y-3 rounded-lg border p-3">
       <h3 className="font-bold">Rewards</h3>
@@ -201,24 +252,10 @@ export const RewardEditor = ({
             const node = groups.find((node) => node.id === event.target.value);
             if (!node) return;
             if (!activeNodes.some((active) => active.id === node.id)) {
-              setAddedNodes([...addedNodes, node.id]);
+              setOpenedNodeIds([...activeNodes.map((node) => node.id), node.id]);
               return;
             }
-            if (packages.length >= 50) return;
-            // Copy only this group's fields into a source-free snapshot with its own choice ID.
-            setPackages([
-              ...packages,
-              {
-                id: nanoid(),
-                name: node.name,
-                description: "",
-                rewards: ObjectiveReward.parse(
-                  Object.fromEntries(
-                    node.fields.map((field) => [field, values[field]]),
-                  ),
-                ),
-              },
-            ]);
+            copyNode(node);
           }}
         >
           <option value="">Add a reward node</option>
@@ -256,23 +293,7 @@ export const RewardEditor = ({
               size="sm"
               variant="outline"
               disabled={packages.length >= 50}
-              onClick={() =>
-                setPackages([
-                  ...packages,
-                  {
-                    id: nanoid(),
-                    name: node.name,
-                    description: "",
-                    rewards: ObjectiveReward.parse(
-                      structuredClone(
-                        Object.fromEntries(
-                          node.fields.map((field) => [field, values[field]]),
-                        ),
-                      ),
-                    ),
-                  },
-                ])
-              }
+              onClick={() => copyNode(node)}
             >
               Add Another Node
             </Button>
@@ -290,7 +311,11 @@ export const RewardEditor = ({
                   defaultValues[field as keyof typeof defaultValues],
                   { shouldDirty: true, shouldValidate: true },
                 );
-              setAddedNodes(addedNodes.filter((id) => id !== node.id));
+              setOpenedNodeIds(
+                activeNodes
+                  .filter((active) => active.id !== node.id)
+                  .map((node) => node.id),
+              );
             }}
           >
             Clear Node

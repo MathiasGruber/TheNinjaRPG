@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
+import { CRAFTING_REQUIRED_EXP } from "@/drizzle/constants";
 import { actionLog, auctionOffer, craftingRequirement, farmCollectionLog, farmPlot, item, userData, userItem, userItemImbuement, userQueue, storeUserIdAlias } from "@/drizzle/schema";
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { auctionRouter } from "@/server/api/routers/auction";
@@ -51,7 +52,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
   };
   const prepareImbuing = async (quantity = 1) => {
     const db = await getTestDatabase();
-    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: 100000, updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
+    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: CRAFTING_REQUIRED_EXP.APPRENTICE, updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
     await db.update(item).set({ canBeImbued: true }).where(eq(item.id, "sword"));
     await insertItems([{ id: "crystal", name: "Crystal", itemType: "CRYSTAL", canBeTraded: true, canStack: quantity > 1, crystalTargetTypes: "WEAPON", craftingExperience: 20 }]);
     await insertUserItems([{ id: "owner-crystal", userId: "owner", itemId: "crystal", quantity }, { id: "owner-sword", userId: "owner", itemId: "sword" }]);
@@ -338,7 +339,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     expect((await crafter.imbueItem(input)).success).toBe(true);
     expect(await db.select().from(userItem).where(eq(userItem.id, "owner-crystal"))).toHaveLength(0);
     expect(await db.select().from(userItemImbuement)).toHaveLength(1);
-    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(100010);
+    expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(CRAFTING_REQUIRED_EXP.APPRENTICE + 10);
   });
 
   for (const quantity of [1, 2]) {
@@ -351,7 +352,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
       expect(await crafter.imbueItem({ userItemId: "owner-sword", userCrystalItemId: "owner-crystal" })).toMatchObject({ success: false, message: "Crystal no longer available" });
       expect((await db.select().from(userItem).where(eq(userItem.id, "owner-crystal")))[0]).toMatchObject({ quantity, isInAuction: true });
       expect(await db.select().from(userItemImbuement)).toHaveLength(0);
-      expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(100000);
+      expect((await db.select().from(userData).where(eq(userData.userId, "owner")))[0]?.craftingExperience).toBe(CRAFTING_REQUIRED_EXP.APPRENTICE);
       const [offer] = await db.select().from(auctionOffer);
       const supplier = await callerFor(auctionRouter, "supplier");
       expect((await supplier.acceptAuctionOffer({ offerId: offer!.id, userItemId: "supplier-ore" })).success).toBe(true);

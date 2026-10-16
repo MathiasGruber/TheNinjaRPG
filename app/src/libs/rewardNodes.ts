@@ -1,17 +1,20 @@
 /**
- * Keep explicitly added nodes intact, then expose every populated reward field.
+ * Keep opened nodes in their existing order, then expose every populated reward field.
  * Greedily choose groups covering the most remaining fields to limit overlapping controls.
  */
 export const getActiveRewardNodes = <
   T extends { id: string; fields: readonly string[] },
 >(
   nodes: readonly T[],
-  addedNodeIds: readonly string[],
+  openedNodeIds: readonly string[],
   hasValue: (field: string) => boolean,
 ): T[] => {
-  const selected = nodes.filter((node) => addedNodeIds.includes(node.id));
+  const selected = openedNodeIds.flatMap((id) => {
+    const node = nodes.find((node) => node.id === id);
+    return node ? [node] : [];
+  });
   const covered = new Set(selected.flatMap((node) => [...node.fields]));
-  const remaining = nodes.filter((node) => !addedNodeIds.includes(node.id));
+  const remaining = nodes.filter((node) => !openedNodeIds.includes(node.id));
   /** Count populated fields this group would expose beyond the groups already selected. */
   const uncoveredCount = (node: T) =>
     node.fields.filter((field) => hasValue(field) && !covered.has(field)).length;
