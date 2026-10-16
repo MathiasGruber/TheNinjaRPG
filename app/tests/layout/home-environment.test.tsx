@@ -103,20 +103,39 @@ it("gives tents village terrain without adding scenery over their authored exter
   expect(view.container.querySelector("[data-home-scenery]")).toBeNull();
 });
 
-it.each(["ground", "dessert", "ocean", "ice", "snow"] as const)("keeps %s fences modular, proportional and free of baked vegetation", (biome) => {
-  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome={biome} styles={[]} />);
+it.each(HomeTypes.filter((tier) => tier !== "NONE"))("keeps %s timber upright, proportional and clear of the lawn and farm", (homeType) => {
+  const view = render(<HomePropertyBackdrop homeType={homeType} biome="ice" styles={[]} />);
   const yard = view.container.querySelector('[data-home-room="yard"]')!;
-  const width = getHomeRooms("TOWN_HOUSE").find(({ isYard }) => isYard)!.width;
-  const sourceRatios = { rail: 199 / 96, side: 96 / 199, gate: 69 / 140 };
-  for (const border of yard.querySelectorAll("[data-home-yard-border]")) {
-    const kind = border.getAttribute("data-home-yard-border") as keyof typeof sourceRatios;
+  const width = getHomeRooms(homeType).find(({ isYard }) => isYard)!.width;
+  const rail = yard.querySelector('pattern[id$="-rail"]')!;
+  const side = yard.querySelector('pattern[id$="-side"]')!;
+  const posts = [...yard.querySelectorAll('[data-home-yard-border="post"]')];
+  for (const [border, sourceRatio] of [
+    [rail, 103 / 26], [side, 26 / 103],
+    ...posts.map((post) => [post, 28 / 88] as const),
+    ...[...yard.querySelectorAll('[data-home-yard-border="gate"]')].map((gate) => [gate, 69 / 140] as const),
+  ] as const) {
     const physicalWidth = Number(border.getAttribute("width")) * width / 100 * 4 / 3;
-    expect(physicalWidth / Number(border.getAttribute("height"))).toBeCloseTo(sourceRatios[kind], 2);
+    expect(physicalWidth / Number(border.getAttribute("height"))).toBeCloseTo(sourceRatio, 2);
     const image = border.querySelector("image")!;
-    expect(image.getAttribute("clip-path")).toContain("url(#");
     expect(image.getAttribute("filter")).toBeNull();
   }
-  expect(yard.querySelectorAll("[data-home-yard-border]").length).toBe(6);
+  expect(rail.getAttribute("viewBox")).toBe("200 34 103 26");
+  expect(side.getAttribute("viewBox")).toBe("0 0 26 103");
+  const sides = [...yard.querySelectorAll('[data-home-yard-border="side"]')];
+  expect(sides.length).toBe(2);
+  expect(sides[0]!.innerHTML).toBe(sides[1]!.innerHTML);
+  for (const post of posts) {
+    expect(post.getAttribute("transform")).toBeNull();
+    expect(post.querySelector("g")).toBeNull();
+    const x = Number(post.getAttribute("x"));
+    const y = Number(post.getAttribute("y"));
+    const right = x + Number(post.getAttribute("width"));
+    const bottom = y + Number(post.getAttribute("height"));
+    if (y === 0) expect(bottom).toBeLessThan(8);
+    else if (y < 79) expect(right <= 2.000001 || x >= 98).toBe(true);
+    expect(bottom).toBeLessThan(86.372);
+  }
   expect(yard.querySelector("filter")).toBeNull();
   expect(yard.querySelector("image")!.getAttribute("mask")).toContain("-farm");
 });

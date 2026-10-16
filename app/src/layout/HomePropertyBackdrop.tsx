@@ -203,90 +203,95 @@ export const HomePropertyBackdrop = ({
   );
 };
 
-/** Isolate the original painting's timber and repeat it at its native aspect ratio. */
+/** Repeat clean timber at its native aspect ratio, keeping posts upright on every edge. */
 const YardFence = ({ width, onError }: { width: number; onError?: () => void }) => {
   const fenceId = useId();
   const unit = 100 / width;
-  const railWidth = 11.2 * unit;
-  const railHeight = (11.2 * 4 * 96) / (3 * 199);
-  const sideWidth = 4 * unit;
-  const sideHeight = (4 * 4 * 199) / (3 * 96);
-  const left = 2 - sideWidth;
+  const scale = 11.2 / 199;
+  const railWidth = 103 * scale * unit;
+  const railHeight = (26 * scale * 4) / 3;
+  const sideWidth = 26 * scale * unit;
+  const sideHeight = (103 * scale * 4) / 3;
+  const postWidth = 28 * scale * unit;
+  const postHeight = (88 * scale * 4) / 3;
+  const railTop = (11 * scale * 4) / 3;
+  const left = 2 - postWidth;
   const right = 98;
+  const rows = [
+    { y: 0, entrance: 50 * unit },
+    { y: 79, entrance: 50 },
+  ];
+  const posts = rows.flatMap(({ y, entrance }) => [
+    ...Array.from(
+      { length: Math.ceil((entrance - 11.4 * unit - left) / (11.2 * unit)) },
+      (_, index) => ({ x: left + index * 11.2 * unit, y }),
+    ),
+    ...Array.from(
+      { length: Math.ceil((right - entrance - 11.4 * unit) / (11.2 * unit)) },
+      (_, index) => ({ x: right - index * 11.2 * unit, y }),
+    ),
+  ]);
+  for (const x of [left, right])
+    for (let index = 1; index < 6; index++) posts.push({ x, y: (index * 79) / 6 });
   return (
     <>
       <defs>
-        <clipPath id={`${fenceId}-timber`}>
-          <path d="M132 34H303V60H132ZM303 23H331V117H303Z" />
+        <clipPath id={`${fenceId}-post`}>
+          <path d="M305 23H328L331 29V59H327V111H308V59H303V29Z" />
         </clipPath>
         <clipPath id={`${fenceId}-gate`}>
-          <path d="M556 12H598L617 151H548Z" />
+          <path d="M556 12H598L607 128L610 140H553L552 129Z" />
         </clipPath>
         <pattern
           id={`${fenceId}-rail`}
           patternUnits="userSpaceOnUse"
+          y={railTop}
           width={railWidth}
           height={railHeight}
+          viewBox="200 34 103 26"
+          preserveAspectRatio="none"
+          data-home-yard-border="rail"
         >
-          <svg
-            aria-hidden="true"
-            width={railWidth}
-            height={railHeight}
-            viewBox="132 23 199 96"
-            preserveAspectRatio="none"
-            data-home-yard-border="rail"
-          >
-            <image
-              href="/images/home/yard.webp"
-              width="1448"
-              height="1086"
-              clipPath={`url(#${fenceId}-timber)`}
-              onError={onError}
-            />
-          </svg>
+          <image
+            href="/images/home/yard.webp"
+            width="1448"
+            height="1086"
+            onError={onError}
+          />
         </pattern>
         <pattern
           id={`${fenceId}-side`}
           patternUnits="userSpaceOnUse"
+          x={(postWidth - sideWidth) / 2}
+          y={railTop}
           width={sideWidth}
           height={sideHeight}
+          viewBox="0 0 26 103"
+          preserveAspectRatio="none"
         >
-          <svg
-            aria-hidden="true"
-            width={sideWidth}
-            height={sideHeight}
-            viewBox="0 0 96 199"
-            preserveAspectRatio="none"
-            data-home-yard-border="side"
-          >
-            <g transform="translate(96 0) rotate(90) translate(-132 -23)">
-              <image
-                href="/images/home/yard.webp"
-                width="1448"
-                height="1086"
-                clipPath={`url(#${fenceId}-timber)`}
-                onError={onError}
-              />
-            </g>
-          </svg>
+          <g transform="translate(26 0) rotate(90) translate(-200 -34)">
+            <image
+              href="/images/home/yard.webp"
+              width="1448"
+              height="1086"
+              onError={onError}
+            />
+          </g>
         </pattern>
       </defs>
-      {[
-        { y: 0, entrance: 50 * unit },
-        { y: 79, entrance: 50 },
-      ].map(({ y, entrance }) => (
+      {rows.map(({ y, entrance }) => (
         <g key={y} transform={`translate(0 ${y})`}>
           <rect
             x={left}
-            y="0"
+            y={railTop}
             width={entrance - 8 * unit - left}
             height={railHeight}
             fill={`url(#${fenceId}-rail)`}
           />
           <rect
             x={entrance + 8 * unit}
-            y="0"
-            width={right + sideWidth - entrance - 8 * unit}
+            y={railTop}
+            width={right + postWidth - entrance - 8 * unit}
             height={railHeight}
             fill={`url(#${fenceId}-rail)`}
           />
@@ -314,14 +319,36 @@ const YardFence = ({ width, onError }: { width: number; onError?: () => void }) 
         </g>
       ))}
       {[left, right].map((x) => (
-        <rect
-          key={x}
+        <g key={x} transform={`translate(${x} 0)`} data-home-yard-border="side">
+          <rect
+            x={(postWidth - sideWidth) / 2}
+            y={railTop}
+            width={sideWidth}
+            height="79"
+            fill={`url(#${fenceId}-side)`}
+          />
+        </g>
+      ))}
+      {posts.map(({ x, y }) => (
+        <svg
+          aria-hidden="true"
+          key={`${x}-${y}`}
           x={x}
-          y="0"
-          width={sideWidth}
-          height={79 + railHeight}
-          fill={`url(#${fenceId}-side)`}
-        />
+          y={y}
+          width={postWidth}
+          height={postHeight}
+          viewBox="303 23 28 88"
+          preserveAspectRatio="none"
+          data-home-yard-border="post"
+        >
+          <image
+            href="/images/home/yard.webp"
+            width="1448"
+            height="1086"
+            clipPath={`url(#${fenceId}-post)`}
+            onError={onError}
+          />
+        </svg>
       ))}
     </>
   );
