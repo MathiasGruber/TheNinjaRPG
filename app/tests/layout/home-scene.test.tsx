@@ -2,10 +2,11 @@ import { ensureDom } from "../setup-dom.mjs";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { type ImgHTMLAttributes, type ComponentProps, useState } from "react";
-import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
+import { HOME_FLOOR_TILES, HOME_FURNITURE_MAX_PLACEMENTS, HOME_WALL_PAINTS, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
 import { HomeScene as ResidenceScene, HOME_SCENE_IMAGES } from "@/layout/HomeScene";
 import { homeLayoutPlacementError, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
-import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
+import { getHomeRooms } from "@/libs/homeProperty";
+import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import { bunnyImageUrl } from "@/utils/image";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 
@@ -82,6 +83,115 @@ describe("Home scene", () => {
       expect(image.hostname).toBe("ui0arpl8sm.ufs.sh");
       expect(image.pathname).toMatch(/^\/f\/.+\.webp$/);
     }
+  });
+
+  it.each([...HomeTypes])("renders %s with its tier painting and matching foreground in every indoor room", (homeType) => {
+    const view = render(<HomeScene {...props} homeType={homeType} />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const rooms = getHomeRooms(homeType);
+    const indoorRooms = rooms.filter((room) => !room.isYard);
+    expect(scene.querySelectorAll("[data-home-room]").length).toBe(rooms.length);
+    expect(scene.querySelectorAll("[data-home-room-foreground]").length).toBe(indoorRooms.length);
+    for (const room of indoorRooms) {
+      const background = scene.querySelector<HTMLElement>(`[data-home-room="${room.id}"]`)!;
+      const foreground = scene.querySelector<HTMLElement>(`[data-home-room-foreground="${room.id}"]`)!;
+      expect(background.style.left).toBe(`${room.x}%`);
+      expect(background.style.top).toBe(`${room.y}%`);
+      expect(background.classList.contains("h-full")).toBe(true);
+      expect(background.classList.contains("w-full")).toBe(true);
+      const painting = background.querySelector("img")!;
+      expect(painting.getAttribute("src")).toBe(bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768));
+      expect(painting.getAttribute("alt")).toBe(`${rooms.length > 1 ? room.name : HomeTypeDetails[homeType].name} interior`);
+      expect(foreground.style.left).toBe(background.style.left);
+      expect(foreground.style.top).toBe(background.style.top);
+      expect(foreground.classList.contains("z-[100]")).toBe(true);
+      expect(foreground.classList.contains("pointer-events-none")).toBe(true);
+      expect(foreground.querySelector("img")?.getAttribute("alt")).toBe("");
+      expect(foreground.querySelector("img")?.getAttribute("src")).toBe(painting.getAttribute("src"));
+      expect(foreground.querySelector("source")?.getAttribute("srcset")).toBe(background.querySelector("source")?.getAttribute("srcset"));
+      const clip = scene.querySelector("clipPath")!;
+      expect(foreground.style.clipPath).toContain(`#${clip.id}`);
+      expect(clip.getAttribute("clipPathUnits")).toBe("objectBoundingBox");
+      expect([...clip.querySelectorAll("polygon")].map((polygon) => polygon.getAttribute("points"))).toEqual(
+        HOME_ROOM_GEOMETRY[homeType].foreground.map((polygon) => polygon.map(({ x, y }) => `${x / 100},${y / 100}`).join(" ")),
+      );
+    }
+    const yard = scene.querySelector<HTMLElement>('[data-home-room="yard"]');
+    expect(yard?.querySelector("img")?.getAttribute("src") ?? null).toBe(rooms.length > 1 ? "/images/home/yard.webp" : null);
+    expect(scene.querySelector('[data-home-room-foreground="yard"]')).toBeNull();
+    expect(scene.querySelector("[data-home-room-style]")).toBeNull();
+  });
+
+  it("connects neighboring painted rooms with passages above the backgrounds and below furniture", () => {
+    const view = render(<HomeScene {...props} homeType="SMALL_MANSION" />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const horizontal = scene.querySelectorAll<SVGSVGElement>('[data-home-passage="horizontal"]');
+    const vertical = scene.querySelectorAll<SVGSVGElement>('[data-home-passage="vertical"]');
+    expect(horizontal.length).toBe(2);
+    expect(vertical.length).toBe(1);
+    expect(horizontal[0]!.style.left).toBe("85%");
+    expect(horizontal[0]!.style.top).toBe("46%");
+    expect(horizontal[0]!.style.width).toBe("34%");
+    expect(horizontal[0]!.style.height).toBe("11%");
+    expect(vertical[0]!.style.left).toBe("44%");
+    expect(vertical[0]!.style.top).toBe("70%");
+    expect(vertical[0]!.style.width).toBe("12%");
+    expect(vertical[0]!.style.height).toBe("54%");
+    expect(vertical[0]!.querySelector("g")?.getAttribute("transform")).toBe("rotate(90 50 50)");
+    for (const passage of [...horizontal, ...vertical]) {
+      expect(passage.querySelector("image")?.getAttribute("href")).toBe("/images/home/passage.webp");
+      expect(passage.querySelector("svg")?.getAttribute("viewBox")).toBe("10 210 2156 295");
+      const layer = passage.parentElement!;
+      expect(layer.classList.contains("pointer-events-none")).toBe(true);
+      expect(layer.getAttribute("aria-hidden")).toBe("true");
+      expect(layer.style.zIndex).toBe("");
+      expect(layer.previousElementSibling?.getAttribute("data-home-room")).toBe("yard");
+      expect(layer.nextElementSibling).toBe(view.getByRole("button", { name: "Bed: Go to sleep" }));
+    }
+  });
+
+  it.each(["cedar", "oak", "slate", "terracotta"] as const)("renders saved %s flooring inside the painted floor and leaves the yard untinted", (material) => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate styles={[
+      { room: "room-1", paint: "sage", floor: material },
+      { room: "yard", paint: "rose", floor: "terracotta" },
+    ]} />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const finish = scene.querySelector('[data-home-room-style="room-1"]')!;
+    expect(scene.querySelectorAll("[data-home-room-style]").length).toBe(1);
+    const floorImage = finish.querySelector("image");
+    if (material === "cedar") {
+      expect(floorImage).toBeNull();
+    } else {
+      const floor = finish.querySelector("polygon")!;
+      expect(floor.getAttribute("points")).toBe(HOME_ROOM_GEOMETRY.TOWN_HOUSE.interior.map(({ x, y }) => `${x},${y}`).join(" "));
+      expect(floorImage?.getAttribute("href")).toBe(HOME_FLOOR_TILES[material]);
+      expect(floorImage?.getAttribute("clip-path")).toBe(`url(#${floor.closest("clipPath")?.id})`);
+    }
+    const wall = finish.querySelector("path")!;
+    expect(wall.getAttribute("d")).toBe("M13 9H87V19H13Z");
+    expect(wall.getAttribute("fill")).toBe(HOME_WALL_PAINTS.sage);
+    expect(wall.closest("svg")?.style.mixBlendMode).toBe("color");
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: "Yard" }));
+    expect(view.queryByLabelText("Wall paint")).toBeNull();
+    expect(view.queryByLabelText("Floor tiles")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    view.rerender(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate />);
+    expect(scene.querySelector("[data-home-room-style]")).toBeNull();
+  });
+
+  it("keeps furniture actions and property navigation usable when an indoor painting fails", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    fireEvent.error(view.getByAltText("Room 2 interior"));
+    const scene = view.getByRole("group", { name: "Home scene" });
+    expect(scene.querySelector("[data-home-room]")).toBeNull();
+    expect(scene.querySelector("[data-home-room-foreground]")).toBeNull();
+    expect(scene.querySelector("[data-home-passage]")).toBeNull();
+    expect(view.getByText(/Home artwork is unavailable/).closest("[data-home-camera]")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Bed: Go to sleep" }));
+    expect(props.onSleep).toHaveBeenCalledTimes(1);
+    fireEvent.click(view.getByRole("button", { name: "Room 2" }));
+    expect(scene.querySelector("[data-home-camera]")?.getAttribute("style")).toContain("translate(-104%, 0%)");
   });
 
   it("offers CDN renditions sized for the room, furniture, and inventory previews", () => {

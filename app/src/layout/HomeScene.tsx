@@ -541,24 +541,38 @@ export const HomeScene = ({
             transform: `translate(${camera.x}%, ${camera.y}%) scale(${camera.scale})`,
           }}
         >
-          {!isProperty && !hasImageError && (
-            <RoomImage
-              homeType={homeType}
-              onError={() => setFailedHomeType(homeType)}
-            />
-          )}
-          <HomePropertyBackdrop
-            homeType={homeType}
-            styles={draft?.styles ?? styles}
-            overlay={!isProperty}
-          />
-          {hasImageError && (
-            <p
-              role="status"
-              className="absolute inset-x-4 top-4 text-center text-sm text-white"
-            >
-              Home artwork is unavailable. Your furniture and text controls still work.
-            </p>
+          {!hasImageError && (
+            <>
+              {rooms.map((room) => (
+                <div
+                  key={room.id}
+                  data-home-room={room.id}
+                  className="pointer-events-none absolute h-full w-full"
+                  style={{ left: `${room.x}%`, top: `${room.y}%` }}
+                >
+                  {room.isYard ? (
+                    <Image
+                      src="/images/home/yard.webp"
+                      alt="Yard"
+                      fill
+                      className="object-contain"
+                      loading="eager"
+                      onError={() => setFailedHomeType(homeType)}
+                    />
+                  ) : (
+                    <RoomImage
+                      homeType={homeType}
+                      roomName={isProperty ? room.name : undefined}
+                      onError={() => setFailedHomeType(homeType)}
+                    />
+                  )}
+                </div>
+              ))}
+              <HomePropertyBackdrop
+                homeType={homeType}
+                styles={draft?.styles ?? styles}
+              />
+            </>
           )}
           {isEditing && (
             <span className="pointer-events-none absolute top-3 left-3 z-[140] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
@@ -763,7 +777,7 @@ export const HomeScene = ({
               </button>
             );
           })}
-          {!isProperty && !hasImageError && (
+          {!hasImageError && (
             <>
               <svg aria-hidden className="absolute h-0 w-0">
                 <defs>
@@ -779,16 +793,34 @@ export const HomeScene = ({
                   </clipPath>
                 </defs>
               </svg>
-              {/* Reuse the room painting to put its front curtains above indoor sprites, without a second downloaded asset. */}
-              <div
-                className="pointer-events-none absolute inset-0 z-[100]"
-                style={{ clipPath: `url(#${foregroundId})` }}
-              >
-                <RoomImage homeType={homeType} isForeground />
-              </div>
+              {/* Each room reuses its painting above indoor sprites, sharing the background's downloaded image. */}
+              {rooms
+                .filter((room) => !room.isYard)
+                .map((room) => (
+                  <div
+                    key={room.id}
+                    data-home-room-foreground={room.id}
+                    className="pointer-events-none absolute z-[100] h-full w-full"
+                    style={{
+                      left: `${room.x}%`,
+                      top: `${room.y}%`,
+                      clipPath: `url(#${foregroundId})`,
+                    }}
+                  >
+                    <RoomImage homeType={homeType} isForeground />
+                  </div>
+                ))}
             </>
           )}
         </div>
+        {hasImageError && (
+          <p
+            role="status"
+            className="pointer-events-none absolute inset-x-4 top-4 z-[140] text-center text-sm text-white"
+          >
+            Home artwork is unavailable. Your furniture and text controls still work.
+          </p>
+        )}
       </fieldset>
       {isEditing &&
         selected &&
@@ -1141,10 +1173,12 @@ const FurnitureImage = ({
 /** Background and foreground reuse identical responsive URLs so the browser shares the downloaded image. */
 const RoomImage = ({
   homeType,
+  roomName,
   isForeground = false,
   onError,
 }: {
   homeType: HomeType;
+  roomName?: string;
   isForeground?: boolean;
   onError?: () => void;
 }) => (
@@ -1159,7 +1193,7 @@ const RoomImage = ({
     />
     <Image
       src={bunnyImageUrl(HOME_SCENE_IMAGES[homeType], 768)}
-      alt={isForeground ? "" : `${HomeTypeDetails[homeType].name} interior`}
+      alt={isForeground ? "" : `${roomName ?? HomeTypeDetails[homeType].name} interior`}
       fill
       className="object-contain"
       loading="eager"
