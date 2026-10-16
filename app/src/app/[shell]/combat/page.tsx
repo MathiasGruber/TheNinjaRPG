@@ -512,7 +512,7 @@ const AutoCombatPanel: React.FC<AutoCombatPanelProps> = (props) => {
       </p>
       <p className="text-muted-foreground text-sm">
         {props.aiOnly
-          ? "Your AI profile is fighting this tournament game. You can edit your rules before the next game."
+          ? "Both sides use AI control for this match. You can edit your rules before your next match."
           : "Your AI profile is fighting this battle for you. Sit back and watch, or take back control at any time."}
       </p>
       {!props.aiOnly && (
