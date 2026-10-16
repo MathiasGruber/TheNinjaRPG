@@ -359,17 +359,7 @@ export const combatRouter = createTRPCRouter({
           const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
           // A settlement-only poll must persist leftBattle without ticking effects again.
           const shouldTickEffects = battleOver || progressRound || changedActor;
-          const history: Parameters<typeof createAction>[2] = expiredEffects.length
-            ? [
-                {
-                  battleRound: actionRound,
-                  appliedEffects: expiredEffects,
-                  description: "Battlefield effects expire.",
-                  battleVersion: fetchedVersion,
-                  actionId: "wait",
-                },
-              ]
-            : [];
+          const history: Parameters<typeof createAction>[2] = [];
           if (shouldTickEffects && !hadActivity && actId && activeUser) {
             const { newBattle, actionEffects } = applyEffects(userBattle, actId);
             advanceEncounterWave(newBattle, !!dungeonBattleOutcome(newBattle));
@@ -399,11 +389,19 @@ export const combatRouter = createTRPCRouter({
 
             history.push({
               battleRound: actionRound,
-              appliedEffects: actionEffects,
+              appliedEffects: [...expiredEffects, ...actionEffects],
               description: `${activeUser.username} stands and does nothing. `,
               battleVersion: fetchedVersion,
               actionId: "wait",
               userId: activeUser.userId,
+            });
+          } else if (expiredEffects.length) {
+            history.push({
+              battleRound: actionRound,
+              appliedEffects: expiredEffects,
+              description: "Battlefield effects expire.",
+              battleVersion: fetchedVersion,
+              actionId: "wait",
             });
           }
 
