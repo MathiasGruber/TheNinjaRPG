@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { RouterOutputs } from "@/app/_trpc/client";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ import NavTabs from "@/layout/NavTabs";
 import PublicUserComponent from "@/layout/PublicUser";
 import { ShrineHall } from "@/layout/ShrineHall";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import UserSearchSelect from "@/layout/UserSearchSelect";
 import { VillageMission, VillageStructureMaintenance } from "@/layout/VillageMission";
 import { WarRoom } from "@/layout/WarSystem";
 import { showMutationToast } from "@/libs/toast";
@@ -68,12 +69,14 @@ import type { UserWithRelations } from "@/routers/profile";
 import { calculateEnemyConsequences, findRelationship } from "@/utils/alliance";
 import { canTakeKage } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
+import { secondsFromDate } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import {
   createPrestigeTransferSchema,
   type PrestigeTransferSchema,
   type PrestigeTransferSchemaInput,
 } from "@/validators/misc";
+import type { UserSearchResult } from "@/validators/register";
 
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
@@ -175,7 +178,11 @@ const ElderHall: React.FC<{
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
   const [removalReason, setRemovalReason] = useState("");
-  const [nomineeId, setNomineeId] = useState("");
+  const nomineeForm = useForm<{ username: string; users: UserSearchResult[] }>({
+    defaultValues: { username: "", users: [] },
+  });
+  const nomineeId = useWatch({ control: nomineeForm.control, name: "users" })[0]
+    ?.userId;
   const [governanceMessage, setGovernanceMessage] = useState("");
   const { data: removalHistory, refetch: refetchHistory } =
     api.kage.getRemovalHistory.useQuery(
@@ -281,6 +288,18 @@ const ElderHall: React.FC<{
     ? new Date(leaderUpdatedAt.getTime() + KAGE_ELDER_REMOVAL_LOCK_SECS * 1000)
     : null;
   const kageIsProtected = lockExpiry ? new Date() < lockExpiry : true;
+  const failedRemoval = removalHistory
+    ?.filter((motion) => motion.status === "REJECTED")
+    .sort((a, b) => (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0))[0];
+  const removalCooldownExpiry =
+    leaderUpdatedAt &&
+    failedRemoval?.resolvedAt &&
+    failedRemoval.targetId === kageId &&
+    (!failedRemoval.tenure ||
+      failedRemoval.tenure.getTime() === leaderUpdatedAt.getTime()) &&
+    failedRemoval.resolvedAt >= leaderUpdatedAt
+      ? secondsFromDate(KAGE_REMOVAL_COOLDOWN_DAYS * 86400, failedRemoval.resolvedAt)
+      : null;
 
   // Sort clans by activity points, with all-time points as tie-breaker
   const rankedClans = clans
@@ -590,6 +609,16 @@ const ElderHall: React.FC<{
                     {KAGE_ELDER_REMOVAL_LOCK_SECS / (24 * 3600)} days after a new kage
                     takes power.
                   </p>
+                ) : removalCooldownExpiry && new Date() < removalCooldownExpiry ? (
+                  <p className="text-muted-foreground text-sm">
+                    The village must wait until {removalCooldownExpiry.toLocaleString()}{" "}
+                    to propose another removal after the failed vote. Time remaining:{" "}
+                    <Countdown
+                      targetDate={removalCooldownExpiry}
+                      onFinish={() => void refetchHistory()}
+                    />
+                    .
+                  </p>
                 ) : hasMinimumRemovalElders ? (
                   <>
                     <p className="mb-3 text-muted-foreground text-sm">
@@ -646,54 +675,56 @@ const ElderHall: React.FC<{
               {KAGE_REMOVAL_COOLDOWN_DAYS} days, reset when the Kage changes. Political
               removal preserves prestige.
             </p>
-            {removalHistory?.map((motion) => (
-              <div key={motion.id} className="space-y-2 rounded border p-3">
-                <p className="font-semibold">Removal proposal · {motion.status}</p>
-                <p>{motion.reason || "No reason recorded for this older proposal."}</p>
-                <p className="text-sm">
-                  YES: {motion.yes} · NO: {motion.no}
-                  {motion.resolvedAt
-                    ? ` · Resolved ${motion.resolvedAt.toLocaleString()}`
-                    : ""}
-                </p>
-                {motion.successorId && (
+            {removalHistory
+              ?.filter((motion) => motion.status !== "PENDING")
+              .map((motion) => (
+                <div key={motion.id} className="space-y-2 rounded border p-3">
+                  <p className="font-semibold">Removal proposal · {motion.status}</p>
                   <p>
-                    Successor:{" "}
-                    <Link href={`/userid/${motion.successorId}`}>
-                      View appointed Kage
-                    </Link>
+                    {motion.reason || "No reason recorded for this older proposal."}
                   </p>
-                )}
-                {isElder &&
-                  !villageData?.villageData.kageId &&
-                  motion.status === "APPROVED" &&
-                  !motion.successorId && (
-                    <div className="space-y-2">
-                      <Label htmlFor={`nominee-${motion.id}`}>
-                        Eligible villager’s user ID
-                      </Label>
-                      <Input
-                        id={`nominee-${motion.id}`}
-                        value={nomineeId}
-                        onChange={(e) => setNomineeId(e.target.value)}
-                        placeholder="Villager or elder user ID"
-                      />
-                      <Button
-                        disabled={nominate.isPending || !nomineeId.trim()}
-                        onClick={() =>
-                          nominate.mutate({
-                            voteId: motion.id,
-                            villageId: user.villageId ?? "",
-                            userId: nomineeId.trim(),
-                          })
-                        }
-                      >
-                        Nominate and appoint successor
-                      </Button>
-                    </div>
+                  <p className="text-sm">
+                    YES: {motion.yes} · NO: {motion.no}
+                    {motion.resolvedAt
+                      ? ` · Resolved ${motion.resolvedAt.toLocaleString()}`
+                      : ""}
+                  </p>
+                  {motion.successorId && (
+                    <p>
+                      Successor:{" "}
+                      <Link href={`/userid/${motion.successorId}`}>
+                        View appointed Kage
+                      </Link>
+                    </p>
                   )}
-              </div>
-            ))}
+                  {isElder &&
+                    !villageData?.villageData.kageId &&
+                    motion.status === "APPROVED" &&
+                    !motion.successorId && (
+                      <div className="space-y-2">
+                        <UserSearchSelect
+                          useFormMethods={nomineeForm}
+                          showYourself
+                          showAi={false}
+                          maxUsers={1}
+                          label="Search eligible villager or elder"
+                        />
+                        <Button
+                          disabled={nominate.isPending || !nomineeId}
+                          onClick={() =>
+                            nominate.mutate({
+                              voteId: motion.id,
+                              villageId: user.villageId ?? "",
+                              userId: nomineeId ?? "",
+                            })
+                          }
+                        >
+                          Nominate and appoint successor
+                        </Button>
+                      </div>
+                    )}
+                </div>
+              ))}
             {/* No motions */}
             {pendingWarVotes.length === 0 &&
               pendingKageVotes.length === 0 &&

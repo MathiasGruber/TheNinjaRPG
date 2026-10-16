@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,17 +24,23 @@ import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import UserSearchSelect from "@/layout/UserSearchSelect";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { KageWindow } from "@/validators/kage";
+import type { UserSearchResult } from "@/validators/register";
 
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const router = useRouter();
   const { updateUser } = useRequiredUserData();
   const [draft, setDraft] = useState<KageWindow[] | null>(null);
-  const [nomineeId, setNomineeId] = useState("");
+  const nomineeForm = useForm<{ username: string; users: UserSearchResult[] }>({
+    defaultValues: { username: "", users: [] },
+  });
+  const nomineeId = useWatch({ control: nomineeForm.control, name: "users" })[0]
+    ?.userId;
   const [aiRequested, setAiRequested] = useState(false);
   const [message, setMessage] = useState<{ success: boolean; message: string } | null>(
     null,
@@ -76,9 +83,16 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   const ai = api.kage.setDefenseAi.useMutation({ onSuccess, onError });
   const checkIn = api.kage.checkInDefense.useMutation({ onSuccess, onError });
   const start = api.kage.startDefense.useMutation({ onSuccess, onError });
-  const pending = [publish, join, withdraw, reschedule, ai, checkIn, start].some(
-    (m) => m.isPending,
-  );
+  const pending = [
+    nominate,
+    publish,
+    join,
+    withdraw,
+    reschedule,
+    ai,
+    checkIn,
+    start,
+  ].some((m) => m.isPending);
   const hall = data?.hall;
   const isKage = hall?.kageId === user.userId;
   const mine = hall?.queue.find((m) => m.challengerId === user.userId);
@@ -158,8 +172,14 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
               Attendance strikes this tenure: {hall.schedule?.missedStarts ?? 0}/
               {KAGE_DEFENSE_MAX_NO_SHOWS}.
             </p>
+            {isKage && locked && (
+              <p className="mt-2 text-muted-foreground text-sm">
+                Assigned matches lock the schedule. Use a match’s one-time reschedule
+                action to move it while preserving queue order.
+              </p>
+            )}
           </div>
-          {isKage && (
+          {isKage && !locked && (
             <div className="space-y-3 rounded-lg border p-3">
               <p className="font-semibold">Publish defense times</p>
               <p className="text-sm">
@@ -175,7 +195,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                       aria-label={`Defense day ${i + 1}`}
                       className="h-10 rounded border bg-background px-2"
                       value={w.day}
-                      disabled={pending || locked}
+                      disabled={pending}
                       onChange={(e) => setWindow(i, "day", Number(e.target.value))}
                     >
                       {days.map((day, index) => (
@@ -191,7 +211,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                       aria-label={`Defense start time ${i + 1}`}
                       className="h-10 rounded border bg-background px-2"
                       value={w.hour}
-                      disabled={pending || locked}
+                      disabled={pending}
                       onChange={(e) => setWindow(i, "hour", Number(e.target.value))}
                     >
                       {Array.from(
@@ -207,7 +227,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                   {windows.length > KAGE_DEFENSE_MIN_DAYS && (
                     <Button
                       variant="outline"
-                      disabled={pending || locked}
+                      disabled={pending}
                       onClick={() =>
                         setDraft(windows.filter((_, index) => index !== i))
                       }
@@ -219,7 +239,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
               ))}
               <div className="flex flex-wrap gap-2">
                 <Button
-                  disabled={pending || locked}
+                  disabled={pending}
                   onClick={() =>
                     publish.mutate({ villageId: user.villageId ?? "", windows })
                   }
@@ -228,7 +248,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                 </Button>
                 <Button
                   variant="outline"
-                  disabled={pending || locked || windows.length >= days.length}
+                  disabled={pending || windows.length >= days.length}
                   onClick={() =>
                     setDraft([
                       ...windows,
@@ -244,12 +264,6 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                   Add day
                 </Button>
               </div>
-              {locked && (
-                <p className="text-muted-foreground text-sm">
-                  Use the one-time reschedule action on a match to move it while
-                  preserving queue order.
-                </p>
-              )}
             </div>
           )}
           {!hall.kageId && hall.schedule?.vacancy && (
@@ -257,20 +271,19 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
               <p>{hall.schedule.vacancy.reason}. Queue priority is retained.</p>
               {user.rank === "ELDER" && (
                 <>
-                  <Label htmlFor="vacant-kage-nominee">
-                    Nominate an eligible villager or elder (user ID)
-                  </Label>
-                  <Input
-                    id="vacant-kage-nominee"
-                    value={nomineeId}
-                    onChange={(e) => setNomineeId(e.target.value)}
+                  <UserSearchSelect
+                    useFormMethods={nomineeForm}
+                    showYourself
+                    showAi={false}
+                    maxUsers={1}
+                    label="Search eligible villager or elder"
                   />
                   <Button
-                    disabled={pending || !nomineeId.trim()}
+                    disabled={pending || !nomineeId}
                     onClick={() =>
                       nominate.mutate({
                         villageId: user.villageId ?? "",
-                        userId: nomineeId.trim(),
+                        userId: nomineeId ?? "",
                       })
                     }
                   >
