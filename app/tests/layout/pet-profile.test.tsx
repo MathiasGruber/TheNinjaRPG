@@ -8,6 +8,8 @@ import type { AppRouter } from "@/api/root";
 import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import PetProfilePage from "@/app/[shell]/profile/pet/page";
+import { MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
+import * as SectorVillage from "@/hooks/useSectorVillage";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as ItemWithEffects from "@/layout/ItemWithEffects";
@@ -22,7 +24,11 @@ import { ensureDom } from "../setup-dom.mjs";
 
 const testApi = createTRPCReact<AppRouter>();
 type PetView = RouterOutputs["pets"]["getPet"];
-const owner = { userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000 };
+let owner: {
+  userId: string; role: string; status: string; rank: string; reputationPoints: number;
+  sector: number; battleId: string | null; isOutlaw: boolean;
+  village: { name: string; type: string; sector: number; structures: { route: string }[]; relationshipA: []; relationshipB: [] };
+};
 let queryClient: QueryClient;
 let data: PetView;
 let requestedPetId: string | null;
@@ -34,6 +40,11 @@ let saveAi: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   ensureDom();
   requestedPetId = "companion";
+  owner = {
+    userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000,
+    sector: 1, battleId: null, isOutlaw: false,
+    village: { name: "Horizon", type: "VILLAGE", sector: 1, structures: [{ route: "/home" }], relationshipA: [], relationshipB: [] },
+  };
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const pet = {
     id: "companion", name: "Miso", rank: 7, experience: 0, storedExperience: 0,
@@ -68,6 +79,10 @@ beforeEach(() => {
   Object.assign(vi.spyOn(client, "api" as never), { pets: testApi.pets, ai: testApi.ai, useUtils: testApi.useUtils });
   vi.spyOn(navigation, "useSearchParams").mockImplementation(() => new URLSearchParams(requestedPetId ? { petId: requestedPetId } : {}) as never);
   vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: owner } as never);
+  vi.spyOn(SectorVillage, "useSectorVillage").mockImplementation(() => ({
+    sectorVillage: owner.sector === owner.village.sector || owner.isOutlaw ? owner.village : null,
+    isLoading: false,
+  }) as never);
   vi.spyOn(ContentBox, "default").mockImplementation(({ title, children }) => <section aria-label={title}>{children}</section>);
   vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
   vi.spyOn(Link, "default").mockImplementation(({ href, children }) => <a href={String(href)}>{children}</a>);
@@ -104,12 +119,23 @@ it("shows focused activities and preserves an AI draft while switching tabs", as
   const view = mount();
   await view.findByRole("tablist", { name: "Companion activities" });
   expect(view.getAllByRole("tabpanel")).toHaveLength(1);
-  const care = view.getByRole("tab", { name: "Care & training" });
-  const carePanel = view.getByRole("tabpanel", { name: "Care & training" });
+  const care = view.getByRole("tab", { name: /^Care$/ });
+  const carePanel = view.getByRole("tabpanel", { name: /^Care$/ });
   expect(carePanel.getAttribute("aria-labelledby")).toBe(care.id);
   expect(carePanel.textContent).toContain("Feed one meal");
+  expect(carePanel.textContent).not.toContain("training points available");
+  expect(carePanel.textContent).not.toContain("final evolution");
+  const stats = view.getAllByRole("definition")[0]!.closest("dl")!;
+  expect(stats.getAttribute("aria-label")).toBe("Companion stats");
+  expect(stats.closest("section")?.getAttribute("aria-label")).toBe("Miso");
+  expect(stats.closest('[role="tabpanel"]')).toBeNull();
   act(() => care.focus());
   fireEvent.keyDown(care, { key: "ArrowRight" });
+  await waitFor(() => expect(view.getByRole("tabpanel", { name: "Training" })).toBeTruthy());
+  expect(view.getByText("100 training points available")).toBeTruthy();
+  expect(view.getByText("Your companion has reached its final evolution.")).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Feed one meal" })).toBeNull();
+  fireEvent.keyDown(view.getByRole("tab", { name: "Training" }), { key: "ArrowRight" });
   await waitFor(() => expect(view.getByRole("tabpanel", { name: "Abilities" })).toBeTruthy());
   expect(document.activeElement).toBe(view.getByRole("tab", { name: "Abilities" }));
   expect(view.queryByRole("button", { name: "Save Profile" })).toBeNull();
@@ -164,7 +190,7 @@ it("keeps the selected loadout and save action before compact searchable choices
   expect(view.getAllByText("This loadout exceeds your pet's purchased or rank-limited ability slots.").every((message) => message.closest("details")?.open === false)).toBe(true);
   fireEvent.change(view.getByRole("textbox", { name: "Find an ability" }), { target: { value: "Strike 0" } });
   expect(within(choices).getAllByRole("checkbox")).toHaveLength(1);
-  selectTab(view, "Care & training");
+  selectTab(view, "Care");
   selectTab(view, "Abilities");
   fireEvent.click(view.getByRole("button", { name: "Save abilities" }));
   await waitFor(() => expect(saveAbilities).toHaveBeenCalledWith({ petId: "companion", jutsuIds: ["jutsu-0", "jutsu-1"], skillIds: ["skill-0"] }));
@@ -179,7 +205,70 @@ it("feeds from the care panel using the displayed inventory snapshot", async () 
   const view = mount();
   fireEvent.click(await view.findByRole("button", { name: "Feed one meal" }));
   await waitFor(() => expect(feed).toHaveBeenCalledWith({ petId: "companion", userItemId: "meal", expectedQuantity: 2 }));
+  expect(view.getByRole("tabpanel", { name: /^Care$/ }).textContent).not.toContain("training points");
+  selectTab(view, "Training");
   expect(view.getByText("100 training points available")).toBeTruthy();
+});
+
+it.each([
+  [1, "/travel?sector=" + MAP_WAKE_ISLAND_SECTOR, "Travel to Wake Island"],
+  [MAP_WAKE_ISLAND_SECTOR, "/pets", "Open sanctuary"],
+])("offers a reachable sanctuary destination from sector %s", async (sector, href, label) => {
+  owner.sector = Number(sector);
+  const view = mount();
+  expect((await view.findByRole("link", { name: String(label) })).getAttribute("href")).toBe(href);
+  expect(view.queryByRole("link", { name: "Visit the sanctuary" })).toBeNull();
+});
+
+it("offers one targeted sanctuary action for an empty collection", async () => {
+  data = { ...data, pet: null, pets: [], activePetId: null };
+  const view = mount();
+  const action = await view.findByRole("link", { name: "Travel to Wake Island" });
+  expect(action.getAttribute("href")).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
+  expect(view.queryByRole("link", { name: "Open sanctuary" })).toBeNull();
+});
+
+it("opens the existing home kitchen directly when the owner is at home", async () => {
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Open kitchen" })).getAttribute("href")).toBe("/home?panel=kitchen");
+});
+
+it("opens the owner kitchen for a roaming outlaw whose resolved village is the Syndicate", async () => {
+  owner.isOutlaw = true;
+  owner.sector = 2;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Open kitchen" })).getAttribute("href")).toBe("/home?panel=kitchen");
+  expect(view.queryByRole("link", { name: "Travel home to cook" })).toBeNull();
+});
+
+it("targets the owner's home village when cooking is elsewhere", async () => {
+  owner.sector = MAP_WAKE_ISLAND_SECTOR;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Travel home to cook" })).getAttribute("href")).toBe("/travel?sector=1");
+  expect(view.getByText(/home kitchen in Horizon/)).toBeTruthy();
+  expect(view.queryByRole("link", { name: "Open kitchen" })).toBeNull();
+});
+
+it.each(["ASLEEP", "BATTLE"])("explains unavailable travel without leaving a working link while %s", async (status) => {
+  owner.status = status;
+  owner.sector = 2;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("button", { name: "Travel to Wake Island" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((view.getByRole("button", { name: "Travel home to cook" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("link", { name: /Travel/ })).toBeNull();
+  expect(view.getAllByText(/awake state outside battle to travel/)).toHaveLength(2);
+});
+
+it("explains missing home kitchens without sending the player to an inaccessible home", async () => {
+  owner.village.structures = [];
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  await view.findByText("Your current village does not have a home kitchen.");
+  expect(view.queryByRole("link", { name: /kitchen|cook/ })).toBeNull();
 });
 
 it.each([

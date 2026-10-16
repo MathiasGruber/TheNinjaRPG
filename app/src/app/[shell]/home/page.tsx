@@ -15,6 +15,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import dynamic from "next/dynamic";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import {
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
+  MAP_WAKE_ISLAND_SECTOR,
   PET_SANCTUARY_NAME,
 } from "@/drizzle/constants";
 import type { UserItemWithItem, UserItemWithRelations } from "@/drizzle/schema";
@@ -75,6 +77,9 @@ const HomeKitchen = dynamic(() => import("@/layout/Kitchen"), {
 /** Residence hub for shared sleep actions and owner-only storage and home management. */
 export default function HomePage() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const canOpenKitchen = !!userData && access && ownVillage;
 
   // State
   const [selectedItem, setSelectedItem] = useState<UserItemWithRelations | undefined>(
@@ -95,6 +100,16 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
+
+  // Deep links use the existing owner-only kitchen and are consumed so closing stays final.
+  useEffect(() => {
+    if (!canOpenKitchen || searchParams.get("panel") !== "kitchen") return;
+    setIsKitchenOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("panel");
+    const query = params.toString();
+    router.replace(query ? `/home?${query}` : "/home", { scroll: false });
+  }, [canOpenKitchen, router, searchParams]);
 
   // Guests use common navigation without fetching owner-only data; hooks stay unconditional.
   const {
@@ -457,13 +472,31 @@ export default function HomePage() {
               ))}
             </ul>
           ) : (
-            <p>
-              Meet your first companion at the{" "}
-              <Link href="/pets" className="underline">
-                {PET_SANCTUARY_NAME}
-              </Link>
-              .
-            </p>
+            <div className="space-y-3">
+              <p>
+                Meet your first companion at the {PET_SANCTUARY_NAME} on Wake Island.
+              </p>
+              {userData.sector === MAP_WAKE_ISLAND_SECTOR ? (
+                <Button variant="outline" asChild>
+                  <Link href="/pets">Open sanctuary</Link>
+                </Button>
+              ) : userData.status === "AWAKE" && !userData.battleId ? (
+                <Button variant="outline" asChild>
+                  <Link href={`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`}>
+                    Travel to Wake Island
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" disabled>
+                    Travel to Wake Island
+                  </Button>
+                  <p className="text-muted-foreground text-sm">
+                    You must be awake and out of battle to travel.
+                  </p>
+                </>
+              )}
+            </div>
           )}
         </ContentBox>
       )}

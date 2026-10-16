@@ -3,12 +3,13 @@ import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-libra
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCReact, getQueryKey } from "@trpc/react-query";
 import { observable } from "@trpc/server/observable";
+import * as navigation from "next/navigation";
 import type { AppRouter } from "@/api/root";
 import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import HomePage from "@/app/[shell]/home/page";
 import * as dialog from "@/components/ui/dialog";
-import { type HomeType, HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
+import { type HomeType, HomeTypeDetails, IMG_HOME_KITCHEN, MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
 import * as sleep from "@/hooks/sleep";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
@@ -57,6 +58,8 @@ let savedEvent: typeof Event;
 let savedCustomEvent: typeof CustomEvent;
 let savedAnimationFrame: PropertyDescriptor | undefined;
 let savedCancelAnimationFrame: PropertyDescriptor | undefined;
+let searchParams: URLSearchParams;
+let replaceRoute: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   ensureDom();
@@ -70,6 +73,12 @@ beforeEach(() => {
     requestAnimationFrame: { configurable: true, value: (callback: FrameRequestCallback) => Number(setTimeout(() => callback(Date.now()), 0)) },
     cancelAnimationFrame: { configurable: true, value: (id: number) => clearTimeout(id) },
   });
+  searchParams = new URLSearchParams();
+  replaceRoute = vi.fn((href: string) => {
+    searchParams = new URLSearchParams(href.split("?")[1]);
+  });
+  vi.spyOn(navigation, "useRouter").mockReturnValue({ replace: replaceRoute } as never);
+  vi.spyOn(navigation, "useSearchParams").mockImplementation(() => searchParams as never);
   vi.spyOn(Modal, "default").mockImplementation(actualModal);
   vi.spyOn(dialog, "Dialog").mockImplementation(actualDialog.Dialog);
   vi.spyOn(dialog, "DialogContent").mockImplementation(actualDialog.DialogContent);
@@ -289,6 +298,32 @@ it("links every owned companion image to its selected profile and identifies onl
     }
     expect(view.getAllByText("Active companion")).toHaveLength(1);
     expect(view.getByText("Active companion").closest("li")?.textContent).toContain("Pippin");
+  } finally {
+    queryClient.clear();
+  }
+});
+
+it.each([
+  { sector: 1, status: "AWAKE", battleId: null, href: `/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`, label: "Travel to Wake Island" },
+  { sector: MAP_WAKE_ISLAND_SECTOR, status: "AWAKE", battleId: null, href: "/pets", label: "Open sanctuary" },
+  { sector: 1, status: "ASLEEP", battleId: null, href: null, label: "Travel to Wake Island" },
+  { sector: 1, status: "AWAKE", battleId: "battle", href: null, label: "Travel to Wake Island" },
+])("offers location-aware sanctuary navigation for $status in sector $sector with battle $battleId", async ({ sector, status, battleId, href, label }) => {
+  vi.spyOn(UserContext, "useRequireInVillage").mockReturnValue({
+    userData: { homeType: "NONE", status, battleId, money: 1000, sector, village: { sector } },
+    access: true,
+    ownVillage: true,
+  } as never);
+  const { view, queryClient } = mountHome();
+  try {
+    await view.findByText(/Meet your first companion at the Bondkeeper Sanctuary on Wake Island/);
+    if (href) {
+      expect(view.getByRole("link", { name: label }).getAttribute("href")).toBe(href);
+    } else {
+      expect(view.queryByRole("link", { name: label })).toBeNull();
+      expect(view.getByRole("button", { name: label }).hasAttribute("disabled")).toBe(true);
+      expect(view.getByText("You must be awake and out of battle to travel.")).toBeTruthy();
+    }
   } finally {
     queryClient.clear();
   }
@@ -688,6 +723,7 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
     if (op.path === "home.getUserHome") data = home;
     else if (op.path === "item.getUserItems") data = ownedItems;
     else if (op.path === "home.getAvailableUpgrades") data = [];
+    else if (op.path === "pets.getCollection") data = emptyPetCollection;
     else if (op.path === "home.saveFurnitureLayout") data = save(op.input);
     else throw new Error(`Unexpected procedure ${op.path}`);
     observer.next({ result: { data } });
@@ -745,7 +781,39 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
   }
 });
 
-it("opens the kitchen with owned artwork or its fallback and returns focus to its action", async () => {
+it("opens the kitchen from an accessible owner deep link or scene action and preserves navigation and focus", async () => {
+  searchParams = new URLSearchParams("panel=kitchen&from=companion");
+  let access = false;
+  let ownVillage = true;
+  vi.spyOn(UserContext, "useRequireInVillage").mockImplementation(() => ({
+    userData: { homeType: "NONE", status: "AWAKE", money: 1000, sector: 1, village: { sector: 1 } },
+    access,
+    ownVillage,
+  }) as never);
+  const { view, queryClient, rerender } = mountHome();
+  try {
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(replaceRoute).not.toHaveBeenCalled();
+    access = true;
+    ownVillage = false;
+    rerender();
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(replaceRoute).not.toHaveBeenCalled();
+    ownVillage = true;
+    rerender();
+    const kitchen = within(await view.findByRole("dialog"));
+    expect(await kitchen.findByText("Kitchen recipes")).toBeTruthy();
+    expect(replaceRoute).toHaveBeenCalledTimes(1);
+    expect(replaceRoute).toHaveBeenCalledWith("/home?from=companion", { scroll: false });
+    fireEvent.click(kitchen.getAllByRole("button", { name: "Close" })[0]!);
+    rerender();
+    expect(view.queryByRole("dialog")).toBeNull();
+    expect(replaceRoute).toHaveBeenCalledTimes(1);
+  } finally {
+    queryClient.clear();
+  }
+  cleanup();
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
   for (const hasKitchen of [true, false]) {
     const kitchen: HomeFurniture = {
       ...rug, id: "owned-kitchen", itemId: "home-kitchen", name: "Kitchen",
@@ -795,3 +863,26 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
     }
   }
 }, 20_000);
+
+/** Render the residence with its ordinary owner data for navigation regressions. */
+function mountHome() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    let data: unknown;
+    if (op.path === "pets.getCollection") data = emptyPetCollection;
+    else if (op.path === "home.getUserHome") data = essentialHome;
+    else if (op.path === "item.getUserItems") data = ownedItems;
+    else if (op.path === "home.getAvailableUpgrades") data = [];
+    else if (op.path === "home.getHomeRequests") data = [];
+    else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  const page = () => (
+    <testApi.Provider client={trpcClient} queryClient={queryClient}>
+      <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+    </testApi.Provider>
+  );
+  const view = render(page());
+  return { view, queryClient, rerender: () => view.rerender(page()) };
+}

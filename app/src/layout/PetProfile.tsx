@@ -30,11 +30,13 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CombatStatNames,
+  MAP_WAKE_ISLAND_SECTOR,
   PET_RANKS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
   PetSpawnPositions,
 } from "@/drizzle/constants";
+import { useSectorVillage } from "@/hooks/useSectorVillage";
 import AiProfileEdit from "@/layout/AiProfileEdit";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
@@ -65,6 +67,7 @@ import {
 import { showMutationToast } from "@/libs/toast";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { canAccessStructure } from "@/utils/village";
 import {
   PET_AI_ACTION_TYPES,
   PET_AI_EFFECT_TYPES,
@@ -78,6 +81,7 @@ import {
  */
 export function PetProfile() {
   const { data: userData } = useRequiredUserData();
+  const { sectorVillage } = useSectorVillage(userData);
   const searchParams = useSearchParams();
   const requestedPetId = searchParams.get("petId") ?? undefined;
   const utils = api.useUtils();
@@ -293,6 +297,44 @@ export function PetProfile() {
         </Button>
       </ContentBox>
     );
+  // Send players through the existing destination picker instead of a location-gated page.
+  const isAtSanctuary = userData.sector === MAP_WAKE_ISLAND_SECTOR;
+  const cannotTravel = userData.status !== "AWAKE" || !!userData.battleId;
+  const travelReason = cannotTravel
+    ? "Return to the awake state outside battle to travel."
+    : "";
+  const sanctuaryAction = (
+    <div className="space-y-2">
+      {!isAtSanctuary && cannotTravel ? (
+        <Button variant="outline" disabled>
+          Travel to Wake Island
+        </Button>
+      ) : (
+        <Button variant="outline" asChild>
+          <Link
+            href={isAtSanctuary ? "/pets" : `/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`}
+          >
+            {isAtSanctuary ? "Open sanctuary" : "Travel to Wake Island"}
+          </Link>
+        </Button>
+      )}
+      {!isAtSanctuary && (
+        <p className="text-muted-foreground text-sm">
+          Adoption takes place at the {PET_SANCTUARY_NAME} on Wake Island.{" "}
+          {travelReason}
+        </p>
+      )}
+    </div>
+  );
+  const homeVillage = userData.village;
+  const hasHomeKitchen =
+    !!homeVillage &&
+    (userData.isOutlaw ||
+      homeVillage.structures?.some((structure) => structure.route === "/home"));
+  const isAtHome =
+    hasHomeKitchen &&
+    homeVillage.sector === sectorVillage?.sector &&
+    (userData.isOutlaw || canAccessStructure(userData, "/home", sectorVillage));
   const collection = (
     <ContentBox
       title="Your companions"
@@ -326,9 +368,7 @@ export function PetProfile() {
         </div>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="outline" asChild>
-          <Link href="/pets">Visit the sanctuary</Link>
-        </Button>
+        {pet && sanctuaryAction}
         {data.slots < data.maxSlots && (
           <Confirm
             title={`Unlock a companion slot for ${data.slotCost} reputation?`}
@@ -379,12 +419,7 @@ export function PetProfile() {
                 : `Your next companion costs ${data.replacementCost} reputation points.`}{" "}
               Visit the sanctuary on Wake Island to meet it.
             </p>
-            <Button asChild>
-              <Link href="/travel">Travel to Wake Island</Link>
-            </Button>
-            <Link href="/pets" className="underline">
-              Open the sanctuary
-            </Link>
+            {sanctuaryAction}
           </div>
         </ContentBox>
       </>
@@ -536,6 +571,30 @@ export function PetProfile() {
             </p>
           </div>
         </div>
+        <dl
+          aria-label="Companion stats"
+          className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
+        >
+          {CombatStatNames.map((stat) => (
+            <div key={stat} className="rounded border p-2">
+              <dt className="text-muted-foreground text-sm">
+                {capitalizeFirstLetter(stat)}
+              </dt>
+              <dd className="font-semibold">
+                {formatStat(pet[stat])}
+                <span className="font-normal text-muted-foreground text-xs">
+                  {" "}
+                  /{" "}
+                  {formatStat(
+                    stat === "offence" || stat === "defence"
+                      ? caps.stats_cap
+                      : caps.gens_cap,
+                  )}
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
         {nextRank && (
           <div className="mt-3 space-y-1 text-sm">
             <p>
@@ -633,12 +692,15 @@ export function PetProfile() {
         )}
       </ContentBox>
       <Tabs value={activity} onValueChange={setActivity} className="mt-4">
-        <TabsList aria-label="Companion activities" className="grid grid-cols-4">
+        <TabsList aria-label="Companion activities" className="grid grid-cols-5">
           <TabsTrigger
             value="care"
             className="min-h-9 whitespace-normal px-1 text-xs leading-tight sm:text-sm"
           >
-            Care & training
+            Care
+          </TabsTrigger>
+          <TabsTrigger value="training" className="min-h-9 px-1 text-xs sm:text-sm">
+            Training
           </TabsTrigger>
           <TabsTrigger value="abilities" className="min-h-9 px-1 text-xs sm:text-sm">
             Abilities
@@ -658,20 +720,43 @@ export function PetProfile() {
           >
             <p className="mb-3 text-sm">
               One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
-              {pet.name}. You can assign these points to its stats below.
+              {pet.name}. Assign these points in the Training tab.
             </p>
             {pet.feedDay === data.dayKey ? (
               <p role="status">
                 {pet.name} has already been fed today. Return after midnight UTC.
               </p>
             ) : data.feedMeals.length === 0 ? (
-              <p>
-                Prepare a meal in your{" "}
-                <Link href="/home" className="underline">
-                  home kitchen
-                </Link>{" "}
-                and keep it in your inventory to feed your companion.
-              </p>
+              <div className="space-y-3">
+                <p>Keep a finished meal in your inventory to feed your companion.</p>
+                {isAtHome ? (
+                  <Button variant="outline" asChild>
+                    <Link href="/home?panel=kitchen">Open kitchen</Link>
+                  </Button>
+                ) : hasHomeKitchen ? (
+                  <>
+                    <p className="text-muted-foreground text-sm">
+                      Cook meals in your home kitchen in {homeVillage.name}.{" "}
+                      {travelReason}
+                    </p>
+                    {cannotTravel ? (
+                      <Button variant="outline" disabled>
+                        Travel home to cook
+                      </Button>
+                    ) : (
+                      <Button variant="outline" asChild>
+                        <Link href={`/travel?sector=${homeVillage.sector}`}>
+                          Travel home to cook
+                        </Link>
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Your current village does not have a home kitchen.
+                  </p>
+                )}
+              </div>
             ) : (
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-48 grow space-y-2">
@@ -715,8 +800,9 @@ export function PetProfile() {
               </div>
             )}
           </ContentBox>
-
-          <div className="mt-4">
+        </TabsContent>
+        <TabsContent value="training" forceMount hidden={activity !== "training"}>
+          <div>
             <DistributeStatsForm
               key={`${pet.id}:${pet.rank}`}
               userData={statsUser}
@@ -816,30 +902,6 @@ export function PetProfile() {
                 </table>
               </div>
             </details>
-          </ContentBox>
-
-          <ContentBox title="Companion stats" alreadyHasH1 initialBreak>
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {CombatStatNames.map((stat) => (
-                <div key={stat} className="rounded border p-3">
-                  <dt className="text-muted-foreground text-sm">
-                    {capitalizeFirstLetter(stat)}
-                  </dt>
-                  <dd className="font-semibold">
-                    {formatStat(pet[stat])}
-                    <span className="font-normal text-muted-foreground text-xs">
-                      {" "}
-                      /{" "}
-                      {formatStat(
-                        stat === "offence" || stat === "defence"
-                          ? caps.stats_cap
-                          : caps.gens_cap,
-                      )}
-                    </span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
           </ContentBox>
         </TabsContent>
         <TabsContent value="abilities" forceMount hidden={activity !== "abilities"}>
@@ -1161,10 +1223,8 @@ export function PetProfile() {
             <p className="mb-4">
               Releasing {pet.name} removes its progress and unused experience. Your
               other companions stay in your collection. A new companion at the{" "}
-              <Link href="/pets" className="underline">
-                {PET_SANCTUARY_NAME}
-              </Link>{" "}
-              on Wake Island costs {PET_REPLACEMENT_COST} reputation points.
+              {PET_SANCTUARY_NAME} on Wake Island costs {PET_REPLACEMENT_COST}{" "}
+              reputation points.
             </p>
             <Confirm
               title={`Release ${pet.name}?`}
