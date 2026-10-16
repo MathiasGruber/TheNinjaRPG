@@ -14,7 +14,11 @@ import {
   CACHE_MAX_TIERS,
   CACHE_PROBABILITY_TOTAL,
 } from "@/drizzle/constants";
-import { cacheItemChance, cacheItemIds } from "@/libs/weightedCache";
+import {
+  CACHE_RESTRICTED_REWARD_MESSAGE,
+  cacheItemChance,
+  cacheItemIds,
+} from "@/libs/weightedCache";
 import {
   type WeightedCache,
   weightedCacheDraftSchema,
@@ -37,7 +41,7 @@ export const WeightedCacheEditor = ({
 }: {
   cache: WeightedCache;
   onChange: (cache: WeightedCache) => void;
-  items: { id: string; name: string }[];
+  items: { id: string; name: string; isRestrictedCacheReward?: boolean }[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
@@ -49,15 +53,21 @@ export const WeightedCacheEditor = ({
     isActive ? weightedCacheSchema : weightedCacheDraftSchema
   ).safeParse(cache);
   const issues: CacheIssue[] = [...(validation.error?.issues ?? [])];
-  const itemIds = new Set(items.map((item) => item.id));
+  const itemById = new Map(items.map((item) => [item.id, item]));
   if (!isLoading && !isError)
     cache.tiers.forEach((tier, tierIndex) => {
       tier.entries.forEach((entry, entryIndex) => {
         entry.items.forEach((reward, itemIndex) => {
-          if (!itemIds.has(reward.itemId))
+          const rewardItem = itemById.get(reward.itemId);
+          if (!rewardItem)
             issues.push({
               path: ["tiers", tierIndex, "entries", entryIndex, "items", itemIndex],
               message: `Remove or replace missing item: ${reward.itemId}`,
+            });
+          else if (rewardItem.isRestrictedCacheReward)
+            issues.push({
+              path: ["tiers", tierIndex, "entries", entryIndex, "items", itemIndex],
+              message: CACHE_RESTRICTED_REWARD_MESSAGE,
             });
         });
       });
@@ -123,7 +133,7 @@ export const WeightedCacheEditor = ({
       <p className="text-muted-foreground text-sm">
         Each opening selects a roll count, then one tier and one equally likely entry
         per roll. Every item in that entry is granted. Standard reward settings are
-        preserved while inactive.
+        preserved while inactive. Reputation and bloodline rewards are not allowed.
       </p>
       <fieldset className="space-y-2">
         <legend className="font-semibold">Reward rolls</legend>
@@ -282,10 +292,16 @@ export const WeightedCacheEditor = ({
                   >
                     {renderErrors(entryIssues)}
                     <MultiSelect
-                      options={items.map((item) => ({
-                        value: item.id,
-                        label: item.name,
-                      }))}
+                      options={items
+                        .filter(
+                          (item) =>
+                            !item.isRestrictedCacheReward ||
+                            entry.items.some((reward) => reward.itemId === item.id),
+                        )
+                        .map((item) => ({
+                          value: item.id,
+                          label: item.name,
+                        }))}
                       selected={entry.items.map((item) => item.itemId)}
                       placeholder="Search reward items (including hidden items)"
                       disabled={disabled || isLoading || isError}

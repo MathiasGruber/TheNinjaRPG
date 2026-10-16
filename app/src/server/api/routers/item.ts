@@ -37,6 +37,7 @@ import {
   TUTORIAL_ITEM_ID,
 } from "@/drizzle/constants";
 import type {
+  Item,
   ItemLoadout,
   UserData,
   UserItem,
@@ -126,8 +127,10 @@ import {
   getVillageLoyaltyShopCost,
 } from "@/libs/villageLoyalty";
 import {
+  CACHE_RESTRICTED_REWARD_MESSAGE,
   cacheItemChance,
   cacheItemIds,
+  isRestrictedCacheReward,
   resolveWeightedCache,
 } from "@/libs/weightedCache";
 import { fetchBloodlines, fetchItemBloodlineRolls } from "@/routers/bloodline";
@@ -283,16 +286,22 @@ export const itemRouter = createTRPCRouter({
   getAllNames: publicProcedure
     .meta({ mcp: { description: "Get all item names and images" } })
     .query(async ({ ctx }) => {
-      return await ctx.drizzle.query.item.findMany({
+      const items = await ctx.drizzle.query.item.findMany({
         columns: {
           id: true,
           name: true,
           image: true,
           canBeHunted: true,
           canBeGathered: true,
+          bloodlineId: true,
+          effects: true,
         },
         orderBy: (table, { asc }) => [asc(table.name)],
       });
+      return items.map(({ bloodlineId, effects, ...entry }) => ({
+        ...entry,
+        isRestrictedCacheReward: isRestrictedCacheReward({ bloodlineId, effects }),
+      }));
     }),
   getBloodlineItemNames: publicProcedure
     .meta({
@@ -613,7 +622,11 @@ export const itemRouter = createTRPCRouter({
               where: isNotNull(item.parentItemId),
             })
           : Promise.resolve([]),
-        fetchCacheReferencedItems(ctx.drizzle, input.data.effects),
+        fetchCacheReferencedItems(ctx.drizzle, {
+          ...input.data,
+          id: input.id,
+          bloodlineId: input.data.bloodlineId ?? null,
+        }),
       ]);
       if (input.data.requiredSkillId && requiredSkill?.pathType !== "SKILL") {
         return errorResponse("Select a valid SkillTree skill entry");
@@ -632,6 +645,10 @@ export const itemRouter = createTRPCRouter({
       if (cacheItems.missing.length > 0)
         return errorResponse(
           `Cache rewards reference missing items: ${cacheItems.missing.join(", ")}`,
+        );
+      if (cacheItems.restricted.length > 0)
+        return errorResponse(
+          `${CACHE_RESTRICTED_REWARD_MESSAGE}: ${cacheItems.restricted.join(", ")}`,
         );
       // Validate evolution chain constraints
       if (input.data.parentItemId) {
@@ -2107,14 +2124,21 @@ export const itemRouter = createTRPCRouter({
       }
       if (caches.length > 0 && !receiptId)
         return errorResponse("Please reload before opening this cache");
-      const cacheReferences = await fetchCacheReferencedItems(
-        ctx.drizzle,
-        cacheEffects,
-      );
+      if (
+        caches.length > 0 &&
+        isRestrictedCacheReward({ effects: useritem.item.effects })
+      )
+        return errorResponse(CACHE_RESTRICTED_REWARD_MESSAGE);
+      const cacheReferences =
+        caches.length > 0
+          ? await fetchCacheReferencedItems(ctx.drizzle, useritem.item)
+          : { items: [], missing: [], restricted: [] };
       if (cacheReferences.missing.length > 0)
         return errorResponse(
           "This cache references unavailable rewards. Please contact staff.",
         );
+      if (cacheReferences.restricted.length > 0)
+        return errorResponse(CACHE_RESTRICTED_REWARD_MESSAGE);
       if (
         caches.reduce((sum, cache) => sum + maximumCacheItems(cache), 0) >
         CACHE_MAX_GRANTED_ITEMS
@@ -4834,27 +4858,98 @@ const getRepairedEquipmentUpdate = (
   };
 };
 
-/** References include inactive settings so switching modes never revives deleted rewards. */
+/**
+ * Validate current reward sources, including nested containers and dynamic item pools.
+ * Batch each dependent layer and visit each ID once, so self-rewards and cycles terminate.
+ * The candidate row replaces its saved version when an editor changes a self-rewarding cache.
+ */
 const fetchCacheReferencedItems = async (
   client: DrizzleClient,
-  effects: ZodAllTags[],
+  source: Pick<Item, "id" | "name" | "bloodlineId" | "effects">,
 ) => {
-  const ids = [
-    ...new Set(
-      effects.flatMap((effect) =>
-        effect.type === "noncombatconsumereward" && effect.weightedCache
-          ? cacheItemIds(effect.weightedCache)
-          : [],
-      ),
-    ),
+  const cacheEffects = source.effects.flatMap((effect) =>
+    effect.type === "noncombatconsumereward" && effect.weightedCache ? [effect] : [],
+  );
+  const hasActiveCache = cacheEffects.some(
+    (effect) => effect.rewardMode === "weightedCache",
+  );
+  // Validate retained cache pools too, without activating their retained Standard grants.
+  let effects = [
+    ...(hasActiveCache ? source.effects : []),
+    ...cacheEffects
+      .filter((effect) => effect.rewardMode !== "weightedCache")
+      .map((effect) => ({
+        ...effect,
+        rewardMode: "weightedCache" as const,
+      })),
   ];
-  const items =
-    ids.length > 0
-      ? await client.query.item.findMany({
-          columns: { id: true, name: true },
-          where: inArray(item.id, ids),
-        })
-      : [];
-  const existing = new Set(items.map((item) => item.id));
-  return { items, missing: ids.filter((id) => !existing.has(id)) };
+  const requested = new Set<string>();
+  const found = new Map<string, typeof source>();
+  let hasCheckedHunting = false;
+  let hasCheckedGathering = false;
+  while (effects.length > 0) {
+    const rewards = effects.filter(
+      (effect) => effect.type === "noncombatconsumereward",
+    );
+    const standard = rewards.filter((effect) => effect.rewardMode !== "weightedCache");
+    const ids = [
+      ...new Set(
+        rewards.flatMap((effect) =>
+          effect.rewardMode === "weightedCache" && effect.weightedCache
+            ? cacheItemIds(effect.weightedCache)
+            : [
+                ...(effect.reward_items ?? []).flatMap((reward) => reward.ids),
+                ...(effect.reward_hunter_items
+                  ? (effect.reward_hunter_items_ids ?? [])
+                  : []),
+                ...(effect.reward_gathering_items
+                  ? (effect.reward_gathering_items_ids ?? [])
+                  : []),
+              ],
+        ),
+      ),
+    ].filter((id) => !requested.has(id) && !found.has(id));
+    const hunting: boolean =
+      !hasCheckedHunting &&
+      standard.some(
+        (effect) =>
+          effect.reward_hunter_items && !effect.reward_hunter_items_ids?.length,
+      );
+    const gathering: boolean =
+      !hasCheckedGathering &&
+      standard.some(
+        (effect) =>
+          effect.reward_gathering_items && !effect.reward_gathering_items_ids?.length,
+      );
+    if (ids.length === 0 && !hunting && !gathering) break;
+    for (const id of ids) requested.add(id);
+    hasCheckedHunting ||= hunting;
+    hasCheckedGathering ||= gathering;
+    const queryIds = ids.filter((id) => id !== source.id);
+    const rows =
+      queryIds.length > 0 || hunting || gathering
+        ? await client.query.item.findMany({
+            columns: { id: true, name: true, bloodlineId: true, effects: true },
+            where: or(
+              queryIds.length > 0 ? inArray(item.id, queryIds) : undefined,
+              hunting ? eq(item.canBeHunted, true) : undefined,
+              gathering ? eq(item.canBeGathered, true) : undefined,
+            ),
+          })
+        : [];
+    if (ids.includes(source.id)) rows.push(source);
+    effects = [];
+    for (const row of rows) {
+      if (found.has(row.id)) continue;
+      const entry = row.id === source.id ? source : row;
+      found.set(entry.id, entry);
+      effects.push(...entry.effects);
+    }
+  }
+  const items = [...found.values()];
+  return {
+    items,
+    missing: [...requested].filter((id) => !found.has(id)),
+    restricted: items.filter(isRestrictedCacheReward).map((entry) => entry.name),
+  };
 };

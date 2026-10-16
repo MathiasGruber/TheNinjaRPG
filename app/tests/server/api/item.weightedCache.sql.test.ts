@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { actionLog, item, userData, userItem } from "@/drizzle/schema";
 import { itemRouter } from "@/server/api/routers/item";
 import type { DrizzleClient } from "@/server/db";
-import { NonCombatConsumeRewardTag } from "@/validators/combat";
+import { CACHE_RESTRICTED_REWARD_MESSAGE } from "@/libs/weightedCache";
+import { ItemValidator, NonCombatConsumeRewardTag, RollRandomBloodline } from "@/validators/combat";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -115,6 +116,81 @@ describeWithDatabase("weighted cache consumption", () => {
     expect(response.rewards?.reward_items.filter((name) => name === "Pill Cache")).toHaveLength(2);
     expect(response.rewards?.reward_items.filter((name) => name === "Chakra Pill")).toHaveLength(7);
     expect(response.rewards?.reward_money).toBe(7);
+  });
+  it.each([
+    ["reputation", NonCombatConsumeRewardTag.parse({ reward_reputation: 5 })],
+    ["bloodline grant", NonCombatConsumeRewardTag.parse({ reward_bloodlines: ["bloodline"] })],
+    ["bloodline roll", RollRandomBloodline.parse({})],
+  ])("rejects a sibling %s effect in validation and before opening", async (_label, forbidden) => {
+    const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
+    const effects = [cacheEffect(), forbidden];
+    await db.update(item).set({ effects }).where(eq(item.id, "cache"));
+    const row = await caller.getItemWithCraftingRequirements({ id: "cache" });
+    const parsed = ItemValidator.safeParse({ ...row, cost: 1, target: "SELF", method: "SINGLE" });
+    expect(parsed.success).toBe(false);
+    expect(parsed.error?.issues.some((issue) => issue.message === CACHE_RESTRICTED_REWARD_MESSAGE)).toBe(true);
+    expect(await caller.consume({ userItemId: "cache-stack", requestId: "forbidden-sibling" })).toMatchObject({ success: false, message: CACHE_RESTRICTED_REWARD_MESSAGE });
+    expect((await db.select().from(userItem))).toHaveLength(1);
+    expect((await db.select().from(userItem))[0]?.quantity).toBe(2);
+    expect(await db.select().from(actionLog)).toHaveLength(0);
+  });
+  it.each([
+    ["linked bloodline", { bloodlineId: "bloodline" }],
+    ["reputation consumable", { effects: [NonCombatConsumeRewardTag.parse({ reward_reputation: 5 })] }],
+    ["bloodline consumable", { effects: [NonCombatConsumeRewardTag.parse({ reward_bloodlines: ["bloodline"] })] }],
+    ["bloodline roll", { effects: [RollRandomBloodline.parse({})] }],
+  ])("rejects a rewarded item with %s on save and after catalog edits", async (_label, forbidden) => {
+    const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
+    await db.update(userData).set({ role: "CONTENT-ADMIN" }).where(eq(userData.userId, "opener"));
+    await db.update(item).set(forbidden).where(eq(item.id, "gear"));
+    const row = await caller.getItemWithCraftingRequirements({ id: "cache" });
+    const data = ItemValidator.parse({ ...row, cost: 1, target: "SELF", method: "SINGLE" });
+    expect(await caller.update({ id: "cache", data })).toMatchObject({ success: false, message: `${CACHE_RESTRICTED_REWARD_MESSAGE}: Gear` });
+    expect((await caller.getAllNames()).find((entry) => entry.id === "gear")?.isRestrictedCacheReward).toBe(true);
+    expect(await caller.consume({ userItemId: "cache-stack", requestId: "forbidden-catalog" })).toMatchObject({ success: false, message: CACHE_RESTRICTED_REWARD_MESSAGE });
+    expect((await db.select().from(userItem))[0]?.quantity).toBe(2);
+    expect(await db.select().from(actionLog)).toHaveLength(0);
+  });
+  it("checks nested reward containers and cycles without hiding a forbidden descendant", async () => {
+    const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
+    await insertItems([{ id: "nested", name: "Nested", effects: [NonCombatConsumeRewardTag.parse({ reward_reputation: 1 })] }]);
+    await db.update(item).set({ effects: [NonCombatConsumeRewardTag.parse({ reward_items: [{ ids: ["cache", "nested"], number: 100, quantity: 1 }] })] }).where(eq(item.id, "gear"));
+    expect(await caller.consume({ userItemId: "cache-stack", requestId: "nested-forbidden" })).toMatchObject({ success: false, message: CACHE_RESTRICTED_REWARD_MESSAGE });
+    expect((await db.select().from(userItem))[0]?.quantity).toBe(2);
+    expect(await db.select().from(actionLog)).toHaveLength(0);
+    await db.update(item).set({ effects: [] }).where(eq(item.id, "nested"));
+    expect((await caller.consume({ userItemId: "cache-stack", requestId: "nested-allowed" })).success).toBe(true);
+  });
+  it.each([false, true])("validates retained cache pools when another cache is active: %s", async (hasActive) => {
+    const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
+    await db.update(userData).set({ role: "CONTENT-ADMIN" }).where(eq(userData.userId, "opener"));
+    await db.update(item).set({ bloodlineId: "bloodline" }).where(eq(item.id, "gear"));
+    const active = cacheEffect(); active.weightedCache!.tiers[0]!.entries = [{ items: [{ itemId: "pill", quantity: 1 }] }];
+    const row = await caller.getItemWithCraftingRequirements({ id: "cache" });
+    const data = ItemValidator.parse({ ...row, cost: 1, target: "SELF", method: "SINGLE", effects: [...(hasActive ? [active] : []), { ...cacheEffect(), rewardMode: "standard" }] });
+    expect(await caller.update({ id: "cache", data })).toMatchObject({ success: false, message: `${CACHE_RESTRICTED_REWARD_MESSAGE}: Gear` });
+  });
+  it.each(["reward_items", "reward_hunter_items", "reward_gathering_items"] as const)("checks sibling %s rewards, including dynamic pools", async (field) => {
+    const db = await getTestDatabase();
+    await insertItems([{ id: "forbidden", name: "Forbidden", bloodlineId: "bloodline", canBeHunted: true, canBeGathered: true }]);
+    const sibling = NonCombatConsumeRewardTag.parse(field === "reward_items" ? { reward_items: [{ ids: ["forbidden"], number: 100, quantity: 1 }] } : { [field]: true });
+    await db.update(item).set({ effects: [cacheEffect(), sibling] }).where(eq(item.id, "cache"));
+    expect(await callerForDatabase(itemRouter, "opener", db).consume({ userItemId: "cache-stack", requestId: "sibling-item-source" })).toMatchObject({ success: false, message: CACHE_RESTRICTED_REWARD_MESSAGE });
+    expect((await db.select().from(userItem))[0]?.quantity).toBe(2);
+    expect(await db.select().from(actionLog)).toHaveLength(0);
+  });
+  it("ignores retained Standard grants in cache mode and preserves ordinary reputation consumables", async () => {
+    const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
+    const effect = { ...cacheEffect(), reward_reputation: 5, reward_bloodlines: ["bloodline"] };
+    await db.update(item).set({ effects: [effect] }).where(eq(item.id, "cache"));
+    const before = await db.query.userData.findFirst({ where: eq(userData.userId, "opener") });
+    expect((await caller.consume({ userItemId: "cache-stack", requestId: "inactive-standard-grants" })).success).toBe(true);
+    const after = await db.query.userData.findFirst({ where: eq(userData.userId, "opener") });
+    expect(after?.reputationPoints).toBe(before?.reputationPoints);
+    expect(after?.bloodlineId).toBe(before?.bloodlineId);
+    await db.update(item).set({ effects: [NonCombatConsumeRewardTag.parse({ reward_reputation: 5 })] }).where(eq(item.id, "cache"));
+    expect((await caller.consume({ userItemId: "cache-stack" })).success).toBe(true);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "opener") }))?.reputationPoints).toBe((before?.reputationPoints ?? 0) + 5);
   });
 });
 

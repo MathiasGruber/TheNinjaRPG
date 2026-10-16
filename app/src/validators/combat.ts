@@ -38,6 +38,10 @@ import {
   WeaponTypes,
 } from "@/drizzle/constants";
 import type { Item, UserData } from "@/drizzle/schema";
+import {
+  CACHE_RESTRICTED_REWARD_MESSAGE,
+  isRestrictedCacheReward,
+} from "@/libs/weightedCache";
 import { DateTimeRegExp } from "@/utils/regex";
 import { makeCappedNullableNumber } from "@/validators/base";
 import { isMealEffect, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
@@ -1529,6 +1533,8 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   );
   if (caches.length > 0 && !data.preventBattleUsage)
     addIssue(ctx, "Weighted caches must prevent battle usage");
+  if (caches.length > 0 && isRestrictedCacheReward({ effects: data.effects }))
+    addIssue(ctx, CACHE_RESTRICTED_REWARD_MESSAGE);
   if (
     caches.reduce((sum, cache) => sum + maximumCacheItems(cache), 0) >
     CACHE_MAX_GRANTED_ITEMS

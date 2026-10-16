@@ -1,4 +1,5 @@
 import { CACHE_PROBABILITY_TOTAL } from "@/drizzle/constants";
+import type { ZodAllTags } from "@/validators/combat";
 import { type WeightedCache, weightedCacheSchema } from "@/validators/weightedCache";
 
 /** Select exactly one outcome; zero-weight drafts never occupy part of the interval. */
@@ -93,3 +94,21 @@ export const defaultWeightedCache = (): WeightedCache => ({
   ],
   tiers: [{ name: "Common", probability: CACHE_PROBABILITY_TOTAL, entries: [] }],
 });
+
+export const CACHE_RESTRICTED_REWARD_MESSAGE =
+  "Weighted caches cannot reward reputation points, bloodlines, or bloodline-linked items";
+
+/** Check actual grants; retained Standard rewards are inactive in Weighted Cache mode. */
+export const isRestrictedCacheReward = (source: {
+  bloodlineId?: string | null;
+  effects: ZodAllTags[];
+}): boolean =>
+  !!source.bloodlineId ||
+  source.effects.some(
+    (effect) =>
+      effect.type === "rollbloodline" ||
+      (effect.type === "noncombatconsumereward" &&
+        effect.rewardMode !== "weightedCache" &&
+        ((effect.reward_reputation ?? 0) !== 0 ||
+          (effect.reward_bloodlines?.length ?? 0) > 0)),
+  );

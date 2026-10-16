@@ -2,6 +2,7 @@ import { ensureDom } from "../setup-dom.mjs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { useState } from "react";
 import { WeightedCacheEditor } from "@/layout/WeightedCacheEditor";
+import { CACHE_RESTRICTED_REWARD_MESSAGE } from "@/libs/weightedCache";
 import type { WeightedCache } from "@/validators/weightedCache";
 
 ensureDom();
@@ -13,21 +14,24 @@ const scrollDescriptor = Object.getOwnPropertyDescriptor(
   "scrollIntoView",
 );
 const scroll = vi.fn();
+const originalCustomEvent = globalThis.CustomEvent;
 
 beforeEach(() => {
   ensureDom();
   scroll.mockClear();
   HTMLElement.prototype.scrollIntoView = scroll;
+  globalThis.CustomEvent = window.CustomEvent;
 });
 afterEach(() => {
   cleanup();
+  globalThis.CustomEvent = originalCustomEvent;
   if (scrollDescriptor)
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollDescriptor);
   else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
 });
 
 /** Keep the controlled editor's draft in parent state, as the item form does. */
-const CacheForm = () => {
+const CacheForm = ({ restricted = false }: { restricted?: boolean }) => {
   const [cache, setCache] = useState<WeightedCache>({
     version: 1,
     displayName: "Supply Cache",
@@ -46,7 +50,7 @@ const CacheForm = () => {
     <WeightedCacheEditor
       cache={cache}
       onChange={setCache}
-      items={[{ id: "pill", name: "Chakra Pill" }]}
+      items={[{ id: "pill", name: "Chakra Pill", isRestrictedCacheReward: restricted }, { id: "bloodline", name: "Bloodline Scroll", isRestrictedCacheReward: true }]}
       isLoading={false}
       isError={false}
       onRetry={() => {}}
@@ -55,6 +59,15 @@ const CacheForm = () => {
 };
 
 describe("weighted cache editor sections", () => {
+  it("exposes existing restricted rewards for repair and excludes new restricted choices", async () => {
+    const view = render(<CacheForm restricted />);
+    expect(view.getAllByRole("alert")[0]?.textContent).toContain(CACHE_RESTRICTED_REWARD_MESSAGE);
+    fireEvent.click(view.getByRole("button", { name: "Review first issue" }));
+    const entry = view.getAllByRole("alert")[0]!.closest("details")!;
+    fireEvent.click(within(entry).getByRole("combobox"));
+    await waitFor(() => expect(view.getByRole("option", { name: "Chakra Pill" })).toBeDefined());
+    expect(view.queryByRole("option", { name: "Bloodline Scroll" })).toBeNull();
+  });
   it("collapses saved tiers and entries while keeping invalid numeric drafts available", async () => {
     const view = render(<CacheForm />);
     const tier = view.getByText("Common · 100% · 3 entries").closest("details")!;

@@ -2182,7 +2182,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         !isItemCatalogError &&
         itemData &&
         cacheItemIds(watchAll.weightedCache).some(
-          (id) => !itemData.some((item) => item.id === id),
+          (id) =>
+            !itemData.some((item) => item.id === id && !item.isRestrictedCacheReward),
         )));
   const cacheEditor = (
     <WeightedCacheEditor
