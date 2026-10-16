@@ -189,6 +189,8 @@ export const syncLockedKageDefense = async (
           .set({
             status: "CANCELLED",
             resolvedAt: now,
+            // Neutral system recovery releases the start-based daily and weekly allowance.
+            startedAt: null,
             outcome: "Battle ended without a recorded result; no prestige charged",
           })
           .where(and(eq(kageChallenge.id, m.id), eq(kageChallenge.status, m.status)));
