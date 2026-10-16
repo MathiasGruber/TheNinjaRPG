@@ -11,6 +11,7 @@ import { EditContent, type FormEntry, RewardFormWrapper } from "@/layout/EditCon
 import Loader from "@/layout/Loader";
 import { getRewardPreview } from "@/libs/objectives";
 import { getActiveRewardNodes } from "@/libs/rewardNodes";
+import { showFormErrorsToast } from "@/libs/toast";
 import { isStaffRole } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import {
@@ -92,6 +93,33 @@ export const RewardEditor = ({
   /** Keep snapshot edits in the parent form's dirty state and validation lifecycle. */
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
+  /** Validate only the copied group's fields, leaving invalid drafts available for correction. */
+  const copyNode = (node: (typeof groups)[number]) => {
+    if (packages.length >= 50) return;
+    const rewards = ObjectiveReward.safeParse(
+      Object.fromEntries(node.fields.map((field) => [field, values[field]])),
+    );
+    if (!rewards.success) {
+      showFormErrorsToast(
+        Object.fromEntries(
+          rewards.error.issues.map((issue) => [
+            issue.path.join("."),
+            { type: issue.code, message: issue.message },
+          ]),
+        ),
+      );
+      return;
+    }
+    setPackages([
+      ...packages,
+      {
+        id: nanoid(),
+        name: node.name,
+        description: "",
+        rewards: rewards.data,
+      },
+    ]);
+  };
   const source = catalog?.packages.find((pack) => pack.id === selectedPackage);
   if (isCatalogPending)
     return (
@@ -226,21 +254,7 @@ export const RewardEditor = ({
               setOpenedNodeIds([...activeNodes.map((node) => node.id), node.id]);
               return;
             }
-            if (packages.length >= 50) return;
-            // Copy only this group's fields into a source-free snapshot with its own choice ID.
-            setPackages([
-              ...packages,
-              {
-                id: nanoid(),
-                name: node.name,
-                description: "",
-                rewards: ObjectiveReward.parse(
-                  Object.fromEntries(
-                    node.fields.map((field) => [field, values[field]]),
-                  ),
-                ),
-              },
-            ]);
+            copyNode(node);
           }}
         >
           <option value="">Add a reward node</option>
@@ -278,23 +292,7 @@ export const RewardEditor = ({
               size="sm"
               variant="outline"
               disabled={packages.length >= 50}
-              onClick={() =>
-                setPackages([
-                  ...packages,
-                  {
-                    id: nanoid(),
-                    name: node.name,
-                    description: "",
-                    rewards: ObjectiveReward.parse(
-                      structuredClone(
-                        Object.fromEntries(
-                          node.fields.map((field) => [field, values[field]]),
-                        ),
-                      ),
-                    ),
-                  },
-                ])
-              }
+              onClick={() => copyNode(node)}
             >
               Add Another Node
             </Button>

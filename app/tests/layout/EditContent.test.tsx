@@ -254,6 +254,35 @@ const ObjectiveRewardForm = ({ onUpdate }: { onUpdate: () => void }) => {
 };
 
 describe("reward node editing", () => {
+  it.each(["button", "selector"])("validates drafts before copying a reward group via the %s", async (control) => {
+    const view = render(<SavedRewardForm />);
+    const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    const currency = ryo.closest("details")!;
+    const initialOrder = [...view.container.querySelectorAll("summary")].map((node) => node.textContent);
+    const copy = () => control === "button"
+      ? fireEvent.click(within(currency).getByRole("button", { name: "Add Another Node" }))
+      : fireEvent.change(view.getByRole("combobox", { name: "Add reward node" }), { target: { value: "currency" } });
+    await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "" } }); });
+    copy();
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledWith({
+      reward_money: { type: "invalid_type", message: expect.stringContaining("number") },
+    });
+    expect(view.queryByRole("button", { name: "Remove Node" })).toBeNull();
+    expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+    expect(ryo.value).toBe("");
+    expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(initialOrder);
+    await act(async () => { fireEvent.input(ryo, { target: { value: "350" } }); });
+    copy();
+    await waitFor(() => expect(view.getAllByRole("button", { name: "Remove Node" })).toHaveLength(1));
+    const snapshot = view.getByRole("button", { name: "Remove Node" }).closest("details")!;
+    const copiedRyo = snapshot.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+    expect(copiedRyo.value).toBe("350");
+    expect(copiedRyo).not.toBe(ryo);
+    fireEvent.input(ryo, { target: { value: "400" } });
+    expect(copiedRyo.value).toBe("350");
+    expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1);
+  });
   it("keeps direct objective drafts editable and validates the current values on save", async () => {
     const onUpdate = vi.fn(() => {
       // Bound a reset/update regression before it can hang the test process.
