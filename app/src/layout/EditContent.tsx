@@ -1,11 +1,5 @@
 "use client";
 
-import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
-import type { CombatAction } from "@/libs/combat/types";
-import type { MethodSize } from "@/validators/methodSize";
-
-("use client");
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, Loader2, Plus, X } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -55,6 +49,7 @@ import ContentImageSelector from "@/layout/ContentImageSelector";
 import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
+import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
 import Modal from "@/layout/Modal";
 import { RewardEditor } from "@/layout/RewardEditor";
 import RichInput from "@/layout/RichInput";
@@ -63,6 +58,7 @@ import Table from "@/layout/Table";
 import { WeightedCacheEditor } from "@/layout/WeightedCacheEditor";
 import { damageModifierTypes } from "@/libs/combat/constants";
 import { POTENCY_TAG_LABELS } from "@/libs/combat/potency";
+import type { CombatAction } from "@/libs/combat/types";
 import {
   isSupportedOverworldBindingTask,
   placementsForObjective,
@@ -92,6 +88,7 @@ import {
   questDebuffTypes,
 } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
+import type { MethodSize } from "@/validators/methodSize";
 import type { AllObjectivesType } from "@/validators/objectives";
 import {
   getObjectiveSchema,
