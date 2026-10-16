@@ -174,7 +174,7 @@ export const homeRouter = createTRPCRouter({
         throw error;
       }
       void getServerPusher().trigger(invitee.userId, "event", {
-        type: "userMessage",
+        type: "homeInvitation",
         message: "You have been invited to visit a home",
         route: "/home#home-invitations",
         routeText: "View invitation",

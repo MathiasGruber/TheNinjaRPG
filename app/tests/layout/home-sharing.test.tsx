@@ -4,12 +4,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCReact } from "@trpc/react-query";
 import { observable } from "@trpc/server/observable";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as Pusher from "pusher-js";
 import type { ComponentProps } from "react";
 import type { AppRouter } from "@/api/root";
 import * as client from "@/app/_trpc/client";
 import { HomeSharing } from "@/layout/HomeSharing";
 import * as Link from "@/layout/Link";
+import { type UserEvent, usePusherHandler } from "@/layout/PusherHandler";
 import type UserRequestSystem from "@/layout/UserRequestSystem";
+import * as toast from "@/libs/toast";
+import * as routing from "@/utils/routing";
 import { ensureDom } from "../setup-dom.mjs";
 
 type HomeRequest = ComponentProps<typeof UserRequestSystem>["requests"][number];
@@ -44,6 +48,7 @@ afterEach(() => {
 const setup = (
   handle: (path: string, input: unknown) => unknown | Promise<unknown>,
   props: Partial<ComponentProps<typeof HomeSharing>> = {},
+  listenForInvitations = false,
 ) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   queryClients.push(queryClient);
@@ -58,6 +63,7 @@ const setup = (
     <AppRouterContext.Provider value={router}>
       <testApi.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
+          {listenForInvitations && <PusherListener />}
           <HomeSharing isPublic={false} revision={3} userId="owner" onChanged={onChanged} {...props} {...nextProps} />
         </QueryClientProvider>
       </testApi.Provider>
@@ -66,6 +72,51 @@ const setup = (
   const view = render(wrap());
   return { ...view, onChanged, rerenderSharing: (nextProps: Partial<ComponentProps<typeof HomeSharing>>) => view.rerender(wrap(nextProps)) };
 };
+
+const PusherListener = () => {
+  usePusherHandler("visitor");
+  return null;
+};
+
+it("refreshes a mounted home invitation list before showing its incoming invitation toast", async () => {
+  let receiveEvent!: (data: UserEvent) => Promise<void>;
+  vi.spyOn(Pusher, "default").mockImplementation(function () {
+    return {
+      subscribe: () => ({ bind: (_event: string, handler: typeof receiveEvent) => { receiveEvent = handler; } }),
+      unsubscribe: vi.fn(), disconnect: vi.fn(),
+    };
+  } as never);
+  vi.spyOn(routing, "usePublicPathname").mockReturnValue("/home");
+  const showToast = vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
+  let finishRefresh = () => {};
+  const refreshReady = new Promise<void>((resolve) => { finishRefresh = resolve; });
+  const query = vi.fn(async () => {
+    if (query.mock.calls.length === 1) return [];
+    await refreshReady;
+    return [request()];
+  });
+  const view = setup((path) => {
+    if (path === "home.getHomeRequests") return query();
+    throw new Error(`Unexpected procedure ${path}`);
+  }, { userId: "visitor" }, true);
+  await waitFor(() => expect(view.queryByText("Loading home invitations")).toBeNull());
+  expect(query).toHaveBeenCalledTimes(1);
+  expect(view.queryByRole("button", { name: "Accept" })).toBeNull();
+  try {
+    const received = receiveEvent({
+      type: "homeInvitation", message: "You have been invited to visit a home",
+      route: "/home#home-invitations", routeText: "View invitation",
+    });
+    await waitFor(() => expect(query).toHaveBeenCalledTimes(2));
+    expect(showToast).not.toHaveBeenCalled();
+    await act(async () => { finishRefresh(); await received; });
+    expect(await view.findByRole("button", { name: "Accept" })).toBeTruthy();
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ message: "You have been invited to visit a home" }));
+    expect(router.push).not.toHaveBeenCalled();
+  } finally {
+    finishRefresh();
+  }
+});
 
 it("sends invitations through the request system and retains rejected input for retry", async () => {
   let requests: HomeRequest[] = [];
