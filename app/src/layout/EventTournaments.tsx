@@ -1,6 +1,7 @@
 "use client";
 
 import { sentenceCase as label } from "change-case";
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
@@ -36,7 +37,10 @@ import {
   eventTournamentConfigSchema,
 } from "@/validators/tournament";
 
-/** Shared player/staff tournament view; mutations refresh details, listings and global notices. */
+/**
+ * Shared player/staff view with advisory series readiness separate from match acceptance.
+ * Mutations refresh details, listings and both global notice surfaces.
+ */
 export const EventTournaments = ({
   tournamentId,
   staff = false,
@@ -82,7 +86,7 @@ export const EventTournaments = ({
   const event = details.data?.eventData;
   const pending = manage.isPending || participate.isPending;
   const playerAction = (
-    action: "JOIN" | "WITHDRAW" | "DECLINE" | "ACCEPT",
+    action: "JOIN" | "WITHDRAW" | "DECLINE" | "ACCEPT" | "READY" | "NOT_READY",
     seriesId?: string,
   ) => {
     if (tournamentId) participate.mutate({ tournamentId, action, seriesId });
@@ -278,17 +282,38 @@ export const EventTournaments = ({
             Withdraw from tournament
           </Button>
         )}
-        <div className="mt-3 flex flex-wrap gap-2">
-          {event.participants
-            .filter((p) => !p.withdrawn)
-            .map((p) => (
-              <Badge variant="secondary" key={p.id}>
-                {p.seed ? `#${p.seed} ` : ""}
-                {p.username}
-                {!p.accepted ? " · invited" : ""}
-              </Badge>
-            ))}
-        </div>
+        <section
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          aria-label="Tournament invitation status"
+        >
+          {[true, false].map((accepted) => {
+            const participants = event.participants.filter(
+              (p) => !p.withdrawn && p.accepted === accepted,
+            );
+            return (
+              <section key={String(accepted)}>
+                <h3 className="mb-2 font-semibold text-sm">
+                  {accepted ? "Confirmed participants" : "Pending invitations"} (
+                  {participants.length})
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {participants.map((p) => (
+                    <Badge variant={accepted ? "secondary" : "outline"} key={p.id}>
+                      {accepted && (
+                        <Check className="mr-1 h-3 w-3" aria-hidden="true" />
+                      )}
+                      {p.seed ? `#${p.seed} ` : ""}
+                      {p.username}
+                    </Badge>
+                  ))}
+                  {!participants.length && (
+                    <p className="text-muted-foreground text-sm">None</p>
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </section>
       </div>
       {canManage && (
         <StaffTournamentControls
@@ -336,6 +361,16 @@ export const EventTournaments = ({
                 .map((series) => {
                   const game = series.games.at(-1);
                   const inSeries = !!seat && series.seats.includes(seat.id);
+                  // Readiness tracks players, while bracket rows use stable seat IDs.
+                  const readySeatIds = new Set(
+                    event.participants
+                      .filter(
+                        (participant) =>
+                          !participant.withdrawn &&
+                          series.readyUserIds?.includes(participant.userId),
+                      )
+                      .map((participant) => participant.id),
+                  );
                   return (
                     <div
                       className={`rounded-lg border p-4 ${inSeries && !series.complete ? "border-orange-500 bg-orange-500/5" : "bg-card"}`}
@@ -363,6 +398,16 @@ export const EventTournaments = ({
                               {series.resolved
                                 ? seatName(id)
                                 : "Awaiting previous match"}
+                              {!series.begun &&
+                                !series.complete &&
+                                series.round === currentRound &&
+                                id &&
+                                readySeatIds.has(id) && (
+                                  <span className="ml-2 inline-flex items-center gap-1 text-green-600 dark:text-green-400">
+                                    <Check className="h-4 w-4" aria-hidden="true" />{" "}
+                                    Ready
+                                  </span>
+                                )}
                             </span>
                             <b>{series.scores[i]}</b>
                           </div>
@@ -401,6 +446,36 @@ export const EventTournaments = ({
                               : "Waiting for staff to begin"}
                         </p>
                       )}
+                      {inSeries &&
+                        seat?.accepted &&
+                        !series.begun &&
+                        !series.complete &&
+                        series.resolved &&
+                        series.round === currentRound &&
+                        ["PREPARED", "RUNNING"].includes(event.status) && (
+                          <div className="mt-3 space-y-2">
+                            <p className="text-muted-foreground text-sm">
+                              Let staff know you are ready for this series. Staff still
+                              begin the match.
+                            </p>
+                            <Button
+                              variant="outline"
+                              disabled={pending}
+                              onClick={() =>
+                                playerAction(
+                                  series.readyUserIds?.includes(user?.userId ?? "")
+                                    ? "NOT_READY"
+                                    : "READY",
+                                  series.id,
+                                )
+                              }
+                            >
+                              {series.readyUserIds?.includes(user?.userId ?? "")
+                                ? "Cancel ready"
+                                : "Ready for next round"}
+                            </Button>
+                          </div>
+                        )}
                       {canManage &&
                         event.config.scheduling === "SEQUENTIAL" &&
                         ["PREPARED", "RUNNING"].includes(event.status) &&

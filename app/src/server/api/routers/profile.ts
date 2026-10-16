@@ -180,6 +180,7 @@ import { fetchKageReplacement } from "@/routers/kage";
 import { handleQuestConsequences, insertNextQuest } from "@/routers/quests";
 import { fetchVillage, fetchVillages } from "@/routers/village";
 import { deleteUser } from "@/server/api/routers/staff";
+import { fetchEventNotices } from "@/server/api/routers/tournamentEvents";
 import {
   baseServerResponse,
   cdnCachedProcedure,
@@ -795,6 +796,7 @@ export const profileRouter = createTRPCRouter({
         waterableFarmPlotsResult,
         publishedAchievements,
         questInvitations,
+        tournamentNotices,
       ] = await Promise.all([
         fetchUpdatedUser({
           client: ctx.drizzle,
@@ -835,6 +837,7 @@ export const profileRouter = createTRPCRouter({
           where: sql`JSON_CONTAINS(${questParty.invitedUserIds}, JSON_QUOTE(${ctx.userId}))`,
           with: { quest: true },
         }),
+        fetchEventNotices(ctx.drizzle, ctx.userId),
       ]);
       const { user, settings, toastMessages, hasUnvotedPolls } = updatedUser;
       const readyFarmPlots = readyFarmPlotsResult[0]?.count ?? 0;
@@ -852,15 +855,37 @@ export const profileRouter = createTRPCRouter({
           !party.tracker.failed &&
           !isQuestComplete(party.quest, party.tracker),
       );
-      notifications.push({
-        href: "/questteams",
-        name: invitations.length
-          ? `Quest Teams: ${invitations.length} invitation${invitations.length === 1 ? "" : "s"}`
-          : "Quest Teams",
-        color: invitations.length ? "green" : "default",
-        notificationCount: invitations.length,
-        alwaysShow: true,
+      // Keep team navigation available while a team-enabled quest is active and unfinished.
+      const hasActiveTeamQuest = user?.userQuests.some((entry) => {
+        const tracker = user.questData?.find((tracker) => tracker.id === entry.questId);
+        return (
+          entry.quest.teamEnabled &&
+          !entry.endAt &&
+          !entry.completed &&
+          !!tracker &&
+          !tracker.failed &&
+          !isQuestComplete(entry.quest, tracker)
+        );
       });
+      if (hasActiveTeamQuest)
+        notifications.push({
+          href: "/questteams",
+          name: invitations.length
+            ? `Quest Teams: ${invitations.length} invitation${invitations.length === 1 ? "" : "s"}`
+            : "Quest Teams",
+          color: invitations.length ? "green" : "default",
+          notificationCount: invitations.length,
+          alwaysShow: true,
+        });
+
+      for (const notice of tournamentNotices)
+        notifications.push({
+          href: `/tournaments/${notice.tournamentId}`,
+          name: `${notice.message}: ${notice.name}`,
+          color: "green",
+          notificationCount: 1,
+          alwaysShow: true,
+        });
 
       // Keep collection discoverable after disbanding, even before a reward choice exists.
       // Synthetic helpers keep closed receipts and must not advertise another payout.

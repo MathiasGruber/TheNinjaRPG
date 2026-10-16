@@ -325,11 +325,8 @@ export const combatRouter = createTRPCRouter({
           // Update the battle to the correct activeUserId & round. Default to current user
           const fetchedVersion = userBattle.version;
           const fetchedUpdatedAt = userBattle.updatedAt;
-          const { progressRound, changedActor, actionRound } = alignBattle(
-            userBattle,
-            actionRounds,
-            ctx.userId,
-          );
+          const { progressRound, changedActor, actionRound, expiredEffects } =
+            alignBattle(userBattle, actionRounds, ctx.userId);
           // A round can advance on this poll path too (idle turn timeout), not only via
           // performAction. Run the sage exhaustion transition here as well, or it stays
           // stranded until the next action. In-memory (no DB round-trip) and idempotent
@@ -390,13 +387,22 @@ export const combatRouter = createTRPCRouter({
               return true; // Keep active effects
             });
 
+            // Expiry and idle damage share one history key for this round/version.
             history.push({
               battleRound: actionRound,
-              appliedEffects: actionEffects,
+              appliedEffects: [...expiredEffects, ...actionEffects],
               description: `${activeUser.username} stands and does nothing. `,
               battleVersion: fetchedVersion,
               actionId: "wait",
               userId: activeUser.userId,
+            });
+          } else if (expiredEffects.length) {
+            history.push({
+              battleRound: actionRound,
+              appliedEffects: expiredEffects,
+              description: "Battlefield effects expire.",
+              battleVersion: fetchedVersion,
+              actionId: "wait",
             });
           }
 
@@ -700,7 +706,8 @@ export const combatRouter = createTRPCRouter({
           userId?: string;
         }[] = [];
 
-        // Remember original values for round & activeUserId
+        // Actionless updates mutate the fetched object in place; retain its version for CAS.
+        const fetchedVersion = battle.version;
         const originalRound = battle.round;
         const originalActiveUserId = battle.activeUserId;
 
@@ -716,6 +723,7 @@ export const combatRouter = createTRPCRouter({
             actor,
             actionRound,
             progressRound: progressedRoundBeforeAction,
+            expiredEffects: expiredBeforeAction,
           } = alignBattle(newBattle, actionRounds, suid);
           if (progressedRoundBeforeAction) {
             applySageModeAfterRoundTransition(newBattle);
@@ -741,7 +749,7 @@ export const combatRouter = createTRPCRouter({
 
           // If userId, actionID, and position specified, perform user action
           const battleDescriptions: string[] = [];
-          const actionEffects: ActionEffect[] = [];
+          const actionEffects: ActionEffect[] = [...expiredBeforeAction];
           let performedActionId: string | undefined;
           let performedByUserId: string | undefined;
           if (
@@ -831,10 +839,12 @@ export const combatRouter = createTRPCRouter({
             actor: newActor,
             progressRound,
             orphanedSummons,
+            expiredEffects,
           } = alignBattle(newBattle, actionRounds, suid);
           if (progressRound) {
             applySageModeAfterRoundTransition(newBattle);
           }
+          actionEffects.push(...expiredEffects);
           // Tell players why a summon left the field, rather than having it
           // silently disappear once its summoner is dead/fled/gone.
           orphanedSummons.forEach((username) => {
@@ -848,12 +858,12 @@ export const combatRouter = createTRPCRouter({
             description += `${dot ? "" : ". "} It is now ${newActor.username}'s turn.`;
           }
 
-          // Add history entry for what happened during this round
-          if (description) {
+          // Round expiry can change the battlefield without an action description.
+          if (description || actionEffects.length) {
             history.push({
               battleRound: actionRound,
               appliedEffects: actionEffects,
-              description: description,
+              description: description || "Battlefield effects expire.",
               battleVersion: newBattle.version + nActions,
               actionId: performedActionId ?? "unknown",
               userId: performedByUserId ?? actor.userId,
@@ -915,7 +925,7 @@ export const combatRouter = createTRPCRouter({
               result,
               suid,
               newBattle,
-              battle.version,
+              fetchedVersion,
               pusher,
             );
             if (!claim) return { updateClient: true };

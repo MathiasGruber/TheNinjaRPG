@@ -103,7 +103,7 @@ import {
   POST_PIERCE_TAGS,
   publicState,
 } from "./constants";
-import { checkFriendlyFire } from "./process";
+import { checkFriendlyFire, expireGroundEffects } from "./process";
 import { decreaseMastery, getPower, increaseMastery, sealCheck } from "./tags";
 import type {
   BattleRoundContext,
@@ -3012,9 +3012,10 @@ export const refillActionPoints = (battle: ReturnedBattle) => {
   });
 };
 
-/** Align battle based on timestamp to update:
- * - The proper round & activeUserId
- * - The action points of all users, in case of next round */
+/**
+ * Align the round, active actor and action points in place using the battle timer.
+ * Expire battlefield entities before exposing the next turn and return teardown effects for history.
+ */
 export const alignBattle = (
   battle: CompleteBattle,
   actionRounds: number[], // Rounds present in this endpoint call
@@ -3033,7 +3034,7 @@ export const alignBattle = (
   const precomputedActions = userId
     ? availableUserActions(battle as unknown as ReturnedBattle, userId)
     : undefined;
-  const { actor, changedActor, progressRound } = calcActiveUser(battle, userId, 0, {
+  let { actor, changedActor, progressRound } = calcActiveUser(battle, userId, 0, {
     precomputedUserId: userId,
     precomputedActions: precomputedActions,
   });
@@ -3043,6 +3044,7 @@ export const alignBattle = (
   if (changedActor || progressRound) {
     battle.roundStartAt = now;
   }
+  let expiredEffects: ReturnType<typeof expireGroundEffects> = [];
   // If we progress the battle round;
   // 1. refill action points
   // 2. update round info on battle
@@ -3076,21 +3078,25 @@ export const alignBattle = (
       }
     });
 
-    // Remove expired ground effects (including barriers) immediately
-    battle.groundEffects = battle.groundEffects.filter((e) => {
-      if (e.rounds !== undefined && e.rounds <= 0) {
-        if (e.type === "visual" && actionRounds.includes(e.createdRound)) {
-          return true;
-        } else if (e.type === "summon" || e.type === "clone") {
-          // Allow summon and clone effects to be processed by their tag functions
-          // before being removed in the applyEffects function
-          return true;
-        } else {
-          return false; // Remove expired effects
-        }
-      }
-      return true; // Keep active effects
-    });
+    const actorIndex = battle.usersState.findIndex(
+      (user) => user.userId === actor.userId,
+    );
+    const nextActors = [
+      ...battle.usersState.slice(actorIndex + 1),
+      ...battle.usersState.slice(0, actorIndex),
+    ];
+    expiredEffects = expireGroundEffects(battle, actionRounds);
+    // Preserve cyclic initiative if the next actor expired; refilled action
+    // points can make recalculation restart at a different combatant.
+    if (!battle.usersState.some((user) => user.userId === actor.userId)) {
+      actor =
+        nextActors.find(
+          (candidate) =>
+            battle.usersState.some((user) => user.userId === candidate.userId) &&
+            stillInBattle(candidate, battle.usersEffects),
+        ) ?? calcActiveUser(battle, userId).actor;
+      changedActor = actor.userId !== battle.activeUserId;
+    }
     // Tags that expired or landed last round change what the next actor may use
     refreshMasteries(battle.usersState, battle.usersEffects);
     // Sage exhaustion + clearing `sageModeActivated` runs in `applySageModeAfterRoundTransition`
@@ -3103,7 +3109,14 @@ export const alignBattle = (
   battle.updatedAt = now;
   // TOOD: Debug
   // console.log("New Actor: ", actor.username, battle.round, battle.version, Date.now());
-  return { actor, progressRound, changedActor, actionRound, orphanedSummons };
+  return {
+    actor,
+    progressRound,
+    changedActor,
+    actionRound,
+    orphanedSummons,
+    expiredEffects,
+  };
 };
 
 export const calcApReduction = (

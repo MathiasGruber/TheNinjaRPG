@@ -88,6 +88,7 @@ export const generateEventBracket = (
       scores: [0, 0],
       dodges: [0, 0],
       games: [],
+      readyUserIds: [],
       begun: false,
       scheduledAt: null,
     };
@@ -382,6 +383,7 @@ export const advanceEvent = (event: EventTournamentState, now: number) => {
       scores: [0, 0],
       dodges: [0, 0],
       games: [],
+      readyUserIds: [],
       begun: false,
       scheduledAt: null,
     });
