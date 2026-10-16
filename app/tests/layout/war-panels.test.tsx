@@ -655,6 +655,12 @@ describe("war field objectives", () => {
     const view = mount(<ObjectiveWarPanel warId="war-1" />);
     expect(view.getByText("Notice period")).toBeDefined();
     expect(view.queryByRole("button", { name: "Attack guardian" })).toBeNull();
+    openTab(view, "Missions");
+    expect(view.getByText("Espionage and sabotage missions unlock when combat begins.")).toBeDefined();
+    expect(
+      (view.getByRole("button", { name: "Start sabotage" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
     openTab(view, /^Camps/);
     expect(
       view

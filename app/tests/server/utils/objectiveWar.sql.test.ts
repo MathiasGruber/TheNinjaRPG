@@ -56,8 +56,9 @@ describeWithDatabase("objective war atomic strategic actions", () => {
     const db = await getTestDatabase();
     await db.update(war).set({ combatStartedAt: new Date(Date.now() + 100000) }).where(eq(war.id, "w"));
     expect(await applyObjectiveWarAction(db, await readWar(), { id: "notice", userId: "hero", sideVillageId: "a", damage: 10 })).toBe(false);
-    expect(await applyObjectiveWarAction(db, await readWar(), { id: "spy", userId: "foe", sideVillageId: "b", espionage: 3 })).toBe(true);
-    expect((await readWar()).objectiveState?.defenderEspionage).toBe(3);
+    expect(await applyObjectiveWarAction(db, await readWar(), { id: "spy", userId: "foe", sideVillageId: "b", espionage: 3 })).toBe(false);
+    expect(await applyObjectiveWarAction(db, await readWar(), { id: "sabotage", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 })).toBe(false);
+    expect((await readWar()).objectiveState?.defenderEspionage).toBe(0);
   });
   it("caps espionage while concurrent missions complete", async () => {
     const db = await getTestDatabase(); const w = await readWar();

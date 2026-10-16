@@ -239,7 +239,7 @@ export const ObjectiveWarPanel = ({
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={hasEnded || busy || !isReady}
+              disabled={hasEnded || isNotice || busy || !isReady}
               onClick={() => finish.mutate({ attemptId: attempt.id })}
             >
               {finish.isPending ? "Completing..." : "Complete mission"}
@@ -400,6 +400,11 @@ export const ObjectiveWarPanel = ({
           </div>
         </TabsContent>
         <TabsContent value="missions" className="space-y-3 pt-2">
+          {isNotice && (
+            <p role="status" className="text-sm">
+              Espionage and sabotage missions unlock when combat begins.
+            </p>
+          )}
           <p className="text-muted-foreground text-sm">
             War missions run alongside your regular quests.{" "}
             {isRevealed ? (
@@ -451,7 +456,7 @@ export const ObjectiveWarPanel = ({
                 </p>
               </div>
               <Button
-                disabled={hasEnded || busy || !!data.attempt}
+                disabled={hasEnded || isNotice || busy || !!data.attempt}
                 onClick={() =>
                   start.mutate({
                     warId,

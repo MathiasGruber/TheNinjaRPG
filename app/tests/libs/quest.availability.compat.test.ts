@@ -47,6 +47,31 @@ const available = (
   );
 
 describe("isAvailableUserQuests legacy compatibility", () => {
+  it("requires Chunin or higher for regular and concurrent war missions", () => {
+    for (const rank of [
+      "STUDENT",
+      "GENIN",
+      "NONE",
+      "CHUNIN",
+      "JONIN",
+      "ELITE JONIN",
+      "ELDER",
+    ] as const) {
+      for (const concurrent of [false, true]) {
+        const result = isAvailableUserQuests(
+          { ...quest, questType: "war" },
+          { ...user, rank } as never,
+          true,
+          concurrent,
+        );
+        const allowed = !["STUDENT", "GENIN", "NONE"].includes(rank);
+        expect(result.check).toBe(allowed);
+        if (!allowed) expect(result.message).toContain("Chunin rank or higher");
+      }
+    }
+    expect(available({}, { rank: "GENIN" }).check).toBe(true);
+  });
+
   it("keeps the baseline legacy quest available when new fields are absent", () => {
     expect(available()).toEqual({ check: true, message: "" });
   });

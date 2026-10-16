@@ -72,7 +72,6 @@ export const applyObjectiveWarAction = async (
     objectiveIndex?: number;
     shrineDamage?: number;
     camp?: WarCamp;
-    allowDuringNotice?: boolean;
     /** Consume a mission with its own CAS on the same transaction as strategic delivery. */
     claim?: (tx: DrizzleClient) => Promise<boolean>;
   },
@@ -127,7 +126,7 @@ export const applyObjectiveWarAction = async (
         AND EXISTS (SELECT 1 FROM UserData actor WHERE actor.userId = ${action.userId} AND actor.isAi = FALSE AND actor.isBanned = FALSE AND
           (actor.villageId = ${action.sideVillageId} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = ${war.id} AND membership.villageId = actor.villageId AND membership.supportVillageId = ${action.sideVillageId} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)))
         AND ${warActionReceipt.applied} = FALSE
-        ${(action.allowDuringNotice || (action.espionage && !objective)) && action.damage === undefined && !action.camp ? sql`` : sql`AND ${objectiveWarCombatGuard()}`}
+        AND ${objectiveWarCombatGuard()}
         ${objective && action.damage === undefined ? sql`AND ${sector.sector} IS NOT NULL AND NOT (${destroyed}) AND ${hp} > 0 AND CAST(JSON_EXTRACT(${war.objectiveState}, ${spyPath}) AS UNSIGNED) >= ${WAR_ESPIONAGE_TARGET}` : sql``}
         ${action.camp ? sql`AND ${warCamp.resolvedAt} IS NULL AND ${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)` : sql``}
     `);
