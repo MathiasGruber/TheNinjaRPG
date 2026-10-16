@@ -782,7 +782,7 @@ export const HomeScene = ({
             );
           })}
         </div>
-        {isEditing && (
+        {isEditing && !selectedScreenBounds && (
           <span className="pointer-events-none absolute top-3 left-3 z-[10000] rounded-full bg-slate-950/85 px-3 py-1 font-semibold text-amber-200 text-xs">
             Decorating
           </span>
