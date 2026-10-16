@@ -1,3 +1,4 @@
+import type { MethodSize } from "@/validators/methodSize";
 import type { EventTournamentState } from "@/validators/tournament";
 import { z } from "zod";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
@@ -1463,6 +1464,7 @@ export const item = mysqlTable(
     target: mysqlEnum("target", consts.AttackTargets).notNull(),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     coordinateTargeting: json("coordinateTargeting").$type<CoordinateTargeting>(),
+    methodSize: json("methodSize").$type<MethodSize>(),
     cost: int("cost").default(1).notNull(),
     repsCost: int("reputationCost").default(0).notNull(),
     seichiSilverCost: int("seichiSilverCost").default(0).notNull(),
@@ -1769,6 +1771,7 @@ export const jutsu = mysqlTable(
     villageId: varchar("villageId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     coordinateTargeting: json("coordinateTargeting").$type<CoordinateTargeting>(),
+    methodSize: json("methodSize").$type<MethodSize>(),
     hidden: boolean("hidden").default(false).notNull(),
     injectableInBattle: boolean("injectableInBattle").default(false).notNull(),
     battleUsageType: mysqlEnum("battleUsageType", consts.BattleUsageTypes)

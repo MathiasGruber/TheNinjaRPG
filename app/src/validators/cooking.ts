@@ -7,6 +7,7 @@ export const MEAL_ITEM_DEFAULTS = {
   preventBattleUsage: true,
   target: "SELF",
   method: "SINGLE",
+  methodSize: null,
   slot: "ITEM",
   weaponType: "NONE",
   canBeImbued: false,

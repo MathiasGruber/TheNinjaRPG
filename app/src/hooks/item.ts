@@ -41,6 +41,7 @@ export const useItemEditForm = (
   const item = {
     ...data,
     coordinateTargeting: data.coordinateTargeting || null,
+    methodSize: data.methodSize || null,
     effects: data.effects,
     expireFromStoreAt: expireFromStoreAt,
     crystalTargetTypes: data.crystalTargetTypes || null,
@@ -202,6 +203,9 @@ export const useItemEditForm = (
         shouldValidate: true,
       });
     }
+    if (targetingMethod === "ALL" || targetingMethod === "COORDINATES") {
+      form.setValue("methodSize", null, { shouldDirty: true, shouldValidate: true });
+    }
     previousTargetingMethod.current = targetingMethod;
   }, [targetingMethod, form]);
 
@@ -216,6 +220,9 @@ export const useItemEditForm = (
     { id: "battleDescription", type: "text", doubleWidth: true },
     { id: "target", type: "str_array", values: AttackTargets },
     { id: "method", type: "str_array", values: AttackMethods },
+    ...(targetingMethod !== "ALL" && targetingMethod !== "COORDINATES"
+      ? [{ id: "methodSize" as const, type: "method_size" as const, fullWidth: true }]
+      : []),
     ...(targetingMethod === "COORDINATES"
       ? [
           {

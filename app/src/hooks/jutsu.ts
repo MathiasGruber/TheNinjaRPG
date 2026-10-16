@@ -37,6 +37,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const jutsu = {
     ...data,
     coordinateTargeting: data.coordinateTargeting || null,
+    methodSize: data.methodSize || null,
     elementClassification: data.elementClassification || "None",
     effects: data.effects,
   };
@@ -174,6 +175,9 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
         shouldValidate: true,
       });
     }
+    if (targetingMethod === "ALL" || targetingMethod === "COORDINATES") {
+      form.setValue("methodSize", null, { shouldDirty: true, shouldValidate: true });
+    }
     previousTargetingMethod.current = targetingMethod;
   }, [targetingMethod, form]);
 
@@ -239,6 +243,9 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     { id: "villageId", type: "db_values", values: villages, resetButton: true },
     { id: "jutsuWeapon", type: "str_array", values: WeaponTypes },
     { id: "method", type: "str_array", values: AttackMethods },
+    ...(targetingMethod !== "ALL" && targetingMethod !== "COORDINATES"
+      ? [{ id: "methodSize" as const, type: "method_size" as const, fullWidth: true }]
+      : []),
     ...(targetingMethod === "COORDINATES"
       ? [
           {

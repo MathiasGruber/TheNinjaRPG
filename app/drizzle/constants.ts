@@ -709,6 +709,8 @@ export const DURABILITY_POINT_PRICE_PERCENT = 0.1;
 export const SkillTreeEntryTypes = ["DEFAULT", "SPECIAL"] as const;
 export type SkillTreeEntryType = (typeof SkillTreeEntryTypes)[number];
 
+export const MAX_METHOD_SIZE = 10;
+
 export const AttackMethods = [
   "SINGLE",
   "ALL",

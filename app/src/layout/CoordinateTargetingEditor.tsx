@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CombatTargetPreview } from "@/layout/CombatTargetPreview";
 import {
   CoordinateOrigins,
   CoordinateSelections,
@@ -152,6 +153,9 @@ export const CoordinateTargetingEditor = (props: {
           {validation.error.issues[0]?.message}
         </p>
       )}
+      <CombatTargetPreview
+        action={{ method: "COORDINATES", range: 0, coordinateTargeting: pattern }}
+      />
       <div className="flex gap-2">
         <Button
           type="button"

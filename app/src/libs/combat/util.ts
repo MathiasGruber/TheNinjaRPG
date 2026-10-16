@@ -1,13 +1,4 @@
-import {
-  Direction,
-  fromCoordinates,
-  Grid,
-  line,
-  Orientation,
-  rectangle,
-  ring,
-  spiral,
-} from "honeycomb-grid";
+import { Grid, Orientation, rectangle } from "honeycomb-grid";
 import type {
   AvatarFacing,
   BattleType,
@@ -80,6 +71,7 @@ import { actionPointsAfterAction } from "@/libs/combat/actions";
 import { combatMasteryGains } from "@/libs/combat/mastery";
 import { areBattleAllies } from "@/libs/combat/participants";
 import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
+import { getTargetTiles } from "@/libs/combat/targeting";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
 import { dungeonCombatResult } from "@/libs/dungeon";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
@@ -3310,11 +3302,9 @@ export const getAffectedTiles = (info: {
 }) => {
   // Destruct & variables
   const { action, b, a, grid, restrictGrid, users, userId } = info;
-  const radius = action.range;
   const green = new Set<TerrainHex>();
   const red = new Set<TerrainHex>();
   const user = users.find((u) => u.userId === userId);
-  let tiles: Grid<TerrainHex> | undefined;
 
   // Get all ground effects which are barriers
   const barriers = info.ground.filter((g) => g.type === "barrier");
@@ -3329,98 +3319,11 @@ export const getAffectedTiles = (info: {
     }
   }
 
-  // Handle different methods separately
-  if (action.method === "SINGLE") {
-    tiles = grid.traverse(fromCoordinates<TerrainHex>([b.q, b.r]));
-  } else if (action.method === "AOE_CIRCLE_SPAWN") {
-    tiles = grid.traverse(spiral<TerrainHex>({ start: [b.q, b.r], radius: 1 }));
-  } else if (action.method === "AOE_LINE_SHOOT") {
-    tiles = grid.traverse(line<TerrainHex>({ start: [b.q, b.r], stop: [a.q, a.r] }));
-  } else if (action.method === "AOE_WALL_SHOOT") {
-    const deltaX = Math.abs(a.q - b.q);
-    const deltaY = Math.abs(a.r - b.r);
-    if (deltaX >= deltaY) {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.N,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.S,
-        }),
-      ]);
-    } else {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.W,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 2,
-          direction: Direction.E,
-        }),
-      ]);
-    }
-  } else if (action.method === "AOE_LARGE_WALL_SHOOT") {
-    const deltaX = Math.abs(a.q - b.q);
-    const deltaY = Math.abs(a.r - b.r);
-    if (deltaX >= deltaY) {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.N,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.S,
-        }),
-      ]);
-    } else {
-      tiles = grid.traverse([
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.W,
-        }),
-        line<TerrainHex>({
-          start: [b.q, b.r],
-          length: 3,
-          direction: Direction.E,
-        }),
-      ]);
-    }
-  } else if (action.method === "AOE_CIRCLE_SHOOT") {
-    tiles = grid.traverse(ring<TerrainHex>({ center: [a.q, a.r], radius }));
-  } else if (action.method === "AOE_SPIRAL_SHOOT") {
-    tiles = grid.traverse(spiral<TerrainHex>({ start: [a.q, a.r], radius }));
-    if (tiles) tiles = tiles.filter((t) => t !== a);
-  } else if (action.method === "COORDINATES") {
+  const tiles = getTargetTiles({ a, b, action, grid });
+  if (action.method === "COORDINATES") {
     const pattern = action.coordinateTargeting;
     if (!pattern) return { green, red };
-    const origin =
-      pattern.origin === "CASTER" ? a : pattern.origin === "TARGET" ? b : undefined;
-    const coordinates = new Set(
-      pattern.coordinates.map(
-        (coordinate) =>
-          `${coordinate.longitude + (origin?.col ?? 0)},${coordinate.latitude + (origin?.row ?? 0)}`,
-      ),
-    );
-    const candidates = grid.toArray().filter((target) => {
-      const listed = coordinates.has(`${target.col},${target.row}`);
-      const selected =
-        pattern.selection === "EXCLUDE"
-          ? !listed
-          : pattern.selection === "RANDOM" && coordinates.size === 0
-            ? true
-            : listed;
-      if (!selected) return false;
+    const candidates = tiles.filter((target) => {
       // Coordinate patterns select tiles independently of the clicked anchor.
       if (
         action.target === "EMPTY_GROUND" &&
@@ -3456,22 +3359,17 @@ export const getAffectedTiles = (info: {
         green.add(target);
       });
     }
-  } else if (action.method === "ALL") {
-    grid.forEach((target) => {
-      if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
-        green.add(target);
-      }
-    });
   }
 
   // Return green for valid moves and red for unvalid moves
-  tiles?.forEach((target) => {
-    if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
-      green.add(target);
-    } else {
-      red.add(target);
-    }
-  });
+  if (action.method !== "COORDINATES")
+    tiles.forEach((target) => {
+      if (isValidMove({ action, target, user, users, barriers, clicked: b })) {
+        green.add(target);
+      } else if (action.method !== "ALL") {
+        red.add(target);
+      }
+    });
 
   return { green, red };
 };

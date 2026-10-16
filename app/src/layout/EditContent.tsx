@@ -1,5 +1,11 @@
 "use client";
 
+import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
+import type { CombatAction } from "@/libs/combat/types";
+import type { MethodSize } from "@/validators/methodSize";
+
+("use client");
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Check, ChevronsUpDown, Loader2, Plus, X } from "lucide-react";
 import { nanoid } from "nanoid";
@@ -119,6 +125,7 @@ export type FormEntry<K> = {
   readonly?: boolean;
 } & (
   | { type: "coordinate_targeting" }
+  | { type: "method_size" }
   | { type: "text" }
   | { type: "textarea"; rows?: number }
   | { type: "richinput"; height?: string }
@@ -202,6 +209,10 @@ export const EditContent = <
     submitLoadingText,
   } = props;
   const currentValues = form.getValues();
+  const [targetingMethod, targetingRange] = useWatch({
+    control: form.control,
+    name: ["method" as Path<S>, "range" as Path<S>],
+  });
 
   // State for managing dynamic options for fields with allowAddNew
   const [dynamicOptionsMap, setDynamicOptionsMap] = useState<
@@ -711,6 +722,15 @@ export const EditContent = <
                         );
                       }}
                     />
+                  )}
+                  {type === "method_size" && (
+                    <FormField control={form.control} name={id} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Method size</FormLabel>
+                        <MethodSizeEditor value={field.value as MethodSize | null | undefined} onChange={field.onChange} method={targetingMethod as CombatAction["method"]} range={Number(targetingRange) || 0} readonly={formEntry.readonly} />
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   )}
                   {type === "coordinate_targeting" && (
                     <FormField
