@@ -115,6 +115,7 @@ import {
 import { isTutorialActive } from "@/libs/tutorial";
 import { findVillageUserRelationship } from "@/utils/alliance";
 import { getReadableVillageHexColor } from "@/utils/color";
+import { isRetryableTrpcError } from "@/utils/error";
 import { useAwake } from "@/utils/routing";
 import { useRequiredUserData } from "@/utils/UserContext";
 import {
@@ -673,11 +674,21 @@ function Travel() {
         ]);
       }
     },
-    onError: () =>
+    onError: (error) => {
+      // Transport failures are suppressed globally; server rejections already show a toast.
+      if (!isRetryableTrpcError(error)) return;
+      const isCache = useritem?.item.effects.some(
+        (effect) =>
+          effect.type === "noncombatconsumereward" &&
+          effect.rewardMode === "weightedCache",
+      );
       showMutationToast({
         success: false,
-        message: "Could not confirm item use. Try Consume again to check the opening.",
-      }),
+        message: isCache
+          ? "Could not confirm item use. Try Consume again to check the opening."
+          : "Could not confirm item use. Refresh your inventory to check the result.",
+      });
+    },
     onSettled: () => {
       setIsOpen(false);
       setUserItem(undefined);

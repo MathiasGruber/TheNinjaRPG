@@ -4874,52 +4874,60 @@ const fetchCacheReferencedItems = async (
     (effect) => effect.rewardMode === "weightedCache",
   );
   // Validate retained cache pools too, without activating their retained Standard grants.
-  let effects = [
-    ...(hasActiveCache ? source.effects : []),
-    ...cacheEffects
-      .filter((effect) => effect.rewardMode !== "weightedCache")
-      .map((effect) => ({
-        ...effect,
-        rewardMode: "weightedCache" as const,
-      })),
+  let effectGroups = [
+    [
+      ...(hasActiveCache ? source.effects : []),
+      ...cacheEffects
+        .filter((effect) => effect.rewardMode !== "weightedCache")
+        .map((effect) => ({
+          ...effect,
+          rewardMode: "weightedCache" as const,
+        })),
+    ],
   ];
   const requested = new Set<string>();
   const found = new Map<string, typeof source>();
   let hasCheckedHunting = false;
   let hasCheckedGathering = false;
-  while (effects.length > 0) {
-    const rewards = effects.filter(
-      (effect) => effect.type === "noncombatconsumereward",
-    );
-    const standard = rewards.filter((effect) => effect.rewardMode !== "weightedCache");
+  while (effectGroups.length > 0) {
+    const rewards = effectGroups.map((effects) => {
+      const rewards = effects.filter(
+        (effect) => effect.type === "noncombatconsumereward",
+      );
+      // Consumption merges sibling material flags and allowlists within each item.
+      return {
+        caches: rewards.filter((effect) => effect.rewardMode === "weightedCache"),
+        standard: collapseRewards(
+          rewards.filter((effect) => effect.rewardMode !== "weightedCache"),
+        ),
+      };
+    });
     const ids = [
       ...new Set(
-        rewards.flatMap((effect) =>
-          effect.rewardMode === "weightedCache" && effect.weightedCache
-            ? cacheItemIds(effect.weightedCache)
-            : [
-                ...(effect.reward_items ?? []).flatMap((reward) => reward.ids),
-                ...(effect.reward_hunter_items
-                  ? (effect.reward_hunter_items_ids ?? [])
-                  : []),
-                ...(effect.reward_gathering_items
-                  ? (effect.reward_gathering_items_ids ?? [])
-                  : []),
-              ],
-        ),
+        rewards.flatMap(({ caches, standard }) => [
+          ...caches.flatMap((effect) =>
+            effect.weightedCache ? cacheItemIds(effect.weightedCache) : [],
+          ),
+          ...standard.reward_items.flatMap((reward) => reward.ids),
+          ...(standard.reward_hunter_items ? standard.reward_hunter_items_ids : []),
+          ...(standard.reward_gathering_items
+            ? standard.reward_gathering_items_ids
+            : []),
+        ]),
       ),
     ].filter((id) => !requested.has(id) && !found.has(id));
     const hunting: boolean =
       !hasCheckedHunting &&
-      standard.some(
-        (effect) =>
-          effect.reward_hunter_items && !effect.reward_hunter_items_ids?.length,
+      rewards.some(
+        ({ standard }) =>
+          standard.reward_hunter_items && !standard.reward_hunter_items_ids.length,
       );
     const gathering: boolean =
       !hasCheckedGathering &&
-      standard.some(
-        (effect) =>
-          effect.reward_gathering_items && !effect.reward_gathering_items_ids?.length,
+      rewards.some(
+        ({ standard }) =>
+          standard.reward_gathering_items &&
+          !standard.reward_gathering_items_ids.length,
       );
     if (ids.length === 0 && !hunting && !gathering) break;
     for (const id of ids) requested.add(id);
@@ -4938,12 +4946,12 @@ const fetchCacheReferencedItems = async (
           })
         : [];
     if (ids.includes(source.id)) rows.push(source);
-    effects = [];
+    effectGroups = [];
     for (const row of rows) {
       if (found.has(row.id)) continue;
       const entry = row.id === source.id ? source : row;
       found.set(entry.id, entry);
-      effects.push(...entry.effects);
+      effectGroups.push(entry.effects);
     }
   }
   const items = [...found.values()];
