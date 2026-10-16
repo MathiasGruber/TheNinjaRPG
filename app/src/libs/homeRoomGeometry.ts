@@ -41,6 +41,13 @@ const outdoor = [
   { x: 0.9669, y: 98.9871 },
 ];
 
+/** Composed buildings share floor and garden boundaries without a painted foreground. */
+const buildingRoomGeometry: RoomGeometry = {
+  interior: [...HOME_BUILDING_GEOMETRY.interior],
+  outdoor,
+  foreground: [],
+};
+
 /** Measured floor edges keep indoor footprints clear of walls while the foreground covers their shadows. */
 export const HOME_ROOM_GEOMETRY = {
   NONE: {
@@ -89,45 +96,13 @@ export const HOME_ROOM_GEOMETRY = {
       ],
     ],
   },
-  STUDIO_APARTMENT: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  ONE_BED_APARTMENT: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  TWO_BED_HOUSE: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  TOWN_HOUSE: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  SMALL_MANSION: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  SMALL_ESTATE: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  LARGE_ESTATE: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
-  PALACE: { interior: [...HOME_BUILDING_GEOMETRY.interior], outdoor, foreground: [] },
-  MARSHMALLOWOPOLIS: {
-    interior: [...HOME_BUILDING_GEOMETRY.interior],
-    outdoor,
-    foreground: [],
-  },
+  STUDIO_APARTMENT: buildingRoomGeometry,
+  ONE_BED_APARTMENT: buildingRoomGeometry,
+  TWO_BED_HOUSE: buildingRoomGeometry,
+  TOWN_HOUSE: buildingRoomGeometry,
+  SMALL_MANSION: buildingRoomGeometry,
+  SMALL_ESTATE: buildingRoomGeometry,
+  LARGE_ESTATE: buildingRoomGeometry,
+  PALACE: buildingRoomGeometry,
+  MARSHMALLOWOPOLIS: buildingRoomGeometry,
 } satisfies Record<HomeType, RoomGeometry>;
