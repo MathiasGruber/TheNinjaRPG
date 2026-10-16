@@ -1,0 +1,133 @@
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { eq } from "drizzle-orm";
+import { MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
+import { aiProfile, battle, jutsu, userData, userJutsu, userPet } from "@/drizzle/schema";
+import { Pusher } from "@/libs/pusher";
+import { initiateBattle } from "@/server/api/routers/combat";
+import { petsRouter } from "@/server/api/routers/pets";
+import type { DrizzleClient } from "@/server/db";
+import { petJutsuFixture } from "../../libs/pets/helpers/abilities";
+import { insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
+import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+const ownerId = "defender";
+
+describeWithDatabase("companion battle preload consistency", () => {
+  beforeEach(async () => {
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    await resetTables(battle, aiProfile, userJutsu, jutsu, userPet, userData);
+    await insertUsers([
+      { userId: "attacker", username: "Attacker", rank: "GENIN", level: 5, status: "AWAKE" },
+      { userId: ownerId, username: "Defender", rank: "GENIN", level: 5, status: "AWAKE", activePetId: "first", petSlots: 3, sector: MAP_WAKE_ISLAND_SECTOR },
+    ]);
+    const database = await getTestDatabase();
+    await database.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+    await database.insert(userPet).values(["first", "second"].map((id) => ({
+      id, userId: ownerId, name: id, speciesIndex: 0, paletteIndex: 0,
+      characteristicIndex: 0, auraIndex: 0, generationStatus: "READY" as const,
+      artRank: 1, avatar: "/pet.png", battleEnabled: true, jutsuIds: [`${id}-strike`],
+    })));
+    await database.insert(jutsu).values(["first", "second"].map((id) => petJutsuFixture({ id: `${id}-strike`, name: `${id} strike` })));
+    await database.insert(userJutsu).values(["first", "second"].map((id) => ({ id: `owned-${id}`, userId: ownerId, jutsuId: `${id}-strike`, equipped: false })));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("selects the active companion and its unequipped jutsu after both preloads precede a successful swap", async () => {
+    const database = await getTestDatabase();
+    const client = beforeParticipantRead(database, async () => {
+      expect((await callerForDatabase(petsRouter, ownerId, database).activatePet({ petId: "second" })).success).toBe(true);
+    });
+    expect((await startBattle(client)).success).toBe(true);
+    const saved = (await database.query.battle.findFirst())!;
+    const pets = saved.usersState.filter((actor) => actor.petId);
+    expect(pets).toHaveLength(1);
+    expect(pets[0]).toMatchObject({ petId: "second", controllerId: ownerId });
+    expect(pets[0]!.jutsus.map((entry) => entry.jutsuId)).toEqual(["second-strike"]);
+    expect(saved.extraState.petIdsByOwner).toEqual({ [ownerId]: "second" });
+  });
+
+  it.each(["none", "disabled", "pending"] as const)("allows a stable %s companion selection without adding a combatant", async (state) => {
+    const database = await getTestDatabase();
+    if (state === "none") await database.update(userData).set({ activePetId: null }).where(eq(userData.userId, ownerId));
+    else await database.update(userPet).set(state === "disabled" ? { battleEnabled: false } : { generationStatus: "PENDING" }).where(eq(userPet.id, "first"));
+    expect((await startBattle(database)).success).toBe(true);
+    const saved = (await database.query.battle.findFirst())!;
+    expect(saved.usersState.filter((actor) => actor.petId)).toHaveLength(0);
+    expect(saved.extraState.petIdsByOwner).toEqual({});
+  });
+
+  it("rejects an adopted active identity missing from the collection preload before claiming a battle", async () => {
+    const database = await getTestDatabase();
+    await database.delete(userPet);
+    await database.update(userData).set({ activePetId: null }).where(eq(userData.userId, ownerId));
+    const input = await adoptionInput(database);
+    const client = beforeParticipantRead(database, async () => {
+      expect((await callerForDatabase(petsRouter, ownerId, database).acquirePet(input)).success).toBe(true);
+    });
+    expect((await startBattle(client)).success).toBe(false);
+    expect(await database.query.battle.findMany()).toHaveLength(0);
+    const owner = (await database.query.userData.findFirst({ where: eq(userData.userId, ownerId) }))!;
+    expect(owner.activePetId).not.toBeNull();
+    expect(owner).toMatchObject({ status: "AWAKE", battleId: null });
+  });
+
+  it.each(["adopt", "release inactive", "release active"] as const)("uses the owner selection after a same-owner %s between preloads", async (operation) => {
+    const database = await getTestDatabase();
+    const input = await adoptionInput(database);
+    const client = beforeParticipantRead(database, async () => {
+      const caller = callerForDatabase(petsRouter, ownerId, database);
+      const result = operation === "adopt" ? await caller.acquirePet(input) : await caller.releasePet({ petId: operation === "release active" ? "first" : "second" });
+      expect(result.success).toBe(true);
+    });
+    expect((await startBattle(client)).success).toBe(true);
+    const saved = (await database.query.battle.findFirst())!;
+    expect(saved.usersState.filter((actor) => actor.petId).map((actor) => actor.petId)).toEqual(operation === "release active" ? [] : ["first"]);
+  });
+
+  it("retains the final participant guard when activation follows all preload reads", async () => {
+    const database = await getTestDatabase();
+    const client = beforeStatements(database, userData, [async () => {
+      expect((await callerForDatabase(petsRouter, ownerId, database).activatePet({ petId: "second" })).success).toBe(true);
+    }]);
+    expect((await startBattle(client)).success).toBe(false);
+    expect(await database.query.battle.findMany()).toHaveLength(0);
+    expect(await database.query.userData.findFirst({ where: eq(userData.userId, ownerId) })).toMatchObject({ activePetId: "second", status: "AWAKE", battleId: null });
+  });
+});
+
+const startBattle = (client: DrizzleClient) => initiateBattle({ client, userIds: ["attacker"], targetIds: [ownerId] }, "SPARRING");
+
+const adoptionInput = async (database: DrizzleClient) => {
+  const data = await callerForDatabase(petsRouter, ownerId, database).getPet();
+  return { name: "Kumo", dayKey: data.dayKey, speciesIndex: data.options.species[0]!.index, paletteIndex: data.options.palettes[0]!.index, characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index };
+};
+
+/** Complete real companion reads before a successful account mutation and the participant read. */
+const beforeParticipantRead = (database: DrizzleClient, change: () => Promise<void>): DrizzleClient => {
+  let completed = 0;
+  let release = () => {};
+  const preloaded = new Promise<void>((resolve) => { release = resolve; });
+  const afterRead = async <T>(read: PromiseLike<T>) => {
+    const result = await read;
+    if (++completed === 2) release();
+    return result;
+  };
+  const pets = new Proxy(database.query.userPet, { get(target, property, receiver) {
+    return property === "findMany" ? (...args: Parameters<typeof target.findMany>) => afterRead(target.findMany(...args)) : Reflect.get(target, property, receiver);
+  } });
+  const jutsus = new Proxy(database.query.userJutsu, { get(target, property, receiver) {
+    return property === "findMany" ? (...args: Parameters<typeof target.findMany>) => afterRead(target.findMany(...args)) : Reflect.get(target, property, receiver);
+  } });
+  const users = new Proxy(database.query.userData, { get(target, property, receiver) {
+    if (property !== "findMany") return Reflect.get(target, property, receiver);
+    return async (...args: Parameters<typeof target.findMany>) => {
+      await preloaded;
+      await change();
+      return target.findMany(...args);
+    };
+  } });
+  return new Proxy(database, { get(target, property, receiver) {
+    return property === "query" ? { ...target.query, userPet: pets, userJutsu: jutsus, userData: users } : Reflect.get(target, property, receiver);
+  } });
+};

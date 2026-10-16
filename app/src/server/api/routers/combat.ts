@@ -1455,6 +1455,8 @@ export const combatRouter = createTRPCRouter({
           width: userBattle.width,
           height: userBattle.height,
           hide: false,
+          leftSideUserIds: originalDirection === "left" ? [user.userId] : [],
+          retainedParticipants: otherUserState,
           isSummon: false,
         },
       );
@@ -1470,6 +1472,8 @@ export const combatRouter = createTRPCRouter({
         reconcileLobbyPools(usersState[0], originalPools, completeUserEffects);
         usersState[0].initiative = originalInitiative;
         usersState[0].direction = originalDirection;
+        usersState[0].originalLongitude = user.originalLongitude;
+        usersState[0].originalLatitude = user.originalLatitude;
         // Keep initiating-team reward eligibility across loadout reconstruction.
         usersState[0].isAggressor = user.isAggressor;
       }
@@ -1480,6 +1484,18 @@ export const combatRouter = createTRPCRouter({
       const newParticipants = mergeLoadoutParticipants(otherUserState, usersState);
       userBattle.usersState = [...otherUserState, ...newParticipants];
       userBattle.usersEffects = completeUserEffects;
+      for (const participant of otherUserState) {
+        if (participant.isSummonTemplate) continue;
+        reconcileLobbyPools(
+          participant,
+          {
+            curHealth: participant.curHealth,
+            curChakra: participant.curChakra,
+            curStamina: participant.curStamina,
+          },
+          completeUserEffects,
+        );
+      }
       refreshMasteries(userBattle.usersState, userBattle.usersEffects);
 
       // Merge every static lookup map the reprocessing produced (jutsus, items,
@@ -2271,23 +2287,10 @@ export const initiateBattle = async (
           limit: 100,
         })
       : [],
+    // Preload the bounded collection so parallel reads remain complete across selection swaps.
     petsAllowedInBattle(battleType)
       ? client.query.userPet.findMany({
-          where: (table) =>
-            and(
-              inArray(table.userId, [...userIds, ...targetIds]),
-              exists(
-                client
-                  .select({ one: sql`1` })
-                  .from(userData)
-                  .where(
-                    and(
-                      eq(userData.userId, table.userId),
-                      eq(userData.activePetId, table.id),
-                    ),
-                  ),
-              ),
-            ),
+          where: inArray(userPet.userId, [...userIds, ...targetIds]),
         })
       : [],
     petsAllowedInBattle(battleType)
@@ -2299,13 +2302,6 @@ export const initiateBattle = async (
                 client
                   .select({ one: sql`1` })
                   .from(userPet)
-                  .innerJoin(
-                    userData,
-                    and(
-                      eq(userData.userId, userPet.userId),
-                      eq(userData.activePetId, userPet.id),
-                    ),
-                  )
                   .where(
                     and(
                       eq(userPet.userId, table.userId),
@@ -2359,6 +2355,23 @@ export const initiateBattle = async (
         tags: { source: "battleCookingSettlement" },
       });
     }
+  }
+
+  // A newly adopted selection may not exist in the earlier collection snapshot.
+  // Reject it before battle writes; the final participant CAS guards later swaps.
+  if (
+    petsAllowedInBattle(battleType) &&
+    fetchedUsers.some(
+      (user) =>
+        !user.isAi &&
+        user.activePetId &&
+        !pets.some((pet) => pet.userId === user.userId && pet.id === user.activePetId),
+    )
+  ) {
+    return {
+      success: false,
+      message: "A companion selection changed. Please try again.",
+    };
   }
 
   const entryCharges = info.questAttempt
@@ -4044,6 +4057,8 @@ export const processUsersForBattle = async (
     leftSideUserIds?: string[];
     /** Ordered team boundary, allowing the same AI template on opposing teams. */
     leftSideUserCount?: number;
+    /** Existing combatants receiving rebuilt ally passives during a lobby loadout change. */
+    retainedParticipants?: BattleUserState[];
     isSummon: boolean;
     width: number;
     height: number;
@@ -4283,7 +4298,11 @@ export const processUsersForBattle = async (
       user.longitude = 0;
       user.latitude = 0;
       user.curHealth = 0;
-    } else if (leftSideUserCount !== undefined || leftSideUserIds?.length) {
+    } else if (
+      // Lobby reconstruction retains battlefield cells before realizing effects.
+      !info.retainedParticipants &&
+      (leftSideUserCount !== undefined || leftSideUserIds?.length)
+    ) {
       const available = getBattleSpawnLocations(width, height, user.direction).filter(
         (location) =>
           !takenLocations.some(
@@ -5044,11 +5063,15 @@ export const processUsersForBattle = async (
     });
   }
 
-  // Apply ally passives after initial companions have been assigned a team.
+  // Apply ally passives after initial and retained companions have been assigned a team.
+  const allyParticipants = [
+    ...convertedUsersState,
+    ...(info.retainedParticipants ?? []),
+  ];
   for (const pending of pendingSkillEffects) {
     const creator = convertedUsersState.find((u) => u.userId === pending.creatorId);
     if (!creator) continue;
-    const targets = convertedUsersState.filter(
+    const targets = allyParticipants.filter(
       (u) =>
         !u.isSummonTemplate && stillInBattle(u) && u.direction === creator.direction,
     );
@@ -5065,7 +5088,7 @@ export const processUsersForBattle = async (
         realized.castThisRound = false;
         realized.targetId = target.userId;
         realized.fromType = "skill";
-        if (checkFriendlyFire(realized, target, convertedUsersState)) {
+        if (checkFriendlyFire(realized, target, allyParticipants)) {
           userEffects.push(realized);
         }
       }
