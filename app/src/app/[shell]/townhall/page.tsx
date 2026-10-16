@@ -189,6 +189,7 @@ const ElderHall: React.FC<{
         await Promise.all([
           refetchHistory(),
           refetchVotes(),
+          apiUtils.kage.getElders.invalidate(),
           apiUtils.village.get.invalidate(),
           apiUtils.profile.getUser.invalidate(),
         ]);
@@ -573,7 +574,7 @@ const ElderHall: React.FC<{
               </div>
             ))}
             {/* Initiate kage removal */}
-            {isElder && !isKage && pendingKageVotes.length === 0 && (
+            {isElder && !isKage && !!kageId && pendingKageVotes.length === 0 && (
               <div className="rounded-lg border border-border p-4">
                 <div className="mb-2 font-bold">Remove Current Kage</div>
                 {kageIsProtected ? (
@@ -606,6 +607,7 @@ const ElderHall: React.FC<{
                     />
                     <Confirm
                       title="Initiate Kage Removal Vote"
+                      disabled={removalReason.trim().length < 10}
                       button={
                         <Button
                           size="sm"
