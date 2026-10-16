@@ -3,7 +3,10 @@
 import {
   BedDouble,
   ChefHat,
+  Maximize,
+  Minus,
   Package,
+  Plus,
   RotateCcw,
   RotateCw,
   Save,
@@ -82,10 +85,14 @@ export const HomeScene = ({
   const [activeRoom, setActiveRoom] = useState<HomeRoomId>("main");
   const [camera, setCamera] = useState(() => getHomeOverviewCamera(homeType));
   const cameraPointers = useRef(
-    new Map<number, { x: number; y: number; canPan: boolean }>(),
+    new Map<
+      number,
+      { x: number; y: number; startX: number; startY: number; canPan: boolean }
+    >(),
   );
   const hasPinched = useRef(false);
-  /** Room shortcuts restore a predictable full-room view without changing the decoration draft. */
+  const hasPanned = useRef(false);
+  /** Inventory selection frames the piece’s room without changing the decoration draft. */
   const focusRoom = (id: HomeRoomId) => {
     if (!rooms.some((room) => room.id === id)) return;
     setActiveRoom(id);
@@ -390,85 +397,27 @@ export const HomeScene = ({
     if (await onSave(draft)) onDecoratingChange(false);
   };
 
+  // Share the visible selection projection between its actions and collision-free camera controls.
+  const selectedScreenBounds = (() => {
+    if (!isEditing || !selected || !selectedFurniture) return null;
+    const bounds = roomBounds(selectedFurniture, selected);
+    const left = camera.x + bounds.x * camera.scale;
+    const top = camera.y + bounds.y * camera.scale;
+    const width = bounds.width * camera.scale;
+    const height = bounds.height * camera.scale;
+    if (left + width < 0 || left > 100 || top + height < 0 || top > 100) return null;
+    return { left, top, width };
+  })();
+
   return (
     <div className="space-y-3">
-      <fieldset
-        className="flex flex-wrap items-center gap-2"
-        aria-label="Property navigation"
-      >
-        <select
-          aria-label="Jump to room"
-          className="h-10 rounded-md border bg-background px-3 text-sm"
-          value=""
-          onChange={(event) => focusRoom(event.target.value as HomeRoomId)}
-        >
-          <option value="" disabled>
-            Jump to room
-          </option>
-          {rooms.map((room) => (
-            <option key={room.id} value={room.id}>
-              {room.name}
-            </option>
-          ))}
-        </select>
-        <Button
-          variant="outline"
-          className="hover:text-black"
-          aria-label="Zoom out"
-          onClick={() =>
-            setCamera((current) =>
-              boundHomeCamera(
-                zoomHomeCamera(
-                  current,
-                  Math.max(getHomeOverviewCamera(homeType).scale, current.scale / 1.2),
-                  {
-                    x: 50,
-                    y: 50,
-                  },
-                ),
-                homeType,
-              ),
-            )
-          }
-        >
-          −
-        </Button>
-        <output aria-label="Camera zoom" className="text-sm tabular-nums">
-          {Math.round((camera.scale / getHomeOverviewCamera(homeType).scale) * 100)}%
-        </output>
-        <Button
-          variant="outline"
-          className="hover:text-black"
-          aria-label="Zoom in"
-          onClick={() =>
-            setCamera((current) =>
-              boundHomeCamera(
-                zoomHomeCamera(current, Math.min(1.8, current.scale * 1.2), {
-                  x: 50,
-                  y: 50,
-                }),
-                homeType,
-              ),
-            )
-          }
-        >
-          +
-        </Button>
-        <Button
-          variant="outline"
-          className="hover:text-black"
-          onClick={() => setCamera(getHomeOverviewCamera(homeType))}
-        >
-          Reset view
-        </Button>
-      </fieldset>
       <fieldset
         ref={sceneRef}
         aria-label="Home scene"
         // biome-ignore lint/a11y/noNoninteractiveTabindex: The scene supports keyboard camera panning.
         tabIndex={0}
         className={cn(
-          "relative mx-auto aspect-[4/3] w-full max-w-3xl overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md",
+          "relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-stone-700/40 bg-[#24211c] shadow-md",
           "touch-none outline-none focus-visible:ring-2 focus-visible:ring-primary",
         )}
         onKeyDown={(event) => {
@@ -488,12 +437,23 @@ export const HomeScene = ({
           );
         }}
         onPointerDownCapture={(event) => {
-          if (event.button !== 0) return;
-          if (cameraPointers.current.size === 0) hasPinched.current = false;
-          const canPan = !(event.target as HTMLElement).closest("button");
+          if (
+            event.button !== 0 ||
+            (event.target as HTMLElement).closest("[data-home-controls]")
+          )
+            return;
+          if (cameraPointers.current.size === 0) {
+            hasPinched.current = false;
+            hasPanned.current = false;
+          }
+          const canPan = !(event.target as HTMLElement).closest(
+            "button:not([data-home-room])",
+          );
           cameraPointers.current.set(event.pointerId, {
             x: event.clientX,
             y: event.clientY,
+            startX: event.clientX,
+            startY: event.clientY,
             canPan,
           });
           // A second pointer turns a furniture drag into navigation, preserving its starting placement.
@@ -502,8 +462,13 @@ export const HomeScene = ({
             const drag = dragRef.current;
             if (drag) finishDrag(drag.placement.id, drag.pointerId, true);
           }
-          if (canPan || hasPinched.current)
-            event.currentTarget.setPointerCapture(event.pointerId);
+          if (canPan || hasPinched.current) {
+            // Capture on a room's button so a stationary pointer still clicks that room.
+            const target =
+              (event.target as HTMLElement).closest<HTMLElement>("[data-home-room]") ??
+              event.currentTarget;
+            target.setPointerCapture(event.pointerId);
+          }
         }}
         onPointerMove={(event) => {
           const previous = cameraPointers.current.get(event.pointerId);
@@ -519,6 +484,13 @@ export const HomeScene = ({
             y: event.clientY,
           });
           if (!other && !previous.canPan && !hasPinched.current) return;
+          if (
+            Math.hypot(
+              event.clientX - previous.startX,
+              event.clientY - previous.startY,
+            ) > 4
+          )
+            hasPanned.current = true;
           setCamera((current) => {
             const before = other
               ? Math.hypot(previous.x - other.x, previous.y - other.y)
@@ -574,6 +546,34 @@ export const HomeScene = ({
               onError={() => setFailedHomeType(homeType)}
             />
           )}
+          {isEditing &&
+            rooms.map((room) => (
+              <button
+                key={room.id}
+                type="button"
+                data-home-room={room.id}
+                aria-label={`Decorate ${room.name}`}
+                aria-pressed={activeRoom === room.id}
+                disabled={isSaving || !canDecorate}
+                className="absolute cursor-grab focus-visible:bg-amber-200/20 active:cursor-grabbing"
+                style={{
+                  left: `${room.x}%`,
+                  top: `${room.y}%`,
+                  width: `${room.width}%`,
+                  height: `${room.height}%`,
+                  clipPath: room.isYard
+                    ? undefined
+                    : `polygon(${room.interior.map(({ x, y }) => `${x}% ${y}%`).join(",")})`,
+                }}
+                onClick={(event) => {
+                  // Finishing a camera gesture must not select the room beneath the pointer.
+                  if (event.detail > 0 && (hasPanned.current || hasPinched.current))
+                    return;
+                  setActiveRoom(room.id);
+                  setSelectedId(null);
+                }}
+              />
+            ))}
           {placements.map((placement) => {
             const details = furnitureById.get(placement.id);
             // Inventory can change while editing; preserve the draft and give a recoverable save error below.
@@ -794,52 +794,134 @@ export const HomeScene = ({
             Home artwork is unavailable. Your furniture and text controls still work.
           </p>
         )}
+        {selectedScreenBounds &&
+          selected &&
+          selectedFurniture &&
+          (() => {
+            const rotations = getHomeFurnitureRotations(selectedFurniture);
+            const { left, top, width } = selectedScreenBounds;
+            // Screen-space controls follow the highlight without growing with camera zoom.
+            const controlWidth = `clamp(4.5rem, ${width}%, 100%)`;
+            return (
+              <fieldset
+                aria-label="Furniture controls"
+                data-home-controls
+                className="pointer-events-none absolute z-[10000] flex justify-between"
+                style={{
+                  left: `clamp(0px, ${left}%, calc(100% - ${controlWidth}))`,
+                  top: `clamp(0px, ${top}%, calc(100% - 2rem))`,
+                  width: controlWidth,
+                }}
+              >
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="pointer-events-auto h-8 w-8 shadow-md"
+                  aria-label="Rotate clockwise"
+                  aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
+                  hoverText="Rotate clockwise"
+                  disabled={
+                    isMovementDisabled ||
+                    (rotations.length === 1 && rotations.includes(selected.rotation))
+                  }
+                  onClick={rotateFurniture}
+                >
+                  <RotateCw className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="pointer-events-auto h-8 w-8 shadow-md"
+                  aria-label="Store"
+                  hoverText="Store in inventory"
+                  disabled={isMovementDisabled}
+                  onClick={() => storeFurniture(selected.id)}
+                >
+                  <Package className="h-3.5 w-3.5" aria-hidden />
+                </Button>
+              </fieldset>
+            );
+          })()}
+        <fieldset
+          aria-label="Property navigation"
+          data-home-controls
+          // Keep navigation opposite the selected piece's screen-space action row.
+          className={cn(
+            "absolute right-2 z-[10000] flex items-center gap-1 rounded-md bg-slate-950/85 p-1 shadow-md",
+            selectedScreenBounds && selectedScreenBounds.top > 50
+              ? "top-2"
+              : "bottom-2",
+          )}
+        >
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 hover:text-black"
+            aria-label="Zoom out"
+            onClick={() =>
+              setCamera((current) =>
+                boundHomeCamera(
+                  zoomHomeCamera(
+                    current,
+                    Math.max(
+                      getHomeOverviewCamera(homeType).scale,
+                      current.scale / 1.2,
+                    ),
+                    {
+                      x: 50,
+                      y: 50,
+                    },
+                  ),
+                  homeType,
+                ),
+              )
+            }
+          >
+            <Minus className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+          <output
+            aria-label="Camera zoom"
+            className="min-w-10 text-center text-white text-xs tabular-nums"
+          >
+            {Math.round((camera.scale / getHomeOverviewCamera(homeType).scale) * 100)}%
+          </output>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 hover:text-black"
+            aria-label="Zoom in"
+            onClick={() =>
+              setCamera((current) =>
+                boundHomeCamera(
+                  zoomHomeCamera(current, Math.min(1.8, current.scale * 1.2), {
+                    x: 50,
+                    y: 50,
+                  }),
+                  homeType,
+                ),
+              )
+            }
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 hover:text-black"
+            aria-label="Reset view"
+            hoverText="Reset view"
+            onClick={() => setCamera(getHomeOverviewCamera(homeType))}
+          >
+            <Maximize className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+        </fieldset>
       </fieldset>
-      {isEditing &&
-        selected &&
-        selectedFurniture &&
-        (() => {
-          const rotations = getHomeFurnitureRotations(selectedFurniture);
-          return (
-            <fieldset
-              aria-label="Furniture controls"
-              className="flex w-fit gap-1 rounded-md border bg-muted p-1 shadow-md"
-            >
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10"
-                aria-label="Rotate clockwise"
-                aria-description={`Current orientation: ${HOME_FURNITURE_ROTATION_DEGREES[selected.rotation]}°`}
-                hoverText="Rotate clockwise"
-                disabled={
-                  isMovementDisabled ||
-                  (rotations.length === 1 && rotations.includes(selected.rotation))
-                }
-                onClick={rotateFurniture}
-              >
-                <RotateCw className="h-4 w-4" aria-hidden />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-10"
-                aria-label="Store"
-                hoverText="Store in inventory"
-                disabled={isMovementDisabled}
-                onClick={() => storeFurniture(selected.id)}
-              >
-                <Package className="h-4 w-4" aria-hidden />
-              </Button>
-            </fieldset>
-          );
-        })()}
-      <p className="text-muted-foreground text-xs">
-        Drag empty space to pan. Pinch or scroll to zoom. Focus the scene and use arrow
-        keys to pan.
+      <p className="px-3 text-muted-foreground text-xs">
+        Drag empty space to pan. Pinch or scroll to zoom. Use arrow keys to pan.
+        {isEditing && " Select a room to change its finishes."}
       </p>
       {isEditing && (
-        <div className="space-y-3 rounded-lg border bg-muted/40 p-3">
+        <div className="mx-3 space-y-3 rounded-lg border bg-muted/40 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm">
               {rooms.find(({ id }) => id === activeRoom)?.name} ·{" "}
@@ -1059,7 +1141,7 @@ export const HomeScene = ({
       {!isEditing && !isVisiting && (
         <fieldset
           aria-label="Home actions"
-          className="grid grid-cols-2 gap-2 sm:grid-cols-4"
+          className="grid grid-cols-2 gap-2 px-3 pb-3 sm:grid-cols-4"
         >
           <Button onClick={onSleep} disabled={isTogglingSleep} className="h-11 px-2">
             <BedDouble className="mr-2 h-4 w-4" aria-hidden />

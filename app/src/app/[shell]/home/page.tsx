@@ -304,6 +304,7 @@ export default function HomePage() {
   return (
     <>
       <ContentBox
+        padding={false}
         title={ownVillage ? "Your Home" : "Guest Residence"}
         subtitle={
           ownVillage
@@ -380,7 +381,7 @@ export default function HomePage() {
           />
         )}
         {isHomeError && (
-          <div role="alert" className="mt-3 text-center">
+          <div role="alert" className="p-3 text-center">
             Unable to load your home details.
             <Button variant="outline" onClick={() => void userHomeRefetch()}>
               Retry

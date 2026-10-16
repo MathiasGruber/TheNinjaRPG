@@ -631,7 +631,7 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
     await act(async () => {
       queryClient.setQueryData(homeKey, { ...home, homeType: "SMALL_MANSION", furnitureRevision: 4 });
     });
-    await within(view.getByLabelText("Jump to room")).findByRole("option", { name: "Room 6" });
+    await view.findByRole("button", { name: "Decorate Room 6" });
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
     expect(normalizedPosition("SMALL_MANSION").x).toBeCloseTo(position.x, 8);
     expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
@@ -640,9 +640,9 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
     expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
     expect(view.getByRole("alert").textContent).toContain("Your home tier changed. Cancel and reopen");
     expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "room-1" } });
+    fireEvent.click(view.getByRole("button", { name: "Decorate Room 2" }));
     expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("rose");
-    fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "main" } });
+    fireEvent.click(view.getByRole("button", { name: "Decorate Main room" }));
     expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("sage");
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     expect(save).not.toHaveBeenCalled();

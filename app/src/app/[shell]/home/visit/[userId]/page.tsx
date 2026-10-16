@@ -19,23 +19,26 @@ export default function HomeVisitPage() {
   const home = query.data?.home;
   return (
     <ContentBox
+      padding={false}
       title={home ? `${home.username}'s Home` : "Home visit"}
       defaultBackHref="/users"
     >
       {!user ? (
-        <p>Sign in to visit player homes.</p>
+        <p className="p-3">Sign in to visit player homes.</p>
       ) : query.isLoading ? (
         <Loader explanation="Opening home" />
       ) : query.isError ? (
-        <div role="alert">
+        <div role="alert" className="p-3">
           Unable to load this home.{" "}
           <Button onClick={() => void query.refetch()}>Retry</Button>
         </div>
       ) : !home ? (
-        <p role="status">{query.data?.message}</p>
+        <p role="status" className="p-3">
+          {query.data?.message}
+        </p>
       ) : (
         <>
-          <p className="mb-3 text-muted-foreground text-sm">
+          <p className="p-3 text-muted-foreground text-sm">
             You are visiting. Explore the rooms and yard to see this player's
             decorations.
           </p>
