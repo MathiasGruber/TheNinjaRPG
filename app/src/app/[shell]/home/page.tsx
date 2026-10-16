@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,8 +74,17 @@ const HomeKitchen = dynamic(() => import("@/layout/Kitchen"), {
   loading: () => <Loader explanation="Loading kitchen" />,
 });
 
-/** Residence hub for shared sleep actions and owner-only storage and home management. */
+/** Keep the residence's query-driven dialogs behind the same boundary as other deep links. */
 export default function HomePage() {
+  return (
+    <Suspense fallback={<Loader explanation="Loading home" />}>
+      <Residence />
+    </Suspense>
+  );
+}
+
+/** Residence hub for shared sleep actions and owner-only storage and home management. */
+function Residence() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
   const router = useRouter();
   const searchParams = useSearchParams();
