@@ -33,12 +33,24 @@ describe("linked jutsu reskin inheritance", () => {
     expect(applyLinkedJutsuReskin(base, { ...variant, bloodlineId: "other" })).toBe(base);
   });
 
-  it("preserves the learned row and lets personal cosmetics override linked cosmetics", () => {
+  it("uses personal text and images with linked animations in learned jutsu and combat", () => {
     const owned = { id: "owned", jutsuId: "base", level: 12, experience: 55, jutsu: base, activeReskin: null, linkedReskin: variant } as unknown as UserJutsuWithRelations & { linkedReskin: Jutsu };
     expect(getReskinnedUserJutsu(owned)).toMatchObject({ id: "owned", jutsuId: "base", level: 12, experience: 55, jutsu: { name: "Scarlet", hidden: false, jutsuRank: "C" } });
-    const personal = getReskinnedUserJutsu({ ...owned, activeReskin: { name: "Personal" } as NonNullable<typeof owned.activeReskin> });
-    expect(personal.jutsu.name).toBe("Personal");
-    expect(personal.jutsu.effects[0]?.staticAnimation).toBe("scarlet-animation");
+    const activeReskin = {
+      id: "personal", name: "Personal", image: "/personal.png",
+      description: "Personal description", battleDescription: "Personal cast",
+    } as NonNullable<typeof owned.activeReskin>;
+    const personal = getReskinnedUserJutsu({ ...owned, activeReskin });
+    expect(personal).toMatchObject({
+      id: "owned", jutsuId: "base", level: 12, experience: 55,
+      jutsu: { name: "Personal", image: "/personal.png", description: "Personal description", battleDescription: "Personal cast", cooldown: 4, chakraCost: 20 },
+    });
+    expect(personal.jutsu.effects[0]).toMatchObject({ power: 4, staticAnimation: "scarlet-animation" });
+    const battle = { extraState: { jutsus: { base, variant }, jutsuReskins: { personal: activeReskin } } } as unknown as CompleteBattle;
+    const action = userJutsuToAction({ jutsuId: "base", level: 3, originalCooldown: 4, linkedReskinId: "variant", reskinId: "personal" } as BattleUserJutsu, battle);
+    expect(action).toMatchObject({ id: "base", name: "Personal", image: "/personal.png", battleDescription: "Personal cast", chakraCost: 17 });
+    expect(action.effects).toEqual(personal.jutsu.effects);
+    expect(base.effects[0]?.staticAnimation).toBe("base-animation");
   });
 
   it("isolates combat cosmetics per owner while retaining base damage and costs", () => {

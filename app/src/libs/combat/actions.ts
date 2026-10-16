@@ -771,7 +771,7 @@ export const userJutsuToAction = (
     userjutsu.linkedReskinId ? getJutsu(battle, userjutsu.linkedReskinId) : null,
   );
 
-  // Apply reskin if the user has one for this jutsu
+  // Personal reskins override text and images while retaining linked effect cosmetics.
   const reskin = getJutsuReskin(battle, userjutsu.reskinId);
   const name = reskin?.name || jutsu.name;
   const image = reskin?.image || jutsu.image;

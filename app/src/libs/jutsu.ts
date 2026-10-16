@@ -382,6 +382,7 @@ export const getReskinnedUserJutsu = <
   if (!userJutsu.activeReskin) {
     return userJutsu;
   }
+  // Personal reskins override text and images; linked variants supply effect cosmetics.
   return {
     ...userJutsu,
     jutsu: {

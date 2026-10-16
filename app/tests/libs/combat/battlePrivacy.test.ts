@@ -86,6 +86,13 @@ describe("battle response privacy", () => {
     expect(masked.extraState.jutsus).toHaveProperty("me-variant");
     expect(masked.extraState.jutsus).not.toHaveProperty("foe-variant");
     expect(maskBattle(battle, "spectator").extraState.jutsus).toEqual({});
+    battle.usersState[1]!.usedActions = [{ id: "foe-jutsu", type: "jutsu" }];
+    for (const viewer of ["me", "spectator"]) {
+      const afterCast = maskBattle(battle, viewer);
+      expect(getJutsu(afterCast, "foe-jutsu")?.name).toBe("foe-jutsu");
+      expect(afterCast.extraState.jutsus).not.toHaveProperty("foe-variant");
+      expect(afterCast.usersState[1]).not.toHaveProperty("jutsus");
+    }
   });
 
   it("preserves the controller's actions, reskins and cooldowns", () => {

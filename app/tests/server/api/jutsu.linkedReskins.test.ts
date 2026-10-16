@@ -101,6 +101,23 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
     expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
   });
 
+  it("searches only the selected variant when a group has multiple variants of one parent", async () => {
+    const db = await getTestDatabase();
+    const template = await read(await createChild());
+    const updatedAt = new Date("2026-01-01T00:00:00Z");
+    await db.update(jutsu).set({ name: "Older variant", updatedAt: new Date(updatedAt.getTime() - 1000) }).where(eq(jutsu.id, template.id));
+    await db.insert(jutsu).values([
+      { ...template, id: "variant-a", name: "Selected variant", updatedAt },
+      { ...template, id: "variant-b", name: "Unselected variant", updatedAt },
+    ]);
+    await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId: "group" }).where(eq(userData.userId, "player"));
+    await db.insert(userJutsu).values({ id: "learned-parent", userId: "player", jutsuId: "parent" });
+    expect((await fetchUserJutsus(db, "player"))[0]?.jutsu.name).toBe("Selected variant");
+    expect((await fetchUserJutsus(db, "player", { name: "Selected variant" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
+    expect(await fetchUserJutsus(db, "player", { name: "Older variant" })).toEqual([]);
+    expect(await fetchUserJutsus(db, "player", { name: "Unselected variant" })).toEqual([]);
+  });
+
   it("copies mechanics on creation and parent updates while preserving H rank and cosmetics", async () => {
     const id = await createChild();
     const child = await read(id);
