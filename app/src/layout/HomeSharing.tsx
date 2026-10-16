@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "@/layout/Link";
 
+/** Edit home access with its saved revision; refresh after rejection to recover from stale state. */
 export const HomeSharing = ({
   isPublic,
   invitations,
@@ -22,6 +23,7 @@ export const HomeSharing = ({
   const [username, setUsername] = useState("");
   const [message, setMessage] = useState("");
   const mutation = api.home.setHomeSharing.useMutation();
+  /** Show expected mutation feedback beside the action and refresh the shared access snapshot. */
   const change = async (input: {
     isPublic: boolean;
     inviteUsername?: string;

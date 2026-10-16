@@ -85,6 +85,7 @@ export const HomeScene = ({
     new Map<number, { x: number; y: number; canPan: boolean }>(),
   );
   const hasPinched = useRef(false);
+  /** Room shortcuts restore a predictable full-room view without changing the decoration draft. */
   const focusRoom = (id: HomeRoomId) => {
     const room = rooms.find((room) => room.id === id) ?? {
       id: "main" as const,
@@ -94,6 +95,7 @@ export const HomeScene = ({
     setActiveRoom(room.id);
     setCamera({ x: -room.x, y: -room.y, scale: 1 });
   };
+  /** Translate local furniture bounds into the continuous property's coordinate system. */
   const roomBounds = (piece: HomeFurniture, placement: HomePlacement) => {
     const room = rooms.find(({ id }) => id === getHomePlacementRoom(placement));
     const bounds = getHomeFurnitureGeometry(piece, placement).visibleBounds;
@@ -119,6 +121,7 @@ export const HomeScene = ({
         return boundHomeCamera(zoomHomeCamera(current, scale, { x, y }), homeType);
       });
     };
+    // A non-passive listener keeps wheel zoom from scrolling the surrounding page.
     scene.addEventListener("wheel", wheel, { passive: false });
     return () => scene.removeEventListener("wheel", wheel);
   }, [homeType, isProperty]);
@@ -190,6 +193,7 @@ export const HomeScene = ({
     );
   };
 
+  /** Merge one finish into its room while retaining other finishes and the original save revision. */
   const updateRoomStyle = (
     changes: Partial<Pick<HomeRoomStyle, "paint" | "floor">>,
   ) => {
@@ -1187,6 +1191,7 @@ export const HOME_SCENE_IMAGES = {
   MARSHMALLOWOPOLIS: "https://ui0arpl8sm.ufs.sh/f/IYFSPADWRNvdav7MrmsFO.webp",
 } satisfies Record<HomeType, string>;
 
+/** A draft captures its home tier and revision once; refreshes cannot silently rebase unsaved edits. */
 export type HomeDraft = {
   homeType: HomeType;
   revision: number;
@@ -1194,7 +1199,7 @@ export type HomeDraft = {
   styles: HomeRoomStyle[];
 };
 
-/** Draft editing changes placements only; game actions and persistence retain their existing page contracts. */
+/** Draft editing covers placements and finishes; the page owns persistence and game actions. */
 type HomeSceneProps = {
   homeType: HomeType;
   styles?: HomeRoomStyle[];

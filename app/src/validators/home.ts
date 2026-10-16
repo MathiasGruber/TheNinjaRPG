@@ -20,6 +20,7 @@ export const homePlacementSchema = z.strictObject({
   y: z.number().min(HOME_FURNITURE_POSITION_MIN).max(HOME_FURNITURE_POSITION_MAX),
   /** Clockwise quarter turns select content-authored views, rather than transforming a sprite. */
   rotation: z.union(HOME_FURNITURE_ROTATIONS.map((rotation) => z.literal(rotation))),
+  /** Omitted room IDs use the main room so existing saved coordinates keep their meaning. */
   room: z.enum(HOME_ROOM_IDS).optional(),
 });
 export type HomePlacement = z.infer<typeof homePlacementSchema>;
@@ -43,6 +44,7 @@ export const homeLayoutSchema = z
     "Each furniture instance can only be placed once",
   );
 
+/** Layout and finishes share the home tier and revision guard; omitted styles preserve saved finishes. */
 export const homeFurnitureSaveInputSchema = z.strictObject({
   homeType: z.enum(HomeTypes),
   revision: z.int().nonnegative(),
@@ -58,12 +60,15 @@ export const homeFurnitureSaveInputSchema = z.strictObject({
     .max(HOME_MAX_ROOMS)
     .optional(),
 });
+/** Paint and flooring belong to a stable room identity independently of its placed furniture. */
 export type HomeRoomStyle = NonNullable<
   z.infer<typeof homeFurnitureSaveInputSchema>["styles"]
 >[number];
+/** The router checks visibility or invitation membership for the requested owner. */
 export const homeVisitInputSchema = z.strictObject({
   userId: z.string().min(1).max(191),
 });
+/** Sharing edits claim the same revision as layout edits to reject stale access settings. */
 export const homeSharingInputSchema = z.strictObject({
   revision: z.int().nonnegative(),
   isPublic: z.boolean(),

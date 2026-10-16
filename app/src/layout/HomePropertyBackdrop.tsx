@@ -4,7 +4,10 @@ import { getHomeRooms } from "@/libs/homeProperty";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
 import type { HomeRoomStyle } from "@/validators/home";
 
-/** Vector room tiles share furniture's measured floor projection and stay sharp at every zoom. */
+/**
+ * Vector tiles share furniture's floor projection and stay sharp at every zoom.
+ * Overlay mode tints the existing single-room artwork only where finishes were saved.
+ */
 export const HomePropertyBackdrop = ({
   homeType,
   styles,

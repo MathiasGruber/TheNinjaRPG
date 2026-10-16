@@ -69,6 +69,7 @@ import {
 import { DEFAULT_FURNITURE_DATA } from "@/validators/itemFurniture";
 
 export const homeRouter = createTRPCRouter({
+  /** Return authorized, placed decorations without repairing the owner's home or exposing inventory. */
   getVisitedHome: protectedProcedure
     .input(homeVisitInputSchema)
     .query(async ({ ctx, input }) => {
@@ -106,6 +107,7 @@ export const homeRouter = createTRPCRouter({
       };
     }),
 
+  /** Publish visibility and invitations under one revision guard so concurrent revocations cannot be lost. */
   setHomeSharing: protectedProcedure
     .input(homeSharingInputSchema)
     .output(baseServerResponse)
@@ -469,45 +471,32 @@ export const homeRouter = createTRPCRouter({
           );
         }
         const downgradeRefund = Math.floor((currentHomeCost - targetHome.cost) * 0.75);
-        const result = await ctx.drizzle.transaction(async (tx) => {
-          const changed = await tx
-            .update(userData)
-            .set({
-              homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
-              homeRoomStyles: user.homeRoomStyles.filter(({ room }) =>
-                retainedRooms.has(room),
-              ),
-              homeType: input.homeType,
-              money: sql`${userData.money} + ${downgradeRefund}`,
-              updatedAt: getNextUserSnapshotAt(user.updatedAt),
-            })
-            .where(
-              and(
-                eq(userData.userId, ctx.userId),
-                eq(userData.homeType, user.homeType),
-                eq(userData.homeFurnitureRevision, user.homeFurnitureRevision),
-                eq(userData.updatedAt, user.updatedAt),
-              ),
-            );
-          if (changed.rowsAffected)
-            await tx
-              .update(userItem)
-              .set({
-                homeX: null,
-                homeY: null,
-                homeRoom: "main",
-                homeRotation: 0,
-                storedAtHome: true,
-              })
-              .where(
-                and(
-                  eq(userItem.userId, ctx.userId),
-                  isNotNull(userItem.homeX),
-                  notInArray(userItem.homeRoom, [...retainedRooms]),
-                ),
-              );
-          return changed;
-        });
+        // As with layout saves, Drizzle needs a joined statement to publish both tables atomically.
+        // LEFT JOIN also refunds homes with no removed placements; the owner is updated once.
+        const result = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(sql`
+            UPDATE ${userData}
+            LEFT JOIN ${userItem} ON ${userItem.userId} = ${userData.userId}
+              AND ${isNotNull(userItem.homeX)}
+              AND ${notInArray(userItem.homeRoom, [...retainedRooms])}
+            SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
+                ${userData.homeRoomStyles} = ${JSON.stringify(user.homeRoomStyles.filter(({ room }) => retainedRooms.has(room)))},
+                ${userData.homeType} = ${input.homeType},
+                ${userData.money} = ${userData.money} + ${downgradeRefund},
+                ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
+                ${userItem.homeX} = NULL,
+                ${userItem.homeY} = NULL,
+                ${userItem.homeRoom} = ${"main"},
+                ${userItem.homeRotation} = 0,
+                ${userItem.storedAtHome} = ${true}
+            WHERE ${and(
+              eq(userData.userId, ctx.userId),
+              eq(userData.homeType, user.homeType),
+              eq(userData.homeFurnitureRevision, user.homeFurnitureRevision),
+              eq(userData.updatedAt, user.updatedAt),
+            )}
+          `),
+        );
         if (result.rowsAffected === 0) {
           return errorResponse("Home inventory changed. Refresh and try again");
         }
@@ -652,7 +641,7 @@ type HomeFurnitureUser = NonNullable<
   Awaited<ReturnType<typeof fetchHomeFurnitureUser>>
 >;
 
-/** Read all owned rows once so storage counts include pending crafts and auction escrow. */
+/** Only visible, completed furniture outside auction escrow is available for placement. */
 const isAvailableOwnedFurniture = (owned: HomeFurnitureUser["items"][number]) =>
   owned.item.itemType === "FURNITURE" &&
   !owned.item.hidden &&
@@ -759,7 +748,11 @@ const ensureHomeFurnitureEssentials = async (
   return resultSnapshot;
 };
 
-/** Publish every owned placement and its revision together, including first-view recovery. */
+/**
+ * Publish placements, finishes and their revision together, including first-view recovery.
+ * Explicit saves store newly placed or removed pieces; recovery preserves carried inventory.
+ * Omitted styles retain the saved finishes.
+ */
 const publishHomeFurnitureLayout = (
   client: DrizzleClient,
   userId: string,

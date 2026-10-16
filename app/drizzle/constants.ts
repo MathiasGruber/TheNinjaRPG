@@ -3114,9 +3114,11 @@ export const HOME_FURNITURE_POSITION_MAX = 100;
 export const HOME_FURNITURE_MIN_WIDTH = 6;
 export const HOME_FURNITURE_MAX_WIDTH = 40;
 export const HOME_FURNITURE_MAX_PLACEMENTS = 50;
+/** A property's room limit includes its yard; room identities remain stable across tiers. */
 export const HOME_MAX_ROOMS = 8;
 export const HOME_MAX_INVITATIONS = 100;
 export const HOME_ROOM_IDS = ["main", "room-1", "room-2", "room-3", "room-4", "room-5", "room-6", "yard"] as const;
+/** Persist palette keys so editor choices and rendered room finishes share one source. */
 export const HOME_WALL_PAINTS = { ivory: "#ddd0ac", sage: "#a9ba9a", indigo: "#8b96b7", rose: "#cfaaa3", charcoal: "#777b80" } as const;
 export const HOME_FLOOR_TILES = { cedar: "#a77a4b", oak: "#c3a472", slate: "#718084", terracotta: "#b77c60" } as const;
 /** Furniture storage is independent of item storage and can hold every room's display capacity. */

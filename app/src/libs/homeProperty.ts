@@ -7,7 +7,9 @@ import {
 import { clamp } from "@/utils/math";
 import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
+/** Stable identities tie saved placements and finishes to rooms across home tier changes. */
 export type HomeRoomId = (typeof HOME_ROOM_IDS)[number];
+/** Room origins use scene percentages; each tile spans 100 units with a four-unit passage. */
 export type HomeRoom = {
   id: HomeRoomId;
   name: string;
@@ -15,8 +17,10 @@ export type HomeRoom = {
   y: number;
   isYard: boolean;
 };
+/** Translation is measured in viewport percentages and applied after scaling the property. */
 export type HomeCamera = { x: number; y: number; scale: number };
 
+/** Keep the viewport over the property while preserving the shared zoom limits. */
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
   const scale = clamp(camera.scale, 0.3, 1.8);
@@ -69,10 +73,12 @@ export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
   return rooms;
 };
 
+/** Placements without an explicit room retain the original main-room coordinates. */
 export const getHomePlacementRoom = (
   placement: Pick<HomePlacement, "room">,
 ): HomeRoomId => placement.room ?? "main";
 
+/** Check tier-specific room membership and per-room capacity before geometry validation. */
 export const homeRoomLayoutError = (
   placements: HomePlacement[],
   homeType: HomeType,
@@ -92,6 +98,7 @@ export const homeRoomLayoutError = (
   return null;
 };
 
+/** Finishes may be sparse, but each available room can appear at most once. */
 export const homeRoomStylesError = (styles: HomeRoomStyle[], homeType: HomeType) => {
   const rooms = getHomeRooms(homeType);
   return new Set(styles.map(({ room }) => room)).size !== styles.length ||

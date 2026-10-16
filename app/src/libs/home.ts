@@ -266,7 +266,7 @@ export const recoverHomeLayout = (
   return recovered;
 };
 
-/** Every saved room keeps its sleeping, storage, and kitchen actions reachable. */
+/** Every saved home keeps its global sleeping, storage, and kitchen actions reachable. */
 export const homeLayoutEssentialsError = (
   placements: HomePlacement[],
   furniture: Pick<HomeFurniture, "id" | "action">[],

@@ -8,6 +8,7 @@ import { HomeScene } from "@/layout/HomeScene";
 import Loader from "@/layout/Loader";
 import { useUserData } from "@/utils/UserContext";
 
+/** Display the server-authorized decoration snapshot with navigation and no owner actions. */
 export default function HomeVisitPage() {
   const params = useParams<{ userId: string }>();
   const { data: user } = useUserData();

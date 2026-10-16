@@ -9,7 +9,7 @@ import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
-import { failStatements } from "../../setup/statements";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const userId = "furniture-buyer";
@@ -146,15 +146,7 @@ describeWithDatabase("standard furniture purchases", () => {
     }).where(eq(userData.userId, userId));
     await storedRows(capacity - 1);
     let purchase: Awaited<ReturnType<ReturnType<typeof itemRouter.createCaller>["buy"]>> | undefined;
-    const raced = new Proxy(database, {
-      get(target, key, receiver) {
-        if (key !== "transaction") return Reflect.get(target, key, receiver);
-        return async (callback: Parameters<typeof database.transaction>[0]) => {
-          purchase = await buy();
-          return database.transaction(callback);
-        };
-      },
-    });
+    const raced = beforeStatements(database, userItem, [async () => { purchase = await buy(); }]);
     const downgrade = await callerForDatabase(homeRouter, userId, raced).upgradeHome({ homeType: "NONE" });
     expect(purchase?.success).toBe(true);
     expect(downgrade.success).toBe(false);

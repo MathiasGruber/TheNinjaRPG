@@ -82,7 +82,9 @@ describeWithDatabase("owned furniture persistence", () => {
     expect((await api.toggleStoreItem({ userItemId: "cabinet-a" })).success).toBe(true);
     expect((await snapshot()).inventory.find(({ id }) => id === "cabinet-a")).toMatchObject({ storedAtHome: false, homeRoom: "room-1", homeX: 50, homeY: 50 });
     expect((await api.getUserHome())?.layout.some(({ id }) => id === "cabinet-a")).toBe(true);
-    expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const downgrade = await recordQueries(() => api.upgradeHome({ homeType: "TWO_BED_HOUSE" }));
+    expect(downgrade.result.success).toBe(true);
+    expect(downgrade.statements.filter((statement) => /^\s*(UPDATE|INSERT|DELETE)\b/i.test(statement))).toHaveLength(1);
     const stored = (await snapshot()).inventory.find(({ id }) => id === "cabinet-a");
     expect(stored).toMatchObject({ quantity: 1, storedAtHome: true, homeRoom: "main", homeX: null, homeY: null });
     const downgraded = await api.getUserHome();
@@ -155,19 +157,44 @@ describeWithDatabase("owned furniture persistence", () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
     const regular = await callerFor(homeRouter, userId);
-    const client = new Proxy(db, { get(target, property, receiver) {
-      if (property === "transaction") return async (...args: Parameters<typeof db.transaction>) => {
-        expect((await regular.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements: essentialLayout })).success).toBe(true);
-        return target.transaction(...args);
-      };
-      return Reflect.get(target, property, receiver);
-    } });
+    const client = beforeStatements(db, userItem, [async () => {
+      expect((await regular.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements: essentialLayout })).success).toBe(true);
+    }]);
     const api = callerForDatabase(homeRouter, userId, client);
     expect((await api.upgradeHome({ homeType: "NONE" })).success).toBe(false);
     const after = await snapshot();
     expect(after.owner.homeType).toBe("TOWN_HOUSE");
     expect(after.owner.money).toBe(initialMoney);
     expect(after.owner.homeFurnitureRevision).toBe(1);
+  });
+
+  it.each([false, true])("refunds a downgrade with no removed placements even when inventory is empty: %s", async (isEmpty) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    if (isEmpty) await db.delete(userItem).where(eq(userItem.userId, userId));
+    const before = await snapshot();
+    const api = await callerFor(homeRouter, userId);
+    expect((await api.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const after = await snapshot();
+    expect(after.owner.homeType).toBe("TWO_BED_HOUSE");
+    expect(after.owner.homeFurnitureRevision).toBe(before.owner.homeFurnitureRevision + 1);
+    expect(after.owner.money).toBe(before.owner.money + Math.floor((HomeTypeDetails.TOWN_HOUSE.cost - HomeTypeDetails.TWO_BED_HOUSE.cost) * 0.75));
+    expect(after.inventory).toEqual(before.inventory);
+  });
+
+  it("refunds a concurrent downgrade once while storing every removed-room placement", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    await db.update(userItem).set({ homeRoom: "room-1" }).where(eq(userItem.userId, userId));
+    const before = await snapshot();
+    const api = await callerFor(homeRouter, userId);
+    const results = await Promise.all([api.upgradeHome({ homeType: "TWO_BED_HOUSE" }), api.upgradeHome({ homeType: "TWO_BED_HOUSE" })]);
+    expect(results.filter(({ success }) => success)).toHaveLength(1);
+    const after = await snapshot();
+    expect(after.owner.homeFurnitureRevision).toBe(before.owner.homeFurnitureRevision + 1);
+    expect(after.owner.money).toBe(before.owner.money + Math.floor((HomeTypeDetails.TOWN_HOUSE.cost - HomeTypeDetails.TWO_BED_HOUSE.cost) * 0.75));
+    expect(after.inventory.filter((owned) => owned.userId === userId && owned.homeX !== null)).toHaveLength(0);
+    expect(after.inventory.filter((owned) => owned.userId === userId && before.inventory.some((previous) => previous.id === owned.id && previous.homeX !== null)).every((owned) => owned.homeRoom === "main" && owned.storedAtHome && owned.homeRotation === 0)).toBe(true);
   });
 
   it("rejects a layout after an inventory snapshot claim without regressing its timestamp", async () => {
