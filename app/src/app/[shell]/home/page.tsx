@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { HomeType } from "@/drizzle/constants";
 import {
   HomeTypeDetails,
   IMG_HOME_KITCHEN,
@@ -40,7 +39,7 @@ import { useSleepToggle } from "@/hooks/sleep";
 import BanInfo from "@/layout/BanInfo";
 import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
-import { HomeScene } from "@/layout/HomeScene";
+import { type HomeDraft, HomeScene } from "@/layout/HomeScene";
 import { HomeSharing } from "@/layout/HomeSharing";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
@@ -60,7 +59,6 @@ import { showMutationToast } from "@/libs/toast";
 import { remainingXpToLevel } from "@/libs/train";
 import { useRequireInVillage } from "@/utils/UserContext";
 import { getStrucBoost } from "@/utils/village";
-import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
 
 // Load the farm and food menu only when their dialogs are opened.
 const HomeFarm = dynamic(() => import("@/layout/OccupationFarming"), {
@@ -179,12 +177,7 @@ export default function HomePage() {
     },
   });
   /** Keep unsaved edits available on rejection and refresh the server revision for recovery. */
-  const saveLayout = async (draft: {
-    homeType: HomeType;
-    revision: number;
-    placements: HomePlacement[];
-    styles: HomeRoomStyle[];
-  }) => {
+  const saveLayout = async (draft: HomeDraft) => {
     setFurnitureError(null);
     try {
       const result = await saveFurniture.mutateAsync(draft);
