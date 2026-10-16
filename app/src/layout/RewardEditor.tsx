@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ContentType } from "@/drizzle/constants";
 import { EditContent, type FormEntry, RewardFormWrapper } from "@/layout/EditContent";
+import Loader from "@/layout/Loader";
 import { getRewardPreview } from "@/libs/objectives";
 import { getActiveRewardNodes } from "@/libs/rewardNodes";
 import { isStaffRole } from "@/utils/permissions";
@@ -38,9 +39,12 @@ export const RewardEditor = ({
   const {
     data: catalog,
     isError,
+    isFetched,
     refetch,
   } = api.rewardPackages.getCatalog.useQuery(undefined, {
     enabled: isStaffRole(user?.role),
+    // Nested editors reuse catalog errors; the Retry action controls recovery.
+    retryOnMount: false,
   });
   const values = useWatch({ control: form.control });
   const [openedNodeIds, setOpenedNodeIds] = useState<string[]>([]);
@@ -73,21 +77,28 @@ export const RewardEditor = ({
           value !== defaultValues[field as keyof typeof defaultValues];
   };
   const activeNodes = getActiveRewardNodes(groups, openedNodeIds, hasValue);
+  // Fallback groups are provisional until the custom catalog has loaded or failed.
+  const isCatalogPending = !catalog && !isFetched && (!user || isStaffRole(user.role));
   // Remember inferred groups too: editing a value to zero must not remove or move its controls.
   useEffect(() => {
-    // Fallback groups are provisional until the custom catalog has loaded or failed.
-    if (!catalog && !isError && (!user || isStaffRole(user.role))) return;
+    if (isCatalogPending) return;
     const nextIds = activeNodes.map((node) => node.id);
     if (
       nextIds.length !== openedNodeIds.length ||
       nextIds.some((id, index) => id !== openedNodeIds[index])
     )
       setOpenedNodeIds(nextIds);
-  }, [activeNodes, openedNodeIds, catalog, isError, user]);
+  }, [activeNodes, openedNodeIds, isCatalogPending]);
   /** Keep snapshot edits in the parent form's dirty state and validation lifecycle. */
   const setPackages = (next: RewardPackageSnapshotType[]) =>
     form.setValue("reward_packages", next, { shouldDirty: true, shouldValidate: true });
   const source = catalog?.packages.find((pack) => pack.id === selectedPackage);
+  if (isCatalogPending)
+    return (
+      <div className="col-span-full">
+        <Loader explanation="Loading rewards" />
+      </div>
+    );
   return (
     <div className="col-span-full space-y-3 rounded-lg border p-3">
       <h3 className="font-bold">Rewards</h3>

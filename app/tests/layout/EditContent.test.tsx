@@ -3,6 +3,7 @@ import { createToastMock } from "../setup/toastMock";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { Item } from "@/drizzle/schema";
@@ -27,6 +28,9 @@ const pending = vi.fn();
 const toast = vi.fn();
 const names = { useQuery: () => ({ data: [] }) };
 let rewardCatalog: { packages: []; nodes: { id: string; name: string; fields: string[] }[] } | undefined;
+let rewardCatalogError = false;
+const refetchRewardCatalog = vi.fn();
+const rewardCatalogQuery = { useQuery: (_input?: unknown, _options?: { enabled: boolean; retryOnMount?: boolean }) => ({ data: rewardCatalog, isFetched: !!rewardCatalog || rewardCatalogError, isError: rewardCatalogError, refetch: refetchRewardCatalog }) };
 const update: { useMutation: () => { mutateAsync: (...args: Parameters<typeof save>) => ReturnType<typeof save>; isPending?: boolean } } = { useMutation: () => ({ mutateAsync: save }) };
 
 vi.mock("@/app/_trpc/client", () => ({
@@ -40,7 +44,7 @@ vi.mock("@/app/_trpc/client", () => ({
     badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
     rewardPackages: {
-      getCatalog: { useQuery: () => ({ data: rewardCatalog }) },
+      getCatalog: rewardCatalogQuery,
     },
     gameAsset: {
       getNameTags: names,
@@ -64,6 +68,7 @@ beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
   rewardCatalog = { packages: [], nodes: [] };
+  rewardCatalogError = false;
 });
 afterEach(cleanup);
 
@@ -253,22 +258,97 @@ describe("reward node editing", () => {
     fireEvent.input(input, { target: { value: "250" } });
     expect(input.value).toBe("250");
   });
-  it("waits for custom catalog groups before remembering saved fallback groups", () => {
-    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+  it.each([undefined, "CONTENT-ADMIN"])("waits for custom catalog groups before exposing saved controls (role: %s)", async (role) => {
+    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: role ? { role } : undefined } as never);
     try {
       rewardCatalog = undefined;
-      const view = render(<SavedRewardForm />);
+      const view = render(<SavedRewardForm optionalExperience={100} />);
+      expect(view.getByText("Loading rewards")).toBeDefined();
+      expect(view.queryByRole("spinbutton")).toBeNull();
+      expect(view.queryByRole("combobox", { name: "Add reward node" })).toBeNull();
+      user.mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
       rewardCatalog = {
         packages: [],
         nodes: [{ id: "custom-money", name: "Custom Money", fields: ["reward_money"] }],
       };
-      view.rerender(<SavedRewardForm />);
-      expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(["Organization", "Custom Money"]);
+      view.rerender(<SavedRewardForm optionalExperience={100} />);
+      expect(view.queryByText("Loading rewards")).toBeNull();
+      expect([...view.container.querySelectorAll("summary")].map((node) => node.textContent)).toEqual(["Organization", "Custom Money", "Progression"]);
       const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
-      fireEvent.input(ryo, { target: { value: "0" } });
+      await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "0" } }); });
       expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(document.activeElement).toBe(ryo);
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(document.activeElement).toBe(experience);
     } finally {
       user.mockRestore();
+    }
+  });
+  it("allows stable fallback editing after catalog failure and recovers on retry", async () => {
+    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+    try {
+      rewardCatalog = undefined;
+      rewardCatalogError = true;
+      const view = render(<SavedRewardForm optionalExperience={100} />);
+      expect(view.getByRole("alert").textContent).toContain("Could not load reward packages and nodes.");
+      expect(view.queryByText("Loading rewards")).toBeNull();
+      const ryo = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      await act(async () => { ryo.focus(); fireEvent.input(ryo, { target: { value: "0" } }); });
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(document.activeElement).toBe(ryo);
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(document.activeElement).toBe(experience);
+      fireEvent.click(view.getByRole("button", { name: "Retry" }));
+      expect(refetchRewardCatalog).toHaveBeenCalledTimes(1);
+      rewardCatalog = { packages: [], nodes: [] };
+      rewardCatalogError = false;
+      view.rerender(<SavedRewardForm optionalExperience={100} />);
+      expect(view.queryByRole("alert")).toBeNull();
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(ryo);
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+    } finally {
+      user.mockRestore();
+    }
+  });
+  it("keeps a failed catalog stable with nested snapshots and recovers on explicit retry", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const read = vi.fn(async (): Promise<NonNullable<typeof rewardCatalog>> => {
+      // Bound a mount/refetch regression before repeated nested mounts can hang the suite.
+      if (read.mock.calls.length > 3) return new Promise(() => {});
+      throw new Error("Catalog unavailable");
+    });
+    const query = vi.spyOn(rewardCatalogQuery, "useQuery").mockImplementation((_input, options) => useQuery({ queryKey: ["reward-catalog"], queryFn: read, ...options }) as never);
+    const user = vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+    try {
+      const view = render(<QueryClientProvider client={client}><SnapshotRewardForm onUpdate={vi.fn()} onSave={vi.fn()} onInvalid={vi.fn()} /></QueryClientProvider>);
+      await waitFor(() => expect(view.getAllByRole("alert")).toHaveLength(2));
+      expect(read).toHaveBeenCalledTimes(1);
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      await act(async () => { experience.focus(); fireEvent.input(experience, { target: { value: "" } }); });
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(document.activeElement).toBe(experience);
+      expect(read).toHaveBeenCalledTimes(1);
+      let resolveCatalog: (catalog: NonNullable<typeof rewardCatalog>) => void = () => {};
+      read.mockImplementation(() => new Promise((resolve) => { resolveCatalog = resolve; }));
+      await act(async () => { fireEvent.click(view.getAllByRole("button", { name: "Retry" })[0]!); });
+      await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+      expect(view.queryByText("Loading rewards")).toBeNull();
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      await act(async () => { resolveCatalog({ packages: [], nodes: [] }); });
+      await waitFor(() => expect(client.getQueryState(["reward-catalog"])?.status).toBe("success"));
+      expect(view.queryByRole("alert")).toBeNull();
+      expect(read).toHaveBeenCalledTimes(2);
+      expect(view.container.querySelector('input[name="reward_ninjutsu_experience"]')).toBe(experience);
+      expect(experience.value).toBe("");
+    } finally {
+      cleanup();
+      query.mockRestore();
+      user.mockRestore();
+      client.clear();
     }
   });
   it.each([true, false])(
