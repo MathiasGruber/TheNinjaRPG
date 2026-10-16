@@ -333,14 +333,7 @@ async function processExpiredElderVotes() {
         ),
       );
     } else if (vote.type === "KAGE_REMOVAL") {
-      const villageElderIds = eldersByVillage.get(vote.villageId) ?? [];
-      const elderCount = villageElderIds.filter(
-        (userId) => userId !== vote.targetId,
-      ).length;
-      const yesCount = vote.entries.filter((e) => e.vote === "YES").length;
-      const noCount = vote.entries.filter((e) => e.vote === "NO").length;
-      const outcome = resolveElderVote(yesCount, noCount, elderCount, true);
-      promises.push(handleExpiredKageRemoval(vote, outcome));
+      promises.push(handleExpiredKageRemoval(vote));
     }
   }
   await Promise.all(promises);
@@ -452,9 +445,6 @@ async function handleExpiredWarDeclaration(
 /**
  * Handle a single expired KAGE_REMOVAL vote.
  */
-async function handleExpiredKageRemoval(
-  vote: ExpiredElderVote,
-  _outcome: ReturnType<typeof resolveElderVote>,
-) {
+async function handleExpiredKageRemoval(vote: ExpiredElderVote) {
   await settleKageRemoval(drizzleDB, vote.id, true);
 }

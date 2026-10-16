@@ -6,10 +6,12 @@ import {
   KAGE_DEFENSE_GRACE_MINUTES,
   KAGE_DEFENSE_MAX_NO_SHOWS,
   KAGE_DEFENSE_NOTICE_HOURS,
+  KAGE_DEFENSE_PUBLIC_SYNC_SECONDS,
   KAGE_DEFENSE_SETUP_HOURS,
   KAGE_DEFENSE_SLOT_MINUTES,
 } from "@/drizzle/constants";
 import {
+  battle,
   type KageChallenge,
   kageChallenge,
   userData,
@@ -60,9 +62,10 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
       with: { kage: true },
     }),
     client
-      .select({ match: kageChallenge, user: userData })
+      .select({ match: kageChallenge, user: userData, liveBattleId: battle.id })
       .from(kageChallenge)
       .innerJoin(userData, eq(kageChallenge.challengerId, userData.userId))
+      .leftJoin(battle, eq(kageChallenge.battleId, battle.id))
       .where(
         and(
           eq(kageChallenge.villageId, villageId),
@@ -164,7 +167,20 @@ export const syncLockedKageDefense = async (
   }
   for (const row of hall.rows) {
     const m = row.match;
-    if (m.status === "BATTLE" || m.status === "STARTING") continue;
+    if (m.status === "BATTLE" || m.status === "STARTING") {
+      if (!row.liveBattleId) {
+        const resolved = await client
+          .update(kageChallenge)
+          .set({
+            status: "CANCELLED",
+            resolvedAt: now,
+            outcome: "Battle ended without a recorded result; no prestige charged",
+          })
+          .where(and(eq(kageChallenge.id, m.id), eq(kageChallenge.status, m.status)));
+        if (resolved.rowsAffected) m.status = "CANCELLED";
+      }
+      continue;
+    }
     if (getKageEligibility(row.user, v.id) || row.user.userId === v.kageId) {
       await client
         .update(kageChallenge)
@@ -245,7 +261,12 @@ export const syncLockedKageDefense = async (
       );
       continue;
     }
-    if (missedObservation || !m.checkedInAt || row.user.status !== "AWAKE") {
+    if (
+      missedObservation ||
+      !m.checkedInAt ||
+      row.user.status !== "AWAKE" ||
+      v.kage?.isAi
+    ) {
       if (missedObservation)
         await resetMatch(
           client,
@@ -482,7 +503,27 @@ export const getKageDefensePublic = async (
   client: DrizzleClient,
   villageId: string,
 ) => {
+  const current = await readKageDefensePublic(client, villageId);
+  if (!current) return null;
+  const state = current.schedule;
+  // Fresh polls reuse persisted state. Stale reads still recover interruptions before display.
+  if (
+    state &&
+    state.kageId === current.kageId &&
+    new Date(state.observedAt) >
+      secondsFromDate(-KAGE_DEFENSE_PUBLIC_SYNC_SECONDS, new Date()) &&
+    !(
+      state.windows.length &&
+      !state.paused &&
+      current.queue.some((m) => m.status === "QUEUED")
+    )
+  )
+    return current;
   await syncKageDefense(client, villageId);
+  return readKageDefensePublic(client, villageId);
+};
+
+const readKageDefensePublic = async (client: DrizzleClient, villageId: string) => {
   const [v, queue, history] = await Promise.all([
     client.query.village.findFirst({
       where: eq(village.id, villageId),

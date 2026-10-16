@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { kageChallenge, kageDefendedChallenges, userData, village, war } from "@/drizzle/schema";
+import { battle, kageChallenge, kageDefendedChallenges, userData, village, war } from "@/drizzle/schema";
 import * as combat from "@/server/api/routers/combat";
-import { updateKage } from "@/libs/combat/database";
+import { updateBattle, updateKage } from "@/libs/combat/database";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 import { kageRouter } from "@/server/api/routers/kage";
 import { syncKageDefense, withinKageChallengeLimits } from "@/server/utils/kage";
+import { calcBattleResult } from "@/libs/combat/util";
+import type { DrizzleClient } from "@/server/db";
+import { failStatements } from "../../setup/statements";
 import { getKageSlots } from "@/utils/kage";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -18,7 +21,7 @@ const villageId = "defense-home";
 describeWithDatabase("scheduled Kage defenses", () => {
   beforeEach(async () => {
     setSystemTime(now);
-    await resetTables(kageDefendedChallenges, kageChallenge, kageDefendedChallenges, userData, village, war);
+    await resetTables(battle, kageDefendedChallenges, kageChallenge, userData, village, war);
     const db = await getTestDatabase();
     await db.insert(village).values({ id: villageId, name: "Defense home", kageId: "defender", leaderUpdatedAt: now, kageScheduleAvailableAt: now });
     await insertUsers(["defender", "first", "second", "third"].map((id) => ({ userId: id, username: id, villageId, rank: "JONIN", status: "AWAKE", villagePrestige: KAGE_PRESTIGE_REQUIREMENT, joinedVillageAt: new Date("2026-01-01") })));
@@ -194,6 +197,72 @@ describeWithDatabase("scheduled Kage defenses", () => {
     expect(hall.queue[0]!.scheduledAt!.toISOString()).toBe("2026-10-15T14:00:00.000Z");
     expect(hall.queue[0]!.scheduledAt!.getTime()).toBeGreaterThan(tail.scheduledAt!.getTime());
     expect(hall.queue[1]!.scheduledAt!.getTime()).toBeGreaterThan(hall.queue[0]!.scheduledAt!.getTime());
+  });
+  it.each(["BATTLE", "STARTING"] as const)("releases an orphaned %s reservation without prestige or attendance penalties", async (status) => {
+    const m = await join(); await join("second"); const db = await getTestDatabase();
+    await db.update(kageChallenge).set({ status, battleId: "deleted-defense", startedAt: now }).where(eq(kageChallenge.id, m.id));
+    await syncKageDefense(db, villageId);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("CANCELLED");
+    expect((await (await callerFor(kageRouter, "first")).joinDefenseQueue({ villageId })).success).toBe(true);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "first") }))?.villagePrestige).toBe(KAGE_PRESTIGE_REQUIREMENT);
+    expect((await db.query.village.findFirst())?.kageSchedule?.missedStarts).toBe(0);
+  });
+  it("never removes an NPC incumbent when a checked-in challenger declines to start", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ isAi: true }).where(eq(userData.userId, "defender"));
+    for (let i = 0; i < 3; i++) {
+      const m = await due();
+      expect((await (await callerFor(kageRouter, "first")).checkInDefense({ id: m.id })).success).toBe(true);
+      setSystemTime(new Date(m.scheduledAt!.getTime() + 4 * 60_000)); await syncKageDefense(db, villageId);
+      setSystemTime(new Date(m.scheduledAt!.getTime() + 6 * 60_000)); await syncKageDefense(db, villageId);
+      expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("FORFEITED");
+      expect((await db.query.village.findFirst())?.kageId).toBe("defender");
+      expect((await db.query.village.findFirst())?.kageSchedule?.missedStarts).toBe(0);
+    }
+  });
+  const terminalDefense = async () => {
+    const m = await join(); const db = await getTestDatabase();
+    const fight = makeCompleteBattle({ id: "atomic-defense", version: 1, battleType: "KAGE_PVP", background: "default", usersState: [
+      makeBattleUser("first", { isAggressor: true, villageId, curHealth: 0, leftBattle: true }),
+      makeBattleUser("defender", { isAggressor: false, villageId, curHealth: 100 }),
+    ] });
+    fight.extraState.kageMatch = { id: m.id, villageId, kageId: "defender", tenure: now.toISOString(), ai: false };
+    const result = calcBattleResult(fight, "defender", []); expect(result).not.toBeNull();
+    expect(result!.friendsLeft + result!.targetsLeft).toBe(0);
+    await db.insert(battle).values(fight);
+    await db.update(kageChallenge).set({ status: "BATTLE", battleId: fight.id, startedAt: now }).where(eq(kageChallenge.id, m.id));
+    return { db, m, fight, result };
+  };
+  it("completes the queue receipt with the terminal battle claim before orphan recovery", async () => {
+    const { db, m, fight, result } = await terminalDefense();
+    await syncKageDefense(db, villageId);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("BATTLE");
+    const claims = await Promise.all([updateBattle(db, result, "defender", structuredClone(fight), fight.version), updateBattle(db, result, "defender", structuredClone(fight), fight.version)]);
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await db.query.battle.findFirst()).toBeUndefined();
+    await syncKageDefense(db, villageId);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("COMPLETED");
+  });
+  it("rolls back battle deletion if its queue receipt cannot complete", async () => {
+    const { db, m, fight, result } = await terminalDefense();
+    const failing = new Proxy(db, { get(target, key, receiver) {
+      if (key !== "transaction") return Reflect.get(target, key, receiver);
+      return (callback: Parameters<typeof db.transaction>[0]) => db.transaction((tx) => callback(failStatements(tx as unknown as DrizzleClient, kageChallenge) as typeof tx));
+    } });
+    await expect(updateBattle(failing, result, "defender", fight, fight.version)).rejects.toThrow("Statement failed on purpose");
+    expect((await db.query.battle.findFirst())?.id).toBe(fight.id);
+    expect((await db.query.kageChallenge.findFirst({ where: eq(kageChallenge.id, m.id) }))?.status).toBe("BATTLE");
+  });
+  it("reuses recent public snapshots while cron and mutation synchronization remain authoritative", async () => {
+    const db = await getTestDatabase(); const reader = await callerFor(kageRouter, "first");
+    const initial = (await db.query.village.findFirst())!.kageScheduleVersion;
+    await reader.getDefenses({ villageId }); await reader.getDefenses({ villageId });
+    expect((await db.query.village.findFirst())?.kageScheduleVersion).toBe(initial);
+    setSystemTime(new Date(now.getTime() + 31_000)); await reader.getDefenses({ villageId });
+    expect((await db.query.village.findFirst())!.kageScheduleVersion).toBeGreaterThan(initial);
+    const prior = (await db.query.village.findFirst())!.kageScheduleVersion;
+    await syncKageDefense(db, villageId);
+    expect((await db.query.village.findFirst())!.kageScheduleVersion).toBeGreaterThan(prior);
   });
   it("freezes an unpublished schedule deadline across service interruptions", async () => {
     const db = await getTestDatabase(); await db.update(village).set({ kageSchedule: null }).where(eq(village.id, villageId));

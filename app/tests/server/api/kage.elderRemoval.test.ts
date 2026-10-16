@@ -134,8 +134,7 @@ describeWithDatabase("elder kage removal protection", () => {
     await (await callerFor(kageRouter, "elder-2")).voteOnKageRemoval({ voteId: vote.id, vote: "NO" });
     const failed = await elder.initiateKageRemovalVote({ villageId: "removal-village", reason: "Another proposal during cooldown" });
     expect(failed.success).toBe(false); expect(failed.message).toContain("wait");
-    setSystemTime(new Date("2026-10-27T12:00:00Z"));
-    await db.update(village).set({ leaderUpdatedAt: new Date("2026-10-13T12:00:00Z") }).where(eq(village.id, "removal-village"));
+    await db.update(village).set({ leaderUpdatedAt: new Date("2026-09-01T12:00:00Z") }).where(eq(village.id, "removal-village"));
     expect((await elder.initiateKageRemovalVote({ villageId: "removal-village", reason: "A proposal for the new tenure" })).success).toBe(true);
   });
 

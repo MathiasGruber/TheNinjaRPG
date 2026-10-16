@@ -203,14 +203,18 @@ export const updateBattle = async (
         .delete(battle)
         .where(and(eq(battle.id, newBattle.id), eq(battle.version, fetchedVersion)));
     const deleted = await retryOnDeadlock(() =>
-      newBattle.extraState.tournamentGameId
+      newBattle.extraState.tournamentGameId || newBattle.extraState.kageMatch
         ? client.transaction(async (tx) => {
             const database = tx as unknown as DrizzleClient;
             const deleted = await deleteBattle(database);
             // The version DELETE and match UPDATE must commit together: a single-row CAS
             // cannot prevent recovery treating a deleted battle as an interrupted launch.
-            if (deleted.rowsAffected === 1)
-              await updateTournament(database, newBattle, result, userId);
+            if (deleted.rowsAffected === 1) {
+              if (newBattle.extraState.tournamentGameId)
+                await updateTournament(database, newBattle, result, userId);
+              if (newBattle.extraState.kageMatch)
+                await completeKageDefense(database, newBattle);
+            }
             return deleted;
           })
         : deleteBattle(client),
@@ -583,6 +587,35 @@ export const createAction = async (
   return actions;
 };
 
+/** Commit the scheduled match receipt with battle deletion, before orphan recovery can see it. */
+const completeKageDefense = async (
+  client: DrizzleClient,
+  curBattle: CompleteBattle,
+) => {
+  const match = curBattle.extraState.kageMatch;
+  const participants = getKageChallengeParticipants(curBattle);
+  if (!match || !participants) return;
+  const won = didKageChallengerWin(
+    participants.challenger,
+    participants.kage,
+    curBattle.usersEffects,
+  );
+  await client
+    .update(kageChallenge)
+    .set({
+      status: "COMPLETED",
+      resolvedAt: new Date(),
+      outcome: won ? "Challenger won the title fight" : "Kage defended the title",
+    })
+    .where(
+      and(
+        eq(kageChallenge.id, match.id),
+        eq(kageChallenge.status, "BATTLE"),
+        eq(kageChallenge.battleId, curBattle.id),
+      ),
+    );
+};
+
 export const updateKage = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,
@@ -613,26 +646,6 @@ export const updateKage = async (
   ];
 
   await Promise.all([
-    ...(curBattle.extraState.kageMatch
-      ? [
-          client
-            .update(kageChallenge)
-            .set({
-              status: "COMPLETED",
-              resolvedAt: new Date(),
-              outcome: challengerDidWin
-                ? "Challenger won the title fight"
-                : "Kage defended the title",
-            })
-            .where(
-              and(
-                eq(kageChallenge.id, curBattle.extraState.kageMatch.id),
-                eq(kageChallenge.status, "BATTLE"),
-                eq(kageChallenge.battleId, curBattle.id),
-              ),
-            ),
-        ]
-      : []),
     // Both PvP clients can finalize the same battle. The unique battleId makes
     // this insert idempotent; the no-op update preserves the first canonical row.
     client
