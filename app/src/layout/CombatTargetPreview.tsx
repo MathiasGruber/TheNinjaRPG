@@ -6,6 +6,11 @@ import { getTargetTiles } from "@/libs/combat/targeting";
 import type { CombatAction } from "@/libs/combat/types";
 import { defineHex } from "@/libs/hexgrid";
 
+/**
+ * Previews the shared combat footprint with local map dimensions and caster/target anchors.
+ * RANDOM patterns show every candidate; combat applies eligibility checks and sampling.
+ * Preview interactions never change the content draft.
+ */
 export const CombatTargetPreview = ({
   action,
 }: {
@@ -20,6 +25,7 @@ export const CombatTargetPreview = ({
   const [target, setTarget] = useState({ col: 7, row: 4 });
   const [placing, setPlacing] = useState<"caster" | "target">("target");
   const [focusedTile, setFocusedTile] = useState({ col: 0, row: 0 });
+  // Clamp displayed positions when the map shrinks without discarding the saved anchors.
   const focusedCol = Math.min(focusedTile.col, width - 1);
   const focusedRow = Math.min(focusedTile.row, height - 1);
   const Tile = defineHex({

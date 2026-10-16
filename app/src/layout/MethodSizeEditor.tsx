@@ -4,6 +4,10 @@ import { CombatTargetPreview } from "@/layout/CombatTargetPreview";
 import type { CombatAction } from "@/libs/combat/types";
 import type { MethodSize } from "@/validators/methodSize";
 
+/**
+ * Edits symmetric column/row expansion in the parent-owned draft; null displays as zero.
+ * The native disclosure keeps the preview mounted so closing it preserves local anchors.
+ */
 export const MethodSizeEditor = ({
   value,
   onChange,

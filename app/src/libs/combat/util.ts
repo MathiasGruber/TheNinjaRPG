@@ -3276,18 +3276,9 @@ export const isValidMove = (info: {
 };
 
 /**
- * Gets the affected tiles for an action
- * @param info {
- *  a: TerrainHex;
- *  b: TerrainHex;
- *  action: CombatAction;
- *  grid: Grid<TerrainHex>;
- *  restrictGrid?: Grid<TerrainHex>;
- *  users: ReturnedUserState[];
- *  ground: GroundEffect[];
- *  userId: string;
- * }
- * @returns
+ * Filters the shared footprint through occupant, barrier and anchor restrictions.
+ * RANDOM coordinates expose all eligible candidates in preview mode and sample on cast.
+ * @returns Valid tiles in green and rejected tiles in red; ALL omits rejected tiles.
  */
 export const getAffectedTiles = (info: {
   a: TerrainHex;

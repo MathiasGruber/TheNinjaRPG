@@ -9,7 +9,12 @@ import {
 import type { CombatAction } from "@/libs/combat/types";
 import type { TerrainHex } from "@/libs/hexgrid";
 
-/** Shared geometry for combat resolution and staff previews, before occupant validation. */
+/**
+ * Resolves a geometric footprint with caster `a` and clicked target `b` from the same grid.
+ * ALL and COORDINATES define their own footprints and ignore method-size expansion.
+ * RANDOM coordinate patterns return all candidates; getAffectedTiles samples accepted casts.
+ * @returns Map-owned hex instances, clipped to the map, before combat eligibility checks.
+ */
 export const getTargetTiles = ({
   a,
   b,

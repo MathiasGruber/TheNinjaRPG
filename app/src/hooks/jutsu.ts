@@ -175,6 +175,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
         shouldValidate: true,
       });
     }
+    // Clear inactive expansion so a hidden draft cannot block schema validation.
     if (targetingMethod === "ALL" || targetingMethod === "COORDINATES") {
       form.setValue("methodSize", null, { shouldDirty: true, shouldValidate: true });
     }

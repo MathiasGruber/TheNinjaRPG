@@ -1359,6 +1359,7 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
     });
   }
   const hasMove = data.effects.find((e) => e.type === "move");
+  // Movement uses the clicked destination, so expansion must not imply extra landing tiles.
   if (hasMove && ((data.methodSize?.x ?? 0) > 0 || (data.methodSize?.y ?? 0) > 0)) {
     ctx.addIssue({
       code: "custom",
