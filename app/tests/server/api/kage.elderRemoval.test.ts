@@ -9,6 +9,7 @@ import {
   villageElderVoteEntry,
 } from "@/drizzle/schema";
 import { kageRouter } from "@/server/api/routers/kage";
+import { settleKageRemoval } from "@/server/utils/kageGovernance";
 import { insertUsers } from "../../setup/factories";
 import {
   callerFor,
@@ -108,6 +109,22 @@ describeWithDatabase("elder kage removal protection", () => {
     expect((await db.query.userData.findFirst({ where: eq(userData.userId, "elder-3") }))?.rank).toBe("JONIN");
     expect((await elder.getRemovalHistory({ villageId: "removal-village" }))[0]).toMatchObject({ status: "APPROVED", yes: 2, no: 0, successorId: "elder-3", reason: "The council requests accountable leadership" });
     expect((await elder.nominateKage({ villageId: "removal-village", voteId: vote.id, userId: "elder-3" })).success).toBe(false);
+  });
+  it("rejects an orphaned motion once without losing the settlement announcement", async () => {
+    const db = await getTestDatabase();
+    await db.insert(villageElderVote).values({
+      id: "orphaned-motion", villageId: "missing-village", type: "KAGE_REMOVAL",
+      initiatedByUserId: "elder-1", targetId: "kage", endsAt: now,
+    });
+    expect((await settleKageRemoval(db, "orphaned-motion", true)).success).toBe(false);
+    expect((await db.query.villageElderVote.findFirst())?.status).toBe("REJECTED");
+    const notices = await db.query.notification.findMany();
+    expect(notices).toHaveLength(1);
+    expect(notices[0]).toMatchObject({ userId: TERR_BOT_ID });
+    expect(notices[0]?.content).toContain("vote did not pass");
+    await settleKageRemoval(db, "orphaned-motion", true);
+    expect(await db.query.notification.findMany()).toHaveLength(1);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "kage") }))?.unreadNotifications).toBe(1);
   });
   it("enforces the village cooldown after failure and resets it on a new tenure", async () => {
     const elder = await callerFor(kageRouter, "elder-1");

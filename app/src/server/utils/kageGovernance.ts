@@ -111,8 +111,8 @@ export const settleKageRemoval = async (
         userId: TERR_BOT_ID,
         content:
           outcome === "APPROVED"
-            ? `The ${v.name} Elder Council removed the Kage. Village prestige is retained. Elders may nominate an eligible villager at Town Hall.`
-            : `The ${v.name} Kage removal vote did not pass. The result and reason are published at Town Hall.`,
+            ? `The ${v?.name ?? "village"} Elder Council removed the Kage. Village prestige is retained. Elders may nominate an eligible villager at Town Hall.`
+            : `The ${v?.name ?? "village"} Kage removal vote did not pass. The result and reason are published at Town Hall.`,
       });
       await tx
         .update(userData)
