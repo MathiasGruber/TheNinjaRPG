@@ -301,7 +301,6 @@ export const EventTournaments = ({
                       )}
                       {p.seed ? `#${p.seed} ` : ""}
                       {p.username}
-                      {accepted && p.invited ? " · invitation accepted" : ""}
                     </Badge>
                   ))}
                   {!participants.length && (
