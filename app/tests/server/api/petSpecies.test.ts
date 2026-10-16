@@ -16,6 +16,20 @@ const species = {
 
 describeWithDatabase("Manual companion species", () => {
   beforeEach(async () => {
+    const realFetch = globalThis.fetch;
+    // Keep public-query middleware active without requiring Redis in SQL tests.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+        return realFetch(input, init);
+      }
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(Array.isArray(commands[0])
+        ? commands.map((command) => resultFor(command as unknown[]))
+        : resultFor(commands));
+    });
     await resetTables(actionLog, userPet, petSpecies, userData);
     await insertUsers([{ userId: staffId, username: "SpeciesContent", role: "CONTENT" }]);
     // Content fixtures must never deliver updates to a configured Discord webhook.
