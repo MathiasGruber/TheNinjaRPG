@@ -40,6 +40,11 @@ export const MethodSizeEditor = ({
         </div>
       ))}
     </div>
-    <CombatTargetPreview action={{ method, range, methodSize: value }} />
+    <details className="rounded border p-3">
+      <summary className="cursor-pointer text-sm">Combat grid preview</summary>
+      <div className="mt-3">
+        <CombatTargetPreview action={{ method, range, methodSize: value }} />
+      </div>
+    </details>
   </div>
 );

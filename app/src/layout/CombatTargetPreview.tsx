@@ -19,6 +19,9 @@ export const CombatTargetPreview = ({
   const [caster, setCaster] = useState({ col: 2, row: 4 });
   const [target, setTarget] = useState({ col: 7, row: 4 });
   const [placing, setPlacing] = useState<"caster" | "target">("target");
+  const [focusedTile, setFocusedTile] = useState({ col: 0, row: 0 });
+  const focusedCol = Math.min(focusedTile.col, width - 1);
+  const focusedRow = Math.min(focusedTile.row, height - 1);
   const Tile = defineHex({ dimensions: 20, orientation: Orientation.FLAT });
   const grid = new Grid(Tile, rectangle({ width, height }));
   const a = grid.getHex({
@@ -87,9 +90,9 @@ export const CombatTargetPreview = ({
         </Button>
       </div>
       <p className="text-muted-foreground text-xs">
-        Click a tile to move the preview {placing}. Green tiles show the footprint
-        before character, range and barrier checks. C = caster, T = target. Map edges
-        clip the pattern.
+        Click a tile or use arrow keys and Enter or Space to move the preview {placing}.
+        Green tiles show the footprint before character, range and barrier checks. C =
+        caster, T = target. Map edges clip the pattern.
       </p>
       <svg
         aria-label="Combat grid preview"
@@ -103,19 +106,35 @@ export const CombatTargetPreview = ({
             .filter(Boolean)
             .join("/");
           return (
-            // SVG has no native button element; keyboard support makes each hex operable.
+            // One tab stop enters the SVG; arrow keys move focus between its tile controls.
             // biome-ignore lint/a11y/useSemanticElements: SVG tile controls require a group.
             <g
               key={name}
               role="button"
-              tabIndex={0}
+              tabIndex={tile.col === focusedCol && tile.row === focusedRow ? 0 : -1}
+              data-tile={`${tile.col},${tile.row}`}
               aria-label={`${name} (${tile.col}, ${tile.row})${selected ? " affected" : ""}${marker ? ` ${marker}` : ""}`}
-              onClick={() => place(tile.col, tile.row)}
+              onFocus={() => setFocusedTile({ col: tile.col, row: tile.row })}
+              onClick={(event) => {
+                event.currentTarget.focus();
+                place(tile.col, tile.row);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   place(tile.col, tile.row);
+                  return;
                 }
+                const direction = TILE_DIRECTIONS.find(
+                  (direction) => direction.key === event.key,
+                );
+                if (!direction) return;
+                event.preventDefault();
+                const col = Math.max(0, Math.min(width - 1, tile.col + direction.dx));
+                const row = Math.max(0, Math.min(height - 1, tile.row + direction.dy));
+                event.currentTarget.parentElement
+                  ?.querySelector<SVGGElement>(`[data-tile="${col},${row}"]`)
+                  ?.focus();
               }}
               className="cursor-pointer outline-none focus:opacity-60"
             >
@@ -151,3 +170,10 @@ export const CombatTargetPreview = ({
     </div>
   );
 };
+
+const TILE_DIRECTIONS = [
+  { key: "ArrowLeft", dx: -1, dy: 0 },
+  { key: "ArrowRight", dx: 1, dy: 0 },
+  { key: "ArrowUp", dx: 0, dy: -1 },
+  { key: "ArrowDown", dx: 0, dy: 1 },
+];

@@ -153,9 +153,6 @@ export const CoordinateTargetingEditor = (props: {
           {validation.error.issues[0]?.message}
         </p>
       )}
-      <CombatTargetPreview
-        action={{ method: "COORDINATES", range: 0, coordinateTargeting: pattern }}
-      />
       <div className="flex gap-2">
         <Button
           type="button"
@@ -188,6 +185,9 @@ export const CoordinateTargetingEditor = (props: {
           </Button>
         )}
       </div>
+      <CombatTargetPreview
+        action={{ method: "COORDINATES", range: 0, coordinateTargeting: pattern }}
+      />
     </div>
   );
 };
