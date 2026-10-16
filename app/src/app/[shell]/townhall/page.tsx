@@ -187,7 +187,7 @@ const ElderHall: React.FC<{
   const { data: removalHistory, refetch: refetchHistory } =
     api.kage.getRemovalHistory.useQuery(
       { villageId: user.villageId ?? "" },
-      { enabled: !!user.villageId, refetchInterval: 15000 },
+      { enabled: !!user.villageId, refetchInterval: 15_000 },
     );
   const nominate = api.kage.nominateKage.useMutation({
     onSuccess: async (data) => {
@@ -221,13 +221,13 @@ const ElderHall: React.FC<{
   // Fetch village for kage lock check
   const { data: villageData } = api.village.get.useQuery(
     { id: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId },
+    { staleTime: 10000, enabled: !!user.villageId, refetchInterval: 15_000 },
   );
 
   // Fetch elder votes (war declarations and kage removal motions)
   const { data: elderVotes, refetch: refetchVotes } = api.war.getElderVotes.useQuery(
     { villageId: user.villageId ?? "" },
-    { staleTime: 5000, enabled: !!user.villageId },
+    { staleTime: 5000, enabled: !!user.villageId, refetchInterval: 15_000 },
   );
 
   const { mutate: voteWar, isPending: isVotingWar } =
@@ -700,6 +700,8 @@ const ElderHall: React.FC<{
                   {isElder &&
                     !villageData?.villageData.kageId &&
                     motion.status === "APPROVED" &&
+                    motion.resolvedAt &&
+                    motion.resolvedAt.getTime() === leaderUpdatedAt?.getTime() &&
                     !motion.successorId && (
                       <div className="space-y-2">
                         <UserSearchSelect

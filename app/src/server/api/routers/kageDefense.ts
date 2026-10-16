@@ -302,7 +302,9 @@ export const kageDefenseProcedures = {
             .where(eq(kageChallenge.id, input.id));
           return {
             success: true,
-            message: "Checked in. Remain awake; the Kage starts the battle.",
+            message: hall.village.kage?.isAi
+              ? "Checked in. Remain awake and start the title fight at the appointed time."
+              : "Checked in. Remain awake; the Kage starts the battle.",
           };
         })) ?? errorResponse("Village not found")
       );
