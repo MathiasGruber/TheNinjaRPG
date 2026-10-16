@@ -902,6 +902,34 @@ describe("multi-room home scene", () => {
     expect(onSave.mock.calls[0]![0].styles).toEqual([{ room, paint: "sage", floor: "cedar" }]);
   });
 
+  it.each(["activation", "arrow movement"])("saves finishes for the furniture's room after keyboard %s", async (selection) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const mainStyle = { room: "main" as const, paint: "rose" as const, floor: "terracotta" as const };
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate furniture={[...starterFurniture, rugDefinition]} layout={[
+      ...props.layout,
+      { id: rugDefinition.id, x: 50, y: 50, rotation: 0, room: "room-1" },
+    ]} styles={[mainStyle]} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect((view.getByLabelText("Jump to room") as HTMLSelectElement).value).toBe("main");
+    const rug = view.getByRole("button", { name: "Move Woven Rug" });
+    const before = furniturePosition(rug);
+    rug.focus();
+    // Native Enter/Space activation dispatches a click with no pointer detail.
+    if (selection === "activation") fireEvent.click(rug, { detail: 0 });
+    else fireEvent.keyDown(rug, { key: "ArrowRight" });
+    expect(rug.getAttribute("aria-pressed")).toBe("true");
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
+    expect((view.getByLabelText("Jump to room") as HTMLSelectElement).value).toBe("room-1");
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("ivory");
+    if (selection === "activation") expect(furniturePosition(rug)).toEqual(before);
+    else expect(furniturePosition(rug)).not.toEqual(before);
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.change(view.getByLabelText("Floor tiles"), { target: { value: "slate" } });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].styles).toEqual([mainStyle, { room: "room-1", paint: "sage", floor: "slate" }]);
+  });
+
   it("keeps the source room active when furniture cannot move into the yard", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);

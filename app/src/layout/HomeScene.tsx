@@ -664,8 +664,10 @@ export const HomeScene = ({
                 style={style}
                 onClick={(event) => {
                   if (isVisiting || (hasPinched.current && event.detail > 0)) return;
-                  if (isEditing) setSelectedId(placement.id);
-                  else if (details.action === "sleep") onSleep();
+                  if (isEditing) {
+                    setSelectedId(placement.id);
+                    setActiveRoom(getHomePlacementRoom(placement));
+                  } else if (details.action === "sleep") onSleep();
                   else if (details.action === "storage") onStorage(event.currentTarget);
                   else if (details.action === "kitchen") onKitchen(event.currentTarget);
                   else if (details.action === "farm") onFarm(event.currentTarget);
@@ -765,6 +767,7 @@ export const HomeScene = ({
                   if (!direction) return;
                   event.preventDefault();
                   setSelectedId(placement.id);
+                  setActiveRoom(getHomePlacementRoom(placement));
                   moveFurniture(
                     placement.id,
                     placement.x + direction.dx,
