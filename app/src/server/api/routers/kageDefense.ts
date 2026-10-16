@@ -61,6 +61,8 @@ export const kageDefenseProcedures = {
         (await withKageDefense(ctx.drizzle, input.villageId, async (tx, hall) => {
           if (hall.village.kageId !== ctx.userId)
             return errorResponse("Only the current Kage can publish defense times");
+          if (!(await syncLockedKageDefense(tx, hall)))
+            return errorResponse("Leadership changed. Refresh the defense schedule.");
           if (
             hall.rows.some(({ match }) =>
               ["SCHEDULED", "STARTING", "BATTLE"].includes(match.status),
@@ -69,8 +71,6 @@ export const kageDefenseProcedures = {
             return errorResponse(
               "Assigned matches lock the schedule. Use the match reschedule action instead.",
             );
-          if (!(await syncLockedKageDefense(tx, hall)))
-            return errorResponse("Leadership changed. Refresh the defense schedule.");
           hall.state.windows = input.windows;
           hall.state.publishedAt = hall.now.toISOString();
           await saveKageSchedule(tx, hall);

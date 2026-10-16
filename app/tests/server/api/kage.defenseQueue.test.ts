@@ -58,6 +58,19 @@ describeWithDatabase("scheduled Kage defenses", () => {
     const caller = await callerFor(kageRouter, "defender");
     expect((await caller.publishSchedule({ villageId, windows })).success).toBe(false);
   });
+  it("locks the schedule when publishing assigns a newly queued challenger", async () => {
+    const challenger = await callerFor(kageRouter, "first");
+    expect((await challenger.joinDefenseQueue({ villageId })).success).toBe(true);
+    const db = await getTestDatabase();
+    expect((await db.query.kageChallenge.findFirst())?.status).toBe("QUEUED");
+    const defender = await callerFor(kageRouter, "defender");
+    const result = await defender.publishSchedule({ villageId, windows: [{ day: 3, hour: 16 }, { day: 5, hour: 16 }] });
+    const [match, home] = await Promise.all([db.query.kageChallenge.findFirst(), db.query.village.findFirst()]);
+    expect(match?.status).toBe("SCHEDULED");
+    expect(match?.scheduledAt?.toISOString()).toBe("2026-10-13T14:00:00.000Z");
+    expect(result).toEqual({ success: false, message: "Assigned matches lock the schedule. Use the match reschedule action instead." });
+    expect(home?.kageSchedule?.windows).toEqual(windows);
+  });
   it("rejects invalid weekly windows and unauthorized publishing", async () => {
     const caller = await callerFor(kageRouter, "first");
     expect((await caller.publishSchedule({ villageId, windows })).success).toBe(false);
