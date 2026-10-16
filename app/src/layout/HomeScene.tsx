@@ -801,17 +801,16 @@ export const HomeScene = ({
           (() => {
             const rotations = getHomeFurnitureRotations(selectedFurniture);
             const { left, top, width } = selectedScreenBounds;
-            // Center fixed-size actions on the highlight corners, keeping each button inside the scene.
-            const controlWidth = `clamp(2rem, ${width}%, calc(100% - 2rem))`;
+            // Clamp each highlight corner independently so an off-scene corner cannot shift the visible action.
             return (
               <fieldset
                 aria-label="Furniture controls"
                 data-home-controls
-                className="pointer-events-none absolute z-[10000] min-w-0"
+                className="pointer-events-none absolute z-[10000] min-w-8"
                 style={{
-                  left: `clamp(1rem, ${left}%, calc(100% - 1rem - ${controlWidth}))`,
+                  left: `clamp(1rem, ${left}%, calc(100% - 3rem))`,
+                  right: `clamp(1rem, ${100 - left - width}%, calc(100% - 3rem))`,
                   top: `clamp(1rem, ${top}%, calc(100% - 1rem))`,
-                  width: controlWidth,
                 }}
               >
                 <Button
