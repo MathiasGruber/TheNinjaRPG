@@ -624,6 +624,13 @@
       "when": 1792140723382,
       "tag": "0088_mixed_abomination",
       "breakpoints": false
+    },
+    {
+      "idx": 89,
+      "version": "5",
+      "when": 1792173449538,
+      "tag": "0089_aspiring_shotgun",
+      "breakpoints": false
     }
   ]
 }

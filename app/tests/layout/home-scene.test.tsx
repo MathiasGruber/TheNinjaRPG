@@ -2,12 +2,12 @@ import { ensureDom } from "../setup-dom.mjs";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { type ImgHTMLAttributes, type ComponentProps, useState } from "react";
-import { HOME_FLOOR_TILES, HOME_FURNITURE_MAX_PLACEMENTS, HOME_WALL_PAINTS, type HomeType, HomeTypes, HomeTypeDetails } from "@/drizzle/constants";
+import { HOME_FLOOR_TILES, HOME_FURNITURE_MAX_PLACEMENTS, HOME_WALL_PAINTS, type HomeType, HomeTypes, HomeTypeDetails, IMG_HOME_PROPERTIES } from "@/drizzle/constants";
 import { HomeScene as ResidenceScene } from "@/layout/HomeScene";
 import { homeLayoutPlacementError, projectHomePlacement, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
 import { boundHomeCamera, getHomeOverviewCamera, getHomePlacementRoom, getHomeRoomCamera, getHomeRooms, type HomeCamera, zoomHomeCamera } from "@/libs/homeProperty";
 import { HOME_ART_PLANS, HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
-import { bunnyImageUrl } from "@/utils/image";
+import { bunnyImageUrl, transformImageUrl } from "@/utils/image";
 import { type HomePlacement, homeFurnitureSaveInputSchema } from "@/validators/home";
 
 // The image stub exposes art failures without relying on a browser image loader.
@@ -68,20 +68,39 @@ const centeredEssentialsLayout = [
   { id: "owned-kitchen", x: 73, y: 15.15, rotation: 0 as const },
 ];
 
+let savedEvent: typeof Event;
+let savedCustomEvent: typeof CustomEvent;
+
+beforeEach(() => {
+  ensureDom();
+  savedEvent = globalThis.Event;
+  savedCustomEvent = globalThis.CustomEvent;
+  // Radix dispatches global constructors against the JSDOM document.
+  globalThis.Event = window.Event;
+  globalThis.CustomEvent = window.CustomEvent;
+});
+afterEach(() => {
+  cleanup();
+  globalThis.Event = savedEvent;
+  globalThis.CustomEvent = savedCustomEvent;
+});
+
 /** Regression coverage for residence navigation, owner access, and artwork recovery. */
 describe("Home scene", () => {
   beforeEach(() => {
     ensureDom();
     vi.clearAllMocks();
   });
-  afterEach(cleanup);
 
   it.each([...HomeTypes])("renders %s as one complete property with depth masks from the same painting", (homeType) => {
     const view = render(<HomeScene {...props} homeType={homeType} />);
     const scene = view.getByRole("group", { name: "Home scene" });
     const plan = HOME_ART_PLANS[homeType];
     const painting = view.getByAltText(`${HomeTypeDetails[homeType].name} interior and garden`);
-    expect(painting.getAttribute("src")).toBe(`/images/home/${homeType.toLowerCase()}-ground.webp`);
+    expect(painting.getAttribute("src")).toBe(bunnyImageUrl(IMG_HOME_PROPERTIES[homeType].ground, 1448));
+    const mobileSource = painting.closest("picture")!.querySelector("source")!;
+    expect(mobileSource.getAttribute("media")).toBe("(max-width: 768px)");
+    expect(mobileSource.getAttribute("srcset")).toBe(bunnyImageUrl(IMG_HOME_PROPERTIES[homeType].ground, 960));
     const art = scene.querySelector<HTMLElement>("[data-home-art]")!;
     expect(art.style.width).toBe(`${plan.size}%`);
     expect(art.style.height).toBe(`${plan.size}%`);
@@ -91,6 +110,7 @@ describe("Home scene", () => {
     foreground.forEach((mask, index) => {
       const { polygon, depth } = plan.foreground[index]!;
       expect(mask.querySelector("img")?.getAttribute("src")).toBe(painting.getAttribute("src"));
+      expect(mask.querySelector("source")?.outerHTML).toBe(mobileSource.outerHTML);
       expect(mask.style.clipPath).toBe(`polygon(${polygon.map(([x, y]) => `${x}% ${y}%`).join(",")})`);
       expect(mask.style.zIndex).toBe(`${Math.round(depth * plan.size / 10)}`);
     });
@@ -103,7 +123,7 @@ describe("Home scene", () => {
   it.each(HomeTypes.flatMap((homeType) => ([['ground', 'ground'], ['dessert', 'dessert'], ['ice', 'snow']] as const).map(([biome, terrain]) => ({ homeType, biome, terrain }))))("uses one matching $homeType/$biome painting for the home, garden and foreground", ({ homeType, biome, terrain }) => {
     const view = render(<HomeScene {...props} homeType={homeType} biome={biome} />);
     const scene = view.getByRole("group", { name: "Home scene" });
-    const source = `/images/home/${homeType.toLowerCase()}-${terrain}.webp`;
+    const source = bunnyImageUrl(IMG_HOME_PROPERTIES[homeType][terrain], 1448);
     expect(view.getByAltText(`${HomeTypeDetails[homeType].name} interior and garden`).getAttribute("src")).toBe(source);
     expect(scene.querySelector("[data-home-biome]")?.getAttribute("data-home-biome")).toBe(terrain);
     expect([...scene.querySelectorAll("[data-home-foreground] img")].every((image) => image.getAttribute("src") === source)).toBe(true);
@@ -125,7 +145,7 @@ describe("Home scene", () => {
     const top = Math.min(...points.map(([, y]) => y));
     if (material === "original") expect(floor).toBeNull();
     else {
-      expect(floor?.getAttribute("href")).toBe(HOME_FLOOR_TILES[material]);
+      expect(floor?.getAttribute("href")).toBe(transformImageUrl(HOME_FLOOR_TILES[material]));
       expect(floor?.getAttribute("x")).toBe(`${left}`);
       expect(floor?.getAttribute("y")).toBe(`${top}`);
       expect(floor?.getAttribute("width")).toBe(`${Math.max(...points.map(([x]) => x)) - left}`);
@@ -224,15 +244,37 @@ describe("Home scene", () => {
     expect(view.getByLabelText("Camera zoom").textContent).toBe("120%");
   });
 
-  it("keeps the full-resolution local painting and responsive furniture renditions", () => {
+  it("serves responsive property and furniture renditions through Bunny", () => {
     const view = render(<HomeScene {...props} canDecorate />);
-    expect(view.getByAltText("Tent interior and garden").getAttribute("src")).toBe("/images/home/none-ground.webp");
+    expect(view.getByAltText("Tent interior and garden").getAttribute("src")).toBe(bunnyImageUrl(IMG_HOME_PROPERTIES.NONE.ground, 1448));
     const bedSource = view.getByRole("button", { name: "Bed: Go to sleep" }).querySelector("source");
     expect(bedSource?.getAttribute("srcset")).toContain(`${bunnyImageUrl(starterFurniture[0]!.image, 128)} 128w`);
     expect(bedSource?.getAttribute("sizes")).toBe("(max-width: 768px) 34vw, 261px");
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     const previews = view.getByRole("group", { name: "Owned furniture" });
     expect(previews.querySelector("source")?.getAttribute("sizes")).toBe("80px");
+  });
+
+  it.each([...HomeTypes])("upgrades every %s painting layer together when the camera zooms", (homeType) => {
+    const view = render(<HomeScene {...props} homeType={homeType} canDecorate />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const source = IMG_HOME_PROPERTIES[homeType].ground;
+    const paintingSources = () => [...scene.querySelectorAll("[data-home-art] source, [data-home-foreground] source")];
+    const expectWidth = (width: number) => {
+      expect(paintingSources().length).toBeGreaterThan(1);
+      expect(paintingSources().every((image) => image.getAttribute("srcset") === bunnyImageUrl(source, width))).toBe(true);
+    };
+    expectWidth(960);
+    fireEvent.click(view.getByRole("button", { name: "Zoom in" }));
+    expectWidth(1448);
+    fireEvent.click(view.getByRole("button", { name: "Reset view" }));
+    expectWidth(960);
+    for (let zoom = 0; zoom < 12; zoom++) fireEvent.click(view.getByRole("button", { name: "Zoom in" }));
+    expectWidth(1448);
+    fireEvent.click(view.getByRole("button", { name: "Reset view" }));
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^BedPlaced$/ }));
+    expectWidth(1448);
   });
 
   it("opens home actions through callbacks without leaving the residence", () => {
@@ -873,7 +915,6 @@ describe("Home scene", () => {
 
 describe("multi-room home scene", () => {
   beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
-  afterEach(cleanup);
 
   it.each(["Decorate", "Undo changes"])("selects furniture in the active room on %s and saves that room's paint", async (action) => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);

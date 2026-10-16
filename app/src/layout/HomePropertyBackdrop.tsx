@@ -6,28 +6,41 @@ import {
   HOME_WALL_PAINTS,
   type HomeType,
   HomeTypeDetails,
+  IMG_HOME_PROPERTIES,
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
 import { HOME_ART_PLANS } from "@/libs/homeRoomGeometry";
 import { STRUCTURE_GROUND_TERRAIN } from "@/libs/sector-map/terrains";
+import { bunnyImageUrl, transformImageUrl } from "@/utils/image";
 import type { HomeRoomStyle } from "@/validators/home";
 
 /** One complete painting supplies the property and depth masks, so walls and scenery always join. */
 export const HomePropertyBackdrop = ({
   homeType,
+  cameraScale,
   biome = "ground",
   styles,
   onError,
 }: {
   homeType: HomeType;
+  cameraScale: number;
   biome?: CombatBiome;
   styles: HomeRoomStyle[];
   onError?: () => void;
 }) => {
   const id = useId();
   const plan = HOME_ART_PLANS[homeType];
-  const terrain = STRUCTURE_GROUND_TERRAIN[biome];
-  const src = `/images/home/${homeType.toLowerCase()}-${terrain}.webp`;
+  const terrain = STRUCTURE_GROUND_TERRAIN[
+    biome
+  ] as keyof (typeof IMG_HOME_PROPERTIES)[HomeType];
+  const src = IMG_HOME_PROPERTIES[homeType][terrain];
+  // A single media-selected URL keeps the painting and every depth mask pixel-identical.
+  // Zoomed views use the original dimensions rather than magnifying the mobile overview.
+  const mobileSrc = bunnyImageUrl(
+    src,
+    Math.round(plan.size * cameraScale) > 100 ? 1448 : 960,
+  );
+  const fullSrc = bunnyImageUrl(src, 1448);
   const size = { width: `${plan.size}%`, height: `${plan.size}%` };
   return (
     <>
@@ -37,16 +50,19 @@ export const HomePropertyBackdrop = ({
         className="pointer-events-none absolute"
         style={size}
       >
-        <Image
-          src={src}
-          alt={`${HomeTypeDetails[homeType].name} interior and garden`}
-          fill
-          unoptimized
-          className="select-none"
-          loading="eager"
-          fetchPriority="high"
-          onError={onError}
-        />
+        <picture className="absolute inset-0">
+          <source media="(max-width: 768px)" srcSet={mobileSrc} />
+          <Image
+            src={fullSrc}
+            alt={`${HomeTypeDetails[homeType].name} interior and garden`}
+            fill
+            unoptimized
+            className="select-none"
+            loading="eager"
+            fetchPriority="high"
+            onError={onError}
+          />
+        </picture>
       </div>
       {styles.map((style) => {
         const index = HOME_ROOM_IDS.indexOf(style.room);
@@ -78,7 +94,7 @@ export const HomePropertyBackdrop = ({
             </defs>
             {/* The complete painting supplies the floor if this optional finish fails to load. */}
             <image
-              href={texture}
+              href={transformImageUrl(texture)}
               x={left}
               y={top}
               width={Math.max(...points.map(([x]) => x)) - left}
@@ -101,15 +117,18 @@ export const HomePropertyBackdrop = ({
             clipPath: `polygon(${polygon.map(([x, y]) => `${x}% ${y}%`).join(",")})`,
           }}
         >
-          <Image
-            src={src}
-            alt=""
-            fill
-            unoptimized
-            className="select-none"
-            loading="eager"
-            onError={onError}
-          />
+          <picture className="absolute inset-0">
+            <source media="(max-width: 768px)" srcSet={mobileSrc} />
+            <Image
+              src={fullSrc}
+              alt=""
+              fill
+              unoptimized
+              className="select-none"
+              loading="eager"
+              onError={onError}
+            />
+          </picture>
         </div>
       ))}
       {styles.flatMap((style) => {

@@ -393,7 +393,6 @@ export default function HomePage() {
         <div className="mb-4">
           <HomeSharing
             isPublic={homeData.isPublic}
-            invitations={homeData.invitations}
             revision={homeData.furnitureRevision}
             userId={userData.userId}
             onChanged={userHomeRefetch}

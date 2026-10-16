@@ -541,6 +541,7 @@ export const HomeScene = ({
           {!hasImageError && (
             <HomePropertyBackdrop
               homeType={homeType}
+              cameraScale={camera.scale}
               biome={biome}
               styles={draft?.styles ?? styles}
               onError={() => setFailedHomeType(homeType)}

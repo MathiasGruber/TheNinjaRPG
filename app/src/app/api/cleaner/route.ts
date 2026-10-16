@@ -427,6 +427,7 @@ export async function GET(request: Request) {
         DELETE r, wa FROM ${userRequest} r
         LEFT JOIN ${warAlly} wa ON wa.id = r.id AND wa.acceptedAt IS NULL
         WHERE r.createdAt < ${secondsFromNow(-3600 * 24)}
+          AND NOT (r.type = 'HOME' AND r.status = 'ACCEPTED')
       `),
     );
 

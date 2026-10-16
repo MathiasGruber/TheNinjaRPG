@@ -34,6 +34,43 @@ describeWithDatabase("home furniture inventory migration", () => {
     }
   });
 
+  it("moves home settings and existing grants without changing balances or access", async () => {
+    const connection = await mysql.createConnection({ uri: process.env.TEST_MYSQL_URL, multipleStatements: true });
+    const prefix = `home_settings_${randomUUID().replaceAll("-", "")}_`;
+    const names = ["UserData", "UserRequest", "UserHome"];
+    const query = <T extends mysql.QueryResult = mysql.QueryResult>(statement: string, values?: unknown[]) =>
+      connection.query<T>(statement.replace(/\b(UserData|UserRequest|UserHome)\b/g, `${prefix}$1`), values);
+    try {
+      const snapshot = JSON.parse(await readFile("drizzle/migrations/meta/0088_snapshot.json", "utf8")) as { tables: Record<string, SnapshotTable> };
+      for (const name of ["UserData", "UserRequest"]) await query(baselineTableSql(snapshot.tables[name]!));
+      const styles = [{ room: "main", paint: "sage", floor: "slate" }];
+      const guests = Array.from({ length: 100 }, (_, index) => ({ userId: `guest-${index}`, username: `Guest ${index}` }));
+      for (const id of ["host", "public-host", "default-owner", ...guests.map(({ userId }) => userId)])
+        await query("INSERT INTO UserData (userId, username, gender, money, bank, homeFurnitureRevision) VALUES (?, ?, 'Other', 123456, 654321, 7)", [id, id]);
+      await query("UPDATE UserData SET homeRoomStyles = ?, homeInvitations = ? WHERE userId = 'host'", [JSON.stringify(styles), JSON.stringify([guests[0], guests[0], { userId: "host" }, { userId: "deleted-guest" }, guests[99]])]);
+      await query("UPDATE UserData SET homePublic = true, homeInvitations = ? WHERE userId = 'public-host'", [JSON.stringify(guests)]);
+      await query("INSERT INTO UserRequest (id, senderId, receiverId, status, type) VALUES ('spar', 'host', 'guest-0', 'PENDING', 'SPAR')");
+      const migration = await readFile("drizzle/migrations/0089_aspiring_shotgun.sql", "utf8");
+      expect(migration).not.toContain("--> statement-breakpoint");
+      await query(migration);
+      const [homes] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserHome ORDER BY userId");
+      expect(homes.map(({ userId, roomStyles, isPublic }) => ({ userId, roomStyles, isPublic }))).toEqual([{ userId: "host", roomStyles: styles, isPublic: 0 }, { userId: "public-host", roomStyles: [], isPublic: 1 }]);
+      const [requests] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserRequest WHERE type = 'HOME'");
+      expect(requests).toHaveLength(102);
+      expect(requests.every((row) => row.status === "ACCEPTED" && row.receiverId === row.activeHomeReceiverId)).toBe(true);
+      expect(requests.some((row) => row.senderId === "public-host" && row.receiverId === "guest-99")).toBe(true);
+      const [existing] = await query<mysql.RowDataPacket[]>("SELECT type, status FROM UserRequest WHERE id = 'spar'");
+      expect(existing.map(({ type, status }) => ({ type, status }))).toEqual([{ type: "SPAR", status: "PENDING" }]);
+      const [accounts] = await query<mysql.RowDataPacket[]>("SELECT money, bank, homeFurnitureRevision FROM UserData");
+      expect(accounts.every((row) => row.money === 123456 && row.bank === 654321 && row.homeFurnitureRevision === 7)).toBe(true);
+      const [columns] = await query<mysql.RowDataPacket[]>("SHOW COLUMNS FROM UserData");
+      expect(columns.some((column) => ["homeRoomStyles", "homePublic", "homeInvitations"].includes(column.Field))).toBe(false);
+    } finally {
+      await connection.query(`DROP TABLE IF EXISTS ${names.map((name) => quoteIdentifier(prefix + name)).join(", ")}`);
+      await connection.end();
+    }
+  }, 30_000);
+
   it("seeds ordinary furniture and grants starter copies without changing balances or existing inventory", async () => {
     const connection = await mysql.createConnection({
       uri: process.env.TEST_MYSQL_URL,

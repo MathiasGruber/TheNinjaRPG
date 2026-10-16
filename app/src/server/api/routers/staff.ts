@@ -65,6 +65,7 @@ import {
   userCookingJob,
   userData,
   userDevice,
+  userHome,
   userItem,
   userJutsu,
   userLikes,
@@ -1047,6 +1048,10 @@ export const staffRouter = createTRPCRouter({
           .set({ userId: input.newUserId })
           .where(eq(userItem.userId, input.userId)),
         ctx.drizzle
+          .update(userHome)
+          .set({ userId: input.newUserId })
+          .where(eq(userHome.userId, input.userId)),
+        ctx.drizzle
           .update(userJutsu)
           .set({ userId: input.newUserId })
           .where(eq(userJutsu.userId, input.userId)),
@@ -1443,6 +1448,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(userReview).where(eq(userReview.authorUserId, userId)),
     client.delete(userReview).where(eq(userReview.targetUserId, userId)),
     client.delete(userNindo).where(eq(userNindo.userId, userId)),
+    client.delete(userHome).where(eq(userHome.userId, userId)),
     client.delete(userLikes).where(eq(userLikes.userId, userId)),
     client.delete(userRequest).where(eq(userRequest.senderId, userId)),
     client.delete(userRequest).where(eq(userRequest.receiverId, userId)),

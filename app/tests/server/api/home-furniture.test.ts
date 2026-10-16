@@ -1,7 +1,7 @@
 import { beforeEach, expect, it } from "bun:test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { HOME_FURNITURE_STARTERS, HOME_FURNITURE_STORAGE_CAPACITY, HomeTypeDetails } from "@/drizzle/constants";
-import { item, itemVariant, userData, userItem, userItemVariant, village } from "@/drizzle/schema";
+import { item, itemVariant, userData, userHome, userItem, userRequest, userItemVariant, village } from "@/drizzle/schema";
 import { homeRouter } from "@/server/api/routers/home";
 import { itemRouter } from "@/server/api/routers/item";
 import { createStarterHomeItems } from "@/server/utils/homeFurniture";
@@ -39,13 +39,14 @@ const expectLayout = (actual: HomePlacement[] | undefined, expected: HomePlaceme
 /** Real inventory rows verify that every placement and the revision publish together. */
 describeWithDatabase("owned furniture persistence", () => {
   beforeEach(async () => {
-    await resetTables(userItemVariant, itemVariant, userItem, item, userData, village);
+    await resetTables(userHome, userRequest, userItemVariant, itemVariant, userItem, item, userData, village);
     const database = await getTestDatabase();
     await database.insert(village).values({ id: homeVillage, name: "Home", sector: 30, kageId: "kage" });
     await insertUsers([
       { userId, username: userId, villageId: homeVillage, sector: 30, status: "AWAKE", money: initialMoney },
       { userId: "other-owner", username: "other-owner", villageId: homeVillage, sector: 30, status: "AWAKE" },
     ]);
+    await database.insert(userHome).values([{ userId }, { userId: "other-owner" }]);
     await insertItems([
       { ...FURNITURE_ITEM_DEFAULTS, id: "cabinet", name: "Painted Cabinet", description: "Timber cabinet", image: "/cabinet.webp", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, width: 28, groundAnchor: 92, views: { "90": { image: "/cabinet-90.webp" }, "180": { image: "/cabinet-180.webp", width: 18 }, "270": { image: "/cabinet-270.webp", groundAnchor: 85 } } } },
       { ...FURNITURE_ITEM_DEFAULTS, id: "rug", name: "Woven Rug", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, isFloor: true } },
@@ -164,19 +165,21 @@ describeWithDatabase("owned furniture persistence", () => {
     const db = await getTestDatabase();
     await db.update(village).set({ sector }).where(eq(village.id, homeVillage));
     await db.insert(village).values({ id: "visitor-village", name: "Visitor", sector: sector === 203 ? 271 : 203, kageId: "visitor-kage" });
-    await db.update(userData).set({ sector: sector === 305 ? 203 : 305, homePublic: true }).where(eq(userData.userId, userId));
+    await db.update(userData).set({ sector: sector === 305 ? 203 : 305 }).where(eq(userData.userId, userId));
     await db.update(userData).set({ villageId: "visitor-village", sector: 296 }).where(eq(userData.userId, "other-owner"));
+    await db.update(userHome).set({ isPublic: true }).where(eq(userHome.userId, userId));
     const owner = await callerFor(homeRouter, userId);
     const visitor = await callerFor(homeRouter, "other-owner");
     const read = await recordQueries(() => Promise.all([owner.getUserHome(), visitor.getVisitedHome({ userId })]));
     expect(read.result[0]?.biome).toBe(biome);
     expect(read.result[1].home?.biome).toBe(biome);
-    expect(read.statements).toHaveLength(2);
+    expect(read.statements).toHaveLength(3);
   });
 
   it("uses grassland for village-less homes without depending on current travel location", async () => {
     const db = await getTestDatabase();
-    await db.update(userData).set({ villageId: null, sector: 203, homePublic: true }).where(eq(userData.userId, userId));
+    await db.update(userData).set({ villageId: null, sector: 203 }).where(eq(userData.userId, userId));
+    await db.update(userHome).set({ isPublic: true }).where(eq(userHome.userId, userId));
     const owner = await callerFor(homeRouter, userId);
     const visitor = await callerFor(homeRouter, "other-owner");
     expect((await owner.getUserHome())?.biome).toBe("ground");
@@ -189,17 +192,104 @@ describeWithDatabase("owned furniture persistence", () => {
     const before = await snapshot();
     expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
     expect(await snapshot()).toEqual(before);
-    expect((await api.setHomeSharing({ revision: 0, isPublic: false, inviteUsername: "other-owner" })).success).toBe(true);
+    expect((await api.inviteHomeVisitor({ username: "other-owner" })).success).toBe(true);
+    const request = (await visitor.getHomeRequests())[0]!;
+    expect(request.type).toBe("HOME");
+    expect(request.status).toBe("PENDING");
+    expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
+    expect((await visitor.acceptHomeInvitation({ id: request.id })).success).toBe(true);
     const visit = await visitor.getVisitedHome({ userId });
     expect(visit.success).toBe(true);
     expect(visit.home?.furniture.some(({ id }) => id === "rug-row")).toBe(false);
     expect(visit.home && Object.keys(visit.home).sort()).toEqual(["biome", "furniture", "homeType", "layout", "styles", "username"]);
-    expect((await api.setHomeSharing({ revision: 1, isPublic: false, revokeUserId: "other-owner" })).success).toBe(true);
+    expect((await api.cancelHomeInvitation({ id: request.id })).success).toBe(true);
     expect((await visitor.getVisitedHome({ userId })).home).toBeNull();
-    expect((await api.setHomeSharing({ revision: 2, isPublic: true })).success).toBe(true);
+    expect((await api.setHomeSharing({ revision: 0, isPublic: true })).success).toBe(true);
     expect((await visitor.getVisitedHome({ userId })).success).toBe(true);
-    expect((await api.setHomeSharing({ revision: 2, isPublic: false })).success).toBe(false);
+    expect((await api.setHomeSharing({ revision: 0, isPublic: false })).success).toBe(false);
     expect((await visitor.getVisitedHome({ userId })).success).toBe(true);
+  });
+
+  it("initializes home-only settings on writes while default reads remain side-effect free", async () => {
+    const db = await getTestDatabase();
+    await db.delete(userHome).where(eq(userHome.userId, userId));
+    const api = await callerFor(homeRouter, userId);
+    const read = await recordQueries(() => api.getUserHome());
+    expect(read.result).toMatchObject({ styles: [], isPublic: false });
+    expect(read.statements).toHaveLength(1);
+    expect(await db.query.userHome.findFirst({ where: eq(userHome.userId, userId) })).toBeUndefined();
+    expect((await api.setHomeSharing({ revision: 99, isPublic: true })).success).toBe(false);
+    expect(await db.query.userHome.findFirst({ where: eq(userHome.userId, userId) })).toBeUndefined();
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: essentialLayout, styles: [{ room: "main", paint: "sage", floor: "slate" }] })).success).toBe(true);
+    expect((await api.getUserHome())?.styles).toEqual([{ room: "main", paint: "sage", floor: "slate" }]);
+    const account = await db.query.userData.findFirst({ where: eq(userData.userId, userId) });
+    expect(account).not.toHaveProperty("homeRoomStyles");
+    expect(account).not.toHaveProperty("homeInvitations");
+    expect(account).not.toHaveProperty("homePublic");
+  });
+
+  it("uses shared invitation states and rejects unauthorized, stale and missing actions", async () => {
+    const db = await getTestDatabase();
+    const host = await callerFor(homeRouter, userId);
+    const guest = await callerFor(homeRouter, "other-owner");
+    expect((await host.inviteHomeVisitor({ username: userId })).success).toBe(false);
+    expect((await host.inviteHomeVisitor({ username: "missing-player" })).success).toBe(false);
+    await db.update(userData).set({ isBanned: true }).where(eq(userData.userId, "other-owner"));
+    expect((await host.inviteHomeVisitor({ username: "other-owner" })).success).toBe(false);
+    await db.update(userData).set({ isBanned: false }).where(eq(userData.userId, "other-owner"));
+    expect((await host.inviteHomeVisitor({ username: "other-owner" })).success).toBe(true);
+    const request = (await host.getHomeRequests())[0]!;
+    expect((await guest.getHomeRequests())[0]?.id).toBe(request.id);
+    expect((await host.acceptHomeInvitation({ id: request.id })).success).toBe(false);
+    expect((await host.rejectHomeInvitation({ id: request.id })).success).toBe(false);
+    expect((await guest.cancelHomeInvitation({ id: request.id })).success).toBe(false);
+    expect((await guest.rejectHomeInvitation({ id: request.id })).success).toBe(true);
+    expect((await guest.acceptHomeInvitation({ id: request.id })).success).toBe(false);
+    expect((await host.inviteHomeVisitor({ username: "other-owner" })).success).toBe(true);
+    expect((await host.getHomeRequests()).find((row) => row.status === "PENDING")).toBeTruthy();
+    for (const api of [host, guest]) for (const action of [api.acceptHomeInvitation, api.rejectHomeInvitation, api.cancelHomeInvitation]) {
+      expect((await action({ id: "already-cleaned-up" })).success).toBe(false);
+    }
+    expect((await guest.getVisitedHome({ userId })).home).toBeNull();
+  });
+
+  it("keeps one active grant when duplicate invitations race", async () => {
+    const db = await getTestDatabase();
+    const host = await callerFor(homeRouter, userId);
+    const results = await Promise.all([
+      host.inviteHomeVisitor({ username: "other-owner" }),
+      host.inviteHomeVisitor({ username: "other-owner" }),
+    ]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(await db.query.userRequest.findMany({ where: and(eq(userRequest.type, "HOME"), eq(userRequest.senderId, userId)) })).toHaveLength(1);
+  });
+
+  it("rejects acceptance after a concurrent revocation without recreating access", async () => {
+    const db = await getTestDatabase();
+    const host = await callerFor(homeRouter, userId);
+    await host.inviteHomeVisitor({ username: "other-owner" });
+    const request = (await host.getHomeRequests())[0]!;
+    const delayed = await callerForDatabase(homeRouter, "other-owner", beforeStatements(db, userRequest, [async () => {
+      expect((await host.cancelHomeInvitation({ id: request.id })).success).toBe(true);
+    }]));
+    expect((await delayed.acceptHomeInvitation({ id: request.id })).success).toBe(false);
+    const guest = await callerFor(homeRouter, "other-owner");
+    expect((await guest.getVisitedHome({ userId })).home).toBeNull();
+    expect((await guest.getHomeRequests())[0]?.status).toBe("CANCELLED");
+  });
+
+  it("expires pending invitations without expiring accepted home access", async () => {
+    const db = await getTestDatabase();
+    const host = await callerFor(homeRouter, userId);
+    const guest = await callerFor(homeRouter, "other-owner");
+    await host.inviteHomeVisitor({ username: "other-owner" });
+    const request = (await host.getHomeRequests())[0]!;
+    await db.update(userRequest).set({ createdAt: new Date(Date.now() - 2 * 86400000) }).where(eq(userRequest.id, request.id));
+    expect((await guest.acceptHomeInvitation({ id: request.id })).success).toBe(false);
+    await db.update(userRequest).set({ status: "ACCEPTED" }).where(eq(userRequest.id, request.id));
+    expect((await guest.getVisitedHome({ userId })).success).toBe(true);
+    expect((await host.cancelHomeInvitation({ id: request.id })).success).toBe(true);
+    expect((await guest.getVisitedHome({ userId })).home).toBeNull();
   });
 
   it("guards a downgrade against a concurrent layout save before refunding or clearing rooms", async () => {
@@ -215,6 +305,19 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(after.owner.homeType).toBe("TOWN_HOUSE");
     expect(after.owner.money).toBe(initialMoney);
     expect(after.owner.homeFurnitureRevision).toBe(1);
+  });
+
+  it.each(["save", "downgrade"] as const)("rejects %s without changing inventory or balances if home settings disappear before the write", async (action) => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
+    const before = await snapshot();
+    const client = beforeStatements(db, userHome, [async () => db.delete(userHome).where(eq(userHome.userId, userId))]);
+    const api = callerForDatabase(homeRouter, userId, client);
+    const result = action === "save"
+      ? await api.saveFurnitureLayout({ homeType: "TOWN_HOUSE", revision: 0, placements: layout(), styles: [{ room: "main", paint: "sage", floor: "slate" }] })
+      : await api.upgradeHome({ homeType: "NONE" });
+    expect(result.success).toBe(false);
+    expect(await snapshot()).toEqual(before);
   });
 
   it.each([false, true])("refunds a downgrade with no removed placements even when inventory is empty: %s", async (isEmpty) => {

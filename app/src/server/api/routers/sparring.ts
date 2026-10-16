@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { UserRequestState, UserRequestType } from "@/drizzle/constants";
 import { RANKED_PVP_STATS } from "@/drizzle/constants";
-import type { RankedLoadout } from "@/drizzle/schema";
+import type { RankedLoadout, UserRequest } from "@/drizzle/schema";
 import { rankedLoadout, userRequest } from "@/drizzle/schema";
 import { SPAR_EXPIRY_SECONDS } from "@/libs/combat/constants";
 import { getServerPusher } from "@/libs/pusher";
@@ -249,20 +249,34 @@ export const fetchRequests = async (
  * @param client - The Drizzle client used to query the database.
  * @param id - The ID of the request to fetch.
  * @param type - The type of the request to fetch.
+ * @param options - Allow an absent request when expiry or revocation is an expected outcome.
  * @returns - A promise that resolves to the fetched user request.
- * @throws {ServerError} - If the request is not found in the database.
+ * @throws {ServerError} - If the request is not found and allowMissing is not set.
  */
-export const fetchRequest = async (
+export function fetchRequest(
   client: DrizzleClient,
   id: string,
   type: UserRequestType,
-) => {
+): Promise<UserRequest>;
+export function fetchRequest(
+  client: DrizzleClient,
+  id: string,
+  type: UserRequestType,
+  options: { allowMissing: true },
+): Promise<UserRequest | undefined>;
+export async function fetchRequest(
+  client: DrizzleClient,
+  id: string,
+  type: UserRequestType,
+  options?: { allowMissing: true },
+) {
   const result = await client.query.userRequest.findFirst({
     where: and(eq(userRequest.id, id), eq(userRequest.type, type)),
   });
-  if (!result) throw serverError("NOT_FOUND", "Request not found");
+  if (!result && !options?.allowMissing)
+    throw serverError("NOT_FOUND", "Request not found");
   return result;
-};
+}
 
 /**
  * Updates the state of a user request in the database.
@@ -271,6 +285,7 @@ export const fetchRequest = async (
  * @param challengeId - The ID of the challenge.
  * @param status - The new state of the user request.
  * @param type - The type of the user request.
+ * @param expectedStatus - Optional CAS guard for revocable requests whose status must not be overwritten.
  * @returns An object indicating the success of the update operation.
  */
 export const updateRequestState = async (
@@ -279,14 +294,23 @@ export const updateRequestState = async (
   status: UserRequestState,
   type: UserRequestType,
   relatedId?: string,
+  expectedStatus?: UserRequestState,
 ) => {
-  await client
+  const result = await client
     .update(userRequest)
     .set({
       status,
       ...(relatedId && { relatedId }),
     })
-    .where(and(eq(userRequest.id, challengeId), eq(userRequest.type, type)));
+    .where(
+      and(
+        eq(userRequest.id, challengeId),
+        eq(userRequest.type, type),
+        ...(expectedStatus ? [eq(userRequest.status, expectedStatus)] : []),
+      ),
+    );
+  if (expectedStatus && !result.rowsAffected)
+    return errorResponse("Request changed. Refresh and try again");
   return { success: true, message: "Challenge state updated" };
 };
 

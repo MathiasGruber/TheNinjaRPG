@@ -14,12 +14,13 @@ import {
 import type { UserStatus } from "@/drizzle/constants";
 import {
   HOME_FURNITURE_STORAGE_CAPACITY,
+  HOME_INVITATION_EXPIRY_SECONDS,
   HOME_MAX_INVITATIONS,
   HomeTypeDetails,
   HomeTypes,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
 } from "@/drizzle/constants";
-import { item, userData, userItem } from "@/drizzle/schema";
+import { item, userData, userHome, userItem, userRequest } from "@/drizzle/schema";
 import { applyActiveVariant } from "@/libs/combat/util";
 import {
   getHomeLayout,
@@ -42,6 +43,12 @@ import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { calcIsInVillage, getBiomeFromTileType } from "@/libs/travel";
 import { fetchUserItems } from "@/routers/item";
 import { fetchUpdatedUser } from "@/routers/profile";
+import {
+  fetchRequest,
+  fetchRequests,
+  insertRequest,
+  updateRequestState,
+} from "@/routers/sparring";
 import { fetchSectorVillage } from "@/routers/village";
 import {
   baseServerResponse,
@@ -51,12 +58,14 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { getNextUserSnapshotAt } from "@/server/utils/concurrency";
-import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { getSectorTileType } from "@/server/utils/sectorMap";
+import { secondsFromNow } from "@/utils/time";
 import {
   type HomePlacement,
   type HomeRoomStyle,
   homeFurnitureSaveInputSchema,
+  homeInvitationInputSchema,
   homeSharingInputSchema,
   homeSleepResponseSchema,
   homeStorageInputSchema,
@@ -64,21 +73,31 @@ import {
   homeVisitInputSchema,
 } from "@/validators/home";
 import { DEFAULT_FURNITURE_DATA } from "@/validators/itemFurniture";
+import { idSchema } from "@/validators/misc";
 
 export const homeRouter = createTRPCRouter({
   /** Return authorized, placed decorations without repairing the owner's home or exposing inventory. */
   getVisitedHome: protectedProcedure
     .input(homeVisitInputSchema)
     .query(async ({ ctx, input }) => {
-      const owner = await fetchHomeFurnitureUser(ctx.drizzle, input.userId);
+      const [owner, invitation] = await Promise.all([
+        fetchHomeFurnitureUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.userRequest.findFirst({
+          where: and(
+            eq(userRequest.senderId, input.userId),
+            eq(userRequest.receiverId, ctx.userId),
+            eq(userRequest.type, "HOME"),
+            eq(userRequest.status, "ACCEPTED"),
+          ),
+          columns: { id: true },
+        }),
+      ]);
       if (
         !owner ||
         owner.isBanned ||
         owner.isAi ||
         owner.deletionAt ||
-        (input.userId !== ctx.userId &&
-          !owner.homePublic &&
-          !owner.homeInvitations.some(({ userId }) => userId === ctx.userId))
+        (input.userId !== ctx.userId && !owner.home?.isPublic && !invitation)
       ) {
         return {
           success: false as const,
@@ -98,64 +117,166 @@ export const homeRouter = createTRPCRouter({
           username: owner.username,
           homeType: owner.homeType,
           biome: getHomeBiome(owner),
-          styles: owner.homeRoomStyles,
+          styles: owner.home?.roomStyles ?? [],
           layout,
           furniture: furniture.filter(({ id }) => placed.has(id)),
         },
       };
     }),
 
-  /** Publish visibility and invitations under one revision guard so concurrent revocations cannot be lost. */
+  /** Shared requests carry pending invitations and durable, revocable accepted home access. */
+  getHomeRequests: protectedProcedure.query(async ({ ctx }) =>
+    fetchRequests(ctx.drizzle, ["HOME"], undefined, ctx.userId),
+  ),
+
+  /** Send the existing request type instead of granting access through an account JSON list. */
+  inviteHomeVisitor: protectedProcedure
+    .input(homeInvitationInputSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [owner, invitee, requests] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+          columns: { isBanned: true, isAi: true, deletionAt: true },
+        }),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.username, input.username),
+          columns: { userId: true, isAi: true, isBanned: true, deletionAt: true },
+        }),
+        fetchRequests(ctx.drizzle, ["HOME"], undefined, ctx.userId),
+      ]);
+      if (!owner || owner.isBanned || owner.isAi || owner.deletionAt)
+        return errorResponse("Home unavailable");
+      if (
+        !invitee ||
+        invitee.isAi ||
+        invitee.isBanned ||
+        invitee.deletionAt ||
+        invitee.userId === ctx.userId
+      )
+        return errorResponse("Choose another active player to invite");
+      const active = requests.filter(
+        (request) =>
+          request.senderId === ctx.userId &&
+          ["PENDING", "ACCEPTED"].includes(request.status),
+      );
+      if (active.some((request) => request.receiverId === invitee.userId))
+        return errorResponse("This player already has a home invitation");
+      if (active.length >= HOME_MAX_INVITATIONS)
+        return errorResponse(`You can invite up to ${HOME_MAX_INVITATIONS} players`);
+      // The unique active pair prevents duplicate grants. Concurrent invitations to different players
+      // can exceed the cosmetic list cap; owners can revoke them without account or inventory costs.
+      try {
+        await insertRequest(ctx.drizzle, ctx.userId, invitee.userId, "HOME");
+      } catch (error) {
+        if (isMysqlDuplicateKeyError(error))
+          return errorResponse("This player already has a home invitation");
+        throw error;
+      }
+      void getServerPusher().trigger(invitee.userId, "event", {
+        type: "userMessage",
+        message: "You have been invited to visit a home",
+        route: "/home#home-invitations",
+        routeText: "View invitation",
+      });
+      return { success: true, message: "Home invitation sent" };
+    }),
+
+  /** Only the recipient can accept a live invitation; revocation wins against a stale acceptance. */
+  acceptHomeInvitation: protectedProcedure
+    .input(idSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const request = await fetchRequest(ctx.drizzle, input.id, "HOME", {
+        allowMissing: true,
+      });
+      if (!request)
+        return errorResponse(
+          "This invitation is no longer available. Refresh and try again",
+        );
+      if (request.receiverId !== ctx.userId)
+        return errorResponse("Not your invitation to accept");
+      if (request.status !== "PENDING")
+        return errorResponse("This invitation is no longer pending");
+      if (request.createdAt < secondsFromNow(-HOME_INVITATION_EXPIRY_SECONDS))
+        return errorResponse("This invitation has expired");
+      return updateRequestState(
+        ctx.drizzle,
+        request.id,
+        "ACCEPTED",
+        "HOME",
+        undefined,
+        "PENDING",
+      );
+    }),
+
+  /** Rejection changes the same shared request rather than maintaining a second access list. */
+  rejectHomeInvitation: protectedProcedure
+    .input(idSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const request = await fetchRequest(ctx.drizzle, input.id, "HOME", {
+        allowMissing: true,
+      });
+      if (!request)
+        return errorResponse(
+          "This invitation is no longer available. Refresh and try again",
+        );
+      if (request.receiverId !== ctx.userId)
+        return errorResponse("Not your invitation to reject");
+      if (request.status !== "PENDING")
+        return errorResponse("This invitation is no longer pending");
+      return updateRequestState(
+        ctx.drizzle,
+        request.id,
+        "REJECTED",
+        "HOME",
+        undefined,
+        "PENDING",
+      );
+    }),
+
+  /** The host can cancel pending requests and revoke accepted access with the same guarded transition. */
+  cancelHomeInvitation: protectedProcedure
+    .input(idSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const request = await fetchRequest(ctx.drizzle, input.id, "HOME", {
+        allowMissing: true,
+      });
+      if (!request)
+        return errorResponse(
+          "This invitation is no longer available. Refresh and try again",
+        );
+      if (request.senderId !== ctx.userId)
+        return errorResponse("Only the host can revoke this invitation");
+      if (!["PENDING", "ACCEPTED"].includes(request.status))
+        return errorResponse("This invitation is no longer active");
+      return updateRequestState(
+        ctx.drizzle,
+        request.id,
+        "CANCELLED",
+        "HOME",
+        undefined,
+        request.status,
+      );
+    }),
+
+  /** Visibility and the account revision publish together without placing home settings on the account. */
   setHomeSharing: protectedProcedure
     .input(homeSharingInputSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [owner, invitee] = await Promise.all([
-        fetchHomeFurnitureUser(ctx.drizzle, ctx.userId),
-        input.inviteUsername
-          ? ctx.drizzle.query.userData.findFirst({
-              where: eq(userData.username, input.inviteUsername),
-              columns: {
-                userId: true,
-                username: true,
-                isAi: true,
-                isBanned: true,
-                deletionAt: true,
-              },
-            })
-          : Promise.resolve(null),
-      ]);
+      const owner = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
       if (!owner || owner.isBanned) return errorResponse("Home unavailable");
-      if (
-        input.inviteUsername &&
-        (!invitee ||
-          invitee.isAi ||
-          invitee.isBanned ||
-          invitee.deletionAt ||
-          invitee.userId === ctx.userId)
-      )
-        return errorResponse("Choose another active player to invite");
-      const invitations = owner.homeInvitations.filter(
-        ({ userId }) => userId !== input.revokeUserId,
-      );
-      if (invitee && !invitations.some(({ userId }) => userId === invitee.userId))
-        invitations.push({ userId: invitee.userId, username: invitee.username });
-      if (invitations.length > HOME_MAX_INVITATIONS)
-        return errorResponse(`You can invite up to ${HOME_MAX_INVITATIONS} players`);
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          homePublic: input.isPublic,
-          homeInvitations: invitations,
-          homeFurnitureRevision: sql`${userData.homeFurnitureRevision} + 1`,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            eq(userData.isBanned, false),
-            eq(userData.homeFurnitureRevision, input.revision),
-          ),
-        );
+      if (owner.homeFurnitureRevision !== input.revision)
+        return errorResponse("Your home changed. Refresh and try again");
+      await ensureUserHome(ctx.drizzle, ctx.userId, owner.home);
+      const result = await ctx.drizzle.execute(sql`
+        UPDATE ${userData} INNER JOIN ${userHome} ON ${userHome.userId} = ${userData.userId}
+        SET ${userHome.isPublic} = ${input.isPublic}, ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1
+        WHERE ${and(eq(userData.userId, ctx.userId), eq(userData.isBanned, false), eq(userData.homeFurnitureRevision, input.revision))}
+      `);
       return result.rowsAffected
         ? { success: true, message: "Home access updated" }
         : errorResponse("Your home changed. Refresh and try again");
@@ -261,9 +382,8 @@ export const homeRouter = createTRPCRouter({
       return {
         homeType: user.homeType,
         biome: getHomeBiome(user),
-        styles: user.homeRoomStyles,
-        isPublic: user.homePublic,
-        invitations: user.homeInvitations,
+        styles: user.home?.roomStyles ?? [],
+        isPublic: user.home?.isPublic ?? false,
         regen: HomeTypeDetails[user.homeType].regen,
         storage: HomeTypeDetails[user.homeType].storage,
         furniture: furnitureItems.map(homeFurnitureDetails),
@@ -289,7 +409,7 @@ export const homeRouter = createTRPCRouter({
       const furniture = user.items.filter(isAvailableOwnedFurniture);
       const stylesError = homeRoomStylesError(
         input.styles ??
-          user.homeRoomStyles.filter(({ room }) =>
+          (user.home?.roomStyles ?? []).filter(({ room }) =>
             getHomeRooms(user.homeType).some(({ id }) => id === room),
           ),
         user.homeType,
@@ -381,7 +501,12 @@ export const homeRouter = createTRPCRouter({
         userId: ctx.userId,
       });
       if (!user) return errorResponse("User not found");
-      const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
+      const [useritems, home] = await Promise.all([
+        fetchUserItems(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userHome.findFirst({
+          where: eq(userHome.userId, ctx.userId),
+        }),
+      ]);
       const storedItems = useritems.filter((ui) => ui.storedAtHome);
       // Guard
       if (user.isBanned) return errorResponse("You are banned");
@@ -467,16 +592,19 @@ export const homeRouter = createTRPCRouter({
         }
         const downgradeRefund = Math.floor((currentHomeCost - targetHome.cost) * 0.75);
         // As with layout saves, Drizzle needs a joined statement to publish both tables atomically.
+        // Join settings after inventory so MySQL applies the guarded revision to every placement.
         // LEFT JOIN also refunds homes with no removed placements; the owner is updated once.
         // Escrow keeps its storage state so active furniture trades remain fulfillable.
+        await ensureUserHome(ctx.drizzle, ctx.userId, home);
         const result = await retryOnDeadlock(() =>
           ctx.drizzle.execute(sql`
             UPDATE ${userData}
             LEFT JOIN ${userItem} ON ${userItem.userId} = ${userData.userId}
               AND ${isNotNull(userItem.homeX)}
               AND ${notInArray(userItem.homeRoom, [...retainedRooms])}
+            INNER JOIN ${userHome} ON ${userHome.userId} = ${userData.userId}
             SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
-                ${userData.homeRoomStyles} = ${JSON.stringify(user.homeRoomStyles.filter(({ room }) => retainedRooms.has(room)))},
+                ${userHome.roomStyles} = ${JSON.stringify((home?.roomStyles ?? []).filter(({ room }) => retainedRooms.has(room)))},
                 ${userData.homeType} = ${input.homeType},
                 ${userData.money} = ${userData.money} + ${downgradeRefund},
                 ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
@@ -613,9 +741,6 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
       homeType: true,
       homeFurnitureRevision: true,
       updatedAt: true,
-      homeRoomStyles: true,
-      homePublic: true,
-      homeInvitations: true,
       username: true,
       isAi: true,
       deletionAt: true,
@@ -626,6 +751,7 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
       isOutlaw: true,
     },
     with: {
+      home: true,
       village: { columns: { sector: true } },
       items: {
         where: gt(userItem.quantity, 0),
@@ -656,7 +782,7 @@ const isAvailableOwnedFurniture = (owned: HomeFurnitureUser["items"][number]) =>
  * Saves store newly placed or removed pieces, preserving unplaced carried inventory.
  * Omitted styles retain the saved finishes.
  */
-const publishHomeFurnitureLayout = (
+const publishHomeFurnitureLayout = async (
   client: DrizzleClient,
   userId: string,
   user: HomeFurnitureUser,
@@ -679,6 +805,8 @@ const publishHomeFurnitureLayout = (
   // Drizzle's update builder targets one table. A joined update avoids partial rooms and
   // one save overwriting a concurrent edit, without a transaction.
   // A concurrent sale can only remove a placement; this statement never recreates inventory.
+  // Join settings after inventory so MySQL applies the guarded revision to every placement.
+  await ensureUserHome(client, userId, user.home);
   return retryOnDeadlock(() =>
     client.execute(sql`
     UPDATE ${userData}
@@ -686,9 +814,10 @@ const publishHomeFurnitureLayout = (
       ON ${userItem.userId} = ${userData.userId}
       AND ${availableHomeFurnitureItems()}
       AND ${item.itemType} = ${"FURNITURE"} AND ${item.hidden} = ${false}
+    INNER JOIN ${userHome} ON ${userHome.userId} = ${userData.userId}
     SET ${userData.homeFurnitureRevision} = ${userData.homeFurnitureRevision} + 1,
         ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt)},
-        ${userData.homeRoomStyles} = ${JSON.stringify(styles ?? user.homeRoomStyles)},
+        ${userHome.roomStyles} = ${JSON.stringify(styles ?? user.home?.roomStyles ?? [])},
         ${userItem.storedAtHome} = CASE WHEN (${userItem.homeX} IS NOT NULL ${
           placements.length
             ? sql`OR ${inArray(
@@ -771,3 +900,12 @@ const homeFurnitureWriteGuard = (
     eq(userData.isOutlaw, user.isOutlaw),
     inArray(userData.status, ["AWAKE", "ASLEEP"]),
   );
+
+/** Create home-only settings on the first write; a concurrent insertion retains the existing row. */
+const ensureUserHome = async (
+  client: DrizzleClient,
+  userId: string,
+  home: { userId: string } | null | undefined,
+) => {
+  if (!home) await client.insert(userHome).ignore().values({ userId });
+};

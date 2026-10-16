@@ -68,12 +68,14 @@ export type HomeRoomStyle = NonNullable<
 export const homeVisitInputSchema = z.strictObject({
   userId: z.string().min(1).max(191),
 });
-/** Sharing edits claim the same revision as layout edits to reject stale access settings. */
+/** Visibility edits retain the layout revision guard; invitations use shared request identities. */
 export const homeSharingInputSchema = z.strictObject({
   revision: z.int().nonnegative(),
   isPublic: z.boolean(),
-  inviteUsername: z.string().trim().min(1).max(191).optional(),
-  revokeUserId: z.string().min(1).max(191).optional(),
+});
+/** The existing request system resolves active recipients by their current username. */
+export const homeInvitationInputSchema = z.strictObject({
+  username: z.string().trim().min(1).max(191),
 });
 export const homeUpgradeInputSchema = z.object({ homeType: z.enum(HomeTypes) });
 export const homeStorageInputSchema = z.object({ userItemId: z.string() });

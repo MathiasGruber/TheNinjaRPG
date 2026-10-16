@@ -48,7 +48,7 @@ const ownedItems = basics.map((piece) => ({
 })) as unknown as RouterOutputs["item"]["getUserItems"];
 const essentialHome: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
   homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-  furniture: basics, furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: [...layout],
+  furniture: basics, furnitureRevision: 3, styles: [], isPublic: false, layout: [...layout],
 };
 
 const testApi = createTRPCReact<AppRouter>();
@@ -138,6 +138,11 @@ for (const hasCachedInventory of [false, true]) {
       await queryClient.invalidateQueries({ queryKey: itemKey });
     }
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       const result = async () => {
         if (op.path === "home.getUserHome") {
           homeQueries++;
@@ -198,6 +203,11 @@ for (const hasMissingInventory of [false, true]) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       if (op.path === "home.getUserHome") {
         homeQueries++;
         observer.next({ result: { data: essentialHome } });
@@ -283,11 +293,16 @@ it("refreshes a selected furniture variant when returning from inventory", async
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     if (op.path === "home.getUserHome") {
       homeQueries++;
       const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
         homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-        furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3, styles: [], isPublic: false, invitations: [],
+        furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3, styles: [], isPublic: false,
         layout: [{ id: chair.id, x: 50, y: 50, rotation: 0 }],
       };
       observer.next({ result: { data: home } });
@@ -327,6 +342,11 @@ it("refreshes furniture storage after a downgrade stores a carried piece from a 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     let data;
     if (op.path === "home.getUserHome") data = { ...home };
     else if (op.path === "item.getUserItems") {
@@ -377,6 +397,11 @@ it("refreshes furniture storage after placing a carried piece and waits for its 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     const result = async () => {
       if (op.path === "home.getUserHome") return { ...home };
       if (op.path === "item.getUserItems") {
@@ -430,7 +455,7 @@ for (const success of [true, false]) {
       regen: HomeTypeDetails.NONE.regen,
       storage: HomeTypeDetails.NONE.storage,
       furniture,
-      furnitureRevision: 3, styles: [], isPublic: false, invitations: [],
+      furnitureRevision: 3, styles: [], isPublic: false,
       layout: [...layout],
     };
     const save = vi.fn((draft: RouterInputs["home"]["saveFurnitureLayout"]) => {
@@ -451,6 +476,11 @@ for (const success of [true, false]) {
         () =>
           ({ op }) =>
             observable((observer) => {
+              if (op.path === "home.getHomeRequests") {
+                observer.next({ result: { data: [] } });
+                observer.complete();
+                return;
+              }
               const result = async () => {
                 if (op.path === "home.getUserHome") {
                   if (++homeQueries > 1) await refreshed;
@@ -538,10 +568,15 @@ it("opens home management from the header and waits for refreshed inventory befo
   let homeQueries = 0;
   const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
     homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-    furniture: [...furniture], furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: [...layout],
+    furniture: [...furniture], furnitureRevision: 3, styles: [], isPublic: false, layout: [...layout],
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     const result = async () => {
       if (op.path === "home.getUserHome") {
         if (++homeQueries > 1) await refreshed;
@@ -598,6 +633,11 @@ it("preserves a draft across a tier refresh and requires recovery before saving"
   const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
   const save = vi.fn().mockReturnValue({ success: false, message: "Retained" });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     let data;
     if (op.path === "home.getUserHome") data = home;
     else if (op.path === "item.getUserItems") data = ownedItems;
@@ -667,10 +707,15 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       if (op.path === "home.getUserHome") {
         observer.next({ result: { data: {
           homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, styles: [], isPublic: false, invitations: [], layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
+          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, styles: [], isPublic: false, layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
         } } });
       } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
         observer.next({ result: { data: [] } });
