@@ -86,19 +86,6 @@ export const HomePropertyBackdrop = ({
               clipPath={`url(#${id}-${style.room}-floor)`}
               onError={onError}
             />
-            {/* Reuse the painting's light and shadow without multiplying its original wood color into the new material. */}
-            <image
-              href={src}
-              preserveAspectRatio="none"
-              width="100"
-              height="100"
-              clipPath={`url(#${id}-${style.room}-floor)`}
-              style={{
-                filter: "grayscale(1) brightness(1.8)",
-                mixBlendMode: "multiply",
-              }}
-              onError={onError}
-            />
           </svg>
         );
       })}
@@ -147,6 +134,7 @@ export const HomePropertyBackdrop = ({
             <polygon
               points={polygon.map(([x, y]) => `${x},${y}`).join(" ")}
               fill={HOME_WALL_PAINTS[style.paint]}
+              fillRule="evenodd"
             />
           </svg>
         ));

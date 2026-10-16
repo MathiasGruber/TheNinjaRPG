@@ -131,10 +131,8 @@ describe("Home scene", () => {
       expect(floor?.getAttribute("height")).toBe(`${Math.max(...points.map(([, y]) => y)) - top}`);
       const masks = [...scene.querySelectorAll('[data-home-room-style="room-1"] clipPath polygon')];
       expect(masks.map((mask) => mask.getAttribute("points"))).toEqual(surfaces.map((polygon) => polygon.map(([x, y]) => `${x},${y}`).join(" ")));
-      const lighting = scene.querySelector('[data-home-room-style="room-1"] image:last-child');
-      expect(lighting?.getAttribute("href")).toBe("/images/home/town_house-ground.webp");
-      expect(lighting?.getAttribute("clip-path")).toBe(floor?.getAttribute("clip-path"));
-      expect(lighting?.getAttribute("preserveAspectRatio")).toBe("none");
+      // A finish replaces the source material completely, including its tile or wood pattern.
+      expect(scene.querySelectorAll('[data-home-room-style="room-1"] image')).toHaveLength(1);
     }
     expect(scene.querySelector('[data-home-room-style="yard"]')).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
