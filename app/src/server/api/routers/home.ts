@@ -423,7 +423,9 @@ export const homeRouter = createTRPCRouter({
           (owned) =>
             owned.item.itemType === "FURNITURE" &&
             (owned.storedAtHome ||
-              (!retainedRooms.has(owned.homeRoom) && owned.homeX !== null)),
+              (!owned.isInAuction &&
+                !retainedRooms.has(owned.homeRoom) &&
+                owned.homeX !== null)),
         ).length;
         if (projectedFurnitureStorage > HOME_FURNITURE_STORAGE_CAPACITY)
           return errorResponse(

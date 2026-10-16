@@ -61,11 +61,11 @@ export const HomeSharing = ({
         >
           {isPublic ? "Make private" : "Make public"}
         </Button>
-        <Link href={`/home/visit/${encodeURIComponent(userId)}`}>
-          <Button variant="outline" className="hover:text-black">
+        <Button asChild variant="outline" className="hover:text-black">
+          <Link href={`/home/visit/${encodeURIComponent(userId)}`}>
             Preview home visit
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
       <form
         className="flex gap-2"
