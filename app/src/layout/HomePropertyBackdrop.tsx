@@ -76,6 +76,7 @@ export const HomePropertyBackdrop = ({
                 ))}
               </clipPath>
             </defs>
+            {/* The complete painting supplies the floor if this optional finish fails to load. */}
             <image
               href={texture}
               x={left}
@@ -84,7 +85,6 @@ export const HomePropertyBackdrop = ({
               height={Math.max(...points.map(([, y]) => y)) - top}
               preserveAspectRatio="none"
               clipPath={`url(#${id}-${style.room}-floor)`}
-              onError={onError}
             />
           </svg>
         );

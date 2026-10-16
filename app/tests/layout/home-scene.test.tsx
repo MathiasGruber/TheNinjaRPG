@@ -182,10 +182,38 @@ describe("Home scene", () => {
     expect(scene.querySelector('[data-home-wall-paint="yard"]')).toBeNull();
   });
 
-  it("keeps furniture actions and room navigation usable when the property painting fails", () => {
-    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
-    fireEvent.error(view.getByAltText(`${HomeTypeDetails.TOWN_HOUSE.name} interior and garden`));
+  it("keeps the original painting and home controls available when an optional floor texture fails", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate styles={[
+      { room: "room-1", paint: "sage", floor: "terracotta" },
+    ]} />);
     const scene = view.getByRole("group", { name: "Home scene" });
+    const painting = view.getByAltText(`${HomeTypeDetails.TOWN_HOUSE.name} interior and garden`);
+    const foreground = [...scene.querySelectorAll("[data-home-foreground]")];
+    const floor = scene.querySelector('[data-home-room-style="room-1"] image');
+    expect(floor).not.toBeNull();
+    fireEvent.error(floor!);
+    expect(view.queryByText(/Home artwork is unavailable/)).toBeNull();
+    expect(view.getByAltText(`${HomeTypeDetails.TOWN_HOUSE.name} interior and garden`)).toBe(painting);
+    expect([...scene.querySelectorAll("[data-home-foreground]")]).toEqual(foreground);
+    fireEvent.click(view.getByRole("button", { name: "Bed: Go to sleep" }));
+    expect(props.onSleep).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(view.getByRole("group", { name: "Home actions" })).getByRole("button", { name: "Home storage" }));
+    expect(props.onStorage).toHaveBeenCalledTimes(1);
+    fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "room-1" } });
+    const focused = getHomeRoomCamera("TOWN_HOUSE", "room-1");
+    expect(scene.querySelector("[data-home-camera]")?.getAttribute("style")).toContain(`translate(${focused.x}%, ${focused.y}%) scale(${focused.scale})`);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.change(view.getByLabelText("Floor tiles"), { target: { value: "original" } });
+    expect(scene.querySelector("[data-home-room-style]")).toBeNull();
+    expect(view.getByAltText(`${HomeTypeDetails.TOWN_HOUSE.name} interior and garden`)).toBe(painting);
+  });
+
+  it.each(["painting", "foreground"] as const)("keeps furniture actions and room navigation usable when the property %s fails", (layer) => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    fireEvent.error(layer === "painting"
+      ? view.getByAltText(`${HomeTypeDetails.TOWN_HOUSE.name} interior and garden`)
+      : scene.querySelector("[data-home-foreground] img")!);
     expect(scene.querySelector("[data-home-art]")).toBeNull();
     expect(scene.querySelector("[data-home-foreground]")).toBeNull();
     expect(view.getByText(/Home artwork is unavailable/).closest("[data-home-camera]")).toBeNull();
