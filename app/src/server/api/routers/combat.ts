@@ -325,11 +325,8 @@ export const combatRouter = createTRPCRouter({
           // Update the battle to the correct activeUserId & round. Default to current user
           const fetchedVersion = userBattle.version;
           const fetchedUpdatedAt = userBattle.updatedAt;
-          const { progressRound, changedActor, actionRound } = alignBattle(
-            userBattle,
-            actionRounds,
-            ctx.userId,
-          );
+          const { progressRound, changedActor, actionRound, expiredEffects } =
+            alignBattle(userBattle, actionRounds, ctx.userId);
           // A round can advance on this poll path too (idle turn timeout), not only via
           // performAction. Run the sage exhaustion transition here as well, or it stays
           // stranded until the next action. In-memory (no DB round-trip) and idempotent
@@ -362,7 +359,17 @@ export const combatRouter = createTRPCRouter({
           const battleOver = result && result.friendsLeft + result.targetsLeft === 0;
           // A settlement-only poll must persist leftBattle without ticking effects again.
           const shouldTickEffects = battleOver || progressRound || changedActor;
-          const history: Parameters<typeof createAction>[2] = [];
+          const history: Parameters<typeof createAction>[2] = expiredEffects.length
+            ? [
+                {
+                  battleRound: actionRound,
+                  appliedEffects: expiredEffects,
+                  description: "Battlefield effects expire.",
+                  battleVersion: fetchedVersion,
+                  actionId: "wait",
+                },
+              ]
+            : [];
           if (shouldTickEffects && !hadActivity && actId && activeUser) {
             const { newBattle, actionEffects } = applyEffects(userBattle, actId);
             advanceEncounterWave(newBattle, !!dungeonBattleOutcome(newBattle));
@@ -716,6 +723,7 @@ export const combatRouter = createTRPCRouter({
             actor,
             actionRound,
             progressRound: progressedRoundBeforeAction,
+            expiredEffects: expiredBeforeAction,
           } = alignBattle(newBattle, actionRounds, suid);
           if (progressedRoundBeforeAction) {
             applySageModeAfterRoundTransition(newBattle);
@@ -741,7 +749,7 @@ export const combatRouter = createTRPCRouter({
 
           // If userId, actionID, and position specified, perform user action
           const battleDescriptions: string[] = [];
-          const actionEffects: ActionEffect[] = [];
+          const actionEffects: ActionEffect[] = [...expiredBeforeAction];
           let performedActionId: string | undefined;
           let performedByUserId: string | undefined;
           if (
@@ -831,10 +839,12 @@ export const combatRouter = createTRPCRouter({
             actor: newActor,
             progressRound,
             orphanedSummons,
+            expiredEffects,
           } = alignBattle(newBattle, actionRounds, suid);
           if (progressRound) {
             applySageModeAfterRoundTransition(newBattle);
           }
+          actionEffects.push(...expiredEffects);
           // Tell players why a summon left the field, rather than having it
           // silently disappear once its summoner is dead/fled/gone.
           orphanedSummons.forEach((username) => {

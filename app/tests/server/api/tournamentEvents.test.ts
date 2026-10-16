@@ -76,6 +76,53 @@ describeWithDatabase("event tournament persistence", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("tracks invitation responses and advisory readiness separately from match acceptance", async () => {
+    const database = await getTestDatabase();
+    await insertUsers(["staff", "first", "second", "outsider", "replacement"].map((userId) => ({
+      userId, role: userId === "staff" ? "CODER" : "USER", status: "AWAKE", sector: MAP_WAKE_ISLAND_SECTOR,
+    })));
+    const staff = await callerFor(tournamentRouter, "staff");
+    const first = await callerFor(tournamentRouter, "first");
+    const second = await callerFor(tournamentRouter, "second");
+    const outsider = await callerFor(tournamentRouter, "outsider");
+    const created = await staff.saveEvent({ config: { ...eventConfig("Ready roster"), registration: "INVITE_ONLY" } });
+    if (!("tournamentId" in created)) throw new Error(created.message);
+    const { tournamentId } = created;
+    await staff.manageEvent({ tournamentId, action: "PUBLISH" });
+    for (const userId of ["first", "second"]) await staff.manageEvent({ tournamentId, action: "INVITE", userId });
+    expect((await first.getEventNotices())[0]?.message).toBe("You have a tournament invitation");
+    await first.participateEvent({ tournamentId, action: "JOIN" });
+    expect(await first.getEventNotices()).toEqual([]);
+    expect((await second.getEventNotices())[0]?.message).toBe("You have a tournament invitation");
+    await second.participateEvent({ tournamentId, action: "JOIN" });
+    await staff.manageEvent({ tournamentId, action: "SEED" });
+    const seriesId = (await fetchEvent(database, tournamentId))!.eventData!.series[0]!.id;
+    expect((await outsider.participateEvent({ tournamentId, seriesId, action: "READY" })).success).toBe(false);
+    expect((await first.participateEvent({ tournamentId, seriesId: "other", action: "READY" })).success).toBe(false);
+    await database.update(userData).set({ status: "ASLEEP" }).where(eq(userData.userId, "first"));
+    expect((await first.participateEvent({ tournamentId, seriesId, action: "READY" })).success).toBe(false);
+    await database.update(userData).set({ status: "AWAKE" }).where(eq(userData.userId, "first"));
+    const marked = await Promise.all([first, second].map((player) => player.participateEvent({ tournamentId, seriesId, action: "READY" })));
+    expect(marked.every((result) => result.success)).toBe(true);
+    let event = (await fetchEvent(database, tournamentId))!.eventData!;
+    expect(event.status).toBe("PREPARED");
+    expect(event.series[0]!.readyUserIds?.sort()).toEqual(["first", "second"]);
+    expect(event.series[0]!.games).toEqual([]);
+    await first.participateEvent({ tournamentId, seriesId, action: "NOT_READY" });
+    expect((await fetchEvent(database, tournamentId))!.eventData!.series[0]!.readyUserIds).toEqual(["second"]);
+    const seatId = event.participants.find((p) => p.userId === "second")!.id;
+    expect((await staff.manageEvent({ tournamentId, action: "SUBSTITUTE", seatId, userId: "replacement" })).success).toBe(true);
+    event = (await fetchEvent(database, tournamentId))!.eventData!;
+    expect(event.series[0]!.readyUserIds).toEqual([]);
+    expect((await staff.manageEvent({ tournamentId, action: "BEGIN" })).success).toBe(true);
+    event = (await fetchEvent(database, tournamentId))!.eventData!;
+    expect(event.series[0]!.games[0]!.accepted).toEqual([]);
+    expect((await first.getEventNotices())[0]?.message).toBe("Your tournament match is ready");
+    expect((await first.participateEvent({ tournamentId, seriesId, action: "READY" })).success).toBe(false);
+    expect((await first.participateEvent({ tournamentId, seriesId, action: "ACCEPT" })).success).toBe(true);
+    expect(await first.getEventNotices()).toEqual([]);
+  });
+
   for (const [battleType, isEvent] of [
     ["SPARRING", true],
     ["RANKED_SPARRING", true],

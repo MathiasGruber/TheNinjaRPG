@@ -50,53 +50,7 @@ import {
 export const eventTournamentProcedures = {
   /** Return invitations and open ready checks that still need this player's response. */
   getEventNotices: protectedProcedure.query(async ({ ctx }) => {
-    const events = await ctx.drizzle.query.tournament.findMany({
-      where: and(
-        eq(tournament.type, "EVENT"),
-        inArray(tournament.status, ["OPEN", "IN_PROGRESS"]),
-      ),
-      columns: { id: true, eventData: true },
-      limit: 100,
-    });
-    return events.flatMap((row) => {
-      const event = row.eventData;
-      const seat = event?.participants.find(
-        (p) => p.userId === ctx.userId && !p.withdrawn,
-      );
-      if (!event || !seat) return [];
-      const ready = event.series.find(
-        (s) =>
-          !s.complete &&
-          s.seats.includes(seat.id) &&
-          s.games.at(-1)?.status === "READY" &&
-          (s.games.at(-1)?.opensAt ?? Infinity) <= Date.now() &&
-          (s.games.at(-1)?.deadline ?? 0) > Date.now() &&
-          !s.games.at(-1)?.accepted.includes(ctx.userId),
-      );
-      if (ready)
-        return [
-          {
-            tournamentId: row.id,
-            name: event.config.name,
-            message: "Your tournament match is ready",
-            deadline: ready.games.at(-1)!.deadline,
-          },
-        ];
-      if (
-        !seat.accepted &&
-        event.status === "REGISTRATION" &&
-        event.config.registrationClosesAt > Date.now()
-      )
-        return [
-          {
-            tournamentId: row.id,
-            name: event.config.name,
-            message: "You have a tournament invitation",
-            deadline: event.config.registrationClosesAt,
-          },
-        ];
-      return [];
-    });
+    return fetchEventNotices(ctx.drizzle, ctx.userId);
   }),
   /** List public event summaries, including unpublished drafts only for tournament staff. */
   listEvents: protectedProcedure.query(async ({ ctx }) => {
@@ -343,6 +297,10 @@ export const eventTournamentProcedures = {
           seat.username = target.username;
           seat.snapshot = snapshotFor(target);
           seat.withdrawn = false;
+          for (const series of event.series)
+            series.readyUserIds = series.readyUserIds?.filter(
+              (id) => id !== originalId,
+            );
           for (const s of event.series.filter(
             (s) => !s.complete && s.seats.includes(seat.id),
           )) {
@@ -411,6 +369,32 @@ export const eventTournamentProcedures = {
         } else if (input.action === "WITHDRAW" || input.action === "DECLINE") {
           if (!seat) return "No registration or invitation found";
           seat.withdrawn = true;
+        } else if (input.action === "READY" || input.action === "NOT_READY") {
+          const round = Math.min(
+            ...event.series.filter((s) => !s.complete).map((s) => s.round),
+          );
+          const series = event.series.find((s) => s.id === input.seriesId);
+          if (
+            !seat?.accepted ||
+            !series ||
+            !series.resolved ||
+            series.complete ||
+            series.begun ||
+            series.round !== round ||
+            !series.seats.includes(seat.id)
+          )
+            return "This series is not waiting for staff to begin";
+          if (
+            input.action === "READY" &&
+            (user.status !== "AWAKE" ||
+              user.battleId ||
+              user.sector !== MAP_WAKE_ISLAND_SECTOR)
+          )
+            return "Be awake and available at Wake Island to mark yourself ready";
+          series.readyUserIds = (series.readyUserIds ?? []).filter(
+            (id) => id !== user.userId,
+          );
+          if (input.action === "READY") series.readyUserIds.push(user.userId);
         } else {
           const series = event.series.find(
             (s) => s.id === input.seriesId && !s.complete,
@@ -955,4 +939,54 @@ const occupiedSeats = (event: EventTournamentState) =>
 /** Append a timestamped actor action to the versioned event's audit trail. */
 const audit = (event: EventTournamentState, userId: string, action: string) => {
   event.audit.push({ userId, action, at: Date.now() });
+};
+
+/** Read actionable event notices for both the global prompt and the notification menu. */
+export const fetchEventNotices = async (client: DrizzleClient, userId: string) => {
+  const now = Date.now();
+  const events = await client.query.tournament.findMany({
+    where: and(
+      eq(tournament.type, "EVENT"),
+      inArray(tournament.status, ["OPEN", "IN_PROGRESS"]),
+    ),
+    columns: { id: true, eventData: true },
+    limit: 100,
+  });
+  return events.flatMap((row) => {
+    const event = row.eventData;
+    const seat = event?.participants.find((p) => p.userId === userId && !p.withdrawn);
+    if (!event || !seat) return [];
+    const ready = event.series.find(
+      (s) =>
+        !s.complete &&
+        s.seats.includes(seat.id) &&
+        s.games.at(-1)?.status === "READY" &&
+        (s.games.at(-1)?.opensAt ?? Infinity) <= now &&
+        (s.games.at(-1)?.deadline ?? 0) > now &&
+        !s.games.at(-1)?.accepted.includes(userId),
+    );
+    if (ready)
+      return [
+        {
+          tournamentId: row.id,
+          name: event.config.name,
+          message: "Your tournament match is ready",
+          deadline: ready.games.at(-1)!.deadline,
+        },
+      ];
+    if (
+      !seat.accepted &&
+      event.status === "REGISTRATION" &&
+      event.config.registrationClosesAt > now
+    )
+      return [
+        {
+          tournamentId: row.id,
+          name: event.config.name,
+          message: "You have a tournament invitation",
+          deadline: event.config.registrationClosesAt,
+        },
+      ];
+    return [];
+  });
 };

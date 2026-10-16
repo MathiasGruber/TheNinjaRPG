@@ -85,7 +85,7 @@ export const eventTournamentActionSchema = eventTournamentIdSchema.extend({
 });
 /** Player roster and ready-check commands, authorized against the current seat holder. */
 export const eventTournamentPlayerSchema = eventTournamentIdSchema.extend({
-  action: z.enum(["JOIN", "WITHDRAW", "DECLINE", "ACCEPT"]),
+  action: z.enum(["JOIN", "WITHDRAW", "DECLINE", "ACCEPT", "READY", "NOT_READY"]),
   seriesId: z.string().optional(),
 });
 
@@ -146,6 +146,8 @@ export type EventSeries = {
   scores: [number, number];
   dodges: [number, number];
   games: EventGame[];
+  /** Advisory readiness for this series before staff opens its first match. */
+  readyUserIds?: string[];
   begun: boolean;
   scheduledAt: number | null;
 };

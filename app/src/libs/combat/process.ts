@@ -275,6 +275,38 @@ const createConsumeShieldEffect = (
   };
 };
 
+/** Expire battlefield entities and visuals as soon as their round duration ends. */
+export const expireGroundEffects = (battle: CompleteBattle, actionRounds: number[]) => {
+  const actionEffects: ActionEffect[] = [];
+  const visuals: GroundEffect[] = [];
+  battle.groundEffects = battle.groundEffects.filter((effect) => {
+    if (effect.rounds === undefined || effect.rounds > 0) return true;
+    if (effect.type === "visual") return actionRounds.includes(effect.createdRound);
+    // A newly authored instant effect still needs its first application.
+    if (effect.isNew) return true;
+    const info =
+      effect.type === "clone"
+        ? clone(battle.usersState, effect, battle.extraState)
+        : effect.type === "summon"
+          ? summon(battle.usersState, effect, battle.usersEffects, battle)
+          : undefined;
+    if (info) actionEffects.push(info);
+    if (effect.disappearAnimation || effect.disappearSfx)
+      visuals.push(
+        getVisualOrSound(
+          effect.longitude,
+          effect.latitude,
+          effect.disappearAnimation,
+          effect.disappearSfx,
+          battle.round,
+        ),
+      );
+    return false;
+  });
+  battle.groundEffects.push(...visuals);
+  return actionEffects;
+};
+
 /**
  * Apply effects to users
  * @param battle - Battle to apply effects to
