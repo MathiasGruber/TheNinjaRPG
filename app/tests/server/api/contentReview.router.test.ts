@@ -152,6 +152,81 @@ describeWithDatabase("content review", () => {
     expect(saved.rationale).toContain("Response to staff feedback");
   });
 
+  const rejectedProposal = async () => {
+    const author = await callerFor(contentReviewRouter, AUTHOR);
+    await author.create(suggestion("Awarded for bravery in battle."));
+    const [pending] = await proposalRows();
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    expect((await reviewer.reject({ id: pending!.id, reason: "NOT_AN_IMPROVEMENT", note: "Keep the original." })).success).toBe(true);
+    return (await proposalRows())[0]!;
+  };
+
+  it("undoes a rejection without changing the draft or live content and allows another decision", async () => {
+    const rejected = await rejectedProposal();
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    expect((await reviewer.unreject({ id: rejected.id, expectedStatusChangedAt: rejected.statusChangedAt.toISOString() })).success).toBe(true);
+    const [pending] = await proposalRows();
+    expect(pending).toMatchObject({ status: "PENDING", rejectReason: null, reviewNote: null, reviewedByUserId: null, outdatedReason: null, changes: rejected.changes, basis: rejected.basis });
+    expect(pending!.statusChangedAt.getTime()).toBeGreaterThan(rejected.statusChangedAt.getTime());
+    const database = await getTestDatabase();
+    expect((await database.query.badge.findFirst({ where: eq(badge.id, BADGE) }))?.description).toBe("Awarded for braveyr in battle.");
+    expect((await reviewer.getQueue({ status: "REJECTED" })).items).toHaveLength(0);
+    expect((await reviewer.getQueue({ status: "PENDING" })).items.map((row) => row.id)).toEqual([rejected.id]);
+    expect((await reviewer.getCounts()).statuses).toMatchObject({ PENDING: 1 });
+    expect((await reviewer.approve({ id: rejected.id, expectedStatusChangedAt: pending!.statusChangedAt.toISOString() })).success).toBe(true);
+  });
+
+  it("refuses stale undo requests and lets only one concurrent undo succeed", async () => {
+    const rejected = await rejectedProposal();
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    expect((await reviewer.unreject({ id: rejected.id, expectedStatusChangedAt: new Date(rejected.statusChangedAt.getTime() - 1).toISOString() })).success).toBe(false);
+    expect((await proposalRows())[0]).toEqual(rejected);
+    const input = { id: rejected.id, expectedStatusChangedAt: rejected.statusChangedAt.toISOString() };
+    const results = await Promise.all([reviewer.unreject(input), reviewer.unreject(input)]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect((await reviewer.reject({ id: rejected.id, reason: "WRONG_CHANGE" })).success).toBe(true);
+    expect((await reviewer.unreject(input)).success).toBe(false);
+    expect((await proposalRows())[0]?.rejectReason).toBe("WRONG_CHANGE");
+  });
+
+  it.each(["PENDING", "APPLIED", "OUTDATED", "REVERTED"] as const)("cannot undo a rejection of a %s proposal", async (status) => {
+    const rejected = await rejectedProposal();
+    const database = await getTestDatabase();
+    await database.update(contentProposal).set({ status }).where(eq(contentProposal.id, rejected.id));
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    expect((await reviewer.unreject({ id: rejected.id, expectedStatusChangedAt: rejected.statusChangedAt.toISOString() })).success).toBe(false);
+    expect((await proposalRows())[0]?.status).toBe(status);
+  });
+
+  it("denies undoing rejections to players, non-reviewing staff and banned reviewers", async () => {
+    const rejected = await rejectedProposal();
+    const input = { id: rejected.id, expectedStatusChangedAt: rejected.statusChangedAt.toISOString() };
+    for (const userId of [PLAYER, MODERATOR]) {
+      const caller = await callerFor(contentReviewRouter, userId);
+      expect((await caller.unreject(input)).success).toBe(false);
+    }
+    const database = await getTestDatabase();
+    await database.update(userData).set({ isBanned: true }).where(eq(userData.userId, EDITOR));
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    expect((await reviewer.unreject(input)).success).toBe(false);
+    expect((await proposalRows())[0]).toEqual(rejected);
+  });
+
+  it.each(["changed", "deleted", "expired"])("outdates a reopened proposal when its basis is %s", async (cause) => {
+    const rejected = await rejectedProposal();
+    const database = await getTestDatabase();
+    if (cause === "changed") await database.update(badge).set({ description: "Changed by another editor." }).where(eq(badge.id, BADGE));
+    if (cause === "deleted") await database.delete(badge).where(eq(badge.id, BADGE));
+    if (cause === "expired") await database.update(contentProposal).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(contentProposal.id, rejected.id));
+    const reviewer = await callerFor(contentReviewRouter, EDITOR);
+    const outcome = await reviewer.unreject({ id: rejected.id, expectedStatusChangedAt: rejected.statusChangedAt.toISOString() });
+    expect(outcome.success).toBe(true);
+    expect(outcome.message).toContain("outdated");
+    expect((await proposalRows())[0]).toMatchObject({ status: "OUTDATED", rejectReason: null, reviewNote: null, reviewedByUserId: null });
+    expect((await reviewer.getQueue({ status: "PENDING" })).items).toHaveLength(0);
+    expect((await reviewer.approve({ id: rejected.id })).success).toBe(false);
+  });
+
   it("refuses stale basis, changed targets, and staff or already applied proposals", async () => {
     const database = await getTestDatabase();
     const submitted = await ingestAgentSubmission(database, { agentName: "agent", proposals: [await revisionProposal()] });

@@ -205,6 +205,11 @@ export const rejectProposalSchema = z.object({
   note: z.string().max(CONTENT_PROPOSAL_NOTE_MAX_LENGTH).nullish(),
 });
 
+export const unrejectProposalSchema = z.object({
+  id: z.string(),
+  expectedStatusChangedAt: z.iso.datetime(),
+});
+
 export const bulkApproveSchema = z.object({
   ids: z.array(z.string()).min(1).max(CONTENT_REVIEW_BULK_LIMIT),
 });

@@ -76,6 +76,7 @@ import {
   sfxImportSchema,
   sfxSearchSchema,
   staffCreateProposalSchema,
+  unrejectProposalSchema,
 } from "@/validators/contentReview";
 import type { QuestValidator } from "@/validators/objectives";
 
@@ -399,6 +400,62 @@ export const contentReviewRouter = createTRPCRouter({
         return errorResponse("This suggestion was already decided or went out of date");
       }
       return { success: true, message: "Rejected. The next audit reads your reason." };
+    }),
+
+  /** Undo a rejection, rechecking freshness before returning it to review. */
+  unreject: protectedProcedure
+    .input(unrejectProposalSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, proposal] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchProposal(ctx.drizzle, input.id),
+      ]);
+      if (user.isBanned)
+        return errorResponse("You are banned and cannot perform this action");
+      if (!canChangeContent(user.role)) return errorResponse("Not allowed");
+      if (!proposal) return errorResponse("Suggestion not found");
+      if (proposal.status !== "REJECTED")
+        return errorResponse(
+          "Only rejected suggestions can have their rejection undone",
+        );
+      const statusChangedAt = new Date(
+        Math.max(Date.now(), proposal.statusChangedAt.getTime() + 1),
+      );
+      const result = await ctx.drizzle
+        .update(contentProposal)
+        .set({
+          status: "PENDING",
+          rejectReason: null,
+          reviewNote: null,
+          reviewedByUserId: null,
+          outdatedReason: null,
+          statusChangedAt,
+        })
+        .where(
+          and(
+            eq(contentProposal.id, input.id),
+            eq(contentProposal.status, "REJECTED"),
+            eq(
+              contentProposal.statusChangedAt,
+              new Date(input.expectedStatusChangedAt),
+            ),
+          ),
+        );
+      if (result.rowsAffected !== 1)
+        return errorResponse(
+          "This suggestion changed. Reload before undoing its rejection.",
+        );
+      const outdated = await refreshProposalFreshness(ctx.drizzle, [
+        { ...proposal, statusChangedAt },
+      ]);
+      const reason = outdated.get(proposal.id);
+      return {
+        success: true,
+        message: reason
+          ? `Rejection undone. The suggestion is outdated: ${reason}`
+          : "Rejection undone. The suggestion is back in the pending queue.",
+      };
     }),
 
   /**

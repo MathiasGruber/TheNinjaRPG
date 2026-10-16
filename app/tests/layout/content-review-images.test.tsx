@@ -5,6 +5,7 @@ import { ContentReviewDetail } from "@/layout/ContentReviewDetail";
 import { sceneAssetIds } from "@/libs/contentReview/paths";
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
+import type { ContentProposalStatus } from "@/drizzle/constants";
 
 const state: {
   before: Record<string, unknown>;
@@ -15,7 +16,11 @@ const state: {
 } = { before: {}, after: {}, applied: null, media: [], payload: null };
 let canReview = false;
 let revision = new Date("2026-10-02T10:00:00.000Z");
+let status: ContentProposalStatus = "PENDING";
+let isUndoing = false;
+let undoResult: { success: boolean; message: string } | undefined;
 const approve = vi.fn();
+const unreject = vi.fn();
 
 const sceneCandidate = (id: string, externalId: string | null = null, chosen = false) => ({
   id,
@@ -39,7 +44,7 @@ vi.mock("@/app/_trpc/client", () => ({
           isPending: false,
           data: {
             id: "proposal",
-            status: "PENDING",
+            status,
             canReview,
             category: "VISUAL",
             title: "Update scene",
@@ -66,6 +71,7 @@ vi.mock("@/app/_trpc/client", () => ({
       },
       approve: { useMutation: () => ({ isPending: false, mutate: approve }) },
       reject: { useMutation: () => ({ isPending: false }) },
+      unreject: { useMutation: () => ({ isPending: isUndoing, mutate: unreject, data: undoResult }) },
       revert: { useMutation: () => ({ isPending: false }) },
     },
   },
@@ -93,7 +99,7 @@ const render = () => renderToStaticMarkup(
   />,
 );
 
-describe("proposal scene images", () => {
+describe("proposal review detail", () => {
   afterEach(cleanup);
   beforeEach(() => {
     ensureDom();
@@ -104,7 +110,43 @@ describe("proposal scene images", () => {
     state.payload = null;
     canReview = false;
     revision = new Date("2026-10-02T10:00:00.000Z");
+    status = "PENDING";
+    isUndoing = false;
+    undoResult = undefined;
     approve.mockClear();
+    unreject.mockClear();
+  });
+
+  it("lets reviewers undo a rejection of the revision they are viewing", () => {
+    canReview = true;
+    status = "REJECTED";
+    const view = renderInteractive(<ContentReviewDetail id="proposal" position={{ index: 0, total: 1 }} onMove={vi.fn()} onDecided={vi.fn()} />);
+    fireEvent.click(view.getByRole("button", { name: "Undo rejection" }));
+    expect(unreject).toHaveBeenCalledWith({ id: "proposal", expectedStatusChangedAt: revision.toISOString() });
+    expect(view.queryByRole("button", { name: /Approve and apply/ })).toBeNull();
+  });
+
+  it("hides undo from non-reviewers and proposals that are not rejected", () => {
+    status = "REJECTED";
+    expect(render()).not.toContain("Undo rejection");
+    canReview = true;
+    for (const next of ["PENDING", "APPLIED", "OUTDATED", "REVERTED"] as const) {
+      status = next;
+      expect(render()).not.toContain("Undo rejection");
+    }
+  });
+
+  it("disables undo while pending and shows a recoverable failure beside the button", () => {
+    canReview = true;
+    status = "REJECTED";
+    isUndoing = true;
+    const view = renderInteractive(<ContentReviewDetail id="proposal" position={{ index: 0, total: 1 }} onMove={vi.fn()} onDecided={vi.fn()} />);
+    expect((view.getByRole("button", { name: /Undo rejection/ }) as HTMLButtonElement).disabled).toBe(true);
+    isUndoing = false;
+    undoResult = { success: false, message: "This suggestion changed. Reload before undoing its rejection." };
+    view.rerender(<ContentReviewDetail id="proposal" position={{ index: 0, total: 1 }} onMove={vi.fn()} onDecided={vi.fn()} />);
+    expect(view.getByRole("alert").textContent).toBe(undoResult.message);
+    expect((view.getByRole("button", { name: "Undo rejection" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("shows both character images when a quest scene changes", () => {
