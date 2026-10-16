@@ -344,6 +344,7 @@ Allowed: action/combat scenes, anime-style characters in appropriate clothing, f
  * Classify if an uploaded image contains unsafe content
  * @param imageUrl - A public image URL or base64 image data URL to classify
  * @param requireResult - Reject an unavailable moderation result for generated assets
+ * @param signal - Cancel bounded generation work without changing ordinary upload moderation
  * @returns Whether the image is NSFW and the reason
  */
 export const classifyNsfwImage = async (

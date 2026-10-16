@@ -1,3 +1,4 @@
+/** Materialize owned companions as self-contained AI actors during battle initiation. */
 import { nanoid } from "nanoid";
 import type { BattleType, PetSpawnPosition, UserRank } from "@/drizzle/constants";
 import {
@@ -35,7 +36,11 @@ export const petsAllowedInBattle = (battleType: BattleType) =>
     (battleType === "RANKED_PVP" || battleType === "RANKED_SPARRING")
   );
 
-/** Add independently configured pets from initiation's preload; no turn-time reads. */
+/**
+ * Mutate initiation's preloaded state with at most one eligible active pet per owner.
+ * Abilities, passives and AI rules are frozen here so later turns need no pet reads.
+ * petIdsByOwner records only pets actually spawned, binding settlement XP to them.
+ */
 export const addPetsToBattle = (info: {
   pets: UserPet[];
   usersState: BattleUserState[];
@@ -131,7 +136,11 @@ export const addPetsToBattle = (info: {
   }
 };
 
-/** Position relative to the owner's forward direction, falling back to the nearest free cell. */
+/**
+ * Find the nearest unoccupied cell to the owner's preferred relative position,
+ * constrained to the owner's half of the grid. Return undefined if that half is full;
+ * defeated actors do not occupy cells and equal-distance ties keep grid order.
+ */
 export const getPetSpawnLocation = (
   owner: Pick<BattleUserState, "longitude" | "latitude" | "direction">,
   position: PetSpawnPosition,
@@ -173,6 +182,7 @@ export const getPetSpawnLocation = (
     )[0];
 };
 
+/** Build a fresh summon-like AI actor, retaining team context but replacing owner progression/loadout. */
 const createPetBattleUser = (
   pet: UserPet,
   owner: BattleUserState,
@@ -180,8 +190,11 @@ const createPetBattleUser = (
 ): BattleUserState => {
   const level = getPetLevel(pet);
   const caps = getPetStatCaps(pet);
+  // Reuse shared team/battle metadata from the owner, then clear personal powers,
+  // economy and turn history so the pet acts only with its own stats and abilities.
   const actor: BattleUserState = {
     ...structuredClone(owner),
+    // A battle-only actor ID keeps effects separate; petId identifies the saved companion.
     userId: nanoid(),
     controllerId: owner.userId,
     petId: pet.id,

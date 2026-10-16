@@ -1,10 +1,13 @@
+/** Pure progression and readiness rules shared by pet presentation and server guards. */
 import { getUserCaps, PET_RANKS, type UserRank } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
 import { calcLevelRequirements } from "@/libs/profile";
 
+/** Resolve rank metadata, falling back to the starting rank for unknown saved values. */
 export const getPetRank = (rank: number) =>
   PET_RANKS.find((entry) => entry.rank === rank) ?? PET_RANKS[0];
 
+/** Highest companion evolution supported by the owner's actual character rank. */
 export const getMaxPetRank = (ownerRank: UserRank) => {
   const ranks: Record<UserRank, number> = {
     STUDENT: 1,
@@ -28,6 +31,7 @@ export const isPetAppearanceReady = (
   pet.artRank === pet.rank &&
   Boolean(pet.avatar);
 
+/** Check combat/XP eligibility; collection ownership and active selection are caller guards. */
 export const canUsePet = (
   pet: Pick<
     UserPet,
@@ -39,6 +43,7 @@ export const canUsePet = (
   pet.rank <= getMaxPetRank(owner.rank) &&
   isPetAppearanceReady(pet);
 
+/** Derive level from total assigned XP using player thresholds, capped by pet rank. */
 export const getPetLevel = (pet: Pick<UserPet, "rank" | "experience">) => {
   const cap = getPetRank(pet.rank).levelCap;
   let level = 1;
@@ -46,9 +51,11 @@ export const getPetLevel = (pet: Pick<UserPet, "rank" | "experience">) => {
   return level;
 };
 
+/** Reuse the stat caps of the character rank associated with this pet evolution. */
 export const getPetStatCaps = (pet: Pick<UserPet, "rank">) =>
   getUserCaps(getPetRank(pet.rank).minUserRank);
 
+/** Return the first progression prerequisite to show the owner, or null when met. */
 export const petRankUpBlockMessage = (
   pet: Pick<UserPet, "rank" | "experience" | "generationStatus" | "artRank" | "avatar">,
   owner: { rank: UserRank },

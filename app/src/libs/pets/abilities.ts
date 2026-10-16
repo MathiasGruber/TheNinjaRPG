@@ -1,4 +1,13 @@
-import { PET_MAX_ABILITY_SLOTS, PET_RANKS, type UserRank } from "@/drizzle/constants";
+/** Shared loadout eligibility for the pet editor, mutations and battle initiation. */
+import {
+  PET_ABILITY_POWER_BUDGET_BONUS,
+  PET_ABILITY_RANKS_PER_SLOT,
+  PET_JUTSU_POWER_COST_BY_RANK,
+  PET_MAX_ABILITY_SLOTS,
+  PET_MIN_SKILL_POWER_COST,
+  PET_RANKS,
+  type UserRank,
+} from "@/drizzle/constants";
 import type { Jutsu, SkillTree, UserPet } from "@/drizzle/schema";
 import type { CombatQueryUserJutsu, CombatQueryUserSkill } from "@/libs/combat/types";
 import { getMaxPetRank, getPetLevel } from "@/libs/pets/progression";
@@ -7,15 +16,20 @@ import type { ZodAllTags } from "@/validators/combat";
 
 /** Purchased slots share one rank-bounded budget across active and passive abilities. */
 export const getPetAbilityCapacity = (pet: Pick<UserPet, "rank">) => ({
-  maxSlots: Math.min(PET_MAX_ABILITY_SLOTS, 1 + Math.floor((pet.rank - 1) / 3)),
-  budget: pet.rank + 1,
+  maxSlots: Math.min(
+    PET_MAX_ABILITY_SLOTS,
+    1 + Math.floor((pet.rank - 1) / PET_ABILITY_RANKS_PER_SLOT),
+  ),
+  budget: pet.rank + PET_ABILITY_POWER_BUDGET_BONUS,
 });
 
+/** Ability-budget cost by jutsu rank; forbidden H-rank content cannot fit any budget. */
 export const getPetJutsuCost = (jutsu: Pick<Jutsu, "jutsuRank">) =>
-  ({ D: 1, C: 2, B: 3, A: 4, S: 5, H: Number.POSITIVE_INFINITY })[jutsu.jutsuRank];
+  PET_JUTSU_POWER_COST_BY_RANK[jutsu.jutsuRank];
 
+/** Passive skills spend their tier from the same budget as active jutsus. */
 export const getPetSkillCost = (skill: Pick<SkillTree, "tier">) =>
-  Math.max(1, skill.tier);
+  Math.max(PET_MIN_SKILL_POWER_COST, skill.tier);
 
 /** Catalog abilities may affect combatants without introducing new content dependencies. */
 const activeEffects = new Set<ZodAllTags["type"]>([
@@ -96,7 +110,11 @@ export const isPetSkillAllowed = (skill: SkillTree) =>
       effect.target !== "COORDINATES" && isAllowedEffect(effect, passiveEffects),
   );
 
-/** The caller supplies only learned jutsus and purchased, activated skills belonging to the owner. */
+/**
+ * Return the first player-facing loadout rejection, or null when valid.
+ * The caller supplies only learned jutsus and purchased, activated skills
+ * belonging to the owner; these arrays are also the ownership allowlist.
+ */
 export const validatePetAbilities = ({
   pet,
   owner,
@@ -151,7 +169,11 @@ export const validatePetAbilities = ({
     : null;
 };
 
-/** Recheck frozen owner content at initiation, retaining valid choices when another became unavailable. */
+/**
+ * Revalidate against initiation's frozen owner content, keeping usable choices
+ * when other content became unavailable. Saved jutsus take budget priority,
+ * followed by skills; each rejected entry leaves room for later valid entries.
+ */
 export const selectPetBattleAbilities = ({
   pet,
   owner,
@@ -204,6 +226,7 @@ export const selectPetBattleAbilities = ({
   };
 };
 
+/** Reject unsupported tags, invalid scaling and elemental dependencies before copying content. */
 const isAllowedEffect = (effect: ZodAllTags, allowed: Set<ZodAllTags["type"]>) =>
   allowed.has(effect.type) &&
   Number.isFinite(effect.power) &&
@@ -213,6 +236,7 @@ const isAllowedEffect = (effect: ZodAllTags, allowed: Set<ZodAllTags["type"]>) =
   (effect.calculation !== "percentage" || effect.power <= 100) &&
   (!("elements" in effect) || !effect.elements?.some((element) => element !== "None"));
 
+/** Persisted selections plus the progression fields needed to validate their limits. */
 export type PetAbilityLoadout = Pick<
   UserPet,
   "rank" | "experience" | "abilitySlots" | "jutsuIds" | "skillIds"

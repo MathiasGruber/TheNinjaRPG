@@ -628,6 +628,14 @@ export const PET_MAX_COLLECTION_SLOTS = 6;
 export const PET_COLLECTION_SLOT_COST = 100;
 export const PET_MAX_ABILITY_SLOTS = 4;
 export const PET_ABILITY_SLOT_COST = 25;
+/** Rank progression controls purchased slot capacity and the shared ability power budget. */
+export const PET_ABILITY_RANKS_PER_SLOT = 3;
+export const PET_ABILITY_POWER_BUDGET_BONUS = 1;
+export const PET_MIN_SKILL_POWER_COST = 1;
+/** H-rank techniques cannot fit a pet loadout, regardless of its power budget. */
+export const PET_JUTSU_POWER_COST_BY_RANK = {
+  D: 1, C: 2, B: 3, A: 4, S: 5, H: Number.POSITIVE_INFINITY,
+} as const;
 export const PET_FEED_EXPERIENCE_PER_RANK = 500;
 export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 export type PetRarity = (typeof PetRarities)[number];

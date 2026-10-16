@@ -71,6 +71,11 @@ import {
   updatePetSchema,
 } from "@/validators/pets";
 
+/**
+ * Manage the owner's collection and selected companion within the profile tab.
+ * Generation polling and shared invalidation reconcile long-running artwork and
+ * rewards; the server remains authoritative for eligibility and mutation results.
+ */
 export function PetProfile() {
   const { data: userData } = useRequiredUserData();
   const searchParams = useSearchParams();
@@ -89,6 +94,7 @@ export function PetProfile() {
   const [abilityKind, setAbilityKind] = useState("all");
   const [isEvolving, setIsEvolving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Close the gap before React paints pending state, including multi-step evolution.
   const inFlight = useRef(false);
   const { data, isPending, error, refetch } = api.pets.getPet.useQuery(
     selectedPetId ? { petId: selectedPetId } : undefined,
@@ -228,6 +234,7 @@ export function PetProfile() {
     updateAbilities.isPending ||
     unlockAbilitySlot.isPending;
 
+  /** Retry the saved companion's current artwork without repeating adoption or rank-up. */
   const generateAppearance = async () => {
     if (inFlight.current || !pet) return;
     inFlight.current = true;
@@ -242,6 +249,7 @@ export function PetProfile() {
       setIsGenerating(false);
     }
   };
+  /** Commit progression first, then generate its matching form; artwork failure remains retryable. */
   const evolvePet = async () => {
     if (inFlight.current || !pet) return;
     inFlight.current = true;
@@ -257,6 +265,7 @@ export function PetProfile() {
       setIsEvolving(false);
     }
   };
+  /** Report success to the shared allocation form so a rejected spend keeps its draft recoverable. */
   const assignExperience = async (
     stats: Omit<RouterInputs["pets"]["assignExperience"], "petId">,
   ) => {
@@ -394,6 +403,8 @@ export function PetProfile() {
   const selectedMeal =
     data.feedMeals.find((meal) => meal.id === selectedMealId) ?? data.feedMeals[0];
   const canRetryGeneration = retryAt === null || retryAt.getTime() <= Date.now();
+  // Adapt only stats/rank for the shared player allocator; its submit handler
+  // spends the selected pet's bank through the pets router.
   const statsUser = {
     ...userData,
     offence: pet.offence,
@@ -410,6 +421,8 @@ export function PetProfile() {
     PET_CHARACTERISTICS[pet.characteristicIndex],
     PET_AURAS[pet.auraIndex],
   ];
+  // Drafts belong to a pet ID so switching companions cannot apply another's edits.
+  // Saved selections missing from current eligible content are omitted from the draft.
   const abilities =
     abilityDraft?.petId === pet.id
       ? abilityDraft

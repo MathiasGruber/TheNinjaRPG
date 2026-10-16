@@ -1,4 +1,6 @@
+import * as Sentry from "@sentry/nextjs";
 import { and, count, eq, gt, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import {
   CombatStatNames,
@@ -48,10 +50,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
-import {
-  claimUserSnapshot,
-  consumeUserItemAtomically,
-} from "@/server/utils/concurrency";
+import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { getPetDayKey } from "@/utils/time";
 import {
@@ -65,7 +64,9 @@ import {
   updatePetSchema,
 } from "@/validators/pets";
 
+/** Own, configure and progress companions through guarded account and pet snapshots. */
 export const petsRouter = createTRPCRouter({
+  /** Buy collection capacity and debit its price in one account update. */
   unlockSlot: protectedProcedure
     .output(baseServerResponse)
     .mutation(async ({ ctx }) => {
@@ -102,6 +103,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Move both unused XP banks with their companions when changing the active selection. */
   activatePet: protectedProcedure
     .input(petSelectionSchema)
     .output(baseServerResponse)
@@ -119,53 +121,41 @@ export const petsRouter = createTRPCRouter({
       if (pet.rank > getMaxPetRank(user.rank))
         return errorResponse("Your rank does not support this companion rank.");
       const previous = pets.find((entry) => entry.id === user.activePetId);
-      try {
-        const activated = await retryOnDeadlock(() =>
-          ctx.drizzle.transaction(async (tx) => {
-            const claim = await claimUserSnapshot({
-              client: tx,
-              userId: ctx.userId,
-              updatedAt: user.updatedAt,
-              where: ownerMutationWhere(user),
-            });
-            if (!claim.success) return false;
-            if (previous) {
-              // The owner claim holds the XP row while the bank moves with its companion.
-              const parked = await tx
-                .update(userPet)
-                .set({
-                  storedExperience: sql`(SELECT ${userData.petExperience} FROM ${userData} WHERE ${userData.userId} = ${ctx.userId})`,
-                  revision: sql`${userPet.revision} + 1`,
-                  updatedAt: new Date(),
-                })
-                .where(petSnapshotWhere(previous));
-              if (parked.rowsAffected !== 1) throw petMutationConflict();
-            }
-            const selected = await tx
-              .update(userPet)
-              .set({
-                storedExperience: 0,
-                revision: sql`${userPet.revision} + 1`,
-                updatedAt: new Date(),
-              })
-              .where(petSnapshotWhere(pet));
-            if (selected.rowsAffected !== 1) throw petMutationConflict();
-            await tx
-              .update(userData)
-              .set({ activePetId: pet.id, petExperience: pet.storedExperience })
-              .where(eq(userData.userId, ctx.userId));
-            return true;
-          }),
-        );
-        return activated
-          ? { success: true, message: `${pet.name} is now your active companion.` }
-          : changedResponse();
-      } catch (error) {
-        if (isPetMutationConflict(error)) return changedResponse();
-        throw error;
-      }
+      if (user.activePetId && !previous) return changedResponse();
+      const now = new Date();
+      const previousPet = alias(userPet, "previous_pet");
+      // LIMIT materializes the locking snapshot, preserving XP earned before this
+      // statement independently of MySQL's unspecified multi-table assignment order.
+      const ownerSnapshot = ctx.drizzle
+        .select({ userId: userData.userId, petExperience: userData.petExperience })
+        .from(userData)
+        .where(ownerSnapshotWhere(user))
+        .limit(1)
+        .for("update")
+        .as("owner_snapshot");
+      // Drizzle's MySQL UPDATE builder cannot update the owner and both pets together.
+      const activated = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          INNER JOIN ${ownerSnapshot} ON ${eq(userData.userId, ownerSnapshot.userId)}
+          INNER JOIN ${userPet} ON ${eq(userPet.userId, userData.userId)}
+          ${previous ? sql`INNER JOIN ${userPet} previous_pet ON ${and(eq(previousPet.id, previous.id), eq(previousPet.userId, userData.userId), eq(previousPet.revision, previous.revision))}` : sql``}
+          SET ${userData.activePetId} = ${pet.id},
+              ${userData.petExperience} = ${pet.storedExperience},
+              ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+              ${userPet.storedExperience} = 0,
+              ${userPet.revision} = ${userPet.revision} + 1,
+              ${userPet.updatedAt} = ${now}
+              ${previous ? sql`, ${previousPet.storedExperience} = ${ownerSnapshot.petExperience}, ${previousPet.revision} = ${previousPet.revision} + 1, ${previousPet.updatedAt} = ${now}` : sql``}
+          WHERE ${and(ownerSnapshotWhere(user), petSnapshotWhere(pet))}
+        `),
+      );
+      return activated.rowsAffected > 0
+        ? { success: true, message: `${pet.name} is now your active companion.` }
+        : changedResponse();
     }),
 
+  /** Purchase a rank-supported ability slot together with its reputation debit. */
   unlockAbilitySlot: protectedProcedure
     .input(petSelectionSchema)
     .output(baseServerResponse)
@@ -194,6 +184,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Equip owned abilities after validating the companion's shared capacity and budget. */
   updateAbilities: protectedProcedure
     .input(updatePetAbilitiesSchema)
     .output(baseServerResponse)
@@ -220,6 +211,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Exchange one carried meal for the companion's once-per-UTC-day XP grant. */
   feedPet: protectedProcedure
     .input(feedPetSchema)
     .output(baseServerResponse)
@@ -247,8 +239,7 @@ export const petsRouter = createTRPCRouter({
           "This companion has already been fed today. Return after midnight UTC.",
         );
       if (
-        !meal ||
-        meal.item.itemType !== "MEAL" ||
+        meal?.item.itemType !== "MEAL" ||
         meal.storedAtHome ||
         meal.isInAuction ||
         meal.equipped !== "NONE" ||
@@ -261,70 +252,69 @@ export const petsRouter = createTRPCRouter({
         return errorResponse("Your meal stack changed. Refresh and try again.");
       const experience = pet.rank * PET_FEED_EXPERIENCE_PER_RANK;
       const isActive = user.activePetId === pet.id;
-      try {
-        const fed = await retryOnDeadlock(() =>
-          ctx.drizzle.transaction(async (tx) => {
-            const claim = await claimUserSnapshot({
-              client: tx,
-              userId: ctx.userId,
-              updatedAt: user.updatedAt,
-              where: ownerMutationWhere(user),
-              set: isActive
-                ? { petExperience: sql`${userData.petExperience} + ${experience}` }
-                : {},
-            });
-            if (!claim.success) return false;
-            const consumed = await consumeUserItemAtomically({
-              client: tx,
-              userId: ctx.userId,
-              userItemId: meal.id,
-              expectedQuantity: meal.quantity,
-              where: [
-                eq(userItem.isInAuction, false),
-                eq(userItem.storedAtHome, false),
-                eq(userItem.equipped, "NONE"),
-                or(
-                  isNull(userItem.craftingFinishedAt),
-                  lt(userItem.craftingFinishedAt, new Date()),
+      const now = new Date();
+      // One joined UPDATE guards the account, pet and exact meal stack before any
+      // debit or XP grant. Zero quantities are harmless tombstones until cleanup.
+      const fed = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          INNER JOIN ${userPet} ON ${eq(userPet.userId, userData.userId)}
+          INNER JOIN ${userItem} ON ${eq(userItem.userId, userData.userId)}
+          SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+              ${userItem.quantity} = ${meal.quantity - 1},
+              ${userPet.feedDay} = ${dayKey},
+              ${userPet.revision} = ${userPet.revision} + 1,
+              ${userPet.updatedAt} = ${now},
+              ${isActive ? sql`${userData.petExperience} = ${userData.petExperience} + ${experience}` : sql`${userPet.storedExperience} = ${userPet.storedExperience} + ${experience}`}
+          WHERE ${and(ownerSnapshotWhere(user), petSnapshotWhere(pet))}
+            AND ${userItem.id} = ${meal.id}
+            AND ${userItem.userId} = ${ctx.userId}
+            AND ${userItem.itemId} = ${meal.itemId}
+            AND ${userItem.quantity} = ${meal.quantity}
+            AND ${userItem.quantity} > 0
+            AND ${userItem.isInAuction} = FALSE
+            AND ${userItem.storedAtHome} = FALSE
+            AND ${userItem.equipped} = 'NONE'
+            AND (${userItem.craftingFinishedAt} IS NULL OR ${userItem.craftingFinishedAt} <= ${now})
+        `),
+      );
+      if (fed.rowsAffected === 0) return changedResponse();
+      if (meal.quantity === 1) {
+        try {
+          await retryOnDeadlock(() =>
+            ctx.drizzle
+              .delete(userItem)
+              .where(
+                and(
+                  eq(userItem.id, meal.id),
+                  eq(userItem.userId, ctx.userId),
+                  eq(userItem.quantity, 0),
                 ),
-              ],
-            });
-            if (!consumed) throw petMutationConflict();
-            const result = await tx
-              .update(userPet)
-              .set({
-                feedDay: dayKey,
-                ...(!isActive
-                  ? {
-                      storedExperience: sql`${userPet.storedExperience} + ${experience}`,
-                    }
-                  : {}),
-                revision: sql`${userPet.revision} + 1`,
-                updatedAt: new Date(),
-              })
-              .where(petSnapshotWhere(pet));
-            if (result.rowsAffected !== 1) throw petMutationConflict();
-            return true;
-          }),
-        );
-        return fed
-          ? {
-              success: true,
-              message: `${pet.name} enjoyed its meal and gained ${experience.toLocaleString("en-US")} companion experience.`,
-            }
-          : changedResponse();
-      } catch (error) {
-        if (isPetMutationConflict(error)) return changedResponse();
-        throw error;
+              ),
+          );
+        } catch (error) {
+          // The feed already committed; inventory hides zero stacks and its cleaner
+          // reclaims them. Report success so a cleanup failure cannot repeat the grant.
+          Sentry.captureException(error, {
+            level: "warning",
+            tags: { source: "feedPet" },
+          });
+        }
       }
+      return {
+        success: true,
+        message: `${pet.name} enjoyed its meal and gained ${experience.toLocaleString("en-US")} companion experience.`,
+      };
     }),
 
+  /** Return the owner's collection without exposing server-only generation tokens. */
   getCollection: protectedProcedure.query(async ({ ctx }) => {
     const { user, pets } = await fetchPetOwner(ctx.drizzle, ctx.userId);
     if (!user) throw serverError("NOT_FOUND", "User not found");
     return { pets: pets.map(omitGenerationToken), activePetId: user.activePetId };
   }),
 
+  /** Assemble companion progression, abilities, meals and daily sanctuary choices. */
   getPet: protectedProcedure
     .input(petSelectionSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -416,6 +406,7 @@ export const petsRouter = createTRPCRouter({
       };
     }),
 
+  /** Adopt the first companion free, then charge each additional adoption exactly once. */
   acquirePet: protectedProcedure
     .input(acquirePetSchema)
     .output(petAcquisitionResponseSchema)
@@ -445,6 +436,8 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(`Replacing a companion costs ${cost} reputation points.`);
       const petId = nanoid();
       try {
+        // MySQL cannot insert the pet and update its owner's debit/counters/first
+        // selection in one statement. Keep this transaction to those paired writes.
         const acquired = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
             const claim = await claimUserSnapshot({
@@ -501,6 +494,7 @@ export const petsRouter = createTRPCRouter({
       }
     }),
 
+  /** Remove an owned companion and discard only its own unused XP bank. */
   releasePet: protectedProcedure
     .input(petSelectionSchema)
     .output(baseServerResponse)
@@ -514,6 +508,27 @@ export const petsRouter = createTRPCRouter({
           "Wait for your pet's appearance to finish before releasing it.",
         );
       try {
+        // An inactive pet owns its bank entirely. A joined DELETE checks both
+        // snapshots without updating or serializing an unrelated active XP bank.
+        if (user.activePetId !== pet.id) {
+          const removed = await retryOnDeadlock(() =>
+            ctx.drizzle.execute(sql`
+              DELETE ${userPet}
+              FROM ${userPet}
+              INNER JOIN ${userData} ON ${eq(userData.userId, userPet.userId)}
+              WHERE ${and(ownerSnapshotWhere(user), petSnapshotWhere(pet))}
+            `),
+          );
+          return removed.rowsAffected === 1
+            ? {
+                success: true,
+                message:
+                  "Your companion returned to the sanctuary. Its progress and unused experience were removed.",
+              }
+            : changedResponse();
+        }
+        // DELETE cannot also reset fields on a retained owner row. The active
+        // selection and its XP reset must commit with this pet's deletion.
         const released = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
             const claim = await claimUserSnapshot({
@@ -521,10 +536,7 @@ export const petsRouter = createTRPCRouter({
               userId: user.userId,
               updatedAt: user.updatedAt,
               where: ownerMutationWhere(user),
-              set:
-                user.activePetId === pet.id
-                  ? { petExperience: 0, activePetId: null }
-                  : {},
+              set: { petExperience: 0, activePetId: null },
             });
             if (!claim.success) return false;
             const removed = await tx.delete(userPet).where(petSnapshotWhere(pet));
@@ -545,6 +557,7 @@ export const petsRouter = createTRPCRouter({
       }
     }),
 
+  /** Save presentation and battle settings without charging reputation. */
   updatePet: protectedProcedure
     .input(updatePetSchema)
     .output(baseServerResponse)
@@ -562,6 +575,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Save validated companion AI rules against its current revision. */
   updateAiConfig: protectedProcedure
     .input(updatePetAiSchema)
     .output(baseServerResponse)
@@ -581,6 +595,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Spend the active or parked bank together with its companion stat gains. */
   assignExperience: protectedProcedure
     .input(assignPetExperienceSchema)
     .output(baseServerResponse)
@@ -619,50 +634,35 @@ export const petsRouter = createTRPCRouter({
       const isActive = user.activePetId === pet.id;
       if (spent > (isActive ? user.petExperience : pet.storedExperience))
         return errorResponse("Not enough unused companion experience.");
-      try {
-        const assigned = await retryOnDeadlock(() =>
-          ctx.drizzle.transaction(async (tx) => {
-            const claim = await claimUserSnapshot({
-              client: tx,
-              userId: user.userId,
-              updatedAt: user.updatedAt,
-              where: [
-                ...ownerMutationWhere(user),
-                ...(isActive ? [gte(userData.petExperience, spent)] : []),
-              ],
-              set: isActive
-                ? { petExperience: sql`${userData.petExperience} - ${spent}` }
-                : {},
-            });
-            if (!claim.success) return false;
-            const result = await tx
-              .update(userPet)
-              .set({
-                ...stats,
-                ...(!isActive
-                  ? { storedExperience: sql`${userPet.storedExperience} - ${spent}` }
-                  : {}),
-                experience: sql`${userPet.experience} + ${spent}`,
-                revision: sql`${userPet.revision} + 1`,
-                updatedAt: new Date(),
-              })
-              .where(petSnapshotWhere(pet));
-            if (result.rowsAffected !== 1) throw petMutationConflict();
-            return true;
-          }),
-        );
-        return assigned
-          ? {
-              success: true,
-              message: `${spent.toLocaleString("en-US")} companion experience assigned.`,
-            }
-          : changedResponse();
-      } catch (error) {
-        if (isPetMutationConflict(error)) return changedResponse();
-        throw error;
-      }
+      const now = new Date();
+      const bank = isActive ? userData.petExperience : userPet.storedExperience;
+      // The bank debit and revision-guarded gains share one match, so a concurrent
+      // swap or allocation cannot spend XP without delivering its stat increases.
+      const assigned = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+          UPDATE ${userData}
+          INNER JOIN ${userPet} ON ${eq(userPet.userId, userData.userId)}
+          SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+              ${bank} = ${bank} - ${spent},
+              ${sql.join(
+                CombatStatNames.map((stat) => sql`${userPet[stat]} = ${stats[stat]}`),
+                sql`, `,
+              )},
+              ${userPet.experience} = ${userPet.experience} + ${spent},
+              ${userPet.revision} = ${userPet.revision} + 1,
+              ${userPet.updatedAt} = ${now}
+          WHERE ${and(ownerSnapshotWhere(user), petSnapshotWhere(pet), gte(bank, spent))}
+        `),
+      );
+      return assigned.rowsAffected > 0
+        ? {
+            success: true,
+            message: `${spent.toLocaleString("en-US")} companion experience assigned.`,
+          }
+        : changedResponse();
     }),
 
+  /** Evolve an eligible companion for free and require art for its new rank. */
   rankUp: protectedProcedure
     .input(petSelectionSchema)
     .output(baseServerResponse)
@@ -695,6 +695,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
+  /** Claim a bounded generation lease and accept only its matching provider result. */
   generateAppearance: protectedProcedure
     .input(petSelectionSchema)
     .output(baseServerResponse)
@@ -814,6 +815,7 @@ export const petsRouter = createTRPCRouter({
     }),
 });
 
+/** Load independent owner and collection snapshots in parallel. */
 const fetchPetOwner = async (client: DrizzleClient, userId: string, petId?: string) => {
   const [user, pets] = await Promise.all([
     client.query.userData.findFirst({ where: eq(userData.userId, userId) }),
@@ -828,6 +830,7 @@ const fetchPetOwner = async (client: DrizzleClient, userId: string, petId?: stri
   return { user, pet, pets };
 };
 
+/** Load learned jutsus and activated skills for companion loadout validation. */
 const fetchPetAbilities = async (client: DrizzleClient, userId: string) => {
   const [jutsus, skills] = await Promise.all([
     client.query.userJutsu.findMany({
@@ -845,9 +848,11 @@ const fetchPetAbilities = async (client: DrizzleClient, userId: string) => {
   };
 };
 
+/** Generation tokens are server-only lease credentials. */
 const omitGenerationToken = ({ generationToken: _generationToken, ...pet }: UserPet) =>
   pet;
 
+/** Sanctuary adoption requires an eligible, awake player at its current location. */
 const acquisitionBlockMessage = (user: UserData) => {
   if (user.isBanned) return "You are banned";
   if (user.status !== "AWAKE" || user.battleId)
@@ -859,6 +864,7 @@ const acquisitionBlockMessage = (user: UserData) => {
   return null;
 };
 
+/** Reject expected ownership and combat-state restrictions before any write. */
 const petMutationBlockMessage = (
   user: UserData | undefined,
   pet: UserPet | undefined,
@@ -871,10 +877,12 @@ const petMutationBlockMessage = (
   return null;
 };
 
+/** Abandoned generation leases expire without releasing ownership. */
 const hasActiveGeneration = (pet: UserPet, now = new Date()) =>
   pet.generationStatus === "GENERATING" &&
   (!pet.generationStartedAt ||
     now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS);
+/** Keep the validated rank, active identity and ability to mutate current at commit. */
 const ownerMutationWhere = (user: UserData) => [
   eq(userData.status, "AWAKE"),
   eq(userData.isBanned, false),
@@ -884,23 +892,34 @@ const ownerMutationWhere = (user: UserData) => [
     : isNull(userData.activePetId),
   eq(userData.rank, user.rank),
 ];
+/** Pin account identity and its monotonic revision alongside the domain guards. */
+const ownerSnapshotWhere = (user: UserData) =>
+  and(
+    eq(userData.userId, user.userId),
+    eq(userData.updatedAt, user.updatedAt),
+    ...ownerMutationWhere(user),
+  );
+/** Every pet write must still own the selected identity at the fetched revision. */
 const petSnapshotWhere = (pet: UserPet) =>
   and(
     eq(userPet.id, pet.id),
     eq(userPet.userId, pet.userId),
     eq(userPet.revision, pet.revision),
   );
+/** Snapshot conflicts remain recoverable mutation results, not server exceptions. */
 const changedResponse = () =>
   errorResponse("Your character or companion changed. Refresh and try again.");
 
-/** A pet write losing its snapshot must roll back its paired character debit. */
+/** Active release losing its pet snapshot must roll back the owner's XP reset. */
 const petMutationConflict = () =>
   Object.assign(new Error("Companion snapshot changed"), {
     name: "PetMutationConflict",
   });
+/** Recognize only the internal signal that requires the active-release rollback. */
 const isPetMutationConflict = (error: unknown) =>
   error instanceof Error && error.name === "PetMutationConflict";
 
+/** Publish a pet patch with its account claim and optional reputation charge. */
 const updateOwnedPet = async (
   client: DrizzleClient,
   user: UserData,
@@ -908,33 +927,28 @@ const updateOwnedPet = async (
   patch: Partial<UserPet>,
   cost = 0,
 ) => {
-  try {
-    return await retryOnDeadlock(() =>
-      client.transaction(async (tx) => {
-        const claim = await claimUserSnapshot({
-          client: tx,
-          userId: user.userId,
-          updatedAt: user.updatedAt,
-          where: [...ownerMutationWhere(user), gte(userData.reputationPoints, cost)],
-          set: cost
-            ? { reputationPoints: sql`${userData.reputationPoints} - ${cost}` }
-            : {},
-        });
-        if (!claim.success) return false;
-        const result = await tx
-          .update(userPet)
-          .set({
-            ...patch,
-            revision: sql`${userPet.revision} + 1`,
-            updatedAt: new Date(),
-          })
-          .where(petSnapshotWhere(pet));
-        if (result.rowsAffected !== 1) throw petMutationConflict();
-        return true;
-      }),
-    );
-  } catch (error) {
-    if (isPetMutationConflict(error)) return false;
-    throw error;
-  }
+  const now = new Date();
+  const assignments = Object.entries(patch)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => {
+      const column = userPet[key as keyof UserPet];
+      // Use the column encoder just as Drizzle's set() does, including JSON,
+      // nullable generation fields, booleans and millisecond timestamps.
+      return sql`${column} = ${sql.param(value, column)}`;
+    });
+  // Drizzle cannot build a multi-table UPDATE. Both snapshot guards gate the
+  // patch and any debit together; free edits have no balance precondition.
+  const result = await retryOnDeadlock(() =>
+    client.execute(sql`
+      UPDATE ${userData}
+      INNER JOIN ${userPet} ON ${eq(userPet.userId, userData.userId)}
+      SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
+          ${cost ? sql`${userData.reputationPoints} = ${userData.reputationPoints} - ${cost},` : sql``}
+          ${sql.join(assignments, sql`, `)}${assignments.length ? sql`,` : sql``}
+          ${userPet.revision} = ${userPet.revision} + 1,
+          ${userPet.updatedAt} = ${now}
+      WHERE ${and(ownerSnapshotWhere(user), petSnapshotWhere(pet), cost ? gte(userData.reputationPoints, cost) : undefined)}
+    `),
+  );
+  return result.rowsAffected > 0;
 };

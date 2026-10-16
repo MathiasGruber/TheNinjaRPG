@@ -2497,7 +2497,9 @@ export const userData = mysqlTable(
     bank: bigint("bank", { mode: "number" }).default(1000).notNull(),
     experience: int("experience").default(0).notNull(),
     earnedExperience: int("earnedExperience").default(2000).notNull(),
+    // The active companion's unused XP is parked on its pet row when another becomes active.
     petExperience: double("petExperience").default(0).notNull(),
+    // Lifetime adoptions keep releasing a companion from renewing the free first adoption.
     petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
     activePetId: varchar("activePetId", { length: 191 }),
     petSlots: tinyint("petSlots", { unsigned: true }).default(1).notNull(),
@@ -2880,6 +2882,11 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+/**
+ * Owner-bound progression, appearance and battle configuration for each companion.
+ * storedExperience holds only inactive XP; active XP lives on UserData. Catalogue
+ * indices preserve generated identity, while revision guards concurrent mutations.
+ */
 export const userPet = mysqlTable(
   "UserPet",
   {
@@ -2914,6 +2921,7 @@ export const userPet = mysqlTable(
     generationStartedAt: datetime("generationStartedAt", { mode: "date", fsp: 3 }),
     generationAttempts: tinyint("generationAttempts", { unsigned: true }).default(0).notNull(),
     generationDay: varchar("generationDay", { length: 10 }),
+    // Evolution keeps the previous accepted image until artRank catches up to rank.
     artRank: tinyint("artRank", { unsigned: true }).default(0).notNull(),
     revision: int("revision", { unsigned: true }).default(0).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),

@@ -25,6 +25,11 @@ import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { acquirePetSchema } from "@/validators/pets";
 
+/**
+ * Guide daily trait selection, claim a companion, then request its first artwork.
+ * A saved companion survives image failures; uncertain adoption responses are
+ * reconciled with the collection before another potentially paid claim is allowed.
+ */
 export function PetAcquisition() {
   const { data: userData } = useRequiredUserData();
   const utils = api.useUtils();
@@ -36,9 +41,11 @@ export function PetAcquisition() {
   const [acquiredPetId, setAcquiredPetId] = useState<string | null>(null);
   const [isAcquiring, setIsAcquiring] = useState(false);
   const [needsCollectionCheck, setNeedsCollectionCheck] = useState(false);
+  // Lock synchronously across claim, artwork and recovery before pending state paints.
   const inFlight = useRef(false);
   const stageHeading = useRef<HTMLHeadingElement>(null);
   const shouldFocusStage = useRef(false);
+  // Keep a pre-claim identity snapshot until the server's committed pet is known.
   const adoptionAttempt = useRef<{
     previousIds: Set<string>;
     input: RouterInputs["pets"]["acquirePet"];
@@ -58,6 +65,7 @@ export function PetAcquisition() {
     },
   );
   const dayKey = data?.dayKey;
+  // A tier change can alter offerings within the same day; both changes invalidate a draft.
   const catalogueKey = data
     ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
         .flatMap((options) => options.map((option) => option.index))
@@ -134,6 +142,7 @@ export function PetAcquisition() {
     generate.isPending ||
     release.isPending;
 
+  /** Reconcile an uncertain claim against newly added matching pets before enabling another charge. */
   const checkAdoption = async () => {
     const attempt = adoptionAttempt.current;
     if (!attempt) return;
@@ -165,6 +174,7 @@ export function PetAcquisition() {
     );
   };
 
+  /** Validate the displayed day's selection, claim once, then generate art for that committed pet. */
   const meetPet = async () => {
     if (inFlight.current || !data?.canAcquire || isBusy) return;
     if (Object.values(selection).some((value) => value === null)) {
@@ -205,6 +215,7 @@ export function PetAcquisition() {
       setIsAcquiring(false);
     }
   };
+  /** Resume artwork for the saved companion without re-entering the adoption/charge path. */
   const retryAppearance = async () => {
     if (inFlight.current || !data?.pet) return;
     inFlight.current = true;
@@ -587,6 +598,7 @@ export function PetAcquisition() {
   );
 }
 
+/** Accessible single-choice controls whose values remain the catalogue's persisted trait IDs. */
 function PetTraitChoices({
   title,
   field,
@@ -635,6 +647,7 @@ function PetTraitChoices({
   );
 }
 
+/** Incomplete wizard draft; null differs from catalogue index zero, which is a valid choice. */
 type PetSelection = {
   speciesIndex: number | null;
   paletteIndex: number | null;

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+/** Route direct companion links into the profile's pet tab while preserving the selected pet. */
 export default async function PetProfilePage({
   searchParams,
 }: {

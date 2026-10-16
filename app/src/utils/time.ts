@@ -357,6 +357,7 @@ export const getDateKey = (date: Date): string => {
   return `${date.getUTCFullYear()}-${date.getUTCMonth() + 1}-${date.getUTCDate()}`;
 };
 
+/** Zero-padded UTC day for persisted pet quotas and deterministic menus; getDateKey is unpadded. */
 export const getPetDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
 
 /**

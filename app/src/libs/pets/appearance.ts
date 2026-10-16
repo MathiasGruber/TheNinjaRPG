@@ -1,3 +1,4 @@
+/** Generate, inspect and bound companion artwork before the router accepts it. */
 import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
@@ -22,6 +23,7 @@ import {
 } from "@/libs/replicate";
 import { servedUfsUrl } from "@/libs/uploadthing";
 
+/** Authored identity and last accepted image needed for initial art or an evolution. */
 type AppearancePet = Pick<
   UserPet,
   | "userId"
@@ -64,6 +66,12 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
     : `One original friendly animal companion. ${identity} ${maturity} ${PET_ART_STYLE}`;
 };
 
+/**
+ * Produce a moderated, complete cutout and verify an evolution's visual identity.
+ * Await onUpload for each stored intermediate/final URL before further review so
+ * the caller can track and clean up uploads even when a later check fails.
+ * Returning a URL does not persist readiness; the caller owns that guarded write.
+ */
 export const generatePetAppearance = async (
   pet: AppearancePet,
   onUpload: (url: string) => Promise<void>,
@@ -134,6 +142,7 @@ export const generatePetAppearance = async (
   return avatar;
 };
 
+/** Check the candidate against authored traits and, for evolution, the accepted prior form. */
 const checkVisualQuality = async (
   image: Buffer,
   previousImage: Buffer | undefined,
@@ -158,6 +167,7 @@ const checkVisualQuality = async (
   validatePetAppearanceQuality(verdict);
 };
 
+/** Resolve saved catalogue IDs and reject corrupt identity before calling an image model. */
 const getPetAppearanceTraits = (pet: AppearancePet) => {
   const species = PET_SPECIES[pet.speciesIndex];
   const palette = PET_PALETTES[pet.paletteIndex];
@@ -168,7 +178,11 @@ const getPetAppearanceTraits = (pet: AppearancePet) => {
   return { species, palette, characteristic, aura };
 };
 
-/** Streaming enforces the byte cap even when an upstream omits or misstates Content-Length. */
+/**
+ * Download nonempty image bytes under the caller's cancellation and a local timeout.
+ * Streaming enforces the byte cap even if upstream misstates Content-Length;
+ * decoding and content checks are performed separately before acceptance.
+ */
 export const downloadPetImage = async (imageUrl: string, signal?: AbortSignal) => {
   const downloadSignal = signal
     ? AbortSignal.any([signal, AbortSignal.timeout(30_000)])
@@ -202,6 +216,7 @@ export const downloadPetImage = async (imageUrl: string, signal?: AbortSignal) =
   return Buffer.concat(chunks, total);
 };
 
+/** Bound decoding, identify the actual image format and fail closed on unsafe/absent moderation. */
 const checkModeration = async (image: Buffer, signal: AbortSignal) => {
   signal.throwIfAborted();
   if (image.byteLength > MAX_PET_IMAGE_BYTES)

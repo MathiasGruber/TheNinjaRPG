@@ -11,6 +11,7 @@ import Loader from "@/layout/Loader";
 import { PetAcquisition } from "@/layout/PetAcquisition";
 import { useRequireInVillage } from "@/utils/UserContext";
 
+/** Village-gated sanctuary entry point, pairing its lore with the adoption workflow. */
 export default function PetSanctuaryPage() {
   const { userData, access } = useRequireInVillage("/pets");
   if (!userData) return <Loader explanation="Loading your character..." />;

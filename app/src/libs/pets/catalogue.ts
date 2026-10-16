@@ -1,3 +1,4 @@
+/** Authored cosmetic identities and deterministic, owner-specific daily offerings. */
 import alea from "alea";
 import {
   type FederalStatus,
@@ -9,6 +10,7 @@ import {
 } from "@/drizzle/constants";
 import { getPetDayKey } from "@/utils/time";
 
+/** A catalogue ID persisted on pets, with authored display and model-prompt text. */
 export type PetAppearanceOption = {
   index: number;
   name: string;
@@ -16,8 +18,11 @@ export type PetAppearanceOption = {
   rarity?: PetRarity;
 };
 
+/** Species additionally participate in rarity-weighted daily sampling. */
 export type PetSpeciesOption = PetAppearanceOption & { rarity: PetRarity };
 
+// Array positions are persisted trait IDs. Append new entries; never reorder or
+// reuse existing positions, so accepted pets retain their original identity.
 const options = (entries: readonly (readonly [string, string])[]) =>
   entries.map(([name, description], index) => ({ index, name, description }));
 
@@ -207,6 +212,11 @@ const dailySpecies = (seed: string, count: number) => {
   return selected;
 };
 
+/**
+ * Reproduce an owner's UTC-day offerings without storing a daily catalogue.
+ * Subscriber tiers extend the same ordered prefix; species are drawn without
+ * replacement and the other trait families use independent deterministic seeds.
+ */
 export const getDailyPetOptions = (
   userId: string,
   federalStatus: FederalStatus,
@@ -222,6 +232,7 @@ export const getDailyPetOptions = (
   };
 };
 
+/** Verify all four submitted catalogue IDs belong to the supplied daily offerings. */
 export const isAvailablePetAppearance = (
   selection: {
     speciesIndex: number;

@@ -54,6 +54,7 @@ interface StatDistributionProps {
   id?: string;
   userData: NonNullable<UserWithRelations>;
   availableStats: number;
+  /** Returning false preserves the draft after an expected server rejection. */
   onAccept: (
     data: AssignableUserStats,
   ) => void | Promise<void> | Promise<boolean | undefined>;
@@ -65,11 +66,14 @@ interface StatDistributionProps {
   subtitle?: string;
   defaultBackHref?: string;
   isPending: boolean;
+  /** Let callers describe their own mutation while reusing allocation validation and inputs. */
   pendingLabel?: string;
+  /** Companion allocation does not advance the player's character-training tutorial. */
   advanceTutorial?: boolean;
   disabled?: boolean;
 }
 
+/** Shared capped stat allocation, including caller-owned pending/rejection state and optional masteries. */
 const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
   // Destructure
   const {

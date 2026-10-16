@@ -50,16 +50,20 @@ interface AiProfileEditProps {
     items: { itemId: string; item: { name: string } }[];
   };
   hideTitle?: boolean;
+  /** Controlled mode skips profile loading and delegates persistence/pending state to the owner. */
   configuration?: {
     profile: { rules: AiRuleType[]; includeDefaultRules: boolean };
     isSaving: boolean;
     disabled?: boolean;
     onSave: (profile: { rules: AiRuleType[]; includeDefaultRules: boolean }) => void;
   };
+  /** Restrict the shared editor to actions supported by the caller's combat actor. */
   availableActionTypes?: readonly ZodAllAiAction["type"][];
+  /** Restrict highest-power action filters without changing the shared rule executor. */
   availableActionEffects?: readonly string[];
 }
 
+/** Edit an ordinary AI profile or a caller-controlled companion configuration with the same rule UI. */
 const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   // User information
   const { data: userData } = useRequiredUserData();

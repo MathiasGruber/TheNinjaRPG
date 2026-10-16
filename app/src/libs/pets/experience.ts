@@ -1,9 +1,15 @@
+/** SQL-side eligibility and increments for the active companion's unassigned XP bank. */
 import { sql } from "drizzle-orm";
 import { UserRanks } from "@/drizzle/constants";
 import { userData, userPet } from "@/drizzle/schema";
 import { getMaxPetRank } from "@/libs/pets/progression";
 
-/** Credit new player XP to the accompanying pet in the same guarded owner update. */
+/**
+ * Add newly awarded player XP in the caller's guarded owner update, using live
+ * pet eligibility rather than a stale read. Omit petId to use the current active
+ * pet, pass an ID to bind battle rewards to its original companion, or pass null
+ * to award no pet XP. Assigning already earned player XP must not call this again.
+ */
 export const petExperienceGainSql = (experience: number, petId?: string | null) => {
   if (!Number.isFinite(experience) || experience <= 0 || petId === null)
     return sql`${userData.petExperience}`;

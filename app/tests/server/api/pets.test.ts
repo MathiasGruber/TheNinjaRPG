@@ -131,9 +131,9 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await readyPet(database);
     await parkedPet(database, { id: "parked", storedExperience: 30 });
     await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
-    const hooked = beforeTransaction(database, async () => {
+    const hooked = beforeStatements(database, userData, [async () => {
       await database.update(userData).set({ petExperience: petExperienceGainSql(25, petId) }).where(eq(userData.userId, userId));
-    });
+    }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).activatePet({ petId: "parked" })).success).toBe(true);
     expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petExperience: 30 });
     expect(await readPet(database, petId)).toMatchObject({ storedExperience: 35 });
@@ -167,13 +167,52 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await readyPet(database);
     await parkedPet(database, { id: "parked", storedExperience: 30 });
     await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
-    const hooked = beforeTransaction(database, async () => {
+    const hooked = beforeStatements(database, userData, [async () => {
       await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, "parked"));
-    });
+    }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).activatePet({ petId: "parked" })).success).toBe(false);
     expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 10 });
     expect((await readPet(database, petId))?.storedExperience).toBe(0);
     expect((await readPet(database, "parked"))?.storedExperience).toBe(30);
+  });
+
+  it("keeps both XP banks unchanged when the previous companion changes before activation", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await parkedPet(database, { storedExperience: 30 });
+    await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
+    const hooked = beforeStatements(database, userData, [async () => {
+      await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
+    }]);
+    expect((await callerForDatabase(petsRouter, userId, hooked).activatePet({ petId: "parked" })).success).toBe(false);
+    expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 10 });
+    expect(await readPet(database, petId)).toMatchObject({ storedExperience: 0, revision: 1 });
+    expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 30, revision: 0 });
+  });
+
+  it("refuses a swap when a skewed collection snapshot omits the active companion", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await parkedPet(database, { storedExperience: 30 });
+    await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
+    const pets = await database.query.userPet.findMany({ where: eq(userPet.id, "parked") });
+    const petQueries = new Proxy(database.query.userPet, { get(target, property, receiver) {
+      return property === "findMany" ? async () => pets : Reflect.get(target, property, receiver);
+    } });
+    const skewed = new Proxy(database, { get(target, property, receiver) {
+      return property === "query" ? { ...target.query, userPet: petQueries } : Reflect.get(target, property, receiver);
+    } });
+    expect((await callerForDatabase(petsRouter, userId, skewed).activatePet({ petId: "parked" })).success).toBe(false);
+    expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 10 });
+    expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 30, revision: 0 });
+  });
+
+  it("activates a parked companion when no companion is currently selected", async () => {
+    const database = await getTestDatabase();
+    await parkedPet(database, { storedExperience: 30 });
+    expect((await callerForDatabase(petsRouter, userId, database).activatePet({ petId: "parked" })).success).toBe(true);
+    expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petExperience: 30 });
+    expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 0, revision: 1 });
   });
 
   it("serializes allocation with swapping so XP is either spent or parked exactly once", async () => {
@@ -202,6 +241,38 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.releasePet({ petId: "parked" })).success).toBe(true);
     expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 99 });
     expect(await readPet(database, "parked")).toBeUndefined();
+  });
+
+  it("serializes inactive release against activation of the same companion", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await parkedPet(database, { storedExperience: 30 });
+    await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
+    const results = await Promise.all([caller.releasePet({ petId: "parked" }), caller.activatePet({ petId: "parked" })]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    if (results[0]!.success) {
+      expect(await readPet(database, "parked")).toBeUndefined();
+      expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 10 });
+      expect((await readPet(database, petId))?.storedExperience).toBe(0);
+    } else {
+      expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petExperience: 30 });
+      expect((await readPet(database, "parked"))?.storedExperience).toBe(0);
+      expect((await readPet(database, petId))?.storedExperience).toBe(10);
+    }
+  });
+
+  it("preserves an inactive companion if its revision changes before release", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await parkedPet(database, { storedExperience: 30 });
+    const before = await readOwner(database);
+    const hooked = beforeStatements(database, userData, [async () => {
+      await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, "parked"));
+    }]);
+    expect((await callerForDatabase(petsRouter, userId, hooked).releasePet({ petId: "parked" })).success).toBe(false);
+    expect(await readOwner(database)).toEqual(before);
+    expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 30, revision: 1 });
   });
 
   it("rejects foreign companion reads and mutations without spending or dispatching generation", async () => {
@@ -287,17 +358,38 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readPet(database, petId))?.storedExperience).toBe(99);
   });
 
+  it("keeps a committed feed successful when zero-stack cleanup fails", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await mealStack();
+    await database.update(userItem).set({ quantity: 1 }).where(eq(userItem.id, "meal-stack"));
+    const hooked = beforeStatements(database, userItem, [async () => {}, async () => {
+      throw new Error("Meal cleanup failed");
+    }]);
+    const caller = callerForDatabase(petsRouter, userId, hooked);
+    const input = { petId, userItemId: "meal-stack", expectedQuantity: 1 };
+    expect((await caller.feedPet(input)).success).toBe(true);
+    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readPet(database))?.feedDay).toBe(getPetDayKey());
+    expect((await database.query.userItem.findFirst())?.quantity).toBe(0);
+    expect((await caller.getPet()).feedMeals).toEqual([]);
+    expect((await caller.feedPet(input)).success).toBe(false);
+    await database.update(userPet).set({ feedDay: getPetDayKey(secondsFromNow(-DAY_S)) }).where(eq(userPet.id, petId));
+    expect((await caller.feedPet(input)).success).toBe(false);
+    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+  });
+
   it.each(["stack", "pet"] as const)("rolls back feeding's meal and XP if its %s snapshot changes", async (changed) => {
     const database = await getTestDatabase();
     await readyPet(database);
     await mealStack();
     await database.update(userData).set({ petExperience: 10 }).where(eq(userData.userId, userId));
-    const hooked = beforeTransaction(database, async () => {
+    const hooked = beforeStatements(database, userData, [async () => {
       if (changed === "stack")
         await database.update(userItem).set({ quantity: 1 }).where(eq(userItem.id, "meal-stack"));
       else
         await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-    });
+    }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(false);
     expect((await readOwner(database))?.petExperience).toBe(10);
     expect((await readPet(database))?.feedDay).toBeNull();
@@ -348,12 +440,63 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const database = await getTestDatabase();
     await readyPet(database, { rank: 4, artRank: 4 });
     await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
-    const hooked = beforeTransaction(database, async () => {
+    const hooked = beforeStatements(database, userData, [async () => {
       await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-    });
+    }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).unlockAbilitySlot({ petId })).success).toBe(false);
     expect((await readPet(database))?.abilitySlots).toBe(1);
     expect((await readOwner(database))?.reputationPoints).toBe(200);
+  });
+
+  it("rejects a paid pet change if the owner enters battle before the joined write", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank: 4, artRank: 4 });
+    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
+    const hooked = beforeStatements(database, userData, [async () => {
+      await database.update(userData).set({ status: "BATTLE", battleId: "new-battle" }).where(eq(userData.userId, userId));
+    }]);
+    expect((await callerForDatabase(petsRouter, userId, hooked).unlockAbilitySlot({ petId })).success).toBe(false);
+    expect(await readPet(database)).toMatchObject({ abilitySlots: 1, revision: 0 });
+    expect((await readOwner(database))?.reputationPoints).toBe(200);
+  });
+
+  it("uses single statements for routine pet writes and preserves JSON patches", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank: 4, artRank: 4 });
+    await parkedPet(database, { storedExperience: 30, experience: 7500 });
+    await mealStack();
+    await database.update(userData).set({ rank: "CHUNIN", petExperience: 20 }).where(eq(userData.userId, userId));
+    const withoutTransactions = new Proxy(database, { get(target, property, receiver) {
+      if (property === "transaction") return () => { throw new Error("Routine pet writes must not use a transaction"); };
+      return Reflect.get(target, property, receiver);
+    } });
+    const caller = callerForDatabase(petsRouter, userId, withoutTransactions);
+    const rules = [{ conditions: [], action: { type: "end_turn" as const, description: 'Wait for "Kumo"' } }];
+    expect((await caller.updatePet({ petId, name: 'Kumo "守"', battleEnabled: false, spawnPosition: "LEFT" })).success).toBe(true);
+    expect((await caller.updateAiConfig({ petId, rules, includeDefaultRules: false })).success).toBe(true);
+    expect((await caller.updateAbilities({ petId, jutsuIds: [], skillIds: [] })).success).toBe(true);
+    expect((await caller.unlockAbilitySlot({ petId })).success).toBe(true);
+    expect((await caller.assignExperience({ petId, ...stats })).success).toBe(true);
+    expect((await caller.feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
+    expect(await readPet(database, petId)).toMatchObject({ name: 'Kumo "守"', battleEnabled: false, spawnPosition: "LEFT", aiRules: rules, includeDefaultRules: false, jutsuIds: [], skillIds: [], abilitySlots: 2, offence: 20 });
+    expect((await caller.activatePet({ petId: "parked" })).success).toBe(true);
+    expect((await caller.rankUp({ petId: "parked" })).success).toBe(true);
+    expect(await readPet(database, "parked")).toMatchObject({ rank: 2, generationStatus: "PENDING", generationToken: null, generationStartedAt: null });
+    expect((await caller.releasePet({ petId })).success).toBe(true);
+    expect((await readOwner(database))?.reputationPoints).toBe(200 - PET_ABILITY_SLOT_COST);
+  });
+
+  it("keeps settings and evolution free when no reputation remains", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { experience: 7500 });
+    await database.update(userData).set({ reputationPoints: 0 }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.updatePet({ petId, name: "Still free" })).success).toBe(true);
+    expect((await caller.updateAiConfig({ petId, rules: [], includeDefaultRules: false })).success).toBe(true);
+    expect((await caller.updateAbilities({ petId, jutsuIds: [], skillIds: [] })).success).toBe(true);
+    expect((await caller.rankUp({ petId })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ name: "Still free", rank: 2, includeDefaultRules: false });
+    expect((await readOwner(database))?.reputationPoints).toBe(0);
   });
 
   it("equips only learned jutsus and activated owned skills within purchased slots and the shared budget", async () => {
@@ -437,9 +580,9 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const database = await getTestDatabase();
     await readyPet(database);
     await database.update(userData).set({ petExperience: 50 }).where(eq(userData.userId, userId));
-    const hooked = beforeTransaction(database, async () => {
+    const hooked = beforeStatements(database, userData, [async () => {
       await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-    });
+    }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).assignExperience({ ...stats, petId })).success).toBe(false);
     expect((await readOwner(database))?.petExperience).toBe(50);
     expect((await readPet(database))?.offence).toBe(10);
@@ -627,7 +770,7 @@ const mealStack = async () => {
 const readOwner = (database: DrizzleClient) => database.query.userData.findFirst({ where: eq(userData.userId, userId) });
 const readPet = (database: DrizzleClient, id?: string) => database.query.userPet.findFirst({ where: and(eq(userPet.userId, userId), id ? eq(userPet.id, id) : undefined) });
 
-/** Hold complete owner snapshots so both competing requests begin with the same entitlement. */
+/** Hold owner snapshots so competing requests share the same version before their SQL writes race. */
 const holdOwnerSnapshots = (database: DrizzleClient, count: number): DrizzleClient => {
   let pending = 0;
   let release = () => {};
@@ -647,6 +790,7 @@ const holdOwnerSnapshots = (database: DrizzleClient, count: number): DrizzleClie
   return new Proxy(database, { get(target, property, receiver) { return property === "query" ? { ...target.query, userData: ownerQueries } : Reflect.get(target, property, receiver); } });
 };
 
+/** Inject a state change after preloading but before adoption or active release starts its paired writes. */
 const beforeTransaction = (database: DrizzleClient, hook: () => Promise<void>): DrizzleClient => {
   let pending = true;
   return new Proxy(database, { get(target, property, receiver) {

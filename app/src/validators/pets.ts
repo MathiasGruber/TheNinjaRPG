@@ -1,3 +1,4 @@
+/** Shared pet request contracts and structured image-review output; routers enforce live ownership. */
 import { z } from "zod";
 import {
   AI_PROFILE_MAX_RULES,
@@ -14,19 +15,24 @@ import { AiRule } from "@/validators/ai";
 import { baseServerResponse } from "@/validators/base";
 import { createStatSchema } from "@/validators/combat";
 
+/** Address a saved companion; authorization is resolved from the authenticated owner. */
 export const petSelectionSchema = z.object({ petId: z.string().min(1).max(191) });
+/** Return the committed pet ID so artwork can be retried without repeating adoption. */
 export const petAcquisitionResponseSchema = baseServerResponse.extend({
   petId: z.string().optional(),
 });
+/** Include the displayed stack quantity so a changed meal stack must be refreshed before consumption. */
 export const feedPetSchema = petSelectionSchema.extend({
   userItemId: z.string().min(1).max(191),
   expectedQuantity: z.number().int().positive(),
 });
+/** Bound request size; owner access, duplicates and the combined budget are validated against live content. */
 export const updatePetAbilitiesSchema = petSelectionSchema.extend({
   jutsuIds: z.array(z.string().min(1).max(191)).max(PET_MAX_ABILITY_SLOTS),
   skillIds: z.array(z.string().min(1).max(191)).max(PET_MAX_ABILITY_SLOTS),
 });
 
+/** Player-visible name only; controls and invisible formatting characters are rejected. */
 export const petNameSchema = z
   .string()
   .trim()
@@ -37,6 +43,7 @@ export const petNameSchema = z
     "Pet names cannot contain control characters.",
   );
 
+/** Catalogue bounds are structural; the router also verifies the UTC day and its offered choices. */
 export const acquirePetSchema = z.object({
   name: petNameSchema,
   dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -62,6 +69,7 @@ export const acquirePetSchema = z.object({
     .max(PET_AURAS.length - 1),
 });
 
+/** Partial settings update that must supply at least one field besides the companion ID. */
 export const updatePetSchema = z
   .object({
     petId: petSelectionSchema.shape.petId,
@@ -71,12 +79,12 @@ export const updatePetSchema = z
   })
   .refine((input) => Object.keys(input).length > 1, "Choose a setting to update.");
 
-/** Reuse the player allocation form's six combat stats; pets do not earn discipline masteries. */
+/** Reuse the player form's six combat stats; the router checks the pet's live caps and XP bank. */
 export const assignPetExperienceSchema = createStatSchema(0, 0).schema.extend(
   petSelectionSchema.shape,
 );
 
-/** Visual quality is separate from the generated image's content-safety verdict. */
+/** Visual quality is separate from content safety; domain acceptance requires every check to pass. */
 export const petAppearanceQualitySchema = z.object({
   singleAnimal: z.boolean(),
   anatomyCorrect: z.boolean(),
@@ -87,11 +95,13 @@ export const petAppearanceQualitySchema = z.object({
   reason: z.string().min(1).max(600),
 });
 
+/** Supported subset of the shared AI editor/executor for independently acting pets. */
 export const PET_AI_ACTION_TYPES = [
   "move_towards_opponent",
   "end_turn",
   "use_highest_power_action",
 ] as const;
+/** Effects a pet may request through the highest-power action selector. */
 export const PET_AI_EFFECT_TYPES = [
   "damage",
   "heal",
@@ -107,6 +117,7 @@ export const PET_AI_EFFECT_TYPES = [
   "move",
 ] as const;
 
+/** Reuse shared AI rule conditions while rejecting actions/effects outside the pet subset. */
 export const updatePetAiSchema = z
   .object({
     petId: petSelectionSchema.shape.petId,
