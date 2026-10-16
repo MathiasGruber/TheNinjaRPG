@@ -266,24 +266,7 @@ export const recoverHomeLayout = (
   return recovered;
 };
 
-/** Every saved home keeps its global sleeping, storage, and kitchen actions reachable. */
-export const homeLayoutEssentialsError = (
-  placements: HomePlacement[],
-  furniture: Pick<HomeFurniture, "id" | "action">[],
-) => {
-  const placed = new Set(placements.map(({ id }) => id));
-  const actions = new Set(
-    furniture.filter(({ id }) => placed.has(id)).map(({ action }) => action),
-  );
-  const missing = HOME_FURNITURE_ESSENTIALS.filter(
-    ({ action }) => !actions.has(action),
-  );
-  return missing.length
-    ? `Place essential furniture before saving: ${missing.map(({ name }) => name).join(", ")}`
-    : null;
-};
-
-/** Fit missing actions first; displaced pieces remain ordinary owned, unplaced inventory. */
+/** Fit starter actions during first initialization; displaced pieces remain owned in storage. */
 export const completeHomeLayoutEssentials = (
   placements: HomePlacement[],
   furniture: HomeFurniture[],

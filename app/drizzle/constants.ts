@@ -3101,7 +3101,7 @@ export const HOME_FURNITURE_STARTERS = [
   { itemId: "home-garden", x: 86, y: 90.91 },
 ] as const;
 
-/** Missing home actions use free basics only when an available owned furnishing cannot fit. */
+/** First home initialization supplies free basics when available owned furniture cannot fit. */
 export const HOME_FURNITURE_ESSENTIALS = [
   { action: "sleep", itemId: "home-sleeping-mat", name: "sleeping area", x: 22, y: 15.15 },
   { action: "storage", itemId: "home-storage-box", name: "storage", x: 75, y: 15.15 },

@@ -3,7 +3,9 @@ import { eq } from "drizzle-orm";
 import { HOME_FURNITURE_ESSENTIALS, HOME_FURNITURE_STORAGE_CAPACITY, HomeTypeDetails } from "@/drizzle/constants";
 import { item, itemVariant, userData, userItem, userItemVariant, village } from "@/drizzle/schema";
 import { homeRouter } from "@/server/api/routers/home";
-import { clampHomeFurniturePlacement, homeLayoutEssentialsError, homeLayoutPlacementError } from "@/libs/home";
+import { itemRouter } from "@/server/api/routers/item";
+import { initializeStarterHomeItems } from "@/server/utils/homeFurniture";
+import { type HomeFurniture, clampHomeFurniturePlacement, homeLayoutPlacementError } from "@/libs/home";
 import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/itemFurniture";
 import type { HomePlacement } from "@/validators/home";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
@@ -103,7 +105,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  it("preserves carried furniture when a downgrade requires automatic essential repair", async () => {
+  it("keeps removed-room basics stored after downgrade without restoring them", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
     const api = await callerFor(homeRouter, userId);
@@ -114,9 +116,9 @@ describeWithDatabase("owned furniture persistence", () => {
     const before = await snapshot();
     expect(before.inventory.find(({ id }) => id === "kitchen-row")).toMatchObject({ storedAtHome: false, homeX: 20, homeY: 60 });
     const home = await api.getUserHome();
-    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
-    expect(home?.furnitureRevision).toBe(before.owner.homeFurnitureRevision + 1);
-    expect((await snapshot()).inventory.map(({ id, storedAtHome }) => ({ id, storedAtHome }))).toEqual(before.inventory.map(({ id, storedAtHome }) => ({ id, storedAtHome })));
+    expectLayout(home?.layout, [essentialLayout[2]!]);
+    expect(home?.furnitureRevision).toBe(before.owner.homeFurnitureRevision);
+    expect(await snapshot()).toEqual(before);
   });
 
   it("keeps unplaced carried furniture out of full storage when its old room is removed", async () => {
@@ -229,7 +231,7 @@ describeWithDatabase("owned furniture persistence", () => {
     const home = await api.getUserHome();
     expect(home?.furniture.map(({ itemId }) => itemId).sort()).toEqual(HOME_FURNITURE_ESSENTIALS.map(({ itemId }) => itemId).sort());
     expect(home?.layout).toHaveLength(3);
-    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
+    expectStarterActions(home!.layout, home!.furniture);
     expect(homeLayoutPlacementError(home!.layout, home!.furniture, "NONE")).toBeNull();
     expect(home?.furnitureRevision).toBe(1);
     const before = await snapshot();
@@ -271,7 +273,7 @@ describeWithDatabase("owned furniture persistence", () => {
     const basic = home?.furniture.find(({ itemId }) => itemId === "home-kitchen-utensils");
     expect(basic).toBeDefined();
     expect(home?.layout.some(({ id }) => id === basic!.id)).toBe(true);
-    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
+    expectStarterActions(home!.layout, home!.furniture);
     expect((await snapshot()).inventory.filter(({ itemId }) => itemId === "home-kitchen-utensils")).toHaveLength(1);
   });
 
@@ -283,10 +285,25 @@ describeWithDatabase("owned furniture persistence", () => {
     } }).where(eq(item.id, "home-cooking"));
     const api = await callerFor(homeRouter, userId);
     const home = await api.getUserHome();
-    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
+    expectStarterActions(home!.layout, home!.furniture);
     expect(homeLayoutPlacementError(home!.layout, home!.furniture, "NONE")).toBeNull();
     expect(home?.furniture.some(({ itemId }) => itemId === "home-kitchen-utensils")).toBe(true);
     expect((await snapshot()).inventory.find(({ id }) => id === "kitchen-row")).toMatchObject({ quantity: 1, homeX: null, homeY: null });
+  });
+
+  it("does not replace changed custom furniture after the home has initialized", async () => {
+    const database = await getTestDatabase();
+    const api = await callerFor(homeRouter, userId);
+    await api.getUserHome();
+    await database.update(item).set({ furnitureData: {
+      ...DEFAULT_FURNITURE_DATA, action: "kitchen", width: 40,
+      geometry: { aspectRatio: 0.05, visibleBounds: { x: 0, y: 0, width: 100, height: 100 }, footprint: { x: 0, y: 90, width: 100, height: 10 } },
+    } }).where(eq(item.id, "home-cooking"));
+    const before = await snapshot();
+    const read = await recordQueries(() => api.getUserHome());
+    expect(read.statements).toHaveLength(1);
+    expect(read.result?.furniture.some(({ itemId }) => itemId === "home-kitchen-utensils")).toBe(false);
+    expect(await snapshot()).toEqual(before);
   });
 
   it("keeps concurrent first views idempotent with one coherent revision", async () => {
@@ -297,7 +314,7 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(views[0]).toEqual(views[1]);
     expect(views[0]?.furnitureRevision).toBe(1);
     expect((await snapshot()).inventory.filter(({ userId: owner }) => owner === userId)).toHaveLength(3);
-    expect(homeLayoutEssentialsError(views[0]!.layout, views[0]!.furniture)).toBeNull();
+    expectStarterActions(views[0]!.layout, views[0]!.furniture);
   });
 
   it.each([
@@ -319,11 +336,11 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  it("does not let first-view placement overwrite a concurrent valid save", async () => {
+  it.each([false, true])("does not let first-view placement overwrite a concurrent save, including an empty room: %s", async (isEmpty) => {
     const database = await getTestDatabase();
     await database.update(userItem).set({ homeX: null, homeY: null }).where(eq(userItem.id, "kitchen-row"));
     const regularApi = await callerFor(homeRouter, userId);
-    const saved = layout(60);
+    const saved = isEmpty ? [] : layout(60);
     const client = beforeStatements(database, userData, [async () => {
       expect((await regularApi.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: saved })).success).toBe(true);
     }]);
@@ -366,7 +383,7 @@ describeWithDatabase("owned furniture persistence", () => {
     await database.update(userData).set({ status: "ASLEEP" }).where(eq(userData.userId, userId));
     const api = await callerFor(homeRouter, userId);
     const home = await api.getUserHome();
-    expect(homeLayoutEssentialsError(home!.layout, home!.furniture)).toBeNull();
+    expectStarterActions(home!.layout, home!.furniture);
     expect((await snapshot()).owner.status).toBe("ASLEEP");
   });
 
@@ -455,13 +472,13 @@ describeWithDatabase("owned furniture persistence", () => {
     const piece = home!.furniture.find(({ id }) => id === "rug-row")!;
     expect(piece.geometry).toEqual(geometry);
     const before = await snapshot();
-    const rejected = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: piece.id, x: 50, y: 40, rotation: 0 }] });
+    const rejected = await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: [{ id: piece.id, x: 50, y: 40, rotation: 0 }] });
     expect(rejected.success).toBe(false);
     expect(rejected.message).toContain("outside");
     expect(await snapshot()).toEqual(before);
     const outdoor = clampHomeFurniturePlacement({ id: piece.id, x: 50, y: 100, rotation: 0 }, piece, "NONE");
     expect(outdoor).not.toBeNull();
-    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [outdoor!, ...essentialLayout] })).success).toBe(true);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: [outdoor!, ...essentialLayout] })).success).toBe(true);
   });
 
   it("validates saved directions against the selected skin instead of mixing base artwork", async () => {
@@ -472,13 +489,14 @@ describeWithDatabase("owned furniture persistence", () => {
     });
     await database.update(userItem).set({ activeVariantId: "red-cabinet" }).where(eq(userItem.id, "cabinet-a"));
     const api = await callerFor(homeRouter, userId);
-    const piece = (await api.getUserHome())?.furniture.find(({ id }) => id === "cabinet-a");
+    const home = await api.getUserHome();
+    const piece = home?.furniture.find(({ id }) => id === "cabinet-a");
     expect(piece?.views).toEqual({ "180": { image: "/red-180.webp", width: 18 } });
     const before = await snapshot();
-    const unsupported = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 1 }] });
+    const unsupported = await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 1 }] });
     expect(unsupported.success).toBe(false);
     expect(await snapshot()).toEqual(before);
-    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 2 }, ...essentialLayout] })).success).toBe(true);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: [{ id: "cabinet-a", x: 30, y: 40, rotation: 2 }, ...essentialLayout] })).success).toBe(true);
   });
 
   it("serializes overlapping layouts without mixing their positions", async () => {
@@ -499,24 +517,91 @@ describeWithDatabase("owned furniture persistence", () => {
     expect(await snapshot()).toEqual(before);
   });
 
-  it.each(["sleep", "storage", "kitchen"] as const)("rejects layouts missing %s without changing inventory or coordinates", async (action) => {
+  it.each(["sleep", "storage", "kitchen"] as const)("saves a layout without %s and leaves it stored on later reads", async (action) => {
     const api = await callerFor(homeRouter, userId);
     const rowId = { sleep: "bed-row", storage: "storage-row", kitchen: "kitchen-row" }[action];
+    const placements = layout().filter(({ id }) => id !== rowId);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements })).success).toBe(true);
     const before = await snapshot();
-    const result = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: layout().filter(({ id }) => id !== rowId) });
-    expect(result.success).toBe(false);
-    expect(result.message).toContain(HOME_FURNITURE_ESSENTIALS.find((essential) => essential.action === action)!.name);
+    expect(before.inventory.find(({ id }) => id === rowId)).toMatchObject({ storedAtHome: true, homeX: null, homeY: null });
+    for (let i = 0; i < 2; i++) expectLayout((await api.getUserHome())?.layout, placements);
     expect(await snapshot()).toEqual(before);
   });
 
-  it("rejects an empty layout even when the account owns no furniture", async () => {
+  it("stores every furnishing when saving an empty layout and preserves the empty room", async () => {
+    const api = await callerFor(homeRouter, userId);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [] })).success).toBe(true);
+    const before = await snapshot();
+    expect(before.inventory.filter(({ userId: owner }) => owner === userId).every(({ homeX, homeY, storedAtHome }) => homeX === null && homeY === null && storedAtHome)).toBe(true);
+    for (let i = 0; i < 2; i++) expect((await api.getUserHome())?.layout).toEqual([]);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("saves an empty layout before initialization without adding furniture on later reads", async () => {
     const database = await getTestDatabase();
     await database.delete(userItem).where(eq(userItem.userId, userId));
     const api = await callerFor(homeRouter, userId);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [] })).success).toBe(true);
     const before = await snapshot();
-    const result = await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: [] });
-    expect(result.success).toBe(false);
-    expect(result.message).toContain("sleeping area, storage, kitchen");
+    expect((await api.getUserHome())?.layout).toEqual([]);
+    expect((await api.getUserHome())?.furniture).toEqual([]);
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("keeps all three free basics discarded across repeated home reads", async () => {
+    const database = await getTestDatabase();
+    await database.delete(userItem).where(eq(userItem.userId, userId));
+    const api = await callerFor(homeRouter, userId);
+    const inventory = await callerFor(itemRouter, userId);
+    const initialized = await api.getUserHome();
+    expect(initialized?.furniture).toHaveLength(3);
+    for (const piece of initialized!.furniture) {
+      expect((await inventory.sellUserItem({ userItemId: piece.id })).success).toBe(true);
+    }
+    const before = await snapshot();
+    for (let i = 0; i < 2; i++) {
+      const read = await recordQueries(() => api.getUserHome());
+      expect(read.result?.layout).toEqual([]);
+      expect(read.result?.furniture).toEqual([]);
+      expect(read.statements).toHaveLength(1);
+    }
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("marks already complete legacy homes initialized before any starter is discarded", async () => {
+    const api = await callerFor(homeRouter, userId);
+    const initialized = await api.getUserHome();
+    expect(initialized?.furnitureRevision).toBe(1);
+    const inventory = await callerFor(itemRouter, userId);
+    for (const piece of initialized!.furniture.filter(({ action }) => action)) {
+      expect((await inventory.sellUserItem({ userItemId: piece.id })).success).toBe(true);
+    }
+    const before = await snapshot();
+    for (let i = 0; i < 2; i++) {
+      const home = await api.getUserHome();
+      expect(home?.furniture.every(({ action }) => action === null)).toBe(true);
+    }
+    expect(await snapshot()).toEqual(before);
+  });
+
+  it("marks newly granted starter fixtures initialized before the first home visit", async () => {
+    const database = await getTestDatabase();
+    await database.delete(userItem).where(eq(userItem.userId, userId));
+    await insertItems([
+      { ...FURNITURE_ITEM_DEFAULTS, id: "home-armory", name: "Armory", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "storage" }, cost: 0 },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "home-kitchen", name: "Kitchen", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "kitchen" }, cost: 0 },
+      { ...FURNITURE_ITEM_DEFAULTS, id: "home-garden", name: "Garden", itemType: "FURNITURE", furnitureData: { ...DEFAULT_FURNITURE_DATA, action: "farm" }, cost: 0 },
+    ]);
+    await initializeStarterHomeItems(database, userId);
+    expect((await snapshot()).owner.homeFurnitureRevision).toBe(1);
+    const inventory = await callerFor(itemRouter, userId);
+    for (const piece of (await snapshot()).inventory.filter(({ userId: owner }) => owner === userId)) {
+      expect((await inventory.sellUserItem({ userItemId: piece.id })).success).toBe(true);
+    }
+    const before = await snapshot();
+    const api = await callerFor(homeRouter, userId);
+    expect((await api.getUserHome())?.furniture).toEqual([]);
+    expect((await api.getUserHome())?.layout).toEqual([]);
     expect(await snapshot()).toEqual(before);
   });
 
@@ -541,9 +626,10 @@ describeWithDatabase("owned furniture persistence", () => {
     const database = await getTestDatabase();
     await database.update(userItem).set(patch).where(eq(userItem.id, "cabinet-a"));
     const api = await callerFor(homeRouter, userId);
+    const home = await api.getUserHome();
+    expect(home?.furniture.some(({ id }) => id === "cabinet-a")).toBe(false);
     const before = await snapshot();
-    expect((await api.getUserHome())?.furniture.some(({ id }) => id === "cabinet-a")).toBe(false);
-    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: layout() })).success).toBe(false);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: layout() })).success).toBe(false);
     expect(await snapshot()).toEqual(before);
   });
 
@@ -557,7 +643,7 @@ describeWithDatabase("owned furniture persistence", () => {
     const home = await api.getUserHome();
     expect(home?.furniture.some(({ id }) => id === "rug-row")).toBe(false);
     expect(home?.furniture.some(({ id }) => id === "cabinet-a")).toBe(true);
-    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: layout() })).success).toBe(true);
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home!.furnitureRevision, placements: layout() })).success).toBe(true);
   });
 
   it("keeps the same owned-row arrangement after upgrading the residence", async () => {
@@ -594,3 +680,10 @@ describeWithDatabase("owned furniture persistence", () => {
     ]);
   });
 });
+
+/** Only first initialization fills starter actions; these assertions do not constrain saved layouts. */
+const expectStarterActions = (placements: HomePlacement[], furniture: HomeFurniture[]) => {
+  const placed = new Set(placements.map(({ id }) => id));
+  const actions = new Set(furniture.filter(({ id }) => placed.has(id)).map(({ action }) => action));
+  for (const { action } of HOME_FURNITURE_ESSENTIALS) expect(actions.has(action)).toBe(true);
+};

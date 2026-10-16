@@ -28,7 +28,6 @@ import {
   getHomeFurnitureRotations,
   getHomeFurnitureView,
   type HomeFurniture,
-  homeLayoutEssentialsError,
   projectHomePlacement,
   recoverHomeLayout,
   unprojectHomePlacement,
@@ -139,14 +138,11 @@ export const HomeScene = ({
   const isTierChanged = draft !== null && draft.homeType !== homeType;
   const hasMissingFurniture =
     isEditing && placements.some((placement) => !furnitureById.has(placement.id));
-  const essentialsError = isEditing
-    ? homeLayoutEssentialsError(placements, furniture)
-    : null;
   const saveError = isTierChanged
     ? "Your home tier changed. Cancel and reopen the editor for this home."
     : hasMissingFurniture
       ? "Some furniture is no longer in your inventory. Undo changes to continue."
-      : placementError || essentialsError || furnitureError;
+      : placementError || furnitureError;
   const isMovementDisabled = isSaving || isTierChanged || !canDecorate;
   const hasPlacementLimit =
     placements.filter((placement) => getHomePlacementRoom(placement) === activeRoom)
@@ -369,14 +365,7 @@ export const HomeScene = ({
 
   /** Preserve rejected drafts; only an accepted guarded save closes the editor. */
   const saveLayout = async () => {
-    if (
-      !draft ||
-      !onSave ||
-      isMovementDisabled ||
-      hasMissingFurniture ||
-      essentialsError
-    )
-      return;
+    if (!draft || !onSave || isMovementDisabled || hasMissingFurniture) return;
     dragRef.current = null;
     setStorageTargetId(null);
     if (await onSave(draft)) onDecoratingChange(false);
@@ -1057,7 +1046,7 @@ export const HomeScene = ({
             <Button
               className="h-10"
               aria-label={isSaving ? "Saving…" : "Save layout"}
-              disabled={isMovementDisabled || hasMissingFurniture || !!essentialsError}
+              disabled={isMovementDisabled || hasMissingFurniture}
               onClick={() => void saveLayout()}
             >
               <Save className="mr-2 h-4 w-4" aria-hidden />

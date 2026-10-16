@@ -27,7 +27,6 @@ import {
   completeHomeLayoutEssentials,
   getHomeLayout,
   type HomeFurniture,
-  homeLayoutEssentialsError,
   homeLayoutOrientationError,
   homeLayoutOwnershipError,
   homeLayoutPlacementError,
@@ -259,7 +258,7 @@ export const homeRouter = createTRPCRouter({
       // Revision and item positions come from one statement, keeping refetched layouts coherent.
       const snapshot = await fetchHomeFurnitureUser(ctx.drizzle, ctx.userId);
       const user = snapshot
-        ? await ensureHomeFurnitureEssentials(ctx.drizzle, ctx.userId, snapshot)
+        ? await initializeHomeFurniture(ctx.drizzle, ctx.userId, snapshot)
         : snapshot;
       if (!user) return null;
       const furnitureItems = user.items.filter(isAvailableOwnedFurniture);
@@ -323,8 +322,6 @@ export const homeRouter = createTRPCRouter({
         user.homeType,
       );
       if (placementError) return errorResponse(placementError);
-      const essentialsError = homeLayoutEssentialsError(input.placements, pieces);
-      if (essentialsError) return errorResponse(essentialsError);
       const result = await publishHomeFurnitureLayout(
         ctx.drizzle,
         ctx.userId,
@@ -648,17 +645,19 @@ const isAvailableOwnedFurniture = (owned: HomeFurnitureUser["items"][number]) =>
   !owned.isInAuction &&
   (!owned.craftingFinishedAt || owned.craftingFinishedAt <= new Date());
 
-/** Repair legacy rooms once; a complete room remains a single coherent read with no writes. */
-const ensureHomeFurnitureEssentials = async (
+/**
+ * Initialize revision-zero homes once; every published revision preserves later furniture choices.
+ * Even complete legacy layouts publish the marker so removing a starter never restores it.
+ */
+const initializeHomeFurniture = async (
   client: DrizzleClient,
   userId: string,
   user: HomeFurnitureUser,
 ) => {
-  if (homeFurnitureAccessError(user)) return user;
+  if (user.homeFurnitureRevision !== 0 || homeFurnitureAccessError(user)) return user;
   const owned = user.items.filter(isAvailableOwnedFurniture);
   const furniture = owned.map(homeFurnitureDetails);
   const recovered = recoverHomeLayout(getHomeLayout(owned), furniture, user.homeType);
-  if (!homeLayoutEssentialsError(recovered, furniture)) return user;
   let completed = completeHomeLayoutEssentials(recovered, furniture, user.homeType);
   const placedActions = new Set(
     completed.map(({ id }) => furniture.find((piece) => piece.id === id)?.action),
@@ -666,7 +665,6 @@ const ensureHomeFurnitureEssentials = async (
   const missing = HOME_FURNITURE_ESSENTIALS.filter(
     ({ action }) => !placedActions.has(action),
   );
-  let resultSnapshot: Awaited<ReturnType<typeof fetchHomeFurnitureUser>> = user;
   if (missing.length) {
     // Definitions are needed only when no available owned piece can supply the missing action.
     const definitions = await client.query.item.findMany({
@@ -718,7 +716,7 @@ const ensureHomeFurnitureEssentials = async (
         ON DUPLICATE KEY UPDATE ${sql.identifier("id")} = ${userItem.id}
       `),
       );
-      resultSnapshot = await fetchHomeFurnitureUser(client, userId);
+      const resultSnapshot = await fetchHomeFurnitureUser(client, userId);
       if (
         !resultSnapshot ||
         homeFurnitureAccessError(resultSnapshot) ||
@@ -733,19 +731,17 @@ const ensureHomeFurnitureEssentials = async (
     }
     completed = completeHomeLayoutEssentials(completed, furniture, user.homeType);
   }
-  if (!homeLayoutEssentialsError(completed, furniture)) {
-    await publishHomeFurnitureLayout(
-      client,
-      userId,
-      user,
-      completed,
-      user.homeFurnitureRevision,
-      false,
-    );
-    // A concurrent editor or first view may win the revision CAS. Read its complete result once.
-    return await fetchHomeFurnitureUser(client, userId);
-  }
-  return resultSnapshot;
+  // Missing or unavailable starter definitions must not turn later reads into furniture repairs.
+  await publishHomeFurnitureLayout(
+    client,
+    userId,
+    user,
+    completed,
+    user.homeFurnitureRevision,
+    false,
+  );
+  // A concurrent editor or first view may win the revision CAS. Read its complete result once.
+  return await fetchHomeFurnitureUser(client, userId);
 };
 
 /**

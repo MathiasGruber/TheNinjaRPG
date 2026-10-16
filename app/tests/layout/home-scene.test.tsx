@@ -563,66 +563,63 @@ describe("Home scene", () => {
     expect(furniturePosition(bed)).not.toEqual(submitted);
   });
 
-  it.each(["Bed", "Sleeping Mat"])("blocks saving a stored bed until %s restores a sleeping area", async (replacementName) => {
+  it.each(["Bed", "Sleeping Mat"])("saves a stored bed and optionally places %s later", async (replacementName) => {
     const replacement = { ...starterFurniture[0]!, id: "replacement-mat", itemId: "sleeping-mat", name: "Sleeping Mat", width: 20 };
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
-    const view = render(<HomeScene {...props} canDecorate furniture={[...starterFurniture, replacement]} furnitureError="An earlier save was rejected" onSave={onSave} />);
-    expect(view.queryByRole("alert")).toBeNull();
+    const view = render(<HomeScene {...props} canDecorate furniture={[...starterFurniture, replacement]} onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     fireEvent.click(view.getByRole("button", { name: "Store" }));
     expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
     const save = view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement;
-    expect(save.disabled).toBe(true);
-    expect(view.getByRole("alert").textContent).toContain("sleeping area");
-    fireEvent.click(save);
-    expect(onSave).not.toHaveBeenCalled();
-    const armory = view.getByRole("button", { name: "Move Armory" });
-    const armoryPosition = furniturePosition(armory);
-    fireEvent.keyDown(armory, { key: "ArrowRight" });
-    expect(furniturePosition(armory)).not.toEqual(armoryPosition);
-    const tray = within(view.getByRole("group", { name: "Owned furniture" }));
-    fireEvent.click(tray.getByRole("button", { name: new RegExp(`^${replacementName}Place$`) }));
     expect(save.disabled).toBe(false);
-    expect(view.queryByText(/Place essential furniture before saving/)).toBeNull();
+    expect(view.queryByRole("alert")).toBeNull();
     fireEvent.click(save);
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
-    const saved = onSave.mock.calls[0]![0].placements;
+    expect(onSave.mock.calls[0]![0].placements.some(({ id }) => id === "owned-bed")).toBe(false);
+    const tray = within(view.getByRole("group", { name: "Owned furniture" }));
+    fireEvent.click(tray.getByRole("button", { name: new RegExp(`^${replacementName}Place$`) }));
+    fireEvent.click(save);
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(2));
+    const saved = onSave.mock.calls[1]![0].placements;
     expect(saved.some(({ id }) => id === (replacementName === "Bed" ? "owned-bed" : replacement.id))).toBe(true);
     expect(saved.some(({ id }) => id === "owned-bed")).toBe(replacementName === "Bed");
   });
 
-  it("allows every piece to be stored while retaining textual home actions", () => {
-    const view = render(<HomeScene {...props} canDecorate furniture={[...starterFurniture, rugDefinition]} />);
+  it("saves every piece in storage while retaining textual home actions", async () => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(true);
+    const view = render(<HomeScene {...props} canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
-    fireEvent.click(view.getByRole("button", { name: "Store" }));
-    expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*Place$/ }));
-    expect(view.getByRole("button", { name: "Move Woven Rug" })).toBeTruthy();
-    fireEvent.click(view.getByRole("button", { name: "Store" }));
-    expect(view.queryByRole("button", { name: "Move Woven Rug" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
-    view.rerender(<HomeScene {...props} furniture={[]} layout={[]} />);
+    for (const piece of starterFurniture) {
+      fireEvent.click(view.getByRole("button", { name: `Move ${piece.name}` }));
+      fireEvent.click(view.getByRole("button", { name: "Store" }));
+      expect(view.queryByRole("button", { name: `Move ${piece.name}` })).toBeNull();
+    }
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements).toEqual([]);
+    view.rerender(<HomeScene {...props} furniture={starterFurniture} layout={[]} revision={1} />);
     const actions = within(view.getByRole("group", { name: "Home actions" }));
     fireEvent.click(actions.getByRole("button", { name: "Go to sleep" }));
     fireEvent.click(actions.getByRole("button", { name: "Home storage" }));
     fireEvent.click(actions.getByRole("button", { name: "Farm" }));
+    fireEvent.click(actions.getByRole("button", { name: "Kitchen" }));
     expect(props.onSleep).toHaveBeenCalledTimes(1);
     expect(props.onStorage).toHaveBeenCalledTimes(1);
     expect(props.onFarm).toHaveBeenCalledTimes(1);
-    fireEvent.click(actions.getByRole("button", { name: "Kitchen" }));
     expect(props.onKitchen).toHaveBeenCalledTimes(1);
   });
 
-  it("blocks an empty room save and explains its missing essentials", () => {
+  it("saves an empty room with no furniture", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} furniture={[]} layout={[]} canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     expect(view.getByText(/Buy furniture in the item shop/)).toBeTruthy();
     expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
-    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(view.getByRole("alert").textContent).toContain("sleeping area, storage, kitchen");
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(view.queryByRole("alert")).toBeNull();
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
-    expect(onSave).not.toHaveBeenCalled();
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0].placements).toEqual([]);
   });
 
   it("renders custom metadata, floor layers and action roles without fixed catalog IDs", () => {
@@ -713,7 +710,8 @@ describe("Home scene", () => {
     expect(view.getByRole("alert").textContent).toContain("no longer in your inventory");
     expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(view.getByRole("button", { name: "Undo changes" }));
-    expect(view.getByRole("alert").textContent).toContain("sleeping area");
+    expect(view.queryByRole("alert")).toBeNull();
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(false);
     expect(view.queryByText(/no longer in your inventory/)).toBeNull();
     expect(garden.style.left).not.toBe(edited);
     view.rerender(<HomeScene {...props} revision={2} canDecorate />);
@@ -807,10 +805,8 @@ describe("Home scene", () => {
     if (type === "pointerup") {
       expect(view.queryByRole("button", { name: "Move Bed" })).toBeNull();
       const bedCard = within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^BedPlace$/ });
-      expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
-      expect(view.getByRole("alert").textContent).toContain("sleeping area");
-      fireEvent.click(view.getByRole("button", { name: "Save layout" }));
-      expect(onSave).not.toHaveBeenCalled();
+      expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(false);
+      expect(view.queryByRole("alert")).toBeNull();
       fireEvent.click(bedCard);
     } else {
       expect(furniturePosition(bed)).toEqual(origin);
