@@ -43,10 +43,10 @@ describeWithDatabase("weighted cache consumption", () => {
   });
   it("grants bundles with stack limits and accurate combined quantities, then replays retries", async () => {
     const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, "opener", db);
-    const input = { userItemId: "cache-stack", requestId: "opening-request-1" };
+    const input = { userItemId: "cache-stack", expectedQuantity: 2, requestId: "opening-request-1" };
     const response = await caller.consume(input);
     expect(response.success).toBe(true);
-    if (!response.success) throw new Error(response.message);
+    if (!response.success || !("cacheRewards" in response)) throw new Error(response.message);
     expect(response.rewards?.reward_items.filter((name) => name === "Chakra Pill")).toHaveLength(6);
     expect(response.rewards?.reward_items.filter((name) => name === "Gear")).toHaveLength(4);
     expect(response.cacheRewards).toEqual([{ displayName: "Chakra Pill Cache", items: [{ name: "Chakra Pill", chance: 100 }, { name: "Gear", chance: 100 }] }]);
@@ -111,7 +111,7 @@ describeWithDatabase("weighted cache consumption", () => {
     await db.update(item).set({ effects: [cacheEffect(), effect, NonCombatConsumeRewardTag.parse({ reward_money: 7, reward_items: [{ ids: ["pill"], number: 100, quantity: 1 }] })] }).where(eq(item.id, "cache"));
     const response = await callerForDatabase(itemRouter, "opener", db).consume({ userItemId: "cache-stack", requestId: "multiple-cache-effects" });
     expect(response.success).toBe(true);
-    if (!response.success) throw new Error(response.message);
+    if (!response.success || !("cacheRewards" in response)) throw new Error(response.message);
     expect(response.rewards?.reward_items.filter((name) => name === "Pill Cache")).toHaveLength(2);
     expect(response.rewards?.reward_items.filter((name) => name === "Chakra Pill")).toHaveLength(7);
     expect(response.rewards?.reward_money).toBe(7);
