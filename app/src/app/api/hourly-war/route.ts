@@ -443,7 +443,7 @@ async function handleExpiredWarDeclaration(
 }
 
 /**
- * Handle a single expired KAGE_REMOVAL vote.
+ * Resolve expired removals with the same electorate, tenure guards and atomic outcome as live votes.
  */
 async function handleExpiredKageRemoval(vote: ExpiredElderVote) {
   await settleKageRemoval(drizzleDB, vote.id, true);

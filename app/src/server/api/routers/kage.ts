@@ -388,7 +388,7 @@ export const kageRouter = createTRPCRouter({
             "Only the village Kage can pay an outstanding bill, and the village must have enough tokens",
           );
     }),
-  // Elders can initiate removal once the current kage's protected tenure has passed.
+  /** Publish a reasoned removal motion after tenure protection and the failed-vote cooldown. */
   initiateKageRemovalVote: protectedProcedure
     .meta({
       mcp: {
@@ -475,6 +475,8 @@ export const kageRouter = createTRPCRouter({
           if (!inserted.rowsAffected)
             return errorResponse("There is already a pending Kage removal vote");
           const recipients = eligibleElders.map((e) => e.userId);
+          // Commit publication and delivery with the motion so a failed request can retry
+          // without leaving an unannounced pending vote that blocks further proposals.
           // Notification is a shared announcement; unread counters select its recipients.
           await tx.insert(notification).values({
             userId: user.userId,
@@ -492,7 +494,7 @@ export const kageRouter = createTRPCRouter({
       );
     }),
 
-  // Cast a vote on a kage removal motion (elder-only)
+  /** Record a serving elder's ballot under the village lock, then use the shared resolver. */
   voteOnKageRemoval: protectedProcedure
     .meta({
       mcp: {
@@ -557,6 +559,7 @@ export const kageRouter = createTRPCRouter({
       return settleKageRemoval(ctx.drizzle, input.voteId);
     }),
 
+  /** Public reasons, historical ballot totals and successor receipts for recent removal motions. */
   getRemovalHistory: protectedProcedure
     .input(kageVillageSchema)
     .query(async ({ ctx, input }) => {
@@ -575,6 +578,7 @@ export const kageRouter = createTRPCRouter({
         no: entries.filter((e) => e.vote === "NO").length,
       }));
     }),
+  /** Fill the current vacancy once, recording the approved motion's successor when applicable. */
   nominateKage: protectedProcedure
     .input(kageNominationSchema)
     .output(baseServerResponse)
@@ -629,6 +633,9 @@ export const kageRouter = createTRPCRouter({
               hall.village.leaderUpdatedAt.getTime() !== motion.resolvedAt?.getTime())
           )
             return errorResponse("The vacancy has already been filled");
+          // Both nomination forms bind to this vacancy's exact removal timestamp. The
+          // receipt, elder demotion and appointment must commit together to prevent a
+          // recorded successor without a Kage, or an appointed Kage still serving as elder.
           if (motion) {
             const claim = await tx
               .update(villageElderVote)

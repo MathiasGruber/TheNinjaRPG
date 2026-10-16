@@ -31,6 +31,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { type KageWindow, kageScheduleSchema } from "@/validators/kage";
 import type { UserSearchResult } from "@/validators/register";
 
+/** Public UTC schedule and queue with role-specific publication, attendance and vacancy actions. */
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const router = useRouter();
@@ -54,6 +55,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
+  /** Keep action feedback visible and refresh leadership before entering an admitted battle. */
   const onSuccess = async (result: {
     success: boolean;
     message: string;
@@ -110,6 +112,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   const paused = hall?.schedule?.paused;
   const setWindow = (index: number, field: "day" | "hour", value: number) =>
     setDraft(windows.map((w, i) => (i === index ? { ...w, [field]: value } : w)));
+  /** Validate with the server's schema so publication failures preserve an editable draft. */
   const publishSchedule = () => {
     const parsed = kageScheduleSchema.safeParse({
       villageId: user.villageId ?? "",
@@ -499,6 +502,8 @@ const days = [
   "Friday",
   "Saturday",
 ];
+/** Render the published UTC hour without applying the viewer's local timezone. */
 const hour = (value: number) => `${String(value).padStart(2, "0")}:00`;
+/** Include the UTC label so appointment dates cannot be mistaken for local time. */
 const utc = (date: Date) =>
   `${date.toLocaleString("en-GB", { timeZone: "UTC", dateStyle: "medium", timeStyle: "short" })} UTC`;

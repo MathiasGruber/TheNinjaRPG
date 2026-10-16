@@ -2,7 +2,11 @@ import { format } from "date-fns";
 import type { RetryQuestDelay, TimeUnit } from "@/drizzle/constants";
 import { BANK_INTEREST_CLAIM_DAYS, REGEN_SECONDS } from "@/drizzle/constants";
 
-/** Enumerate UTC weekly windows, with fixed spacing and no starts outside a window. */
+/**
+ * Enumerate sorted UTC starts at fixed spacing, including earliest when it is a slot.
+ * Window days use Sunday = 0; the horizon counts calendar days from earliest's UTC date.
+ * Window ends are exclusive and input dates are left unchanged.
+ */
 export const getWeeklyWindowSlots = (
   windows: { day: number; hour: number }[],
   earliest: Date,

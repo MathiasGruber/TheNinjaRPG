@@ -2,6 +2,7 @@ import { z } from "zod";
 import { KAGE_DEFENSE_MIN_DAYS, KAGE_DEFENSE_WINDOW_HOURS } from "@/drizzle/constants";
 
 export const kageVillageSchema = z.object({ villageId: z.string().min(1) });
+/** Weekly UTC window start; Sunday is day zero and the full window must fit within its day. */
 export const kageWindowSchema = z.object({
   day: z.number().int().min(0).max(6),
   hour: z
@@ -10,6 +11,7 @@ export const kageWindowSchema = z.object({
     .min(0)
     .max(24 - KAGE_DEFENSE_WINDOW_HOURS),
 });
+/** Shared client/server publication rules: distinct days and the configured minimum availability. */
 export const kageScheduleSchema = kageVillageSchema.extend({
   windows: z
     .array(kageWindowSchema)
@@ -33,6 +35,7 @@ export const kageVoteSchema = z.object({
   vote: z.enum(["YES", "NO"]),
 });
 export const kageNominationSchema = kageVillageSchema.extend({
+  // Defense-panel nominations omit this; the server finds the current vacancy's approved motion.
   voteId: z.string().min(1).optional(),
   userId: z.string().min(1),
 });
@@ -43,14 +46,17 @@ export const kageBattleResponseSchema = z.object({
 });
 
 export type KageWindow = z.infer<typeof kageWindowSchema>;
+/** Persisted JSON for one Kage tenure; timestamps are ISO strings rather than Date objects. */
 export type KageDefenseSchedule = {
   kageId: string;
   tenure: string;
   windows: KageWindow[];
   publishedAt: string | null;
+  /** Publication deadline extended when war or service gaps prevent participation. */
   setupDueAt?: string;
   missedStarts: number;
   paused: boolean;
+  /** Last reconciliation, used to avoid treating unobserved service gaps as player absences. */
   observedAt: string;
   vacancy?: { removedUserId: string; reason: string };
 };

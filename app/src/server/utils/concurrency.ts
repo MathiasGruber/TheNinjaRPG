@@ -427,8 +427,10 @@ export const refundPityCredit = async ({
     .set({ pityRolls: sql`${table.pityRolls} - 1`, updatedAt: new Date() })
     .where(and(eq(table.id, rollId), gt(table.pityRolls, 0)));
 };
-/** PlanetScale transaction sessions accept one in-flight statement. Keep independent
- * autocommit reads parallel, but await lazy Drizzle builders in session order here.
+/**
+ * Await lazy Drizzle query builders in order: PlanetScale sessions serialize statements.
+ * Pass unstarted builders, not eager promises; already-running work cannot be sequenced here.
+ * Independent autocommit reads should still use Promise.all.
  */
 export const queryInTransaction = async <
   const T extends readonly PromiseLike<unknown>[],

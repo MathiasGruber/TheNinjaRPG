@@ -1994,6 +1994,7 @@ export const initiateBattle = async (
     autoCombatUserIds?: string[];
     /** Stable event launch identity; participant claims require its WAITING recovery token. */
     tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
+    /** Scheduled receipt and tenure revalidated after preload; AI mode requires mutual consent. */
     kageMatch?: {
       id: string;
       villageId: string;
@@ -3724,6 +3725,8 @@ export const initiateBattle = async (
   } else if (info.kageMatch) {
     // The match receipt, battle and both participant claims commit together. A failed
     // preload or write consumes neither the slot nor a daily/weekly challenge allowance.
+    // A single guarded UPDATE cannot also insert the battle/history; throwing on a
+    // partial participant claim rolls back all writes instead of publishing half a fight.
     const m = info.kageMatch;
     const rejected = new Error("Kage defense admission changed");
     try {

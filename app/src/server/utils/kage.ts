@@ -25,6 +25,7 @@ import { getKageEligibility, getKageSlots } from "@/utils/kage";
 import { periodStart, secondsFromDate } from "@/utils/time";
 import type { KageDefenseSchedule } from "@/validators/kage";
 
+/** States that retain a challenger's unique active entry and FIFO queue position. */
 export const activeKageMatchStatuses = [
   "QUEUED",
   "SCHEDULED",
@@ -32,9 +33,12 @@ export const activeKageMatchStatuses = [
   "BATTLE",
 ] as const;
 
-/** The existing village row serializes cross-player assignments, attendance and leadership.
- * Reserving a slot and changing its queue entry must commit together. Combat preload
- * happens outside this short transaction; its launch has a separate atomic receipt.
+/**
+ * Serialize changes to a village's schedule, queue and leadership using its existing row.
+ * A single guarded update cannot calculate FIFO assignments and commit their queue rows
+ * with attendance strikes or a new tenure. Callbacks must use the supplied client;
+ * combat preload stays outside this transaction and revalidates at its atomic launch.
+ * Returns null when the village does not support title defenses.
  */
 export const withKageDefense = async <T>(
   client: DrizzleClient,
@@ -54,6 +58,7 @@ export const withKageDefense = async <T>(
     }),
   );
 
+/** Load a tenure-consistent working snapshot after acquiring the village row lock. */
 const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
   const now = new Date();
   const [v, rows, wars] = await queryInTransaction([
@@ -116,8 +121,10 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
     resetAssignments: !sameTenure || paused || state.paused || warInterrupted,
   };
 };
+/** Mutable snapshot shared by reconciliation and assignments within one village transaction. */
 export type KageDefenseHall = NonNullable<Awaited<ReturnType<typeof loadKageDefense>>>;
 
+/** Persist schedule JSON only for the tenure loaded under the village lock. */
 export const saveKageSchedule = (client: DrizzleClient, hall: KageDefenseHall) =>
   client
     .update(village)
@@ -130,9 +137,15 @@ export const saveKageSchedule = (client: DrizzleClient, hall: KageDefenseHall) =
       ),
     );
 
+/** Reconcile deadlines and assign waiting matches in one village transaction. */
 export const syncKageDefense = (client: DrizzleClient, villageId: string) =>
   withKageDefense(client, villageId, syncLockedKageDefense);
 
+/**
+ * Recover interruptions, settle attendance and assign the queue under an existing lock.
+ * Updates the working snapshot alongside writes; false means leadership changed and
+ * callers must stop using the old tenure. Never call with an autocommit client.
+ */
 export const syncLockedKageDefense = async (
   client: DrizzleClient,
   hall: KageDefenseHall,
@@ -168,6 +181,8 @@ export const syncLockedKageDefense = async (
   for (const row of hall.rows) {
     const m = row.match;
     if (m.status === "BATTLE" || m.status === "STARTING") {
+      // Terminal combat deletes its battle and records completion atomically; a missing
+      // battle with an active receipt therefore represents an interrupted launch/result.
       if (!row.liveBattleId) {
         const resolved = await client
           .update(kageChallenge)
@@ -212,6 +227,8 @@ export const syncLockedKageDefense = async (
       continue;
     }
     if (m.hospitalDeferred) {
+      // Resume with a fresh check-in window and move overlapping followers without
+      // changing FIFO priority or spending either participant's voluntary reschedule.
       m.scheduledAt = secondsFromDate(KAGE_DEFENSE_CHECK_IN_MINUTES * 60, now);
       m.hospitalDeferred = false;
       m.checkedInAt = null;
@@ -261,6 +278,7 @@ export const syncLockedKageDefense = async (
       );
       continue;
     }
+    // NPC defenses are challenger-started, so an unstarted NPC match never strikes the incumbent.
     if (
       missedObservation ||
       !m.checkedInAt ||
@@ -310,6 +328,7 @@ export const syncLockedKageDefense = async (
   return true;
 };
 
+/** Requeue with fresh notice and consent while retaining FIFO priority and reschedule usage. */
 const resetMatch = async (
   client: DrizzleClient,
   hall: KageDefenseHall,
@@ -331,6 +350,10 @@ const resetMatch = async (
   await client.update(kageChallenge).set(update).where(eq(kageChallenge.id, m.id));
 };
 
+/**
+ * Assign published UTC slots in FIFO order under the village lock, preserving valid slots.
+ * Started matches alone consume calendar limits; queue changes and schedule JSON commit together.
+ */
 export const assignKageMatches = async (
   client: DrizzleClient,
   hall: KageDefenseHall,
@@ -403,6 +426,7 @@ export const assignKageMatches = async (
   }
 };
 
+/** Whether another start fits the UTC day and Monday-based week containing the proposed time. */
 export const withinKageChallengeLimits = (
   matches: Pick<KageChallenge, "startedAt">[],
   now: Date,
@@ -418,6 +442,10 @@ export const withinKageChallengeLimits = (
   );
 };
 
+/**
+ * Replace an absent incumbent with an eligible elder, or leave a public vacancy.
+ * Rank, tenure and waiting assignments change together in the caller's village transaction.
+ */
 const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) => {
   const candidates = await client.query.userData.findMany({
     where: and(eq(userData.villageId, hall.village.id), eq(userData.rank, "ELDER")),
@@ -480,6 +508,7 @@ const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) =>
     );
 };
 
+/** Reuse fresh public state, reconciling stale deadlines or unassigned challengers before display. */
 export const getKageDefensePublic = async (
   client: DrizzleClient,
   villageId: string,
@@ -504,6 +533,7 @@ export const getKageDefensePublic = async (
   return readKageDefensePublic(client, villageId);
 };
 
+/** Read the public schedule, FIFO queue and bounded outcome history in parallel. */
 const readKageDefensePublic = async (client: DrizzleClient, villageId: string) => {
   const [v, queue, history] = await Promise.all([
     client.query.village.findFirst({

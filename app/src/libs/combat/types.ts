@@ -409,6 +409,7 @@ export type ExtraState = {
     villageId: string;
     kageId: string;
     tenure: string;
+    /** Fixed by both participants' consent at launch; cannot be toggled during the battle. */
     ai: boolean;
   };
   /** Staff-event game identity; combat preloads it so settlement never fetches tournament data. */

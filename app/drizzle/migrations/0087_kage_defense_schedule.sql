@@ -1,3 +1,4 @@
+-- Release legacy challenges before removing the activity-locking status from UserData.
 UPDATE `UserRequest` SET `status` = 'CANCELLED' WHERE `type` = 'KAGE' AND `status` = 'PENDING';
 UPDATE `UserData` SET `status` = 'AWAKE' WHERE `status` = 'KAGE_QUEUED';
 CREATE TABLE `KageChallenge` (

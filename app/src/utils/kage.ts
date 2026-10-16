@@ -12,6 +12,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { getWeeklyWindowSlots } from "@/utils/time";
 import type { KageWindow } from "@/validators/kage";
 
+/** Enumerate title-defense starts from an inclusive lower bound using the configured UTC cadence. */
 export const getKageSlots = (windows: KageWindow[], earliest: Date, days = 28) =>
   getWeeklyWindowSlots(
     windows,
@@ -21,7 +22,7 @@ export const getKageSlots = (windows: KageWindow[], earliest: Date, days = 28) =
     KAGE_DEFENSE_SLOT_MINUTES,
   );
 
-/** Public reasons are shared by queue admission, nomination and match-time checks. */
+/** Return a user-facing ineligibility reason, or null, shared by admission, nomination and launch. */
 export const getKageEligibility = (user: UserData, villageId: string) => {
   if (user.villageId !== villageId || user.isOutlaw)
     return "You must belong to this village";

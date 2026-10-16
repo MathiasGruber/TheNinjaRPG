@@ -10,7 +10,12 @@ import type { DrizzleClient } from "@/server/db";
 import { queryInTransaction } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
-/** Live voting and cron expiry share one atomic political settlement. Prestige is retained. */
+/**
+ * Resolve live votes and cron expiry against the current electorate and Kage tenure.
+ * The motion receipt, vacancy and announcement commit together so retries cannot lose
+ * or duplicate an outcome. These writes span an update, insert and recipient counters;
+ * one guarded statement cannot express them. Village prestige is retained.
+ */
 export const settleKageRemoval = async (
   client: DrizzleClient,
   voteId: string,
@@ -24,6 +29,7 @@ export const settleKageRemoval = async (
   return retryOnDeadlock(() =>
     client.transaction(async (transaction) => {
       const tx = transaction as unknown as DrizzleClient;
+      // Use the same first lock as defense assignments and successor appointments.
       await tx
         .update(village)
         .set({ kageScheduleVersion: sql`${village.kageScheduleVersion} + 1` })
