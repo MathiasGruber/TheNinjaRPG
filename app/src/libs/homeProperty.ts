@@ -20,11 +20,11 @@ export type HomeRoom = {
 /** Translation is measured in viewport percentages and applied after scaling the property. */
 export type HomeCamera = { x: number; y: number; scale: number };
 
-/** Keep the viewport over the property while preserving the shared zoom limits. */
+/** Keep a room visible while preserving property fits, passages and shared zoom limits. */
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
   const scale = clamp(camera.scale, 0.3, 1.8);
-  return {
+  const bounded = {
     scale,
     x: clamp(
       camera.x,
@@ -37,6 +37,28 @@ export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCam
       0,
     ),
   };
+  // Half the smaller room/viewport stays visible; half a four-unit passage joins adjacent bounds.
+  const overlap = Math.min(100, 100 * scale) / 2 - 2 * scale;
+  return rooms
+    .map((room) => ({
+      scale,
+      x: clamp(
+        bounded.x,
+        overlap - (room.x + 100) * scale,
+        100 - overlap - room.x * scale,
+      ),
+      y: clamp(
+        bounded.y,
+        overlap - (room.y + 100) * scale,
+        100 - overlap - room.y * scale,
+      ),
+    }))
+    .reduce((nearest, candidate) =>
+      Math.hypot(candidate.x - bounded.x, candidate.y - bounded.y) <
+      Math.hypot(nearest.x - bounded.x, nearest.y - bounded.y)
+        ? candidate
+        : nearest,
+    );
 };
 
 /** Keep the world point under the wheel pointer or pinch midpoint anchored while zooming. */
