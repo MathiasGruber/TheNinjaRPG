@@ -79,6 +79,7 @@ export const RewardEditor = ({
   };
   const activeNodes = getActiveRewardNodes(groups, openedNodeIds, hasValue);
   // Fallback groups are provisional until the custom catalog has loaded or failed.
+  // isFetched persists through retries, keeping mounted controls and drafts intact.
   const isCatalogPending = !catalog && !isFetched && (!user || isStaffRole(user.role));
   // Remember inferred groups too: editing a value to zero must not remove or move its controls.
   useEffect(() => {

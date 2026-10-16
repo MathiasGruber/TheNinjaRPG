@@ -2929,11 +2929,10 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   // Watch form values
   const watchAll = useWatch({ control: form.control });
 
-  // Update parent when form is valid and has changes
+  // Sync changed drafts; grouped editors include invalid values for parent validation.
   useEffect(() => {
     const newRewards = [...rewards];
     const parsed = ObjectiveReward.safeParse(watchAll);
-    // Grouped drafts must propagate invalid edits so parent preview/save validation sees them.
     if (parsed.success || props.grouped) {
       newRewards[idx] = parsed.success
         ? parsed.data
