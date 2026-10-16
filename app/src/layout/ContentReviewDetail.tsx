@@ -60,7 +60,7 @@ interface ContentReviewDetailProps {
   position: { index: number; total: number };
   /** Select the suggestion `delta` places further down the queue; negative moves up. */
   onMove: (delta: number) => void;
-  /** Called once an approval or a rejection has succeeded. */
+  /** Called once a decision or an undone rejection has succeeded. */
   onDecided: () => void;
 }
 
@@ -121,13 +121,15 @@ const ProposalReview: React.FC<ContentReviewDetailProps & { proposal: Proposal }
   };
   const approve = api.contentReview.approve.useMutation(decisionOptions);
   const reject = api.contentReview.reject.useMutation(decisionOptions);
+  const unreject = api.contentReview.unreject.useMutation(decisionOptions);
   const revert = api.contentReview.revert.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
       await refresh();
     },
   });
-  const isBusy = approve.isPending || reject.isPending || revert.isPending;
+  const isBusy =
+    approve.isPending || reject.isPending || unreject.isPending || revert.isPending;
 
   const canDecide = proposal?.status === "PENDING" && proposal.canReview;
   const hasText = !!proposal?.changes.some((change) =>
@@ -310,6 +312,29 @@ const ProposalReview: React.FC<ContentReviewDetailProps & { proposal: Proposal }
               onSubmit={doReject}
             />
           )}
+        </footer>
+      )}
+
+      {proposal.status === "REJECTED" && proposal.canReview && (
+        <footer className="flex flex-wrap items-center justify-end gap-2 border-t pt-2">
+          {((unreject.data && !unreject.data.success) || unreject.error) && (
+            <p role="alert" className="w-full text-destructive text-sm">
+              {unreject.error?.message ?? unreject.data?.message}
+            </p>
+          )}
+          <Button
+            variant="outline"
+            onClick={() =>
+              unreject.mutate({
+                id: proposal.id,
+                expectedStatusChangedAt: proposal.statusChangedAt.toISOString(),
+              })
+            }
+            disabled={isBusy}
+            loading={unreject.isPending}
+          >
+            <Undo2 className="mr-1 h-4 w-4" /> Undo rejection
+          </Button>
         </footer>
       )}
 
