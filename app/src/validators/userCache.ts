@@ -198,8 +198,6 @@ export const userPatchSchema = z.object({
       id: z.string(),
       tokens: z.number().optional(),
       hexColor: z.string().optional(),
-      openForChallenges: z.boolean().optional(),
-      openForChallengesAt: z.date().optional(),
       shrineSettings: z
         .object({
           unlockedAiIds: z.array(z.string()).optional(),

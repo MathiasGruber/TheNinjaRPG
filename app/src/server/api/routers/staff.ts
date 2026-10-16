@@ -31,6 +31,7 @@ import {
   historicalIp,
   itemLoadout,
   jutsuLoadout,
+  kageChallenge,
   kageDefendedChallenges,
   linkPromotion,
   moderationScan,
@@ -1088,6 +1089,14 @@ export const staffRouter = createTRPCRouter({
           .set({ userId: input.newUserId })
           .where(eq(supportReview.userId, input.userId)),
         ctx.drizzle
+          .update(kageChallenge)
+          .set({ challengerId: input.newUserId })
+          .where(eq(kageChallenge.challengerId, input.userId)),
+        ctx.drizzle
+          .update(kageChallenge)
+          .set({ kageId: input.newUserId })
+          .where(eq(kageChallenge.kageId, input.userId)),
+        ctx.drizzle
           .update(kageDefendedChallenges)
           .set({ userId: input.newUserId })
           .where(eq(kageDefendedChallenges.userId, input.userId)),
@@ -1459,6 +1468,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(mpvpBattleUser).where(eq(mpvpBattleUser.userId, userId)),
     client.delete(rankedPvpQueue).where(eq(rankedPvpQueue.userId, userId)),
     client.delete(rankedUserRewards).where(eq(rankedUserRewards.userId, userId)),
+    client.delete(kageChallenge).where(eq(kageChallenge.challengerId, userId)),
     client
       .delete(kageDefendedChallenges)
       .where(eq(kageDefendedChallenges.userId, userId)),

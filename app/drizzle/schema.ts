@@ -3787,13 +3787,10 @@ export const village = mysqlTable(
     belowMemberMinimumSince: datetime("belowMemberMinimumSince", { mode: "date", fsp: 3 }),
     raidRetryCooldowns: json("raidRetryCooldowns").$type<Record<string, string>>().default({}).notNull(),
     wasDowngraded: boolean("wasDowngraded").default(false).notNull(),
-    openForChallenges: boolean("openForChallenges").default(true).notNull(),
-    openForChallengesAt: datetime("openForChallengesAt", {
-      mode: "date",
-      fsp: 3,
-    })
-      .default(sql`(CURRENT_TIMESTAMP(3))`)
-      .notNull(),
+    kageSchedule: json("kageSchedule").$type<import("@/validators/kage").KageDefenseSchedule>(),
+    kageScheduleVersion: int("kageScheduleVersion").default(0).notNull(),
+    kageScheduleAvailableAt: datetime("kageScheduleAvailableAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
     wallpaperOverwrite: varchar("wallpaperOverwrite", { length: 191 }),
     warExhaustionEndedAt: datetime("warExhaustionEndedAt", { mode: "date", fsp: 3 }),
     lastWarEndedAt: datetime("lastWarEndedAt", { mode: "date", fsp: 3 }),
@@ -3936,6 +3933,35 @@ export const villageAllianceRelations = relations(villageAlliance, ({ one }) => 
     relationName: "villageB",
   }),
 }));
+
+export const kageChallenge = mysqlTable("KageChallenge", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  villageId: varchar("villageId", { length: 191 }).notNull(),
+  challengerId: varchar("challengerId", { length: 191 }).notNull(),
+  kageId: varchar("kageId", { length: 191 }).notNull(),
+  tenure: datetime("tenure", { mode: "date", fsp: 3 }).notNull(),
+  status: mysqlEnum("status", consts.KAGE_MATCH_STATUSES).default("QUEUED").notNull(),
+  activeChallengerId: varchar("activeChallengerId", { length: 191 }).generatedAlwaysAs(
+    sql`CASE WHEN \`status\` IN ('QUEUED','SCHEDULED','STARTING','BATTLE') THEN \`challengerId\` ELSE NULL END`, { mode: "stored" }),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  scheduledAt: datetime("scheduledAt", { mode: "date", fsp: 3 }),
+  notBefore: datetime("notBefore", { mode: "date", fsp: 3 }).notNull(),
+  checkedInAt: datetime("checkedInAt", { mode: "date", fsp: 3 }),
+  rescheduled: boolean("rescheduled").default(false).notNull(),
+  hospitalDeferred: boolean("hospitalDeferred").default(false).notNull(),
+  aiRequested: boolean("aiRequested").default(false).notNull(),
+  aiAccepted: boolean("aiAccepted").default(false).notNull(),
+  battleId: varchar("battleId", { length: 191 }),
+  startedAt: datetime("startedAt", { mode: "date", fsp: 3 }),
+  resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
+  outcome: varchar("outcome", { length: 512 }),
+}, (table) => ({
+  activeKey: uniqueIndex("KageChallenge_activeChallenger_key").on(table.activeChallengerId),
+  battleKey: uniqueIndex("KageChallenge_battleId_key").on(table.battleId),
+  queueIdx: index("KageChallenge_village_status_created_idx").on(table.villageId, table.status, table.createdAt),
+  historyIdx: index("KageChallenge_challenger_started_idx").on(table.challengerId, table.startedAt),
+}));
+export type KageChallenge = InferSelectModel<typeof kageChallenge>;
 
 export const kageDefendedChallenges = mysqlTable(
   "KageDefendedChallenges",
@@ -4925,6 +4951,10 @@ export const villageElderVote = mysqlTable(
     initiatedByUserId: varchar("initiatedByUserId", { length: 191 }).notNull(),
     // For WAR_DECLARATION: target village ID. For KAGE_REMOVAL: kage user ID.
     targetId: varchar("targetId", { length: 191 }).notNull(),
+    reason: varchar("reason", { length: 1000 }).default("").notNull(),
+    tenure: datetime("tenure", { mode: "date", fsp: 3 }),
+    resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
+    successorId: varchar("successorId", { length: 191 }),
     // Only set for WAR_DECLARATION votes
     warType: mysqlEnum("warType", consts.WAR_TYPES),
     targetStructureRoute: varchar("targetStructureRoute", { length: 191 }),

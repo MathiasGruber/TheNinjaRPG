@@ -696,9 +696,6 @@ export const raidsRouter = createTRPCRouter({
       if (user.status === "ASLEEP") {
         return errorResponse("You cannot ready up while sleeping");
       }
-      if (user.status === "KAGE_QUEUED") {
-        return errorResponse("You cannot ready up while challenging the Kage");
-      }
       if (
         user.status === "QUEUED" &&
         queueEntry?.clanBattle?.battleType !== "RAID_BATTLE"

@@ -1,4 +1,6 @@
 import {
+  KAGE_DEFENSE_SLOT_MINUTES,
+  KAGE_DEFENSE_WINDOW_HOURS,
   KAGE_ELDER_MIN_DAYS,
   KAGE_MIN_DAYS_IN_VILLAGE,
   KAGE_PRESTIGE_REQUIREMENT,
@@ -7,6 +9,32 @@ import {
 import type { UserData } from "@/drizzle/schema";
 import { hasRequiredRank } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
+import { getWeeklyWindowSlots } from "@/utils/time";
+import type { KageWindow } from "@/validators/kage";
+
+export const getKageSlots = (windows: KageWindow[], earliest: Date, days = 28) =>
+  getWeeklyWindowSlots(
+    windows,
+    earliest,
+    days,
+    KAGE_DEFENSE_WINDOW_HOURS,
+    KAGE_DEFENSE_SLOT_MINUTES,
+  );
+
+/** Public reasons are shared by queue admission, nomination and match-time checks. */
+export const getKageEligibility = (user: UserData, villageId: string) => {
+  if (user.villageId !== villageId || user.isOutlaw)
+    return "You must belong to this village";
+  if (user.isBanned || user.isAi) return "Your character cannot join the queue";
+  if (user.anbuId) return "Leave ANBU before joining the Kage queue";
+  if (!hasRequiredRank(user.rank, KAGE_RANK_REQUIREMENT))
+    return `Requires ${KAGE_RANK_REQUIREMENT} rank`;
+  if (user.villagePrestige < KAGE_PRESTIGE_REQUIREMENT)
+    return `Requires ${KAGE_PRESTIGE_REQUIREMENT.toLocaleString()} village prestige`;
+  if (getDaysInVillage(user) < KAGE_MIN_DAYS_IN_VILLAGE)
+    return `Requires ${KAGE_MIN_DAYS_IN_VILLAGE} days in this village`;
+  return null;
+};
 
 /**
  * Gets the number of days a user has been in their village.

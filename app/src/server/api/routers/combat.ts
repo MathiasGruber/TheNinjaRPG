@@ -12,6 +12,7 @@ import {
   isNull,
   like,
   lt,
+  lte,
   ne,
   notExists,
   notInArray,
@@ -36,6 +37,9 @@ import {
   CombatStatNames,
   DUNGEON_PARTY_SIZE,
   ELEMENTAL_MASTERY_BOOST,
+  KAGE_DEFENSE_GRACE_MINUTES,
+  KAGE_MIN_DAYS_IN_VILLAGE,
+  KAGE_PRESTIGE_REQUIREMENT,
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
@@ -71,6 +75,7 @@ import {
   gameSetting,
   item,
   jutsu,
+  kageChallenge,
   mpvpBattleQueue,
   mpvpBattleUser,
   quest,
@@ -267,6 +272,7 @@ import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
+import { getKageEligibility } from "@/utils/kage";
 import { fedItemLoadouts, fedJutsuLoadouts } from "@/utils/paypal";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
@@ -741,8 +747,14 @@ export const combatRouter = createTRPCRouter({
 
           // Only allow action if it is the users turn (a piloted summon is human-driven)
           const control = getTurnControl(actor, suid);
-          const isUserTurn = !battle.extraState.tournamentAiOnly && control.isUserTurn;
-          const isAITurn = !!battle.extraState.tournamentAiOnly || control.isAITurn;
+          const isUserTurn =
+            !battle.extraState.tournamentAiOnly &&
+            !battle.extraState.kageMatch?.ai &&
+            control.isUserTurn;
+          const isAITurn =
+            !!battle.extraState.tournamentAiOnly ||
+            !!battle.extraState.kageMatch?.ai ||
+            control.isAITurn;
           if (!isUserTurn && !isAITurn) {
             return { notification: `Not your turn. Wait for ${actor.username}` };
           }
@@ -1160,8 +1172,8 @@ export const combatRouter = createTRPCRouter({
       // Guard
       if (!userBattle) return errorResponse("You are not in a battle");
       if (!user) return errorResponse("You are not in this battle");
-      if (userBattle.extraState.tournamentAiOnly)
-        return errorResponse("AI tournament loadouts are frozen for this game");
+      if (userBattle.extraState.tournamentAiOnly || userBattle.extraState.kageMatch?.ai)
+        return errorResponse("AI match loadouts are frozen for this battle");
       if (user.iAmHere) return errorResponse("You are already marked as ready");
       if (userBattle.battleType !== "COMBAT" && userBattle.battleType !== "SPARRING") {
         return errorResponse("You can only update loadouts in the combat lobby");
@@ -1640,12 +1652,15 @@ export const combatRouter = createTRPCRouter({
         const userBattle = await fetchBattle(ctx.drizzle, input.battleId);
         const user = userBattle?.usersState.find((u) => u.userId === ctx.userId);
 
-        // Guard. Kage/clan challenges are always fully AI-driven — there is no
-        // manual control to hand over or take back there.
+        // Scheduled defenses retain mutual consent; automatic battle types retain their AI rules.
         if (!userBattle) return errorResponse("You are not in a battle");
         if (!user) return errorResponse("You are not in this battle");
         if (user.isAi)
           return errorResponse("Only human players can toggle auto combat");
+        if (userBattle.extraState.kageMatch)
+          return errorResponse(
+            "Scheduled title fights keep the combat mode agreed before the match",
+          );
         if (
           userBattle.extraState.tournamentAiOnly ||
           AutoBattleTypes.includes(userBattle.battleType)
@@ -1824,8 +1839,8 @@ export const combatRouter = createTRPCRouter({
       // Determine which village's shrine is being attacked
       // For Village Wars: if at defender's sector, attack defender; if at attacker's sector, attack attacker
       const shrineOwnerVillageId = userWar.rules
-        ? userWar.objectiveState!.objectives.find((o) => o.sector === input.sector)!
-            .villageId
+        ? userWar.objectiveState?.objectives.find((o) => o.sector === input.sector)
+            ?.villageId
         : isVillageWarOrRaid && userWar.attackerVillage?.sector === input.sector
           ? userWar.attackerVillageId
           : userWar.defenderVillageId;
@@ -1979,6 +1994,14 @@ export const initiateBattle = async (
     autoCombatUserIds?: string[];
     /** Stable event launch identity; participant claims require its WAITING recovery token. */
     tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
+    kageMatch?: {
+      id: string;
+      villageId: string;
+      kageId: string;
+      tenure: string;
+      battleId: string;
+      ai: boolean;
+    };
   },
   battleType: BattleType,
   scaleGains = 1,
@@ -2748,6 +2771,11 @@ export const initiateBattle = async (
     const user = users[i];
     if (!user) return { success: false, message: "Could not find expected user" };
 
+    if (info.kageMatch && userIds.includes(user.userId)) {
+      const reason = getKageEligibility(user, info.kageMatch.villageId);
+      if (reason) return { success: false, message: reason };
+    }
+
     // If user is banned
     if (user.isBanned) return { success: false, message: `${user.username} is banned` };
 
@@ -2762,18 +2790,13 @@ export const initiateBattle = async (
     const isAutoBattle = AutoBattleTypes.includes(battleType);
     const isShrineBattle = battleType === "SHRINE_WAR";
 
-    // Special handling for KAGE_PVP battles
+    // Scheduled title fights claim both participants directly from ordinary play.
     if (battleType === "KAGE_PVP") {
-      // For KAGE_PVP: challenger should be KAGE_QUEUED, kage should be AWAKE
-      if (userIds.includes(user.userId) && user.status !== "KAGE_QUEUED") {
+      if (!user.isAi && user.status !== "AWAKE")
         return {
           success: false,
-          message: `Challenger ${user.username} is not in kage queue`,
+          message: `${user.username} must be awake and free of other activities`,
         };
-      }
-      if (targetIds.includes(user.userId) && user.status !== "AWAKE") {
-        return { success: false, message: `Kage ${user.username} is not awake` };
-      }
     } else if (!isAutoBattle && !user.isAi) {
       // For other battles, check if user status is appropriate (skip AI users)
       const isOk = isQueuedBattle
@@ -3000,6 +3023,8 @@ export const initiateBattle = async (
     };
   }
 
+  if (info.kageMatch) extraState.kageMatch = info.kageMatch;
+
   if (info.tournamentGame) {
     extraState.tournamentGameId = info.tournamentGame.id;
     extraState.tournamentAiOnly = info.tournamentGame.aiOnly;
@@ -3009,7 +3034,9 @@ export const initiateBattle = async (
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
   if (
     info.autoCombatUserIds?.length &&
-    (AutoCombatBattleTypes.includes(battleType) || !!info.tournamentGame)
+    (AutoCombatBattleTypes.includes(battleType) ||
+      !!info.tournamentGame ||
+      !!info.kageMatch?.ai)
   ) {
     usersState.forEach((user) => {
       if (
@@ -3145,6 +3172,7 @@ export const initiateBattle = async (
     info.coop?.battleId ??
     info.clanBattle?.battleId ??
     info.tournamentGame?.battleId ??
+    info.kageMatch?.battleId ??
     nanoid();
 
   // Rows the status update below is expected to claim, used as the CAS guard
@@ -3529,6 +3557,30 @@ export const initiateBattle = async (
                   eq(userData.status, "AWAKE"),
                 ]
               : []),
+            ...(info.kageMatch
+              ? [
+                  eq(userData.status, "AWAKE"),
+                  eq(userData.villageId, info.kageMatch.villageId),
+                  ...users
+                    .filter((u) => userIds.includes(u.userId))
+                    .map((u) =>
+                      or(
+                        ne(userData.userId, u.userId),
+                        and(
+                          isNull(userData.anbuId),
+                          gte(userData.villagePrestige, KAGE_PRESTIGE_REQUIREMENT),
+                          eq(userData.rank, u.rank),
+                          eq(userData.isBanned, false),
+                          eq(userData.isOutlaw, false),
+                          lt(
+                            userData.joinedVillageAt,
+                            secondsFromNow(-KAGE_MIN_DAYS_IN_VILLAGE * 86400 + 1),
+                          ),
+                        ),
+                      ),
+                    ),
+                ]
+              : []),
             // Ranked participants are claimed straight from the queue, so require
             // QUEUED specifically: a player who just left the queue (now AWAKE)
             // must not be pulled into a ranked battle by a poll whose snapshot
@@ -3571,7 +3623,6 @@ export const initiateBattle = async (
                 : or(
                     eq(userData.status, "AWAKE"),
                     eq(userData.status, "QUEUED"),
-                    eq(userData.status, "KAGE_QUEUED"),
                     info.questAttempt?.isolated &&
                       battleType === "QUEST" &&
                       info.questBattleSource?.questId === info.questAttempt.questId
@@ -3637,7 +3688,7 @@ export const initiateBattle = async (
           ]
         : []),
     ] as const;
-    if (hasEntryCharges || info.tournamentGame) {
+    if (hasEntryCharges || info.tournamentGame || info.kageMatch) {
       await writes[0];
       await writes[1];
       const claimedUsers = await writes[2];
@@ -3670,6 +3721,83 @@ export const initiateBattle = async (
     });
     if (!committed.success) return { success: false, message: committed.message };
     result = committed.result;
+  } else if (info.kageMatch) {
+    // The match receipt, battle and both participant claims commit together. A failed
+    // preload or write consumes neither the slot nor a daily/weekly challenge allowance.
+    const m = info.kageMatch;
+    const rejected = new Error("Kage defense admission changed");
+    try {
+      result = await retryOnDeadlock(() =>
+        client.transaction(async (transaction) => {
+          const tx = transaction as unknown as DrizzleClient;
+          const launchAt = new Date();
+          const leader = await tx
+            .update(village)
+            .set({ kageScheduleVersion: sql`${village.kageScheduleVersion} + 1` })
+            .where(
+              and(
+                eq(village.id, m.villageId),
+                eq(village.kageId, m.kageId),
+                eq(village.leaderUpdatedAt, new Date(m.tenure)),
+                notExists(
+                  tx
+                    .select({ id: war.id })
+                    .from(war)
+                    .where(
+                      and(
+                        eq(war.type, "VILLAGE_WAR"),
+                        eq(war.status, "ACTIVE"),
+                        or(
+                          eq(war.attackerVillageId, m.villageId),
+                          eq(war.defenderVillageId, m.villageId),
+                        ),
+                      ),
+                    ),
+                ),
+              ),
+            );
+          if (leader.rowsAffected !== 1) throw rejected;
+          const receipt = await tx
+            .update(kageChallenge)
+            .set({ status: "BATTLE", battleId, startedAt: launchAt })
+            .where(
+              and(
+                eq(kageChallenge.id, m.id),
+                eq(kageChallenge.status, "SCHEDULED"),
+                eq(kageChallenge.kageId, m.kageId),
+                eq(kageChallenge.tenure, new Date(m.tenure)),
+                isNotNull(kageChallenge.checkedInAt),
+                eq(kageChallenge.hospitalDeferred, false),
+                lte(kageChallenge.scheduledAt, launchAt),
+                gte(
+                  kageChallenge.scheduledAt,
+                  secondsFromDate(-KAGE_DEFENSE_GRACE_MINUTES * 60, launchAt),
+                ),
+                m.ai
+                  ? and(
+                      eq(kageChallenge.aiRequested, true),
+                      eq(kageChallenge.aiAccepted, true),
+                    )
+                  : or(
+                      eq(kageChallenge.aiRequested, false),
+                      eq(kageChallenge.aiAccepted, false),
+                    ),
+              ),
+            );
+          if (receipt.rowsAffected !== 1) throw rejected;
+          const created = await createBattle(tx);
+          if (created.claimedUsers?.rowsAffected !== expectedRows) throw rejected;
+          return created;
+        }),
+      );
+    } catch (error) {
+      if (error === rejected)
+        return {
+          success: false,
+          message: "Match admission changed. Refresh the schedule and try again.",
+        };
+      throw error;
+    }
   } else if (info.tournamentGame) {
     // Battle/history inserts and both user claims must commit together. A single-row
     // CAS cannot hide a staged battle from recovery or roll back partial claims'

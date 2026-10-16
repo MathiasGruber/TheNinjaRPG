@@ -27,6 +27,7 @@ import {
   bounty,
   clan,
   dataBattleAction,
+  kageChallenge,
   kageDefendedChallenges,
   logBattleLengths,
   mpvpBattleQueue,
@@ -592,6 +593,7 @@ export const updateKage = async (
   const participants = getKageChallengeParticipants(curBattle);
   if (!participants) return;
   const { challenger, kage } = participants;
+  const defenderId = curBattle.extraState.kageMatch?.kageId ?? kage.userId;
 
   const challengerDidWin = didKageChallengerWin(
     challenger,
@@ -611,6 +613,26 @@ export const updateKage = async (
   ];
 
   await Promise.all([
+    ...(curBattle.extraState.kageMatch
+      ? [
+          client
+            .update(kageChallenge)
+            .set({
+              status: "COMPLETED",
+              resolvedAt: new Date(),
+              outcome: challengerDidWin
+                ? "Challenger won the title fight"
+                : "Kage defended the title",
+            })
+            .where(
+              and(
+                eq(kageChallenge.id, curBattle.extraState.kageMatch.id),
+                eq(kageChallenge.status, "BATTLE"),
+                eq(kageChallenge.battleId, curBattle.id),
+              ),
+            ),
+        ]
+      : []),
     // Both PvP clients can finalize the same battle. The unique battleId makes
     // this insert idempotent; the no-op update preserves the first canonical row.
     client
@@ -620,7 +642,7 @@ export const updateKage = async (
         battleId: curBattle.id,
         villageId: challenger.villageId,
         userId: challenger.userId,
-        kageId: kage.userId,
+        kageId: defenderId,
         didWin: challengerDidWin ? 1 : 0,
         rounds: curBattle.round,
       })
@@ -633,11 +655,23 @@ export const updateKage = async (
       ? [
           client
             .update(village)
-            .set({ kageId: challenger.userId, leaderUpdatedAt: new Date() })
+            .set({
+              kageId: challenger.userId,
+              leaderUpdatedAt: new Date(),
+              kageSchedule: null,
+            })
             .where(
               and(
                 eq(village.id, challenger.villageId),
-                eq(village.kageId, kage.userId),
+                eq(village.kageId, defenderId),
+                ...(curBattle.extraState.kageMatch
+                  ? [
+                      eq(
+                        village.leaderUpdatedAt,
+                        new Date(curBattle.extraState.kageMatch.tenure),
+                      ),
+                    ]
+                  : []),
               ),
             ),
         ]

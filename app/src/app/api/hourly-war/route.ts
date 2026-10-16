@@ -1,8 +1,7 @@
-import { and, eq, inArray, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import {
   ELDER_MIN_VOTING_COUNT,
-  KAGE_ELDER_REMOVAL_LOCK_SECS,
   WAR_DAILY_HEALTH_DRAIN,
   WAR_DAILY_TOKEN_DECAY_PERCENT_BASE,
   WAR_DAILY_TOKEN_DECAY_PERCENT_DAY_5,
@@ -26,12 +25,12 @@ import {
   updateGameSetting,
 } from "@/libs/gamesettings";
 import { isVillageInvolvedInAnyWar } from "@/libs/war";
-import { fetchKageReplacement } from "@/server/api/routers/kage";
 import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { fetchActiveWars } from "@/server/api/routers/war";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { syncStrongholdMembership } from "@/server/utils/faction";
+import { settleKageRemoval } from "@/server/utils/kageGovernance";
 import {
   expireWarPoints,
   settleObjectiveWarSchedule,
@@ -43,7 +42,6 @@ import {
   resumePendingWarSettlements,
   startApprovedVoteWar,
 } from "@/server/utils/war";
-import { secondsFromNow } from "@/utils/time";
 
 const ENDPOINT_NAME = "hourly-war";
 const DAILY_DECAY_TIMER = "daily-war-decay";
@@ -456,135 +454,7 @@ async function handleExpiredWarDeclaration(
  */
 async function handleExpiredKageRemoval(
   vote: ExpiredElderVote,
-  outcome: ReturnType<typeof resolveElderVote>,
+  _outcome: ReturnType<typeof resolveElderVote>,
 ) {
-  if (outcome === "APPROVED") {
-    // Atomically claim the motion first — only one concurrent request proceeds to side effects
-    const kageClaimResult = await drizzleDB
-      .update(villageElderVote)
-      .set({ status: "APPROVED" })
-      .where(
-        and(eq(villageElderVote.id, vote.id), eq(villageElderVote.status, "PENDING")),
-      );
-    if (kageClaimResult.rowsAffected === 0) return;
-
-    const replacement = await fetchKageReplacement(
-      drizzleDB,
-      vote.villageId,
-      vote.targetId,
-    );
-    if (!replacement) {
-      const voterIds = vote.entries.map((e) => e.userId);
-      await Promise.all([
-        drizzleDB
-          .update(villageElderVote)
-          .set({ status: "REJECTED" })
-          .where(
-            and(
-              eq(villageElderVote.id, vote.id),
-              eq(villageElderVote.status, "APPROVED"),
-            ),
-          ),
-        ...voterIds.map((userId) =>
-          drizzleDB.insert(notification).values({
-            userId,
-            content: `The vote to remove the Kage passed but no eligible replacement elder was found.`,
-          }),
-        ),
-        ...(voterIds.length > 0
-          ? [
-              drizzleDB
-                .update(userData)
-                .set({ unreadNotifications: sql`unreadNotifications + 1` })
-                .where(inArray(userData.userId, voterIds)),
-            ]
-          : []),
-      ]);
-      return;
-    }
-
-    // Protect the current tenure even for motions created before the removal lock changed.
-    const villageUpdateResult = await drizzleDB
-      .update(village)
-      .set({ kageId: replacement.userId, leaderUpdatedAt: new Date() })
-      .where(
-        and(
-          eq(village.id, vote.villageId),
-          eq(village.kageId, vote.targetId),
-          lte(village.leaderUpdatedAt, secondsFromNow(-KAGE_ELDER_REMOVAL_LOCK_SECS)),
-        ),
-      );
-    if (villageUpdateResult.rowsAffected === 0) {
-      // The target changed or their current tenure is protected; reject our claim.
-      await drizzleDB
-        .update(villageElderVote)
-        .set({ status: "REJECTED" })
-        .where(
-          and(
-            eq(villageElderVote.id, vote.id),
-            eq(villageElderVote.status, "APPROVED"),
-          ),
-        );
-      return;
-    }
-
-    const removedKage = await drizzleDB.query.userData.findFirst({
-      columns: { username: true },
-      where: eq(userData.userId, vote.targetId),
-    });
-    await Promise.all([
-      drizzleDB
-        .update(userData)
-        .set({ villagePrestige: 0 })
-        .where(eq(userData.userId, vote.targetId)),
-      drizzleDB.insert(notification).values({
-        userId: vote.targetId,
-        content: `You have been removed as Kage by the Elder Council. ${replacement.username} is the new Kage.`,
-      }),
-      drizzleDB.insert(notification).values({
-        userId: replacement.userId,
-        content: `You have been appointed as the new Kage following the removal of ${removedKage?.username ?? "the previous Kage"}.`,
-      }),
-      ...vote.entries
-        .filter((e) => e.userId !== vote.targetId && e.userId !== replacement.userId)
-        .map((e) =>
-          drizzleDB.insert(notification).values({
-            userId: e.userId,
-            content: `The vote to remove the Kage has passed. ${replacement.username} is the new Kage.`,
-          }),
-        ),
-      drizzleDB
-        .update(userData)
-        .set({ unreadNotifications: sql`unreadNotifications + 1` })
-        .where(
-          inArray(userData.userId, [
-            vote.targetId,
-            replacement.userId,
-            ...vote.entries.map((e) => e.userId),
-          ]),
-        ),
-    ]);
-  } else {
-    const voterIds = vote.entries.map((e) => e.userId);
-    await Promise.all([
-      drizzleDB
-        .update(villageElderVote)
-        .set({ status: "REJECTED" })
-        .where(eq(villageElderVote.id, vote.id)),
-      ...voterIds.map((userId) =>
-        drizzleDB.insert(notification).values({
-          userId,
-          content: `The vote to remove the Kage did not pass.`,
-        }),
-      ),
-      ...(voterIds.length > 0
-        ? [
-            drizzleDB
-              .update(userData)
-              .set({ unreadNotifications: sql`unreadNotifications + 1` })
-              .where(inArray(userData.userId, voterIds)),
-          ]
-        : []),
-    ]);
-  }
+  await settleKageRemoval(drizzleDB, vote.id, true);
 }

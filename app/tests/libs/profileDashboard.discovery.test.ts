@@ -187,7 +187,7 @@ describe("dashboard auto-travel destinations", () => {
     expect(dashboardContentHref(entry!)).toBe("/travel?sector=40");
   });
 
-  it.each(["ASLEEP", "BATTLE", "HOSPITALIZED", "TRAVEL", "QUEUED", "KAGE_QUEUED"] as const)("blocks auto-travel while %s", (status) => {
+  it.each(["ASLEEP", "BATTLE", "HOSPITALIZED", "TRAVEL", "QUEUED"] as const)("blocks auto-travel while %s", (status) => {
     const [entry] = resolveDashboardContent([candidate()], user({ sector: 12, status }));
     expect(entry?.availabilityReason).toBe("Travel to Global ANBU HQ to begin. You must be awake to travel");
   });

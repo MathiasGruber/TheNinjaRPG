@@ -9,15 +9,13 @@ import {
   Handshake,
   Landmark,
   LandPlot,
-  Lock,
-  LockOpen,
   ScrollText,
   ShieldPlus,
   Swords,
   UsersRound,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import type { RouterOutputs } from "@/app/_trpc/client";
 import { api } from "@/app/_trpc/client";
@@ -43,14 +41,7 @@ import {
   ELDER_MIN_VOTING_COUNT,
   ELDER_NOMINATION_CUTOFF_DAY,
   ELDER_NOMINATION_DEADLINE_DAY,
-  KAGE_CHALLENGE_MAX_DAILY_LOCKED_HOURS,
-  KAGE_CHALLENGE_MINS,
-  KAGE_CHALLENGE_SECS,
   KAGE_ELDER_REMOVAL_LOCK_SECS,
-  KAGE_MIN_DAYS_IN_VILLAGE,
-  KAGE_PRESTIGE_COST,
-  KAGE_PRESTIGE_REQUIREMENT,
-  KAGE_RANK_REQUIREMENT,
   WAR_FUNDS_COST,
 } from "@/drizzle/constants";
 import type { VillageAlliance } from "@/drizzle/schema";
@@ -61,6 +52,7 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import Image from "@/layout/Image";
+import { KageDefense } from "@/layout/KageDefense";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
@@ -73,10 +65,8 @@ import { WarRoom } from "@/layout/WarSystem";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import { calculateEnemyConsequences, findRelationship } from "@/utils/alliance";
-import { canChallengeKage } from "@/utils/kage";
 import { canTakeKage } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
-import { secondsFromDate, secondsPassed } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import {
   createPrestigeTransferSchema,
@@ -183,6 +173,30 @@ const ElderHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  const [removalReason, setRemovalReason] = useState("");
+  const [nomineeId, setNomineeId] = useState("");
+  const [governanceMessage, setGovernanceMessage] = useState("");
+  const { data: removalHistory, refetch: refetchHistory } =
+    api.kage.getRemovalHistory.useQuery(
+      { villageId: user.villageId ?? "" },
+      { enabled: !!user.villageId, refetchInterval: 15000 },
+    );
+  const nominate = api.kage.nominateKage.useMutation({
+    onSuccess: async (data) => {
+      showMutationToast(data);
+      setGovernanceMessage(data.message);
+      if (data.success) {
+        await Promise.all([
+          refetchHistory(),
+          refetchVotes(),
+          apiUtils.village.get.invalidate(),
+          apiUtils.profile.getUser.invalidate(),
+        ]);
+      }
+    },
+    onError: (e) => setGovernanceMessage(e.message),
+  });
+  const apiUtils = api.useUtils();
   // Fetch elders
   const { data: elders, isPending } = api.kage.getElders.useQuery(
     { villageId: user.villageId ?? "" },
@@ -227,7 +241,8 @@ const ElderHall: React.FC<{
     api.kage.initiateKageRemovalVote.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        if (data.success) await refetchVotes();
+        setGovernanceMessage(data.message);
+        if (data.success) await Promise.all([refetchVotes(), refetchHistory()]);
       },
     });
 
@@ -236,7 +251,12 @@ const ElderHall: React.FC<{
       onSuccess: async (data) => {
         showMutationToast(data);
         // A rejected removal can resolve a stale motion; refresh it out of the council.
-        await refetchVotes();
+        setGovernanceMessage(data.message);
+        await Promise.all([
+          refetchVotes(),
+          refetchHistory(),
+          apiUtils.village.get.invalidate(),
+        ]);
       },
     });
 
@@ -503,6 +523,7 @@ const ElderHall: React.FC<{
                   Initiated by {pendingKageVote.initiatedBy?.username}. Voting closes in{" "}
                   <Countdown targetDate={pendingKageVote.endsAt} />.
                 </div>
+                <p className="mb-2 text-sm">Reason: {pendingKageVote.reason}</p>
                 <div className="mb-3 text-sm">
                   YES: {pendingKageVote.entries.filter((e) => e.vote === "YES").length}{" "}
                   &nbsp;|&nbsp; NO:{" "}
@@ -572,24 +593,40 @@ const ElderHall: React.FC<{
                     <p className="mb-3 text-muted-foreground text-sm">
                       If {removalQuorum} elders vote YES within{" "}
                       {ELDER_KAGE_REMOVAL_VOTE_DAYS} days, the kage will be removed and
-                      lose all village prestige.
+                      retain their village prestige. Elders may then nominate an
+                      eligible villager.
                     </p>
+                    <Label htmlFor="kage-removal-reason">Public reason</Label>
+                    <Input
+                      id="kage-removal-reason"
+                      value={removalReason}
+                      onChange={(e) => setRemovalReason(e.target.value)}
+                      placeholder="Explain the proposal (at least 10 characters)"
+                      maxLength={1000}
+                    />
                     <Confirm
                       title="Initiate Kage Removal Vote"
                       button={
-                        <Button size="sm" variant="destructive">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={removalReason.trim().length < 10}
+                        >
                           <Swords className="mr-2 h-4 w-4" />
                           Initiate Removal Vote
                         </Button>
                       }
                       onAccept={() =>
-                        initiateRemoval({ villageId: user.villageId ?? "" })
+                        initiateRemoval({
+                          villageId: user.villageId ?? "",
+                          reason: removalReason,
+                        })
                       }
                     >
                       Are you sure you want to initiate a kage removal vote? The vote
                       will be open for {ELDER_KAGE_REMOVAL_VOTE_DAYS} days. If a
                       majority of elders vote YES, the kage will be removed and their
-                      village prestige reset to 0.
+                      village prestige preserved. Elders can nominate a successor.
                     </Confirm>
                   </>
                 ) : (
@@ -600,6 +637,59 @@ const ElderHall: React.FC<{
                 )}
               </div>
             )}
+            {governanceMessage && <p role="status">{governanceMessage}</p>}
+            <p className="text-muted-foreground text-sm">
+              Failed removal votes have a village-wide cooldown of one week, reset when
+              the Kage changes. Political removal preserves prestige.
+            </p>
+            {removalHistory?.map((motion) => (
+              <div key={motion.id} className="space-y-2 rounded border p-3">
+                <p className="font-semibold">Removal proposal · {motion.status}</p>
+                <p>{motion.reason || "No reason recorded for this older proposal."}</p>
+                <p className="text-sm">
+                  YES: {motion.yes} · NO: {motion.no}
+                  {motion.resolvedAt
+                    ? ` · Resolved ${motion.resolvedAt.toLocaleString()}`
+                    : ""}
+                </p>
+                {motion.successorId && (
+                  <p>
+                    Successor:{" "}
+                    <Link href={`/userid/${motion.successorId}`}>
+                      View appointed Kage
+                    </Link>
+                  </p>
+                )}
+                {isElder &&
+                  !villageData?.villageData.kageId &&
+                  motion.status === "APPROVED" &&
+                  !motion.successorId && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`nominee-${motion.id}`}>
+                        Eligible villager’s user ID
+                      </Label>
+                      <Input
+                        id={`nominee-${motion.id}`}
+                        value={nomineeId}
+                        onChange={(e) => setNomineeId(e.target.value)}
+                        placeholder="Villager or elder user ID"
+                      />
+                      <Button
+                        disabled={nominate.isPending || !nomineeId.trim()}
+                        onClick={() =>
+                          nominate.mutate({
+                            voteId: motion.id,
+                            villageId: user.villageId ?? "",
+                            userId: nomineeId.trim(),
+                          })
+                        }
+                      >
+                        Nominate and appoint successor
+                      </Button>
+                    </div>
+                  )}
+              </div>
+            ))}
             {/* No motions */}
             {pendingWarVotes.length === 0 &&
               pendingKageVotes.length === 0 &&
@@ -744,11 +834,18 @@ const KageHall: React.FC<{
           </Form>
         )}
       </ContentBox>
-      <PublicUserComponent
-        userId={village.villageData.kageId}
-        title={user.isOutlaw ? "Faction Kage" : "Village Kage"}
-        initialBreak
-      />
+      {village.villageData.kageId ? (
+        <PublicUserComponent
+          userId={village.villageData.kageId}
+          title={user.isOutlaw ? "Faction Kage" : "Village Kage"}
+          initialBreak
+        />
+      ) : (
+        <ContentBox title="Kage succession" initialBreak>
+          The village has no Kage. Following a successful removal vote, elders can
+          nominate an eligible successor in the Elders tab.
+        </ContentBox>
+      )}
       <KageChallenge user={user} />
       {village.defendedChallenges && village.defendedChallenges.length > 0 && (
         <ContentBox
@@ -791,103 +888,11 @@ const KageHall: React.FC<{
   );
 };
 
-/**
- * Kage challenge component
- */
-const KageChallenge: React.FC<{
-  user: NonNullable<UserWithRelations>;
-}> = ({ user }) => {
-  const { updateUser } = useRequiredUserData();
-  // tRPC utility
+const KageChallenge = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
-
-  // Modal state
   const [showTakeKageModal, setShowTakeKageModal] = useState(false);
   const [takeKageReason, setTakeKageReason] = useState("");
-
-  // Queries
-  const { data: requests, isPending: isPendingRequests } =
-    api.kage.getUserChallenges.useQuery(undefined, {
-      staleTime: 10000,
-    });
-
-  const { data: activeWars } = api.war.getActiveWars.useQuery(
-    { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId },
-  );
-
-  // Derived
   const isKage = user.userId === user.village?.kageId;
-
-  const { data: dailyLockedTimeData } = api.kage.getDailyLockedTime.useQuery(
-    undefined,
-    {
-      staleTime: 30000, // Cache for 30 seconds since this is calculated from actionLog
-      enabled: isKage, // Only fetch if user is kage
-    },
-  );
-
-  // Derived
-  const activeVillageWars = activeWars?.filter((w) => w.type === "VILLAGE_WAR");
-  const openForChallenges = user.village?.openForChallenges;
-  const pendingRequests = requests?.filter((r) => r.status === "PENDING");
-  const nPendingRequests = pendingRequests?.length ?? 0;
-  const activeRequest = pendingRequests?.[0];
-  const expiredRequest = pendingRequests?.find(
-    (r) => secondsPassed(r.createdAt) > KAGE_CHALLENGE_SECS,
-  );
-  const isAtWar = activeVillageWars && activeVillageWars.length > 0;
-
-  // Calculate daily locked time information
-  const dailyLockedTimeSeconds = dailyLockedTimeData?.dailyLockedTimeSeconds ?? 0;
-  const maxDailySeconds = KAGE_CHALLENGE_MAX_DAILY_LOCKED_HOURS * 60 * 60;
-  const usedHours = Math.floor(dailyLockedTimeSeconds / 3600);
-  const usedMinutes = Math.floor((dailyLockedTimeSeconds % 3600) / 60);
-
-  // Mutations
-  const { mutate: create, isPending: isSendingChallenge } =
-    api.kage.createChallenge.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.kage.getUserChallenges.invalidate();
-        }
-      },
-    });
-
-  const { mutate: accept, isPending: isAccepting } =
-    api.kage.acceptChallenge.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.kage.getUserChallenges.invalidate();
-        }
-      },
-    });
-
-  const { mutate: reject, isPending: isRejecting } =
-    api.kage.rejectChallenge.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await utils.kage.getUserChallenges.invalidate();
-        }
-      },
-    });
-
-  const { mutate: cancel, isPending: isCancelling } =
-    api.kage.cancelChallenge.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await Promise.all([
-            utils.kage.getUserChallenges.invalidate(),
-            utils.profile.getUser.invalidate(),
-          ]);
-        }
-      },
-    });
-
   const { mutate: take, isPending: isTaking } = api.kage.takeKage.useMutation({
     onSuccess: async (data) => {
       showMutationToast(data);
@@ -895,240 +900,78 @@ const KageChallenge: React.FC<{
         await Promise.all([
           utils.village.get.invalidate(),
           utils.profile.getUser.invalidate(),
+          utils.kage.getDefenses.invalidate(),
         ]);
         setShowTakeKageModal(false);
         setTakeKageReason("");
       }
     },
   });
-
-  const { mutate: toggleChallenges, isPending: isToggling } =
-    api.kage.toggleOpenForChallenges.useMutation({
-      onSuccess: async (data) => {
-        showMutationToast(data);
-        if (data.success) {
-          await Promise.all([
-            utils.village.get.invalidate(),
-            data.userPatch?.village?.openForChallenges !== undefined &&
-            data.userPatch.village.openForChallengesAt
-              ? updateUser({ village: data.userPatch.village })
-              : utils.profile.getUser.invalidate(),
-          ]);
-        }
-      },
-    });
-
-  // If challenge if over the limit, execute the AI vs AI battle
-  useEffect(() => {
-    if (expiredRequest && !isKage) {
-      cancel({ id: expiredRequest.id });
-    }
-  }, [cancel, expiredRequest, isKage]);
-
-  // Render
   return (
-    <ContentBox
-      title="Kage Challenges"
-      subtitle="The strongest shall rule"
-      initialBreak={true}
-      padding={false}
-    >
-      {isAtWar ? (
-        <p className="p-3 text-center font-bold text-red-500">
-          Kage challenges are disabled while the village is at war
-        </p>
-      ) : (
-        <>
-          <p className="p-3">
-            <Button
-              className="w-full"
-              disabled={!isKage}
-              loading={isToggling}
-              onClick={() => toggleChallenges({ villageId: user.villageId ?? "" })}
-            >
-              {openForChallenges ? (
-                <LockOpen className="mr-2 h-6 w-6" />
-              ) : (
-                <Lock className="mr-2 h-6 w-6" />
-              )}
-              {openForChallenges ? "Accepting Challenges" : "Not Accepting Challenges"}
-            </Button>
-          </p>
-          {isKage && (
-            <div className="p-3 text-gray-600 text-sm">
-              <p>
-                <span className="font-bold">Daily Lock Time Used: </span>
-                <span
-                  className={
-                    dailyLockedTimeSeconds >= maxDailySeconds
-                      ? "font-bold text-red-500"
-                      : ""
-                  }
-                >
-                  {usedHours}h {usedMinutes}m / {KAGE_CHALLENGE_MAX_DAILY_LOCKED_HOURS}h
-                </span>
-              </p>
-              {dailyLockedTimeSeconds >= maxDailySeconds ? (
-                <p className="font-bold text-red-500">
-                  Daily limit reached! Challenges will be automatically unlocked at the
-                  start of the next day.
-                </p>
-              ) : (
-                <p>
-                  <span className="font-bold">Remaining Lock Time: </span>
-                  <Countdown
-                    targetDate={new Date(new Date().setHours(24, 0, 0, 0))}
-                    className="font-mono"
-                  />
-                </p>
-              )}
-            </div>
-          )}
-          {requests && requests.length > 0 && openForChallenges && (
-            <UserRequestSystem
-              isLoading={
-                isAccepting ||
-                isRejecting ||
-                isCancelling ||
-                isSendingChallenge ||
-                isPendingRequests
-              }
-              requests={requests}
-              userId={user.userId}
-              onAccept={accept}
-              onReject={reject}
-              onCancel={cancel}
-            />
-          )}
-          {requests && requests.length === 0 && isKage && openForChallenges && (
-            <p className="p-3">No current challenge requests</p>
-          )}
-          {activeRequest && (
-            <div className="flex flex-col items-center p-3">
-              <p>If not accepted by kage, challenge will execute as Ai vs Ai in:</p>
-              <Countdown
-                targetDate={secondsFromDate(
-                  KAGE_CHALLENGE_SECS,
-                  activeRequest.createdAt,
-                )}
-              />
-            </div>
-          )}
-          {!isKage && openForChallenges && !activeRequest && (
+    <>
+      <KageDefense user={user} />
+      {canTakeKage(user.role) && (
+        <ContentBox title="Staff leadership" initialBreak>
+          {!isKage && canTakeKage(user.role) && (
             <div className="p-3">
-              {canChallengeKage(user) && !nPendingRequests && (
-                <>
-                  <Button
-                    id="challenge"
-                    className="my-2 w-full"
-                    onClick={() => {
-                      if (user.village) {
-                        create({
-                          kageId: user.village.kageId,
-                          villageId: user.village.id,
-                        });
-                      }
-                    }}
-                  >
-                    <Swords className="mr-2 h-6 w-6" />
-                    Send Kage Challenge Request
-                  </Button>
-                  <p>
-                    <span className="font-bold">Note 1: </span>
-                    <span>
-                      Kage has {KAGE_CHALLENGE_MINS}mins to accept the challenge
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-bold">Note 2: </span>
-                    <span>
-                      If challenge is not accepted, it is executed as AI vs AI
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-bold">Note 3: </span>
-                    <span>
-                      Losing the challenge costs {KAGE_PRESTIGE_COST} village prestige
-                    </span>
-                  </p>
-                  {user.rank === "ELDER" && (
-                    <p>
-                      <span className="font-bold">Note 4: </span>
-                      <span>You will lose the rank of Elder in the village</span>
-                    </p>
-                  )}
-                </>
-              )}
-              <p className="pt-3">
-                <span className="font-bold">Challenge Requirements: </span>
-                <span>
-                  {KAGE_PRESTIGE_REQUIREMENT} village prestige,{" "}
-                  {capitalizeFirstLetter(KAGE_RANK_REQUIREMENT)} rank and{" "}
-                  {KAGE_MIN_DAYS_IN_VILLAGE} days in village.
-                </span>
-              </p>
+              <Button
+                id="challenge"
+                variant="destructive"
+                className="my-2 w-full"
+                onClick={() => setShowTakeKageModal(true)}
+                loading={isTaking}
+              >
+                <ShieldPlus className="mr-2 h-6 w-6" />
+                Take kage as Staff
+              </Button>
             </div>
           )}
-        </>
-      )}
-      {!isKage && canTakeKage(user.role) && (
-        <div className="p-3">
-          <Button
-            id="challenge"
-            variant="destructive"
-            className="my-2 w-full"
-            onClick={() => setShowTakeKageModal(true)}
-            loading={isTaking}
-          >
-            <ShieldPlus className="mr-2 h-6 w-6" />
-            Take kage as Staff
-          </Button>
-        </div>
-      )}
 
-      {/* Take Kage Modal */}
-      {showTakeKageModal && (
-        <Modal
-          title="Take Kage as Staff"
-          isOpen={showTakeKageModal}
-          setIsOpen={setShowTakeKageModal}
-          proceed_label="Take Kage"
-          confirmClassName="bg-red-600 hover:bg-red-700"
-          onAccept={() => {
-            if (takeKageReason.trim().length >= 10) {
-              take({ reason: takeKageReason.trim() });
-            } else {
-              showMutationToast({
-                success: false,
-                message: "Reason must be at least 10 characters long",
-              });
-            }
-          }}
-          isValid={takeKageReason.trim().length >= 10}
-        >
-          <div className="space-y-4">
-            <p className="text-muted-foreground text-sm">
-              You are about to take the kage position as staff. This action will be
-              logged and should only be used for administrative purposes.
-            </p>
+          {/* Take Kage Modal */}
+          {showTakeKageModal && (
+            <Modal
+              title="Take Kage as Staff"
+              isOpen={showTakeKageModal}
+              setIsOpen={setShowTakeKageModal}
+              proceed_label="Take Kage"
+              confirmClassName="bg-red-600 hover:bg-red-700"
+              onAccept={() => {
+                if (takeKageReason.trim().length >= 10) {
+                  take({ reason: takeKageReason.trim() });
+                } else {
+                  showMutationToast({
+                    success: false,
+                    message: "Reason must be at least 10 characters long",
+                  });
+                }
+              }}
+              isValid={takeKageReason.trim().length >= 10}
+            >
+              <div className="space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  You are about to take the kage position as staff. This action will be
+                  logged and should only be used for administrative purposes.
+                </p>
 
-            <div className="space-y-2">
-              <Label htmlFor="reason">Reason *</Label>
-              <Input
-                id="reason"
-                value={takeKageReason}
-                onChange={(e) => setTakeKageReason(e.target.value)}
-                placeholder="Enter reason for taking kage position (minimum 10 characters)..."
-              />
-              <p className="text-muted-foreground text-xs">
-                This reason will be logged in the action log. Minimum 10 characters
-                required.
-              </p>
-            </div>
-          </div>
-        </Modal>
+                <div className="space-y-2">
+                  <Label htmlFor="reason">Reason *</Label>
+                  <Input
+                    id="reason"
+                    value={takeKageReason}
+                    onChange={(e) => setTakeKageReason(e.target.value)}
+                    placeholder="Enter reason for taking kage position (minimum 10 characters)..."
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    This reason will be logged in the action log. Minimum 10 characters
+                    required.
+                  </p>
+                </div>
+              </div>
+            </Modal>
+          )}
+        </ContentBox>
       )}
-    </ContentBox>
+    </>
   );
 };
 

@@ -279,22 +279,8 @@ describe("battleClaimRollbackStatus", () => {
     return qb.select({ status: expr as SQL }).from(userData).toSQL();
   };
 
-  it("restores KAGE_PVP challengers to KAGE_QUEUED with one binding per id", () => {
-    const expr = battleClaimRollbackStatus(qb as never, "KAGE_PVP", [
-      "challenger-1",
-      "challenger-2",
-    ]);
-    const { sql: rendered, params } = render(expr);
-    expect(rendered).toContain('THEN "KAGE_QUEUED" ELSE "AWAKE" END');
-    expect(rendered).toMatch(/in \(\?,\s*\?\)/i);
-    expect(params).toEqual(["challenger-1", "challenger-2", "KAGE", "PENDING"]);
-  });
-
-  it("only restores KAGE_QUEUED while the kage challenge request is still pending", () => {
-    const expr = battleClaimRollbackStatus(qb as never, "KAGE_PVP", ["challenger-1"]);
-    const { sql: rendered } = render(expr);
-    expect(rendered).toMatch(/exists/i);
-    expect(rendered).toContain("UserRequest");
+  it("restores scheduled Kage participants to ordinary play", () => {
+    expect(battleClaimRollbackStatus(qb as never, "KAGE_PVP", ["challenger-1"])).toBe("AWAKE");
   });
 
   it("restores RANKED_PVP rows to QUEUED only while their queue row exists", () => {

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "bebbf5b1-faf7-4e7f-b34c-ab82431a621e",
+  "id": "fd0623e9-62d4-4661-856d-67eec0e19df4",
   "prevId": "c9158972-b12e-4e8f-bd2e-f52ab7040371",
   "tables": {
     "AbEvent": {
@@ -7622,6 +7622,198 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "KageChallenge": {
+      "name": "KageChallenge",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "villageId": {
+          "name": "villageId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "challengerId": {
+          "name": "challengerId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kageId": {
+          "name": "kageId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tenure": {
+          "name": "tenure",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('QUEUED','SCHEDULED','STARTING','BATTLE','COMPLETED','CANCELLED','FORFEITED')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'QUEUED'"
+        },
+        "activeChallengerId": {
+          "name": "activeChallengerId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "generated": {
+            "as": "CASE WHEN `status` IN ('QUEUED','SCHEDULED','STARTING','BATTLE') THEN `challengerId` ELSE NULL END",
+            "type": "stored"
+          }
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(CURRENT_TIMESTAMP(3))"
+        },
+        "scheduledAt": {
+          "name": "scheduledAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "notBefore": {
+          "name": "notBefore",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkedInAt": {
+          "name": "checkedInAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rescheduled": {
+          "name": "rescheduled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "hospitalDeferred": {
+          "name": "hospitalDeferred",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "aiRequested": {
+          "name": "aiRequested",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "aiAccepted": {
+          "name": "aiAccepted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "battleId": {
+          "name": "battleId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "startedAt": {
+          "name": "startedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "resolvedAt": {
+          "name": "resolvedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "KageChallenge_activeChallenger_key": {
+          "name": "KageChallenge_activeChallenger_key",
+          "columns": [
+            "activeChallengerId"
+          ],
+          "isUnique": true
+        },
+        "KageChallenge_battleId_key": {
+          "name": "KageChallenge_battleId_key",
+          "columns": [
+            "battleId"
+          ],
+          "isUnique": true
+        },
+        "KageChallenge_village_status_created_idx": {
+          "name": "KageChallenge_village_status_created_idx",
+          "columns": [
+            "villageId",
+            "status",
+            "createdAt"
+          ],
+          "isUnique": false
+        },
+        "KageChallenge_challenger_started_idx": {
+          "name": "KageChallenge_challenger_started_idx",
+          "columns": [
+            "challengerId",
+            "startedAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "KageChallenge_id": {
+          "name": "KageChallenge_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "KageDefendedChallenges": {
       "name": "KageDefendedChallenges",
       "columns": {
@@ -14756,7 +14948,7 @@
         },
         "status": {
           "name": "status",
-          "type": "enum('AWAKE','HOSPITALIZED','TRAVEL','BATTLE','QUEUED','KAGE_QUEUED','ASLEEP')",
+          "type": "enum('AWAKE','HOSPITALIZED','TRAVEL','BATTLE','QUEUED','ASLEEP')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
@@ -16400,46 +16592,6 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
-    "UserHome": {
-      "name": "UserHome",
-      "columns": {
-        "userId": {
-          "name": "userId",
-          "type": "varchar(191)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "roomStyles": {
-          "name": "roomStyles",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "('[]')"
-        },
-        "isPublic": {
-          "name": "isPublic",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "UserHome_userId": {
-          "name": "UserHome_userId",
-          "columns": [
-            "userId"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
     "UserItem": {
       "name": "UserItem",
       "columns": {
@@ -16549,14 +16701,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": 0
-        },
-        "homeRoom": {
-          "name": "homeRoom",
-          "type": "enum('main','room-1','room-2','room-3','room-4','room-5','room-6','room-7','room-8','room-9','yard')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'main'"
         },
         "craftingFinishedAt": {
           "name": "craftingFinishedAt",
@@ -17897,7 +18041,7 @@
         },
         "type": {
           "name": "type",
-          "type": "enum('SPAR','ALLIANCE','SURRENDER','SENSEI','ANBU','CLAN','MARRIAGE','KAGE','WAR_ALLY','HOME')",
+          "type": "enum('SPAR','ALLIANCE','SURRENDER','SENSEI','ANBU','CLAN','MARRIAGE','KAGE','WAR_ALLY')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -17916,17 +18060,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "activeHomeReceiverId": {
-          "name": "activeHomeReceiverId",
-          "type": "varchar(191)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "generated": {
-            "as": "CASE WHEN `type` = 'HOME' AND `status` IN ('PENDING', 'ACCEPTED') THEN `receiverId` ELSE NULL END",
-            "type": "stored"
-          }
         },
         "pendingAnbuSenderId": {
           "name": "pendingAnbuSenderId",
@@ -18017,13 +18150,6 @@
           "name": "UserRequest_pending_anbu_sender_unique",
           "columns": [
             "pendingAnbuSenderId"
-          ]
-        },
-        "UserRequest_active_home_pair_unique": {
-          "name": "UserRequest_active_home_pair_unique",
-          "columns": [
-            "senderId",
-            "activeHomeReceiverId"
           ]
         }
       },
@@ -18849,16 +18975,23 @@
           "autoincrement": false,
           "default": false
         },
-        "openForChallenges": {
-          "name": "openForChallenges",
-          "type": "boolean",
+        "kageSchedule": {
+          "name": "kageSchedule",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kageScheduleVersion": {
+          "name": "kageScheduleVersion",
+          "type": "int",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false,
-          "default": true
+          "default": 0
         },
-        "openForChallengesAt": {
-          "name": "openForChallengesAt",
+        "kageScheduleAvailableAt": {
+          "name": "kageScheduleAvailableAt",
           "type": "datetime(3)",
           "primaryKey": false,
           "notNull": true,
@@ -19040,6 +19173,35 @@
           "type": "varchar(191)",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "varchar(1000)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "tenure": {
+          "name": "tenure",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "resolvedAt": {
+          "name": "resolvedAt",
+          "type": "datetime(3)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "successorId": {
+          "name": "successorId",
+          "type": "varchar(191)",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "warType": {

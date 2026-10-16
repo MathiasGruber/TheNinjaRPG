@@ -75,8 +75,8 @@
       "schedule": "0/5 0 * * *"
     },
     {
-      "path": "/api/hourly-kage-prestige",
-      "schedule": "0 * * * *"
+      "path": "/api/kage-defense-maintenance",
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/hourly-war",

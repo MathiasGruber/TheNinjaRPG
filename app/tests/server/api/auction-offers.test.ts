@@ -65,7 +65,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
   };
   const prepareQueuedCraft = async (quantity: number) => {
     const db = await getTestDatabase();
-    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: 100000, federalStatus: "GOLD", updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
+    await db.update(userData).set({ status: "AWAKE", sector: 1, occupation: "CRAFTING", craftingExperience: CRAFTING_REQUIRED_EXP.APPRENTICE, federalStatus: "GOLD", updatedAt: new Date(Date.now() - 60000) }).where(eq(userData.userId, "owner"));
     await insertItems([{ id: "output", name: "Crafted sword", itemType: "WEAPON", canBeCrafted: true, canStack: false, stackSize: 1 }]);
     await insertUserItems([{ id: "owner-ore", userId: "owner", itemId: "ore", quantity: 10 }, { id: "running-craft", userId: "owner", itemId: "output", craftingFinishedAt: new Date(Date.now() + 3600000) }]);
     await db.insert(craftingRequirement).values({ id: "ore-requirement", craftItemId: "output", requirementItemId: "ore", quantity });

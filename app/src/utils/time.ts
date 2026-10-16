@@ -2,6 +2,30 @@ import { format } from "date-fns";
 import type { RetryQuestDelay, TimeUnit } from "@/drizzle/constants";
 import { BANK_INTEREST_CLAIM_DAYS, REGEN_SECONDS } from "@/drizzle/constants";
 
+/** Enumerate UTC weekly windows, with fixed spacing and no starts outside a window. */
+export const getWeeklyWindowSlots = (
+  windows: { day: number; hour: number }[],
+  earliest: Date,
+  days: number,
+  durationHours: number,
+  slotMinutes: number,
+) => {
+  const slots: Date[] = [];
+  const midnight = new Date(
+    Date.UTC(earliest.getUTCFullYear(), earliest.getUTCMonth(), earliest.getUTCDate()),
+  );
+  for (let offset = 0; offset < days; offset++) {
+    const date = new Date(midnight.getTime() + offset * 86_400_000);
+    for (const window of windows.filter((w) => w.day === date.getUTCDay())) {
+      for (let minute = 0; minute < durationHours * 60; minute += slotMinutes) {
+        const slot = new Date(date.getTime() + (window.hour * 60 + minute) * 60_000);
+        if (slot >= earliest) slots.push(slot);
+      }
+    }
+  }
+  return slots.sort((a, b) => a.getTime() - b.getTime());
+};
+
 /** Calendar purchase periods follow UTC game time; weeks begin on Monday. */
 export const getItemPurchasePeriodStart = (
   period: "NONE" | "DAILY" | "WEEKLY" | "MONTHLY",
