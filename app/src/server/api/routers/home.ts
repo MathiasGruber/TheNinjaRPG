@@ -466,6 +466,7 @@ export const homeRouter = createTRPCRouter({
         const downgradeRefund = Math.floor((currentHomeCost - targetHome.cost) * 0.75);
         // As with layout saves, Drizzle needs a joined statement to publish both tables atomically.
         // LEFT JOIN also refunds homes with no removed placements; the owner is updated once.
+        // Escrow keeps its storage state so active furniture trades remain fulfillable.
         const result = await retryOnDeadlock(() =>
           ctx.drizzle.execute(sql`
             UPDATE ${userData}
@@ -481,7 +482,8 @@ export const homeRouter = createTRPCRouter({
                 ${userItem.homeY} = NULL,
                 ${userItem.homeRoom} = ${"main"},
                 ${userItem.homeRotation} = 0,
-                ${userItem.storedAtHome} = ${true}
+                ${userItem.storedAtHome} = CASE WHEN ${userItem.isInAuction}
+                  THEN ${userItem.storedAtHome} ELSE ${true} END
             WHERE ${and(
               eq(userData.userId, ctx.userId),
               eq(userData.homeType, user.homeType),

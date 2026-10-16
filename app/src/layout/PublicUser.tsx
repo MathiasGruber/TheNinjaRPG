@@ -1032,11 +1032,11 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
               </>
             )}
             {userData && !profile.isAi && (
-              <Link href={`/home/visit/${encodeURIComponent(profile.userId)}`}>
-                <Button variant="outline" size="sm" className="hover:text-black">
+              <Button asChild variant="outline" size="sm" className="hover:text-black">
+                <Link href={`/home/visit/${encodeURIComponent(profile.userId)}`}>
                   View home
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
             {userData && !userData.isBanned && !userData.isSilenced && (
               <NewConversationPrompt

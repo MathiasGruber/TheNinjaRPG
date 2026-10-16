@@ -5,6 +5,7 @@ import { actionLog, auctionOffer, craftingRequirement, farmCollectionLog, farmPl
 import { occupationRouter } from "@/server/api/routers/occupation";
 import { auctionRouter } from "@/server/api/routers/auction";
 import { farmingRouter } from "@/server/api/routers/farming";
+import { homeRouter } from "@/server/api/routers/home";
 import { beforeStatements, failStatements } from "../../setup/statements";
 import type { DrizzleClient } from "@/server/db";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
@@ -221,6 +222,28 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     expect((await cancellation.cancelAuctionOffer({ offerId: offer!.id })).success).toBe(true);
     const [returned] = await database.select().from(userItem).where(eq(userItem.id, "owner-chair"));
     expect(returned).toMatchObject({ userId: "owner", isInAuction: false, homeX: 31, homeY: 72, homeRotation: 1 });
+  });
+
+  it("keeps a placed furniture trade fulfillable after its room is removed by a home downgrade", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, "owner"));
+    await insertItems([{ id: "chair", name: "Chair", itemType: "FURNITURE", canBeTraded: true, canStack: false }]);
+    await insertUserItems([
+      { id: "offered-chair", userId: "owner", itemId: "chair", homeRoom: "room-4", homeX: 24, homeY: 68, homeRotation: 1 },
+      { id: "ordinary-chair", userId: "owner", itemId: "chair", homeRoom: "room-4", homeX: 60, homeY: 60 },
+    ]);
+    const owner = await callerFor(auctionRouter, "owner");
+    expect((await owner.createAuctionOffer({ offerType: "TRADE", requestedItemId: "ore", requestedQuantity: 1, offeredUserItemId: "offered-chair", offeredQuantity: 1 })).success).toBe(true);
+    const [offer] = await db.select().from(auctionOffer);
+    const home = await callerFor(homeRouter, "owner");
+    expect((await home.upgradeHome({ homeType: "TWO_BED_HOUSE" })).success).toBe(true);
+    const removed = await db.select().from(userItem).where(eq(userItem.itemId, "chair"));
+    const supplier = await callerFor(auctionRouter, "supplier");
+    expect((await supplier.acceptAuctionOffer({ offerId: offer!.id, userItemId: "supplier-ore" })).success).toBe(true);
+    expect(removed.find(({ id }) => id === "offered-chair")).toMatchObject({ userId: "owner", isInAuction: true, storedAtHome: false, homeRoom: "main", homeX: null, homeY: null, homeRotation: 0 });
+    expect(removed.find(({ id }) => id === "ordinary-chair")).toMatchObject({ userId: "owner", isInAuction: false, storedAtHome: true, homeRoom: "main", homeX: null, homeY: null, homeRotation: 0 });
+    expect((await db.select().from(userItem).where(eq(userItem.id, "offered-chair")))[0]).toMatchObject({ userId: "supplier", isInAuction: false, storedAtHome: false, homeX: null, homeY: null });
+    expect((await db.select().from(auctionOffer))[0]?.status).toBe("SOLD");
   });
 
   it("rejects unavailable inventory, insufficient quantities and mismatched items", async () => {
