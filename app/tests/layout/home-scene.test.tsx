@@ -795,6 +795,29 @@ describe("multi-room home scene", () => {
   beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
   afterEach(cleanup);
 
+  it("keeps room shortcuts available after focusing or resetting the view", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
+    const shortcut = view.getByLabelText("Jump to room") as HTMLSelectElement;
+    const zoom = view.getByLabelText("Camera zoom");
+    const camera = view.getByRole("group", { name: "Home scene" }).querySelector("[data-home-camera]")!;
+    const overview = camera.getAttribute("style");
+    expect(shortcut.value).toBe("");
+    expect((within(shortcut).getByRole("option", { name: "Jump to room" }) as HTMLOptionElement).disabled).toBe(true);
+    for (const { id } of getHomeRooms("TOWN_HOUSE")) {
+      fireEvent.change(shortcut, { target: { value: id } });
+      expect(shortcut.value).toBe("");
+      expect(zoom.textContent).toBe("100%");
+      const focused = camera.getAttribute("style");
+      expect(focused).not.toBe(overview);
+      fireEvent.click(view.getByRole("button", { name: "Reset view" }));
+      expect(camera.getAttribute("style")).toBe(overview);
+      fireEvent.change(shortcut, { target: { value: id } });
+      expect(shortcut.value).toBe("");
+      expect(zoom.textContent).toBe("100%");
+      expect(camera.getAttribute("style")).toBe(focused);
+    }
+  });
+
   it("drags a property garden within its yard and rejects the outdoor strip beside an indoor room", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const layout = [{ id: "owned-garden", x: 50, y: 90.91, rotation: 0 as const, room: "yard" as const }];
@@ -910,7 +933,7 @@ describe("multi-room home scene", () => {
       { id: rugDefinition.id, x: 50, y: 50, rotation: 0, room: "room-1" },
     ]} styles={[mainStyle]} onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
-    expect((view.getByLabelText("Jump to room") as HTMLSelectElement).value).toBe("main");
+    expect(view.getByText(`Main room · 3/${HOME_FURNITURE_MAX_PLACEMENTS} pieces`)).toBeTruthy();
     const rug = view.getByRole("button", { name: "Move Woven Rug" });
     const before = furniturePosition(rug);
     rug.focus();
@@ -919,7 +942,7 @@ describe("multi-room home scene", () => {
     else fireEvent.keyDown(rug, { key: "ArrowRight" });
     expect(rug.getAttribute("aria-pressed")).toBe("true");
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
-    expect((view.getByLabelText("Jump to room") as HTMLSelectElement).value).toBe("room-1");
+    expect(view.getByText(`Room 2 · 1/${HOME_FURNITURE_MAX_PLACEMENTS} pieces`)).toBeTruthy();
     expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("ivory");
     if (selection === "activation") expect(furniturePosition(rug)).toEqual(before);
     else expect(furniturePosition(rug)).not.toEqual(before);

@@ -396,9 +396,12 @@ export const HomeScene = ({
           <select
             aria-label="Jump to room"
             className="h-10 rounded-md border bg-background px-3 text-sm"
-            value={activeRoom}
+            value=""
             onChange={(event) => focusRoom(event.target.value as HomeRoomId)}
           >
+            <option value="" disabled>
+              Jump to room
+            </option>
             {rooms.map((room) => (
               <option key={room.id} value={room.id}>
                 {room.name}
