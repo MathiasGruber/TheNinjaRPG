@@ -15,6 +15,7 @@ import {
   aiProfile,
   battle,
   battleHistory,
+  questHistory,
   tournament,
   tournamentMatch,
   tournamentRewardClaim,
@@ -72,6 +73,7 @@ describeWithDatabase("event tournament persistence", () => {
       aiProfile,
       trainingLog,
       userQueue,
+      questHistory,
       userData,
     );
   });
