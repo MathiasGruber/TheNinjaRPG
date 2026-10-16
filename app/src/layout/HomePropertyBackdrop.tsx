@@ -8,6 +8,7 @@ import {
 import { HomeEnvironment } from "@/layout/HomeEnvironment";
 import { getHomeRooms, getHomeWalls, type HomeWall } from "@/libs/homeProperty";
 import { HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import { STRUCTURE_GROUND_TERRAIN } from "@/libs/sector-map/terrains";
 import type { HomeRoomStyle } from "@/validators/home";
 
 /** Floors, shared walls and furniture use the same plan, without baking partitions into the floor art. */
@@ -93,6 +94,8 @@ export const HomePropertyBackdrop = ({
     );
   }
   const walls = getHomeWalls(homeType);
+  const terrain = STRUCTURE_GROUND_TERRAIN[biome];
+  const yardSeason = terrain === "snow" || terrain === "dessert" ? terrain : undefined;
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
       <svg aria-hidden="true" className="absolute h-0 w-0">
@@ -120,6 +123,52 @@ export const HomePropertyBackdrop = ({
             {room.isYard ? (
               <>
                 <defs>
+                  {yardSeason && (
+                    <>
+                      <filter
+                        id={`${clipId}-yard-season`}
+                        colorInterpolationFilters="sRGB"
+                      >
+                        <feColorMatrix type="saturate" values="0" />
+                        <feComponentTransfer>
+                          <feFuncR
+                            type="linear"
+                            slope="0.35"
+                            intercept={yardSeason === "snow" ? 0.62 : 0.48}
+                          />
+                          <feFuncG
+                            type="linear"
+                            slope="0.35"
+                            intercept={yardSeason === "snow" ? 0.64 : 0.36}
+                          />
+                          <feFuncB
+                            type="linear"
+                            slope="0.35"
+                            intercept={yardSeason === "snow" ? 0.65 : 0.2}
+                          />
+                        </feComponentTransfer>
+                      </filter>
+                      {/* Source-space timber and lantern cutouts keep their painted colors while the baked plants follow the terrain. */}
+                      <mask
+                        id={`${clipId}-yard-terrain`}
+                        maskUnits="userSpaceOnUse"
+                        x="0"
+                        y="0"
+                        width="1448"
+                        height="1086"
+                      >
+                        <rect width="1448" height="1086" fill="white" />
+                        <path
+                          fill="black"
+                          d="M98 22H132V34H303V23H331V34H550V12H599L617 152H548V87H331V117H303V87H126L121 166H132L124 307H157L160 432H81L80 328H77L88 183H96ZM49 534H89L84 762H49ZM68 525H104V558H68Z"
+                        />
+                        <path
+                          fill="black"
+                          d="M1349 22H1320V34H1138V23H1110V34H899V12H848L831 152H900V87H1110V117H1138V87H1324L1330 166H1318L1325 307H1290L1288 432H1373L1371 328H1374L1363 183H1355ZM1359 534H1399L1399 762H1364ZM1344 525H1380V558H1344Z"
+                        />
+                      </mask>
+                    </>
+                  )}
                   <pattern
                     id={`${clipId}-fence`}
                     patternUnits="userSpaceOnUse"
@@ -132,6 +181,7 @@ export const HomePropertyBackdrop = ({
                       width={4000 / room.width}
                       height={8}
                       viewBox="135 0 400 150"
+                      seasonId={yardSeason ? clipId : undefined}
                       onError={onError}
                     />
                     <g transform={`translate(${8000 / room.width} 0) scale(-1 1)`}>
@@ -141,6 +191,7 @@ export const HomePropertyBackdrop = ({
                         width={4000 / room.width}
                         height={8}
                         viewBox="135 0 400 150"
+                        seasonId={yardSeason ? clipId : undefined}
                         onError={onError}
                       />
                     </g>
@@ -197,6 +248,7 @@ export const HomePropertyBackdrop = ({
                   width={600 / room.width}
                   height={86.3}
                   viewBox="0 40 210 720"
+                  seasonId={yardSeason ? clipId : undefined}
                   onError={onError}
                 />
                 <YardArt
@@ -205,6 +257,7 @@ export const HomePropertyBackdrop = ({
                   width={600 / room.width}
                   height={86.3}
                   viewBox="1238 40 210 720"
+                  seasonId={yardSeason ? clipId : undefined}
                   onError={onError}
                 />
                 <YardArt
@@ -213,6 +266,7 @@ export const HomePropertyBackdrop = ({
                   width={2000 / room.width}
                   height={8}
                   viewBox="548 0 352 150"
+                  seasonId={yardSeason ? clipId : undefined}
                   onError={onError}
                 />
                 <YardArt
@@ -221,6 +275,7 @@ export const HomePropertyBackdrop = ({
                   width={2000 / room.width}
                   height={7.3}
                   viewBox="548 0 352 150"
+                  seasonId={yardSeason ? clipId : undefined}
                   onError={onError}
                 />
               </>
@@ -280,6 +335,7 @@ const YardArt = ({
   width,
   height,
   viewBox,
+  seasonId,
   onError,
 }: {
   x: number;
@@ -287,6 +343,7 @@ const YardArt = ({
   width: number;
   height: number;
   viewBox: string;
+  seasonId?: string;
   onError?: () => void;
 }) => (
   <svg
@@ -300,6 +357,15 @@ const YardArt = ({
     data-home-yard-border
   >
     <image href="/images/home/yard.webp" width="1448" height="1086" onError={onError} />
+    {seasonId && (
+      <image
+        href="/images/home/yard.webp"
+        width="1448"
+        height="1086"
+        filter={`url(#${seasonId}-yard-season)`}
+        mask={`url(#${seasonId}-yard-terrain)`}
+      />
+    )}
   </svg>
 );
 
@@ -351,7 +417,8 @@ const PaintedWall = ({
                 ? wall.y + (wall.height * bottom) / 100
                 : wall.depth) * 10,
             ),
-            clipPath: `inset(${top}% 0 ${100 - bottom}% 0)`,
+            // A subpixel overlap seals rasterized seams without extending the wall silhouette or its depth.
+            clipPath: `inset(${top}% 0 ${100 - Math.min(100, bottom + 0.15)}% 0)`,
             transform: wall.isMirrored ? "scaleX(-1)" : undefined,
           }}
         >

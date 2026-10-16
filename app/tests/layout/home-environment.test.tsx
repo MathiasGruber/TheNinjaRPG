@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render } from "@testing-library/react";
 import type { ImageProps } from "next/image";
 import { type CombatBiome, HomeTypes, IMG_BG_DESSERT, IMG_BG_SNOW } from "@/drizzle/constants";
 import { HomeEnvironment } from "@/layout/HomeEnvironment";
+import { HomePropertyBackdrop } from "@/layout/HomePropertyBackdrop";
 import { HomeScene } from "@/layout/HomeScene";
 import * as Image from "@/layout/Image";
-import { getHomeOverviewCamera, getHomeRooms } from "@/libs/homeProperty";
+import { getHomeOverviewCamera, getHomeRooms, getHomeWalls } from "@/libs/homeProperty";
 import { DECORATION_ASSETS_BY_KEY } from "@/libs/sector-map/decorations";
 import { bunnyImageUrl } from "@/utils/image";
 import { ensureDom } from "../setup-dom.mjs";
@@ -95,6 +96,47 @@ it("gives tents village terrain without adding scenery over their authored exter
   const view = render(<HomeEnvironment homeType="NONE" biome="ice" />);
   expect(view.container.querySelector("[data-home-grounds]")?.getAttribute("data-home-grounds")).toBe("snow");
   expect(view.container.querySelector("[data-home-scenery]")).toBeNull();
+});
+
+it.each(["dessert", "ocean", "ice", "snow"] as const)("seasons %s yard vegetation while preserving timber, farm art and border bounds", (biome) => {
+  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome="ground" styles={[]} />);
+  const bounds = () => [...view.container.querySelectorAll("[data-home-yard-border]")].map((border) =>
+    ["x", "y", "width", "height", "viewBox"].map((attribute) => border.getAttribute(attribute)),
+  );
+  const originalBounds = bounds();
+  expect(view.container.querySelector("[data-home-yard-border] image[filter]")).toBeNull();
+  view.rerender(<HomePropertyBackdrop homeType="TOWN_HOUSE" biome={biome} styles={[]} />);
+  expect(bounds()).toEqual(originalBounds);
+  const farm = view.container.querySelector('[data-home-room="yard"] > image')!;
+  expect(farm.getAttribute("filter")).toBeNull();
+  for (const border of view.container.querySelectorAll("[data-home-yard-border]")) {
+    const images = border.querySelectorAll("image");
+    expect(images.length).toBe(2);
+    expect(images[0]!.getAttribute("filter")).toBeNull();
+    const maskId = images[1]!.getAttribute("mask")!.slice(5, -1);
+    const mask = [...view.container.querySelectorAll("mask")].find((candidate) => candidate.id === maskId)!;
+    expect(mask.getAttribute("maskUnits")).toBe("userSpaceOnUse");
+    expect(mask.querySelectorAll('path[fill="black"]').length).toBe(2);
+  }
+});
+
+it("overlaps neighboring wall depth slices without changing their outer silhouette or furniture depth", () => {
+  const view = render(<HomePropertyBackdrop homeType="TOWN_HOUSE" styles={[]} />);
+  const rendered = [...view.container.querySelectorAll<SVGSVGElement>('[data-home-wall="vertical"]')];
+  let offset = 0;
+  for (const wall of getHomeWalls("TOWN_HOUSE").filter(({ kind }) => kind === "vertical")) {
+    const count = Math.ceil(wall.height / 6);
+    const slices = rendered.slice(offset, offset + count);
+    const clips = slices.map((slice) => slice.style.clipPath.match(/inset\(([\d.]+)% 0 ([\d.]+)% 0\)/)!.slice(1).map(Number));
+    expect(clips[0]![0]).toBe(0);
+    expect(clips.at(-1)![1]).toBe(0);
+    for (let index = 0; index < count; index++) {
+      if (index > 0) expect(clips[index]![0]!).toBeLessThan(100 - clips[index - 1]![1]!);
+      expect(Number(slices[index]!.style.zIndex)).toBe(Math.round((wall.y + wall.height * (index + 1) / count) * 10));
+    }
+    offset += count;
+  }
+  expect(offset).toBe(rendered.length);
 });
 
 it("keeps the complete home and furniture actions available after a scenery failure", () => {
