@@ -6,7 +6,7 @@ import type { MethodSize } from "@/validators/methodSize";
 
 /**
  * Edits symmetric column/row expansion in the parent-owned draft; null displays as zero.
- * The native disclosure keeps the preview mounted so closing it preserves local anchors.
+ * Targeting help opens separately so the normal editor keeps its compact layout.
  */
 export const MethodSizeEditor = ({
   value,
@@ -22,13 +22,13 @@ export const MethodSizeEditor = ({
   readonly?: boolean;
 }) => (
   <div className="space-y-3">
-    <p className="text-muted-foreground text-sm">
-      Expand the default method footprint by this many columns (X) and rows (Y) in each
-      direction. Zero keeps the default size. Range still controls the target distance.
+    <p className="text-muted-foreground text-xs">
+      Extra columns (X) and rows (Y) in each direction. Zero keeps the default
+      footprint.
     </p>
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap items-end gap-3">
       {(["x", "y"] as const).map((axis) => (
-        <div key={axis} className="space-y-1 text-sm">
+        <div key={axis} className="w-24 space-y-1 text-sm">
           <span>Method size {axis.toUpperCase()}</span>
           <NumberInput
             aria-label={`Method size ${axis.toUpperCase()}`}
@@ -43,12 +43,7 @@ export const MethodSizeEditor = ({
           />
         </div>
       ))}
+      <CombatTargetPreview action={{ method, range, methodSize: value }} />
     </div>
-    <details className="rounded border p-3">
-      <summary className="cursor-pointer text-sm">Combat grid preview</summary>
-      <div className="mt-3">
-        <CombatTargetPreview action={{ method, range, methodSize: value }} />
-      </div>
-    </details>
   </div>
 );
