@@ -207,6 +207,7 @@ import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
+import { isActiveEventEntrant } from "@/libs/tournament/events";
 import {
   applyMasteryTrainingGains,
   calcJutsuEquipLimit,
@@ -2083,6 +2084,7 @@ export const initiateBattle = async (
     raidParticipations,
     rankedTopPlayersLP,
     entryInventory,
+    activeEventTournaments,
   ] = await Promise.all([
     // Essentials
     fetchBattleEssentials(client),
@@ -2200,6 +2202,17 @@ export const initiateBattle = async (
     !info.questAttempt.entryPaid &&
     info.questAttempt.quest.content.entryItems?.length
       ? fetchQuestEntryInventory(client, info.questAttempt.userId)
+      : [],
+    // Open-world attacks must not pull waiting event entrants out of their ready checks
+    battleType === "COMBAT"
+      ? client.query.tournament.findMany({
+          where: and(
+            eq(tournament.type, "EVENT"),
+            inArray(tournament.status, ["OPEN", "IN_PROGRESS"]),
+          ),
+          columns: { eventData: true },
+          limit: 100,
+        })
       : [],
   ]);
 
@@ -2573,6 +2586,25 @@ export const initiateBattle = async (
     battleType === "COMBAT"
   ) {
     return { success: false, message: "Cannot attack players in Wake Island" };
+  }
+
+  // Registered event tournament entrants wait at Wake Island for their ready checks
+  if (
+    battleType === "COMBAT" &&
+    users.some(
+      (u) =>
+        targetIds.includes(u.userId) &&
+        !u.isAi &&
+        activeEventTournaments.some(
+          (t) => t.eventData && isActiveEventEntrant(t.eventData, u.userId),
+        ),
+    )
+  ) {
+    return {
+      success: false,
+      message:
+        "This player is registered for an ongoing tournament and can't be attacked",
+    };
   }
 
   if (sectorData?.pvpDisabled && battleType === "COMBAT") {
