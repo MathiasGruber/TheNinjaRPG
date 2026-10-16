@@ -9,9 +9,11 @@ import {
   Fingerprint,
   Flame,
   Handshake,
+  Loader2,
   Medal,
   Search,
   ShieldAlert,
+  Star,
   Swords,
   Timer,
   UserRoundCheck,
@@ -151,6 +153,10 @@ import { captchaVerifySchema } from "@/validators/misc";
 import { getSearchValidator } from "@/validators/register";
 
 const getJutsuLevelCap = (_jutsu: { parentJutsuId?: string | null }) => JUTSU_LEVEL_CAP;
+
+// Favorites live on the ranked loadout, whose cleanup drops jutsu ranked cannot use
+const isRankedFavoritable = (j: Jutsu) =>
+  !j.requiredSkillId && j.battleUsageType !== "PVE" && !j.villageId;
 
 export default function Training() {
   // Ensure user is in village
@@ -1279,6 +1285,36 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
   // Mutation loading
   const isPending = isStartingTrain || isStoppingTrain || isCancellingQueued;
 
+  // Favorites are shared with the ranked loadout builder (same stored list & star)
+  const { data: rankedLoadout } = api.pvpRank.getRankedLoadout.useQuery(undefined, {
+    enabled: !!userData,
+  });
+  const favoriteJutsuIds = rankedLoadout?.loadout.favoriteJutsuIds ?? [];
+  const { mutate: saveFavorites, isPending: isSavingFavorite } =
+    api.pvpRank.updateRankedLoadout.useMutation({
+      onSuccess: async (data) => {
+        if (!data.success) showMutationToast(data);
+        await utils.pvpRank.getRankedLoadout.invalidate();
+      },
+    });
+  const toggleFavorite = (jutsuId: string) => {
+    if (!rankedLoadout || isSavingFavorite) return;
+    saveFavorites({
+      ...rankedLoadout.loadout,
+      favoriteJutsuIds: favoriteJutsuIds.includes(jutsuId)
+        ? favoriteJutsuIds.filter((id) => id !== jutsuId)
+        : [...favoriteJutsuIds, jutsuId],
+    });
+  };
+
+  // Jutsu in active training or waiting in the queue, shown right after favorites
+  const trainingJutsuIds = new Set([
+    ...(userJutsus ?? [])
+      .filter((uj) => isJutsuInTraining(uj, serverNow))
+      .map((uj) => uj.jutsuId),
+    ...(trainingQueue?.waiting ?? []).map((job) => job.jutsuId),
+  ]);
+
   // Selecting a jutsu restyles every tile of the grid and mounts or unmounts the confirm
   // modal; as a transition that render no longer blocks the tap's next paint.
   const setJutsuConfirmOpen: Dispatch<SetStateAction<boolean>> = (open) => {
@@ -1323,10 +1359,17 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
           ...j,
           level: uj?.level || 0,
           highlight: isJutsuPickStep && j.id === TUTORIAL_JUTSU_ID,
+          isFavorite: favoriteJutsuIds.includes(j.id),
         };
       })
       .filter((j) => j.level < getJutsuLevelCap(j))
-      .sort((a, b) => b.level - a.level) ?? [];
+      // Favorites first, then jutsu in training/queued, then highest level
+      .sort(
+        (a, b) =>
+          Number(b.isFavorite) - Number(a.isFavorite) ||
+          Number(trainingJutsuIds.has(b.id)) - Number(trainingJutsuIds.has(a.id)) ||
+          b.level - a.level,
+      ) ?? [];
 
   const tutorialJutsuLevel =
     userJutsus?.find((uj) => uj.jutsuId === TUTORIAL_JUTSU_ID)?.level || 0;
@@ -1345,6 +1388,7 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
       ...tutorialJutsu,
       level: tutorialJutsuLevel,
       highlight: true,
+      isFavorite: favoriteJutsuIds.includes(tutorialJutsu.id),
     });
   } else if (isJutsuPickStep) {
     const pinnedIdx = alljutsus.findIndex((j) => j.id === TUTORIAL_JUTSU_ID);
@@ -1569,6 +1613,31 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                           : `Level ${level + 1}. Raise this to queue further levels of the same jutsu.`}
                       </p>
                     </div>
+                  )}
+                  {!isPending && isRankedFavoritable(jutsu) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mb-3 flex items-center gap-2"
+                      disabled={!rankedLoadout || isSavingFavorite}
+                      onClick={() => toggleFavorite(jutsu.id)}
+                    >
+                      {isSavingFavorite ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving
+                        </>
+                      ) : (
+                        <>
+                          <Star
+                            className={`h-4 w-4 ${favoriteJutsuIds.includes(jutsu.id) ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`}
+                          />
+                          {favoriteJutsuIds.includes(jutsu.id)
+                            ? "Unfavorite"
+                            : "Favorite"}
+                        </>
+                      )}
+                    </Button>
                   )}
                   {!isPending && (
                     <ItemWithEffects
