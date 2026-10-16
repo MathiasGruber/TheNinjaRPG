@@ -802,7 +802,7 @@ export const HomeScene = ({
             const rotations = getHomeFurnitureRotations(selectedFurniture);
             const { left, top, width } = selectedScreenBounds;
             // Center fixed-size actions on the highlight corners, keeping each button inside the scene.
-            const controlWidth = `clamp(4.5rem, ${width}%, calc(100% - 2rem))`;
+            const controlWidth = `clamp(3rem, ${width}%, calc(100% - 2rem))`;
             return (
               <fieldset
                 aria-label="Furniture controls"
