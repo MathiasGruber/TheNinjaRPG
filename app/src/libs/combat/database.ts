@@ -616,6 +616,10 @@ const completeKageDefense = async (
     );
 };
 
+/**
+ * Record the title-fight result and move leadership only from the defeated tenure.
+ * Uses the preloaded participants; the terminal battle claim gates settlement upstream.
+ */
 export const updateKage = async (
   client: DrizzleClient,
   curBattle: CompleteBattle,

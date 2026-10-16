@@ -11,6 +11,7 @@ import { authenticateCronRequest } from "@/server/utils/cron";
 
 const ENDPOINT_NAME = "daily-counters";
 
+/** Reset daily activity counters and grant the daily prestige increment under the cron timer. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;

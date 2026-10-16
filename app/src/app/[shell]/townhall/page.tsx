@@ -78,6 +78,7 @@ import {
 } from "@/validators/misc";
 import type { UserSearchResult } from "@/validators/register";
 
+/** Route village governance and diplomacy to the panels available to the current character. */
 export default function TownHall() {
   const { data: userData } = useRequiredUserData();
   const availableTabs = userData?.isOutlaw
@@ -173,6 +174,7 @@ export default function TownHall() {
   return <div className="@container/townhall min-w-0">{content}</div>;
 }
 
+/** Serving council, public removal motions and vacancy-specific successor appointments. */
 const ElderHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
@@ -742,9 +744,7 @@ const ElderHall: React.FC<{
   );
 };
 
-/**
- * Kage Overview Component
- */
+/** Incumbent controls for village structures, diplomacy and prestige transfers. */
 const KageHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
@@ -925,6 +925,7 @@ const KageHall: React.FC<{
   );
 };
 
+/** Show the incumbent and public defenses, with reasoned staff takeover when permitted. */
 const KageChallenge = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const [showTakeKageModal, setShowTakeKageModal] = useState(false);
