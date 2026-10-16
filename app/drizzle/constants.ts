@@ -1580,11 +1580,10 @@ export type HUNTING_RANK = (typeof HUNTING_RANKS)[number];
 export const HUNTING_REQUIRED_EXP: Record<HUNTING_RANK, number> = {
   NONE: 0,
   "D RANK": 0,
-  // Keep job rank progression in line with crafting thresholds
-  "C RANK": 100000,
-  "B RANK": 300000,
-  "A RANK": 600000,
-  "S RANK": 900000,
+  "C RANK": 360500,
+  "B RANK": 1081500,
+  "A RANK": 2163000,
+  "S RANK": 3244500,
 };
 export const HUNTING_ITEM_DROP_CHANCES: Record<
   HUNTING_RANK,
@@ -1641,11 +1640,10 @@ export type GATHERING_RANK = (typeof GATHERING_RANKS)[number];
 export const GATHERING_REQUIRED_EXP: Record<GATHERING_RANK, number> = {
   NONE: 0,
   "D RANK": 0,
-  // Keep job rank progression in line with crafting thresholds
-  "C RANK": 100000,
-  "B RANK": 300000,
-  "A RANK": 600000,
-  "S RANK": 900000,
+  "C RANK": 360500,
+  "B RANK": 1081500,
+  "A RANK": 2163000,
+  "S RANK": 3244500,
 };
 export const GATHERING_EXPERIENCE_GAIN: Record<ItemRarity, number> = {
   COMMON: 200,
@@ -1717,9 +1715,9 @@ export const CRAFTING_RANKS = [
 export type CRAFTING_RANK = (typeof CRAFTING_RANKS)[number];
 export const CRAFTING_REQUIRED_EXP: Record<CRAFTING_RANK, number> = {
   NOVICE: 0,
-  APPRENTICE: 100000,
-  MASTER: 300000,
-  FORGEMASTER: 600000,
+  APPRENTICE: 540750,
+  MASTER: 1622250,
+  FORGEMASTER: 3244500,
 };
 export const CRAFTING_EXP_GAIN: Record<CRAFTING_RANK, number> = {
   NOVICE: 1000,
