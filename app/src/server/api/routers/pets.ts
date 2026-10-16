@@ -1,5 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { and, count, eq, gt, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, count, eq, exists, gt, gte, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import {
@@ -18,6 +18,7 @@ import {
   PET_SANCTUARY_NAME,
 } from "@/drizzle/constants";
 import {
+  petSpecies,
   type UserData,
   type UserPet,
   userData,
@@ -318,9 +319,10 @@ export const petsRouter = createTRPCRouter({
   getPet: protectedProcedure
     .input(petSelectionSchema.optional())
     .query(async ({ ctx, input }) => {
-      const [{ user, pet, pets }, abilities, meals] = await Promise.all([
+      const [{ user, pet, pets }, abilities, species, meals] = await Promise.all([
         fetchPetOwner(ctx.drizzle, ctx.userId, input?.petId),
         fetchPetAbilities(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.petSpecies.findMany(),
         ctx.drizzle.query.userItem.findMany({
           where: and(
             eq(userItem.userId, ctx.userId),
@@ -339,8 +341,9 @@ export const petsRouter = createTRPCRouter({
       if (!user) throw serverError("NOT_FOUND", "User not found");
       const now = new Date();
       const dayKey = getPetDayKey(now);
-      const acquisitionRestriction =
-        user.petSlots <= pets.length
+      const acquisitionRestriction = !species.some((entry) => entry.isActive)
+        ? "The Bondkeepers are not offering new companions right now. Please check back later."
+        : user.petSlots <= pets.length
           ? "Unlock another collection slot or release a companion before adopting another."
           : acquisitionBlockMessage(user);
       const rankUpReason = pet
@@ -377,7 +380,7 @@ export const petsRouter = createTRPCRouter({
             isPetAppearanceReady(pet) &&
             pet.rank <= getMaxPetRank(user.rank),
         ),
-        options: getDailyPetOptions(user.userId, user.federalStatus, dayKey),
+        options: getDailyPetOptions(user.userId, user.federalStatus, species, dayKey),
         dayKey,
         optionCount: PET_OPTION_COUNTS[user.federalStatus],
         replacementCost: user.petAcquisitions === 0 ? 0 : PET_REPLACEMENT_COST,
@@ -411,7 +414,10 @@ export const petsRouter = createTRPCRouter({
     .input(acquirePetSchema)
     .output(petAcquisitionResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const { user, pets } = await fetchPetOwner(ctx.drizzle, ctx.userId);
+      const [{ user, pets }, species] = await Promise.all([
+        fetchPetOwner(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.petSpecies.findMany(),
+      ]);
       if (!user) return errorResponse("User not found");
       const restriction = acquisitionBlockMessage(user);
       if (restriction) return errorResponse(restriction);
@@ -427,7 +433,7 @@ export const petsRouter = createTRPCRouter({
       if (
         !isAvailablePetAppearance(
           input,
-          getDailyPetOptions(user.userId, user.federalStatus, dayKey),
+          getDailyPetOptions(user.userId, user.federalStatus, species, dayKey),
         )
       )
         return errorResponse("Choose from your available companion traits for today.");
@@ -459,6 +465,18 @@ export const petsRouter = createTRPCRouter({
                   userData.petSlots,
                 ),
                 gte(userData.reputationPoints, cost),
+                // Retirement must win before a claim charges reputation or grants a pet.
+                exists(
+                  tx
+                    .select({ id: petSpecies.id })
+                    .from(petSpecies)
+                    .where(
+                      and(
+                        eq(petSpecies.id, input.speciesId),
+                        eq(petSpecies.isActive, true),
+                      ),
+                    ),
+                ),
               ],
               set: {
                 ...(!user.activePetId ? { activePetId: petId, petExperience: 0 } : {}),
@@ -471,7 +489,7 @@ export const petsRouter = createTRPCRouter({
               id: petId,
               userId: user.userId,
               name: input.name,
-              speciesIndex: input.speciesIndex,
+              speciesId: input.speciesId,
               paletteIndex: input.paletteIndex,
               characteristicIndex: input.characteristicIndex,
               auraIndex: input.auraIndex,
@@ -703,6 +721,10 @@ export const petsRouter = createTRPCRouter({
       const { user, pet } = await fetchPetOwner(ctx.drizzle, ctx.userId, input.petId);
       if (!user || !pet) return errorResponse("Pet not found");
       if (user.isBanned) return errorResponse("You are banned");
+      if (!pet.species)
+        return errorResponse(
+          "This companion's species could not be loaded. Please contact support.",
+        );
       if (pet.rank > getMaxPetRank(user.rank))
         return errorResponse("Your rank does not support this companion rank.");
       if (isPetAppearanceReady(pet))
@@ -822,6 +844,7 @@ const fetchPetOwner = async (client: DrizzleClient, userId: string, petId?: stri
     client.query.userPet.findMany({
       where: eq(userPet.userId, userId),
       orderBy: userPet.createdAt,
+      with: { species: true },
     }),
   ]);
   const pet =
@@ -849,8 +872,10 @@ const fetchPetAbilities = async (client: DrizzleClient, userId: string) => {
 };
 
 /** Generation tokens are server-only lease credentials. */
-const omitGenerationToken = ({ generationToken: _generationToken, ...pet }: UserPet) =>
-  pet;
+const omitGenerationToken = <T extends UserPet>({
+  generationToken: _generationToken,
+  ...pet
+}: T) => pet;
 
 /** Sanctuary adoption requires an eligible, awake player at its current location. */
 const acquisitionBlockMessage = (user: UserData) => {

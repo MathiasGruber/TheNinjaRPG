@@ -41,6 +41,7 @@ import { generativeAiRouter } from "./routers/openai";
 import { overworldAiRouter } from "./routers/overworldAi";
 import { parentalControlsRouter } from "./routers/parentalControls";
 import { paypalRouter } from "./routers/paypal";
+import { petSpeciesRouter } from "./routers/petSpecies";
 import { petsRouter } from "./routers/pets";
 import { pollRouter } from "./routers/poll";
 import { profileRouter } from "./routers/profile";
@@ -112,6 +113,7 @@ export const appRouter = createTRPCRouter({
   poll: pollRouter,
   profile: profileRouter,
   pets: petsRouter,
+  petSpecies: petSpeciesRouter,
   push: pushRouter,
   purchases: purchasesRouter,
   quests: questsRouter,

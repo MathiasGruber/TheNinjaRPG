@@ -1,19 +1,21 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { aiProfile, battle, itemLoadout, jutsu, skillTree, userData, userJutsu, userPet, userSkill } from "@/drizzle/schema";
+import { aiProfile, battle, itemLoadout, jutsu, skillTree, userData, userJutsu, userPet, petSpecies, userSkill } from "@/drizzle/schema";
 import { getEffectiveMaxPool } from "@/libs/combat/util";
 import { calcHP } from "@/libs/profile";
 import { Pusher } from "@/libs/pusher";
 import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { IncreaseDamageGivenTag, IncreaseMaxPoolsTag, IncreaseStatTag, SummonTag } from "@/validators/combat";
+import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { petJutsuFixture, petSkillFixture } from "../../libs/pets/helpers/abilities";
-import { insertUsers } from "../../setup/factories";
+import { insertPetSpecies, insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("companion ally passives at battle initiation", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
-    await resetTables(battle, aiProfile, itemLoadout, userJutsu, jutsu, userSkill, skillTree, userPet, userData);
+    await resetTables(petSpecies, battle, aiProfile, itemLoadout, userJutsu, jutsu, userSkill, skillTree, userPet, userData);
+    await insertPetSpecies(initialPetSpecies);
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -31,7 +33,7 @@ describeWithDatabase("companion ally passives at battle initiation", () => {
     await client.insert(userJutsu).values({ id: "owned-summon", userId: "caster", jutsuId: "summon", equipped: true });
     await client.insert(userPet).values(["caster", "enemy"].map((userId) => ({
       id: `${userId}-pet`, userId, name: `${userId} pet`,
-      speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
       generationStatus: "READY" as const, artRank: 1, avatar: "/pet.png",
       battleEnabled: true,
     })));
@@ -100,7 +102,7 @@ describeWithDatabase("companion ally passives at battle initiation", () => {
     })));
     await client.insert(userPet).values(["owner", "enemy"].map((userId) => ({
       id: `${userId}-pet`, userId, name: `${userId} pet`,
-      speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
       generationStatus: "READY" as const, artRank: 1, avatar: "/pet.png",
       battleEnabled: true, skillIds: userId === "owner" ? [self.id] : [],
     })));

@@ -3,10 +3,27 @@
  * leaves the rest to their defaults, so a test only states the fields it is actually about.
  */
 import { nanoid } from "nanoid";
-import { item, quest, questHistory, userData, userItem } from "@/drizzle/schema";
+import { item, petSpecies, quest, questHistory, userData, userItem } from "@/drizzle/schema";
 import { getTestDatabase } from "./testDatabase";
 
 type Insert<T> = Partial<T> & Record<string, unknown>;
+
+/** Authored species rows are explicit fixtures; schema setup does not seed content. */
+export const insertPetSpecies = async (
+  species: Insert<typeof petSpecies.$inferInsert>[],
+) => {
+  const database = await getTestDatabase();
+  const rows = species.map((entry, index) => ({
+    id: `pet-species-${index}`,
+    name: `Species ${index}`,
+    description: "A small companion animal",
+    rarity: "COMMON" as const,
+    isActive: true,
+    ...entry,
+  }));
+  await database.insert(petSpecies).values(rows);
+  return rows;
+};
 
 export const insertUsers = async (users: Insert<typeof userData.$inferInsert>[]) => {
   const database = await getTestDatabase();

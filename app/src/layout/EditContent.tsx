@@ -674,7 +674,7 @@ export const EditContent = <
                           (emptyValue.data === undefined || emptyValue.data === null);
                         return (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel htmlFor={id}>
                               {formEntry.label ? formEntry.label : id}
                             </FormLabel>
                             <FormControl>
@@ -749,7 +749,7 @@ export const EditContent = <
                       render={({ field, fieldState }) => {
                         return (
                           <FormItem>
-                            <FormLabel>
+                            <FormLabel htmlFor={id}>
                               {formEntry.label ? formEntry.label : id}
                             </FormLabel>
                             <FormControl>

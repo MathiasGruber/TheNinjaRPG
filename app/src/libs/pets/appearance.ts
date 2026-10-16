@@ -1,15 +1,10 @@
 /** Generate, inspect and bound companion artwork before the router accepts it. */
 import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS } from "@/drizzle/constants";
-import type { UserPet } from "@/drizzle/schema";
+import type { PetSpecies, UserPet } from "@/drizzle/schema";
 import { validateSceneCharacterImage } from "@/libs/contentReview/sceneCharacter";
 import { classifyNsfwImage } from "@/libs/moderator";
-import {
-  PET_AURAS,
-  PET_CHARACTERISTICS,
-  PET_PALETTES,
-  PET_SPECIES,
-} from "@/libs/pets/catalogue";
+import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import { getPetRank } from "@/libs/pets/progression";
 import {
   classifyPetAppearanceImage,
@@ -27,14 +22,14 @@ import { servedUfsUrl } from "@/libs/uploadthing";
 type AppearancePet = Pick<
   UserPet,
   | "userId"
-  | "speciesIndex"
+  | "speciesId"
   | "paletteIndex"
   | "characteristicIndex"
   | "auraIndex"
   | "rank"
   | "artRank"
   | "avatar"
->;
+> & { species: Pick<PetSpecies, "id" | "name" | "description"> | null };
 
 const PET_ART_STYLE =
   "Detailed retro pixel art for TheNinja-RPG, exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate limbs, no extra heads, duplicate animals or detached body parts. Clear readable silhouette, complete head, feet and tail inside the frame with a small margin, relaxed three-quarter pose with the face or beak pointing toward the viewer's LEFT, mature animal proportions, restrained fantasy shinobi accents. Isolated subject on a plain solid background for background removal. Floating sprite without any ground patch, floor, pedestal, platform or cast/contact shadow. No scenery, frame, text, watermark, humanoid body, weapons, blood, gore or sexual content.";
@@ -169,11 +164,11 @@ const checkVisualQuality = async (
 
 /** Resolve saved catalogue IDs and reject corrupt identity before calling an image model. */
 const getPetAppearanceTraits = (pet: AppearancePet) => {
-  const species = PET_SPECIES[pet.speciesIndex];
+  const species = pet.species;
   const palette = PET_PALETTES[pet.paletteIndex];
   const characteristic = PET_CHARACTERISTICS[pet.characteristicIndex];
   const aura = PET_AURAS[pet.auraIndex];
-  if (!species || !palette || !characteristic || !aura)
+  if (!species || species.id !== pet.speciesId || !palette || !characteristic || !aura)
     throw new Error("Invalid pet appearance traits");
   return { species, palette, characteristic, aura };
 };

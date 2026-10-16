@@ -17,7 +17,7 @@ import { ownedPetJutsu, ownedPetSkill, petJutsuFixture, petSkillFixture } from "
 const petFixture = (patch: Partial<UserPet> = {}): UserPet => ({
   id: "pet-1", userId: "owner", name: "Nami", rank: 1, experience: 1000,
   storedExperience: 0, feedDay: null, abilitySlots: 1, jutsuIds: [], skillIds: [],
-  speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+  speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
   offence: 50, defence: 40, strength: 30, intelligence: 20, willpower: 10, speed: 25,
   avatar: "https://example.com/pet.png", avatarFacing: "left",
   battleEnabled: true, spawnPosition: "BEHIND", aiRules: [], includeDefaultRules: true,

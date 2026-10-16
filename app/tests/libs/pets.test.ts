@@ -3,46 +3,47 @@ import { Moderations } from "openai/resources/moderations";
 import { PET_OPTION_COUNTS, PET_RANKS } from "@/drizzle/constants";
 import { classifyNsfwImage } from "@/libs/moderator";
 import { getPetAppearancePrompt } from "@/libs/pets/appearance";
-import { getDailyPetOptions, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES, PET_SPECIES } from "@/libs/pets/catalogue";
+import { getDailyPetOptions, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import { canUsePet, getMaxPetRank, getPetLevel, petRankUpBlockMessage } from "@/libs/pets/progression";
 import { calcLevelRequirements } from "@/libs/profile";
 import { getPetDayKey } from "@/utils/time";
 import { acquirePetSchema, assignPetExperienceSchema, petNameSchema, updatePetAiSchema } from "@/validators/pets";
+import { initialPetSpecies } from "./pets/helpers/species";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("companion appearance choices", () => {
-  it("has the authored 64/32/16/8 catalogue and stable subscriber supersets", () => {
-    expect([PET_SPECIES.length, PET_PALETTES.length, PET_CHARACTERISTICS.length, PET_AURAS.length]).toEqual([64, 32, 16, 8]);
-    for (const catalogue of [PET_SPECIES, PET_PALETTES, PET_CHARACTERISTICS, PET_AURAS])
+  it("offers stable subscriber supersets from an explicit species catalogue", () => {
+    expect([initialPetSpecies.length, PET_PALETTES.length, PET_CHARACTERISTICS.length, PET_AURAS.length]).toEqual([64, 32, 16, 8]);
+    for (const catalogue of [initialPetSpecies, PET_PALETTES, PET_CHARACTERISTICS, PET_AURAS])
       expect(new Set(catalogue.map(({ name }) => name)).size).toBe(catalogue.length);
-    const normal = getDailyPetOptions("one-player", "NONE", "2026-10-11");
+    const normal = getDailyPetOptions("one-player", "NONE", initialPetSpecies, "2026-10-11");
     for (const status of ["NONE", "NORMAL", "SILVER", "GOLD"] as const) {
-      const choices = getDailyPetOptions("one-player", status, "2026-10-11");
-      expect(choices).toEqual(getDailyPetOptions("one-player", status, "2026-10-11"));
+      const choices = getDailyPetOptions("one-player", status, initialPetSpecies, "2026-10-11");
+      expect(choices).toEqual(getDailyPetOptions("one-player", status, initialPetSpecies, "2026-10-11"));
       for (const key of ["species", "palettes", "characteristics", "auras"] as const) {
         expect(choices[key]).toHaveLength(PET_OPTION_COUNTS[status]);
         expect(choices[key].slice(0, 3)).toEqual(normal[key]);
-        expect(new Set(choices[key].map(({ index }) => index)).size).toBe(choices[key].length);
+        expect(new Set(choices[key].map((option) => "id" in option ? option.id : option.index)).size).toBe(choices[key].length);
       }
     }
     const tiers = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
     for (let index = 1; index < tiers.length; index++) {
-      const previous = getDailyPetOptions("one-player", tiers[index - 1]!, "2026-10-11");
-      const current = getDailyPetOptions("one-player", tiers[index]!, "2026-10-11");
+      const previous = getDailyPetOptions("one-player", tiers[index - 1]!, initialPetSpecies, "2026-10-11");
+      const current = getDailyPetOptions("one-player", tiers[index]!, initialPetSpecies, "2026-10-11");
       expect(current.species.slice(0, previous.species.length)).toEqual(previous.species);
     }
-    expect(getDailyPetOptions("another-player", "NONE", "2026-10-11")).not.toEqual(normal);
-    expect(getDailyPetOptions("one-player", "NONE", "2026-10-12")).not.toEqual(normal);
+    expect(getDailyPetOptions("another-player", "NONE", initialPetSpecies, "2026-10-11")).not.toEqual(normal);
+    expect(getDailyPetOptions("one-player", "NONE", initialPetSpecies, "2026-10-12")).not.toEqual(normal);
   });
 
   it("uses UTC days and rejects an unavailable trait", () => {
     expect(getPetDayKey(new Date("2026-10-11T23:30:00-05:00"))).toBe("2026-10-12");
-    const choices = getDailyPetOptions("player", "NONE", "2026-10-11");
-    const selection = { speciesIndex: choices.species[0]!.index, paletteIndex: choices.palettes[0]!.index, characteristicIndex: choices.characteristics[0]!.index, auraIndex: choices.auras[0]!.index };
+    const choices = getDailyPetOptions("player", "NONE", initialPetSpecies, "2026-10-11");
+    const selection = { speciesId: choices.species[0]!.id, paletteIndex: choices.palettes[0]!.index, characteristicIndex: choices.characteristics[0]!.index, auraIndex: choices.auras[0]!.index };
     expect(isAvailablePetAppearance(selection, choices)).toBe(true);
-    const unavailable = PET_SPECIES.find(({ index }) => !choices.species.some((option) => option.index === index))!;
-    expect(isAvailablePetAppearance({ ...selection, speciesIndex: unavailable.index }, choices)).toBe(false);
+    const unavailable = initialPetSpecies.find(({ id }) => !choices.species.some((option) => option.id === id))!;
+    expect(isAvailablePetAppearance({ ...selection, speciesId: unavailable.id }, choices)).toBe(false);
     expect(acquirePetSchema.safeParse({ name: "Kumo", dayKey: "2026-10-11", ...selection, auraIndex: 8 }).success).toBe(false);
   });
 
@@ -84,11 +85,13 @@ describe("companion progression", () => {
 
 describe("companion image safety and AI controls", () => {
   it("uses authored rank-specific growth and reference preservation prompts", () => {
-    const base = { userId: "player", speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
+    const base = { userId: "player", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
     expect(getPetAppearancePrompt(base)).toContain("small young companion");
     expect(getPetAppearancePrompt({ ...base, rank: 10, artRank: 9, avatar: "/previous.webp" })).toContain("celestial legendary beast");
     expect(getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" })).toContain("Preserve its exact species");
-    expect(() => getPetAppearancePrompt({ ...base, speciesIndex: 64 })).toThrow("Invalid pet appearance");
+    expect(() => getPetAppearancePrompt({ ...base, species: null })).toThrow("Invalid pet appearance");
+    const retiredSpecies = { ...initialPetSpecies[0]!, name: "Spirit fox", description: "A fox with translucent ears", isActive: false };
+    expect(getPetAppearancePrompt({ ...base, species: retiredSpecies })).toContain(retiredSpecies.description);
   });
 
   it("fails closed when strict image moderation returns no result", async () => {

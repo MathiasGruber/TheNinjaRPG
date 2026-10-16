@@ -5,12 +5,7 @@ import {
   PET_MAX_ABILITY_SLOTS,
   PetSpawnPositions,
 } from "@/drizzle/constants";
-import {
-  PET_AURAS,
-  PET_CHARACTERISTICS,
-  PET_PALETTES,
-  PET_SPECIES,
-} from "@/libs/pets/catalogue";
+import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import { AiRule } from "@/validators/ai";
 import { baseServerResponse } from "@/validators/base";
 import { createStatSchema } from "@/validators/combat";
@@ -47,11 +42,7 @@ export const petNameSchema = z
 export const acquirePetSchema = z.object({
   name: petNameSchema,
   dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  speciesIndex: z
-    .number()
-    .int()
-    .min(0)
-    .max(PET_SPECIES.length - 1),
+  speciesId: z.string().min(1).max(191),
   paletteIndex: z
     .number()
     .int()

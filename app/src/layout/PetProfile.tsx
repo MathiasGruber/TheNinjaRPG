@@ -51,12 +51,7 @@ import {
   getPetSkillCost,
   validatePetAbilities,
 } from "@/libs/pets/abilities";
-import {
-  PET_AURAS,
-  PET_CHARACTERISTICS,
-  PET_PALETTES,
-  PET_SPECIES,
-} from "@/libs/pets/catalogue";
+import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import {
   canUsePet,
   getPetLevel,
@@ -451,7 +446,7 @@ export function PetProfile() {
     rank: rank.minUserRank,
   };
   const traits = [
-    PET_SPECIES[pet.speciesIndex],
+    pet.species,
     PET_PALETTES[pet.paletteIndex],
     PET_CHARACTERISTICS[pet.characteristicIndex],
     PET_AURAS[pet.auraIndex],

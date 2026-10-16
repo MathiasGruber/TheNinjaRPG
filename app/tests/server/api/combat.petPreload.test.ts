@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
-import { aiProfile, battle, jutsu, userData, userJutsu, userPet } from "@/drizzle/schema";
+import { aiProfile, battle, jutsu, userData, userJutsu, userPet, petSpecies } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
+import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { petJutsuFixture } from "../../libs/pets/helpers/abilities";
-import { insertUsers } from "../../setup/factories";
+import { insertPetSpecies, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -16,7 +17,8 @@ const ownerId = "defender";
 describeWithDatabase("companion battle preload consistency", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
-    await resetTables(battle, aiProfile, userJutsu, jutsu, userPet, userData);
+    await resetTables(petSpecies, battle, aiProfile, userJutsu, jutsu, userPet, userData);
+    await insertPetSpecies(initialPetSpecies);
     await insertUsers([
       { userId: "attacker", username: "Attacker", rank: "GENIN", level: 5, status: "AWAKE" },
       { userId: ownerId, username: "Defender", rank: "GENIN", level: 5, status: "AWAKE", activePetId: "first", petSlots: 3, sector: MAP_WAKE_ISLAND_SECTOR },
@@ -24,7 +26,7 @@ describeWithDatabase("companion battle preload consistency", () => {
     const database = await getTestDatabase();
     await database.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
     await database.insert(userPet).values(["first", "second"].map((id) => ({
-      id, userId: ownerId, name: id, speciesIndex: 0, paletteIndex: 0,
+      id, userId: ownerId, name: id, speciesId: "pet-species-0", paletteIndex: 0,
       characteristicIndex: 0, auraIndex: 0, generationStatus: "READY" as const,
       artRank: 1, avatar: "/pet.png", battleEnabled: true, jutsuIds: [`${id}-strike`],
     })));
@@ -100,7 +102,7 @@ const startBattle = (client: DrizzleClient) => initiateBattle({ client, userIds:
 
 const adoptionInput = async (database: DrizzleClient) => {
   const data = await callerForDatabase(petsRouter, ownerId, database).getPet();
-  return { name: "Kumo", dayKey: data.dayKey, speciesIndex: data.options.species[0]!.index, paletteIndex: data.options.palettes[0]!.index, characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index };
+  return { name: "Kumo", dayKey: data.dayKey, speciesId: data.options.species[0]!.id, paletteIndex: data.options.palettes[0]!.index, characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index };
 };
 
 /** Complete real companion reads before a successful account mutation and the participant read. */

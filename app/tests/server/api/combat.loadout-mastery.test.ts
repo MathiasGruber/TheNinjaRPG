@@ -23,6 +23,7 @@ import {
   userItem,
   userJutsu,
   userPet,
+  petSpecies,
 } from "@/drizzle/schema";
 import type { CombatQueryUser } from "@/libs/combat/types";
 import { Pusher } from "@/libs/pusher";
@@ -35,8 +36,9 @@ import { fetchUserItemsWithVariants } from "@/server/api/routers/item";
 import { fetchUserJutsus } from "@/server/api/routers/jutsu";
 import { getTagSchema } from "@/validators/combat";
 import { AiRule } from "@/validators/ai";
+import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
-import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
+import { insertItems, insertPetSpecies, insertUserItems, insertUsers } from "../../setup/factories";
 import {
   callerFor,
   describeWithDatabase,
@@ -181,6 +183,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(
+      petSpecies,
       battle,
       aiProfile,
       userJutsu,
@@ -194,6 +197,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       userData,
       userPet,
     );
+    await insertPetSpecies(initialPetSpecies);
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -290,7 +294,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     await db.update(battle).set({ battleType }).where(eq(battle.id, BATTLE));
     await db.insert(userPet).values({
       id: "lobby-pet", userId: USER, name: "Nami", rank: 1, artRank: 1,
-      speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
       experience: 1000, offence: 50, defence: 40, strength: 30, speed: 25,
       avatar: "https://example.com/pet.webp", generationStatus: "READY",
       aiRules: [AiRule.parse({ conditions: [], action: { type: "end_turn" } })],

@@ -15,11 +15,12 @@ import { PetAcquisition } from "@/layout/PetAcquisition";
 import { getDailyPetOptions } from "@/libs/pets/catalogue";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
+import { initialPetSpecies } from "../libs/pets/helpers/species";
 import { ensureDom } from "../setup-dom.mjs";
 
 const testApi = createTRPCReact<AppRouter>();
 const dayKey = "2026-10-16";
-const options = getDailyPetOptions("owner", "NONE", dayKey);
+const options = getDailyPetOptions("owner", "NONE", initialPetSpecies, dayKey);
 
 beforeEach(() => {
   ensureDom();
@@ -78,7 +79,7 @@ for (const collectionUnavailable of [false, true]) {
         </testApi.Provider>,
       );
       await view.findByRole("group", { name: "Species" });
-      for (const field of ["speciesIndex", "paletteIndex", "characteristicIndex", "auraIndex"]) {
+      for (const field of ["speciesId", "paletteIndex", "characteristicIndex", "auraIndex"]) {
         fireEvent.click(view.container.querySelector(`input[name="pet-${field}"]`)!);
         fireEvent.click(view.getByRole("button", { name: "Continue" }));
       }
@@ -106,7 +107,7 @@ for (const collectionUnavailable of [false, true]) {
 
 for (const federalStatus of ["NONE", "GOLD"] as const) {
   it(`guides ${federalStatus} accounts through one trait at a time and preserves choices when going back`, async () => {
-    const dailyOptions = getDailyPetOptions("owner", federalStatus, dayKey);
+    const dailyOptions = getDailyPetOptions("owner", federalStatus, initialPetSpecies, dayKey);
     const { view, queryClient, updateData } = renderAcquisition({
       options: dailyOptions,
       optionCount: dailyOptions.species.length,
@@ -147,7 +148,7 @@ for (const federalStatus of ["NONE", "GOLD"] as const) {
       expect(view.getByRole("link", { name: "Manage my collection" }).getAttribute("href")).toBe("/profile?tab=pet");
 
       const tomorrow = "2026-10-17";
-      await updateData({ dayKey: tomorrow, options: getDailyPetOptions("owner", federalStatus, tomorrow) });
+      await updateData({ dayKey: tomorrow, options: getDailyPetOptions("owner", federalStatus, initialPetSpecies, tomorrow) });
       await view.findByText("A new UTC day has begun. Choose from today's refreshed options.");
       expect(view.getByRole("group", { name: "Species" })).toBeDefined();
       expect(view.queryByLabelText("Companion name")).toBeNull();
@@ -187,6 +188,19 @@ it("explains the collection limit while allowing every trait to be previewed wit
   } finally {
     queryClient.clear();
   }
+});
+
+it("explains an unavailable species catalogue without an empty selection wizard", async () => {
+  const message = "The Bondkeepers are not offering new companions right now. Please check back later.";
+  const { view, queryClient, mutations } = renderAcquisition({
+    options: { ...options, species: [] }, canAcquire: false, unavailableReason: message,
+  });
+  try {
+    await view.findByText(message);
+    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Continue" })).toBeNull();
+    expect(mutations).not.toHaveBeenCalled();
+  } finally { queryClient.clear(); }
 });
 
 function renderAcquisition(initialData: Record<string, unknown>) {

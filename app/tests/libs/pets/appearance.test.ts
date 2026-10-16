@@ -5,10 +5,11 @@ import * as moderator from "@/libs/moderator";
 import { downloadPetImage, generatePetAppearance } from "@/libs/pets/appearance";
 import * as quality from "@/libs/pets/quality";
 import * as replicate from "@/libs/replicate";
+import { initialPetSpecies } from "./helpers/species";
 
 const sourceUrl = "https://example.com/source-pet.webp";
 const avatarUrl = "https://example.com/accepted-pet.webp";
-const pet = { userId: "pet-owner", speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
+const pet = { userId: "pet-owner", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
 const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, reason: "A valid pet sprite" };
 
 beforeEach(() => vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue(acceptedQuality));

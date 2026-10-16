@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
 import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_COLLECTION_SLOT_COST, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST } from "@/drizzle/constants";
-import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, userSkill, userUpload } from "@/drizzle/schema";
+import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
-import { PET_SPECIES } from "@/libs/pets/catalogue";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
 import { DAY_S, getPetDayKey, secondsFromNow } from "@/utils/time";
+import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { petJutsuFixture, petSkillFixture } from "../../libs/pets/helpers/abilities";
-import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
+import { insertItems, insertPetSpecies, insertUserItems, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -20,7 +20,8 @@ const stats = { offence: 10, defence: 0, strength: 0, speed: 0, intelligence: 0,
 
 describeWithDatabase("Companion ownership, economy and generation", () => {
   beforeEach(async () => {
-    await resetTables(userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);
+    await resetTables(petSpecies, userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);
+    await insertPetSpecies(initialPetSpecies);
     await insertUsers([{ userId, username: "PetOwner", rank: "GENIN", sector: MAP_WAKE_ISLAND_SECTOR, status: "AWAKE", reputationPoints: 200 }]);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -62,13 +63,43 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.reputationPoints).toBe(PET_REPLACEMENT_COST - 1);
   });
 
+  it("adopts newly authored species and retains their identity for generation after retirement", async () => {
+    const database = await getTestDatabase();
+    await database.update(petSpecies).set({ isActive: false });
+    const species = { id: "authored-spirit-fox", name: "Spirit fox", description: "A fox with translucent ears", rarity: "RARE" as const, isActive: true };
+    await insertPetSpecies([species]);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const input = await adoptionInput(database);
+    expect(input.speciesId).toBe(species.id);
+    expect((await caller.acquirePet(input)).success).toBe(true);
+    const pet = (await readPet(database))!;
+    expect(pet.speciesId).toBe(species.id);
+    await database.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, species.id));
+    const view = await caller.getPet();
+    expect(view.options.species).toEqual([]);
+    expect(view.pet?.species).toMatchObject({ ...species, isActive: false });
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    expect((await caller.generateAppearance({ petId: pet.id })).success).toBe(true);
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ species: expect.objectContaining({ id: species.id, description: species.description, isActive: false }) }), expect.any(Function));
+  });
+
+  it("rejects a species retired after today's menu was loaded without granting a pet or charging reputation", async () => {
+    const database = await getTestDatabase();
+    const input = await adoptionInput(database);
+    await database.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, input.speciesId));
+    const before = await readOwner(database);
+    expect((await callerForDatabase(petsRouter, userId, database).acquirePet(input)).success).toBe(false);
+    expect(await database.query.userPet.findMany()).toEqual([]);
+    expect(await readOwner(database)).toEqual(before);
+  });
+
   it("rejects tampered options, stale days and adoption away from Wake Island", async () => {
     const database = await getTestDatabase();
     const caller = callerForDatabase(petsRouter, userId, database);
     const view = await caller.getPet();
     const input = await adoptionInput(database);
-    const unavailable = PET_SPECIES.find(({ index }) => !view.options.species.some((option) => option.index === index))!;
-    expect((await caller.acquirePet({ ...input, speciesIndex: unavailable.index })).success).toBe(false);
+    const unavailable = initialPetSpecies.find(({ id }) => !view.options.species.some((option) => option.id === id))!;
+    expect((await caller.acquirePet({ ...input, speciesId: unavailable.id })).success).toBe(false);
     expect((await caller.acquirePet({ ...input, dayKey: "2000-01-01" })).success).toBe(false);
     await database.update(userData).set({ sector: 1 }).where(eq(userData.userId, userId));
     expect((await caller.acquirePet(input)).success).toBe(false);
@@ -753,15 +784,15 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
 
 const adoptionInput = async (database: DrizzleClient) => {
   const data = await callerForDatabase(petsRouter, userId, database).getPet();
-  return { name: "Kumo", dayKey: data.dayKey, speciesIndex: data.options.species[0]!.index, paletteIndex: data.options.palettes[0]!.index, characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index };
+  return { name: "Kumo", dayKey: data.dayKey, speciesId: data.options.species[0]!.id, paletteIndex: data.options.palettes[0]!.index, characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index };
 };
 
 const readyPet = async (database: DrizzleClient, overrides: Partial<typeof userPet.$inferInsert> = {}) => {
   await database.update(userData).set({ activePetId: overrides.id ?? petId }).where(eq(userData.userId, userId));
-  await database.insert(userPet).values({ id: petId, userId, name: "Kumo", speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, avatar, artRank: 1, generationStatus: "READY", ...overrides });
+  await database.insert(userPet).values({ id: petId, userId, name: "Kumo", speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, avatar, artRank: 1, generationStatus: "READY", ...overrides });
 };
 const parkedPet = (database: DrizzleClient, overrides: Partial<typeof userPet.$inferInsert> = {}) =>
-  database.insert(userPet).values({ id: "parked", userId, name: "Haru", speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, avatar, artRank: 1, generationStatus: "READY", ...overrides });
+  database.insert(userPet).values({ id: "parked", userId, name: "Haru", speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, avatar, artRank: 1, generationStatus: "READY", ...overrides });
 
 const mealStack = async () => {
   await insertItems([{ id: "pet-meal", name: "Companion Meal", itemType: "MEAL" }]);

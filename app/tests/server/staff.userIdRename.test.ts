@@ -1,4 +1,3 @@
-
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { beforeEach, expect, it } from "bun:test";
@@ -17,6 +16,7 @@ import {
   userHome,
   userLiveActivity,
   userPet,
+  petSpecies,
   userPushPreference,
   userReport,
   userReportEmbedding,
@@ -35,7 +35,8 @@ import {
   revokeFederalStatus,
   transferStorePurchases,
 } from "@/server/utils/purchases/grant";
-import { insertUsers } from "../setup/factories";
+import { initialPetSpecies } from "../libs/pets/helpers/species";
+import { insertPetSpecies, insertUsers } from "../setup/factories";
 import { beforeStatements, failStatements } from "../setup/statements";
 import {
   callerFor,
@@ -51,6 +52,7 @@ const NEW_USER_ID = "rename-new-user";
 describeWithDatabase("staff user-id rename", () => {
   beforeEach(async () => {
     await resetTables(
+      petSpecies,
       auctionOffer,
       bloodline,
       notification,
@@ -70,6 +72,7 @@ describeWithDatabase("staff user-id rename", () => {
       userData,
       village,
     );
+    await insertPetSpecies(initialPetSpecies);
     await insertUsers([
       { userId: STAFF, username: "Terriator", role: "CODING-ADMIN" },
       { userId: OLD_USER_ID, username: "rename-target", role: "USER" },
@@ -100,7 +103,7 @@ describeWithDatabase("staff user-id rename", () => {
       id: "rename-companion",
       userId: OLD_USER_ID,
       name: "Companion",
-      speciesIndex: 1,
+      speciesId: "pet-species-1",
       paletteIndex: 2,
       characteristicIndex: 3,
       auraIndex: 4,
@@ -162,7 +165,7 @@ describeWithDatabase("staff user-id rename", () => {
     const database = await getTestDatabase();
     await database.insert(userPet).values({
       id: "retry-companion", userId: OLD_USER_ID, name: "Companion",
-      speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
     });
     await expect(
       callerForDatabase(staffRouter, STAFF, failStatements(database, userPet)).updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID }),

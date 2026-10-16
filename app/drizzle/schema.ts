@@ -2882,10 +2882,27 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+/** Authored species identities remain available to owned pets after retirement. */
+export const petSpecies = mysqlTable(
+  "PetSpecies",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: varchar("description", { length: 1000 }).notNull(),
+    rarity: mysqlEnum("rarity", consts.PetRarities).default("COMMON").notNull(),
+    isActive: boolean("isActive").default(true).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  },
+  (table) => ({ nameKey: uniqueIndex("PetSpecies_name_key").on(table.name) }),
+);
+export type PetSpecies = InferSelectModel<typeof petSpecies>;
+export type PetSpeciesInsert = InferInsertModel<typeof petSpecies>;
+
 /**
  * Owner-bound progression, appearance and battle configuration for each companion.
- * storedExperience holds only inactive XP; active XP lives on UserData. Catalogue
- * indices preserve generated identity, while revision guards concurrent mutations.
+ * storedExperience holds only inactive XP; active XP lives on UserData. Species
+ * IDs and cosmetic indices preserve identity; revision guards concurrent mutations.
  */
 export const userPet = mysqlTable(
   "UserPet",
@@ -2893,7 +2910,7 @@ export const userPet = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     name: varchar("name", { length: 40 }).notNull(),
-    speciesIndex: tinyint("speciesIndex", { unsigned: true }).notNull(),
+    speciesId: varchar("speciesId", { length: 191 }).notNull(),
     paletteIndex: tinyint("paletteIndex", { unsigned: true }).notNull(),
     characteristicIndex: tinyint("characteristicIndex", { unsigned: true }).notNull(),
     auraIndex: tinyint("auraIndex", { unsigned: true }).notNull(),
@@ -2933,6 +2950,7 @@ export type UserPet = InferSelectModel<typeof userPet>;
 export type UserPetInsert = InferInsertModel<typeof userPet>;
 export const userPetRelations = relations(userPet, ({ one }) => ({
   user: one(userData, { fields: [userPet.userId], references: [userData.userId] }),
+  species: one(petSpecies, { fields: [userPet.speciesId], references: [petSpecies.id] }),
 }));
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({

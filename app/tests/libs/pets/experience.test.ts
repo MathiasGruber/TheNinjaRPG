@@ -1,7 +1,7 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq, sql } from "drizzle-orm";
 import {
-  gameSetting, quest, questHistory, trainingLog, userData, userPet,
+  gameSetting, quest, questHistory, trainingLog, userData, userPet, petSpecies,
   userQueue, userVote,
 } from "@/drizzle/schema";
 import { updateUser } from "@/libs/combat/database";
@@ -13,7 +13,8 @@ import { updateRewards } from "@/server/api/routers/quests";
 import { trainRouter } from "@/server/api/routers/train";
 import { PostProcessedRewardSchema } from "@/validators/rewards";
 import { createAssignedExperienceSchema } from "@/validators/user";
-import { insertUsers } from "../../setup/factories";
+import { initialPetSpecies } from "./helpers/species";
+import { insertPetSpecies, insertUsers } from "../../setup/factories";
 import { queueEnergy } from "../../setup/queues";
 import {
   callerFor, describeWithDatabase, getTestDatabase, resetTables,
@@ -32,7 +33,7 @@ const readUser = async () => {
 const insertPet = async (patch: Partial<typeof userPet.$inferInsert> = {}) => {
   await (await getTestDatabase()).insert(userPet).values({
     id: petId, userId, name: "Nami", rank: 1, artRank: 1,
-    speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+    speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
     avatar: "/pet.png", generationStatus: "READY", ...patch,
   });
   await (await getTestDatabase()).update(userData).set({ activePetId: patch.id ?? petId }).where(eq(userData.userId, userId));
@@ -46,8 +47,9 @@ const grantExperience = async (amount: number, identity?: string | null) => {
 
 describeWithDatabase("accompanying pet experience against real MySQL", () => {
   beforeEach(async () => {
-    await resetTables(userPet, userQueue, userVote, trainingLog, questHistory,
+    await resetTables(petSpecies, userPet, userQueue, userVote, trainingLog, questHistory,
       quest, userData, gameSetting);
+    await insertPetSpecies(initialPetSpecies);
     await insertUsers([{
       userId, username: "PetOwner", rank: "GENIN", status: "AWAKE",
       isOutlaw: true, curEnergy: 100, regeneration: 0, trainingSpeed: "15min",

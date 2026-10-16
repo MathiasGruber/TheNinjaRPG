@@ -2784,6 +2784,9 @@ export const IMG_MANUAL_CRAFTING_RECIPES =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJrZmM8nhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx.webp";
 export const IMG_MANUAL_AI =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJuTQifZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
+/** Illustrated bestiary representing the companion species catalogue. */
+export const IMG_MANUAL_PET_SPECIES =
+  "https://ui0arpl8sm.ufs.sh/f/manual-pet-species-17326854-5ec7-4037-a2d0-db475452bd99.webp";
 export const IMG_MANUAL_STAFF =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ3CT6Io8pYHJX5rdkUTfOKtvu2eGIELmSWqBx.webp";
 export const IMG_MANUAL_REVIEW =

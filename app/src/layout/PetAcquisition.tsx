@@ -19,7 +19,7 @@ import Countdown from "@/layout/Countdown";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
-import type { PetAppearanceOption } from "@/libs/pets/catalogue";
+import type { PetAppearanceOption, PetSpeciesOption } from "@/libs/pets/catalogue";
 import { getPetRank, isPetAppearanceReady } from "@/libs/pets/progression";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -68,7 +68,7 @@ export function PetAcquisition() {
   // A tier change can alter offerings within the same day; both changes invalidate a draft.
   const catalogueKey = data
     ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
-        .flatMap((options) => options.map((option) => option.index))
+        .flatMap((options) => options.map(petTraitValue))
         .join(",")}`
     : null;
   useEffect(() => {
@@ -159,7 +159,7 @@ export function PetAcquisition() {
       (entry) =>
         !attempt.previousIds.has(entry.id) &&
         entry.name === attempt.input.name &&
-        entry.speciesIndex === attempt.input.speciesIndex &&
+        entry.speciesId === attempt.input.speciesId &&
         entry.paletteIndex === attempt.input.paletteIndex &&
         entry.characteristicIndex === attempt.input.characteristicIndex &&
         entry.auraIndex === attempt.input.auraIndex,
@@ -251,7 +251,7 @@ export function PetAcquisition() {
   const pet = data.pet;
   const selectedTraits = traitStages.map((trait) =>
     data.options[trait.options].find(
-      (option) => option.index === selection[trait.field],
+      (option) => petTraitValue(option) === selection[trait.field],
     ),
   );
   const activeTrait = traitStages[stage];
@@ -437,7 +437,9 @@ export function PetAcquisition() {
         <>
           <div className="mb-4 space-y-2 text-sm">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{data.optionCount} choices per trait</Badge>
+              <Badge variant="outline">
+                Up to {data.optionCount} choices per trait
+              </Badge>
               <Badge variant="outline">{data.dayKey} UTC</Badge>
             </div>
             <p>
@@ -477,121 +479,124 @@ export function PetAcquisition() {
               </div>
             </Accordion>
           </div>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (isBusy) return;
-              if (activeTrait && selectedTraits[stage]) changeStage(stage + 1);
-              else if (!activeTrait && !isReplacement && canMeetPet) void meetPet();
-            }}
-          >
-            <div className="mb-4 flex items-baseline justify-between gap-3">
-              <h3 ref={stageHeading} tabIndex={-1} className="font-semibold text-lg">
-                {activeTrait?.title ?? "Name your companion"}
-              </h3>
-              <span className="shrink-0 text-muted-foreground text-sm">
-                Step {stage + 1} of {traitStages.length + 1}
-              </span>
-            </div>
-            {activeTrait ? (
-              <PetTraitChoices
-                title={activeTrait.title}
-                field={activeTrait.field}
-                options={data.options[activeTrait.options]}
-                selected={selection[activeTrait.field]}
-                disabled={isBusy}
-                onSelect={(index) =>
-                  setSelection((previous) => ({
-                    ...previous,
-                    [activeTrait.field]: index,
-                  }))
-                }
-              />
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="new-pet-name">Companion name</Label>
-                <Input
-                  id="new-pet-name"
-                  placeholder="Name your companion"
-                  value={name}
-                  maxLength={40}
-                  disabled={isBusy}
-                  onChange={(event) => setName(event.target.value)}
-                  className="max-w-md"
-                />
-              </div>
-            )}
-            <div className="mt-4 rounded border bg-muted/30 p-3 text-sm">
-              <h4 className="break-words font-semibold">
-                Your bond{name.trim() && ` · ${name.trim()}`}
-              </h4>
-              <p className="mt-1 text-muted-foreground">
-                {traitStages
-                  .map(
-                    (trait, index) =>
-                      selectedTraits[index]?.name ?? `${trait.title}: choose`,
-                  )
-                  .join(" · ")}
-              </p>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              {stage > 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isBusy}
-                  onClick={() => changeStage(stage - 1)}
-                >
-                  <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-                  Back
-                </Button>
-              ) : (
-                <span className="text-muted-foreground text-sm">
-                  Choose one to continue.
+          {data.options.species.length > 0 && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (isBusy) return;
+                if (activeTrait && selectedTraits[stage]) changeStage(stage + 1);
+                else if (!activeTrait && !isReplacement && canMeetPet) void meetPet();
+              }}
+            >
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h3 ref={stageHeading} tabIndex={-1} className="font-semibold text-lg">
+                  {activeTrait?.title ?? "Name your companion"}
+                </h3>
+                <span className="shrink-0 text-muted-foreground text-sm">
+                  Step {stage + 1} of {traitStages.length + 1}
                 </span>
-              )}
+              </div>
               {activeTrait ? (
-                <Button
-                  type="button"
-                  disabled={isBusy || !selectedTraits[stage]}
-                  onClick={() => changeStage(stage + 1)}
-                >
-                  Continue
-                  <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                </Button>
-              ) : isReplacement ? (
-                <Confirm
-                  title={`Form a new bond for ${data.replacementCost} reputation?`}
-                  disabled={!canMeetPet}
-                  button={
-                    <Button type="button" disabled={!canMeetPet}>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Meet my new companion
-                    </Button>
+                <PetTraitChoices
+                  title={activeTrait.title}
+                  field={activeTrait.field}
+                  options={data.options[activeTrait.options]}
+                  selected={selection[activeTrait.field]}
+                  disabled={isBusy}
+                  onSelect={(value) =>
+                    setSelection((previous) =>
+                      activeTrait.field === "speciesId"
+                        ? { ...previous, speciesId: String(value) }
+                        : { ...previous, [activeTrait.field]: Number(value) },
+                    )
                   }
-                  onAccept={() => void meetPet()}
-                >
-                  <p className="mb-3">
-                    The Bondkeepers will guide you to a new companion. This costs{" "}
-                    {data.replacementCost} reputation points. Your companion starts at
-                    the first rank with new pet stats.
-                  </p>
-                  <p>
-                    New companion: <strong>{name.trim()}</strong> ·{" "}
-                    {selectedTraits
-                      .map((trait) => trait?.name)
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </Confirm>
+                />
               ) : (
-                <Button type="submit" disabled={!canMeetPet}>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Meet my first companion
-                </Button>
+                <div className="space-y-2">
+                  <Label htmlFor="new-pet-name">Companion name</Label>
+                  <Input
+                    id="new-pet-name"
+                    placeholder="Name your companion"
+                    value={name}
+                    maxLength={40}
+                    disabled={isBusy}
+                    onChange={(event) => setName(event.target.value)}
+                    className="max-w-md"
+                  />
+                </div>
               )}
-            </div>
-          </form>
+              <div className="mt-4 rounded border bg-muted/30 p-3 text-sm">
+                <h4 className="break-words font-semibold">
+                  Your bond{name.trim() && ` · ${name.trim()}`}
+                </h4>
+                <p className="mt-1 text-muted-foreground">
+                  {traitStages
+                    .map(
+                      (trait, index) =>
+                        selectedTraits[index]?.name ?? `${trait.title}: choose`,
+                    )
+                    .join(" · ")}
+                </p>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                {stage > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isBusy}
+                    onClick={() => changeStage(stage - 1)}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+                    Back
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground text-sm">
+                    Choose one to continue.
+                  </span>
+                )}
+                {activeTrait ? (
+                  <Button
+                    type="button"
+                    disabled={isBusy || !selectedTraits[stage]}
+                    onClick={() => changeStage(stage + 1)}
+                  >
+                    Continue
+                    <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                  </Button>
+                ) : isReplacement ? (
+                  <Confirm
+                    title={`Form a new bond for ${data.replacementCost} reputation?`}
+                    disabled={!canMeetPet}
+                    button={
+                      <Button type="button" disabled={!canMeetPet}>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Meet my new companion
+                      </Button>
+                    }
+                    onAccept={() => void meetPet()}
+                  >
+                    <p className="mb-3">
+                      The Bondkeepers will guide you to a new companion. This costs{" "}
+                      {data.replacementCost} reputation points. Your companion starts at
+                      the first rank with new pet stats.
+                    </p>
+                    <p>
+                      New companion: <strong>{name.trim()}</strong> ·{" "}
+                      {selectedTraits
+                        .map((trait) => trait?.name)
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </Confirm>
+                ) : (
+                  <Button type="submit" disabled={!canMeetPet}>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    Meet my first companion
+                  </Button>
+                )}
+              </div>
+            </form>
+          )}
         </>
       )}
     </ContentBox>
@@ -609,60 +614,67 @@ function PetTraitChoices({
 }: {
   title: string;
   field: keyof PetSelection;
-  options: PetAppearanceOption[];
-  selected: number | null;
+  options: (PetAppearanceOption | PetSpeciesOption)[];
+  selected: string | number | null;
   disabled: boolean;
-  onSelect: (index: number) => void;
+  onSelect: (value: string | number) => void;
 }) {
   return (
     <fieldset disabled={disabled}>
       <legend className="sr-only">{title}</legend>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {options.map((option) => (
-          <label
-            key={option.index}
-            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${selected === option.index ? "border-primary bg-primary/10" : "hover:bg-muted/40"} ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
-          >
-            <input
-              type="radio"
-              name={`pet-${field}`}
-              value={option.index}
-              checked={selected === option.index}
-              onChange={() => onSelect(option.index)}
-              className="mt-1 accent-primary"
-            />
-            <span>
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="font-medium">{option.name}</span>
-                {option.rarity && <Badge variant="outline">{option.rarity}</Badge>}
+        {options.map((option) => {
+          const value = petTraitValue(option);
+          return (
+            <label
+              key={value}
+              className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring ${selected === value ? "border-primary bg-primary/10" : "hover:bg-muted/40"} ${disabled ? "cursor-not-allowed opacity-60" : ""}`}
+            >
+              <input
+                type="radio"
+                name={`pet-${field}`}
+                value={value}
+                checked={selected === value}
+                onChange={() => onSelect(value)}
+                className="mt-1 accent-primary"
+              />
+              <span>
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{option.name}</span>
+                  {option.rarity && <Badge variant="outline">{option.rarity}</Badge>}
+                </span>
+                <span className="mt-1 block text-muted-foreground text-sm">
+                  {option.description}
+                </span>
               </span>
-              <span className="mt-1 block text-muted-foreground text-sm">
-                {option.description}
-              </span>
-            </span>
-          </label>
-        ))}
+            </label>
+          );
+        })}
       </div>
     </fieldset>
   );
 }
 
+/** Species use stable database IDs while authored cosmetic traits retain numeric IDs. */
+const petTraitValue = (option: PetAppearanceOption | PetSpeciesOption) =>
+  "id" in option ? option.id : option.index;
+
 /** Incomplete wizard draft; null differs from catalogue index zero, which is a valid choice. */
 type PetSelection = {
-  speciesIndex: number | null;
+  speciesId: string | null;
   paletteIndex: number | null;
   characteristicIndex: number | null;
   auraIndex: number | null;
 };
 const emptySelection: PetSelection = {
-  speciesIndex: null,
+  speciesId: null,
   paletteIndex: null,
   characteristicIndex: null,
   auraIndex: null,
 };
 
 const traitStages = [
-  { title: "Species", field: "speciesIndex", options: "species" },
+  { title: "Species", field: "speciesId", options: "species" },
   { title: "Colour palette", field: "paletteIndex", options: "palettes" },
   {
     title: "Defining characteristic",

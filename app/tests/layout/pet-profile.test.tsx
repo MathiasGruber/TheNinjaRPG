@@ -19,6 +19,7 @@ import * as StatsDistributionForm from "@/layout/StatsDistributionForm";
 import { getPetAbilityCapacity } from "@/libs/pets/abilities";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
+import { initialPetSpecies } from "../libs/pets/helpers/species";
 import { petJutsuFixture, petSkillFixture } from "../libs/pets/helpers/abilities";
 import { ensureDom } from "../setup-dom.mjs";
 
@@ -48,7 +49,7 @@ beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const pet = {
     id: "companion", name: "Miso", rank: 7, experience: 0, storedExperience: 0,
-    speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+    speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
     generationStatus: "READY", avatar: "/miso.webp", artRank: 7, battleEnabled: true,
     spawnPosition: "BEHIND", abilitySlots: 3, jutsuIds: [], skillIds: [],
     aiRules: [], includeDefaultRules: false, feedDay: null,
