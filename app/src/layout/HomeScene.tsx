@@ -166,7 +166,10 @@ export const HomeScene = ({
     if (isDecorating && !draft && !isRefreshingFurniture) {
       const placements = recoverHomeLayout(layout, furniture, homeType);
       setDraft({ homeType, revision, placements, styles });
-      setSelectedId(placements[0]?.id ?? null);
+      setSelectedId(
+        placements.find((placement) => getHomePlacementRoom(placement) === activeRoom)
+          ?.id ?? null,
+      );
       setPlacementError(null);
     } else if (!isDecorating && draft) {
       dragRef.current = null;
@@ -183,6 +186,7 @@ export const HomeScene = ({
     homeType,
     revision,
     isRefreshingFurniture,
+    activeRoom,
   ]);
 
   /** Change placements without replacing the draft's optimistic concurrency snapshot. */
@@ -618,6 +622,7 @@ export const HomeScene = ({
               return (
                 <div
                   key={placement.id}
+                  {...(isVisiting ? { role: "img", "aria-label": details.name } : {})}
                   className="pointer-events-none absolute"
                   style={style}
                 >
@@ -1015,7 +1020,11 @@ export const HomeScene = ({
                 setPlacementError(null);
                 const placements = recoverHomeLayout(layout, furniture, homeType);
                 setDraft({ homeType, revision, placements, styles });
-                setSelectedId(placements[0]?.id ?? null);
+                setSelectedId(
+                  placements.find(
+                    (placement) => getHomePlacementRoom(placement) === activeRoom,
+                  )?.id ?? null,
+                );
               }}
             >
               <RotateCcw className="h-4 w-4" aria-hidden />

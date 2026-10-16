@@ -248,9 +248,7 @@ export const recoverHomeLayout = (
     const piece = available.get(original.id);
     if (!piece) continue;
     const placement =
-      piece.action === "farm" &&
-      getHomeRooms(homeType).length > 1 &&
-      getHomePlacementRoom(original) === "main"
+      piece.action === "farm" && getHomePlacementRoom(original) === "main"
         ? { ...original, room: "yard" as const }
         : original;
     const rotations = getHomeFurnitureRotations(piece);

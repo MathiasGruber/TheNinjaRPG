@@ -849,6 +849,48 @@ describe("multi-room home scene", () => {
   beforeEach(() => { ensureDom(); vi.clearAllMocks(); });
   afterEach(cleanup);
 
+  it.each(["Decorate", "Undo changes"])("selects furniture in the active room on %s and saves that room's paint", async (action) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const bedroom = { room: "room-1" as const, paint: "sage" as const, floor: "slate" as const };
+    const main = { room: "main" as const, paint: "rose" as const, floor: "terracotta" as const };
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate revision={7} furniture={[starterFurniture[0]!, rugDefinition]} layout={[
+      { id: "owned-bed", room: "room-1", x: 50, y: 50, rotation: 0 },
+      { id: rugDefinition.id, x: 50, y: 50, rotation: 0 },
+    ]} styles={[bedroom, main]} onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    if (action === "Undo changes") {
+      fireEvent.click(view.getByRole("button", { name: "Move Bed" }));
+      fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "indigo" } });
+      fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "main" } });
+      fireEvent.click(view.getByRole("button", { name: action }));
+    }
+    expect(view.getByRole("button", { name: "Move Woven Rug" }).getAttribute("aria-pressed")).toBe("true");
+    expect(view.getByRole("button", { name: "Move Bed" }).getAttribute("aria-pressed")).toBe("false");
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("main");
+    expect(view.getByText(`Main room · 1/${HOME_FURNITURE_MAX_PLACEMENTS} pieces`)).toBeTruthy();
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("rose");
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "indigo" } });
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    expect(onSave.mock.calls[0]![0]).toMatchObject({ revision: 7, styles: [bedroom, { ...main, paint: "indigo" }] });
+  });
+
+  it.each(["Decorate", "Undo changes"])("leaves an empty active room unselected on %s", (action) => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate furniture={[starterFurniture[0]!]} layout={[
+      { id: "owned-bed", room: "room-1", x: 50, y: 50, rotation: 0 },
+    ]} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    if (action === "Undo changes") {
+      fireEvent.click(view.getByRole("button", { name: "Move Bed" }));
+      fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "main" } });
+      fireEvent.click(view.getByRole("button", { name: action }));
+    }
+    expect(view.queryByRole("group", { name: "Furniture controls" })).toBeNull();
+    expect(view.queryByLabelText("Furniture room")).toBeNull();
+    expect(view.getByRole("button", { name: "Move Bed" }).getAttribute("aria-pressed")).toBe("false");
+    expect(view.getByText(`Main room · 0/${HOME_FURNITURE_MAX_PLACEMENTS} pieces`)).toBeTruthy();
+  });
+
   it("keeps room shortcuts available after focusing or resetting the view", () => {
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" />);
     const shortcut = view.getByLabelText("Jump to room") as HTMLSelectElement;
@@ -1109,6 +1151,25 @@ describe("multi-room home scene", () => {
     expect(props.onSleep).not.toHaveBeenCalled();
     fireEvent.change(view.getByLabelText("Jump to room"), { target: { value: "room-1" } });
     expect(view.getByLabelText("Camera zoom").textContent).toBe(cameraZoom("TOWN_HOUSE", getHomeRoomCamera("TOWN_HOUSE", "room-1").scale));
+  });
+
+  it("names placed action furniture and decorations for visitors without exposing actions", () => {
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" isVisiting furniture={[starterFurniture[0]!, rugDefinition]} layout={[
+      { id: "owned-bed", room: "room-1", x: 50, y: 50, rotation: 0 },
+      { id: rugDefinition.id, x: 50, y: 50, rotation: 0 },
+    ]} />);
+    const scene = within(view.getByRole("group", { name: "Home scene" }));
+    for (const name of ["Bed", "Woven Rug"]) {
+      const image = scene.getByRole("img", { name });
+      expect(image.querySelector("img")?.getAttribute("alt")).toBe("");
+      expect(image.hasAttribute("tabindex")).toBe(false);
+      fireEvent.click(image);
+    }
+    expect(scene.queryByRole("button")).toBeNull();
+    expect(props.onSleep).not.toHaveBeenCalled();
+    expect(props.onStorage).not.toHaveBeenCalled();
+    expect(props.onKitchen).not.toHaveBeenCalled();
+    expect(props.onFarm).not.toHaveBeenCalled();
   });
 
   it("accounts for camera scale when dragging furniture and resets to the full property", async () => {

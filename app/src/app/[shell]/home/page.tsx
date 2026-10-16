@@ -131,9 +131,9 @@ export default function HomePage() {
           .sort()
           .join(",") ?? "")
       : "";
-  // Loading a home can grant furniture after the parallel inventory read. Keying on missing
-  // ownership IDs refreshes that cache once, while an incomplete response remains retryable.
-  // Default refetch cancellation also replaces any in-flight read of the pre-grant cache.
+  // Home and inventory queries can return different ownership snapshots. Refresh once for each
+  // missing-ID set while keeping an incomplete response retryable; refetch cancellation also
+  // replaces any in-flight stale inventory read.
   useEffect(() => {
     if (missingFurnitureIds) void userItemsRefetch();
   }, [missingFurnitureIds, userItemsRefetch]);
@@ -518,12 +518,7 @@ export default function HomePage() {
                                               (room) => !room.isYard,
                                             ).length
                                           }{" "}
-                                          room(s)
-                                          {getHomeRooms(upgrade.type).some(
-                                            (room) => room.isYard,
-                                          )
-                                            ? " + yard"
-                                            : ""}
+                                          room(s) + yard
                                         </span>
                                         {upgrade.regen > 0 && (
                                           <span>+{upgrade.regen} Regen</span>
