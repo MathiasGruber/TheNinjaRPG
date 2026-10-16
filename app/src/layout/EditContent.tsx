@@ -2942,7 +2942,8 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
       const diff = calculateContentDiff(rewards, newRewards);
       if (diff.length > 0) {
         setRewards(newRewards);
-        form.reset(watchAll);
+        // Keep invalid drafts without repeatedly resetting NaN values that diff as changed.
+        if (parsed.success) form.reset(watchAll);
       }
     }
   }, [watchAll]);

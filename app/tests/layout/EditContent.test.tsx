@@ -2,11 +2,13 @@ import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
 const { act, cleanup, fireEvent, render, waitFor, within } = await import("@testing-library/react");
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import type { Item } from "@/drizzle/schema";
 import { RewardEditor } from "@/layout/RewardEditor";
 import { ObjectiveReward } from "@/validators/rewards";
+import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import * as UserContext from "@/utils/UserContext";
 import {
   DamageTag,
@@ -179,7 +181,69 @@ const SavedRewardForm = ({ allowPackages = true, optionalExperience }: { allowPa
   );
 };
 
+/** Keep nested snapshot edits in the same parent form and validation lifecycle as quests. */
+const SnapshotRewardForm = ({ packageId, onUpdate, onSave, onInvalid }: {
+  packageId?: string;
+  onUpdate: () => void;
+  onSave: (data: QuestRewardType) => void;
+  onInvalid: () => void;
+}) => {
+  const form = useForm<any>({
+    defaultValues: QuestReward.parse({
+      reward_packages: [{
+        id: "snapshot", packageId, name: "Saved rewards",
+        rewards: { reward_money: 100, reward_ninjutsu_experience: 100 },
+      }],
+    }),
+    resolver: zodResolver(QuestReward),
+  });
+  const values = useWatch({ control: form.control });
+  return <>
+    <RewardEditor form={{ ...form, setValue: (...args) => {
+      onUpdate();
+      form.setValue(...args);
+    } }} formData={[]} />
+    <output data-testid="snapshot-money">{String(values.reward_packages?.[0]?.rewards?.reward_money)}</output>
+    <output data-testid="snapshot-experience">{String(values.reward_packages?.[0]?.rewards?.reward_ninjutsu_experience)}</output>
+    <button type="button" onClick={() => void form.handleSubmit(onSave, onInvalid)()}>Save rewards</button>
+  </>;
+};
+
 describe("reward node editing", () => {
+  it.each([undefined, "catalog-package"])(
+    "retains invalid and optional drafts in a nested snapshot (package: %s)",
+    async (packageId) => {
+      const onSave = vi.fn();
+      const onInvalid = vi.fn();
+      const onUpdate = vi.fn(() => {
+        // Bound a regression before React's repeated reset/update cycle can hang the suite.
+        if (onUpdate.mock.calls.length > 20) throw new Error("Repeated snapshot updates");
+      });
+      const view = render(<SnapshotRewardForm packageId={packageId} onUpdate={onUpdate} onSave={onSave} onInvalid={onInvalid} />);
+      const input = view.container.querySelector<HTMLInputElement>('input[name="reward_money"]')!;
+      input.focus();
+      fireEvent.input(input, { target: { value: "" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-money").textContent).toBe("NaN"));
+      expect(input.value).toBe("");
+      expect(document.activeElement).toBe(input);
+      expect(view.container.querySelector('input[name="reward_money"]')).toBe(input);
+      expect(onUpdate.mock.calls.length).toBeLessThan(10);
+      fireEvent.click(view.getByRole("button", { name: "Save rewards" }));
+      await waitFor(() => expect(onInvalid).toHaveBeenCalledTimes(1));
+      expect(onSave).not.toHaveBeenCalled();
+      const experience = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
+      fireEvent.input(experience, { target: { value: "" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-experience").textContent).toBe("undefined"));
+      expect(experience.value).toBe("");
+      fireEvent.input(input, { target: { value: "300" } });
+      await waitFor(() => expect(view.getByTestId("snapshot-money").textContent).toBe("300"));
+      fireEvent.click(view.getByRole("button", { name: "Save rewards" }));
+      await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+      expect(onSave.mock.calls[0]?.[0].reward_packages[0].rewards).toMatchObject({
+        reward_money: 300, reward_ninjutsu_experience: undefined,
+      });
+    },
+  );
   it("preserves an optional saved number when cleared and replaced", () => {
     const view = render(<SavedRewardForm optionalExperience={100} />);
     const input = view.container.querySelector<HTMLInputElement>('input[name="reward_ninjutsu_experience"]')!;
