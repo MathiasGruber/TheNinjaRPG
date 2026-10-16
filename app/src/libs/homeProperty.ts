@@ -23,34 +23,32 @@ export type HomeRoom = {
 export type HomeCamera = { x: number; y: number; scale: number };
 
 /** Fit the connected building and its yard into one overview without changing saved placement coordinates. */
-export const getHomeOverviewCamera = (homeType: HomeType): HomeCamera => ({
-  x: 0,
-  y: 0,
-  scale: Math.min(
-    1,
-    100 /
-      Math.max(
-        ...getHomeRooms(homeType).flatMap(({ x, y, width }) => [x + width, y + 100]),
-      ),
-  ),
-});
+export const getHomeOverviewCamera = (homeType: HomeType): HomeCamera => {
+  const rooms = getHomeRooms(homeType);
+  const width = Math.max(...rooms.map(({ x, width }) => x + width));
+  const height = Math.max(...rooms.map(({ y }) => y + 100));
+  const scale = Math.min(1, 100 / Math.max(width, height));
+  return { x: (100 - width * scale) / 2, y: (100 - height * scale) / 2, scale };
+};
 
 /** Keep a room visible while preserving property fits, passages and shared zoom limits. */
 export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
   const rooms = getHomeRooms(homeType);
   const extent = Math.max(...rooms.flatMap(({ x, y, width }) => [x + width, y + 100]));
   const scale = clamp(camera.scale, Math.min(0.3, 100 / extent), 1.8);
+  const width = Math.max(...rooms.map((room) => room.x + room.width)) * scale;
+  const height = Math.max(...rooms.map((room) => room.y + 100)) * scale;
   const bounded = {
     scale,
     x: clamp(
       camera.x,
-      Math.min(0, 100 - Math.max(...rooms.map((room) => room.x + room.width)) * scale),
-      0,
+      Math.min((100 - width) / 2, 100 - width),
+      Math.max(0, (100 - width) / 2),
     ),
     y: clamp(
       camera.y,
-      Math.min(0, 100 - Math.max(...rooms.map((room) => room.y + 100)) * scale),
-      0,
+      Math.min((100 - height) / 2, 100 - height),
+      Math.max(0, (100 - height) / 2),
     ),
   };
   // Keep a useful part of a room visible, including while crossing shared walls.
@@ -106,7 +104,7 @@ export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
       id: "yard",
       name: "Yard",
       x: 0,
-      y: Math.ceil(count / 3) * HOME_BUILDING_GEOMETRY.stepY + 12,
+      y: Math.ceil(count / 3) * HOME_BUILDING_GEOMETRY.stepY + 20,
       width: Math.max(...rooms.map(({ x }) => x + 100)),
       isYard: true,
     });
@@ -141,45 +139,45 @@ export const getHomeWalls = (homeType: HomeType): HomeWall[] => {
         y: room.y + y,
         width,
         height,
-        depth: room.y + y + height,
+        depth: room.y + (kind === "lantern" ? 20.1 : y + height),
         isMirrored,
       });
     };
-    const post = (x: number, y: number) => {
+    const post = (x: number, y: number, height = 17) => {
       const id = `${room.x + x}-${room.y + y}`;
       posts.set(id, {
         id,
         room: room.id,
         kind: "post",
         x: room.x + x - 2.5,
-        y: room.y + y - 11,
+        y: room.y + y - height,
         width: 5,
-        height: 11,
+        height,
         depth: room.y + y + 0.2,
         isMirrored: false,
       });
     };
     if (!hasAbove) {
-      add("solid", 10, 9, 27, 11);
-      add("window", 37, 9, 30, 11);
-      add("solid", 67, 9, 27, 11);
+      add("solid", 10, 3, 34, 17);
+      add("window", 44, 3, 16, 17);
+      add("solid", 60, 3, 34, 17);
     }
-    add("lantern", 17, 12, 4, 9);
-    add("lantern", 79, 12, 4, 9);
-    if (!hasLeft) add("vertical", 8, 9, 4, 78);
+    add("lantern", 17, 7, 4, 10);
+    add("lantern", 79, 7, 4, 10);
+    if (!hasLeft) add("vertical", 8, 3, 4, 84);
     if (right) {
-      add("vertical", 90, 9, 4, 30, right.id);
+      add("vertical", 90, 3, 4, 36, right.id);
       add("vertical", 90, 58, 4, 29, right.id);
-      post(92, 39);
-      post(92, 69);
-    } else add("vertical", 90, 9, 4, 78, room.id, true);
+      post(92, 39, 11);
+      post(92, 69, 11);
+    } else add("vertical", 90, 3, 4, 84, room.id, true);
     const isEntrance = room.x === 0 && !below;
     if (below || isEntrance) {
-      add("solid", 10, 75, 33, 12, below?.id);
-      add("solid", 57, 75, 37, 12, below?.id);
+      add("solid", 10, 70, 33, 17, below?.id);
+      add("solid", 57, 70, 37, 17, below?.id);
       post(42, 87);
       post(58, 87);
-    } else add("solid", 10, 75, 84, 12);
+    } else add("solid", 10, 70, 84, 17);
     post(10, 20);
     post(92, 20);
     post(10, 87);

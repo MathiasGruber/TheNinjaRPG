@@ -78,7 +78,7 @@ describe("home properties", () => {
     const pinch = zoomHomeCamera(camera, 1.2, focal, moved);
     expect((moved.x - pinch.x) / pinch.scale).toBeCloseTo((focal.x - camera.x) / camera.scale);
     expect((moved.y - pinch.y) / pinch.scale).toBeCloseTo((focal.y - camera.y) / camera.scale);
-    expect(boundHomeCamera({ x: 9999, y: -9999, scale: 0.5 }, "TOWN_HOUSE")).toEqual({ x: 0, y: -23, scale: 0.5 });
+    expect(boundHomeCamera({ x: 9999, y: -9999, scale: 0.5 }, "TOWN_HOUSE")).toEqual({ x: 0, y: -27, scale: 0.5 });
   });
 
   it("keeps a substantial part of a room visible at every property boundary and zoom", () => {
@@ -113,10 +113,24 @@ describe("home properties", () => {
     const camera = getHomeOverviewCamera("TWO_BED_HOUSE");
     const rooms = getHomeRooms("TWO_BED_HOUSE");
     expect(rooms.some((room) =>
-      room.x <= 50 / camera.scale && room.x + room.width >= 50 / camera.scale &&
-      room.y <= 50 / camera.scale && room.y + 100 >= 50 / camera.scale,
+      room.x <= (50 - camera.x) / camera.scale && room.x + room.width >= (50 - camera.x) / camera.scale &&
+      room.y <= (50 - camera.y) / camera.scale && room.y + 100 >= (50 - camera.y) / camera.scale,
     )).toBe(false);
     expect(boundHomeCamera(camera, "TWO_BED_HOUSE")).toEqual(camera);
+  });
+
+  it("centers the complete property and preserves the fit when navigation resumes", () => {
+    for (const homeType of HomeTypes) {
+      const camera = getHomeOverviewCamera(homeType);
+      const rooms = getHomeRooms(homeType);
+      const width = Math.max(...rooms.map(({ x, width }) => x + width)) * camera.scale;
+      const height = Math.max(...rooms.map(({ y }) => y + 100)) * camera.scale;
+      expect(camera.x).toBeCloseTo(100 - camera.x - width);
+      expect(camera.y).toBeCloseTo(100 - camera.y - height);
+      expect(camera.x).toBeGreaterThanOrEqual(0);
+      expect(camera.y).toBeGreaterThanOrEqual(0);
+      expect(boundHomeCamera(camera, homeType)).toEqual(camera);
+    }
   });
 
   it("pans continuously across horizontal and vertical room passages", () => {
