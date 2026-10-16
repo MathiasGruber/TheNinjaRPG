@@ -2,7 +2,7 @@
 
 import { PawPrint, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/app/_trpc/client";
+import { api, type RouterInputs } from "@/app/_trpc/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,20 +30,28 @@ export function PetAcquisition() {
   const [name, setName] = useState("");
   const [selection, setSelection] = useState<PetSelection>(emptySelection);
   const [message, setMessage] = useState<string | null>(null);
-  const [wasAcquired, setWasAcquired] = useState(false);
+  const [acquiredPetId, setAcquiredPetId] = useState<string | null>(null);
   const [isAcquiring, setIsAcquiring] = useState(false);
+  const [needsCollectionCheck, setNeedsCollectionCheck] = useState(false);
   const inFlight = useRef(false);
+  const adoptionAttempt = useRef<{
+    previousIds: Set<string>;
+    input: RouterInputs["pets"]["acquirePet"];
+  } | null>(null);
   const selectedDay = useRef<string | null>(null);
   const selectedCatalogue = useRef<string | null>(null);
-  const { data, isPending, error, refetch } = api.pets.getPet.useQuery(undefined, {
-    enabled: !!userData,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchInterval: (query) =>
-      isAcquiring || query.state.data?.pet?.generationStatus === "GENERATING"
-        ? 3000
-        : false,
-  });
+  const { data, isPending, isFetching, error, refetch } = api.pets.getPet.useQuery(
+    acquiredPetId ? { petId: acquiredPetId } : undefined,
+    {
+      enabled: !!userData,
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchInterval: (query) =>
+        isAcquiring || query.state.data?.pet?.generationStatus === "GENERATING"
+          ? 3000
+          : false,
+    },
+  );
   const dayKey = data?.dayKey;
   const catalogueKey = data
     ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
@@ -69,6 +77,7 @@ export function PetAcquisition() {
     showMutationToast(result);
     await Promise.all([
       utils.pets.getPet.invalidate(),
+      utils.pets.getCollection.invalidate(),
       utils.profile.getUser.invalidate(),
     ]);
   };
@@ -77,6 +86,7 @@ export function PetAcquisition() {
     // A failed response can follow a committed claim; reload before offering another adoption.
     await Promise.all([
       utils.pets.getPet.invalidate(),
+      utils.pets.getCollection.invalidate(),
       utils.profile.getUser.invalidate(),
     ]);
   };
@@ -92,7 +102,7 @@ export function PetAcquisition() {
     onSuccess: async (result) => {
       await finishMutation(result);
       if (result.success) {
-        setWasAcquired(false);
+        setAcquiredPetId(null);
         setName("");
         setSelection(emptySelection);
       }
@@ -100,7 +110,42 @@ export function PetAcquisition() {
     onError: failMutation,
   });
   const isBusy =
-    isAcquiring || acquire.isPending || generate.isPending || release.isPending;
+    needsCollectionCheck ||
+    isAcquiring ||
+    acquire.isPending ||
+    generate.isPending ||
+    release.isPending;
+
+  const checkAdoption = async () => {
+    const attempt = adoptionAttempt.current;
+    if (!attempt) return;
+    setNeedsCollectionCheck(true);
+    const refreshed = await refetch({ throwOnError: false });
+    if (refreshed.error || !refreshed.data) {
+      setNeedsCollectionCheck(true);
+      setMessage(
+        "Your adoption could not be confirmed. Refresh your collection before trying again so you are not charged twice.",
+      );
+      return;
+    }
+    const claimed = refreshed.data.pets.find(
+      (entry) =>
+        !attempt.previousIds.has(entry.id) &&
+        entry.name === attempt.input.name &&
+        entry.speciesIndex === attempt.input.speciesIndex &&
+        entry.paletteIndex === attempt.input.paletteIndex &&
+        entry.characteristicIndex === attempt.input.characteristicIndex &&
+        entry.auraIndex === attempt.input.auraIndex,
+    );
+    if (claimed) setAcquiredPetId(claimed.id);
+    setNeedsCollectionCheck(false);
+    adoptionAttempt.current = null;
+    setMessage(
+      claimed
+        ? "Your companion is saved. Retry its appearance for free, or open its profile."
+        : "Your collection was checked and no new matching companion was found. You can try adopting again.",
+    );
+  };
 
   const meetPet = async () => {
     if (inFlight.current || !data) return;
@@ -122,26 +167,33 @@ export function PetAcquisition() {
     inFlight.current = true;
     setIsAcquiring(true);
     setMessage(null);
+    adoptionAttempt.current = {
+      previousIds: new Set(data.pets.map((entry) => entry.id)),
+      input: parsed.data,
+    };
     try {
       const result = await acquire.mutateAsync(parsed.data);
-      if (result.success) {
-        setWasAcquired(true);
-        await generate.mutateAsync();
-      }
+      if (result.success && result.petId) {
+        adoptionAttempt.current = null;
+        setAcquiredPetId(result.petId);
+        await generate.mutateAsync({ petId: result.petId });
+      } else if (result.success) await checkAdoption();
+      else adoptionAttempt.current = null;
     } catch {
       // A claimed companion survives image failures and can be retried without a second charge.
+      if (adoptionAttempt.current) await checkAdoption();
     } finally {
       inFlight.current = false;
       setIsAcquiring(false);
     }
   };
   const retryAppearance = async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || !data?.pet) return;
     inFlight.current = true;
     setIsAcquiring(true);
     setMessage(null);
     try {
-      await generate.mutateAsync();
+      await generate.mutateAsync({ petId: data.pet.id });
     } catch {
       // The inline error keeps the companion and retry action visible.
     } finally {
@@ -158,7 +210,10 @@ export function PetAcquisition() {
         <p role="alert" className="mb-3 text-red-600">
           {error?.message ?? "Today's companions could not be loaded."}
         </p>
-        <Button variant="outline" onClick={() => void refetch()}>
+        <Button
+          variant="outline"
+          onClick={() => void (needsCollectionCheck ? checkAdoption() : refetch())}
+        >
           Try again
         </Button>
       </ContentBox>
@@ -174,8 +229,7 @@ export function PetAcquisition() {
     data.options.auras.find((option) => option.index === selection.auraIndex),
   ];
   const hasSelection = selectedTraits.every(Boolean) && name.trim().length > 0;
-  const canMeetPet =
-    data.canAcquire && data.remainingGenerations > 0 && hasSelection && !isBusy;
+  const canMeetPet = data.canAcquire && hasSelection && !isBusy;
   const isReplacement = data.replacementCost > 0;
   const appearanceReady = pet ? isPetAppearanceReady(pet) : false;
   const retryAt = data.generationRetryAt;
@@ -200,6 +254,24 @@ export function PetAcquisition() {
           {message}
         </p>
       )}
+      {needsCollectionCheck && (
+        <Button
+          variant="outline"
+          className="mb-4"
+          disabled={isFetching}
+          onClick={() => void checkAdoption()}
+        >
+          {isFetching ? "Checking collection..." : "Refresh collection"}
+        </Button>
+      )}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Badge variant="outline">
+          {data.pets.length} / {data.slots} companion slots occupied
+        </Badge>
+        <Button variant="outline" asChild>
+          <Link href="/profile/pet">Manage my collection</Link>
+        </Button>
+      </div>
       {pet && (
         <div className="mb-5 flex flex-col gap-4 rounded border bg-muted/30 p-4 sm:flex-row sm:items-center">
           <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded border bg-background">
@@ -229,9 +301,17 @@ export function PetAcquisition() {
                   ? "Your companion's image is being created. You can safely return to your pet profile while it finishes."
                   : "Your companion has been claimed. Finish its appearance for free before it can join battle."}
             </p>
+            {!appearanceReady && (
+              <p className="text-muted-foreground text-sm">
+                {data.remainingGenerations} / {data.generationLimit} image attempts
+                remain today. Attempts reset at midnight UTC.
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" asChild>
-                <Link href="/profile/pet">View my pet</Link>
+                <Link href={`/profile/pet?petId=${encodeURIComponent(pet.id)}`}>
+                  View companion
+                </Link>
               </Button>
               {canRetry && (
                 <Button
@@ -255,13 +335,13 @@ export function PetAcquisition() {
                     {release.isPending ? "Releasing..." : "Release companion"}
                   </Button>
                 }
-                onAccept={() => release.mutate()}
+                onAccept={() => release.mutate({ petId: pet.id })}
               >
                 <p>
                   {pet.name} will return to the wild groves of the {PET_SANCTUARY_NAME}.
-                  Its stats, rank and artwork are removed, and all unused pet experience
-                  is reset. A new companion will cost {PET_REPLACEMENT_COST} reputation
-                  points.
+                  Its stats, rank, artwork and unused experience are removed. Your other
+                  companions are kept. A new companion will cost {PET_REPLACEMENT_COST}{" "}
+                  reputation points.
                 </p>
               </Confirm>
             </div>
@@ -285,7 +365,7 @@ export function PetAcquisition() {
           />
         </div>
       )}
-      {wasAcquired ? (
+      {acquiredPetId ? (
         <div className="space-y-3">
           <p>
             {appearanceReady
@@ -293,15 +373,24 @@ export function PetAcquisition() {
               : "Your bond is saved. You can finish your companion's appearance from its profile."}
           </p>
           <Button asChild>
-            <Link href="/profile/pet">Open pet profile</Link>
+            <Link href={`/profile/pet?petId=${encodeURIComponent(acquiredPetId)}`}>
+              Open pet profile
+            </Link>
           </Button>
+          {data.canAcquire && (
+            <Button
+              variant="outline"
+              disabled={isBusy}
+              onClick={() => {
+                setAcquiredPetId(null);
+                setName("");
+                setSelection(emptySelection);
+              }}
+            >
+              Meet another companion
+            </Button>
+          )}
         </div>
-      ) : pet ? (
-        <p className="text-sm">
-          Release your current companion before choosing a new one. Releasing resets all
-          pet progress and unused pet experience; your next companion costs{" "}
-          {PET_REPLACEMENT_COST} reputation points.
-        </p>
       ) : (
         <>
           <div className="mb-6 space-y-3 rounded border bg-muted/30 p-4">
@@ -320,17 +409,19 @@ export function PetAcquisition() {
               Today's choices stay the same when you return and refresh at midnight UTC.
               Regular accounts receive {PET_OPTION_COUNTS.NONE} choices per trait;
               Normal, Silver and Gold federal support gives {PET_OPTION_COUNTS.NORMAL},{" "}
-              {PET_OPTION_COUNTS.SILVER} and {PET_OPTION_COUNTS.GOLD}.
+              {PET_OPTION_COUNTS.SILVER} and {PET_OPTION_COUNTS.GOLD}. Federal support
+              also improves the rarity of daily species choices.
             </p>
             <p className="text-sm">
               {isReplacement
                 ? `Forming your next bond costs ${data.replacementCost} reputation points. Your new companion starts at the first rank.`
                 : "Your first companion is free."}
+              {data.activePetId &&
+                " Your active companion stays with you; the new pet joins your collection."}
             </p>
             <p className="text-muted-foreground text-sm">
-              {data.remainingGenerations} / {data.generationLimit} image attempts remain
-              today. Retrying a failed image uses an attempt and does not charge
-              reputation.
+              Each companion has {data.generationLimit} image attempts per UTC day.
+              Retrying a failed image uses an attempt and does not charge reputation.
             </p>
           </div>
           <form
@@ -454,12 +545,6 @@ export function PetAcquisition() {
               {data.unavailableReason}
             </p>
           )}
-          {data.remainingGenerations <= 0 && (
-            <p className="mt-3 text-sm" role="status">
-              You have used today's image attempts. Return after midnight UTC to create
-              an appearance.
-            </p>
-          )}
         </>
       )}
     </ContentBox>
@@ -500,6 +585,11 @@ function PetTraitChoices({
             />
             <span>
               <span className="block font-medium">{option.name}</span>
+              {option.rarity && (
+                <Badge variant="outline" className="mt-1">
+                  {option.rarity}
+                </Badge>
+              )}
               <span className="mt-1 block text-muted-foreground text-sm">
                 {option.description}
               </span>

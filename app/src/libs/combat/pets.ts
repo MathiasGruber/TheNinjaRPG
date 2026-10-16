@@ -9,8 +9,16 @@ import type { UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
 import { GenNames } from "@/libs/combat/constants";
 import { summonsAllowedInBattle } from "@/libs/combat/summon";
-import type { BattleUserState, ExtraState } from "@/libs/combat/types";
+import { realizeTag } from "@/libs/combat/tags";
+import type {
+  BattleUserState,
+  CombatQueryUserJutsu,
+  CombatQueryUserSkill,
+  ExtraState,
+  UserEffect,
+} from "@/libs/combat/types";
 import { rollInitiative } from "@/libs/combat/util";
+import { selectPetBattleAbilities } from "@/libs/pets/abilities";
 import {
   canUsePet,
   getPetLevel,
@@ -36,14 +44,27 @@ export const addPetsToBattle = (info: {
   width: number;
   height: number;
   ownerRanks?: Record<string, UserRank>;
+  usersEffects?: UserEffect[];
+  abilitiesByOwner?: Record<
+    string,
+    {
+      jutsus: CombatQueryUserJutsu[];
+      skills: CombatQueryUserSkill[];
+    }
+  >;
 }) => {
   const { pets, usersState, extraState, battleType, width, height, ownerRanks } = info;
   extraState.petIdsByOwner = {};
   if (!petsAllowedInBattle(battleType)) return;
   for (const pet of pets) {
+    if (extraState.petIdsByOwner[pet.userId]) continue;
     const owner = usersState.find((u) => u.userId === pet.userId && !u.isAi);
     // Some modes normalize combat rank; eligibility uses the real preloaded rank.
-    if (!owner || !canUsePet(pet, { rank: ownerRanks?.[owner.userId] ?? owner.rank }))
+    if (
+      !owner ||
+      owner.activePetId !== pet.id ||
+      !canUsePet(pet, { rank: ownerRanks?.[owner.userId] ?? owner.rank })
+    )
       continue;
     const location = getPetSpawnLocation(
       owner,
@@ -55,6 +76,48 @@ export const addPetsToBattle = (info: {
     // A crowded team must not overlap combatants or prevent the owner's fight.
     if (!location) continue;
     const actor = createPetBattleUser(pet, owner, location);
+    const content = info.abilitiesByOwner?.[owner.userId];
+    if (content) {
+      const selected = selectPetBattleAbilities({
+        pet,
+        owner: { rank: ownerRanks?.[owner.userId] ?? owner.rank },
+        jutsus: content.jutsus.filter((entry) => entry.userId === owner.userId),
+        skills: content.skills.filter((entry) => entry.userId === owner.userId),
+      });
+      actor.jutsus = selected.jutsus.map(({ jutsu }) => {
+        extraState.jutsus[jutsu.id] ??= structuredClone(jutsu);
+        return {
+          id: `pet:${pet.id}:jutsu:${jutsu.id}`,
+          jutsuId: jutsu.id,
+          level: 1,
+          experience: 0,
+          equipped: true,
+          reskinId: null,
+          lastUsedRound: -jutsu.cooldown,
+          originalCooldown: jutsu.cooldown,
+          origin: "user",
+        };
+      });
+      if (info.usersEffects) {
+        actor.activeSkillIds = selected.skills.map((entry) => entry.skillId);
+        for (const { skill } of selected.skills) {
+          for (const effect of skill.effects) {
+            const realized = realizeTag({
+              tag: structuredClone(effect) as UserEffect,
+              user: actor,
+              target: actor,
+              actionId: skill.id,
+              level: actor.level,
+            });
+            realized.isNew = false;
+            realized.castThisRound = false;
+            realized.targetId = actor.userId;
+            realized.fromType = "skill";
+            info.usersEffects.push(realized);
+          }
+        }
+      }
+    }
     actor.initiative = rollInitiative(actor, usersState);
     const aiProfileId = `pet:${pet.id}`;
     extraState.aiProfiles[aiProfileId] = {

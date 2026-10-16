@@ -6,12 +6,17 @@ import { performAIaction } from "@/libs/combat/ai_v2";
 import { addPetsToBattle, getPetSpawnLocation } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
 import { hasLiveSummon, spliceOrphanedSummons } from "@/libs/combat/summon";
-import { getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
+import { applyPoolAdjustmentsToBase, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
 import { TerrainHex } from "@/libs/hexgrid";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
+import { AiRule } from "@/validators/ai";
+import { IncreaseMaxPoolsTag, ShieldTag, SummonTag } from "@/validators/combat";
+import { updatePetAiSchema } from "@/validators/pets";
+import { ownedPetJutsu, ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
 
 const petFixture = (patch: Partial<UserPet> = {}): UserPet => ({
   id: "pet-1", userId: "owner", name: "Nami", rank: 1, experience: 1000,
+  storedExperience: 0, feedDay: null, abilitySlots: 1, jutsuIds: [], skillIds: [],
   speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
   offence: 50, defence: 40, strength: 30, intelligence: 20, willpower: 10, speed: 25,
   avatar: "https://example.com/pet.png", avatarFacing: "left",
@@ -25,7 +30,7 @@ const scenario = () => makeCompleteBattle({
   createdAt: new Date(), updatedAt: new Date(), roundStartAt: new Date(),
   usersState: [
     makeBattleUser("owner", {
-      isAi: false, direction: "left", rank: "GENIN", longitude: 3, latitude: 3,
+      isAi: false, activePetId: "pet-1", direction: "left", rank: "GENIN", longitude: 3, latitude: 3,
       bloodlineId: "bloodline", sageModeId: "sage", sageModeActivated: true,
       medicalExperience: 100000, isAutoCombat: true, elementalMastery: { Fire: 100 },
       activeSkillIds: ["skill"], items: [makeBattleUserItem()],
@@ -91,6 +96,130 @@ describe("owned pets in combat", () => {
     expect(resolvedOwner.enmity).toBe(300);
     expect(resolvedOwner.damageDealt).toBe(healthLost);
     expect(resolvedPet.damageDealt).toBe(0);
+  });
+
+  it("preloads learned abilities at level one and applies only the pet's selected self passives", () => {
+    const battle = scenario();
+    battle.usersState[0]!.rank = "CHUNIN";
+    const learned = ownedPetJutsu();
+    const skill = ownedPetSkill();
+    addPetsToBattle({ ...battle,
+      pets: [petFixture({ rank: 4, artRank: 4, experience: 100000, abilitySlots: 2,
+        jutsuIds: [learned.jutsuId], skillIds: [skill.skillId] })],
+      abilitiesByOwner: { owner: { jutsus: [learned], skills: [skill] } },
+    });
+    const actor = battle.usersState.find((u) => u.petId)!;
+    expect(actor.jutsus).toMatchObject([{ jutsuId: learned.jutsuId, level: 1,
+      originalCooldown: 1, lastUsedRound: -1, reskinId: null }]);
+    expect(actor.jutsus[0]!.id).not.toBe(learned.id);
+    expect(learned.level).toBe(25);
+    expect(battle.extraState.jutsus[learned.jutsuId]).toEqual(learned.jutsu);
+    expect(actor.activeSkillIds).toEqual([skill.skillId]);
+    expect(battle.usersEffects.filter((effect) => effect.fromType === "skill"))
+      .toMatchObject([{ creatorId: actor.userId, targetId: actor.userId, actionId: skill.skillId }]);
+    const ownerStrength = battle.usersState[0]!.strength;
+    const resolved = applyEffects(battle, actor.userId).newBattle;
+    expect(actor.strength).toBeGreaterThan(30);
+    expect(resolved.usersState.find((u) => u.petId)!.strength).toBe(30);
+    expect(resolved.usersState.find((u) => u.userId === "owner")!.strength).toBe(ownerStrength);
+  });
+
+  it("executes a selected pet jutsu autonomously from the frozen catalog", () => {
+    const battle = scenario();
+    battle.usersState[1]!.longitude = 4;
+    addPetsToBattle({ ...battle,
+      pets: [petFixture({ jutsuIds: ["pet-strike"], includeDefaultRules: false,
+        aiRules: [AiRule.parse({ conditions: [], action: {
+          type: "use_specific_jutsu", jutsuId: "pet-strike", target: "CLOSEST_OPPONENT",
+        } })] })],
+      abilitiesByOwner: { owner: { jutsus: [ownedPetJutsu()], skills: [] } },
+    });
+    const actor = battle.usersState.find((u) => u.petId)!;
+    const grid = new Grid(TerrainHex, rectangle({ width: 13, height: 9 }))
+      .map((tile) => { tile.cost = 1; return tile; });
+    const before = battle.usersState[1]!.curHealth;
+    const result = performAIaction(battle, grid, actor.userId);
+    expect(result.nextActionId).toBe("pet-strike");
+    expect(result.nextBattle.usersState.find((u) => u.userId === "enemy")!.curHealth).toBeLessThan(before);
+    expect(result.nextBattle.usersState.find((u) => u.petId)!.jutsus[0]!.lastUsedRound).toBe(battle.round);
+  });
+
+  it("casts its selected self shield through a saved highest-power AI rule", () => {
+    const battle = scenario();
+    const savedAi = updatePetAiSchema.parse({
+      petId: "pet-1", includeDefaultRules: false,
+      rules: [AiRule.parse({ conditions: [], action: {
+        type: "use_highest_power_action", effect: "shield", target: "SELF",
+      } })],
+    });
+    const jutsu = petJutsuFixture({ id: "pet-guard", target: "SELF", range: 0,
+      effects: [ShieldTag.parse({ calculation: "static", power: 100, health: 100 })],
+    });
+    addPetsToBattle({ ...battle,
+      pets: [petFixture({ jutsuIds: [jutsu.id], aiRules: savedAi.rules,
+        includeDefaultRules: savedAi.includeDefaultRules })],
+      abilitiesByOwner: { owner: { jutsus: [ownedPetJutsu(jutsu)], skills: [] } },
+    });
+    const actor = battle.usersState.find((user) => user.petId)!;
+    const grid = new Grid(TerrainHex, rectangle({ width: 13, height: 9 }))
+      .map((tile) => { tile.cost = 1; return tile; });
+    const result = performAIaction(battle, grid, actor.userId);
+    expect(result.nextActionId).toBe(jutsu.id);
+    expect(result.nextBattle.usersEffects.filter((effect) => effect.type === "shield"))
+      .toMatchObject([{ creatorId: actor.userId, targetId: actor.userId, health: 100 }]);
+    expect(result.nextBattle.usersState.find((user) => user.petId)!.jutsus[0]!.lastUsedRound)
+      .toBe(battle.round);
+  });
+
+  it("keeps the basic pet when selected abilities were removed, changed or belong to another owner", () => {
+    const battle = scenario();
+    const forbidden = ownedPetJutsu(petJutsuFixture({ effects: [SummonTag.parse({ aiId: "unloaded" })] }));
+    addPetsToBattle({ ...battle,
+      pets: [petFixture({ jutsuIds: [forbidden.jutsuId], skillIds: ["pet-muscle"] })],
+      abilitiesByOwner: { owner: { jutsus: [forbidden],
+        skills: [ownedPetSkill(petSkillFixture(), "someone-else")] } },
+    });
+    const actor = battle.usersState.find((u) => u.petId)!;
+    expect(actor.jutsus).toEqual([]);
+    expect(actor.activeSkillIds).toEqual([]);
+    expect(actor.basicActions.length).toBeGreaterThan(0);
+    expect(battle.extraState.petIdsByOwner).toEqual({ owner: "pet-1" });
+    expect(battle.usersState.filter((u) => u.isSummon)).toHaveLength(1);
+  });
+
+  it("does not spawn more than one companion for an owner", () => {
+    const battle = scenario();
+    add(battle, [petFixture(), petFixture({ id: "inactive-pet" })]);
+    expect(battle.usersState.filter((actor) => actor.petId)).toHaveLength(1);
+    expect(battle.extraState.petIdsByOwner).toEqual({ owner: "pet-1" });
+  });
+
+  it("ignores a stale active-pet preload and spawns the owner's selected companion", () => {
+    const battle = scenario();
+    battle.usersState[0]!.activePetId = "selected-pet";
+    add(battle, [petFixture(), petFixture({ id: "selected-pet" })]);
+    expect(battle.usersState.filter((actor) => actor.petId).map((actor) => actor.petId))
+      .toEqual(["selected-pet"]);
+    expect(battle.extraState.petIdsByOwner).toEqual({ owner: "selected-pet" });
+  });
+
+  it("initializes selected pool passives without compounding or changing the owner's pools", () => {
+    const battle = scenario();
+    const skill = ownedPetSkill(petSkillFixture({ effects: [IncreaseMaxPoolsTag.parse({
+      poolsAffected: ["Health"], calculation: "percentage", power: 20,
+    })] }));
+    addPetsToBattle({ ...battle, pets: [petFixture({ skillIds: [skill.skillId] })],
+      abilitiesByOwner: { owner: { jutsus: [], skills: [skill] } },
+    });
+    const actor = battle.usersState.find((user) => user.petId)!;
+    const originalHealth = actor.curHealth;
+    const ownerHealth = battle.usersState[0]!.curHealth;
+    applyPoolAdjustmentsToBase(actor, battle.usersEffects);
+    expect(actor.curHealth).toBeGreaterThan(originalHealth);
+    const adjustedHealth = actor.curHealth;
+    applyPoolAdjustmentsToBase(actor, battle.usersEffects);
+    expect(actor.curHealth).toBe(adjustedHealth);
+    expect(battle.usersState[0]!.curHealth).toBe(ownerHealth);
   });
 
   it.each(["BEHIND", "FRONT", "LEFT", "RIGHT"] as const)(
@@ -169,8 +298,8 @@ describe("owned pets in combat", () => {
     battle.battleType = "CLAN_BATTLE";
     battle.width = 12; battle.height = 10;
     battle.usersState = [
-      makeBattleUser("owner", { isAi: false, rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 3, latitude: 3, initiative: 22 }),
-      makeBattleUser("ally", { isAi: false, rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 4, latitude: 3, initiative: 20.9 }),
+      makeBattleUser("owner", { isAi: false, activePetId: "pet-1", rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 3, latitude: 3, initiative: 22 }),
+      makeBattleUser("ally", { isAi: false, activePetId: "ally-pet", rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 4, latitude: 3, initiative: 20.9 }),
       makeBattleUser("enemy-1", { isAi: false, rank: "ELITE JONIN", villageId: enemyVillage, clanId: "clan-2", direction: "right", longitude: 9, latitude: 3, initiative: 19.8 }),
       makeBattleUser("enemy-2", { isAi: false, rank: "ELITE JONIN", villageId: enemyVillage, clanId: "clan-2", direction: "right", longitude: 9, latitude: 5, initiative: 18.7 }),
     ];

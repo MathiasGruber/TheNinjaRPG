@@ -52,6 +52,7 @@ const essentialHome: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
 };
 
 const testApi = createTRPCReact<AppRouter>();
+const emptyPetCollection = { pets: [], activePetId: null };
 let savedEvent: typeof Event;
 let savedCustomEvent: typeof CustomEvent;
 let savedAnimationFrame: PropertyDescriptor | undefined;
@@ -79,6 +80,7 @@ beforeEach(() => {
   Object.assign(vi.spyOn(client, "api" as never), {
     home: testApi.home,
     item: testApi.item,
+    pets: testApi.pets,
     useUtils: testApi.useUtils,
   });
   vi.spyOn(UserContext, "useRequireInVillage").mockReturnValue({
@@ -99,7 +101,7 @@ beforeEach(() => {
     isTogglingSleep: false,
   } as never);
   vi.spyOn(ContentBox, "default").mockImplementation(({ children, topRightContent }) => (
-    <div><div data-testid="home-header-controls">{topRightContent}</div>{children}</div>
+    <div>{topRightContent && <div data-testid="home-header-controls">{topRightContent}</div>}{children}</div>
   ));
   vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
   vi.spyOn(Link, "default").mockImplementation(({ children, href }) => (
@@ -158,6 +160,7 @@ for (const hasCachedInventory of [false, true]) {
           return ownedItems;
         }
         if (op.path === "home.getAvailableUpgrades") return [];
+        if (op.path === "pets.getCollection") return emptyPetCollection;
         throw new Error(`Unexpected procedure ${op.path}`);
       };
       void result().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
@@ -216,6 +219,8 @@ for (const hasMissingInventory of [false, true]) {
         observer.next({ result: { data: hasMissingInventory && itemQueries <= 2 ? [] : ownedItems } });
       } else if (op.path === "home.getAvailableUpgrades") {
         observer.next({ result: { data: [] } });
+      } else if (op.path === "pets.getCollection") {
+        observer.next({ result: { data: emptyPetCollection } });
       } else {
         throw new Error(`Unexpected procedure ${op.path}`);
       }
@@ -254,7 +259,42 @@ for (const hasMissingInventory of [false, true]) {
   }, 20_000);
 }
 
-it("does not refresh disabled owner inventory for a guest with cached home data", async () => {
+it("links every owned companion image to its selected profile and identifies only the active pet", async () => {
+  const collection = {
+    pets: [
+      { id: "active-pet", name: "Pippin", avatar: "/pippin.webp" },
+      { id: "parked-pet", name: "Miso", avatar: "/miso.webp" },
+    ],
+    activePetId: "active-pet",
+  };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    let data: unknown;
+    if (op.path === "pets.getCollection") data = collection;
+    else if (op.path === "home.getUserHome") data = essentialHome;
+    else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") data = [];
+    else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    for (const pet of collection.pets) {
+      const image = await view.findByAltText(pet.name);
+      expect(image.closest("a")?.getAttribute("href")).toBe(`/profile/pet?petId=${pet.id}`);
+    }
+    expect(view.getAllByText("Active companion")).toHaveLength(1);
+    expect(view.getByText("Active companion").closest("li")?.textContent).toContain("Pippin");
+  } finally {
+    queryClient.clear();
+  }
+});
+
+it("does not refresh disabled owner inventory or expose cached pets for a guest", async () => {
   vi.spyOn(UserContext, "useRequireInVillage").mockReturnValue({
     userData: { homeType: "NONE", status: "AWAKE", sector: 2, village: { sector: 1 } },
     access: true,
@@ -263,6 +303,7 @@ it("does not refresh disabled owner inventory for a guest with cached home data"
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   queryClient.setQueryData(getQueryKey(testApi.home.getUserHome, undefined, "query"), essentialHome);
   queryClient.setQueryData(getQueryKey(testApi.item.getUserItems, undefined, "query"), []);
+  queryClient.setQueryData(getQueryKey(testApi.pets.getCollection, undefined, "query"), { pets: [{ id: "owner-pet", name: "Owner companion", avatar: "/owner-pet.webp" }], activePetId: "owner-pet" });
   const requests = vi.fn();
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable(() => {
     requests(op.path);
@@ -277,6 +318,7 @@ it("does not refresh disabled owner inventory for a guest with cached home data"
     await view.findByRole("button", { name: "Go to sleep" });
     expect(requests).not.toHaveBeenCalled();
     expect(view.queryByRole("button", { name: "Manage home" })).toBeNull();
+    expect(view.queryByAltText("Owner companion")).toBeNull();
   } finally {
     queryClient.clear();
   }
@@ -306,6 +348,8 @@ it("refreshes a selected furniture variant when returning from inventory", async
         layout: [{ id: chair.id, x: 50, y: 50, rotation: 0 }],
       };
       observer.next({ result: { data: home } });
+    } else if (op.path === "pets.getCollection") {
+      observer.next({ result: { data: emptyPetCollection } });
     } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
       observer.next({ result: { data: [] } });
     } else {
@@ -493,6 +537,7 @@ for (const success of [true, false]) {
                   op.path === "item.getUserItems"
                 )
                   return [];
+                if (op.path === "pets.getCollection") return emptyPetCollection;
                 throw new Error(`Unexpected procedure ${op.path}`);
               };
               void result().then(
@@ -583,6 +628,7 @@ it("opens home management from the header and waits for refreshed inventory befo
         return { ...home };
       }
       if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") return [];
+      if (op.path === "pets.getCollection") return emptyPetCollection;
       throw new Error(`Unexpected procedure ${op.path}`);
     };
     void result().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
@@ -717,6 +763,8 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
           homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
           furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, styles: [], isPublic: false, layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
         } } });
+      } else if (op.path === "pets.getCollection") {
+        observer.next({ result: { data: emptyPetCollection } });
       } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
         observer.next({ result: { data: [] } });
       } else {

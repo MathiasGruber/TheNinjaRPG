@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { AI_PROFILE_MAX_RULES, PetSpawnPositions } from "@/drizzle/constants";
+import {
+  AI_PROFILE_MAX_RULES,
+  PET_MAX_ABILITY_SLOTS,
+  PetSpawnPositions,
+} from "@/drizzle/constants";
 import {
   PET_AURAS,
   PET_CHARACTERISTICS,
@@ -7,7 +11,21 @@ import {
   PET_SPECIES,
 } from "@/libs/pets/catalogue";
 import { AiRule } from "@/validators/ai";
+import { baseServerResponse } from "@/validators/base";
 import { createStatSchema } from "@/validators/combat";
+
+export const petSelectionSchema = z.object({ petId: z.string().min(1).max(191) });
+export const petAcquisitionResponseSchema = baseServerResponse.extend({
+  petId: z.string().optional(),
+});
+export const feedPetSchema = petSelectionSchema.extend({
+  userItemId: z.string().min(1).max(191),
+  expectedQuantity: z.number().int().positive(),
+});
+export const updatePetAbilitiesSchema = petSelectionSchema.extend({
+  jutsuIds: z.array(z.string().min(1).max(191)).max(PET_MAX_ABILITY_SLOTS),
+  skillIds: z.array(z.string().min(1).max(191)).max(PET_MAX_ABILITY_SLOTS),
+});
 
 export const petNameSchema = z
   .string()
@@ -46,14 +64,17 @@ export const acquirePetSchema = z.object({
 
 export const updatePetSchema = z
   .object({
+    petId: petSelectionSchema.shape.petId,
     name: petNameSchema.optional(),
     battleEnabled: z.boolean().optional(),
     spawnPosition: z.enum(PetSpawnPositions).optional(),
   })
-  .refine((input) => Object.keys(input).length > 0, "Choose a setting to update.");
+  .refine((input) => Object.keys(input).length > 1, "Choose a setting to update.");
 
 /** Reuse the player allocation form's six combat stats; pets do not earn discipline masteries. */
-export const assignPetExperienceSchema = createStatSchema(0, 0).schema;
+export const assignPetExperienceSchema = createStatSchema(0, 0).schema.extend(
+  petSelectionSchema.shape,
+);
 
 /** Visual quality is separate from the generated image's content-safety verdict. */
 export const petAppearanceQualitySchema = z.object({
@@ -74,7 +95,12 @@ export const PET_AI_ACTION_TYPES = [
 export const PET_AI_EFFECT_TYPES = [
   "damage",
   "heal",
+  "shield",
+  "increasestat",
+  "decreasestat",
   "increasedamagegiven",
+  "decreasedamagegiven",
+  "increasedamagetaken",
   "decreasedamagetaken",
   "cleanse",
   "clear",
@@ -83,6 +109,7 @@ export const PET_AI_EFFECT_TYPES = [
 
 export const updatePetAiSchema = z
   .object({
+    petId: petSelectionSchema.shape.petId,
     rules: z.array(AiRule).max(AI_PROFILE_MAX_RULES),
     includeDefaultRules: z.boolean(),
   })
@@ -93,7 +120,7 @@ export const updatePetAiSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["rules", index, "action"],
-          message: "Pets can use basic battle actions only.",
+          message: "Choose a supported pet AI action.",
         });
       }
       if (

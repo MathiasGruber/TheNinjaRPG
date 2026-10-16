@@ -26,6 +26,12 @@ describe("companion appearance choices", () => {
         expect(new Set(choices[key].map(({ index }) => index)).size).toBe(choices[key].length);
       }
     }
+    const tiers = ["NONE", "NORMAL", "SILVER", "GOLD"] as const;
+    for (let index = 1; index < tiers.length; index++) {
+      const previous = getDailyPetOptions("one-player", tiers[index - 1]!, "2026-10-11");
+      const current = getDailyPetOptions("one-player", tiers[index]!, "2026-10-11");
+      expect(current.species.slice(0, previous.species.length)).toEqual(previous.species);
+    }
     expect(getDailyPetOptions("another-player", "NONE", "2026-10-11")).not.toEqual(normal);
     expect(getDailyPetOptions("one-player", "NONE", "2026-10-12")).not.toEqual(normal);
   });
@@ -91,8 +97,9 @@ describe("companion image safety and AI controls", () => {
   });
 
   it("only accepts AI actions and effects supplied by the pet's basic loadout", () => {
-    const config = { includeDefaultRules: true, rules: [{ conditions: [], action: { type: "use_highest_power_action", effect: "damage" } }] };
+    const config = { petId: "owned-pet", includeDefaultRules: true, rules: [{ conditions: [], action: { type: "use_highest_power_action", effect: "damage" } }] };
     expect(updatePetAiSchema.safeParse(config).success).toBe(true);
+    expect(updatePetAiSchema.safeParse({ ...config, rules: [{ conditions: [], action: { type: "use_highest_power_action", effect: "shield" } }] }).success).toBe(true);
     expect(updatePetAiSchema.safeParse({ ...config, rules: [{ conditions: [], action: { type: "use_specific_jutsu", jutsuId: "unowned-jutsu" } }] }).success).toBe(false);
     expect(updatePetAiSchema.safeParse({ ...config, rules: [{ conditions: [], action: { type: "use_highest_power_action", effect: "summon" } }] }).success).toBe(false);
   });

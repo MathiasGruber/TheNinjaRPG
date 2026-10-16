@@ -2499,6 +2499,8 @@ export const userData = mysqlTable(
     earnedExperience: int("earnedExperience").default(2000).notNull(),
     petExperience: double("petExperience").default(0).notNull(),
     petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
+    activePetId: varchar("activePetId", { length: 191 }),
+    petSlots: tinyint("petSlots", { unsigned: true }).default(1).notNull(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
@@ -2890,6 +2892,11 @@ export const userPet = mysqlTable(
     auraIndex: tinyint("auraIndex", { unsigned: true }).notNull(),
     rank: tinyint("rank", { unsigned: true }).default(1).notNull(),
     experience: double("experience").default(0).notNull(),
+    storedExperience: double("storedExperience").default(0).notNull(),
+    feedDay: varchar("feedDay", { length: 10 }),
+    abilitySlots: tinyint("abilitySlots", { unsigned: true }).default(1).notNull(),
+    jutsuIds: json("jutsuIds").$type<string[]>().default([]).notNull(),
+    skillIds: json("skillIds").$type<string[]>().default([]).notNull(),
     offence: double("offence").default(consts.PET_BASE_STAT).notNull(),
     defence: double("defence").default(consts.PET_BASE_STAT).notNull(),
     strength: double("strength").default(consts.PET_BASE_STAT).notNull(),
@@ -2912,7 +2919,7 @@ export const userPet = mysqlTable(
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
   },
-  (table) => ({ userIdIdx: uniqueIndex("UserPet_userId_idx").on(table.userId) }),
+  (table) => ({ userIdIdx: index("UserPet_userId_idx").on(table.userId) }),
 );
 export type UserPet = InferSelectModel<typeof userPet>;
 export type UserPetInsert = InferInsertModel<typeof userPet>;
@@ -2923,7 +2930,7 @@ export const userPetRelations = relations(userPet, ({ one }) => ({
 export const userDataRelations = relations(userData, ({ one, many }) => ({
   home: one(userHome, { fields: [userData.userId], references: [userHome.userId] }),
   questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
-  pet: one(userPet),
+  pets: many(userPet),
   queue: many(userQueue),
   ips: many(historicalIp),
   bloodline: one(bloodline, {

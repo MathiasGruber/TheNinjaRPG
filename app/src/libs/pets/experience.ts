@@ -20,6 +20,7 @@ export const petExperienceGainSql = (experience: number, petId?: string | null) 
   return sql`${userData.petExperience} + IF(EXISTS (
     SELECT 1 FROM ${userPet}
     WHERE ${userPet.userId} = ${userData.userId}
+      AND ${userPet.id} = ${userData.activePetId}
       AND ${userPet.battleEnabled} = true
       AND ${userPet.generationStatus} = 'READY'
       AND ${userPet.artRank} = ${userPet.rank}

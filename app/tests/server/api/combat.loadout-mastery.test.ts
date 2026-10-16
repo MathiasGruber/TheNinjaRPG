@@ -299,6 +299,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     const pet = await db.query.userPet.findFirst({ where: eq(userPet.userId, USER) });
     const initial = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
     if (!pet || !initial) throw new Error("Missing pet lobby fixture");
+    initial.usersState[0]!.activePetId = pet.id;
     addPetsToBattle({ ...initial, pets: [pet] });
     const petActor = initial.usersState.find((actor) => actor.petId === pet.id);
     if (!petActor?.aiProfileId) throw new Error("Missing preloaded pet AI identity");

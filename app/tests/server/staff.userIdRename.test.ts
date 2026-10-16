@@ -125,8 +125,9 @@ describeWithDatabase("staff user-id rename", () => {
       database.insert(userPet).values([
         pet,
         { ...pet, id: "staff-companion", userId: STAFF },
+        { ...pet, id: "parked-companion", storedExperience: 80 },
       ]),
-      database.update(userData).set({ rank: "GENIN", petExperience: 125, petAcquisitions: 3 }).where(eq(userData.userId, OLD_USER_ID)),
+      database.update(userData).set({ rank: "GENIN", petExperience: 125, petAcquisitions: 3, activePetId: pet.id, petSlots: 2 }).where(eq(userData.userId, OLD_USER_ID)),
     ]);
     const before = await (await callerFor(petsRouter, OLD_USER_ID)).getPet();
     if (!before.pet) throw new Error("Companion not found before rename");
@@ -144,6 +145,10 @@ describeWithDatabase("staff user-id rename", () => {
       ]);
       expect(after.pet).toEqual({ ...before.pet, userId: NEW_USER_ID });
       expect(after.unusedExperience).toBe(125);
+      expect(after.activePetId).toBe(pet.id);
+      expect(after.slots).toBe(2);
+      expect(after.pets).toHaveLength(2);
+      expect(after.pets.find((entry) => entry.id === "parked-companion")).toMatchObject({ userId: NEW_USER_ID, storedExperience: 80 });
       expect(owner).toEqual({ petExperience: 125, petAcquisitions: 3 });
       expect(oldPets).toEqual([]);
       expect(unchangedStaffPet).toEqual(staffPet);

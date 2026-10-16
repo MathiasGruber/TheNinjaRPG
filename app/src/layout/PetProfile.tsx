@@ -1,10 +1,12 @@
 "use client";
 
 import { PawPrint, RefreshCw, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { api, type RouterInputs } from "@/app/_trpc/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -28,9 +30,15 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import Image from "@/layout/Image";
+import ItemWithEffects from "@/layout/ItemWithEffects";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
+import {
+  getPetJutsuCost,
+  getPetSkillCost,
+  validatePetAbilities,
+} from "@/libs/pets/abilities";
 import {
   PET_AURAS,
   PET_CHARACTERISTICS,
@@ -54,24 +62,42 @@ import {
 } from "@/validators/pets";
 
 export function PetProfile() {
+  return (
+    <Suspense fallback={<Loader explanation="Loading your companions..." />}>
+      <PetProfileContent />
+    </Suspense>
+  );
+}
+
+function PetProfileContent() {
   const { data: userData } = useRequiredUserData();
+  const searchParams = useSearchParams();
+  const requestedPetId = searchParams.get("petId") ?? undefined;
   const utils = api.useUtils();
+  const [selectedPetId, setSelectedPetId] = useState(requestedPetId);
+  const [selectedMealId, setSelectedMealId] = useState("");
+  const [abilityDraft, setAbilityDraft] = useState<
+    RouterInputs["pets"]["updateAbilities"] | null
+  >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [petName, setPetName] = useState("");
   const [isEvolving, setIsEvolving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const inFlight = useRef(false);
-  const { data, isPending, error, refetch } = api.pets.getPet.useQuery(undefined, {
-    enabled: !!userData,
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchInterval: (query) =>
-      isGenerating ||
-      isEvolving ||
-      query.state.data?.pet?.generationStatus === "GENERATING"
-        ? 3000
-        : false,
-  });
+  const { data, isPending, error, refetch } = api.pets.getPet.useQuery(
+    selectedPetId ? { petId: selectedPetId } : undefined,
+    {
+      enabled: !!userData,
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchInterval: (query) =>
+        isGenerating ||
+        isEvolving ||
+        query.state.data?.pets.some((entry) => entry.generationStatus === "GENERATING")
+          ? 3000
+          : false,
+    },
+  );
   const pet = data?.pet;
   const aiProfile = useMemo(
     () =>
@@ -82,6 +108,14 @@ export function PetProfile() {
   const ownerEarnedExperience = userData?.earnedExperience;
   const ownerPetExperience = userData?.petExperience;
   const ownerUpdatedAt = userData?.updatedAt?.getTime();
+
+  useEffect(() => {
+    setSelectedPetId(requestedPetId);
+  }, [requestedPetId]);
+  useEffect(() => {
+    if (selectedPetId && data && !data.pets.some((entry) => entry.id === selectedPetId))
+      setSelectedPetId(undefined);
+  }, [data, selectedPetId]);
 
   // Training and quest rewards update the player view; the pet bank is fetched separately.
   useEffect(() => {
@@ -101,13 +135,15 @@ export function PetProfile() {
   ]);
   useEffect(() => {
     setPetName(pet?.name ?? "");
-  }, [pet?.name]);
+    setMessage(null);
+  }, [pet?.id, pet?.name]);
 
   const finishMutation = async (result: { success: boolean; message: string }) => {
     setMessage(result.success ? null : result.message);
     showMutationToast(result);
     await Promise.all([
       utils.pets.getPet.invalidate(),
+      utils.pets.getCollection.invalidate(),
       utils.profile.getUser.invalidate(),
     ]);
   };
@@ -116,6 +152,7 @@ export function PetProfile() {
     // A network failure may arrive after the server commits an adoption or artwork claim.
     await Promise.all([
       utils.pets.getPet.invalidate(),
+      utils.pets.getCollection.invalidate(),
       utils.profile.getUser.invalidate(),
     ]);
   };
@@ -140,6 +177,34 @@ export function PetProfile() {
     onError: failMutation,
   });
   const release = api.pets.releasePet.useMutation({
+    onSuccess: async (result) => {
+      await finishMutation(result);
+      if (result.success) setSelectedPetId(undefined);
+    },
+    onError: failMutation,
+  });
+  const activate = api.pets.activatePet.useMutation({
+    onSuccess: finishMutation,
+    onError: failMutation,
+  });
+  const unlockSlot = api.pets.unlockSlot.useMutation({
+    onSuccess: finishMutation,
+    onError: failMutation,
+  });
+  const feed = api.pets.feedPet.useMutation({
+    onSuccess: async (result) => {
+      await Promise.all([finishMutation(result), utils.item.getUserItems.invalidate()]);
+    },
+    onError: failMutation,
+  });
+  const updateAbilities = api.pets.updateAbilities.useMutation({
+    onSuccess: async (result) => {
+      await finishMutation(result);
+      if (result.success) setAbilityDraft(null);
+    },
+    onError: failMutation,
+  });
+  const unlockAbilitySlot = api.pets.unlockAbilitySlot.useMutation({
     onSuccess: finishMutation,
     onError: failMutation,
   });
@@ -150,15 +215,20 @@ export function PetProfile() {
     evolve.isPending ||
     assign.isPending ||
     updateAi.isPending ||
-    release.isPending;
+    release.isPending ||
+    activate.isPending ||
+    unlockSlot.isPending ||
+    feed.isPending ||
+    updateAbilities.isPending ||
+    unlockAbilitySlot.isPending;
 
   const generateAppearance = async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || !pet) return;
     inFlight.current = true;
     setIsGenerating(true);
     setMessage(null);
     try {
-      await generate.mutateAsync();
+      await generate.mutateAsync({ petId: pet.id });
     } catch {
       // Both the shared error toast and the inline message leave the retry action available.
     } finally {
@@ -167,13 +237,13 @@ export function PetProfile() {
     }
   };
   const evolvePet = async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || !pet) return;
     inFlight.current = true;
     setIsEvolving(true);
     setMessage(null);
     try {
-      const result = await evolve.mutateAsync();
-      if (result.success) await generate.mutateAsync();
+      const result = await evolve.mutateAsync({ petId: pet.id });
+      if (result.success) await generate.mutateAsync({ petId: pet.id });
     } catch {
       // The new rank is retained if artwork fails; retrying continues that evolution.
     } finally {
@@ -181,12 +251,14 @@ export function PetProfile() {
       setIsEvolving(false);
     }
   };
-  const assignExperience = async (stats: RouterInputs["pets"]["assignExperience"]) => {
-    if (inFlight.current) return false;
+  const assignExperience = async (
+    stats: Omit<RouterInputs["pets"]["assignExperience"], "petId">,
+  ) => {
+    if (inFlight.current || !pet) return false;
     inFlight.current = true;
     setMessage(null);
     try {
-      return (await assign.mutateAsync(stats)).success;
+      return (await assign.mutateAsync({ ...stats, petId: pet.id })).success;
     } catch {
       return false;
     } finally {
@@ -206,30 +278,119 @@ export function PetProfile() {
         </Button>
       </ContentBox>
     );
+  const collection = (
+    <ContentBox
+      title="Your companions"
+      subtitle={`${data.pets.length} / ${data.slots} collection slots`}
+    >
+      <p className="mb-4 text-sm">
+        Choose a companion to manage. One active companion joins battle and receives new
+        pet experience; your other companions keep their progress.
+      </p>
+      {message && (
+        <p
+          role="alert"
+          className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-red-600"
+        >
+          {message}
+        </p>
+      )}
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3" aria-label="Pet collection">
+        {data.pets.map((entry) => (
+          <li key={entry.id}>
+            <button
+              type="button"
+              disabled={isBusy}
+              aria-pressed={entry.id === pet?.id}
+              onClick={() => setSelectedPetId(entry.id)}
+              className={`flex h-full w-full flex-col items-center gap-2 rounded-lg border p-3 text-center disabled:opacity-60 ${entry.id === pet?.id ? "border-primary bg-primary/10" : "hover:bg-muted/40"}`}
+            >
+              {entry.avatar ? (
+                <Image
+                  src={entry.avatar}
+                  alt={entry.name}
+                  width={96}
+                  height={96}
+                  className="h-24 w-24 object-contain"
+                />
+              ) : (
+                <PawPrint
+                  className="h-24 w-24 p-5 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              )}
+              <span className="font-semibold">{entry.name}</span>
+              <span className="text-muted-foreground text-sm">
+                {getPetRank(entry.rank).name}
+              </span>
+              {entry.id === data.activePetId && <Badge>Active companion</Badge>}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button variant="outline" asChild>
+          <Link href="/pets">Visit the sanctuary</Link>
+        </Button>
+        {data.slots < data.maxSlots && (
+          <Confirm
+            title={`Unlock a companion slot for ${data.slotCost} reputation?`}
+            disabled={
+              isBusy ||
+              userData.status !== "AWAKE" ||
+              userData.reputationPoints < data.slotCost
+            }
+            button={
+              <Button
+                variant="outline"
+                disabled={
+                  isBusy ||
+                  userData.status !== "AWAKE" ||
+                  userData.reputationPoints < data.slotCost
+                }
+              >
+                Unlock slot · {data.slotCost} reputation
+              </Button>
+            }
+            onAccept={() => unlockSlot.mutate()}
+          >
+            <p>
+              Keep up to {data.slots + 1} companions. This permanent collection slot
+              costs {data.slotCost} reputation points.
+            </p>
+          </Confirm>
+        )}
+      </div>
+    </ContentBox>
+  );
+
   if (!pet || !aiProfile)
     return (
-      <ContentBox title="Pet" subtitle="Find a companion on Wake Island">
-        <div className="flex flex-col items-center gap-4 py-8 text-center">
-          <PawPrint className="h-16 w-16 text-muted-foreground" aria-hidden="true" />
-          <p className="max-w-lg">
-            The {PET_SANCTUARY_NAME} helps you form a bond with a unique creature.
-            Choose its species, colours, characteristic and aura, then raise it
-            alongside your shinobi.
-          </p>
-          <p>
-            {data.replacementCost === 0
-              ? "Your first companion is free."
-              : `Your next companion costs ${data.replacementCost} reputation points.`}{" "}
-            Visit the sanctuary on Wake Island to meet it.
-          </p>
-          <Button asChild>
-            <Link href="/travel">Travel to Wake Island</Link>
-          </Button>
-          <Link href="/pets" className="underline">
-            Open the sanctuary
-          </Link>
-        </div>
-      </ContentBox>
+      <>
+        {collection}
+        <ContentBox title="Pet" subtitle="Find a companion on Wake Island" initialBreak>
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <PawPrint className="h-16 w-16 text-muted-foreground" aria-hidden="true" />
+            <p className="max-w-lg">
+              The {PET_SANCTUARY_NAME} helps you form a bond with a unique creature.
+              Choose its species, colours, characteristic and aura, then raise it
+              alongside your shinobi.
+            </p>
+            <p>
+              {data.replacementCost === 0
+                ? "Your first companion is free."
+                : `Your next companion costs ${data.replacementCost} reputation points.`}{" "}
+              Visit the sanctuary on Wake Island to meet it.
+            </p>
+            <Button asChild>
+              <Link href="/travel">Travel to Wake Island</Link>
+            </Button>
+            <Link href="/pets" className="underline">
+              Open the sanctuary
+            </Link>
+          </div>
+        </ContentBox>
+      </>
     );
 
   const rank = getPetRank(pet.rank);
@@ -242,6 +403,8 @@ export function PetProfile() {
   const canEvolve =
     data.canRankUp && data.remainingGenerations > 0 && !settingsDisabled;
   const retryAt = data.generationRetryAt ? new Date(data.generationRetryAt) : null;
+  const selectedMeal =
+    data.feedMeals.find((meal) => meal.id === selectedMealId) ?? data.feedMeals[0];
   const canRetryGeneration = retryAt === null || retryAt.getTime() <= Date.now();
   const statsUser = {
     ...userData,
@@ -259,18 +422,56 @@ export function PetProfile() {
     PET_CHARACTERISTICS[pet.characteristicIndex],
     PET_AURAS[pet.auraIndex],
   ];
+  const abilities =
+    abilityDraft?.petId === pet.id
+      ? abilityDraft
+      : {
+          jutsuIds: pet.jutsuIds.filter((id) =>
+            data.abilities.jutsus.some((entry) => entry.id === id),
+          ),
+          skillIds: pet.skillIds.filter((id) =>
+            data.abilities.skills.some((entry) => entry.id === id),
+          ),
+        };
+  const abilityChoices = [
+    ...data.abilities.jutsus.map((entry) => ({
+      item: entry,
+      field: "jutsuIds" as const,
+      cost: getPetJutsuCost(entry),
+      label: `Jutsu · ${entry.jutsuRank} rank`,
+    })),
+    ...data.abilities.skills.map((entry) => ({
+      item: entry,
+      field: "skillIds" as const,
+      cost: getPetSkillCost(entry),
+      label: `Skill · Tier ${entry.tier}`,
+    })),
+  ];
+  const abilityCount = abilities.jutsuIds.length + abilities.skillIds.length;
+  const abilityCost = abilityChoices.reduce(
+    (total, choice) =>
+      total + (abilities[choice.field].includes(choice.item.id) ? choice.cost : 0),
+    0,
+  );
+  const abilityError = validatePetAbilities({
+    pet: { ...pet, ...abilities },
+    owner: userData,
+    ...data.abilities,
+  });
+  const hasUnavailableAbilities =
+    pet.jutsuIds.some(
+      (id) => !data.abilities.jutsus.some((entry) => entry.id === id),
+    ) ||
+    pet.skillIds.some((id) => !data.abilities.skills.some((entry) => entry.id === id));
 
   return (
     <>
-      <ContentBox title="Pet" subtitle="Train and care for your companion">
-        {message && (
-          <p
-            role="alert"
-            className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-red-600"
-          >
-            {message}
-          </p>
-        )}
+      {collection}
+      <ContentBox
+        title={pet.name}
+        subtitle="Train and care for your companion"
+        initialBreak
+      >
         <div className="grid gap-5 sm:grid-cols-[minmax(150px,220px)_1fr]">
           <div className="flex aspect-square items-center justify-center rounded-lg border bg-muted/30">
             {pet.avatar ? (
@@ -306,6 +507,17 @@ export function PetProfile() {
                   .filter(Boolean)
                   .join(" · ")}
               </p>
+              {pet.id === data.activePetId ? (
+                <Badge className="mt-3">Active companion</Badge>
+              ) : (
+                <Button
+                  className="mt-3"
+                  disabled={settingsDisabled}
+                  onClick={() => activate.mutate({ petId: pet.id })}
+                >
+                  {activate.isPending ? "Activating..." : "Make active companion"}
+                </Button>
+              )}
             </div>
             <dl className="grid grid-cols-2 gap-3 text-sm">
               <div>
@@ -334,8 +546,9 @@ export function PetProfile() {
               </div>
             )}
             <p className="text-sm">
-              While your eligible pet joins battle, new player experience also earns pet
-              experience. Spend it below to improve your pet's stats and level.
+              While your eligible active pet joins battle, new player experience also
+              earns pet experience. Switching companions saves each pet's unused
+              experience.
             </p>
             <p className="text-muted-foreground text-sm">
               Companions join ordinary PvP and standard PvE. Ranked matches and
@@ -407,7 +620,10 @@ export function PetProfile() {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              const parsed = updatePetSchema.safeParse({ name: petName });
+              const parsed = updatePetSchema.safeParse({
+                petId: pet.id,
+                name: petName,
+              });
               if (!parsed.success) {
                 setMessage(
                   parsed.error.issues[0]?.message ?? "Choose a valid pet name.",
@@ -444,7 +660,7 @@ export function PetProfile() {
               disabled={settingsDisabled}
               onValueChange={(value) => {
                 const position = PetSpawnPositions.find((entry) => entry === value);
-                if (position) update.mutate({ spawnPosition: position });
+                if (position) update.mutate({ petId: pet.id, spawnPosition: position });
               }}
             >
               <SelectTrigger id="pet-spawn-position">
@@ -467,11 +683,15 @@ export function PetProfile() {
                 settingsDisabled ||
                 (!pet.battleEnabled && (!rankAllowed || !appearanceReady))
               }
-              onCheckedChange={(battleEnabled) => update.mutate({ battleEnabled })}
+              onCheckedChange={(battleEnabled) =>
+                update.mutate({ petId: pet.id, battleEnabled })
+              }
             />
             <Label htmlFor="pet-battle-enabled">Join me in battle</Label>
             <Badge variant="outline">
-              {canUsePet(pet, userData) ? "Active" : "Paused"}
+              {pet.id === data.activePetId && canUsePet(pet, userData)
+                ? "Joining battle"
+                : "Paused"}
             </Badge>
           </div>
         </div>
@@ -496,6 +716,71 @@ export function PetProfile() {
             </div>
           ))}
         </dl>
+      </ContentBox>
+
+      <ContentBox
+        title="Feed your companion"
+        subtitle="Share a meal once each UTC day"
+        initialBreak
+      >
+        <p className="mb-3 text-sm">
+          One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
+          {pet.name}. You can assign these points to its stats below.
+        </p>
+        {pet.feedDay === data.dayKey ? (
+          <p role="status">
+            {pet.name} has already been fed today. Return after midnight UTC.
+          </p>
+        ) : data.feedMeals.length === 0 ? (
+          <p>
+            Prepare a meal in your{" "}
+            <Link href="/home" className="underline">
+              home kitchen
+            </Link>{" "}
+            and keep it in your inventory to feed your companion.
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-48 grow space-y-2">
+              <Label htmlFor="pet-feed-meal">Meal</Label>
+              <Select
+                value={selectedMeal?.id ?? ""}
+                onValueChange={setSelectedMealId}
+                disabled={settingsDisabled || !data.canFeed}
+              >
+                <SelectTrigger id="pet-feed-meal">
+                  <SelectValue placeholder="Choose a meal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data.feedMeals.map((meal) => (
+                    <SelectItem key={meal.id} value={meal.id}>
+                      {meal.name} · {meal.quantity} available
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              disabled={settingsDisabled || !data.canFeed || !selectedMeal}
+              onClick={() =>
+                selectedMeal &&
+                feed.mutate({
+                  petId: pet.id,
+                  userItemId: selectedMeal.id,
+                  expectedQuantity: selectedMeal.quantity,
+                })
+              }
+            >
+              {feed.isPending ? "Feeding..." : "Feed one meal"}
+            </Button>
+            {!data.canFeed && (
+              <p className="w-full text-muted-foreground text-sm">
+                Finish this companion's appearance, meet its shinobi rank requirement
+                and return to the awake state to feed it.
+              </p>
+            )}
+          </div>
+        )}
       </ContentBox>
 
       <div className="mt-4">
@@ -599,7 +884,147 @@ export function PetProfile() {
         </details>
       </ContentBox>
 
+      <ContentBox
+        title="Companion abilities"
+        subtitle="Share compatible jutsu and skills you have unlocked"
+        initialBreak
+      >
+        <p className="mb-3 text-sm">
+          Jutsu and passive skills share {pet.abilitySlots} purchased slots and this
+          companion's rank-based power budget. Jutsu start at level 1; their power
+          follows your pet's rank and stats.
+        </p>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Badge variant="outline">
+            {abilityCount} /{" "}
+            {Math.min(pet.abilitySlots, data.abilityCapacity?.maxSlots ?? 0)} slots used
+          </Badge>
+          <Badge variant="outline">
+            {abilityCost} / {data.abilityCapacity?.budget ?? 0} power budget
+          </Badge>
+        </div>
+        {hasUnavailableAbilities && (
+          <p className="mb-3 text-sm" role="status">
+            Saved abilities that are no longer supported are omitted. Save this
+            selection to remove them.
+          </p>
+        )}
+        <div className="space-y-3">
+          {abilityChoices.map((choice) => {
+            const selected = abilities[choice.field].includes(choice.item.id);
+            const next = {
+              ...abilities,
+              [choice.field]: selected
+                ? abilities[choice.field].filter((id) => id !== choice.item.id)
+                : [...abilities[choice.field], choice.item.id],
+            };
+            const blocked = validatePetAbilities({
+              pet: { ...pet, ...next },
+              owner: userData,
+              ...data.abilities,
+            });
+            const id = `pet-ability-${choice.field}-${choice.item.id}`;
+            return (
+              <div key={id} className="rounded border p-3">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id={id}
+                    checked={selected}
+                    disabled={
+                      settingsDisabled ||
+                      !rankAllowed ||
+                      (!selected && Boolean(blocked))
+                    }
+                    onCheckedChange={() => setAbilityDraft({ ...next, petId: pet.id })}
+                  />
+                  <Label htmlFor={id} className="grow">
+                    {choice.item.name}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      · {choice.label} · {choice.cost} power
+                    </span>
+                  </Label>
+                </div>
+                {!selected && blocked && (
+                  <p className="mt-2 text-muted-foreground text-sm">{blocked}</p>
+                )}
+                <details className="mt-2 text-sm">
+                  <summary className="cursor-pointer text-muted-foreground">
+                    Effects and requirements
+                  </summary>
+                  <div className="mt-2">
+                    <ItemWithEffects item={choice.item} hideDates />
+                  </div>
+                </details>
+              </div>
+            );
+          })}
+          {abilityChoices.length === 0 && (
+            <p className="text-sm">
+              Learn compatible non-elemental jutsu or activate standalone self skills to
+              share them with your companion.
+            </p>
+          )}
+        </div>
+        {abilityError && (
+          <p role="alert" className="mt-3 text-red-600 text-sm">
+            {abilityError}
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Button
+            disabled={settingsDisabled || Boolean(abilityError)}
+            onClick={() => updateAbilities.mutate({ ...abilities, petId: pet.id })}
+          >
+            {updateAbilities.isPending ? "Saving..." : "Save abilities"}
+          </Button>
+          <Button
+            variant="outline"
+            disabled={settingsDisabled || abilityCount === 0}
+            onClick={() =>
+              setAbilityDraft({ petId: pet.id, jutsuIds: [], skillIds: [] })
+            }
+          >
+            Clear selection
+          </Button>
+          {data.abilityCapacity && pet.abilitySlots < data.abilityCapacity.maxSlots && (
+            <Confirm
+              title={`Unlock an ability slot for ${data.abilitySlotCost} reputation?`}
+              disabled={
+                settingsDisabled ||
+                !rankAllowed ||
+                userData.reputationPoints < data.abilitySlotCost
+              }
+              button={
+                <Button
+                  variant="outline"
+                  disabled={
+                    settingsDisabled ||
+                    !rankAllowed ||
+                    userData.reputationPoints < data.abilitySlotCost
+                  }
+                >
+                  Unlock ability slot · {data.abilitySlotCost} reputation
+                </Button>
+              }
+              onAccept={() => unlockAbilitySlot.mutate({ petId: pet.id })}
+            >
+              <p>
+                This companion gains one permanent ability slot. Its power budget still
+                follows its rank.
+              </p>
+            </Confirm>
+          )}
+        </div>
+        {data.abilityCapacity && pet.abilitySlots >= data.abilityCapacity.maxSlots && (
+          <p className="mt-3 text-muted-foreground text-sm">
+            Evolving increases your companion's power budget and can make more ability
+            slots available.
+          </p>
+        )}
+      </ContentBox>
+
       <AiProfileEdit
+        key={pet.id}
         userData={{ aiProfileId: null, userId: pet.id, jutsus: [], items: [] }}
         availableActionTypes={PET_AI_ACTION_TYPES}
         availableActionEffects={PET_AI_EFFECT_TYPES}
@@ -607,11 +1032,11 @@ export function PetProfile() {
           profile: aiProfile,
           isSaving: updateAi.isPending,
           disabled: settingsDisabled || !rankAllowed,
-          onSave: (profile) => updateAi.mutate(profile),
+          onSave: (profile) => updateAi.mutate({ ...profile, petId: pet.id }),
         }}
       />
       <p className="mt-3 text-muted-foreground text-sm">
-        Pet rules control basic battle actions.
+        Pet rules control battle actions, including compatible equipped jutsu.
       </p>
       <ContentBox
         title="Release companion"
@@ -619,8 +1044,8 @@ export function PetProfile() {
         initialBreak
       >
         <p className="mb-4">
-          Releasing {pet.name} resets all pet progress and unused pet experience. A new
-          companion at the{" "}
+          Releasing {pet.name} removes its progress and unused experience. Your other
+          companions stay in your collection. A new companion at the{" "}
           <Link href="/pets" className="underline">
             {PET_SANCTUARY_NAME}
           </Link>{" "}
@@ -643,12 +1068,12 @@ export function PetProfile() {
               {release.isPending ? "Releasing..." : "Release companion"}
             </Button>
           }
-          onAccept={() => release.mutate()}
+          onAccept={() => release.mutate({ petId: pet.id })}
         >
           <p>
             {pet.name} will return to the sanctuary. Its stats, rank and artwork are
-            removed, and all unused pet experience is reset. Your next adoption will
-            cost {PET_REPLACEMENT_COST} reputation points.
+            removed, including its unused experience. Your next adoption will cost{" "}
+            {PET_REPLACEMENT_COST} reputation points.
           </p>
         </Confirm>
       </ContentBox>

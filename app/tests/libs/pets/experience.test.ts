@@ -35,6 +35,7 @@ const insertPet = async (patch: Partial<typeof userPet.$inferInsert> = {}) => {
     speciesIndex: 0, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
     avatar: "/pet.png", generationStatus: "READY", ...patch,
   });
+  await (await getTestDatabase()).update(userData).set({ activePetId: patch.id ?? petId }).where(eq(userData.userId, userId));
 };
 const grantExperience = async (amount: number, identity?: string | null) => {
   await (await getTestDatabase()).update(userData).set({

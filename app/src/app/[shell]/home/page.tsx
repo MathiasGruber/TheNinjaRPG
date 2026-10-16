@@ -9,6 +9,7 @@ import {
   House,
   MinusCircle,
   Package,
+  PawPrint,
   Pencil,
   PlusCircle,
   ShoppingBag,
@@ -33,6 +34,7 @@ import {
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
+  PET_SANCTUARY_NAME,
 } from "@/drizzle/constants";
 import type { UserItemWithItem, UserItemWithRelations } from "@/drizzle/schema";
 import { useSleepToggle } from "@/hooks/sleep";
@@ -41,7 +43,9 @@ import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
 import { type HomeDraft, HomeScene } from "@/layout/HomeScene";
 import { HomeSharing } from "@/layout/HomeSharing";
+import Image from "@/layout/Image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { MergeAllStacksButton } from "@/layout/MergeAllStacksButton";
 import Modal from "@/layout/Modal";
@@ -118,6 +122,9 @@ export default function HomePage() {
     isError: isItemsError,
     refetch: userItemsRefetch,
   } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
+  const pets = api.pets.getCollection.useQuery(undefined, {
     enabled: !!userData && access && ownVillage,
   });
 
@@ -398,6 +405,67 @@ export default function HomePage() {
             onChanged={userHomeRefetch}
           />
         </div>
+      )}
+      {ownVillage && (
+        <ContentBox
+          title="Your companions"
+          subtitle="Your pet collection at home"
+          initialBreak
+        >
+          {pets.isPending ? (
+            <Loader explanation="Loading your companions..." />
+          ) : pets.error ? (
+            <div role="alert" className="space-y-2">
+              <p>{pets.error.message}</p>
+              <Button variant="outline" onClick={() => void pets.refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : pets.data?.pets.length ? (
+            <ul
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+              aria-label="Pet collection"
+            >
+              {pets.data.pets.map((pet) => (
+                <li key={pet.id}>
+                  <Link
+                    href={`/profile/pet?petId=${encodeURIComponent(pet.id)}`}
+                    className="flex h-full flex-col items-center gap-2 rounded-lg border p-3 text-center hover:bg-muted/40"
+                  >
+                    {pet.avatar ? (
+                      <Image
+                        src={pet.avatar}
+                        alt={pet.name}
+                        width={112}
+                        height={112}
+                        className="h-28 w-28 object-contain"
+                      />
+                    ) : (
+                      <PawPrint
+                        className="h-28 w-28 p-6 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="font-semibold">{pet.name}</span>
+                    {pet.id === pets.data.activePetId && (
+                      <span className="text-muted-foreground text-sm">
+                        Active companion
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>
+              Meet your first companion at the{" "}
+              <Link href="/pets" className="underline">
+                {PET_SANCTUARY_NAME}
+              </Link>
+              .
+            </p>
+          )}
+        </ContentBox>
       )}
       <Modal
         title="Kitchen"

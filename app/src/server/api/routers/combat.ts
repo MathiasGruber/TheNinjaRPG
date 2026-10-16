@@ -2141,6 +2141,7 @@ export const initiateBattle = async (
     entryInventory,
     activeEventTournaments,
     pets,
+    petJutsus,
   ] = await Promise.all([
     // Essentials
     fetchBattleEssentials(client),
@@ -2272,7 +2273,48 @@ export const initiateBattle = async (
       : [],
     petsAllowedInBattle(battleType)
       ? client.query.userPet.findMany({
-          where: inArray(userPet.userId, [...userIds, ...targetIds]),
+          where: (table) =>
+            and(
+              inArray(table.userId, [...userIds, ...targetIds]),
+              exists(
+                client
+                  .select({ one: sql`1` })
+                  .from(userData)
+                  .where(
+                    and(
+                      eq(userData.userId, table.userId),
+                      eq(userData.activePetId, table.id),
+                    ),
+                  ),
+              ),
+            ),
+        })
+      : [],
+    petsAllowedInBattle(battleType)
+      ? client.query.userJutsu.findMany({
+          where: (table) =>
+            and(
+              inArray(table.userId, [...userIds, ...targetIds]),
+              exists(
+                client
+                  .select({ one: sql`1` })
+                  .from(userPet)
+                  .innerJoin(
+                    userData,
+                    and(
+                      eq(userData.userId, userPet.userId),
+                      eq(userData.activePetId, userPet.id),
+                    ),
+                  )
+                  .where(
+                    and(
+                      eq(userPet.userId, table.userId),
+                      sql`JSON_CONTAINS(${userPet.jutsuIds}, JSON_QUOTE(${table.jutsuId}))`,
+                    ),
+                  ),
+              ),
+            ),
+          with: { jutsu: true },
         })
       : [],
   ]);
@@ -3057,6 +3099,18 @@ export const initiateBattle = async (
     ownerRanks: Object.fromEntries(
       fetchedUsers.filter((user) => !user.isAi).map((user) => [user.userId, user.rank]),
     ),
+    usersEffects: userEffects,
+    abilitiesByOwner: Object.fromEntries(
+      fetchedUsers
+        .filter((user) => !user.isAi)
+        .map((user) => [
+          user.userId,
+          {
+            jutsus: petJutsus.filter((entry) => entry.userId === user.userId),
+            skills: user.userSkills,
+          },
+        ]),
+    ),
   });
 
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
@@ -3526,6 +3580,19 @@ export const initiateBattle = async (
             // row is never even examined (or locked) by this update. Drizzle
             // compiles an empty list to FALSE, matching expectedRows === 0.
             inArray(userData.userId, allParticipantIds),
+            // A companion swap during preload must not claim a battle with a stale active pet.
+            ...(petsAllowedInBattle(battleType)
+              ? fetchedUsers
+                  .filter((user) => allParticipantIds.includes(user.userId))
+                  .map((user) =>
+                    or(
+                      ne(userData.userId, user.userId),
+                      user.activePetId
+                        ? eq(userData.activePetId, user.activePetId)
+                        : isNull(userData.activePetId),
+                    ),
+                  )
+              : []),
             ...(info.tournamentGame
               ? [
                   eq(userData.status, "AWAKE"),

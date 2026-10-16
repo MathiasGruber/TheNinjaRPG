@@ -624,6 +624,20 @@ export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
 
 export const PET_BASE_STAT = 10;
 export const PET_REPLACEMENT_COST = 100;
+export const PET_MAX_COLLECTION_SLOTS = 6;
+export const PET_COLLECTION_SLOT_COST = 100;
+export const PET_MAX_ABILITY_SLOTS = 4;
+export const PET_ABILITY_SLOT_COST = 25;
+export const PET_FEED_EXPERIENCE_PER_RANK = 500;
+export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
+export type PetRarity = (typeof PetRarities)[number];
+/** Later supporter choices use these rarity weights; earlier choices remain shared. */
+export const PET_SPECIES_RARITY_WEIGHTS: Record<FederalStatus, Record<PetRarity, number>> = {
+  NONE: { COMMON: 7000, UNCOMMON: 2200, RARE: 600, EPIC: 170, LEGENDARY: 30 },
+  NORMAL: { COMMON: 6000, UNCOMMON: 2500, RARE: 1000, EPIC: 400, LEGENDARY: 100 },
+  SILVER: { COMMON: 5000, UNCOMMON: 2800, RARE: 1500, EPIC: 550, LEGENDARY: 150 },
+  GOLD: { COMMON: 4000, UNCOMMON: 3000, RARE: 2000, EPIC: 750, LEGENDARY: 250 },
+};
 export const PET_MAX_GENERATION_ATTEMPTS = 3;
 export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
 export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
