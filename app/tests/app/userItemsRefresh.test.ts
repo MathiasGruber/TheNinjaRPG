@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { waitFor } from "@testing-library/react";
 import { MutationObserver, type MutationObserverOptions, QueryClient, QueryObserver, type QueryObserverOptions } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "bun:test";
+import type { z } from "zod";
+import { finishItemConsumeRequest } from "@/libs/itemConsumption";
+import type { consumeItemInputSchema } from "@/validators/cooking";
 
 const sourceRoot = join(import.meta.dirname, "../../src");
 const read = (file: string) => readFileSync(join(sourceRoot, file), "utf8");
@@ -56,7 +59,7 @@ describe("inventory pages", () => {
       (value: boolean) => { isOpen = value; },
       (value: unknown) => { selected = value; },
     );
-    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", `return (${callbacks});`)(
+    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", `return (${callbacks});`)(
       {
         profile: { getUser: { invalidate: () => client.invalidateQueries({ queryKey: ["profile"] }) } },
         item: { getUserItemsWithVariants: { invalidate: () => client.invalidateQueries({ queryKey: ["inventory"] }) } },
@@ -65,7 +68,9 @@ describe("inventory pages", () => {
       toast,
       vi.fn(),
       onSettled,
-    ) as MutationObserverOptions<{ success: boolean; message: string }, Error, void>;
+      finishItemConsumeRequest,
+      { userId: "user" },
+    ) as MutationObserverOptions<{ success: boolean; message: string }, Error, z.input<typeof consumeItemInputSchema>>;
     const consume = new MutationObserver(client, { ...options, mutationFn: async () => ({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" }) });
     try {
       await waitFor(() => expect(inventory.getCurrentResult().data).toBe(3));
@@ -74,7 +79,7 @@ describe("inventory pages", () => {
       quantity = 2;
       activeMeal = "Rice Bowl";
       document.body.style.cursor = "wait";
-      await consume.mutate();
+      await consume.mutate({ userItemId: "meal-stack", expectedQuantity: 3 });
 
       expect(toast).toHaveBeenCalledWith({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" });
       expect(inventory.getCurrentResult().data).toBe(2);
