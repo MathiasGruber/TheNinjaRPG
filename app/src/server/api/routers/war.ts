@@ -81,6 +81,7 @@ import {
   extendWarParticipantSql,
   handleWarEnd,
   liftBracketImmunitySql,
+  startApprovedVoteWar,
   startDeclaredWar,
   startSectorWar,
 } from "@/server/utils/war";
@@ -1884,7 +1885,7 @@ export const warRouter = createTRPCRouter({
           ]);
           return errorResponse("Village no longer has enough tokens to declare war");
         }
-        const started = await startDeclaredWar(ctx.drizzle, {
+        const started = await startApprovedVoteWar(ctx.drizzle, input.voteId, {
           attackerVillageId: voteRecord.villageId,
           attackerVillageName: attackerVillage.name,
           defenderVillageId: voteRecord.targetId,
