@@ -114,8 +114,11 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
     state.publishedAt = now.toISOString();
   }
   const paused = wars.some((w) => w.status === "ACTIVE");
-  // Notice wars that started AND ended between visits, so old deadlines never cause forfeits.
-  const warInterrupted = wars.some((w) => w.startedAt > new Date(state.observedAt));
+  // An idle observation can race a war's commit; either boundary reveals a missed pause.
+  const observedAt = new Date(state.observedAt);
+  const warInterrupted = wars.some(
+    (w) => w.startedAt > observedAt || (w.endedAt && w.endedAt > observedAt),
+  );
   return {
     village: v,
     rows,

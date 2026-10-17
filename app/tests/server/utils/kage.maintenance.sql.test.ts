@@ -147,6 +147,28 @@ describeWithDatabase("Kage defense maintenance", () => {
     expect((await db.query.village.findFirst())?.kageId).not.toBe("maintenance-kage");
   });
 
+  it("preserves a war committed between an idle snapshot and its heartbeat", async () => {
+    const db = await getTestDatabase();
+    const home = (await db.query.village.findFirst())!;
+    const deadline = new Date(home.kageSchedule!.setupDueAt!);
+    const observation = new Date(deadline.getTime() - 30_000);
+    await db.update(village).set({ kageSchedule: { ...home.kageSchedule!, observedAt: new Date(deadline.getTime() - 60_000).toISOString() } }).where(eq(village.id, villageId));
+    setSystemTime(observation);
+    const raced = beforeStatements(db, village, [async () => {
+      await db.insert(war).values({ id: "maintenance-raced-war", attackerVillageId: villageId, defenderVillageId: "maintenance-enemy", type: "VILLAGE_WAR", status: "ACTIVE", startedAt: new Date(observation.getTime() - 1000) });
+    }]);
+    await maintainKageDefenses(raced);
+    const observed = (await db.query.village.findFirst())!.kageSchedule!;
+    expect(observed.observedAt).toBe(observation.toISOString());
+    expect(observed.paused).toBe(false);
+    await db.update(war).set({ status: "DEFENDER_VICTORY", endedAt: new Date(deadline.getTime() - 10_000) }).where(eq(war.id, "maintenance-raced-war"));
+    setSystemTime(new Date(deadline.getTime() + 15_000));
+    await maintainKageDefenses(db);
+    const updated = (await db.query.village.findFirst())!;
+    expect(updated.kageId).toBe("maintenance-kage");
+    expect(updated.kageSchedule?.setupDueAt).toBe(new Date(deadline.getTime() + 45_000).toISOString());
+  });
+
   it("initializes a changed tenure instead of copying its predecessor's state", async () => {
     const db = await getTestDatabase();
     const tenure = new Date(now.getTime() + 60_000);

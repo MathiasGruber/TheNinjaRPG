@@ -179,6 +179,8 @@ const ElderHall: React.FC<{
   user: NonNullable<UserWithRelations>;
   navTabs: React.ReactNode;
 }> = ({ user, navTabs }) => {
+  const { timeDiff } = useRequiredUserData();
+  const syncedTime = Date.now() - timeDiff;
   const [removalReason, setRemovalReason] = useState("");
   const nomineeForm = useForm<{ username: string; users: UserSearchResult[] }>({
     defaultValues: { username: "", users: [] },
@@ -611,12 +613,14 @@ const ElderHall: React.FC<{
                     {KAGE_ELDER_REMOVAL_LOCK_SECS / (24 * 3600)} days after a new kage
                     takes power.
                   </p>
-                ) : removalCooldownExpiry && new Date() < removalCooldownExpiry ? (
+                ) : removalCooldownExpiry &&
+                  syncedTime < removalCooldownExpiry.getTime() ? (
                   <p className="text-muted-foreground text-sm">
                     The village must wait until {removalCooldownExpiry.toLocaleString()}{" "}
                     to propose another removal after the failed vote. Time remaining:{" "}
                     <Countdown
                       targetDate={removalCooldownExpiry}
+                      timeDiff={timeDiff}
                       onFinish={() => void refetchHistory()}
                     />
                     .
