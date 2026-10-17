@@ -62,6 +62,7 @@ export async function generateMetadata(props: {
   });
 }
 
+/** Render the shared public profile by user ID with its resolved player or NPC title. */
 export default async function PublicProfile(props: {
   params: Promise<{ userid: string }>;
 }) {

@@ -170,6 +170,7 @@ import {
   updateUserPreferencesSchema,
 } from "@/validators/user";
 
+/** Render account settings, including display-only title selection from the player's collection. */
 export function ProfileEdit() {
   // State
   const { data: userData } = useRequiredUserData();

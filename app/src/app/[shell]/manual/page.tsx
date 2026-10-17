@@ -44,6 +44,7 @@ import {
 } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 
+/** Render the content catalog and additional management links permitted by the user's role. */
 export default function ManualMain() {
   const { data: userData } = useUserData();
   const role = userData?.role ?? "USER";

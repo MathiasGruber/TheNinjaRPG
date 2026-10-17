@@ -57,6 +57,7 @@ interface SeasonFormProps {
   onPendingChange?: (pending: boolean) => void;
 }
 
+/** Author season settings and division rewards, including titles, through shared validated editors. */
 export default function SeasonForm({
   initialData,
   seasonId,

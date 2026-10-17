@@ -33,6 +33,7 @@ const fetchProfile = cache(async (username: string) => {
   });
 });
 
+/** Build canonical, indexability-aware metadata from the profile lookup shared with the page. */
 export async function generateMetadata(props: {
   params: Promise<{ username: string }>;
 }): Promise<Metadata> {
@@ -58,6 +59,7 @@ export async function generateMetadata(props: {
   });
 }
 
+/** Render the shared public profile by username with its resolved player or NPC title. */
 export default async function PublicProfile(props: {
   params: Promise<{ username: string }>;
 }) {
