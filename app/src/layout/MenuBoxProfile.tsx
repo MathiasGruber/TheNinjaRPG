@@ -135,10 +135,8 @@ const MenuBoxProfile: React.FC = () => {
   const { data: timedBuffs } = api.raids.getUserRaidBuffs.useQuery(undefined, {
     enabled: !!userData,
   });
-  const mealBuffs =
-    timedBuffs?.buffs.filter(
-      (buff) => buff.itemId && buff.expiresAt.getTime() + timeDiff > Date.now(),
-    ) ?? [];
+  // Server only returns unexpired buffs; Countdown handles expiry + refetch
+  const mealBuffs = timedBuffs?.buffs.filter((buff) => buff.itemId) ?? [];
 
   /** Finish time for stealth or sensory training at the training grounds */
   const covertTrainingFinishAt = useMemo(() => {
