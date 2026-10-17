@@ -1,4 +1,5 @@
 /** Seeded identities shared by catalogue, appearance and ownership regression tests. */
+import type { PetSpecies } from "@/drizzle/schema";
 import type { PetSpeciesOption } from "@/libs/pets/catalogue";
 
 const entries = [
@@ -81,3 +82,10 @@ export const initialPetSpecies: PetSpeciesOption[] = entries.map(
     isActive: true,
   }),
 );
+
+/** Complete authored species for loadout, grant and battle tests. */
+export const petSpeciesFixture = (patch: Partial<PetSpecies> = {}): PetSpecies => ({
+  ...initialPetSpecies[0]!, rarity: "COMMON", role: "ASSAULT", defaultJutsuIds: [],
+  aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF",
+  createdAt: new Date(0), updatedAt: new Date(0), ...patch,
+});

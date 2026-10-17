@@ -34,6 +34,7 @@ import {
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
+  PET_MAX_CONSUME_PETS,
   TUTORIAL_ITEM_ID,
 } from "@/drizzle/constants";
 import type {
@@ -42,6 +43,7 @@ import type {
   UserData,
   UserItem,
   UserItemWithRelations,
+  UserPetInsert,
 } from "@/drizzle/schema";
 import {
   actionLog,
@@ -51,6 +53,8 @@ import {
   itemLoadout,
   itemPurchaseCounter,
   itemVariant,
+  jutsu,
+  petSpecies,
   quest,
   questHistory,
   sageMode,
@@ -60,6 +64,7 @@ import {
   userItem,
   userItemImbuement,
   userItemVariant,
+  userPet,
   userSkill,
 } from "@/drizzle/schema";
 import { filterRollableBloodlines } from "@/libs/bloodline";
@@ -107,6 +112,8 @@ import {
   gearMissingMastery,
   missingMasteryRequirement,
 } from "@/libs/mastery";
+import { createPetFromSpecies } from "@/libs/pets/creation";
+import { getMaxPetRank, getPetCollectionCapacity } from "@/libs/pets/progression";
 import { calcMaxEnergy } from "@/libs/profile";
 import {
   collapseRewards,
@@ -186,7 +193,12 @@ import { getItemPurchasePeriodStart } from "@/utils/time";
 import type { QueryCondition } from "@/utils/typeutils";
 import { getStrucBoost } from "@/utils/village";
 import type { ZodAllTags } from "@/validators/combat";
-import { HealTag, ItemValidator, NonCombatGainSkill } from "@/validators/combat";
+import {
+  HealTag,
+  ItemValidator,
+  NonCombatConsumeRewardTag,
+  NonCombatGainSkill,
+} from "@/validators/combat";
 import { consumeItemInputSchema, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import type { ItemFilteringSchema } from "@/validators/item";
 import {
@@ -594,6 +606,7 @@ export const itemRouter = createTRPCRouter({
         siblings,
         evolutionGraph,
         cacheItems,
+        rewardSpecies,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItemWithCraftingRequirements(ctx.drizzle, input.id),
@@ -627,6 +640,7 @@ export const itemRouter = createTRPCRouter({
           id: input.id,
           bloodlineId: input.data.bloodlineId ?? null,
         }),
+        fetchRewardPetSpecies(ctx.drizzle, input.data.effects),
       ]);
       if (input.data.requiredSkillId && requiredSkill?.pathType !== "SKILL") {
         return errorResponse("Select a valid SkillTree skill entry");
@@ -650,6 +664,13 @@ export const itemRouter = createTRPCRouter({
         return errorResponse(
           `${CACHE_RESTRICTED_REWARD_MESSAGE}: ${cacheItems.restricted.join(", ")}`,
         );
+      if (
+        rewardPetSpeciesIds(input.data.effects).some(
+          (id) =>
+            !rewardSpecies.some((species) => species.id === id && species.isActive),
+        )
+      )
+        return errorResponse("Companion rewards must reference available species.");
       // Validate evolution chain constraints
       if (input.data.parentItemId) {
         const graphValidation = validateEvolutionGraph({
@@ -2106,6 +2127,68 @@ export const itemRouter = createTRPCRouter({
         return errorResponse(
           "This item has an unsupported reward mode. Please contact staff.",
         );
+      if (
+        useritem.item.effects.some(
+          (effect) =>
+            effect.type === "noncombatconsumereward" &&
+            (!NonCombatConsumeRewardTag.shape.reward_pets.safeParse(effect.reward_pets)
+              .success ||
+              (effect.rewardMode === "weightedCache" &&
+                (effect.reward_pets?.length ?? 0) > 0)),
+        )
+      )
+        return errorResponse(
+          "This item has an invalid companion reward. Please contact staff.",
+        );
+      const petRewardIds = rewardPetSpeciesIds(useritem.item.effects);
+      if (
+        petRewardIds.length > PET_MAX_CONSUME_PETS ||
+        (petRewardIds.length > 0 && !useritem.item.preventBattleUsage)
+      )
+        return errorResponse(
+          "This item has an invalid companion reward. Please contact staff.",
+        );
+      if (petRewardIds.length > 0 && !receiptId)
+        return errorResponse("Please reload before claiming this companion.");
+      let petReward: UserPetInsert | null = null;
+      let petCapacity = 0;
+      let rewardSpeciesUpdatedAt: Date | undefined;
+      if (petRewardIds.length > 0) {
+        if (user.isBanned || user.isAi || getMaxPetRank(user.rank) < 1)
+          return errorResponse(
+            "Only eligible player characters can receive a companion.",
+          );
+        // The item determines whether this catalog and collection preload is needed.
+        const [species, pets, petJutsus] = await Promise.all([
+          fetchRewardPetSpecies(ctx.drizzle, useritem.item.effects),
+          ctx.drizzle.query.userPet.findMany({
+            where: eq(userPet.userId, ctx.userId),
+            columns: { id: true },
+          }),
+          ctx.drizzle.query.jutsu.findMany({
+            where: and(eq(jutsu.jutsuType, "PETS"), eq(jutsu.hidden, false)),
+          }),
+        ]);
+        const selected = species.find(
+          (entry) => entry.id === petRewardIds[0] && entry.isActive,
+        );
+        if (!selected)
+          return errorResponse(
+            "This companion species is unavailable. Please contact staff.",
+          );
+        petCapacity = getPetCollectionCapacity(user).slots;
+        if (pets.length >= petCapacity)
+          return errorResponse(
+            "Unlock another collection slot or release a companion before using this item.",
+          );
+        rewardSpeciesUpdatedAt = selected.updatedAt;
+        // Freeze identity, traits and defaults before any transaction/deadlock retry.
+        petReward = createPetFromSpecies({
+          species: selected,
+          user,
+          jutsus: petJutsus,
+        });
+      }
       const cacheEffects = useritem.item.effects.filter(
         (effect) =>
           effect.type === "noncombatconsumereward" &&
@@ -2186,6 +2269,10 @@ export const itemRouter = createTRPCRouter({
 
       // Bookkeeping
       const messages: string[] = [];
+      if (petReward)
+        messages.push(
+          `${petReward.name} joined your companion collection. Generate its appearance from your companion profile.`,
+        );
       const updates = {
         sageModeId: user.sageModeId,
         curHealth: user.curHealth,
@@ -2415,7 +2502,7 @@ export const itemRouter = createTRPCRouter({
           ),
         );
       }
-      /** Share the guarded claim and grants; only weighted caches supply a transaction client. */
+      /** Collection rewards and weighted caches pair the guarded debit with transactional delivery. */
       const commitConsumption = async (
         client: DrizzleClient,
         inTransaction: boolean,
@@ -2439,6 +2526,8 @@ export const itemRouter = createTRPCRouter({
               ${userData.marriageSlots} = ${updates.marriageSlots},
               ${userData.extraReskinSlots} = ${updates.extraReskinSlots},
               ${userData.sageModeId} = COALESCE(${userData.sageModeId}, ${grantedSageModeId}),
+              ${petReward ? sql`${userData.petAcquisitions} = ${userData.petAcquisitions} + 1,` : sql``}
+              ${petReward && !user.activePetId ? sql`${userData.activePetId} = ${petReward.id}, ${userData.petExperience} = 0,` : sql``}
               ${userItem.quantity} = ${useritem.quantity - 1}
           WHERE ${userData.userId} = ${ctx.userId}
             AND ${userData.updatedAt} = ${user.updatedAt}
@@ -2449,6 +2538,43 @@ export const itemRouter = createTRPCRouter({
             AND ${userItem.itemId} = ${useritem.itemId}
             AND ${userItem.quantity} > 0
             AND ${userItem.isInAuction} = FALSE
+            ${
+              petReward
+                ? sql`AND ${and(
+                    eq(userData.isAi, false),
+                    eq(userData.isBanned, false),
+                    eq(userData.rank, user.rank),
+                    eq(userData.petAcquisitions, user.petAcquisitions),
+                    eq(userData.petSlots, user.petSlots),
+                    eq(userData.federalStatus, user.federalStatus),
+                    eq(userData.staffAccount, user.staffAccount),
+                    user.activePetId
+                      ? eq(userData.activePetId, user.activePetId)
+                      : isNull(userData.activePetId),
+                    lt(
+                      client
+                        .select({ count: count() })
+                        .from(userPet)
+                        .where(eq(userPet.userId, user.userId)),
+                      petCapacity,
+                    ),
+                    exists(
+                      client
+                        .select({ id: petSpecies.id })
+                        .from(petSpecies)
+                        .where(
+                          and(
+                            eq(petSpecies.id, petReward.speciesId),
+                            eq(petSpecies.isActive, true),
+                            rewardSpeciesUpdatedAt
+                              ? eq(petSpecies.updatedAt, rewardSpeciesUpdatedAt)
+                              : undefined,
+                          ),
+                        ),
+                    ),
+                  )}`
+                : sql``
+            }
         `);
         const consumeResult = await (inTransaction ? claim() : retryOnDeadlock(claim));
         if (consumeResult.rowsAffected === 0) {
@@ -2468,6 +2594,7 @@ export const itemRouter = createTRPCRouter({
               })
             : { items: [], jutsus: [], bloodlines: [], badges: [], sageModes: [] };
         const tasks = [
+          () => (petReward ? client.insert(userPet).values(petReward) : undefined),
           () =>
             changedBloodlineId !== undefined
               ? client
@@ -2534,16 +2661,30 @@ export const itemRouter = createTRPCRouter({
           notifications: messages,
           rewards: grantedRewards,
           cacheRewards,
+          ...(petReward
+            ? {
+                petRewards: [
+                  {
+                    id: petReward.id,
+                    speciesId: petReward.speciesId,
+                    name: petReward.name,
+                  },
+                ],
+              }
+            : {}),
         };
       };
-      if (caches.length > 0 && receiptId) {
+      if ((caches.length > 0 || petReward) && receiptId) {
         return commitCacheConsumption({
           client: ctx.drizzle,
           receiptId,
           userId: ctx.userId,
           userItemId: input.userItemId,
           itemId: useritem.item.id,
-          selections: cacheResults,
+          selections: petReward
+            ? { caches: cacheResults, pet: petReward }
+            : cacheResults,
+          relatedMsg: petReward ? "CompanionRewardConsumption" : "WeightedCacheOpening",
           consume: async (tx) => {
             const response = await commitConsumption(tx, true);
             return response.success
@@ -3516,6 +3657,19 @@ export const itemRouter = createTRPCRouter({
       );
     }),
 });
+
+/** Pet rewards address authored species, while each delivery creates a new owned individual. */
+const rewardPetSpeciesIds = (effects: Item["effects"]) =>
+  effects.flatMap((effect) =>
+    effect.type === "noncombatconsumereward" ? (effect.reward_pets ?? []) : [],
+  );
+
+const fetchRewardPetSpecies = (client: DrizzleClient, effects: Item["effects"]) => {
+  const ids = rewardPetSpeciesIds(effects);
+  return ids.length > 0
+    ? client.query.petSpecies.findMany({ where: inArray(petSpecies.id, ids) })
+    : Promise.resolve([]);
+};
 
 /**
  * COMMON QUERIES WHICH ARE REUSED

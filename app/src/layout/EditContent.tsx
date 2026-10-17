@@ -1710,6 +1710,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     enabled: fields.includes("reward_sage_modes"),
   });
 
+  const {
+    data: petSpecies,
+    isError: isPetSpeciesError,
+    refetch: refetchPetSpecies,
+  } = api.petSpecies.getAll.useQuery(undefined, {
+    enabled: fields.includes("reward_pets"),
+  });
+
   const { data: skillsData } = api.skillTree.getAllNames.useQuery(undefined, {
     enabled: fields.includes("skillId"),
   });
@@ -2014,6 +2022,22 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           label: FORM_LABEL_MAP[value] ?? value,
           type: "db_values_with_number",
         };
+      } else if ((value as string) === "reward_pets") {
+        return {
+          id: value,
+          label: "Companion species",
+          type: "db_values",
+          multiple: true,
+          values: (petSpecies ?? [])
+            .filter(
+              (species) =>
+                species.isActive || watchAll.reward_pets?.includes(species.id),
+            )
+            .map((species) => ({
+              id: species.id,
+              name: species.isActive ? species.name : `${species.name} (unavailable)`,
+            })),
+        };
       } else if ((value as string) === "reward_jutsus" && jutsuData) {
         return {
           id: value,
@@ -2225,6 +2249,18 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   // Re-used EditContent component for actually showing the form
   return (
     <>
+      {fields.includes("reward_pets") && isPetSpeciesError && (
+        <div role="alert" className="text-destructive">
+          Companion species could not be loaded.
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => void refetchPetSpecies()}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
       {watchType === "noncombatconsumereward" &&
         (!props.editableFields || props.editableFields.includes("rewardMode")) && (
           <fieldset

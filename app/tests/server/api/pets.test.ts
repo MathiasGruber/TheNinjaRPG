@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
-import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST } from "@/drizzle/constants";
+import { ItemRarities, PetRarities, PET_ABILITY_SLOTS_BY_RARITY, type ItemRarity, MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_BY_RARITY, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST } from "@/drizzle/constants";
 import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
+import { AiRule } from "@/validators/ai";
+import type { PetTask } from "@/validators/petTasks";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
@@ -17,6 +19,8 @@ const userId = "pet-owner";
 const petId = "owned-pet";
 const avatar = "https://example.com/accepted-pet.webp";
 const stats = { offence: 10, defence: 0, strength: 0, speed: 0, intelligence: 0, willpower: 0 };
+const task = (patch: Partial<PetTask> = {}): PetTask => ({ petId, questId: "hunting-contract",
+  questHistoryId: "profession-attempt", startedAt: 1, questVersion: 1, finishesAt: Date.now() + 60000, ...patch });
 
 describeWithDatabase("Companion ownership, economy and generation", () => {
   beforeEach(async () => {
@@ -24,7 +28,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await insertPetSpecies(initialPetSpecies);
     await insertUsers([{ userId, username: "PetOwner", rank: "GENIN", sector: MAP_WAKE_ISLAND_SECTOR, status: "AWAKE", reputationPoints: 200 }]);
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { vi.restoreAllMocks(); PET_BATTLE_CONFIG.enabled = true; setSystemTime(); });
 
   it("lets only one concurrent request claim the first free companion", async () => {
     const database = await getTestDatabase();
@@ -36,6 +40,20 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const owner = await readOwner(database);
     expect(owner?.petAcquisitions).toBe(1);
     expect(owner?.reputationPoints).toBe(200);
+  });
+
+  it("copies eligible species defaults on sanctuary adoption without sharing mutable loadout state", async () => {
+    const database = await getTestDatabase(); const input = await adoptionInput(database);
+    const rules = [AiRule.parse({ conditions: [], action: { type: "end_turn" } })];
+    await database.insert(jutsu).values([petJutsuFixture(), petJutsuFixture({ id: "hidden-default", name: "Hidden Default", hidden: true })]);
+    await database.update(petSpecies).set({ defaultJutsuIds: ["pet-strike", "hidden-default"], aiRules: rules, includeDefaultRules: false }).where(eq(petSpecies.id, input.speciesId));
+    expect((await callerForDatabase(petsRouter, userId, database).acquirePet(input)).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ name: input.name, speciesId: input.speciesId,
+      jutsuIds: ["pet-strike"], aiRules: rules, includeDefaultRules: false,
+      rank: 1, experience: 0, storedExperience: 0, generationStatus: "PENDING", avatar: null, artRank: 0,
+    });
+    await database.update(petSpecies).set({ aiRules: [], defaultJutsuIds: [] }).where(eq(petSpecies.id, input.speciesId));
+    expect(await readPet(database)).toMatchObject({ jutsuIds: ["pet-strike"], aiRules: rules });
   });
 
   it("requires release before replacement and atomically debits one replacement", async () => {
@@ -269,7 +287,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect(await readOwner(database)).toEqual(before);
     expect((await caller.activatePet({ petId: "parked" })).success).toBe(true);
     expect((await caller.feedPet({ petId: "parked", userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
-    expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petSlots: 1, petExperience: 30 + PET_FEED_EXPERIENCE_PER_RANK, reputationPoints: 200 });
+    expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petSlots: 1, petExperience: 30 + PET_FEED_EXPERIENCE_BY_RARITY.COMMON, reputationPoints: 200 });
     expect(await readPet(database, petId)).toMatchObject({ storedExperience: 10, experience: 200 });
     expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 0, experience: 100 });
     expect(await database.query.userPet.findMany()).toHaveLength(2);
@@ -436,7 +454,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const selection = { petId: "foreign" };
     const results = await Promise.all([
       caller.activatePet(selection), caller.releasePet(selection), caller.rankUp(selection),
-      caller.unlockAbilitySlot(selection), caller.updateAbilities({ ...selection, jutsuIds: [], skillIds: [] }),
+      caller.updateAbilities({ ...selection, jutsuIds: [], skillIds: [] }),
       caller.assignExperience({ ...selection, ...stats }), caller.updatePet({ ...selection, name: "Stolen" }),
       caller.updateAiConfig({ ...selection, rules: [], includeDefaultRules: true }),
       caller.feedPet({ ...selection, userItemId: "meal-stack", expectedQuantity: 2 }),
@@ -462,7 +480,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const caller = callerForDatabase(petsRouter, userId, database);
     const results = await Promise.all([
       caller.unlockSlot(), caller.acquirePet(input), caller.activatePet({ petId: "parked" }),
-      caller.releasePet({ petId }), caller.rankUp({ petId }), caller.unlockAbilitySlot({ petId }),
+      caller.releasePet({ petId }), caller.rankUp({ petId }),
       caller.updateAbilities({ petId, jutsuIds: [], skillIds: [] }), caller.assignExperience({ petId, ...stats }),
       caller.updatePet({ petId, battleEnabled: false }), caller.updateAiConfig({ petId, rules: [], includeDefaultRules: false }),
       caller.feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 }),
@@ -474,6 +492,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   });
 
   it("consumes one meal and grants one feeding reward under concurrent requests, then allows another after its cooldown", async () => {
+    PET_BATTLE_CONFIG.enabled = false;
     const database = await getTestDatabase();
     await readyPet(database);
     await mealStack();
@@ -482,14 +501,24 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.feedPet(input), caller.feedPet(input)]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
-    expect((await readOwner(database))?.petExperience).toBe(10 + PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readOwner(database))?.petExperience).toBe(10 + PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
     expect((await readPet(database))?.lastFedAt).toBeInstanceOf(Date);
     expect((await database.query.userItem.findFirst())?.quantity).toBe(1);
     expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(false);
     await database.update(userPet).set({ lastFedAt: secondsFromNow(-PET_FEED_COOLDOWN_HOURS * HOUR_S) }).where(eq(userPet.id, petId));
     expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(true);
     expect(await database.query.userItem.findFirst()).toBeUndefined();
-    expect((await readOwner(database))?.petExperience).toBe(10 + 2 * PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readOwner(database))?.petExperience).toBe(10 + 2 * PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
+  });
+
+  for (const rank of [1, 2]) it.each([...ItemRarities])(`feeds the configured %s meal reward independently of pet rank ${rank}`, async (rarity) => {
+    const database = await getTestDatabase(); await readyPet(database, { rank, artRank: rank }); await mealStack(rarity);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const view = await caller.getPet();
+    expect(view.feedMeals).toMatchObject([{ id: "meal-stack", rarity, experience: PET_FEED_EXPERIENCE_BY_RARITY[rarity] }]);
+    expect(view).not.toHaveProperty("feedExperience");
+    expect((await caller.feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
+    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY[rarity]);
   });
 
   it.each([false, true])("enforces the exact feeding deadline across midnight with companion combat enabled=%s", async (battleEnabled) => {
@@ -516,7 +545,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
       expect(await caller.getPet()).toMatchObject({ canFeed: true, feedAvailableAt: null });
       expect((await caller.feedPet(input)).success).toBe(true);
       expect((await readPet(database))?.lastFedAt).toEqual(availableAt);
-      expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+      expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
       expect((await database.query.userItem.findFirst())?.quantity).toBe(1);
       expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(false);
     } finally {
@@ -534,9 +563,9 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.feedPet({ petId: "parked", userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
     expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 99 });
-    expect((await readPet(database, "parked"))?.storedExperience).toBe(11 + 2 * PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readPet(database, "parked"))?.storedExperience).toBe(11 + PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
     expect((await caller.activatePet({ petId: "parked" })).success).toBe(true);
-    expect((await readOwner(database))?.petExperience).toBe(11 + 2 * PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readOwner(database))?.petExperience).toBe(11 + PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
     expect((await readPet(database, petId))?.storedExperience).toBe(99);
   });
 
@@ -551,14 +580,14 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const caller = callerForDatabase(petsRouter, userId, hooked);
     const input = { petId, userItemId: "meal-stack", expectedQuantity: 1 };
     expect((await caller.feedPet(input)).success).toBe(true);
-    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
     expect((await readPet(database))?.lastFedAt).toBeInstanceOf(Date);
     expect((await database.query.userItem.findFirst())?.quantity).toBe(0);
     expect((await caller.getPet()).feedMeals).toEqual([]);
     expect((await caller.feedPet(input)).success).toBe(false);
     await database.update(userPet).set({ lastFedAt: secondsFromNow(-PET_FEED_COOLDOWN_HOURS * HOUR_S) }).where(eq(userPet.id, petId));
     expect((await caller.feedPet(input)).success).toBe(false);
-    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+    expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY.COMMON);
   });
 
   it.each(["stack", "pet"] as const)("rolls back feeding's meal and XP if its %s snapshot changes", async (changed) => {
@@ -601,47 +630,6 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await database.query.userItem.findFirst())?.quantity).toBe(2);
   });
 
-  it("charges one ability slot purchase at its rank limit and rejects insufficient funds", async () => {
-    const database = await getTestDatabase();
-    await readyPet(database, { rank: 4, artRank: 4 });
-    await database.update(userData).set({ rank: "CHUNIN", reputationPoints: 2 * PET_ABILITY_SLOT_COST }).where(eq(userData.userId, userId));
-    const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
-    const results = await Promise.all([caller.unlockAbilitySlot({ petId }), caller.unlockAbilitySlot({ petId })]);
-    expect(results.filter((result) => result.success)).toHaveLength(1);
-    expect((await readPet(database))?.abilitySlots).toBe(2);
-    expect((await readOwner(database))?.reputationPoints).toBe(PET_ABILITY_SLOT_COST);
-    expect((await caller.unlockAbilitySlot({ petId })).success).toBe(false);
-    await database.update(userPet).set({ abilitySlots: 1 }).where(eq(userPet.id, petId));
-    await database.update(userData).set({ reputationPoints: PET_ABILITY_SLOT_COST - 1 }).where(eq(userData.userId, userId));
-    expect((await caller.unlockAbilitySlot({ petId })).success).toBe(false);
-    expect((await readPet(database))?.abilitySlots).toBe(1);
-    expect((await readOwner(database))?.reputationPoints).toBe(PET_ABILITY_SLOT_COST - 1);
-  });
-
-  it("rolls back the ability-slot payment when the companion changes before purchase", async () => {
-    const database = await getTestDatabase();
-    await readyPet(database, { rank: 4, artRank: 4 });
-    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
-    const hooked = beforeStatements(database, userData, [async () => {
-      await database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-    }]);
-    expect((await callerForDatabase(petsRouter, userId, hooked).unlockAbilitySlot({ petId })).success).toBe(false);
-    expect((await readPet(database))?.abilitySlots).toBe(1);
-    expect((await readOwner(database))?.reputationPoints).toBe(200);
-  });
-
-  it("rejects a paid pet change if the owner enters battle before the joined write", async () => {
-    const database = await getTestDatabase();
-    await readyPet(database, { rank: 4, artRank: 4 });
-    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
-    const hooked = beforeStatements(database, userData, [async () => {
-      await database.update(userData).set({ status: "BATTLE", battleId: "new-battle" }).where(eq(userData.userId, userId));
-    }]);
-    expect((await callerForDatabase(petsRouter, userId, hooked).unlockAbilitySlot({ petId })).success).toBe(false);
-    expect(await readPet(database)).toMatchObject({ abilitySlots: 1, revision: 0 });
-    expect((await readOwner(database))?.reputationPoints).toBe(200);
-  });
-
   it("uses single statements for routine pet writes and preserves JSON patches", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { rank: 4, artRank: 4 });
@@ -657,15 +645,73 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.updatePet({ petId, name: 'Kumo "守"', battleEnabled: false, spawnPosition: "LEFT" })).success).toBe(true);
     expect((await caller.updateAiConfig({ petId, rules, includeDefaultRules: false })).success).toBe(true);
     expect((await caller.updateAbilities({ petId, jutsuIds: [], skillIds: [] })).success).toBe(true);
-    expect((await caller.unlockAbilitySlot({ petId })).success).toBe(true);
     expect((await caller.assignExperience({ petId, ...stats })).success).toBe(true);
     expect((await caller.feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
-    expect(await readPet(database, petId)).toMatchObject({ name: 'Kumo "守"', battleEnabled: false, spawnPosition: "LEFT", aiRules: rules, includeDefaultRules: false, jutsuIds: [], skillIds: [], abilitySlots: 2, offence: 20 });
+    expect(await readPet(database, petId)).toMatchObject({ name: 'Kumo "守"', battleEnabled: false, spawnPosition: "LEFT", aiRules: rules, includeDefaultRules: false, jutsuIds: [], skillIds: [], offence: 20 });
     expect((await caller.activatePet({ petId: "parked" })).success).toBe(true);
     expect((await caller.rankUp({ petId: "parked" })).success).toBe(true);
     expect(await readPet(database, "parked")).toMatchObject({ rank: 2, generationStatus: "PENDING", generationToken: null, generationStartedAt: null });
     expect((await caller.releasePet({ petId })).success).toBe(true);
-    expect((await readOwner(database))?.reputationPoints).toBe(200 - PET_ABILITY_SLOT_COST);
+    expect((await readOwner(database))?.reputationPoints).toBe(200);
+  });
+
+  it("rejects a settings change when the owner enters battle before its joined write", async () => {
+    const database = await getTestDatabase(); await readyPet(database);
+    const hooked = beforeStatements(database, userData, [async () => {
+      await database.update(userData).set({ status: "BATTLE", battleId: "new-battle" }).where(eq(userData.userId, userId));
+    }]);
+    expect((await callerForDatabase(petsRouter, userId, hooked).updatePet({ petId, name: "Changed" })).success).toBe(false);
+    expect(await readPet(database)).toMatchObject({ name: "Kumo", revision: 0 });
+    expect((await readOwner(database))?.reputationPoints).toBe(200);
+  });
+
+  it.each([...PetRarities])("exposes every %s species slot without buying upgrades", async (rarity) => {
+    const database = await getTestDatabase(); await readyPet(database, { rank: 10, artRank: 10, experience: 2000000 });
+    await database.update(userData).set({ rank: "ELDER" }).where(eq(userData.userId, userId));
+    await database.update(petSpecies).set({ rarity }).where(eq(petSpecies.id, "pet-species-0"));
+    const jutsus = Array.from({ length: 6 }, (_, index) => petJutsuFixture({ id: `slot-jutsu-${index}`, name: `Slot Jutsu ${index}` }));
+    await database.insert(jutsu).values(jutsus);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const slots = PET_ABILITY_SLOTS_BY_RARITY[rarity];
+    expect((await caller.getPet()).abilityCapacity?.maxSlots).toBe(slots);
+    const ids = jutsus.slice(0, slots).map((entry) => entry.id);
+    expect((await caller.updateAbilities({ petId, jutsuIds: ids, skillIds: [] })).success).toBe(true);
+    if (slots < jutsus.length) expect((await caller.updateAbilities({ petId, jutsuIds: jutsus.slice(0, slots + 1).map((entry) => entry.id), skillIds: [] })).success).toBe(false);
+    expect((await readPet(database))?.jutsuIds).toEqual(ids);
+    expect((await readOwner(database))?.reputationPoints).toBe(200);
+  });
+
+  it("keeps an away companion immutable and prevents its active passive XP gain", async () => {
+    const database = await getTestDatabase(); await readyPet(database, { rank: 5, artRank: 5, experience: 232500 });
+    await mealStack();
+    await database.update(userData).set({ rank: "ELDER", petExperience: 100, petTask: task() }).where(eq(userData.userId, userId));
+    const beforeOwner = await readOwner(database); const beforePet = await readPet(database);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const results = await Promise.all([
+      caller.activatePet({ petId }), caller.releasePet({ petId }), caller.rankUp({ petId }),
+      caller.updateAbilities({ petId, jutsuIds: [], skillIds: [] }), caller.assignExperience({ petId, ...stats }),
+      caller.updatePet({ petId, name: "Changed" }), caller.updateAiConfig({ petId, rules: [], includeDefaultRules: false }),
+      caller.feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 }), caller.generateAppearance({ petId }),
+    ]);
+    expect(results.every((result) => !result.success)).toBe(true);
+    expect(await readOwner(database)).toEqual(beforeOwner); expect(await readPet(database)).toEqual(beforePet);
+    expect(generate).not.toHaveBeenCalled(); expect((await database.query.userItem.findFirst())?.quantity).toBe(2);
+    await database.update(userData).set({ petExperience: petExperienceGainSql(50) }).where(eq(userData.userId, userId));
+    expect((await readOwner(database))?.petExperience).toBe(100);
+    await database.update(userData).set({ petTask: null }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ petExperience: petExperienceGainSql(50) }).where(eq(userData.userId, userId));
+    expect((await readOwner(database))?.petExperience).toBe(150);
+  });
+
+  it.each([false, true])("rejects an owner mutation after the task receipt changes (existing=%s)", async (existing) => {
+    const database = await getTestDatabase(); await readyPet(database);
+    if (existing) await database.update(userData).set({ petTask: task({ petId: "other-pet" }) }).where(eq(userData.userId, userId));
+    const hooked = beforeStatements(database, userData, [async () => {
+      await database.update(userData).set({ petTask: task({ petId: existing ? "other-pet" : petId, startedAt: 2 }) }).where(eq(userData.userId, userId));
+    }]);
+    expect((await callerForDatabase(petsRouter, userId, hooked).updatePet({ petId, name: "Changed" })).success).toBe(false);
+    expect(await readPet(database)).toMatchObject({ name: "Kumo", revision: 0 });
   });
 
   it("keeps settings and evolution free when no reputation remains", async () => {
@@ -703,9 +749,9 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     }
   });
 
-  it("equips published pet jutsus and activated owned skills within purchased slots and the shared budget", async () => {
+  it("equips published pet jutsus and activated owned skills within rarity slots and the shared budget", async () => {
     const database = await getTestDatabase();
-    await readyPet(database, { rank: 4, artRank: 4, experience: 100000, abilitySlots: 2 });
+    await readyPet(database, { rank: 4, artRank: 4, experience: 100000 });
     await database.update(userData).set({ rank: "CHUNIN", petExperience: 75 }).where(eq(userData.userId, userId));
     await insertUsers([{ userId: "ability-owner", username: "AbilityOwner" }]);
     await database.insert(jutsu).values([
@@ -860,7 +906,8 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     });
   });
 
-  it.each([false, true])("rejects enabling combat without changing a companion's saved %s preference or other settings", async (battleEnabled) => {
+  it.each([false, true])("rejects enabling combat while battles are disabled without changing the saved %s preference", async (battleEnabled) => {
+    PET_BATTLE_CONFIG.enabled = false;
     const database = await getTestDatabase();
     await readyPet(database, { battleEnabled });
     const original = await readPet(database);
@@ -871,6 +918,16 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect(await readPet(database)).toEqual(original);
     expect((await caller.updatePet({ petId, battleEnabled: false, name: "Still configurable" })).success).toBe(true);
     expect(await readPet(database)).toMatchObject({ battleEnabled: false, name: "Still configurable" });
+  });
+
+  it("lets a companion join supported battles and opt out again", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { battleEnabled: false });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.updatePet({ petId, battleEnabled: true, name: "Quest companion" })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ battleEnabled: true, name: "Quest companion" });
+    expect((await caller.updatePet({ petId, battleEnabled: false })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ battleEnabled: false, name: "Quest companion" });
   });
 
   it("preserves a downgraded owner's pet while preventing enable, training, AI edits and evolution", async () => {
@@ -999,8 +1056,8 @@ const readyPet = async (database: DrizzleClient, overrides: Partial<typeof userP
 const parkedPet = (database: DrizzleClient, overrides: Partial<typeof userPet.$inferInsert> = {}) =>
   database.insert(userPet).values({ id: "parked", userId, name: "Haru", speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, avatar, artRank: 1, generationStatus: "READY", ...overrides });
 
-const mealStack = async () => {
-  await insertItems([{ id: "pet-meal", name: "Companion Meal", itemType: "MEAL" }]);
+const mealStack = async (rarity: ItemRarity = "COMMON") => {
+  await insertItems([{ id: "pet-meal", name: "Companion Meal", itemType: "MEAL", rarity }]);
   await insertUserItems([{ id: "meal-stack", itemId: "pet-meal", userId, quantity: 2 }]);
 };
 const readOwner = (database: DrizzleClient) => database.query.userData.findFirst({ where: eq(userData.userId, userId) });

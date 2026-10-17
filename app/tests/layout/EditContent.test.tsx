@@ -42,6 +42,7 @@ vi.mock("@/app/_trpc/client", () => ({
     jutsu: { getAllNames: names, update },
     bloodline: { getAllNames: names, update },
     sageMode: { getAllNames: names },
+    petSpecies: { getAll: names },
     skillTree: { getAllNames: names },
     badge: { getAll: names },
     misc: { getAllGameAssetNames: names },
@@ -759,6 +760,34 @@ const CacheDraftForm = () => {
     <button type="button" onClick={() => { if (NonCombatConsumeRewardTag.safeParse(effects[0]).success) void save({ id: "cache", data: { effects } }); }}>Save cache effects</button>
   </>;
 };
+
+const CompanionRewardDraftForm = () => {
+  const [effects, setEffects] = useState<ZodAllTags[]>([NonCombatConsumeRewardTag.parse({})]);
+  return <>
+    <EffectFormWrapper type="item" idx={0} tag={effects[0]!} effects={effects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} />
+    <button type="button" onClick={() => { if (NonCombatConsumeRewardTag.safeParse(effects[0]).success) void save({ id: "companion-contract", data: { effects } }); }}>Save companion reward</button>
+  </>;
+};
+
+describe("companion reward editing", () => {
+  afterEach(() => vi.restoreAllMocks());
+  it("selects an active authored species by ID and excludes retired species", async () => {
+    vi.spyOn(names, "useQuery").mockReturnValue({ data: [
+      { id: "fox-id", name: "Fox", isActive: true },
+      { id: "retired-id", name: "Retired Fox", isActive: false },
+    ] } as never);
+    const view = render(<CompanionRewardDraftForm />);
+    const field = view.getByText("Companion species").closest<HTMLElement>('[data-slot="form-item"]');
+    if (!field) throw new Error("Missing companion species field");
+    fireEvent.click(within(field).getByRole("combobox"));
+    expect(await view.findByRole("option", { name: "Fox" })).toBeDefined();
+    expect(view.queryByRole("option", { name: "Retired Fox" })).toBeNull();
+    fireEvent.click(view.getByRole("option", { name: "Fox" }));
+    fireEvent.click(view.getByRole("button", { name: "Save companion reward" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ reward_pets: ["fox-id"] });
+  });
+});
 
 describe("weighted cache effect drafts", () => {
   beforeEach(() => {

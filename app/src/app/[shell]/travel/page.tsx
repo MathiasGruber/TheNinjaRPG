@@ -659,6 +659,7 @@ function Travel() {
           undefined,
           undefined,
           data.cacheRewards,
+          data.petRewards,
         );
       } else {
         showMutationToast(data);
@@ -669,6 +670,9 @@ function Travel() {
           utils.item.getUserItems.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
           utils.raids.getUserRaidBuffs.invalidate(),
+          ...("petRewards" in data && data.petRewards?.length
+            ? [utils.pets.getPet.invalidate()]
+            : []),
         ]);
       } else if (useritem?.item.itemType === "MEAL") {
         // A rejected snapshot must refresh the next modal's quantity and account state.
@@ -684,7 +688,8 @@ function Travel() {
       const isCache = useritem?.item.effects.some(
         (effect) =>
           effect.type === "noncombatconsumereward" &&
-          effect.rewardMode === "weightedCache",
+          (effect.rewardMode === "weightedCache" ||
+            (effect.reward_pets?.length ?? 0) > 0),
       );
       showMutationToast({
         success: false,

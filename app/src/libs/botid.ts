@@ -50,6 +50,7 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "war.attackWarCamp",
   "war.convertWarPoints",
   "quests.startQuest",
+  "quests.startPetTask",
   "quests.startRandom",
   "coop.quest.create",
   "coop.quest.join",
@@ -61,6 +62,7 @@ export const BOTID_PROTECTED_PROCEDURES = [
   "activityStreak.claimStreakDay",
   "bank.claimInterest",
   "raids.claimDamageReward",
+  "quests.collectPetTask",
   "coop.dungeon.claim",
   "pvpRank.claimSeasonRewards",
   // Account creation and value transfer

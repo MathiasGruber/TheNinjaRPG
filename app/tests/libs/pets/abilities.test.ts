@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { Jutsu, SkillTree } from "@/drizzle/schema";
+import { PetRarities } from "@/drizzle/constants";
 import {
   getPetAbilityCapacity, getPetJutsuCost, getPetSkillCost, isPetJutsuAllowed,
   isPetSkillAllowed, selectPetBattleAbilities, validatePetAbilities,
@@ -7,9 +8,10 @@ import {
 } from "@/libs/pets/abilities";
 import { DamageTag, SummonTag } from "@/validators/combat";
 import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "./helpers/abilities";
+import { petSpeciesFixture } from "./helpers/species";
 
 const pet = (patch: Partial<PetAbilityLoadout> = {}): PetAbilityLoadout => ({
-  rank: 4, experience: 100000, abilitySlots: 2,
+  rank: 4, experience: 100000, species: petSpeciesFixture(),
   jutsuIds: ["pet-strike"], skillIds: ["pet-muscle"], ...patch,
 });
 const validate = (patch: Partial<PetAbilityLoadout> = {},
@@ -17,12 +19,15 @@ const validate = (patch: Partial<PetAbilityLoadout> = {},
   validatePetAbilities({ pet: pet(patch), owner: { rank: "ELDER" }, jutsus, skills });
 
 describe("pet ability eligibility and shared power budget", () => {
-  it("unlocks rank capacity gradually while counting paid slots separately", () => {
-    expect([1, 3, 4, 6, 7, 9, 10].map((rank) => getPetAbilityCapacity({ rank }).maxSlots))
-      .toEqual([1, 1, 2, 2, 3, 3, 4]);
+  it("grants every rarity slot immediately while retaining the independent rank power budget", () => {
+    for (const rank of [1, 10]) expect(PetRarities.map((rarity) =>
+      getPetAbilityCapacity({ rank, species: { rarity } }).maxSlots)).toEqual([2, 3, 4, 5, 6]);
     expect(validate()).toBeNull();
-    expect(validate({ abilitySlots: 1 })).toContain("slots");
-    expect(validate({ rank: 1, abilitySlots: 4 })).toContain("slots");
+    expect(validate({ jutsuIds: ["one", "two", "three"], skillIds: [] })).toContain("slots");
+    const jutsus = ["one", "two", "three"].map((id) => petJutsuFixture({ id }));
+    expect(validate({ rank: 1, species: petSpeciesFixture({ rarity: "LEGENDARY" }),
+      jutsuIds: jutsus.map((entry) => entry.id), skillIds: [] }, jutsus, [])).toContain("power budget");
+    expect(validate({ species: null })).toContain("species is unavailable");
   });
 
   it("shares the rarity/tier budget between jutsus and skills", () => {
@@ -57,7 +62,7 @@ describe("pet ability eligibility and shared power budget", () => {
   });
 
   it.each([
-    { hidden: true }, { injectableInBattle: true }, { jutsuType: "EVENT" }, { jutsuType: "NORMAL" },
+    { hidden: true }, { injectableInBattle: true }, { jutsuType: "EVENT" }, { jutsuType: "NORMAL" }, { battleUsageType: "PVP" },
     { jutsuRank: "H" }, { bloodlineId: "line" }, { villageId: "village" },
     { requiredSkillId: "skill" }, { requiredBloodlineItemId: "item" },
     { requiredTaijutsuMastery: 1 }, { jutsuWeapon: "SWORD" },

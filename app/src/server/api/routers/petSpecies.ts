@@ -1,6 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { actionLog, petSpecies } from "@/drizzle/schema";
+import { actionLog, jutsu, petSpecies } from "@/drizzle/schema";
+import { isPetJutsuAllowed } from "@/libs/pets/abilities";
 import { callDiscordContent } from "@/libs/socials";
 import { fetchUser } from "@/routers/profile";
 import {
@@ -38,17 +39,29 @@ export const petSpeciesRouter = createTRPCRouter({
     .input(PetSpeciesValidator)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [user, existing] = await Promise.all([
+      const [user, existing, defaults] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.petSpecies.findFirst({
           where: eq(petSpecies.name, input.name),
         }),
+        input.defaultJutsuIds.length
+          ? ctx.drizzle.query.jutsu.findMany({
+              where: inArray(jutsu.id, input.defaultJutsuIds),
+            })
+          : [],
       ]);
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
       if (!canChangeContent(user.role))
         return errorResponse("Not allowed to create companion species");
       if (existing) return errorResponse("Companion species name already exists");
+      if (
+        defaults.length !== input.defaultJutsuIds.length ||
+        defaults.some((entry) => !isPetJutsuAllowed(entry))
+      )
+        return errorResponse(
+          "Choose published, compatible PETS jutsu for the default loadout.",
+        );
       const id = nanoid();
       try {
         await ctx.drizzle.insert(petSpecies).values({ id, ...input });
@@ -77,12 +90,17 @@ export const petSpeciesRouter = createTRPCRouter({
     .input(updatePetSpeciesSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [user, species, existing] = await Promise.all([
+      const [user, species, existing, defaults] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.petSpecies.findFirst({ where: eq(petSpecies.id, input.id) }),
         ctx.drizzle.query.petSpecies.findFirst({
           where: eq(petSpecies.name, input.data.name),
         }),
+        input.data.defaultJutsuIds.length
+          ? ctx.drizzle.query.jutsu.findMany({
+              where: inArray(jutsu.id, input.data.defaultJutsuIds),
+            })
+          : [],
       ]);
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
@@ -91,6 +109,13 @@ export const petSpeciesRouter = createTRPCRouter({
       if (!species) return errorResponse("Companion species not found");
       if (existing && existing.id !== species.id)
         return errorResponse("Companion species name already exists");
+      if (
+        defaults.length !== input.data.defaultJutsuIds.length ||
+        defaults.some((entry) => !isPetJutsuAllowed(entry))
+      )
+        return errorResponse(
+          "Choose published, compatible PETS jutsu for the default loadout.",
+        );
       const changes = calculateContentDiff(species, { ...species, ...input.data });
       if (changes.length === 0)
         return { success: true, message: "Companion species is already up to date." };

@@ -38,6 +38,14 @@ beforeEach(() => {
 });
 
 describe("controlled companion AI configuration", () => {
+  it("saves an intentionally empty controlled profile without restoring fallback instructions", () => {
+    const onSave = vi.fn();
+    const view = render(<AiProfileEdit userData={{ aiProfileId: null, userId: "species", jutsus: [], items: [] }} configuration={{ profile: { rules: [], includeDefaultRules: false }, isSaving: false, onSave }} />);
+    fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+    expect(onSave).toHaveBeenCalledWith({ rules: [], includeDefaultRules: false });
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
   it("saves embedded rules without loading or mutating a player AI profile", () => {
     mocks.role = "USER";
     const onSave = vi.fn();

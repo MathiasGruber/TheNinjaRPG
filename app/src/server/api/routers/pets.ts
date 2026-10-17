@@ -5,11 +5,10 @@ import { nanoid } from "nanoid";
 import {
   CombatStatNames,
   MAP_WAKE_ISLAND_SECTOR,
-  PET_ABILITY_SLOT_COST,
   PET_BATTLE_CONFIG,
   PET_COLLECTION_SLOT_COST,
   PET_FEED_COOLDOWN_HOURS,
-  PET_FEED_EXPERIENCE_PER_RANK,
+  PET_FEED_EXPERIENCE_BY_RARITY,
   PET_GENERATION_LEASE_MS,
   PET_GENERATION_RETRY_MS,
   PET_MAX_COLLECTION_SLOTS,
@@ -22,6 +21,7 @@ import {
   type PetPaymentCurrency,
 } from "@/drizzle/constants";
 import {
+  item,
   jutsu,
   petSpecies,
   type UserData,
@@ -40,6 +40,7 @@ import {
 } from "@/libs/pets/abilities";
 import { generatePetAppearance } from "@/libs/pets/appearance";
 import { getDailyPetOptions, isAvailablePetAppearance } from "@/libs/pets/catalogue";
+import { createPetFromSpecies } from "@/libs/pets/creation";
 import {
   getMaxPetRank,
   getPetCollectionCapacity,
@@ -169,35 +170,6 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
-  /** Purchase a rank-supported ability slot together with its reputation debit. */
-  unlockAbilitySlot: protectedProcedure
-    .input(petSelectionSchema)
-    .output(baseServerResponse)
-    .mutation(async ({ ctx, input }) => {
-      const { user, pet } = await fetchPetOwner(ctx.drizzle, ctx.userId, input.petId);
-      const restriction = petMutationBlockMessage(user, pet);
-      if (restriction || !user || !pet)
-        return errorResponse(restriction ?? "Pet not found");
-      if (pet.rank > getMaxPetRank(user.rank))
-        return errorResponse("Your rank does not support this companion rank.");
-      if (pet.abilitySlots >= getPetAbilityCapacity(pet).maxSlots)
-        return errorResponse("Evolve your companion to unlock more ability slots.");
-      if (user.reputationPoints < PET_ABILITY_SLOT_COST)
-        return errorResponse(
-          `An ability slot costs ${PET_ABILITY_SLOT_COST} reputation points.`,
-        );
-      const changed = await updateOwnedPet(
-        ctx.drizzle,
-        user,
-        pet,
-        { abilitySlots: pet.abilitySlots + 1 },
-        PET_ABILITY_SLOT_COST,
-      );
-      return changed
-        ? { success: true, message: "Companion ability slot unlocked." }
-        : changedResponse();
-    }),
-
   /** Equip published pet jutsus and activated skills within the companion's shared budget. */
   updateAbilities: protectedProcedure
     .input(updatePetAbilitiesSchema)
@@ -267,7 +239,7 @@ export const petsRouter = createTRPCRouter({
         );
       if (input.expectedQuantity !== meal.quantity || meal.quantity <= 0)
         return errorResponse("Your meal stack changed. Refresh and try again.");
-      const experience = pet.rank * PET_FEED_EXPERIENCE_PER_RANK;
+      const experience = PET_FEED_EXPERIENCE_BY_RARITY[meal.item.rarity];
       const isActive = user.activePetId === pet.id;
       // One joined UPDATE guards the account, pet and exact meal stack before any
       // debit or XP grant. Zero quantities are harmless tombstones until cleanup.
@@ -292,6 +264,8 @@ export const petsRouter = createTRPCRouter({
             AND ${userItem.storedAtHome} = FALSE
             AND ${userItem.equipped} = 'NONE'
             AND (${userItem.craftingFinishedAt} IS NULL OR ${userItem.craftingFinishedAt} <= ${now})
+            AND EXISTS (SELECT 1 FROM ${item} WHERE ${item.id} = ${meal.itemId}
+              AND ${item.itemType} = 'MEAL' AND ${item.rarity} = ${meal.item.rarity})
         `),
       );
       if (fed.rowsAffected === 0) return changedResponse();
@@ -383,15 +357,15 @@ export const petsRouter = createTRPCRouter({
           skills: abilities.skills.filter(isPetSkillAllowed),
         },
         abilityCapacity: pet ? getPetAbilityCapacity(pet) : null,
-        abilitySlotCost: PET_ABILITY_SLOT_COST,
         feedMeals: meals
           .filter((meal) => meal.item.itemType === "MEAL")
           .map((meal) => ({
             id: meal.id,
             quantity: meal.quantity,
             name: meal.item.name,
+            rarity: meal.item.rarity,
+            experience: PET_FEED_EXPERIENCE_BY_RARITY[meal.item.rarity],
           })),
-        feedExperience: pet ? pet.rank * PET_FEED_EXPERIENCE_PER_RANK : 0,
         feedAvailableAt,
         canFeed: Boolean(
           pet &&
@@ -435,9 +409,12 @@ export const petsRouter = createTRPCRouter({
     .input(acquirePetSchema)
     .output(petAcquisitionResponseSchema)
     .mutation(async ({ ctx, input }) => {
-      const [{ user, pets }, species] = await Promise.all([
+      const [{ user, pets }, species, jutsus] = await Promise.all([
         fetchPetOwner(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.petSpecies.findMany(),
+        ctx.drizzle.query.jutsu.findMany({
+          where: and(eq(jutsu.jutsuType, "PETS"), eq(jutsu.hidden, false)),
+        }),
       ]);
       if (!user) return errorResponse("User not found");
       const restriction = acquisitionBlockMessage(user);
@@ -468,7 +445,17 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           `Adopting a companion costs ${payment.cost} ${payment.label}.`,
         );
-      const petId = nanoid();
+      const selectedSpecies = species.find((entry) => entry.id === input.speciesId);
+      if (!selectedSpecies)
+        return errorResponse("This companion species is unavailable.");
+      const created = createPetFromSpecies({
+        species: selectedSpecies,
+        user,
+        jutsus,
+        name: input.name,
+        appearance: input,
+      });
+      const petId = created.id;
       try {
         // MySQL cannot insert the pet and update its owner's debit/counters/first
         // selection in one statement. Keep this transaction to those paired writes.
@@ -514,15 +501,7 @@ export const petsRouter = createTRPCRouter({
               },
             });
             if (!claim.success) return false;
-            await tx.insert(userPet).values({
-              id: petId,
-              userId: user.userId,
-              name: input.name,
-              speciesId: input.speciesId,
-              paletteIndex: input.paletteIndex,
-              characteristicIndex: input.characteristicIndex,
-              auraIndex: input.auraIndex,
-            });
+            await tx.insert(userPet).values(created);
             return true;
           }),
         );
@@ -941,6 +920,8 @@ const petMutationBlockMessage = (
 ) => {
   if (!user) return "User not found";
   if (!pet) return "Pet not found";
+  if (user.petTask?.petId === pet.id)
+    return "Your companion is away on a profession job. Collect its results or cancel the job first.";
   if (user.isBanned) return "You are banned";
   if (user.status !== "AWAKE" || user.battleId)
     return "You must be awake and out of combat to change your companion.";
@@ -961,6 +942,9 @@ const ownerMutationWhere = (user: UserData) => [
     ? eq(userData.activePetId, user.activePetId)
     : isNull(userData.activePetId),
   eq(userData.rank, user.rank),
+  user.petTask
+    ? sql`JSON_CONTAINS(${userData.petTask}, ${JSON.stringify(user.petTask)})`
+    : isNull(userData.petTask),
 ];
 /** Pin account identity and its monotonic revision alongside the domain guards. */
 const ownerSnapshotWhere = (user: UserData) =>

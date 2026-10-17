@@ -623,7 +623,7 @@ export type UserRank = (typeof UserRanks)[number];
 export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
 
 /** Shared availability gate for companion combat, including saved opt-in settings. */
-export const PET_BATTLE_CONFIG = { enabled: false };
+export const PET_BATTLE_CONFIG = { enabled: true, battleTypes: ["QUEST"] as readonly BattleType[] };
 export const PET_BASE_STAT = 10;
 export const PET_REPLACEMENT_COST = 30;
 export const PET_MAX_COLLECTION_SLOTS = 6;
@@ -635,21 +635,31 @@ export type PetPaymentCurrency = (typeof PetPaymentCurrencies)[number];
 export const PET_FED_COLLECTION_SLOTS: Record<FederalStatus, number> = {
   NONE: 0, NORMAL: 1, SILVER: 2, GOLD: 3,
 };
-export const PET_MAX_ABILITY_SLOTS = 4;
-export const PET_ABILITY_SLOT_COST = 25;
-/** Rank progression controls purchased slot capacity and the shared ability power budget. */
-export const PET_ABILITY_RANKS_PER_SLOT = 3;
+export const PET_MAX_ABILITY_SLOTS = 6;
+export const PET_MAX_CONSUME_PETS = 1;
+export const PET_TASK_MIN_RANK = 5;
+export const PET_TASK_MAX_MINUTES = 7 * 24 * 60;
+/** Rarity grants slots immediately; progression still controls the shared power budget. */
 export const PET_ABILITY_POWER_BUDGET_BONUS = 1;
 export const PET_MIN_SKILL_POWER_COST = 1;
 /** H-rank techniques cannot fit a pet loadout, regardless of its power budget. */
 export const PET_JUTSU_POWER_COST_BY_RANK = {
   D: 1, C: 2, B: 3, A: 4, S: 5, H: Number.POSITIVE_INFINITY,
 } as const;
-export const PET_FEED_EXPERIENCE_PER_RANK = 500;
+export const PET_FEED_EXPERIENCE_BY_RARITY: Record<ItemRarity, number> = {
+  COMMON: 500, RARE: 750, EPIC: 1000, LEGENDARY: 1200,
+};
 /** Rolling feeding cooldown while companion battles are unavailable. */
 export const PET_FEED_COOLDOWN_HOURS = 3;
 export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 export type PetRarity = (typeof PetRarities)[number];
+export const PET_ABILITY_SLOTS_BY_RARITY: Record<PetRarity, number> = {
+  COMMON: 2, UNCOMMON: 3, RARE: 4, EPIC: 5, LEGENDARY: 6,
+};
+export const PetRoles = ["SUPPORT", "HEALER", "ASSAULT"] as const;
+export type PetRole = (typeof PetRoles)[number];
+/** Species passives either empower both bonded actors or trigger on their enemy hits. */
+export const PetSkillTargets = ["SELF", "ENEMIES"] as const;
 /** Later supporter choices use these rarity weights; earlier choices remain shared. */
 export const PET_SPECIES_RARITY_WEIGHTS: Record<FederalStatus, Record<PetRarity, number>> = {
   NONE: { COMMON: 7000, UNCOMMON: 2200, RARE: 600, EPIC: 170, LEGENDARY: 30 },

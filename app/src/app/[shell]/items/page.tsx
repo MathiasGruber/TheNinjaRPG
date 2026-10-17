@@ -869,6 +869,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           undefined,
           undefined,
           data.cacheRewards,
+          data.petRewards,
         );
       } else {
         let message = data.message || "Consume failed";
@@ -885,6 +886,9 @@ const Backpack: React.FC<BackpackProps> = (props) => {
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
           utils.raids.getUserRaidBuffs.invalidate(),
+          ...("petRewards" in data && data.petRewards?.length
+            ? [utils.pets.getPet.invalidate()]
+            : []),
         ]);
       } else if (useritem?.item.itemType === "MEAL") {
         // A rejected snapshot must refresh the next modal's quantity and account state.
@@ -900,7 +904,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       const isCache = useritem?.item.effects.some(
         (effect) =>
           effect.type === "noncombatconsumereward" &&
-          effect.rewardMode === "weightedCache",
+          (effect.rewardMode === "weightedCache" ||
+            (effect.reward_pets?.length ?? 0) > 0),
       );
       showMutationToast({
         success: false,

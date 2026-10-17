@@ -1,25 +1,23 @@
 /** Shared loadout eligibility for the pet editor, mutations and battle initiation. */
 import {
   PET_ABILITY_POWER_BUDGET_BONUS,
-  PET_ABILITY_RANKS_PER_SLOT,
+  PET_ABILITY_SLOTS_BY_RARITY,
   PET_JUTSU_POWER_COST_BY_RANK,
-  PET_MAX_ABILITY_SLOTS,
   PET_MIN_SKILL_POWER_COST,
   PET_RANKS,
   type UserRank,
 } from "@/drizzle/constants";
-import type { Jutsu, SkillTree, UserPet } from "@/drizzle/schema";
+import type { Jutsu, PetSpecies, SkillTree, UserPet } from "@/drizzle/schema";
 import type { CombatQueryUserSkill } from "@/libs/combat/types";
 import { getMaxPetRank, getPetLevel } from "@/libs/pets/progression";
 import { hasRequiredRank } from "@/libs/train";
 import type { ZodAllTags } from "@/validators/combat";
 
-/** Purchased slots share one rank-bounded budget across active and passive abilities. */
-export const getPetAbilityCapacity = (pet: Pick<UserPet, "rank">) => ({
-  maxSlots: Math.min(
-    PET_MAX_ABILITY_SLOTS,
-    1 + Math.floor((pet.rank - 1) / PET_ABILITY_RANKS_PER_SLOT),
-  ),
+/** Species rarity grants slots immediately; rank limits the combined ability power. */
+export const getPetAbilityCapacity = (
+  pet: Pick<UserPet, "rank"> & { species: Pick<PetSpecies, "rarity"> | null },
+) => ({
+  maxSlots: pet.species ? PET_ABILITY_SLOTS_BY_RARITY[pet.species.rarity] : 0,
   budget: pet.rank + PET_ABILITY_POWER_BUDGET_BONUS,
 });
 
@@ -54,6 +52,9 @@ const passiveEffects = new Set<ZodAllTags["type"]>([
   "increaseaggro",
   "decreaseaggro",
 ]);
+const speciesPassiveEffects = new Set(
+  [...activeEffects, ...passiveEffects].filter((type) => type !== "move"),
+);
 const masteryRequirements = [
   "requiredNinjutsuMastery",
   "requiredGenjutsuMastery",
@@ -68,6 +69,7 @@ export const isPetJutsuAllowed = (jutsu: Jutsu) =>
   !jutsu.hidden &&
   !jutsu.injectableInBattle &&
   jutsu.jutsuType === "PETS" &&
+  jutsu.battleUsageType !== "PVP" &&
   jutsu.jutsuRank !== "H" &&
   !jutsu.bloodlineId &&
   !jutsu.bloodlineReskinId &&
@@ -110,6 +112,10 @@ export const isPetSkillAllowed = (skill: SkillTree) =>
       effect.target !== "COORDINATES" && isAllowedEffect(effect, passiveEffects),
   );
 
+/** Species passives reuse self-contained combat effects without external preload dependencies. */
+export const isPetPassiveEffectAllowed = (effect: ZodAllTags) =>
+  effect.target !== "COORDINATES" && isAllowedEffect(effect, speciesPassiveEffects);
+
 /**
  * Return the first player-facing loadout rejection, or null when valid.
  * The caller supplies the published companion catalogue and the owner's
@@ -133,15 +139,14 @@ export const validatePetAbilities = ({
   )
     return "Your rank does not support this pet's abilities.";
   const { maxSlots, budget } = getPetAbilityCapacity(pet);
-  if (!Number.isInteger(pet.abilitySlots) || pet.abilitySlots < 1)
-    return "Your pet's ability slots are invalid.";
+  if (!pet.species) return "Your companion's species is unavailable.";
   if (
     new Set(pet.jutsuIds).size !== pet.jutsuIds.length ||
     new Set(pet.skillIds).size !== pet.skillIds.length
   )
     return "Equip each ability only once.";
-  if (pet.jutsuIds.length + pet.skillIds.length > Math.min(pet.abilitySlots, maxSlots))
-    return "This loadout exceeds your pet's purchased or rank-limited ability slots.";
+  if (pet.jutsuIds.length + pet.skillIds.length > maxSlots)
+    return "This loadout exceeds your companion's rarity-based ability slots.";
   let spent = 0;
   for (const id of pet.jutsuIds) {
     const jutsu = jutsus.find((entry) => entry.id === id);
@@ -238,5 +243,5 @@ const isAllowedEffect = (effect: ZodAllTags, allowed: Set<ZodAllTags["type"]>) =
 /** Persisted selections plus the progression fields needed to validate their limits. */
 export type PetAbilityLoadout = Pick<
   UserPet,
-  "rank" | "experience" | "abilitySlots" | "jutsuIds" | "skillIds"
->;
+  "rank" | "experience" | "jutsuIds" | "skillIds"
+> & { species: Pick<PetSpecies, "rarity"> | null };

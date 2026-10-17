@@ -33,6 +33,8 @@ export const petExperienceGainSql = (experience: number, petId?: string | null) 
       AND ${userPet.avatar} IS NOT NULL AND ${userPet.avatar} <> ''
       AND ${userPet.rank} <= ${maxRank}
       AND ${userPet.rank} >= 1
+      AND (${userData.petTask} IS NULL OR
+        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${userData.petTask}, '$.petId')), '') <> ${userPet.id})
       ${identity}
   ), ${gain}, 0)`;
 };

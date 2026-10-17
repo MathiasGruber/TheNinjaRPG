@@ -117,9 +117,34 @@ describeWithDatabase("companion battle preload consistency", () => {
     expect(await database.query.battle.findMany()).toHaveLength(0);
     expect(await database.query.userData.findFirst({ where: eq(userData.userId, ownerId) })).toMatchObject({ activePetId: "second", status: "AWAKE", battleId: null });
   });
+
+  it("keeps an already-away companion out of the frozen battle state", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ petTask: {
+      petId: "first", questId: "contract", questHistoryId: "attempt", startedAt: 1,
+      questVersion: 1, finishesAt: 2,
+    } }).where(eq(userData.userId, ownerId));
+    expect((await startBattle(database)).success).toBe(true);
+    const saved = (await database.query.battle.findFirst())!;
+    expect(saved.usersState.some((actor) => actor.petId)).toBe(false);
+    expect(saved.extraState.petIdsByOwner).toEqual({});
+  });
+
+  it("rejects a dispatch that wins after battle preloads, before claiming participants", async () => {
+    const database = await getTestDatabase();
+    const task = { petId: "first", questId: "contract", questHistoryId: "attempt", startedAt: 1,
+      questVersion: 1, finishesAt: 2 };
+    const client = beforeStatements(database, userData, [async () => {
+      await database.update(userData).set({ petTask: task }).where(eq(userData.userId, ownerId));
+    }]);
+    expect((await startBattle(client)).success).toBe(false);
+    expect(await database.query.battle.findMany()).toHaveLength(0);
+    expect(await database.query.userData.findFirst({ where: eq(userData.userId, ownerId) }))
+      .toMatchObject({ petTask: task, status: "AWAKE", battleId: null });
+  });
 });
 
-const startBattle = (client: DrizzleClient) => initiateBattle({ client, userIds: ["attacker"], targetIds: [ownerId] }, "SPARRING");
+const startBattle = (client: DrizzleClient) => initiateBattle({ client, userIds: ["attacker"], targetIds: [ownerId] }, "QUEST");
 
 const adoptionInput = async (database: DrizzleClient) => {
   const data = await callerForDatabase(petsRouter, ownerId, database).getPet();

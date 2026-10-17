@@ -1,18 +1,30 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
-import { PetRarities } from "@/drizzle/constants";
+import { PetRarities, PetRoles, PetSkillTargets } from "@/drizzle/constants";
 import type { PetSpecies } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
+import { isPetJutsuAllowed } from "@/libs/pets/abilities";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
-import { PetSpeciesValidator, type ZodPetSpeciesType } from "@/validators/petSpecies";
+import type { AiRuleType } from "@/validators/ai";
+import {
+  PetSpeciesValidator,
+  type ZodPetSpeciesInput,
+  type ZodPetSpeciesType,
+} from "@/validators/petSpecies";
 
 const emptySpecies: ZodPetSpeciesType = {
   name: "",
   description: "",
   rarity: "COMMON",
+  role: "ASSAULT",
   isActive: false,
+  defaultJutsuIds: [],
+  aiRules: [],
+  includeDefaultRules: true,
+  effects: [],
+  skillTarget: "SELF",
 };
 
 /** Share the Manual create/edit form while keeping rejected saves recoverable. */
@@ -22,7 +34,7 @@ export const usePetSpeciesEditForm = (
 ) => {
   const utils = api.useUtils();
   const [message, setMessage] = useState<string | null>(null);
-  const form = useForm<ZodPetSpeciesType>({
+  const form = useForm<ZodPetSpeciesInput, unknown, ZodPetSpeciesType>({
     mode: "all",
     criteriaMode: "all",
     values: species ?? emptySpecies,
@@ -30,7 +42,32 @@ export const usePetSpeciesEditForm = (
     resetOptions: { keepDirtyValues: true },
     resolver: zodResolver(PetSpeciesValidator),
   });
-  const isActive = useWatch({ control: form.control, name: "isActive" });
+  const [isActive, effects, aiRules, includeDefaultRules, defaultJutsuIds, rarity] =
+    useWatch({
+      control: form.control,
+      name: [
+        "isActive",
+        "effects",
+        "aiRules",
+        "includeDefaultRules",
+        "defaultJutsuIds",
+        "rarity",
+      ],
+    });
+  const aiProfile = useMemo(
+    // Database rows and the controlled AI editor supply normalized rules, including defaults.
+    () => ({
+      rules: (aiRules ?? []) as AiRuleType[],
+      includeDefaultRules: includeDefaultRules ?? true,
+    }),
+    [aiRules, includeDefaultRules],
+  );
+  const catalogue = api.jutsu.getAll.useInfiniteQuery(
+    { jutsuType: ["PETS"], hidden: false, limit: 1000 },
+    { getNextPageParam: (page) => page.nextCursor },
+  );
+  const availableJutsus =
+    catalogue.data?.pages.flatMap((page) => page.data).filter(isPetJutsuAllowed) ?? [];
   const mutationOptions = {
     onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast({
@@ -61,6 +98,7 @@ export const usePetSpeciesEditForm = (
   const formData: FormEntry<keyof ZodPetSpeciesType>[] = [
     { id: "name", label: "Species name", type: "text" },
     { id: "rarity", label: "Rarity", type: "str_array", values: PetRarities },
+    { id: "role", label: "Role", type: "str_array", values: PetRoles },
     {
       id: "description",
       label: "Visual description",
@@ -75,9 +113,38 @@ export const usePetSpeciesEditForm = (
       fullWidth: true,
     },
   ];
+  const loadoutFormData: FormEntry<keyof ZodPetSpeciesType>[] = [
+    {
+      id: "defaultJutsuIds",
+      label: "Default PETS jutsu",
+      type: "db_values",
+      multiple: true,
+      fullWidth: true,
+      values: [
+        ...availableJutsus.map(({ id, name }) => ({ id, name })),
+        ...(defaultJutsuIds ?? [])
+          .filter((id) => !availableJutsus.some((entry) => entry.id === id))
+          .map((id) => ({ id, name: `${id} (unavailable)` })),
+      ],
+    },
+  ];
+  const skillFormData: FormEntry<keyof ZodPetSpeciesType>[] = [
+    {
+      id: "skillTarget",
+      label: "Pet skill target",
+      type: "str_array",
+      values: PetSkillTargets,
+    },
+  ];
   return {
     form,
     formData,
+    loadoutFormData,
+    skillFormData,
+    catalogue,
+    aiProfile,
+    effects: effects ?? [],
+    rarity,
     handleSubmit,
     isActive,
     isSaving: create.isPending || update.isPending,

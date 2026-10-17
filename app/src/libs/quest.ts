@@ -116,6 +116,8 @@ export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
   const userQuests =
     user?.userQuests
       .filter((uq) => !!uq.quest && !hasQuestContentChanged(uq))
+      // Delegation owns the attempt until return; player events cannot advance its objectives.
+      .filter((uq) => user.petTask?.questId !== uq.questId)
       .filter((uq) => isAvailableUserQuests({ ...uq.quest, ...uq }, user, true).check)
       .map((uq) => ({ ...uq, ...uq.quest })) ?? [];
   return userQuests;
@@ -371,6 +373,7 @@ export const isReducedMissionReward = (
  * @param dialogNextObjectiveId - Requested next objective ID.
  * @param settings - Game settings used while calculating quest rewards.
  * @param atPlacementIds - Overworld placement ids the user is interacting with now.
+ * @param completionOnly - A validated companion task pays the final reward without running objectives.
  * @returns Rewards, trackers, userQuest, resolved, successDescriptions
  */
 export const getReward = (
@@ -379,24 +382,31 @@ export const getReward = (
   dialogNextObjectiveId?: string,
   settings?: GameSetting[],
   atPlacementIds?: ReadonlySet<string>,
+  completionOnly = false,
 ) => {
   // Derived
   let rawRewards = ObjectiveReward.parse({});
   // Completion reward of a "choose" quest, offered as cards instead of granted outright.
   let choiceRewards: QuestRewardType | null = null;
   let rewardChoice: PendingRewardChoice | null = null;
-  const { trackers, notifications, consequences } = getNewTrackers(
-    user,
-    [
-      { task: "any" },
-      { task: "collect_item" },
-      { task: "dialog", contentId: dialogNextObjectiveId },
-    ],
-    undefined, // combatContext
-    undefined, // boundPlacementStatus (getReward binds via atPlacementIds instead)
-    atPlacementIds,
-    true,
-  );
+  const { trackers, notifications, consequences } = completionOnly
+    ? {
+        trackers: structuredClone(user.questData ?? []),
+        notifications: [] as string[],
+        consequences: [] as QuestConsequence[],
+      }
+    : getNewTrackers(
+        user,
+        [
+          { task: "any" },
+          { task: "collect_item" },
+          { task: "dialog", contentId: dialogNextObjectiveId },
+        ],
+        undefined, // combatContext
+        undefined, // boundPlacementStatus (getReward binds via atPlacementIds instead)
+        atPlacementIds,
+        true,
+      );
   const userQuest = user.userQuests.find((uq) => uq.questId === questId);
   const isCompletedHelper = userQuest?.id === `party-${user.questPartyId}`;
   let resolved = false;
@@ -439,7 +449,9 @@ export const getReward = (
     const tracker = trackers.find((q) => q.id === userQuest.quest.id);
     const goals = tracker?.goals ?? [];
     resolved =
-      !tracker || (!tracker.failed && isQuestComplete(userQuest.quest, tracker));
+      completionOnly ||
+      !tracker ||
+      (!tracker.failed && isQuestComplete(userQuest.quest, tracker));
     if (resolved) {
       const questReward = QuestReward.parse(userQuest.quest.content.reward);
       if (isRewardChoiceQuest(userQuest.quest.content)) {
@@ -453,7 +465,7 @@ export const getReward = (
         ]);
       }
     }
-    userQuest.quest.content.objectives.forEach((objective) => {
+    (completionOnly ? [] : userQuest.quest.content.objectives).forEach((objective) => {
       const status = goals.find((g) => g.id === objective.id);
       if (status?.done && !status.collected) {
         status.collected = true;

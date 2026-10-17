@@ -3,6 +3,12 @@ CREATE TABLE `PetSpecies` (
 	`name` varchar(191) NOT NULL,
 	`description` varchar(1000) NOT NULL,
 	`rarity` enum('COMMON','UNCOMMON','RARE','EPIC','LEGENDARY') NOT NULL DEFAULT 'COMMON',
+	`role` enum('SUPPORT','HEALER','ASSAULT') NOT NULL DEFAULT 'ASSAULT',
+	`defaultJutsuIds` json NOT NULL DEFAULT ('[]'),
+	`aiRules` json NOT NULL DEFAULT ('[]'),
+	`includeDefaultRules` boolean NOT NULL DEFAULT true,
+	`effects` json NOT NULL DEFAULT ('[]'),
+	`skillTarget` enum('SELF','ENEMIES') NOT NULL DEFAULT 'SELF',
 	`isActive` boolean NOT NULL DEFAULT true,
 	`createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
 	`updatedAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
@@ -22,7 +28,6 @@ CREATE TABLE `UserPet` (
 	`experience` double NOT NULL DEFAULT 0,
 	`storedExperience` double NOT NULL DEFAULT 0,
 	`lastFedAt` datetime(3),
-	`abilitySlots` tinyint unsigned NOT NULL DEFAULT 1,
 	`jutsuIds` json NOT NULL DEFAULT ('[]'),
 	`skillIds` json NOT NULL DEFAULT ('[]'),
 	`offence` double NOT NULL DEFAULT 10,
@@ -53,7 +58,8 @@ ALTER TABLE `UserData`
 	ADD `petExperience` double DEFAULT 0 NOT NULL,
 	ADD `petAcquisitions` int unsigned DEFAULT 0 NOT NULL,
 	ADD `activePetId` varchar(191),
-	ADD `petSlots` tinyint unsigned DEFAULT 1 NOT NULL;
+	ADD `petSlots` tinyint unsigned DEFAULT 1 NOT NULL,
+	ADD `petTask` json;
 CREATE INDEX `UserPet_userId_idx` ON `UserPet` (`userId`);
 
 -- Species rarity follows everyday fauna, distinctive animals, specialists, powerful beasts and mythical creatures.
@@ -133,3 +139,6 @@ ON DUPLICATE KEY UPDATE `route` = '/pets', `image` = 'https://ui0arpl8sm.ufs.sh/
 
 -- Companion techniques have a separate catalogue from player jutsu.
 ALTER TABLE `Jutsu` MODIFY COLUMN `jutsuType` enum('NORMAL','SPECIAL','BLOODLINE','FORBIDDEN','LOYALTY','CLAN','EVENT','AI','PETS') NOT NULL;
+
+-- Content opts profession contracts into timed companion tasks.
+ALTER TABLE `Quest` ADD `petTaskMinutes` int unsigned;

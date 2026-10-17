@@ -2,25 +2,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Grid, rectangle } from "honeycomb-grid";
 import { BattleTypes, COMBAT_ENMITY_PER_DAMAGE, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/constants";
 import type { AiProfile, UserPet } from "@/drizzle/schema";
-import { availableUserActions } from "@/libs/combat/actions";
+import { availableUserActions, insertAction } from "@/libs/combat/actions";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { addPetsToBattle, getPetSpawnLocation, petsAllowedInBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
-import type { CombatQueryUser } from "@/libs/combat/types";
+import type { CombatAction, CombatQueryUser, ReturnedBattle } from "@/libs/combat/types";
 import { hasLiveSummon, spliceOrphanedSummons } from "@/libs/combat/summon";
-import { applyPoolAdjustmentsToBase, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
+import { applyPoolAdjustmentsToBase, getBattleGrid, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
 import { TerrainHex } from "@/libs/hexgrid";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 import { AiRule } from "@/validators/ai";
-import { IncreaseMaxPoolsTag, InjectJutsusTag, ShieldTag, SummonTag } from "@/validators/combat";
+import { DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, ShieldTag, SummonTag } from "@/validators/combat";
 import { updatePetAiSchema } from "@/validators/pets";
 import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
+import { petSpeciesFixture } from "../pets/helpers/species";
 
-const petFixture = (patch: Partial<UserPet> = {}): UserPet => ({
+type BattlePet = Parameters<typeof addPetsToBattle>[0]["pets"][number];
+const petFixture = (patch: Partial<BattlePet> = {}): BattlePet => ({
   id: "pet-1", userId: "owner", name: "Nami", rank: 1, experience: 1000,
-  storedExperience: 0, lastFedAt: null, abilitySlots: 1, jutsuIds: [], skillIds: [],
+  storedExperience: 0, lastFedAt: null, species: petSpeciesFixture(), jutsuIds: [], skillIds: [],
   speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
   offence: 50, defence: 40, strength: 30, intelligence: 20, willpower: 10, speed: 25,
   avatar: "https://example.com/pet.png", avatarFacing: "left",
@@ -138,7 +140,7 @@ describe("owned pets in combat", () => {
     const published = petJutsuFixture();
     const skill = ownedPetSkill();
     addPetsToBattle({ ...battle,
-      pets: [petFixture({ rank: 4, artRank: 4, experience: 100000, abilitySlots: 2,
+      pets: [petFixture({ rank: 4, artRank: 4, experience: 100000,
         jutsuIds: [published.id], skillIds: [skill.skillId] })],
       abilitiesByOwner: { owner: { jutsus: [published], skills: [skill] } },
     });
@@ -368,11 +370,68 @@ describe("owned pets in combat", () => {
     expect(battle.extraState.petIdsByOwner).toEqual({});
   });
 
-  it("allows pets for ordinary player-versus-player combat", () => {
-    const battle = scenario(); battle.battleType = "COMBAT";
-    battle.usersState[1]!.isAi = false;
-    add(battle);
-    expect(battle.usersState.some((actor) => actor.petId === "pet-1")).toBe(true);
+  it.each(BattleTypes.filter((type) => type !== "QUEST"))("excludes pets and their innate bonuses from %s", (battleType) => {
+    const battle = scenario(); battle.battleType = battleType;
+    add(battle, [petFixture({ species: petSpeciesFixture({ effects: [ShieldTag.parse({})] }) })]);
+    expect(battle.usersState).toHaveLength(2);
+    expect(battle.usersEffects).toEqual([]);
+    expect(battle.extraState.petIdsByOwner).toEqual({});
+    expect(battle.extraState.enemySkills ?? {}).toEqual({});
+  });
+
+  it("prevents a frozen pet in a disallowed battle from attacking", () => {
+    const battle = scenario(); add(battle);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    battle.battleType = "COMBAT";
+    expect(availableUserActions(battle, actor.userId).map((action) => action.id)).toEqual(["wait"]);
+  });
+
+  it("does not spawn or buff a companion while its accepted task is away", () => {
+    const battle = scenario();
+    battle.usersState[0]!.petTask = { petId: "pet-1", questId: "contract", questHistoryId: "attempt", startedAt: 1, questVersion: 1, finishesAt: 2 };
+    add(battle, [petFixture({ species: petSpeciesFixture({ effects: [ShieldTag.parse({})] }) })]);
+    expect(battle.usersState).toHaveLength(2);
+    expect(battle.usersEffects).toEqual([]);
+    expect(battle.extraState.petIdsByOwner).toEqual({});
+  });
+
+  it("freezes innate self bonuses for only the pet and its owner", () => {
+    const battle = scenario();
+    battle.usersState.push(makeBattleUser("ally", { direction: "left", longitude: 1, latitude: 1 }));
+    const species = petSpeciesFixture({ effects: [IncreaseMaxPoolsTag.parse({ poolsAffected: ["Health"], calculation: "percentage", power: 20 })] });
+    add(battle, [petFixture({ species })]);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    const owner = battle.usersState[0]!;
+    expect(battle.usersEffects.map((effect) => effect.targetId)).toEqual([owner.userId, actor.userId]);
+    expect(battle.usersEffects.map((effect) => effect.creatorId)).toEqual([owner.userId, actor.userId]);
+    Object.assign(species.effects[0]!, { power: 999 });
+    expect(battle.usersEffects.every((effect) => "power" in effect && effect.power === 20)).toBe(true);
+    const ownerHealth = owner.curHealth;
+    const petHealth = actor.curHealth;
+    applyPoolAdjustmentsToBase(owner, battle.usersEffects);
+    applyPoolAdjustmentsToBase(actor, battle.usersEffects);
+    expect(owner.curHealth).toBeGreaterThan(ownerHealth);
+    expect(actor.curHealth).toBeGreaterThan(petHealth);
+    expect(battle.usersEffects.some((effect) => effect.targetId === "ally")).toBe(false);
+  });
+
+  it("uses frozen enemy bonuses on accepted attacks by both owner and pet", () => {
+    const battle = scenario();
+    battle.usersState[1]!.longitude = 4;
+    const species = petSpeciesFixture({ skillTarget: "ENEMIES", effects: [DamageTag.parse({ power: 20, rounds: 3 })] });
+    add(battle, [petFixture({ species })]);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    Object.assign(species.effects[0]!, { power: 999 });
+    const action = { id: "basicAttack", name: "Attack", type: "basic", target: "OTHER_USER", method: "SINGLE", range: 5,
+      battleDescription: "", healthCost: 0, chakraCost: 0, staminaCost: 0, actionCostPerc: 10,
+      cooldown: 0, originalCooldown: 0, level: 1, effects: [DamageTag.parse({ power: 10 })] } as CombatAction;
+    for (const actorId of ["owner", actor.userId]) {
+      expect(insertAction({ battle, grid: getBattleGrid(20, battle as unknown as ReturnedBattle), action, actorId, longitude: 4, latitude: 3 })).toBe(true);
+    }
+    const bonuses = battle.usersEffects.filter((effect) => effect.fromType === "skill");
+    expect(bonuses).toHaveLength(2);
+    expect(bonuses.map((effect) => effect.creatorId)).toEqual(["owner", actor.userId]);
+    expect(bonuses.every((effect) => effect.targetId === "enemy" && "power" in effect && effect.power === 20)).toBe(true);
   });
 
   it("uses the normal autonomous AI with preloaded basic actions", () => {
@@ -387,9 +446,9 @@ describe("owned pets in combat", () => {
     expect({ x: moved.longitude, y: moved.latitude }).not.toEqual(start);
   });
 
-  it.each(["same-village", "opposing-village"])("default clan pet AI approaches opponents and spares its teammates in %s matches", (enemyVillage) => {
+  it.each(["same-village", "opposing-village"])("default pet AI approaches opponents and spares its teammates in %s quest matches", (enemyVillage) => {
     const battle = scenario();
-    battle.battleType = "CLAN_BATTLE";
+    battle.battleType = "QUEST";
     battle.width = 12; battle.height = 10;
     battle.usersState = [
       makeBattleUser("owner", { isAi: false, activePetId: "pet-1", rank: "ELITE JONIN", villageId: "same-village", clanId: "clan-1", direction: "left", longitude: 3, latitude: 3, initiative: 22 }),

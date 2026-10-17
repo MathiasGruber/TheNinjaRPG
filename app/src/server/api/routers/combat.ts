@@ -1331,10 +1331,9 @@ export const combatRouter = createTRPCRouter({
             })
           : undefined;
 
-      // Loadout processing rebuilds the owner and summon templates; owned pets
-      // retain their independently preloaded identity, progression and AI state.
+      // Split out user from current usersState & usersEffects
       const otherUserState = userBattle.usersState.filter(
-        (u) => u.controllerId !== ctx.userId || !!u.petId,
+        (u) => u.controllerId !== ctx.userId,
       );
       const preservedEffects = userBattle.usersEffects.filter(
         (e) =>
@@ -1455,8 +1454,6 @@ export const combatRouter = createTRPCRouter({
           width: userBattle.width,
           height: userBattle.height,
           hide: false,
-          leftSideUserIds: originalDirection === "left" ? [user.userId] : [],
-          retainedParticipants: otherUserState,
           isSummon: false,
         },
       );
@@ -1472,8 +1469,6 @@ export const combatRouter = createTRPCRouter({
         reconcileLobbyPools(usersState[0], originalPools, completeUserEffects);
         usersState[0].initiative = originalInitiative;
         usersState[0].direction = originalDirection;
-        usersState[0].originalLongitude = user.originalLongitude;
-        usersState[0].originalLatitude = user.originalLatitude;
         // Keep initiating-team reward eligibility across loadout reconstruction.
         usersState[0].isAggressor = user.isAggressor;
       }
@@ -1484,18 +1479,6 @@ export const combatRouter = createTRPCRouter({
       const newParticipants = mergeLoadoutParticipants(otherUserState, usersState);
       userBattle.usersState = [...otherUserState, ...newParticipants];
       userBattle.usersEffects = completeUserEffects;
-      for (const participant of otherUserState) {
-        if (participant.isSummonTemplate) continue;
-        reconcileLobbyPools(
-          participant,
-          {
-            curHealth: participant.curHealth,
-            curChakra: participant.curChakra,
-            curStamina: participant.curStamina,
-          },
-          completeUserEffects,
-        );
-      }
       refreshMasteries(userBattle.usersState, userBattle.usersEffects);
 
       // Merge every static lookup map the reprocessing produced (jutsus, items,
@@ -2291,6 +2274,7 @@ export const initiateBattle = async (
     petsAllowedInBattle(battleType)
       ? client.query.userPet.findMany({
           where: inArray(userPet.userId, [...userIds, ...targetIds]),
+          with: { species: true },
         })
       : [],
     petsAllowedInBattle(battleType)
@@ -3595,9 +3579,14 @@ export const initiateBattle = async (
                   .map((user) =>
                     or(
                       ne(userData.userId, user.userId),
-                      user.activePetId
-                        ? eq(userData.activePetId, user.activePetId)
-                        : isNull(userData.activePetId),
+                      and(
+                        user.activePetId
+                          ? eq(userData.activePetId, user.activePetId)
+                          : isNull(userData.activePetId),
+                        user.petTask
+                          ? sql`JSON_CONTAINS(${userData.petTask}, ${JSON.stringify(user.petTask)})`
+                          : isNull(userData.petTask),
+                      ),
                     ),
                   )
               : []),
@@ -4057,8 +4046,6 @@ export const processUsersForBattle = async (
     leftSideUserIds?: string[];
     /** Ordered team boundary, allowing the same AI template on opposing teams. */
     leftSideUserCount?: number;
-    /** Existing combatants receiving rebuilt ally passives during a lobby loadout change. */
-    retainedParticipants?: BattleUserState[];
     isSummon: boolean;
     width: number;
     height: number;
@@ -4298,11 +4285,7 @@ export const processUsersForBattle = async (
       user.longitude = 0;
       user.latitude = 0;
       user.curHealth = 0;
-    } else if (
-      // Lobby reconstruction retains battlefield cells before realizing effects.
-      !info.retainedParticipants &&
-      (leftSideUserCount !== undefined || leftSideUserIds?.length)
-    ) {
+    } else if (leftSideUserCount !== undefined || leftSideUserIds?.length) {
       const available = getBattleSpawnLocations(width, height, user.direction).filter(
         (location) =>
           !takenLocations.some(
@@ -5066,15 +5049,11 @@ export const processUsersForBattle = async (
     });
   }
 
-  // Apply ally passives after initial and retained companions have been assigned a team.
-  const allyParticipants = [
-    ...convertedUsersState,
-    ...(info.retainedParticipants ?? []),
-  ];
+  // Apply ally passives after every participant, including companions, has been assigned a team.
   for (const pending of pendingSkillEffects) {
     const creator = convertedUsersState.find((u) => u.userId === pending.creatorId);
     if (!creator) continue;
-    const targets = allyParticipants.filter(
+    const targets = convertedUsersState.filter(
       (u) =>
         !u.isSummonTemplate && stillInBattle(u) && u.direction === creator.direction,
     );
@@ -5091,7 +5070,7 @@ export const processUsersForBattle = async (
         realized.castThisRound = false;
         realized.targetId = target.userId;
         realized.fromType = "skill";
-        if (checkFriendlyFire(realized, target, allyParticipants)) {
+        if (checkFriendlyFire(realized, target, convertedUsersState)) {
           userEffects.push(realized);
         }
       }

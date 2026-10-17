@@ -883,7 +883,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             Add Group
           </Button>
         )}
-        {canEdit && rules.length > 0 && (
+        {canEdit && (props.configuration || rules.length > 0) && (
           <Button
             onClick={() => {
               const parsed = updateAiProfileSchema.safeParse({

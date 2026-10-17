@@ -9504,6 +9504,54 @@
           "autoincrement": false,
           "default": "'COMMON'"
         },
+        "role": {
+          "name": "role",
+          "type": "enum('SUPPORT','HEALER','ASSAULT')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'ASSAULT'"
+        },
+        "defaultJutsuIds": {
+          "name": "defaultJutsuIds",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "('[]')"
+        },
+        "aiRules": {
+          "name": "aiRules",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "('[]')"
+        },
+        "includeDefaultRules": {
+          "name": "includeDefaultRules",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "effects": {
+          "name": "effects",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "('[]')"
+        },
+        "skillTarget": {
+          "name": "skillTarget",
+          "type": "enum('SELF','ENEMIES')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'SELF'"
+        },
         "isActive": {
           "name": "isActive",
           "type": "boolean",
@@ -9823,6 +9871,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": "'NONE'"
+        },
+        "petTaskMinutes": {
+          "name": "petTaskMinutes",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "requiredLevel": {
           "name": "requiredLevel",
@@ -14947,6 +15002,13 @@
           "autoincrement": false,
           "default": 1
         },
+        "petTask": {
+          "name": "petTask",
+          "type": "json",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "rank": {
           "name": "rank",
           "type": "enum('STUDENT','GENIN','CHUNIN','JONIN','ELITE JONIN','ELDER','NONE')",
@@ -17456,14 +17518,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "abilitySlots": {
-          "name": "abilitySlots",
-          "type": "tinyint unsigned",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
         },
         "jutsuIds": {
           "name": "jutsuIds",

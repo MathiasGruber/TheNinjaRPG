@@ -23,6 +23,7 @@ import {
   IMG_BASIC_WAIT,
   NO_DURABILITY_LOSS_COMBATS,
   NonActionItemTypes,
+  PET_BATTLE_CONFIG,
   QuestBattleTypes,
   SAGE_MODE_ACTIVATION_JUTSU_ID,
   SAGE_MODE_DISABLED_BATTLES,
@@ -328,7 +329,15 @@ export const availableUserActions = (
     }
     return a;
   });
-  // Return actions
+  // A stale companion in a disabled or non-PvE battle may only yield its turn.
+  if (
+    user?.petId &&
+    (!PET_BATTLE_CONFIG.enabled ||
+      !battle ||
+      !PET_BATTLE_CONFIG.battleTypes.includes(battle.battleType))
+  ) {
+    return availableActions.filter((action) => action.id === "wait");
+  }
   return availableActions;
 };
 

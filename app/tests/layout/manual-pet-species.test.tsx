@@ -11,15 +11,21 @@ import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import ManualCompanions from "@/app/[shell]/manual/companions/page";
 import PetSpeciesEdit from "@/app/[shell]/manual/companions/edit/[speciesid]/page";
 import type { UserRole } from "@/drizzle/constants";
+import * as AiProfileEdit from "@/layout/AiProfileEdit";
 import * as ContentBox from "@/layout/ContentBox";
+import * as EditContent from "@/layout/EditContent";
 import * as Modal from "@/layout/Modal";
 import * as petSpecies from "@/libs/petSpecies";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
+import { ActionEndTurn } from "@/validators/ai";
+import { IncreaseStatTag } from "@/validators/combat";
+import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { ensureDom } from "../setup-dom.mjs";
 
 const testApi = createTRPCReact<AppRouter>();
 const usePetSpeciesEditForm = petSpecies.usePetSpeciesEditForm;
+const defaults = { role: "ASSAULT" as const, defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" as const };
 let queryClient: QueryClient;
 let role: UserRole;
 let species: RouterOutputs["petSpecies"]["getAll"];
@@ -45,17 +51,18 @@ beforeEach(() => {
   requested = [];
   push = vi.fn();
   species = [
-    { id: "fox", name: "Fox", description: "A fox with a bushy tail.", rarity: "COMMON", isActive: true, createdAt: new Date(), updatedAt: new Date() },
-    { id: "owl", name: "Owl", description: "A bird with a heart-shaped face.", rarity: "RARE", isActive: false, createdAt: new Date(), updatedAt: new Date() },
+    { ...defaults, id: "fox", name: "Fox", description: "A fox with a bushy tail.", rarity: "COMMON", isActive: true, createdAt: new Date(), updatedAt: new Date() },
+    { ...defaults, id: "owl", name: "Owl", role: "HEALER", description: "A bird with a heart-shaped face.", rarity: "RARE", isActive: false, createdAt: new Date(), updatedAt: new Date() },
   ];
   create = vi.fn((_input: RouterInputs["petSpecies"]["create"]) => ({ success: true, message: "new-species-id" }));
   update = vi.fn((input: RouterInputs["petSpecies"]["update"]) => {
-    species = species.map((entry) => entry.id === input.id ? { ...entry, ...input.data } : entry);
+    species = species.map((entry) => entry.id === input.id ? { ...entry, ...PetSpeciesValidator.parse(input.data) } : entry);
     return { success: true, message: "Companion species updated." };
   });
   Object.assign(vi.spyOn(client, "api" as never), {
     petSpecies: testApi.petSpecies,
     gameAsset: testApi.gameAsset,
+    jutsu: testApi.jutsu,
     useUtils: testApi.useUtils,
   });
   vi.spyOn(navigation, "useRouter").mockReturnValue({ push } as never);
@@ -63,6 +70,8 @@ beforeEach(() => {
   vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: { role } }) as never);
   vi.spyOn(ContentBox, "default").mockImplementation(({ title, children, topRightContent }) => <section aria-label={title}>{topRightContent}{children}</section>);
   vi.spyOn(Modal, "default").mockImplementation(({ title, children, setIsOpen, isLoading }) => <div role="dialog" aria-label={title}>{children}<button type="button" disabled={isLoading} onClick={() => setIsOpen(false)}>Close</button></div>);
+  vi.spyOn(AiProfileEdit, "default").mockImplementation(({ configuration }) => <button type="button" onClick={() => configuration?.onSave({ includeDefaultRules: false, rules: [{ conditions: [], action: ActionEndTurn.parse({}) }] })}>Save Profile</button>);
+  vi.spyOn(EditContent, "EffectFormWrapper").mockImplementation(({ availableTags }) => <p>Available skill tags: {availableTags.join(", ")}</p>);
   vi.spyOn(petSpecies, "usePetSpeciesEditForm").mockImplementation((...args) => {
     editor = usePetSpeciesEditForm(...args);
     return editor;
@@ -93,6 +102,7 @@ const mount = async (edit = false) => {
       }
       if (op.path === "petSpecies.create") return create(op.input);
       if (op.path === "petSpecies.update") return update(op.input);
+      if (op.path === "jutsu.getAll") return { data: [], nextCursor: null };
       throw new Error(`Unexpected query ${op.path}`);
     };
     void respond().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
@@ -133,7 +143,7 @@ it("shows Content edit controls and creates a complete validated species without
   act(() => editor.form.setValue("rarity", "EPIC", { shouldDirty: true }));
   fireEvent.click(view.getByRole("button", { name: "Create species" }));
   await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-  expect(create.mock.calls[0]?.[0]).toEqual({ name: "Arctic fox", description: "A fox with dense fur and rounded ears.", rarity: "EPIC", isActive: true });
+  expect(create.mock.calls[0]?.[0]).toEqual({ ...defaults, name: "Arctic fox", description: "A fox with dense fur and rounded ears.", rarity: "EPIC", isActive: true });
   await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
   expect(toast.showMutationToast).toHaveBeenLastCalledWith({ success: true, message: "Companion species created." });
 });
@@ -181,7 +191,7 @@ it("saves edits and retires species without exposing a delete action or changing
   await waitFor(() => expect((view.getByRole("button", { name: "Save to Database" }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(view.getByRole("button", { name: "Save to Database" }));
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
-  expect(update.mock.calls[0]?.[0]).toEqual({ id: "fox", data: { name: "Fox", description: "A fox with prominent ears and a flowing tail.", rarity: "COMMON", isActive: false } });
+  expect(update.mock.calls[0]?.[0]).toEqual({ id: "fox", data: { ...defaults, name: "Fox", description: "A fox with prominent ears and a flowing tail.", rarity: "COMMON", isActive: false } });
   await waitFor(() => expect((view.getByRole("button", { name: "Save to Database" }) as HTMLButtonElement).disabled).toBe(true));
   expect(view.queryByRole("button", { name: /delete/i })).toBeNull();
   expect(view.getByText(/retired from new daily offers/)).toBeTruthy();
@@ -193,6 +203,32 @@ it("does not fetch or render an editor for an unauthorized visitor", async () =>
   expect(view.getByText("Only Content staff can edit companion species.")).toBeTruthy();
   expect(view.queryByRole("textbox")).toBeNull();
   expect(requested).toEqual([]);
+});
+
+it("edits role, default loadout and species passives through separate compact tabs", async () => {
+  const view = await mount(true);
+  await view.findByRole("textbox", { name: "Species name" });
+  act(() => editor.form.setValue("role", "SUPPORT", { shouldDirty: true }));
+  fireEvent.mouseDown(view.getByRole("tab", { name: "Loadout" }), { button: 0, ctrlKey: false });
+  expect(view.getByText("This rarity has 2 jutsu slots.", { exact: false })).toBeTruthy();
+  expect(view.queryByRole("textbox", { name: "Visual description" })).toBeNull();
+  fireEvent.mouseDown(view.getByRole("tab", { name: "Pet skills" }), { button: 0, ctrlKey: false });
+  fireEvent.click(view.getByRole("button", { name: "Add pet skill tag" }));
+  expect(view.getByText("Pet skill tag 1")).toBeTruthy();
+  expect(view.getByText(/Available skill tags:/).textContent).not.toContain("summon");
+  act(() => editor.form.setValue("skillTarget", "ENEMIES", { shouldDirty: true }));
+  fireEvent.click(view.getByRole("button", { name: "Save to Database" }));
+  await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+  expect(update.mock.calls[0]?.[0].data).toMatchObject({ role: "SUPPORT", skillTarget: "ENEMIES", effects: [IncreaseStatTag.parse({})] });
+});
+
+it("persists authored AI defaults through the shared controlled profile editor", async () => {
+  const view = await mount(true);
+  await view.findByRole("textbox", { name: "Species name" });
+  fireEvent.mouseDown(view.getByRole("tab", { name: "AI" }), { button: 0, ctrlKey: false });
+  fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+  await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+  expect(update.mock.calls[0]?.[0].data).toMatchObject({ includeDefaultRules: false, aiRules: [{ conditions: [], action: ActionEndTurn.parse({}) }] });
 });
 
 it("offers a working retry when the catalogue cannot load", async () => {

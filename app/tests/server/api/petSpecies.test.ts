@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, petSpecies, userData, userPet } from "@/drizzle/schema";
+import { actionLog, jutsu, petSpecies, userData, userPet } from "@/drizzle/schema";
 import * as socials from "@/libs/socials";
 import { petSpeciesRouter } from "@/server/api/routers/petSpecies";
 import { insertUsers } from "../../setup/factories";
+import { petJutsuFixture } from "../../libs/pets/helpers/abilities";
+import { ActionEndTurn } from "@/validators/ai";
+import { DamageTag } from "@/validators/combat";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const staffId = "species-content";
@@ -12,6 +15,12 @@ const species = {
   description: "A fox with a flowing cloud-shaped tail",
   rarity: "RARE" as const,
   isActive: true,
+  role: "ASSAULT" as const,
+  defaultJutsuIds: [],
+  aiRules: [],
+  includeDefaultRules: true,
+  effects: [],
+  skillTarget: "SELF" as const,
 };
 
 describeWithDatabase("Manual companion species", () => {
@@ -30,7 +39,7 @@ describeWithDatabase("Manual companion species", () => {
         ? commands.map((command) => resultFor(command as unknown[]))
         : resultFor(commands));
     });
-    await resetTables(actionLog, userPet, petSpecies, userData);
+    await resetTables(actionLog, userPet, petSpecies, userData, jutsu);
     await insertUsers([{ userId: staffId, username: "SpeciesContent", role: "CONTENT" }]);
     // Content fixtures must never deliver updates to a configured Discord webhook.
     vi.spyOn(socials, "callDiscordContent").mockResolvedValue(undefined);
@@ -106,6 +115,31 @@ describeWithDatabase("Manual companion species", () => {
     expect((await caller.update({ id: "missing", data: species })).success).toBe(false);
     await expect(caller.get({ id: "missing" })).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(await database.query.petSpecies.findMany()).toHaveLength(0);
+    expect(await database.query.actionLog.findMany()).toHaveLength(0);
+  });
+
+  it("stores authored role, compatible pet jutsu, instructions and on-action passive skills", async () => {
+    const database = await getTestDatabase();
+    await database.insert(jutsu).values(petJutsuFixture({ id: "pet-strike", name: "Pet strike" }));
+    const caller = callerForDatabase(petSpeciesRouter, staffId, database);
+    const input = { ...species, role: "SUPPORT" as const, defaultJutsuIds: ["pet-strike"], includeDefaultRules: false, aiRules: [{ conditions: [], action: ActionEndTurn.parse({}) }], skillTarget: "ENEMIES" as const, effects: [DamageTag.parse({ rounds: 3 })] };
+    const created = await caller.create(input);
+    expect(created.success).toBe(true);
+    expect(await caller.get({ id: created.message })).toMatchObject(input);
+    expect((await caller.update({ id: created.message, data: { ...input, role: "HEALER" } })).success).toBe(true);
+    expect(await caller.get({ id: created.message })).toMatchObject({ role: "HEALER", defaultJutsuIds: ["pet-strike"] });
+    expect(await database.query.actionLog.findMany()).toHaveLength(2);
+  });
+
+  it.each(["missing", "hidden", "normal", "dependent"] as const)("rejects %s default jutsu on both create and update without content writes", async (state) => {
+    const database = await getTestDatabase();
+    await database.insert(petSpecies).values({ id: "original", ...species });
+    if (state !== "missing") await database.insert(jutsu).values(petJutsuFixture({ id: "invalid", name: "Invalid", ...(state === "hidden" ? { hidden: true } : state === "normal" ? { jutsuType: "NORMAL" as const } : { requiredSkillId: "other-content" }) }));
+    const caller = callerForDatabase(petSpeciesRouter, staffId, database);
+    const data = { ...species, defaultJutsuIds: ["invalid"] };
+    expect((await caller.create({ ...data, name: "Rejected" })).success).toBe(false);
+    expect((await caller.update({ id: "original", data })).success).toBe(false);
+    expect(await database.query.petSpecies.findMany()).toMatchObject([{ id: "original", defaultJutsuIds: [] }]);
     expect(await database.query.actionLog.findMany()).toHaveLength(0);
   });
 

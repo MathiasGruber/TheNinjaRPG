@@ -59,6 +59,7 @@ import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurni
 import type { HomeRoomStyle } from "@/validators/home";
 import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
+import type { PetTask } from "@/validators/petTasks";
 
 /** Staff-authored definitions; each lobby captures its own immutable content snapshot. */
 export const dungeon = mysqlTable("Dungeon", {
@@ -2503,6 +2504,8 @@ export const userData = mysqlTable(
     petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
     activePetId: varchar("activePetId", { length: 191 }),
     petSlots: tinyint("petSlots", { unsigned: true }).default(1).notNull(),
+    /** One attempt-bound profession delegation; the companion returns when results are collected. */
+    petTask: json("petTask").$type<PetTask>(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
@@ -2890,6 +2893,12 @@ export const petSpecies = mysqlTable(
     name: varchar("name", { length: 191 }).notNull(),
     description: varchar("description", { length: 1000 }).notNull(),
     rarity: mysqlEnum("rarity", consts.PetRarities).default("COMMON").notNull(),
+    role: mysqlEnum("role", consts.PetRoles).default("ASSAULT").notNull(),
+    defaultJutsuIds: json("defaultJutsuIds").$type<string[]>().default([]).notNull(),
+    aiRules: json("aiRules").$type<AiRuleType[]>().default([]).notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
+    effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
+    skillTarget: mysqlEnum("skillTarget", consts.PetSkillTargets).default("SELF").notNull(),
     isActive: boolean("isActive").default(true).notNull(),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
     updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
@@ -2918,7 +2927,6 @@ export const userPet = mysqlTable(
     experience: double("experience").default(0).notNull(),
     storedExperience: double("storedExperience").default(0).notNull(),
     lastFedAt: datetime("lastFedAt", { mode: "date", fsp: 3 }),
-    abilitySlots: tinyint("abilitySlots", { unsigned: true }).default(1).notNull(),
     jutsuIds: json("jutsuIds").$type<string[]>().default([]).notNull(),
     skillIds: json("skillIds").$type<string[]>().default([]).notNull(),
     offence: double("offence").default(consts.PET_BASE_STAT).notNull(),
@@ -4148,6 +4156,8 @@ export const quest = mysqlTable(
     medicalRank: mysqlEnum("medicalRank", consts.MEDNIN_RANKS).default("NONE"),
     huntingRank: mysqlEnum("huntingRank", consts.HUNTING_RANKS).default("NONE"),
     gatheringRank: mysqlEnum("gatheringRank", consts.GATHERING_RANKS).default("NONE"),
+    /** Content opt-in for a companion to earn final rewards without traversing objectives. */
+    petTaskMinutes: int("petTaskMinutes", { unsigned: true }),
     requiredLevel: int("requiredLevel").default(1).notNull(),
     requiredFarmingLevel: int("requiredFarmingLevel").default(0).notNull(),
     prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),

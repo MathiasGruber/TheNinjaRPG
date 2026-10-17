@@ -25,7 +25,7 @@ export const cookItemInputSchema = z.object({
   quantity: z.int().min(1).max(MAX_COOKING_BATCHES).prefault(1),
 });
 
-/** Meals require a stack snapshot and weighted caches a retry ID, enforced by their handlers. */
+/** Meals require a stack snapshot; collection grants and weighted caches require a retry ID. */
 export const consumeItemInputSchema = z.object({
   userItemId: z.string(),
   expectedQuantity: z.int().positive().optional(),

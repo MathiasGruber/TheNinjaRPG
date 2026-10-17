@@ -113,32 +113,35 @@ export const PET_AI_EFFECT_TYPES = [
   "move",
 ] as const;
 
-/** Reuse shared AI rule conditions while rejecting actions/effects outside the pet subset. */
-export const updatePetAiSchema = z
-  .object({
-    petId: petSelectionSchema.shape.petId,
-    rules: z.array(AiRule).max(AI_PROFILE_MAX_RULES),
-    includeDefaultRules: z.boolean(),
-  })
-  .superRefine(({ rules }, ctx) => {
-    rules.forEach((rule, index) => {
-      const action = rule.action;
-      if (!PET_AI_ACTION_TYPES.some((type) => type === action.type)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["rules", index, "action"],
-          message: "Choose a supported pet AI action.",
-        });
-      }
-      if (
-        action.type === "use_highest_power_action" &&
-        !PET_AI_EFFECT_TYPES.some((effect) => effect === action.effect)
-      ) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["rules", index, "action", "effect"],
-          message: "Choose an effect available to pets.",
-        });
-      }
-    });
-  });
+/** Content defaults and owner instructions share the same supported combat behavior. */
+export const petAiProfileSchema = z.object({
+  rules: z
+    .array(AiRule)
+    .max(AI_PROFILE_MAX_RULES)
+    .superRefine((rules, ctx) => {
+      rules.forEach((rule, index) => {
+        const action = rule.action;
+        if (!PET_AI_ACTION_TYPES.some((type) => type === action.type)) {
+          ctx.addIssue({
+            code: "custom",
+            path: [index, "action"],
+            message: "Choose a supported pet AI action.",
+          });
+        }
+        if (
+          action.type === "use_highest_power_action" &&
+          !PET_AI_EFFECT_TYPES.some((effect) => effect === action.effect)
+        ) {
+          ctx.addIssue({
+            code: "custom",
+            path: [index, "action", "effect"],
+            message: "Choose an effect available to pets.",
+          });
+        }
+      });
+    }),
+  includeDefaultRules: z.boolean(),
+});
+
+/** Owner authorization is resolved separately from the shared instruction contract. */
+export const updatePetAiSchema = petAiProfileSchema.extend(petSelectionSchema.shape);

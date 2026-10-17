@@ -1,16 +1,10 @@
 /** Materialize owned companions as self-contained AI actors during battle initiation. */
 import { nanoid } from "nanoid";
 import type { BattleType, PetSpawnPosition, UserRank } from "@/drizzle/constants";
-import {
-  CombatStatNames,
-  PET_BASE_STAT,
-  PET_BATTLE_CONFIG,
-  RANKED_LOADOUT_MAX_SUMMON_JUTSUS,
-} from "@/drizzle/constants";
-import type { Jutsu, UserPet } from "@/drizzle/schema";
+import { CombatStatNames, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/constants";
+import type { Jutsu, PetSpecies, UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
 import { GenNames } from "@/libs/combat/constants";
-import { summonsAllowedInBattle } from "@/libs/combat/summon";
 import { realizeTag } from "@/libs/combat/tags";
 import type {
   BattleUserState,
@@ -19,7 +13,10 @@ import type {
   UserEffect,
 } from "@/libs/combat/types";
 import { rollInitiative } from "@/libs/combat/util";
-import { selectPetBattleAbilities } from "@/libs/pets/abilities";
+import {
+  isPetPassiveEffectAllowed,
+  selectPetBattleAbilities,
+} from "@/libs/pets/abilities";
 import {
   canUsePet,
   getPetLevel,
@@ -28,14 +25,9 @@ import {
 } from "@/libs/pets/progression";
 import { calcCP, calcHP, calcSP } from "@/libs/profile";
 
-/** Companion combat availability takes precedence over owner settings and mode rules. */
+/** Missions, events, stories, the pyramid and dungeons enter through quest PvE battles. */
 export const petsAllowedInBattle = (battleType: BattleType) =>
-  PET_BATTLE_CONFIG.enabled &&
-  summonsAllowedInBattle({ battleType }) &&
-  !(
-    RANKED_LOADOUT_MAX_SUMMON_JUTSUS === 0 &&
-    (battleType === "RANKED_PVP" || battleType === "RANKED_SPARRING")
-  );
+  PET_BATTLE_CONFIG.enabled && PET_BATTLE_CONFIG.battleTypes.includes(battleType);
 
 /**
  * Mutate initiation's preloaded state with at most one eligible active pet per owner.
@@ -43,7 +35,7 @@ export const petsAllowedInBattle = (battleType: BattleType) =>
  * petIdsByOwner records only pets actually spawned, binding settlement XP to them.
  */
 export const addPetsToBattle = (info: {
-  pets: UserPet[];
+  pets: (UserPet & { species: PetSpecies | null })[];
   usersState: BattleUserState[];
   extraState: ExtraState;
   battleType: BattleType;
@@ -68,6 +60,8 @@ export const addPetsToBattle = (info: {
     // Some modes normalize combat rank; eligibility uses the real preloaded rank.
     if (
       !owner ||
+      !pet.species ||
+      owner.petTask?.petId === pet.id ||
       owner.activePetId !== pet.id ||
       !canUsePet(pet, { rank: ownerRanks?.[owner.userId] ?? owner.rank })
     )
@@ -118,6 +112,36 @@ export const addPetsToBattle = (info: {
             realized.isNew = false;
             realized.castThisRound = false;
             realized.targetId = actor.userId;
+            realized.fromType = "skill";
+            info.usersEffects.push(realized);
+          }
+        }
+      }
+    }
+    // Innate bonuses belong to the participating bond, never to an absent pet or the whole team.
+    const speciesEffects = pet.species.effects;
+    if (speciesEffects.every(isPetPassiveEffectAllowed)) {
+      const sourceId = `pet:${pet.id}:species`;
+      if (pet.species.skillTarget === "ENEMIES" && speciesEffects.length) {
+        extraState.enemySkills ??= {};
+        extraState.enemySkills[sourceId] = structuredClone(speciesEffects);
+        for (const target of [owner, actor]) {
+          target.enemySkillIds ??= [];
+          target.enemySkillIds.push(sourceId);
+        }
+      } else if (pet.species.skillTarget === "SELF" && info.usersEffects) {
+        for (const target of [owner, actor]) {
+          for (const effect of speciesEffects) {
+            const realized = realizeTag({
+              tag: structuredClone(effect) as UserEffect,
+              user: target,
+              target,
+              actionId: sourceId,
+              level: target.level,
+            });
+            realized.isNew = false;
+            realized.castThisRound = false;
+            realized.targetId = target.userId;
             realized.fromType = "skill";
             info.usersEffects.push(realized);
           }

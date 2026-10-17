@@ -93,6 +93,21 @@ describeWithDatabase("accompanying pet experience against real MySQL", () => {
     expect((await readUser()).earnedExperience).toBe(31);
   });
 
+  it("withholds accompanying XP while the active pet is away and resumes on its return", async () => {
+    const database = await getTestDatabase();
+    await insertPet();
+    await database.update(userData).set({ petTask: {
+      petId, questId: "contract", questHistoryId: "attempt", startedAt: 1,
+      questVersion: 1, finishesAt: 2,
+    } }).where(eq(userData.userId, userId));
+    await grantExperience(17);
+    expect((await readUser()).petExperience).toBe(23);
+    await database.update(userData).set({ petTask: null }).where(eq(userData.userId, userId));
+    await grantExperience(11);
+    expect((await readUser()).petExperience).toBe(34);
+    expect((await readUser()).earnedExperience).toBe(28);
+  });
+
   it("does not transfer a former pet's battle XP to its replacement", async () => {
     const database = await getTestDatabase();
     await insertPet();
@@ -158,7 +173,7 @@ describeWithDatabase("accompanying pet experience against real MySQL", () => {
     await database.update(userData).set({ battleId: "pet-fight", status: "BATTLE" })
       .where(eq(userData.userId, userId));
     const state = makeCompleteBattle({
-      id: "pet-fight", battleType: "ARENA", rewardScaling: 1,
+      id: "pet-fight", battleType: "QUEST", rewardScaling: 1,
       usersState: [
         makeBattleUser(userId, { ...await readUser(), villageId: "owner-village", direction: "left", isAi: false,
           isSummon: false, curHealth: 100, sector: 1 }),

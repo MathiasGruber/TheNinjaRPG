@@ -249,6 +249,14 @@ const SingleEditQuest: React.FC<SingleEditQuestProps> = (props) => {
           </p>
         )}
         {!props.quest && <p>Could not find this item</p>}
+        {["hunting", "gathering"].includes(currentValues.questType) && (
+          <p className="mb-4 text-muted-foreground text-sm">
+            Set a companion task duration to allow Hunter-rank companions to complete
+            this contract unattended. The task pays only the final quest reward and its
+            usual profession drops; objectives, intermediate rewards and their effects
+            are not simulated. Leave the duration blank to disable tasks.
+          </p>
+        )}
         {props.quest && (
           <div className="mb-4 flex items-center justify-between">
             <h1 className="font-bold text-2xl">Edit Quest</h1>

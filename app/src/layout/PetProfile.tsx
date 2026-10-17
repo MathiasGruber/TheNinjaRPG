@@ -49,6 +49,7 @@ import Image from "@/layout/Image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import { PetTasks } from "@/layout/PetTasks";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import {
   getPetJutsuCost,
@@ -221,10 +222,6 @@ export function PetProfile() {
     },
     onError: failMutation,
   });
-  const unlockAbilitySlot = api.pets.unlockAbilitySlot.useMutation({
-    onSuccess: finishMutation,
-    onError: failMutation,
-  });
   const isBusy =
     isEvolving ||
     update.isPending ||
@@ -236,8 +233,7 @@ export function PetProfile() {
     activate.isPending ||
     unlockSlot.isPending ||
     feed.isPending ||
-    updateAbilities.isPending ||
-    unlockAbilitySlot.isPending;
+    updateAbilities.isPending;
 
   /** Retry the saved companion's current artwork without repeating adoption or rank-up. */
   const generateAppearance = async () => {
@@ -438,6 +434,16 @@ export function PetProfile() {
     return (
       <>
         {collection}
+        {/* A saved task remains recoverable when no companion row can be selected. */}
+        {userData.petTask && (
+          <ContentBox
+            title="Companion task"
+            subtitle="Manage your pending task"
+            initialBreak
+          >
+            <PetTasks petId={userData.petTask.petId} />
+          </ContentBox>
+        )}
         <ContentBox title="Pet" subtitle="Find a companion on Wake Island" initialBreak>
           <div className="flex flex-col items-center gap-4 py-8 text-center">
             <PawPrint className="h-16 w-16 text-muted-foreground" aria-hidden="true" />
@@ -463,7 +469,8 @@ export function PetProfile() {
   const caps = getPetStatCaps(pet);
   const appearanceReady = isPetAppearanceReady(pet);
   const rankAllowed = pet.rank <= data.maxRank;
-  const settingsDisabled = isBusy || userData.status !== "AWAKE";
+  const isAway = userData.petTask?.petId === pet.id;
+  const settingsDisabled = isBusy || isAway || userData.status !== "AWAKE";
   const nextRank = data.nextRank;
   const canEvolve =
     data.canRankUp && data.remainingGenerations > 0 && !settingsDisabled;
@@ -581,6 +588,11 @@ export function PetProfile() {
               <Badge variant="outline">
                 Rank {pet.rank} / {PET_RANKS.length}
               </Badge>
+              {pet.species && (
+                <Badge variant="outline">
+                  {capitalizeFirstLetter(pet.species.role)}
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground text-sm">
               {traits
@@ -588,7 +600,9 @@ export function PetProfile() {
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            {pet.id === data.activePetId ? (
+            {isAway ? (
+              <Badge variant="outline">Away on a task</Badge>
+            ) : pet.id === data.activePetId ? (
               <Badge>Active companion</Badge>
             ) : (
               <Button
@@ -628,6 +642,30 @@ export function PetProfile() {
             </div>
           ))}
         </dl>
+        {pet.species && pet.species.effects.length > 0 && (
+          <details className="mt-3 text-sm">
+            <summary className="cursor-pointer font-semibold">
+              Species skills · {pet.species.effects.length}{" "}
+              {pet.species.effects.length === 1 ? "tag" : "tags"}
+            </summary>
+            <div className="mt-2">
+              <ItemWithEffects
+                hideDates
+                item={{
+                  id: `species:${pet.species.id}`,
+                  name: `${pet.species.name} skills`,
+                  description:
+                    pet.species.skillTarget === "ENEMIES"
+                      ? "Triggers on enemies reached by the companion's or owner's accepted actions in eligible battles."
+                      : "Applies to the companion and its owner while the companion participates in an eligible battle.",
+                  effects: pet.species.effects,
+                  createdAt: pet.species.createdAt,
+                  updatedAt: pet.species.updatedAt,
+                }}
+              />
+            </div>
+          </details>
+        )}
         {nextRank && (
           <div className="mt-3 space-y-1 text-sm">
             <p>
@@ -652,7 +690,7 @@ export function PetProfile() {
             companion. Switching companions keeps each pet's progress and unused
             experience.{" "}
             {PET_BATTLE_CONFIG.enabled
-              ? "Companions join ordinary PvP and standard PvE. Ranked matches and automatically resolved Kage and clan challenges exclude companions."
+              ? "Companions can join mission, event, story, Battle Pyramid and dungeon quest battles. PvP, arena and automatically resolved challenges exclude companions."
               : "Companion battles are not available yet."}
           </p>
           <p className="mt-2">Assigned experience: {formatStat(pet.experience)}.</p>
@@ -716,6 +754,20 @@ export function PetProfile() {
           </p>
         )}
 
+        {isAway && (
+          <p className="mt-3 rounded border bg-muted/30 p-3 text-sm" role="status">
+            {pet.name} is away on a task.{" "}
+            <button
+              type="button"
+              className="font-medium underline"
+              onClick={() => setActivity("tasks")}
+            >
+              Open Tasks
+            </button>{" "}
+            to see its progress or collect its return. You can manage your other
+            companions while it is away.
+          </p>
+        )}
         {message && (
           <p
             role="alert"
@@ -726,7 +778,10 @@ export function PetProfile() {
         )}
       </ContentBox>
       <Tabs value={activity} onValueChange={setActivity} className="mt-4">
-        <TabsList aria-label="Companion activities" className="grid grid-cols-5">
+        <TabsList
+          aria-label="Companion activities"
+          className="grid grid-cols-3 sm:grid-cols-6"
+        >
           <TabsTrigger
             value="care"
             className="min-h-9 whitespace-normal px-1 text-xs leading-tight sm:text-sm"
@@ -741,6 +796,9 @@ export function PetProfile() {
           </TabsTrigger>
           <TabsTrigger value="battle" className="min-h-9 px-1 text-xs sm:text-sm">
             Battle
+          </TabsTrigger>
+          <TabsTrigger value="tasks" className="min-h-9 px-1 text-xs sm:text-sm">
+            Tasks
           </TabsTrigger>
           <TabsTrigger value="settings" className="min-h-9 px-1 text-xs sm:text-sm">
             Settings
@@ -757,8 +815,10 @@ export function PetProfile() {
             alreadyHasH1
           >
             <p className="mb-3 text-sm">
-              One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
-              {pet.name}. Assign these points in the Training tab.
+              {selectedMeal
+                ? `One ${selectedMeal.rarity.toLowerCase()} meal adds ${formatStat(selectedMeal.experience)} unused pet experience to ${pet.name}.`
+                : "Meals add unused pet experience according to their rarity."}{" "}
+              Assign these points in the Training tab.
             </p>
             {data.feedAvailableAt ? (
               <p role="status">
@@ -803,7 +863,7 @@ export function PetProfile() {
               </div>
             ) : (
               <div className="flex flex-wrap items-end gap-3">
-                <div className="min-w-48 grow space-y-2">
+                <div className="min-w-0 grow basis-48 space-y-2">
                   <Label htmlFor="pet-feed-meal">Meal</Label>
                   <Select
                     value={selectedMeal?.id ?? ""}
@@ -816,15 +876,24 @@ export function PetProfile() {
                     <SelectContent>
                       {data.feedMeals.map((meal) => (
                         <SelectItem key={meal.id} value={meal.id}>
-                          {meal.name} · {meal.quantity} available
+                          {meal.name} · {capitalizeFirstLetter(meal.rarity)} ·{" "}
+                          {formatStat(meal.experience)} XP · {meal.quantity} available
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
+                <Confirm
+                  title={`Feed ${selectedMeal?.name ?? "a meal"} to ${pet.name}?`}
                   disabled={settingsDisabled || !data.canFeed || !selectedMeal}
-                  onClick={() =>
+                  button={
+                    <Button
+                      disabled={settingsDisabled || !data.canFeed || !selectedMeal}
+                    >
+                      {feed.isPending ? "Feeding..." : "Feed one meal"}
+                    </Button>
+                  }
+                  onAccept={() =>
                     selectedMeal &&
                     feed.mutate({
                       petId: pet.id,
@@ -833,12 +902,18 @@ export function PetProfile() {
                     })
                   }
                 >
-                  {feed.isPending ? "Feeding..." : "Feed one meal"}
-                </Button>
+                  <p>
+                    Use one {selectedMeal?.name} (
+                    {selectedMeal && capitalizeFirstLetter(selectedMeal.rarity)}) to
+                    give {pet.name} {formatStat(selectedMeal?.experience ?? 0)} unused
+                    experience.
+                  </p>
+                </Confirm>
                 {!data.canFeed && (
                   <p className="w-full text-muted-foreground text-sm">
-                    Finish this companion's appearance, meet its shinobi rank
-                    requirement and return to the awake state to feed it.
+                    {isAway
+                      ? "Collect this companion's return in Tasks before feeding it."
+                      : "Finish this companion's appearance, meet its shinobi rank requirement and return to the awake state to feed it."}
                   </p>
                 )}
               </div>
@@ -861,7 +936,7 @@ export function PetProfile() {
                 data.unusedExperience < 1
               }
               title="Assign Pet Experience"
-              subtitle={`${formatStat(data.unusedExperience)} points available for your companion${!rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn player experience with an eligible active companion to allocate points" : ""}`}
+              subtitle={`${formatStat(data.unusedExperience)} points available for your companion${isAway ? " · Collect its return in Tasks before training" : !rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn player experience with an eligible active companion to allocate points" : ""}`}
               isPending={assign.isPending}
             />
           </div>
@@ -956,15 +1031,13 @@ export function PetProfile() {
           >
             <p className="mb-3 text-sm">
               Choose published pet jutsu and your activated passive skills within your
-              companion's slots and power budget. Pet rank and level determine
-              availability. Unselect an ability to make room. Jutsu start at level 1 and
-              scale with your pet.
+              companion's slots and power budget. Species rarity determines its slots;
+              pet rank and level determine availability. Unselect an ability to make
+              room. Jutsu start at level 1 and scale with your pet.
             </p>
             <div className="mb-4 flex flex-wrap gap-2">
               <Badge variant="outline">
-                {abilityCount} /{" "}
-                {Math.min(pet.abilitySlots, data.abilityCapacity?.maxSlots ?? 0)} slots
-                used
+                {abilityCount} / {data.abilityCapacity?.maxSlots ?? 0} slots used
               </Badge>
               <Badge variant="outline">
                 {abilityCost} / {data.abilityCapacity?.budget ?? 0} power budget
@@ -1006,35 +1079,6 @@ export function PetProfile() {
                 >
                   Clear selection
                 </Button>
-                {data.abilityCapacity &&
-                  pet.abilitySlots < data.abilityCapacity.maxSlots && (
-                    <Confirm
-                      title={`Unlock an ability slot for ${data.abilitySlotCost} reputation?`}
-                      disabled={
-                        settingsDisabled ||
-                        !rankAllowed ||
-                        userData.reputationPoints < data.abilitySlotCost
-                      }
-                      button={
-                        <Button
-                          variant="outline"
-                          disabled={
-                            settingsDisabled ||
-                            !rankAllowed ||
-                            userData.reputationPoints < data.abilitySlotCost
-                          }
-                        >
-                          Unlock ability slot · {data.abilitySlotCost} reputation
-                        </Button>
-                      }
-                      onAccept={() => unlockAbilitySlot.mutate({ petId: pet.id })}
-                    >
-                      <p>
-                        This companion gains one permanent ability slot. Its power
-                        budget still follows its rank.
-                      </p>
-                    </Confirm>
-                  )}
               </div>
             </div>
             <div className="my-3 flex gap-2">
@@ -1128,13 +1172,13 @@ export function PetProfile() {
                 </p>
               )}
             </fieldset>
-            {data.abilityCapacity &&
-              pet.abilitySlots >= data.abilityCapacity.maxSlots && (
-                <p className="mt-3 text-muted-foreground text-sm">
-                  Evolving increases your companion's power budget and can make more
-                  ability slots available.
-                </p>
-              )}
+            {data.abilityCapacity && (
+              <p className="mt-3 text-muted-foreground text-sm">
+                {pet.species ? capitalizeFirstLetter(pet.species.rarity) : "These"}{" "}
+                companions have {data.abilityCapacity.maxSlots} slots from adoption.
+                Evolving increases the power budget.
+              </p>
+            )}
           </ContentBox>
         </TabsContent>
         <TabsContent value="battle" forceMount hidden={activity !== "battle"}>
@@ -1167,9 +1211,7 @@ export function PetProfile() {
                 <Switch
                   id="pet-battle-enabled"
                   checked={PET_BATTLE_CONFIG.enabled && pet.battleEnabled}
-                  aria-describedby={
-                    PET_BATTLE_CONFIG.enabled ? undefined : "pet-battle-availability"
-                  }
+                  aria-describedby="pet-battle-availability"
                   disabled={
                     !PET_BATTLE_CONFIG.enabled ||
                     settingsDisabled ||
@@ -1183,20 +1225,20 @@ export function PetProfile() {
                 <Badge variant="outline">
                   {!PET_BATTLE_CONFIG.enabled
                     ? "Unavailable"
-                    : pet.id === data.activePetId && canUsePet(pet, userData)
-                      ? "Joining battle"
+                    : !isAway && pet.id === data.activePetId && canUsePet(pet, userData)
+                      ? "Ready for PvE"
                       : "Paused"}
                 </Badge>
               </div>
             </div>
-            {!PET_BATTLE_CONFIG.enabled && (
-              <p
-                id="pet-battle-availability"
-                className="mt-3 text-muted-foreground text-sm"
-              >
-                Companion battles are not available yet.
-              </p>
-            )}
+            <p
+              id="pet-battle-availability"
+              className="mt-3 text-muted-foreground text-sm"
+            >
+              {PET_BATTLE_CONFIG.enabled
+                ? "Companions join mission, event, story, Battle Pyramid and dungeon quest battles only. They do not participate in PvP, arena or automatically resolved challenges."
+                : "Companion battles are not available yet."}
+            </p>
           </ContentBox>
           <div className="mt-4">
             <AiProfileEdit
@@ -1215,6 +1257,9 @@ export function PetProfile() {
               Pet rules control battle actions, including compatible equipped jutsu.
             </p>
           </div>
+        </TabsContent>
+        <TabsContent value="tasks" forceMount hidden={activity !== "tasks"}>
+          <PetTasks petId={pet.id} />
         </TabsContent>
         <TabsContent value="settings" forceMount hidden={activity !== "settings"}>
           <ContentBox title="Companion settings" alreadyHasH1>

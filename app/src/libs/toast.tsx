@@ -7,6 +7,7 @@ import { CONFETTI_SFX_URL } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { safeLocalStorageGetItem } from "@/hooks/localstorage";
 import Image from "@/layout/Image";
+import Link from "@/layout/Link";
 import { haptics } from "@/libs/native";
 import {
   CONFETTI_OVERLAY_ID,
@@ -239,9 +240,19 @@ export const showRewardToast = (
   quest?: Pick<Quest, "successDescription">,
   badges?: { id: string; name: string; image: string }[],
   cacheRewards?: CacheRewardDisplay[],
+  petRewards?: { id: string; name: string }[],
 ) => {
   const message = (
     <div className="flex flex-col gap-2">
+      {petRewards?.map((pet) => (
+        <Link
+          key={pet.id}
+          href={`/profile/pet?petId=${encodeURIComponent(pet.id)}`}
+          className="underline"
+        >
+          Generate {pet.name}'s appearance
+        </Link>
+      ))}
       {notifications.length > 0 && (
         <div className="flex flex-col gap-2">
           {notifications.map((description, notificationIndex) => (

@@ -14,7 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { PetRarities } from "@/drizzle/constants";
+import {
+  PET_ABILITY_SLOTS_BY_RARITY,
+  PetRarities,
+  PetRoles,
+} from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Table from "@/layout/Table";
@@ -30,15 +34,18 @@ export default function ManualCompanions() {
   const [isCreating, setIsCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [rarity, setRarity] = useState("ALL");
+  const [role, setRole] = useState("ALL");
   const { data: species, isPending, error, refetch } = api.petSpecies.getAll.useQuery();
   const canEdit = !!userData && canChangeContent(userData.role);
   const filtered = species?.filter(
     (entry) =>
       (rarity === "ALL" || entry.rarity === rarity) &&
+      (role === "ALL" || entry.role === role) &&
       `${entry.name} ${entry.description}`.toLowerCase().includes(search.toLowerCase()),
   );
   const rows = filtered?.map((entry) => ({
     ...entry,
+    slots: PET_ABILITY_SLOTS_BY_RARITY[entry.rarity],
     species: (
       <>
         <strong>{entry.name}</strong>
@@ -55,7 +62,7 @@ export default function ManualCompanions() {
   return (
     <ContentBox
       title="Companion Species"
-      subtitle="Species, visual descriptions and daily-offer rarities"
+      subtitle="Species, rarity, playstyle and authored companion defaults"
       defaultBackHref="/manual"
       topRightContent={
         canEdit ? (
@@ -69,7 +76,9 @@ export default function ManualCompanions() {
       <p className="mb-4 text-sm">
         Each companion receives an AI-generated portrait shaped by its species,
         appearance choices and evolution rank. Retired species remain with existing
-        companions, but are no longer offered at the sanctuary.
+        companions, but are no longer offered at the sanctuary. Rarity sets jutsu
+        capacity; species can also provide default moves, AI instructions and passive
+        skills for eligible battles.
       </p>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
         <Input
@@ -86,6 +95,19 @@ export default function ManualCompanions() {
           <SelectContent>
             <SelectItem value="ALL">All rarities</SelectItem>
             {PetRarities.map((value) => (
+              <SelectItem key={value} value={value}>
+                {capitalizeFirstLetter(value)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={role} onValueChange={setRole}>
+          <SelectTrigger aria-label="Filter species by role" className="sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">All roles</SelectItem>
+            {PetRoles.map((value) => (
               <SelectItem key={value} value={value}>
                 {capitalizeFirstLetter(value)}
               </SelectItem>
@@ -111,6 +133,8 @@ export default function ManualCompanions() {
           columns={[
             { key: "species", header: "Species", type: "jsx" },
             { key: "rarity", header: "Rarity", type: "capitalized" },
+            { key: "role", header: "Role", type: "capitalized" },
+            { key: "slots", header: "Jutsu slots", type: "string" },
             { key: "status", header: "Offers", type: "jsx" },
           ]}
           buttons={
