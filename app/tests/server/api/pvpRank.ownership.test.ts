@@ -243,7 +243,7 @@ describeWithDatabase("ranked queue ownership across clan cleanup", () => {
     });
     const restored = await db
       .select({
-        status: sql`${battleClaimRollbackStatus(db, "RANKED_PVP", ["member"])}`,
+        status: sql`${battleClaimRollbackStatus(db, "RANKED_PVP")}`,
       })
       .from(userData)
       .where(eq(userData.userId, "member"));

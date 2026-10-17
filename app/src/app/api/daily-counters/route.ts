@@ -1,7 +1,6 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { KAGE_DAILY_PRESTIGE_LOSS } from "@/drizzle/constants";
-import { userData, village } from "@/drizzle/schema";
+import { userData } from "@/drizzle/schema";
 import {
   handleEndpointError,
   lockWithDailyTimer,
@@ -12,6 +11,7 @@ import { authenticateCronRequest } from "@/server/utils/cron";
 
 const ENDPOINT_NAME = "daily-counters";
 
+/** Reset daily activity counters and grant the daily prestige increment under the cron timer. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
@@ -24,12 +24,6 @@ export async function GET(request: Request) {
   if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
   try {
-    // Get all kages
-    const kages = await drizzleDB.query.village.findMany({
-      where: eq(village.type, "VILLAGE"),
-    });
-    const kageIds = kages?.map((kage: (typeof kages)[number]) => kage.kageId);
-
     // For all users, increment villagePrestige by 1
     await drizzleDB.update(userData).set({
       villagePrestige: sql`${userData.villagePrestige} + 1`,
@@ -44,16 +38,6 @@ export async function GET(request: Request) {
       dailySageActivations: 0,
       aiCalls: 0,
     });
-
-    // For kages, reduce village Prestige by KAGE_DAILY_PRESTIGE_LOSS & the 1 just added
-    if (kageIds.length > 0) {
-      await drizzleDB
-        .update(userData)
-        .set({
-          villagePrestige: sql`${userData.villagePrestige} - ${KAGE_DAILY_PRESTIGE_LOSS + 1}`,
-        })
-        .where(inArray(userData.userId, kageIds));
-    }
 
     return Response.json(`OK`);
   } catch (cause) {

@@ -1817,6 +1817,7 @@ const maskBattleExtraState = (battle: Battle, userId: string): ReturnedExtraStat
   ];
 
   return {
+    kageMatch: state?.kageMatch,
     tournamentGameId: state?.tournamentGameId,
     tournamentAiOnly: state?.tournamentAiOnly,
     encounter: state?.encounter ? { wave: state.encounter.wave } : undefined,

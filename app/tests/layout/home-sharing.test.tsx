@@ -90,6 +90,7 @@ it("refreshes a mounted home invitation list before showing its incoming invitat
   } as never);
   vi.spyOn(routing, "usePublicPathname").mockReturnValue("/home");
   const showToast = vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
+  showToast.mockClear();
   let finishRefresh = () => {};
   const refreshReady = new Promise<void>((resolve) => { finishRefresh = resolve; });
   const query = vi.fn(async () => {

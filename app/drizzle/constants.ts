@@ -594,7 +594,6 @@ export const UserStatuses = [
   "TRAVEL",
   "BATTLE",
   "QUEUED",
-  "KAGE_QUEUED",
   "ASLEEP",
 ] as const;
 export type UserStatus = (typeof UserStatuses)[number];
@@ -2282,15 +2281,10 @@ export const REPORT_CONTEXT_WINDOW = 20;
 // Kage config
 export const FRIENDLY_PRESTIGE_COST = 10000; // Prestige cost of killing friendly
 export const KAGE_ANBU_DELETE_COST = 3000; // Anbu delete cost
-export const KAGE_CHALLENGE_MINS = 10; // 10 minutes for accepting challenges
-export const KAGE_CHALLENGE_SECS = KAGE_CHALLENGE_MINS * 60; // 10 minutes for accepting challenges
 export const KAGE_CHALLENGE_TIMEOUT_MINS = 30; // Timeout for PvP kage battle
-export const KAGE_DAILY_PRESTIGE_LOSS = 500; // Kage prestige loss
 export const KAGE_DEFAULT_PRESTIGE = 5000; // Starting prestige of kage
 export const KAGE_DELAY_SECS = 3 * 24 * 3600; // Delay before kage can perform actions (3 days)
 export const KAGE_ELDER_MIN_DAYS = 100; // minimum days in village to be elder
-export const KAGE_REQUESTS_SHOW_SECONDS = 24 * 60 * 60; // Show requests for 24 hours
-export const KAGE_MAX_DAILIES = 3;
 export const KAGE_MAX_ELDERS = 3;
 export const KAGE_MAX_WEEKLY_PRESTIGE_SEND = 6000; // Maximum weekly prestige send from elders
 export const KAGE_MIN_DAYS_IN_VILLAGE = 20; // minimum days in village to become kage
@@ -2299,14 +2293,7 @@ export const KAGE_PRESTIGE_COST = 10000; // Cost of failed challenge
 export const KAGE_PRESTIGE_REQUIREMENT = 100000; // To challeng kage
 export const KAGE_RANK_REQUIREMENT = "JONIN";
 export const KAGE_WAR_DECLARE_COST = 10000; // Declare war cost
-export const KAGE_CHALLENGE_REJECT_COST = 10000; // Cost of rejecting a challenge
-export const KAGE_CHALLENGE_ACCEPT_PRESTIGE = 2000; // Kage prestige gain of accepting challenge
 export const KAGE_CHALLENGE_WIN_PRESTIGE = 5000; // Kage prestige gain of winning challenge
-export const KAGE_CHALLENGE_LOSE_PRESTIGE_MIN = 1500; // Minimum prestige cost per hour for closed challenges
-export const KAGE_CHALLENGE_LOSE_PRESTIGE_PERCENTAGE = 0.04; // 4% of current prestige for closed challenges (current implementation)
-export const KAGE_CHALLENGE_OPEN_FOR_SECONDS = 60 * 60; // Time in between being able to toggle challenges
-export const KAGE_CHALLENGE_MAX_DAILY_LOCKED_HOURS = 12; // Maximum hours per day that challenges can be locked
-export const KAGE_UNACCEPTED_CHALLENGE_COST = 5000; // Cost of unaccepted challenge, i.e. going to Ai vs Ai
 export const WAR_FUNDS_COST = 10000; // Prestige cost of declaring war
 
 // Ranked PVP config
@@ -3810,3 +3797,18 @@ export const CACHE_MAX_ENTRIES = 50;
 export const CACHE_MAX_BUNDLE_ITEMS = 10;
 export const CACHE_MAX_QUANTITY = 100;
 export const CACHE_MAX_GRANTED_ITEMS = 2_000;
+
+// Kage defenses use UTC game time and Monday calendar weeks.
+export const KAGE_DEFENSE_WINDOW_HOURS = 2;
+export const KAGE_DEFENSE_MIN_DAYS = 2;
+export const KAGE_DEFENSE_SLOT_MINUTES = 60;
+export const KAGE_DEFENSE_NOTICE_HOURS = 24;
+export const KAGE_DEFENSE_SETUP_HOURS = 24;
+export const KAGE_DEFENSE_CHECK_IN_MINUTES = 5;
+export const KAGE_DEFENSE_GRACE_MINUTES = 5;
+export const KAGE_DEFENSE_MAX_NO_SHOWS = 3;
+export const KAGE_DEFENSE_PUBLIC_SYNC_SECONDS = 30;
+export const KAGE_CHALLENGER_DAILY_LIMIT = 1;
+export const KAGE_CHALLENGER_WEEKLY_LIMIT = 3;
+export const KAGE_REMOVAL_COOLDOWN_DAYS = 7;
+export const KAGE_MATCH_STATUSES = ["QUEUED", "SCHEDULED", "STARTING", "BATTLE", "COMPLETED", "CANCELLED", "FORFEITED"] as const;

@@ -5,7 +5,7 @@ import {
   getTableColumns,
   gte,
   inArray,
-  isNull,
+  isNotNull,
   ne,
   or,
   sql,
@@ -126,9 +126,14 @@ export const villageRouter = createTRPCRouter({
               },
             },
           },
-          where: eq(kageDefendedChallenges.villageId, input.id),
+          where: and(
+            eq(kageDefendedChallenges.villageId, input.id),
+            eq(kageDefendedChallenges.status, "COMPLETED"),
+            isNotNull(kageDefendedChallenges.didWin),
+            isNotNull(kageDefendedChallenges.rounds),
+          ),
           limit: 8,
-          orderBy: (table, { desc }) => [desc(table.createdAt)],
+          orderBy: (table, { desc }) => [desc(table.resolvedAt)],
         }),
       ]);
 

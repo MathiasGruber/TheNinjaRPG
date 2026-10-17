@@ -624,6 +624,13 @@
       "when": 1792218228385,
       "tag": "0088_real_kylun",
       "breakpoints": false
+    },
+    {
+      "idx": 89,
+      "version": "5",
+      "when": 1792219604760,
+      "tag": "0089_kage_defense_schedule",
+      "breakpoints": false
     }
   ]
 }

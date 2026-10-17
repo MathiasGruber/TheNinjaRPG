@@ -75,11 +75,11 @@ export default function CombatPage() {
   // player, not of whichever actor is currently controlled)
   const sessionBattleUser = battle?.usersState.find((u) => u.userId === userId);
   const isAutoCombatActive = !!sessionBattleUser?.isAutoCombat;
-  // Available in every battle except the kage/clan challenges, which are
-  // always fully AI-driven and offer no manual control to hand over.
+  // Scheduled title fights retain their agreed mode; automatic battle types have no manual handover.
   const canToggleAutoCombat =
     !!battle &&
     !AutoBattleTypes.includes(battle.battleType) &&
+    !battle.extraState.kageMatch &&
     !!sessionBattleUser &&
     !sessionBattleUser.isAi &&
     sessionBattleUser.curHealth > 0 &&
@@ -292,7 +292,9 @@ export default function CombatPage() {
       <div className={cn(results && "opacity-50")} inert={!!results}>
         {isAutoCombatActive ? (
           <AutoCombatPanel
-            aiOnly={battle.extraState.tournamentAiOnly}
+            aiOnly={
+              battle.extraState.tournamentAiOnly || battle.extraState.kageMatch?.ai
+            }
             isToggling={isTogglingAutoCombat}
             onTakeControl={() =>
               toggleAutoCombat({ battleId: battle.id, enabled: false })
@@ -510,7 +512,7 @@ const AutoCombatPanel: React.FC<AutoCombatPanelProps> = (props) => {
       </p>
       <p className="text-muted-foreground text-sm">
         {props.aiOnly
-          ? "Your AI profile is fighting this tournament game. You can edit your rules before the next game."
+          ? "Both sides use AI control for this match. You can edit your rules before your next match."
           : "Your AI profile is fighting this battle for you. Sit back and watch, or take back control at any time."}
       </p>
       {!props.aiOnly && (

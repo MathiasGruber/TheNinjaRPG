@@ -388,18 +388,11 @@ export async function GET(request: Request) {
 
     // Step 25: Set status to AWAKE for users who are QUEUED if they are not in any active battle systems
     // Only claimed ranked rows own status; provisional joins must not keep an orphan queued.
-    // This covers mpvp battles and ranked PVP (kage challenges now use KAGE_QUEUED status)
+    // This covers mpvp battles and ranked PvP.
     await drizzleDB.execute(
       sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="QUEUED" 
           AND NOT EXISTS (SELECT id FROM ${mpvpBattleUser} b WHERE b.userId = a.userId)
           AND NOT EXISTS (SELECT id FROM ${rankedPvpQueue} d WHERE d.userId = a.userId AND d.hasClaimed = true)`,
-    );
-
-    // Step 25b: Set status to AWAKE for users who are KAGE_QUEUED if their challenge has expired
-    // Kage challenges expire after 10 minutes (600 seconds)
-    await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="KAGE_QUEUED"
-          AND NOT EXISTS (SELECT id FROM ${userRequest} c WHERE c.senderId = a.userId AND c.type = 'KAGE' AND c.status = 'PENDING' AND c.createdAt > NOW() - INTERVAL 10 MINUTE)`,
     );
 
     // Step 26: Update the population of each village

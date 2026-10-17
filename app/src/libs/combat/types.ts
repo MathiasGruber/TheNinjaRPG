@@ -403,6 +403,15 @@ export type PreBattleGearModifiers = {
  * Static data is stored once at battle initiation and looked up by ID.
  */
 export type ExtraState = {
+  /** Durable scheduled defense and tenure; settlement never needs another fetch. */
+  kageMatch?: {
+    id: string;
+    villageId: string;
+    kageId: string;
+    tenure: string;
+    /** Fixed by both participants' consent at launch; cannot be toggled during the battle. */
+    ai: boolean;
+  };
   /** Staff-event game identity; combat preloads it so settlement never fetches tournament data. */
   tournamentGameId?: string;
   /** Event AI rules cannot be disabled by participants. */
