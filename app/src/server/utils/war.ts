@@ -59,6 +59,7 @@ import {
   userData,
   userRequest,
   village,
+  villageElderVote,
   villageStructure,
   type War,
   war,
@@ -635,13 +636,14 @@ export const startSectorWar = async (
         attacker?.kageId !== declaration.initiatedByUserId
       )
         return false;
-      const [activeWars, targetSector] = await Promise.all([
-        tx.query.war.findMany({
-          where: eq(war.status, "ACTIVE"),
-          with: { warAllies: { where: activeWarAllyWhere() } },
-        }),
-        tx.query.sector.findFirst({ where: eq(sector.sector, declaration.sectorId) }),
-      ]);
+      // A transaction holds a single connection; its queries must run sequentially.
+      const activeWars = await tx.query.war.findMany({
+        where: eq(war.status, "ACTIVE"),
+        with: { warAllies: { where: activeWarAllyWhere() } },
+      });
+      const targetSector = await tx.query.sector.findFirst({
+        where: eq(sector.sector, declaration.sectorId),
+      });
       if (
         (targetSector?.villageId ?? VILLAGE_SYNDICATE_ID) !==
           declaration.defenderVillageId ||
@@ -728,25 +730,24 @@ export const startDeclaredWar = async (
         .for("update");
       if (lockedVillages.length !== 2) return false;
 
-      const [activeWars, sectors] = await Promise.all([
-        tx.query.war.findMany({
-          where: and(
-            eq(war.status, "ACTIVE"),
-            inArray(
-              war.type,
-              rules
-                ? ["VILLAGE_WAR", "WAR_RAID", "SECTOR_WAR"]
-                : ["VILLAGE_WAR", "WAR_RAID"],
-            ),
+      // A transaction holds a single connection; its queries must run sequentially.
+      const activeWars = await tx.query.war.findMany({
+        where: and(
+          eq(war.status, "ACTIVE"),
+          inArray(
+            war.type,
+            rules
+              ? ["VILLAGE_WAR", "WAR_RAID", "SECTOR_WAR"]
+              : ["VILLAGE_WAR", "WAR_RAID"],
           ),
-          with: { warAllies: { where: activeWarAllyWhere() } },
-        }),
-        rules
-          ? tx.query.sector.findMany({
-              where: inArray(sector.villageId, villageIds),
-            })
-          : Promise.resolve([]),
-      ]);
+        ),
+        with: { warAllies: { where: activeWarAllyWhere() } },
+      });
+      const sectors = rules
+        ? await tx.query.sector.findMany({
+            where: inArray(sector.villageId, villageIds),
+          })
+        : [];
       if (
         villageIds.some((id) =>
           isVillageInvolvedInAnyWar(
@@ -884,6 +885,29 @@ export const startDeclaredWar = async (
     });
   }
   return true;
+};
+
+/**
+ * Start the war for an elder vote that was already claimed as APPROVED. If the start
+ * throws, the claim is released back to PENDING so the vote never shows APPROVED
+ * without a war; the hourly resolver retries it once the voting window ends.
+ */
+export const startApprovedVoteWar = async (
+  client: DrizzleClient,
+  voteId: string,
+  declaration: Parameters<typeof startDeclaredWar>[1],
+) => {
+  try {
+    return await startDeclaredWar(client, declaration);
+  } catch (error) {
+    await client
+      .update(villageElderVote)
+      .set({ status: "PENDING" })
+      .where(
+        and(eq(villageElderVote.id, voteId), eq(villageElderVote.status, "APPROVED")),
+      );
+    throw error;
+  }
 };
 
 /** A timestamp CAS makes retries of a daily raid drain harmless. Treasury tokens are unaffected. */

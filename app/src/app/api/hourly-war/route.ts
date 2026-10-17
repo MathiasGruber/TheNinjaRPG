@@ -41,7 +41,7 @@ import {
   applyRaidHealthDecay,
   handleWarEnd,
   resumePendingWarSettlements,
-  startDeclaredWar,
+  startApprovedVoteWar,
 } from "@/server/utils/war";
 import { secondsFromNow } from "@/utils/time";
 
@@ -434,7 +434,7 @@ async function handleExpiredWarDeclaration(
     return;
   }
 
-  const started = await startDeclaredWar(drizzleDB, {
+  const started = await startApprovedVoteWar(drizzleDB, vote.id, {
     attackerVillageId: vote.villageId,
     attackerVillageName: attackerVillage.name,
     defenderVillageId: vote.targetId,

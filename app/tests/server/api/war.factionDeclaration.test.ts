@@ -304,6 +304,57 @@ describeWithDatabase("faction war declarations", () => {
     });
     expect((await readFaction())?.tokens).toBe(TOKENS - WAR_DECLARATION_COST);
   });
+  it("releases the approved vote back to pending when the war start throws", async () => {
+    await seedWorld("VILLAGE");
+    const database = await getTestDatabase();
+    await database.insert(villageStructure).values({
+      id: "target-townhall",
+      name: "Town Hall",
+      image: "/townhall.webp",
+      villageId: TARGET,
+      route: "/townhall",
+    });
+    const elders = Array.from({ length: ELDER_MIN_VOTING_COUNT }, (_, index) => ({
+      userId: `elder-${index}`,
+      username: `Elder${index}`,
+      villageId: FACTION,
+      rank: "ELDER" as const,
+    }));
+    await insertUsers(elders);
+    await (await callerFor(warRouter, LEADER)).declareVillageWarOrRaid({
+      userVillageId: FACTION,
+      targetVillageId: TARGET,
+      targetStructureRoute: "/townhall",
+    });
+    const [vote] = await database.select().from(villageElderVote);
+    const majority = elders.slice(0, Math.floor(elders.length / 2) + 1);
+    for (const elder of majority.slice(0, -1)) {
+      await (await callerFor(warRouter, elder.userId)).voteOnWarDeclaration({
+        voteId: vote!.id,
+        userVillageId: FACTION,
+        vote: "YES",
+      });
+    }
+    // Simulate the driver rejecting the war-start transaction after the vote is claimed.
+    const failingTransactions = new Proxy(database, {
+      get(target, property, receiver) {
+        if (property === "transaction")
+          return () => Promise.reject(new Error("transaction in use"));
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    await expect(
+      callerForDatabase(warRouter, majority.at(-1)!.userId, failingTransactions).voteOnWarDeclaration({
+        voteId: vote!.id,
+        userVillageId: FACTION,
+        vote: "YES",
+      }),
+    ).rejects.toThrow();
+    const [after] = await database.select().from(villageElderVote).where(eq(villageElderVote.id, vote!.id));
+    expect(after?.status).toBe("PENDING");
+    expect(await database.select().from(war)).toHaveLength(0);
+    expect((await readFaction())?.tokens).toBe(TOKENS);
+  });
   it("requires 20 raiders and rejects unsupported structures without charging", async () => {
     await seedWorld();
     const db = await getTestDatabase();
