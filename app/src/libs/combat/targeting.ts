@@ -80,12 +80,16 @@ export const getTargetTiles = ({
   const y = action.methodSize?.y ?? 0;
   if (x === 0 && y === 0) return base;
   // Expand in battlefield column/row coordinates, clipping to the actual map.
+  // Spiral expansion must preserve the caster's exclusion from its base footprint.
   return grid
     .toArray()
-    .filter((tile) =>
-      base.some(
-        (origin) =>
-          Math.abs(tile.col - origin.col) <= x && Math.abs(tile.row - origin.row) <= y,
-      ),
+    .filter(
+      (tile) =>
+        (action.method !== "AOE_SPIRAL_SHOOT" || tile !== a) &&
+        base.some(
+          (origin) =>
+            Math.abs(tile.col - origin.col) <= x &&
+            Math.abs(tile.row - origin.row) <= y,
+        ),
     );
 };

@@ -27,7 +27,13 @@ describe("method size", () => {
     expect(positions(resolve(1, 0))).toEqual(["2,3", "3,3", "4,3"]);
     expect(positions(resolve(0, 1))).toEqual(["3,2", "3,3", "3,4"]);
     expect(resolve(1, 1)).toHaveLength(9);
-    expect(getTargetTiles({ ...info, b: info.a, action: { ...info.action, methodSize: { x: 1, y: 1 } } })).toHaveLength(4);
+    const corner = getTargetTiles({
+      ...info,
+      b: info.a,
+      action: { ...info.action, methodSize: { x: 1, y: 1 } },
+    });
+    expect(corner).toHaveLength(4);
+    expect(corner).toContain(info.a);
   });
   it.each(AttackMethods.filter((method) => !["ALL", "COORDINATES"].includes(method)))("preserves default %s and expands without duplicates", (method) => {
     const info = setup();
@@ -48,6 +54,53 @@ describe("method size", () => {
     insertAction({ battle: info.battle, grid: info.grid, action, actorId: "actor", longitude: info.b.col, latitude: info.b.row });
     expect(positions(info.battle.groundEffects.filter((effect) => effect.type === "damage").map((effect) => ({ col: effect.longitude, row: effect.latitude })))).toEqual(positions(preview));
   });
+  it.each([undefined, { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 1 }])(
+    "excludes the caster from spiral preview and accepted cast with size %j",
+    (methodSize) => {
+      const info = setup();
+      const action: CombatAction = {
+        ...info.action,
+        method: "AOE_SPIRAL_SHOOT",
+        methodSize,
+      };
+      const preview = getTargetTiles({ ...info, action });
+      const resolved = getAffectedTiles({
+        ...info,
+        action,
+        users: info.battle.usersState,
+        ground: [],
+        userId: "actor",
+        preview: true,
+      });
+      expect(
+        insertAction({
+          battle: info.battle,
+          grid: info.grid,
+          action,
+          actorId: "actor",
+          longitude: info.b.col,
+          latitude: info.b.row,
+        }),
+      ).toBe(true);
+      const effects = info.battle.groundEffects.filter(
+        (effect) => effect.type === "damage",
+      );
+      expect(preview.includes(info.a)).toBe(false);
+      expect(resolved.green.has(info.a)).toBe(false);
+      expect(
+        effects.some(
+          (effect) =>
+            effect.longitude === info.a.col && effect.latitude === info.a.row,
+        ),
+      ).toBe(false);
+      expect(positions(resolved.green)).toEqual(positions(preview));
+      expect(
+        positions(
+          effects.map((effect) => ({ col: effect.longitude, row: effect.latitude })),
+        ),
+      ).toEqual(positions(preview));
+    },
+  );
   it.each([{ x: -1, y: 0 }, { x: 0, y: 11 }, { x: 0.5, y: 1 }, { x: Infinity, y: 0 }, { x: NaN, y: 0 }])("rejects invalid expansion %j", (size) => {
     expect(methodSizeSchema.safeParse(size).success).toBe(false);
   });
