@@ -709,6 +709,9 @@ export const DURABILITY_POINT_PRICE_PERCENT = 0.1;
 export const SkillTreeEntryTypes = ["DEFAULT", "SPECIAL"] as const;
 export type SkillTreeEntryType = (typeof SkillTreeEntryTypes)[number];
 
+/** Maximum extra columns or rows on each side of a method's default footprint. */
+export const MAX_METHOD_SIZE = 10;
+
 export const AttackMethods = [
   "SINGLE",
   "ALL",

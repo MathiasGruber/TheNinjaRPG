@@ -509,7 +509,7 @@ describe("coordinate casts and preview", () => {
   });
   it("preloads coordinate mechanics into both item and jutsu actions", () => {
     const { actor, battle } = scenario();
-    const ability = action();
+    const ability = action({ methodSize: { x: 2, y: 1 } });
     battle.extraState.jutsus = {
       pattern: {
         ...ability,
@@ -534,6 +534,8 @@ describe("coordinate casts and preview", () => {
         battle,
       ).coordinateTargeting,
     ).toEqual(ability.coordinateTargeting ?? null);
+    expect(userJutsuToAction({ id: "owned", jutsuId: "pattern", level: 1, originalCooldown: 0 } as never, battle).methodSize).toEqual(ability.methodSize ?? null);
+    expect(userItemToAction({ id: "owned", itemId: "pattern", originalCooldown: 0 } as never, actor, battle).methodSize).toEqual(ability.methodSize ?? null);
     expect(
       userItemToAction(
         { id: "owned", itemId: "pattern", originalCooldown: 0 } as never,

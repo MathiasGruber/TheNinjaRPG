@@ -49,6 +49,7 @@ import ContentImageSelector from "@/layout/ContentImageSelector";
 import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
+import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
 import Modal from "@/layout/Modal";
 import { RewardEditor } from "@/layout/RewardEditor";
 import RichInput from "@/layout/RichInput";
@@ -57,6 +58,7 @@ import Table from "@/layout/Table";
 import { WeightedCacheEditor } from "@/layout/WeightedCacheEditor";
 import { damageModifierTypes } from "@/libs/combat/constants";
 import { POTENCY_TAG_LABELS } from "@/libs/combat/potency";
+import type { CombatAction } from "@/libs/combat/types";
 import {
   isSupportedOverworldBindingTask,
   placementsForObjective,
@@ -86,6 +88,7 @@ import {
   questDebuffTypes,
 } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
+import type { MethodSize } from "@/validators/methodSize";
 import type { AllObjectivesType } from "@/validators/objectives";
 import {
   getObjectiveSchema,
@@ -119,6 +122,7 @@ export type FormEntry<K> = {
   readonly?: boolean;
 } & (
   | { type: "coordinate_targeting" }
+  | { type: "method_size" }
   | { type: "text" }
   | { type: "textarea"; rows?: number }
   | { type: "richinput"; height?: string }
@@ -202,6 +206,10 @@ export const EditContent = <
     submitLoadingText,
   } = props;
   const currentValues = form.getValues();
+  const [targetingMethod, targetingRange] = useWatch({
+    control: form.control,
+    name: ["method" as Path<S>, "range" as Path<S>],
+  });
 
   // State for managing dynamic options for fields with allowAddNew
   const [dynamicOptionsMap, setDynamicOptionsMap] = useState<
@@ -711,6 +719,15 @@ export const EditContent = <
                         );
                       }}
                     />
+                  )}
+                  {type === "method_size" && (
+                    <FormField control={form.control} name={id} render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Method size</FormLabel>
+                        <MethodSizeEditor value={field.value as MethodSize | null | undefined} onChange={field.onChange} method={targetingMethod as CombatAction["method"]} range={Number(targetingRange) || 0} readonly={formEntry.readonly} />
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                   )}
                   {type === "coordinate_targeting" && (
                     <FormField

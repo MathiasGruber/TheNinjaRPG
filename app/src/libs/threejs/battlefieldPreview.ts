@@ -1,6 +1,6 @@
 import alea from "alea";
 import type { Material, Mesh, Scene, Texture } from "three";
-import { Box3, Clock, Group, OrthographicCamera } from "three";
+import { Box3, Clock, Color, Group, OrthographicCamera } from "three";
 import {
   type CombatBiome,
   HEX_STACKING_DISPLACEMENT,
@@ -25,6 +25,7 @@ import {
   sceneAssetIds,
   sceneSoundIds,
 } from "@/libs/contentReview/battlefield";
+import type { HexagonalFaceMesh, TerrainHex } from "@/libs/hexgrid";
 import { getBackgroundColor } from "@/libs/threejs/biome";
 import {
   drawCombatBackground,
@@ -45,6 +46,7 @@ import type { BattlefieldSheetsInput } from "@/validators/contentReview";
  * audit see an effect exactly as a battle shows it. Hexes keep the size a regular battle gives
  * them on the chosen viewport; only the field is cropped to a 3 by 3 patch inside combat's
  * decorated border, with a caster on the left, a target on the right and a tile between them.
+ * Targeting help can instead show a full map with movable anchors and highlighted tiles.
  * Returns null when WebGL is unavailable; the caller mounts `canvas` and calls `dispose`.
  */
 export const createBattlefieldPreview = (
@@ -67,7 +69,7 @@ export const createBattlefieldPreview = (
     const asset = assets.find((entry) => entry.id === id);
     return asset ? [asset] : [];
   });
-  const { width, height, ratio } = fieldSize(viewport);
+  const { width, height, ratio } = fieldSize(viewport, options.targeting);
   const { scene, renderer, handleResize } = setupScene({
     mountRef: { current: null },
     width,
@@ -87,18 +89,25 @@ export const createBattlefieldPreview = (
   const id = `battlefield-preview-${previewCount}`;
   const casterId = `${id}-caster`;
   const targetId = `${id}-target`;
+  const placements = options.targeting
+    ? { ...TILES, caster: options.targeting.caster, target: options.targeting.target }
+    : TILES;
   const battle = previewBattle(id, background, [
-    fighter(casterId, "Caster", TILES.caster, null),
+    fighter(casterId, "Caster", placements.caster, null),
     fighter(
       targetId,
       "Target",
-      TILES.target,
+      placements.target,
       content.targetAvatar ? textureSource(content.targetAvatar) : null,
     ),
   ]);
+  if (options.targeting) {
+    battle.width = options.targeting.width;
+    battle.height = options.targeting.height;
+  }
   // One seed for every preview, so current and proposed versions share their scenery.
   const field = drawCombatBackground(width, battle, alea("battlefield-preview"), false);
-  field.group_names.visible = false;
+  field.group_names.visible = !!options.targeting;
   const groupUsers = new Group();
   const groupEffects = new Group();
   scene.add(
@@ -116,7 +125,7 @@ export const createBattlefieldPreview = (
   // past their hex, and for the fighters' bars above them.
   scene.updateMatrixWorld();
   const tiles = new Box3();
-  for (const { col, row } of Object.values(TILES)) {
+  for (const { col, row } of Object.values(placements)) {
     const tile = field.group_tiles.getObjectByName(`${row},${col}`);
     if (tile) tiles.expandByObject(tile);
   }
@@ -188,6 +197,29 @@ export const createBattlefieldPreview = (
   const render = () => {
     sync();
     renderer.render(scene, camera);
+  };
+
+  /** Update local authoring anchors and tint the same map-owned tiles combat draws. */
+  const setTargeting = (
+    caster: TerrainHex,
+    target: TerrainHex,
+    tiles: TerrainHex[],
+  ) => {
+    battle.usersState.forEach((user, index) => {
+      const tile = index === 0 ? caster : target;
+      user.longitude = tile.col;
+      user.latitude = tile.row;
+    });
+    const selected = new Set(tiles);
+    field.group_tiles.children.forEach((object) => {
+      const mesh = object as HexagonalFaceMesh;
+      if (!mesh.userData.originalColor) return;
+      mesh.material.color.copy(mesh.userData.originalColor);
+      if (selected.has(mesh.userData.tile)) {
+        mesh.material.color.lerp(new Color("rgb(0, 255, 100)"), 0.8);
+      }
+    });
+    render();
   };
 
   // One cycle: effects appear, stay for holdMs after their appear animation, then end and
@@ -272,6 +304,8 @@ export const createBattlefieldPreview = (
 
   return {
     canvas: renderer.domElement,
+    grid: field.honeycombGrid,
+    setTargeting,
     width,
     height,
     play: () => {
@@ -423,9 +457,15 @@ const stacked = (columns: number) =>
   columns - HEX_STACKING_DISPLACEMENT * (columns - 1);
 
 /** Size of the field on the viewport in CSS pixels, and its height to width ratio. */
-const fieldSize = (viewport: BattlefieldViewport) => {
-  const width = previewHexWidth(viewport) * stacked(FIELD.width);
-  const ratio = getBattlefieldHeightRatio(FIELD.width, FIELD.height);
+const fieldSize = (
+  viewport: BattlefieldViewport,
+  targeting?: BattlefieldPreviewOptions["targeting"],
+) => {
+  const dimensions = targeting ?? FIELD;
+  const width = targeting
+    ? BATTLEFIELD_VIEWPORTS[viewport]
+    : previewHexWidth(viewport) * stacked(FIELD.width);
+  const ratio = getBattlefieldHeightRatio(dimensions.width, dimensions.height);
   return { width, height: width * ratio, ratio };
 };
 
@@ -719,6 +759,13 @@ type BattlefieldPreviewOptions = {
   assets: GameAsset[];
   viewport: BattlefieldViewport;
   background: CombatBiome;
+  /** Full-map targeting help; effect previews retain their compact field when omitted. */
+  targeting?: {
+    width: number;
+    height: number;
+    caster: { col: number; row: number };
+    target: { col: number; row: number };
+  };
   /** Canvas pixels per battlefield pixel: 2 draws the same field twice as large. */
   magnify?: number;
   /** Camera zoom around the caster, the tile and the target, like combat's zoom. */
@@ -732,6 +779,10 @@ type BattlefieldPreviewOptions = {
 /** One preview field: its canvas, animation and sound controls, and fixed captures. */
 export type BattlefieldPreview = {
   canvas: HTMLCanvasElement;
+  /** The renderer's own grid keeps targeting overlays aligned with the battlefield. */
+  grid: ReturnType<typeof drawCombatBackground>["honeycombGrid"];
+  /** Move preview fighters and highlight a raw footprint without changing game content. */
+  setTargeting: (caster: TerrainHex, target: TerrainHex, tiles: TerrainHex[]) => void;
   /** Size of the field on a player's screen, in CSS pixels. */
   width: number;
   height: number;

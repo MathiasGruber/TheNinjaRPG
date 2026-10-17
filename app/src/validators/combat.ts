@@ -54,6 +54,7 @@ import {
   FURNITURE_ITEM_DEFAULTS,
   furnitureItemSchema,
 } from "@/validators/itemFurniture";
+import { type MethodSize, methodSizeSchema } from "@/validators/methodSize";
 import { rewardFields } from "@/validators/rewards";
 import {
   maximumCacheItems,
@@ -1321,15 +1322,17 @@ interface ContentBaseValidatorType {
   method: (typeof AttackMethods)[number];
   range?: number;
   coordinateTargeting?: CoordinateTargeting | null;
+  methodSize?: MethodSize | null;
   effects: ZodAllTags[];
 }
 
 interface ItemValidatorType
   extends Omit<
     Item,
-    "id" | "createdAt" | "updatedAt" | "hidden" | "coordinateTargeting"
+    "id" | "createdAt" | "updatedAt" | "hidden" | "coordinateTargeting" | "methodSize"
   > {
   coordinateTargeting?: CoordinateTargeting | null;
+  methodSize?: MethodSize | null;
   craftingRequirements?: { ids: string[]; number: number }[] | null;
   effects: ZodAllTags[];
 }
@@ -1355,8 +1358,16 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
       message: "Configure coordinates for the COORDINATES method.",
     });
   }
-  // Pick out various effect types
   const hasMove = data.effects.find((e) => e.type === "move");
+  // Movement uses the clicked destination, so expansion must not imply extra landing tiles.
+  if (hasMove && ((data.methodSize?.x ?? 0) > 0 || (data.methodSize?.y ?? 0) > 0)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["methodSize"],
+      message: "Move tags cannot use an expanded method size.",
+    });
+  }
+  // Pick out various effect types
   const hasClone = data.effects.find((e) => e.type === "clone");
   const hasSummon = data.effects.find((e) => e.type === "summon");
   const hasBarrier = data.effects.find((e) => e.type === "barrier");
@@ -1713,6 +1724,7 @@ export const JutsuValidatorRawSchema = z.object({
   requiredLevel: z.coerce.number().min(1).max(100),
   method: z.enum(AttackMethods),
   coordinateTargeting: coordinateTargetingSchema.nullish(),
+  methodSize: methodSizeSchema.nullish(),
   target: z.enum(AttackTargets),
   range: z.coerce.number().int().min(0).max(5),
   // The column is nullable, so rows stored before this field existed - and any
@@ -1925,6 +1937,7 @@ export const ItemValidatorRawSchema = z.object({
   maxEquips: z.coerce.number().int().min(0).max(10),
   method: z.enum(AttackMethods),
   coordinateTargeting: coordinateTargetingSchema.nullish(),
+  methodSize: methodSizeSchema.nullish(),
   target: z.enum(AttackTargets),
   itemType: z.enum(ItemTypes),
   weaponType: z.enum(WeaponTypes),

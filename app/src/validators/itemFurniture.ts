@@ -94,6 +94,7 @@ export const FURNITURE_ITEM_DEFAULTS = {
   method: "SINGLE",
   weaponType: "NONE",
   coordinateTargeting: null,
+  methodSize: null,
   effects: [],
   battleDescription: "",
   maxEquips: 0,

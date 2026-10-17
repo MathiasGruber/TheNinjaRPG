@@ -117,10 +117,11 @@ const editors: {
     form: {
       setValue: {
         (name: "coordinateTargeting", value: ZodJutsuInput["coordinateTargeting"]): void;
-        (name: "method", value: "SINGLE", options?: SetValueConfig): void;
+        (name: "method", value: "SINGLE" | "ALL" | "COORDINATES", options?: SetValueConfig): void;
+        (name: "methodSize", value: ZodJutsuInput["methodSize"], options?: SetValueConfig): void;
       };
-      getValues: (name: "coordinateTargeting") => ZodJutsuInput["coordinateTargeting"];
-      getFieldState: (name: "coordinateTargeting") => { error?: unknown };
+      getValues: { (name: "coordinateTargeting"): ZodJutsuInput["coordinateTargeting"]; (name: "methodSize"): ZodJutsuInput["methodSize"]; };
+      getFieldState: (name: "coordinateTargeting" | "methodSize") => { error?: unknown };
       trigger: () => Promise<boolean>;
     };
     formData: { id: string }[];
@@ -153,6 +154,19 @@ const editors: {
 
 describe("coordinate method drafts", () => {
   for (const { kind, useEditor } of editors) {
+    it.each(["ALL", "COORDINATES"] as const)(`clears hidden invalid ${kind} method sizes when changing to %s`, async (method) => {
+      const { result } = renderHook(() => useEditor());
+      await act(async () => { result.current.form.setValue("method", "SINGLE"); });
+      await act(async () => { result.current.form.setValue("methodSize", { x: Number.NaN, y: 1 }); });
+      await act(async () => { expect(await result.current.form.trigger()).toBe(false); });
+      await act(async () => {
+        result.current.form.setValue("method", method);
+        if (method === "COORDINATES") result.current.form.setValue("coordinateTargeting", coordinateTargeting);
+      });
+      expect(result.current.form.getValues("methodSize")).toBeNull();
+      expect(result.current.formData.some((field) => field.id === "methodSize")).toBe(false);
+      await act(async () => { expect(await result.current.form.trigger()).toBe(true); });
+    });
     it(`clears invalid ${kind} coordinates when changing to SINGLE`, async () => {
       const { result } = renderHook(() => useEditor());
       await act(async () => {

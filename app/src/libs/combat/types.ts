@@ -44,6 +44,7 @@ import type { GenNames, publicState, StatNames } from "@/libs/combat/constants";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
+import type { MethodSize } from "@/validators/methodSize";
 import type { QuestTrackerType } from "@/validators/objectives";
 import type { DmgConfig } from "./constants";
 import type { CombatCacheSnapshot, CombatProfileUpdate } from "./userCache";
@@ -579,6 +580,7 @@ export type CombatAction = {
   method: (typeof AttackMethods)[number];
   range: number;
   coordinateTargeting?: CoordinateTargeting | null;
+  methodSize?: MethodSize | null;
   healthCost: number;
   chakraCost: number;
   staminaCost: number;
