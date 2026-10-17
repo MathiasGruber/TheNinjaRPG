@@ -4498,7 +4498,8 @@ export const processUsersForBattle = async (
           realized.isNew = false;
           realized.castThisRound = false;
           realized.targetId = user.userId;
-          realized.fromType = "item";
+          // Owned title bonuses share the permanent passive contract of skills.
+          realized.fromType = "skill";
           userEffects.push(realized);
         }
       }
