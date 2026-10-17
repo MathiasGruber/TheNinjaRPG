@@ -138,12 +138,14 @@ for (const federalStatus of ["NONE", "GOLD"] as const) {
       expect(view.queryByLabelText("Companion name")).toBeNull();
       expect(view.queryByRole("button", { name: "Meet my first companion" })).toBeNull();
       expect((view.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
-      expect(view.queryByText(/Regular accounts receive/)).toBeNull();
-      fireEvent.click(view.getByRole("button", { name: "About your bond and daily choices" }));
-      expect(view.getByText(/Regular accounts receive/)).toBeDefined();
-      fireEvent.click(view.getByRole("button", { name: "About your bond and daily choices" }));
+      expect(view.queryByLabelText("Selected traits")).toBeNull();
+      expect(view.queryByText(/: choose/)).toBeNull();
+      const details = view.getByText("About daily choices").closest("details")!;
+      expect(details.open).toBe(false);
+      expect(view.container.querySelector("form")!.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
 
       fireEvent.click(view.getAllByRole("radio")[0]!);
+      expect(view.getByLabelText("Selected traits").textContent).toBe(dailyOptions.species[0]!.name);
       fireEvent.click(view.getByRole("button", { name: "Continue" }));
       expect(view.getByRole("group", { name: "Colour palette" })).toBeDefined();
       fireEvent.click(view.getAllByRole("radio")[0]!);
@@ -165,7 +167,8 @@ for (const federalStatus of ["NONE", "GOLD"] as const) {
       for (const entries of Object.values(dailyOptions)) {
         expect(view.getByText(new RegExp(entries[0]!.name))).toBeDefined();
       }
-      expect(view.getByRole("link", { name: "Manage my collection" }).getAttribute("href")).toBe("/profile?tab=pet");
+      expect(view.getByLabelText("Selected traits").textContent).toBe(Object.values(dailyOptions).map((entries) => entries[0]!.name).join(" · "));
+      expect(view.queryByRole("link", { name: "Manage my collection" })).toBeNull();
 
       const tomorrow = "2026-10-17";
       await updateData({ dayKey: tomorrow, options: getDailyPetOptions("owner", federalStatus, initialPetSpecies, tomorrow) });
@@ -190,6 +193,11 @@ it("explains the collection limit while allowing every trait to be previewed wit
   });
   try {
     const reason = await view.findByText("Your collection is full. Release a companion before adopting another.");
+    expect(view.getByText("6 / 6 collection slots")).toBeDefined();
+    expect(view.getByRole("link", { name: "Manage my collection" }).getAttribute("href")).toBe("/profile?tab=pet");
+    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+    expect(view.queryByText("About daily choices")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Preview today's choices" }));
     const choices = view.getByRole("group", { name: "Species" });
     expect(reason.compareDocumentPosition(choices) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
     expect(view.queryByText(/Unlock another collection slot/)).toBeNull();
@@ -205,10 +213,58 @@ it("explains the collection limit while allowing every trait to be previewed wit
     fireEvent.click(meet);
     fireEvent.submit(meet.closest("form")!);
     expect(mutations).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Hide today's choices" }));
+    expect(view.queryByRole("textbox", { name: "Companion name" })).toBeNull();
+    expect(view.queryByText("About daily choices")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Preview today's choices" }));
+    expect((view.getByRole("textbox", { name: "Companion name" }) as HTMLInputElement).value).toBe("Preview");
   } finally {
     queryClient.clear();
   }
 });
+
+it("keeps a full collection focused on management without duplicating the ready companion or release action", async () => {
+  const pet = { id: "existing", name: "Bobby", rank: 1, avatar: "/existing.webp", artRank: 1, generationStatus: "READY" };
+  const { view, queryClient } = renderAcquisition({
+    pet, pets: [pet], activePetId: pet.id, canAcquire: false,
+    unavailableReason: "Unlock another collection slot or release a companion before adopting another.",
+  });
+  try {
+    await view.findByText("1 / 1 collection slots");
+    expect(view.getByText("Your collection is full")).toBeDefined();
+    expect(view.getByRole("link", { name: "Manage my collection" })).toBeDefined();
+    expect(view.queryByRole("img", { name: "Bobby" })).toBeNull();
+    expect(view.queryByRole("link", { name: "View companion" })).toBeNull();
+    expect(view.queryByRole("button", { name: /Release/ })).toBeNull();
+    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+    expect(view.queryByText("About daily choices")).toBeNull();
+  } finally { queryClient.clear(); }
+});
+
+for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
+  it(`preserves ${generationStatus.toLowerCase()} appearance recovery when the collection is full`, async () => {
+    const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus };
+    const { view, queryClient, mutations } = renderAcquisition({
+      pet, pets: [pet], activePetId: pet.id, canAcquire: false,
+      generationRetryAt: generationStatus === "GENERATING" ? new Date(Date.now() + 60_000) : null,
+      unavailableReason: "Unlock another collection slot or release a companion before adopting another.",
+    });
+    try {
+      const profile = await view.findByRole("link", { name: "View companion" });
+      expect(profile.getAttribute("href")).toBe("/profile?tab=pet&petId=saved");
+      expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+      expect(view.queryByRole("button", { name: /Release/ })).toBeNull();
+      if (generationStatus === "GENERATING") {
+        expect(view.getByText(/Your companion's image is being created/)).toBeDefined();
+        expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+      } else {
+        fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
+        await waitFor(() => expect(mutations).toHaveBeenCalledWith("pets.generateAppearance", { petId: "saved" }));
+        expect(mutations).toHaveBeenCalledTimes(1);
+      }
+    } finally { queryClient.clear(); }
+  });
+}
 
 it("checks only the selected adoption currency and preserves the companion draft when changing payment", async () => {
   owner.reputationPoints = 0;
@@ -244,18 +300,22 @@ it("checks only the selected adoption currency and preserves the companion draft
   } finally { queryClient.clear(); }
 });
 
-it("explains an unavailable species catalogue without an empty selection wizard", async () => {
-  const message = "The Bondkeepers are not offering new companions right now. Please check back later.";
-  const { view, queryClient, mutations } = renderAcquisition({
-    options: { ...options, species: [] }, canAcquire: false, unavailableReason: message,
+for (const isFull of [false, true]) {
+  it(`explains an unavailable species catalogue ${isFull ? "at full capacity" : "with room available"} without an empty wizard or preview action`, async () => {
+    const message = "The Bondkeepers are not offering new companions right now. Please check back later.";
+    const { view, queryClient, mutations } = renderAcquisition({
+      pets: isFull ? [{ id: "existing" }] : [],
+      options: { ...options, species: [] }, canAcquire: false, unavailableReason: message,
+    });
+    try {
+      await view.findByText(message);
+      expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+      expect(view.queryByRole("button", { name: "Continue" })).toBeNull();
+      expect(view.queryByRole("button", { name: "Preview today's choices" })).toBeNull();
+      expect(mutations).not.toHaveBeenCalled();
+    } finally { queryClient.clear(); }
   });
-  try {
-    await view.findByText(message);
-    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
-    expect(view.queryByRole("button", { name: "Continue" })).toBeNull();
-    expect(mutations).not.toHaveBeenCalled();
-  } finally { queryClient.clear(); }
-});
+}
 
 function renderAcquisition(initialData: Record<string, unknown>) {
   let data = {

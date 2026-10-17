@@ -8,13 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  PET_OPTION_COUNTS,
-  PET_REPLACEMENT_COST,
-  PET_SANCTUARY_NAME,
-  PET_SEICHI_SILVER_COST,
-} from "@/drizzle/constants";
-import Accordion from "@/layout/Accordion";
+import { PET_OPTION_COUNTS } from "@/drizzle/constants";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
@@ -40,7 +34,7 @@ export function PetAcquisition() {
     useState<RouterInputs["pets"]["acquirePet"]["currency"]>("REPUTATION");
   const [selection, setSelection] = useState<PetSelection>(emptySelection);
   const [stage, setStage] = useState(0);
-  const [details, setDetails] = useState("");
+  const [isPreviewing, setIsPreviewing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [acquiredPetId, setAcquiredPetId] = useState<string | null>(null);
   const [isAcquiring, setIsAcquiring] = useState(false);
@@ -137,24 +131,8 @@ export function PetAcquisition() {
     onSuccess: finishMutation,
     onError: failMutation,
   });
-  const release = api.pets.releasePet.useMutation({
-    onSuccess: async (result) => {
-      await finishMutation(result);
-      if (result.success) {
-        setAcquiredPetId(null);
-        setName("");
-        setSelection(emptySelection);
-        setStage(0);
-      }
-    },
-    onError: failMutation,
-  });
   const isBusy =
-    needsCollectionCheck ||
-    isAcquiring ||
-    acquire.isPending ||
-    generate.isPending ||
-    release.isPending;
+    needsCollectionCheck || isAcquiring || acquire.isPending || generate.isPending;
 
   /** Reconcile an uncertain claim against newly added matching pets before enabling another charge. */
   const checkAdoption = async () => {
@@ -273,25 +251,18 @@ export function PetAcquisition() {
   const hasSelection = selectedTraits.every(Boolean) && name.trim().length > 0;
   const canMeetPet = data.canAcquire && canAfford && hasSelection && !isBusy;
   const isReplacement = data.replacementCost > 0;
+  const isCollectionFull = data.pets.length >= data.slots;
   const unavailableReason =
-    data.pets.length >= data.slots && data.slots >= data.maxSlots
+    isCollectionFull && data.slots >= data.maxSlots
       ? "Your collection is full. Release a companion before adopting another."
       : data.unavailableReason;
   const appearanceReady = pet ? isPetAppearanceReady(pet) : false;
   const retryAt = data.generationRetryAt;
   const canRetry =
     pet && !appearanceReady && (retryAt === null || retryAt.getTime() <= Date.now());
-  const canRelease =
-    !isBusy &&
-    userData.status === "AWAKE" &&
-    (pet?.generationStatus !== "GENERATING" || canRetry);
 
   return (
-    <ContentBox
-      title="Meet your companion"
-      subtitle="Choose the creature you will raise together"
-      initialBreak
-    >
+    <ContentBox title="Meet your companion" initialBreak>
       {message && (
         <p
           role="alert"
@@ -310,20 +281,36 @@ export function PetAcquisition() {
           {isFetching ? "Checking collection..." : "Refresh collection"}
         </Button>
       )}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Badge variant="outline">
-          {data.pets.length} / {data.slots} companion slots occupied
-        </Badge>
-        <Button variant="outline" asChild>
-          <Link href="/profile?tab=pet">Manage my collection</Link>
-        </Button>
-      </div>
+      {!acquiredPetId && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-medium">
+              {isCollectionFull
+                ? "Your collection is full"
+                : isReplacement
+                  ? `Adoption: ${data.replacementCost} reputation or ${data.replacementSilverCost} Seichi Silver.`
+                  : "Your first companion is free."}
+            </p>
+            {data.pets.length > 0 && (
+              <p className="text-muted-foreground text-sm">
+                {data.pets.length} / {data.slots} collection slots
+              </p>
+            )}
+          </div>
+          {data.pets.length > 0 && (
+            <Button variant={isCollectionFull ? "default" : "outline"} asChild>
+              <Link href="/profile?tab=pet">Manage my collection</Link>
+            </Button>
+          )}
+        </div>
+      )}
       {!acquiredPetId && unavailableReason && (
-        <p className="mb-4 rounded border bg-muted/30 p-3 text-sm" role="status">
+        <p className="mb-4 text-muted-foreground text-sm" role="status">
           {unavailableReason}
         </p>
       )}
-      {pet && (
+      {/* Keep artwork recovery available even when the collection is full. */}
+      {pet && (!appearanceReady || acquiredPetId) && (
         <div
           className={`mb-4 flex rounded border bg-muted/30 ${appearanceReady ? "items-start gap-3 p-3" : "flex-col gap-4 p-4 sm:flex-row sm:items-center"}`}
         >
@@ -363,11 +350,13 @@ export function PetAcquisition() {
               </p>
             )}
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" asChild>
-                <Link href={`/profile?tab=pet&petId=${encodeURIComponent(pet.id)}`}>
-                  View companion
-                </Link>
-              </Button>
+              {!acquiredPetId && (
+                <Button variant="outline" asChild>
+                  <Link href={`/profile?tab=pet&petId=${encodeURIComponent(pet.id)}`}>
+                    View companion
+                  </Link>
+                </Button>
+              )}
               {canRetry && (
                 <Button
                   disabled={
@@ -382,24 +371,6 @@ export function PetAcquisition() {
                     : "Retry appearance for free"}
                 </Button>
               )}
-              <Confirm
-                title={`Release ${pet.name}?`}
-                className="break-words [&>div]:min-w-0"
-                disabled={!canRelease}
-                button={
-                  <Button variant="destructive" disabled={!canRelease}>
-                    {release.isPending ? "Releasing..." : "Release companion"}
-                  </Button>
-                }
-                onAccept={() => release.mutate({ petId: pet.id })}
-              >
-                <p>
-                  {pet.name} will return to the wild groves of the {PET_SANCTUARY_NAME}.
-                  Its stats, rank, artwork and unused experience are removed. Your other
-                  companions are kept. A new companion will cost {PET_REPLACEMENT_COST}{" "}
-                  reputation points or {PET_SEICHI_SILVER_COST} Seichi Silver.
-                </p>
-              </Confirm>
             </div>
             {!appearanceReady && retryAt && !canRetry && (
               <p className="text-muted-foreground text-sm">
@@ -428,221 +399,234 @@ export function PetAcquisition() {
               ? "Your new companion is ready to join you."
               : "Your bond is saved. You can finish your companion's appearance from its profile."}
           </p>
-          <Button asChild>
-            <Link href={`/profile?tab=pet&petId=${encodeURIComponent(acquiredPetId)}`}>
-              Open pet profile
-            </Link>
-          </Button>
-          {data.canAcquire && (
-            <Button
-              variant="outline"
-              disabled={isBusy}
-              onClick={() => {
-                setAcquiredPetId(null);
-                setName("");
-                setSelection(emptySelection);
-                setStage(0);
-              }}
-            >
-              Meet another companion
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link
+                href={`/profile?tab=pet&petId=${encodeURIComponent(acquiredPetId)}`}
+              >
+                Open pet profile
+              </Link>
             </Button>
-          )}
+            {data.canAcquire && (
+              <Button
+                variant="outline"
+                disabled={isBusy}
+                onClick={() => {
+                  setAcquiredPetId(null);
+                  setName("");
+                  setSelection(emptySelection);
+                  setStage(0);
+                }}
+              >
+                Meet another companion
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <>
-          <div className="mb-4 space-y-2 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">
-                Up to {data.optionCount} choices per trait
-              </Badge>
-              <Badge variant="outline">{data.dayKey} UTC</Badge>
-            </div>
-            <p>
-              {isReplacement
-                ? `New companion: ${data.replacementCost} reputation points or ${data.replacementSilverCost} Seichi Silver.`
-                : "Your first companion is free."}{" "}
-              {data.generationLimit} image attempts per companion each UTC day; failed
-              image retries are free. Choices reset at midnight UTC.
-            </p>
-            <Accordion
-              title="About your bond and daily choices"
-              selectedTitle={details}
-              onClick={setDetails}
-              collapsible
-              className="px-0"
+          {isCollectionFull && data.options.species.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="mb-3 px-0"
+              aria-expanded={isPreviewing}
+              onClick={() => setIsPreviewing((previous) => !previous)}
             >
-              <div className="space-y-2 py-3 text-muted-foreground">
-                <p>
-                  Choose a species, colour palette, defining characteristic and aura.
-                  The Bondkeepers create one image from these appearance traits. Your
-                  companion starts at {getPetRank(1).name} and keeps its identity
-                  through later evolutions.
-                </p>
-                <p>
-                  Regular accounts receive {PET_OPTION_COUNTS.NONE} choices per trait;
-                  Normal, Silver and Gold federal support gives{" "}
-                  {PET_OPTION_COUNTS.NORMAL}, {PET_OPTION_COUNTS.SILVER} and{" "}
-                  {PET_OPTION_COUNTS.GOLD}. Federal support also improves the rarity of
-                  daily species choices. Today's choices stay the same when you return.
-                </p>
-                {data.activePetId && (
-                  <p>
-                    Your active companion stays with you; the new pet joins your
-                    collection with new pet stats.
+              {isPreviewing ? "Hide today's choices" : "Preview today's choices"}
+              <ChevronRight
+                className={`ml-1 h-4 w-4 ${isPreviewing ? "rotate-90" : ""}`}
+                aria-hidden="true"
+              />
+            </Button>
+          )}
+          {(!isCollectionFull || isPreviewing) && data.options.species.length > 0 && (
+            <div>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (isBusy) return;
+                  if (activeTrait && selectedTraits[stage]) changeStage(stage + 1);
+                  else if (!activeTrait && !isReplacement && canMeetPet) void meetPet();
+                }}
+              >
+                <div className="mb-4 flex items-baseline justify-between gap-3">
+                  <h3
+                    ref={stageHeading}
+                    tabIndex={-1}
+                    className="font-semibold text-lg"
+                  >
+                    {activeTrait?.title ?? "Name your companion"}
+                  </h3>
+                  <span className="shrink-0 text-muted-foreground text-sm">
+                    Step {stage + 1} of {traitStages.length + 1}
+                  </span>
+                </div>
+                {activeTrait ? (
+                  <PetTraitChoices
+                    title={activeTrait.title}
+                    field={activeTrait.field}
+                    options={data.options[activeTrait.options]}
+                    selected={selection[activeTrait.field]}
+                    disabled={isBusy}
+                    onSelect={(value) =>
+                      setSelection((previous) =>
+                        activeTrait.field === "speciesId"
+                          ? { ...previous, speciesId: String(value) }
+                          : { ...previous, [activeTrait.field]: Number(value) },
+                      )
+                    }
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="new-pet-name">Companion name</Label>
+                    <Input
+                      id="new-pet-name"
+                      placeholder="Name your companion"
+                      value={name}
+                      maxLength={40}
+                      disabled={isBusy}
+                      onChange={(event) => setName(event.target.value)}
+                      className="max-w-md"
+                    />
+                    {isReplacement && (
+                      <div className="pt-2">
+                        <RadioGroup
+                          aria-label="Adoption payment"
+                          value={currency}
+                          disabled={isBusy}
+                          className="flex flex-wrap gap-x-5 gap-y-2"
+                          onValueChange={(value) => {
+                            if (value === "REPUTATION" || value === "SEICHI_SILVER")
+                              setCurrency(value);
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              id="adoption-reputation"
+                              value="REPUTATION"
+                            />
+                            <Label htmlFor="adoption-reputation">
+                              {data.replacementCost} reputation
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem
+                              id="adoption-silver"
+                              value="SEICHI_SILVER"
+                            />
+                            <Label htmlFor="adoption-silver">
+                              {data.replacementSilverCost} Seichi Silver
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                        <p className="mt-2 text-muted-foreground text-sm" role="status">
+                          Balance: {paymentBalance.toLocaleString()} {paymentLabel}.
+                          {!canAfford &&
+                            " Choose another currency or earn more to adopt."}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {selectedTraits.some(Boolean) && (
+                  <p
+                    role="status"
+                    aria-label="Selected traits"
+                    className="mt-3 text-muted-foreground text-sm"
+                  >
+                    {selectedTraits
+                      .filter((trait) => trait !== undefined)
+                      .map((trait) => trait.name)
+                      .join(" · ")}
                   </p>
                 )}
-              </div>
-            </Accordion>
-          </div>
-          {data.options.species.length > 0 && (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (isBusy) return;
-                if (activeTrait && selectedTraits[stage]) changeStage(stage + 1);
-                else if (!activeTrait && !isReplacement && canMeetPet) void meetPet();
-              }}
-            >
-              <div className="mb-4 flex items-baseline justify-between gap-3">
-                <h3 ref={stageHeading} tabIndex={-1} className="font-semibold text-lg">
-                  {activeTrait?.title ?? "Name your companion"}
-                </h3>
-                <span className="shrink-0 text-muted-foreground text-sm">
-                  Step {stage + 1} of {traitStages.length + 1}
-                </span>
-              </div>
-              {activeTrait ? (
-                <PetTraitChoices
-                  title={activeTrait.title}
-                  field={activeTrait.field}
-                  options={data.options[activeTrait.options]}
-                  selected={selection[activeTrait.field]}
-                  disabled={isBusy}
-                  onSelect={(value) =>
-                    setSelection((previous) =>
-                      activeTrait.field === "speciesId"
-                        ? { ...previous, speciesId: String(value) }
-                        : { ...previous, [activeTrait.field]: Number(value) },
-                    )
-                  }
-                />
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="new-pet-name">Companion name</Label>
-                  <Input
-                    id="new-pet-name"
-                    placeholder="Name your companion"
-                    value={name}
-                    maxLength={40}
-                    disabled={isBusy}
-                    onChange={(event) => setName(event.target.value)}
-                    className="max-w-md"
-                  />
-                  {isReplacement && (
-                    <div className="pt-2">
-                      <RadioGroup
-                        aria-label="Adoption payment"
-                        value={currency}
-                        disabled={isBusy}
-                        className="flex flex-wrap gap-x-5 gap-y-2"
-                        onValueChange={(value) => {
-                          if (value === "REPUTATION" || value === "SEICHI_SILVER")
-                            setCurrency(value);
-                        }}
-                      >
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem id="adoption-reputation" value="REPUTATION" />
-                          <Label htmlFor="adoption-reputation">
-                            {data.replacementCost} reputation
-                          </Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem id="adoption-silver" value="SEICHI_SILVER" />
-                          <Label htmlFor="adoption-silver">
-                            {data.replacementSilverCost} Seichi Silver
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                      <p className="mt-2 text-muted-foreground text-sm" role="status">
-                        Balance: {paymentBalance.toLocaleString()} {paymentLabel}.
-                        {!canAfford &&
-                          " Choose another currency or earn more to adopt."}
+                <div
+                  className={`mt-4 flex flex-wrap items-center gap-3 ${stage > 0 ? "justify-between" : "justify-end"}`}
+                >
+                  {stage > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isBusy}
+                      onClick={() => changeStage(stage - 1)}
+                    >
+                      <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+                      Back
+                    </Button>
+                  )}
+                  {activeTrait ? (
+                    <Button
+                      type="button"
+                      disabled={isBusy || !selectedTraits[stage]}
+                      onClick={() => changeStage(stage + 1)}
+                    >
+                      Continue
+                      <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  ) : isReplacement ? (
+                    <Confirm
+                      title={`Form a new bond for ${paymentCost} ${paymentLabel}?`}
+                      disabled={!canMeetPet}
+                      button={
+                        <Button type="button" disabled={!canMeetPet}>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Meet my new companion
+                        </Button>
+                      }
+                      onAccept={() => void meetPet()}
+                    >
+                      <p className="mb-3">
+                        The Bondkeepers will guide you to a new companion. This costs{" "}
+                        {paymentCost} {paymentLabel}. Your companion starts at the first
+                        rank with new pet stats.
                       </p>
-                    </div>
+                      <p>
+                        New companion: <strong>{name.trim()}</strong> ·{" "}
+                        {selectedTraits
+                          .map((trait) => trait?.name)
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    </Confirm>
+                  ) : (
+                    <Button type="submit" disabled={!canMeetPet}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Meet my first companion
+                    </Button>
                   )}
                 </div>
-              )}
-              <div className="mt-4 rounded border bg-muted/30 p-3 text-sm">
-                <h4 className="break-words font-semibold">
-                  Your bond{name.trim() && ` · ${name.trim()}`}
-                </h4>
-                <p className="mt-1 text-muted-foreground">
-                  {traitStages
-                    .map(
-                      (trait, index) =>
-                        selectedTraits[index]?.name ?? `${trait.title}: choose`,
-                    )
-                    .join(" · ")}
-                </p>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                {stage > 0 ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isBusy}
-                    onClick={() => changeStage(stage - 1)}
-                  >
-                    <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-                    Back
-                  </Button>
-                ) : (
-                  <span className="text-muted-foreground text-sm">
-                    Choose one to continue.
-                  </span>
-                )}
-                {activeTrait ? (
-                  <Button
-                    type="button"
-                    disabled={isBusy || !selectedTraits[stage]}
-                    onClick={() => changeStage(stage + 1)}
-                  >
-                    Continue
-                    <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
-                  </Button>
-                ) : isReplacement ? (
-                  <Confirm
-                    title={`Form a new bond for ${paymentCost} ${paymentLabel}?`}
-                    disabled={!canMeetPet}
-                    button={
-                      <Button type="button" disabled={!canMeetPet}>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Meet my new companion
-                      </Button>
-                    }
-                    onAccept={() => void meetPet()}
-                  >
-                    <p className="mb-3">
-                      The Bondkeepers will guide you to a new companion. This costs{" "}
-                      {paymentCost} {paymentLabel}. Your companion starts at the first
-                      rank with new pet stats.
-                    </p>
+              </form>
+              <details className="mt-4 text-muted-foreground text-sm">
+                <summary className="cursor-pointer">About daily choices</summary>
+                <div className="mt-2 space-y-2">
+                  <p>
+                    Choose a species, colour palette, defining characteristic and aura.
+                    The Bondkeepers create a unique image from these appearance traits.
+                    Your companion starts at {getPetRank(1).name} and keeps its identity
+                    through later evolutions.
+                  </p>
+                  <p>
+                    Today's {data.optionCount} choices per trait reset at midnight UTC (
+                    {data.dayKey}). Returning today keeps the same choices. Regular
+                    accounts receive {PET_OPTION_COUNTS.NONE} choices per trait; Normal,
+                    Silver and Gold federal support gives {PET_OPTION_COUNTS.NORMAL},{" "}
+                    {PET_OPTION_COUNTS.SILVER} and {PET_OPTION_COUNTS.GOLD}. Support
+                    also improves daily species rarity.
+                  </p>
+                  <p>
+                    Each companion has {data.generationLimit} image attempts per UTC
+                    day. Failed appearance retries are free.
+                  </p>
+                  {data.activePetId && (
                     <p>
-                      New companion: <strong>{name.trim()}</strong> ·{" "}
-                      {selectedTraits
-                        .map((trait) => trait?.name)
-                        .filter(Boolean)
-                        .join(" · ")}
+                      Your active companion stays with you. New companions join your
+                      collection with their own stats and experience.
                     </p>
-                  </Confirm>
-                ) : (
-                  <Button type="submit" disabled={!canMeetPet}>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Meet my first companion
-                  </Button>
-                )}
-              </div>
-            </form>
+                  )}
+                </div>
+              </details>
+            </div>
           )}
         </>
       )}
