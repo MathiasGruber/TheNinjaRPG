@@ -1122,6 +1122,7 @@ export const fetchMasterySources = async (
     where: eq(userData.userId, userId),
     with: {
       bloodline: { columns: { effects: true } },
+      titles: true,
       userSkills: {
         columns: { id: true, skillId: true, activated: true },
         where: eq(userSkill.activated, true),
@@ -1157,6 +1158,7 @@ export const fetchMasterySources = async (
   });
   return {
     bloodline: sources?.bloodline ?? null,
+    titles: sources?.titles ?? [],
     userSkills: sources?.userSkills ?? [],
     items: sources?.items ?? [],
   };

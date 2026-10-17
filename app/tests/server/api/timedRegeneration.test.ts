@@ -226,10 +226,11 @@ describeWithDatabase(
       },
     );
 
-    it("two concurrent mednins consume the recipient's elapsed ticks once", async () => {
+    it("concurrent mednins retry stale recipient snapshots without replaying elapsed ticks", async () => {
       await recoveryClock();
+      const healerIds = ["healer-a", "healer-b"];
       await insertUsers(
-        ["healer-a", "healer-b"].map((userId) => ({
+        healerIds.map((userId) => ({
           userId,
           username: userId,
           rank: "JONIN",
@@ -243,6 +244,7 @@ describeWithDatabase(
         })),
       );
       const db = await getTestDatabase();
+      const before = await readUser();
       let release = () => {};
       const ready = new Promise<void>((resolve) => {
         release = resolve;
@@ -252,6 +254,7 @@ describeWithDatabase(
         get(target, property, receiver) {
           if (property === "execute")
             return async (query: Parameters<typeof db.execute>[0]) => {
+              // Both requests load the recipient snapshot before either delivers healing.
               if (++writes === 2) release();
               await ready;
               return target.execute(query);
@@ -260,15 +263,44 @@ describeWithDatabase(
         },
       });
       const results = await Promise.all(
-        ["healer-a", "healer-b"].map((userId) =>
-          callerForDatabase(hospitalRouter, userId, client).userHeal({
+        healerIds.map(async (userId) => ({
+          userId,
+          result: await callerForDatabase(hospitalRouter, userId, client).userHeal({
             userId: USER_ID,
             healPercentage: 10,
           }),
-        ),
+        })),
       );
-      expect(results.every((result) => result.success)).toBe(true);
-      expect((await readUser())?.curEnergy).toBe(54);
+      expect(results.filter(({ result }) => result.success)).toHaveLength(1);
+      const winner = results.find(({ result }) => result.success)!;
+      const loser = results.find(({ result }) => !result.success)!;
+      expect(winner.result).toMatchObject({ success: true, expGain: 10 });
+      expect(winner.result.chakraCost).toBeCloseTo(15);
+      expect(loser.result).toMatchObject({
+        success: false,
+        message: expect.stringContaining("state or target changed"),
+      });
+      const [recipient, paidHealer, unpaidHealer] = await Promise.all([
+        readUser(), readUser(winner.userId), readUser(loser.userId),
+      ]);
+      expect(recipient).toMatchObject({ curHealth: 200, curEnergy: 54, status: "HOSPITALIZED" });
+      expect(recipient!.updatedAt.getTime()).toBeGreaterThan(before!.updatedAt.getTime());
+      expect(paidHealer).toMatchObject({ curChakra: 7985, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY + 10 });
+      expect(unpaidHealer).toMatchObject({ curChakra: 8000, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY });
+
+      const retry = await (await callerFor(hospitalRouter, loser.userId)).userHeal({
+        userId: USER_ID,
+        healPercentage: 10,
+      });
+      expect(retry).toMatchObject({ success: true, expGain: 10 });
+      expect(retry.chakraCost).toBeCloseTo(15);
+      const [savedRecipient, ...savedHealers] = await Promise.all([
+        readUser(), ...healerIds.map((userId) => readUser(userId)),
+      ]);
+      expect(savedRecipient).toMatchObject({ curHealth: 300, curEnergy: 54, status: "HOSPITALIZED" });
+      for (const healer of savedHealers) {
+        expect(healer).toMatchObject({ curChakra: 7985, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY + 10 });
+      }
     });
 
     it.each(["abandon", "complete", "retire", "orphan"] as const)(

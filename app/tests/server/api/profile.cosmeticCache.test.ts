@@ -3,7 +3,6 @@ import { beforeEach, expect, it } from "bun:test";
 import {
   COST_CHANGE_GENDER,
   COST_CHANGE_USERNAME,
-  COST_CUSTOM_TITLE,
   getTavernColorChangeCost,
 } from "@/drizzle/constants";
 import { actionLog, userData, village } from "@/drizzle/schema";
@@ -30,13 +29,6 @@ const purchases = [
       .updateUsername({ username: "CacheName" }),
     userPatch: { username: "CacheName", reputationPoints: reputationPoints - COST_CHANGE_USERNAME },
     reads: 2,
-  },
-  {
-    name: "custom title",
-    run: (client: DrizzleClient) => callerForDatabase(blackMarketRouter, userId, client)
-      .updateCustomTitle({ title: "Cache Fixture" }),
-    userPatch: { customTitle: "Cache Fixture", reputationPoints: reputationPoints - COST_CUSTOM_TITLE },
-    reads: 1,
   },
   {
     name: "gender",

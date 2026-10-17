@@ -56,6 +56,7 @@ import {
   cleanRankedProhibitedSelections,
   fetchSanninRankedPlayers,
 } from "@/server/utils/ranked";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { canAwardReputation, canChangeContent } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { secondsPassed } from "@/utils/time";
@@ -113,7 +114,7 @@ export const pvpRankRouter = createTRPCRouter({
           .filter((r): r is NonNullable<typeof r> => r !== undefined && r !== null),
       );
       const processedRewards = postProcessRewards(collapsedRewards, user);
-      await updateRewards({
+      const granted = await updateRewards({
         client: ctx.drizzle,
         user,
         rewards: processedRewards,
@@ -123,7 +124,10 @@ export const pvpRankRouter = createTRPCRouter({
       return {
         success: true,
         message: "Season rewards claimed successfully",
-        rewards: processedRewards,
+        rewards: {
+          ...processedRewards,
+          reward_titles: granted.titles.map((entry) => entry.name),
+        },
       };
     }),
 
@@ -175,9 +179,10 @@ export const pvpRankRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, currentSeason] = await Promise.all([
+      const [user, currentSeason, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchCurrentSeason(ctx.drizzle),
+        validateTitleRewardIds(ctx.drizzle, input),
       ]);
       // Guard
       if (!canChangeContent(user.role)) {
@@ -186,6 +191,7 @@ export const pvpRankRouter = createTRPCRouter({
       if (currentSeason) {
         return errorResponse("A season is already active");
       }
+      if (titleError) return errorResponse(titleError);
       // Server-side enforcement: reset reward_reputation to 0 in all division rewards if user lacks permission
       const seasonData = { ...input };
       if (!canAwardReputation(user.role)) {
@@ -213,12 +219,13 @@ export const pvpRankRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Query
-      const [user, currentSeason, existingSeason] = await Promise.all([
+      const [user, currentSeason, existingSeason, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchCurrentSeason(ctx.drizzle),
         ctx.drizzle.query.rankedSeason.findFirst({
           where: eq(rankedSeason.id, input.id),
         }),
+        validateTitleRewardIds(ctx.drizzle, input),
       ]);
       // Guard
       if (!canChangeContent(user.role)) {
@@ -234,6 +241,7 @@ export const pvpRankRouter = createTRPCRouter({
           return errorResponse("Another season is active, cannot update this season");
         }
       }
+      if (titleError) return errorResponse(titleError);
       // Server-side enforcement: preserve existing reward_reputation in all division rewards if user lacks permission
       const { id, ...data } = input;
       if (!canAwardReputation(user.role)) {

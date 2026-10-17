@@ -23,10 +23,6 @@ import type { UserWithRelations } from "@/routers/profile";
 import { createStatSchema } from "@/validators/combat";
 import { dashboardContentPrioritySchema } from "@/validators/dashboard";
 import { genders, usernameSchema } from "@/validators/register";
-import {
-  isReservedCustomTitle,
-  RESERVED_CUSTOM_TITLE_MESSAGE,
-} from "@/validators/reservedName";
 
 export const assignableMasteryNames = [
   "ninjutsuMastery",
@@ -63,10 +59,6 @@ export const createAssignedExperienceSchema = (
 
 export const updateUserSchema = z.object({
   username: usernameSchema,
-  // Existing records may predate title reservations. The update handler validates
-  // reserved names only when this field actually changes, so unrelated staff edits
-  // remain possible for those legacy records.
-  customTitle: z.string().min(0).max(199).optional(),
   bloodlineId: z.string().nullable(),
   bloodlineReskinId: z.string().nullable().optional(),
   /** Staff-assigned equipped mode. Empty / "None" become null (unequip). */
@@ -183,18 +175,6 @@ export const updateUserPreferencesSchema = z
 export type UpdateUserPreferencesSchema = z.infer<typeof updateUserPreferencesSchema>;
 
 // Profile edit schemas
-export const titleChangeSchema = z.object({
-  title: z
-    .string()
-    .trim()
-    .min(1)
-    .max(15)
-    .refine((title) => !isReservedCustomTitle(title), {
-      message: RESERVED_CUSTOM_TITLE_MESSAGE,
-    }),
-});
-export type TitleChangeSchema = z.infer<typeof titleChangeSchema>;
-
 export const genderChangeSchema = z.object({ gender: z.enum(genders) });
 export type GenderChangeSchema = z.infer<typeof genderChangeSchema>;
 

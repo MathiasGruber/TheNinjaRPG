@@ -105,7 +105,7 @@ export const useAiEditForm = (
   // Object for form values
   const formData: FormEntry<keyof InsertAiSchema | "jutsus" | "items">[] = [
     { id: "username", type: "text" },
-    { id: "customTitle", type: "text" },
+    { id: "npcTitle", type: "text" },
     { id: "avatar", type: "avatar", href: avatarUrl },
     { id: "avatar3d", type: "avatar3d", modelUrl: avatar3dUrl, imgUrl: avatarUrl },
     {

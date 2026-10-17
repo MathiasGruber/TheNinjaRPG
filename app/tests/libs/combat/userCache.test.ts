@@ -36,13 +36,25 @@ const fixture = () => {
 };
 
 describe("confirmed combat profile reconciliation", () => {
+  it("retains permanent title mastery through combat completion cache reconciliation", () => {
+    const { raw } = fixture();
+    raw.titles = [{ userId: raw.userId, titleId: "mastery-title", createdAt: new Date(), effects: [{ type: "increasemastery", power: 25, masteryTypes: ["Ninjutsu"] }] }];
+    const snapshot = captureCombatCacheSnapshot(raw);
+    raw.titles[0]!.effects = [];
+    expect(combatCacheDerived(snapshot, [], {}).effectiveMasteries.ninjutsuMastery).toBe(125);
+  });
   it("preserves BATTLE between isolated Pyramid floors while clearing the settled battle", () => {
     const { current, update } = fixture();
     update.userPatch.status = "BATTLE";
     expect(combatProfilePatch(current, update)).toMatchObject({ status: "BATTLE", battleId: null });
   });
-  it("applies one normal equipped fight without fetching and refuses replay", async () => {
+  it.each([false, true])("applies one normal equipped fight without fetching and refuses replay (collected titles: %s)", async (hasTitles) => {
     const { current, update } = fixture();
+    if (hasTitles) {
+      current.titles = ["second", "first"].map((titleId) => ({ userId: current.userId, titleId, effects: [], createdAt: new Date() }));
+      update.baseline.titleIds = ["first", "second"];
+      current.activeTitleId = "second";
+    }
     const client = new QueryClient();
     client.setQueryData(key, { userData: current });
     let reads = 0;
@@ -128,7 +140,17 @@ describe("confirmed combat profile reconciliation", () => {
       { energyQueueTail: 1 },
       { items: current.items.map((item) => ({ ...item, durability: 99 })) },
       { regenAt: new Date(current.regenAt.getTime() + 1) },
+      { titles: [{ userId: current.userId, titleId: "new-title", createdAt: new Date(), effects: [] }] },
     ]) expect(combatProfilePatch({ ...current, ...changed } as typeof current, update)).toBeUndefined();
+  });
+
+  it("refreshes changed ownership even when the title count matches", () => {
+    const { current, update } = fixture();
+    update.baseline.titleIds = ["previous-title"];
+    current.titles = [{ userId: current.userId, titleId: "new-title", createdAt: new Date(), effects: [] }];
+    expect(combatProfilePatch(current, update)).toBeUndefined();
+    current.titles = [];
+    expect(combatProfilePatch(current, update)).toBeUndefined();
   });
 
   it("preserves worn slots and items omitted by battle gates while applying confirmed wear", () => {

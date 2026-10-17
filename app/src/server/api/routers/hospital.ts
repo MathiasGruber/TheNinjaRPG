@@ -265,6 +265,7 @@ export const hospitalRouter = createTRPCRouter({
               eq(userData.updatedAt, u.updatedAt),
               eq(userData.status, "AWAKE"),
               gte(userData.curChakra, chakraCost),
+              eq(recipient.updatedAt, t.updatedAt),
               inArray(recipient.status, MEDNIN_HEALABLE_STATES),
             )}
           `),

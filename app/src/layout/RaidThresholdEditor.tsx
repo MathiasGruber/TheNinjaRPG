@@ -63,6 +63,7 @@ export const RaidThresholdEditor: React.FC<RaidThresholdEditorProps> = ({
   const { data: jutsus } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: badges } = api.badge.getAll.useQuery(undefined);
+  const { data: titles } = api.title.getAllNames.useQuery();
   const { data: userData } = useUserData();
   const hasReputationPermission = canAwardReputation(userData?.role ?? "USER");
 
@@ -247,6 +248,14 @@ export const RaidThresholdEditor: React.FC<RaidThresholdEditorProps> = ({
       });
     }
 
+    if (titles)
+      data.push({
+        id: "reward_titles",
+        label: "Give Title",
+        type: "db_values",
+        values: titles,
+        multiple: true,
+      });
     if (badges?.data) {
       data.push({
         id: "reward_badges",

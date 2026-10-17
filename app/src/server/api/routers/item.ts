@@ -176,6 +176,7 @@ import {
   fetchLoadoutUser,
 } from "@/server/utils/loadout";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import { fetchWithTimeout } from "@/utils/http";
@@ -607,6 +608,7 @@ export const itemRouter = createTRPCRouter({
         evolutionGraph,
         cacheItems,
         rewardSpecies,
+        titleError,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchItemWithCraftingRequirements(ctx.drizzle, input.id),
@@ -641,7 +643,9 @@ export const itemRouter = createTRPCRouter({
           bloodlineId: input.data.bloodlineId ?? null,
         }),
         fetchRewardPetSpecies(ctx.drizzle, input.data.effects),
+        validateTitleRewardIds(ctx.drizzle, input.data),
       ]);
+      if (titleError) return errorResponse(titleError);
       if (input.data.requiredSkillId && requiredSkill?.pathType !== "SKILL") {
         return errorResponse("Select a valid SkillTree skill entry");
       }
@@ -2592,7 +2596,14 @@ export const itemRouter = createTRPCRouter({
                 reason: "ITEM/CONSUME",
                 inTransaction,
               })
-            : { items: [], jutsus: [], bloodlines: [], badges: [], sageModes: [] };
+            : {
+                items: [],
+                jutsus: [],
+                bloodlines: [],
+                badges: [],
+                sageModes: [],
+                titles: [],
+              };
         const tasks = [
           () => (petReward ? client.insert(userPet).values(petReward) : undefined),
           () =>
@@ -2626,7 +2637,7 @@ export const itemRouter = createTRPCRouter({
           ...mutations.map((mutate) => () => mutate(client)),
         ];
         const [granted] = await runRewardTasks(inTransaction)([rewardTask, ...tasks]);
-        const { items, jutsus, bloodlines, badges, sageModes } = granted;
+        const { items, jutsus, bloodlines, badges, sageModes, titles } = granted;
         if (inTransaction) {
           // Catalog deletion after validation must roll back the debit and every partial grant.
           const expected = new Map<string, number>();
@@ -2653,6 +2664,7 @@ export const itemRouter = createTRPCRouter({
           grantedRewards.reward_bloodlines = bloodlines.map((i) => i.name);
           grantedRewards.reward_sage_modes = sageModes.map((i) => i.name);
           grantedRewards.reward_badges = badges.map((i) => i.name);
+          grantedRewards.reward_titles = titles.map((i) => i.name);
         }
         // Return
         return {
@@ -4943,6 +4955,7 @@ const fetchUserEquipmentSnapshot = (client: DrizzleClient, userId: string) =>
   client.query.userData.findFirst({
     where: eq(userData.userId, userId),
     with: {
+      titles: true,
       bloodline: { columns: { effects: true } },
       userSkills: {
         where: eq(userSkill.activated, true),

@@ -45,6 +45,7 @@ vi.mock("@/app/_trpc/client", () => ({
     petSpecies: { getAll: names },
     skillTree: { getAllNames: names },
     badge: { getAll: names },
+    title: { getAllNames: names },
     misc: { getAllGameAssetNames: names },
     village: { getAllNames: names },
     quests: { getAllNames: names, update: { useMutation: () => ({ mutateAsync: saveQuest }) } },

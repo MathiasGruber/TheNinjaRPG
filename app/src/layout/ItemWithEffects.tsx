@@ -1576,6 +1576,13 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                               {parsedEffect.reward_sage_modes.length}
                             </p>
                           )}
+                        {"reward_titles" in parsedEffect &&
+                          parsedEffect.reward_titles &&
+                          parsedEffect.reward_titles.length > 0 && (
+                            <div>
+                              <b>Reward Titles</b>: {parsedEffect.reward_titles.length}
+                            </div>
+                          )}
                         {"reward_badges" in parsedEffect &&
                           parsedEffect.reward_badges &&
                           parsedEffect.reward_badges.length > 0 && (

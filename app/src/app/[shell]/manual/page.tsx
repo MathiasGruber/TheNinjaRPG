@@ -28,6 +28,7 @@ import {
   IMG_MANUAL_SAGE_MODE,
   IMG_MANUAL_SKILLTREE,
   IMG_MANUAL_STAFF,
+  IMG_MANUAL_TITLE,
   IMG_MANUAL_TOURNAMENTS,
   IMG_MANUAL_TOWER_UPGRADES,
   IMG_MANUAL_TRAVEL,
@@ -44,6 +45,7 @@ import {
 } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 
+/** Render the content catalog and additional management links permitted by the user's role. */
 export default function ManualMain() {
   const { data: userData } = useUserData();
   const role = userData?.role ?? "USER";
@@ -71,6 +73,7 @@ export default function ManualMain() {
     { name: "logs", img: IMG_MANUAL_LOGS },
     { name: "damage_calcs", img: IMG_MANUAL_DAM_CALCS },
     { name: "badge", img: IMG_MANUAL_BADGE },
+    { name: "title", img: IMG_MANUAL_TITLE },
     { name: "asset", img: IMG_MANUAL_ASSET },
     { name: "opinions", img: IMG_MANUAL_OPINION },
     { name: "awards", img: IMG_MANUAL_AWARDS },

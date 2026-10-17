@@ -36,6 +36,7 @@ import { errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { cleanRankedProhibitedSelections } from "@/server/utils/ranked";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { canManageTournaments } from "@/utils/permissions";
 import { ObjectiveReward } from "@/validators/rewards";
 import {
@@ -124,14 +125,18 @@ export const eventTournamentProcedures = {
   saveEvent: protectedProcedure
     .input(eventTournamentSaveSchema)
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.drizzle.query.userData.findFirst({
-        where: eq(userData.userId, ctx.userId),
-        columns: { role: true },
-      });
+      const [user, titleError] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+          columns: { role: true },
+        }),
+        validateTitleRewardIds(ctx.drizzle, input.config),
+      ]);
       if (!canManageTournaments(user?.role ?? "USER"))
         return errorResponse("Tournament staff access required");
       if (input.config.registrationClosesAt <= Date.now())
         return errorResponse("Registration must close in the future");
+      if (titleError) return errorResponse(titleError);
       if (input.tournamentId)
         return editEvent(ctx.drizzle, input.tournamentId, (event) => {
           if (event.status !== "DRAFT") return "Only drafts can be edited";

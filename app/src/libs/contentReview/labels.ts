@@ -12,6 +12,7 @@ export const ENTITY_LABELS: Record<ContentProposalEntityType, string> = {
   BLOODLINE: "Bloodline",
   QUEST: "Quest",
   BADGE: "Badge",
+  TITLE: "Title",
   GAME_ASSET: "Asset",
   AI: "AI",
 };

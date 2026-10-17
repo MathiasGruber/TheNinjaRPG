@@ -6,7 +6,7 @@ import {
   REGEN_SECONDS,
   SENSEI_GENIN_MED_EXP_SHARE_PERC,
 } from "@/drizzle/constants";
-import { bloodline, quest, questHistory, userData } from "@/drizzle/schema";
+import { bloodline, quest, questHistory, title, userData, userTitle } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { hospitalRouter } from "@/server/api/routers/hospital";
@@ -291,7 +291,7 @@ describeWithDatabase("hospital healing another user", () => {
   let trigger: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
-    await resetTables(userData, quest, questHistory);
+    await resetTables(userData, quest, questHistory, userTitle, title);
     trigger = vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await insertLegendaryHealer({
       curHealth: 1000,
@@ -543,6 +543,63 @@ describeWithDatabase("hospital healing another user", () => {
     expect(saved?.curEnergy).toBeLessThan(expectedEnergy + 5);
     expect(saved?.status).toBe("HOSPITALIZED");
     expect(saved?.regenAt.getTime()).toBeGreaterThan(Date.now() - 5000);
+  });
+
+  it("rejects healing across title acquisition and preserves its Energy tick on retry", async () => {
+    const database = await getTestDatabase();
+    const nextTick = new Date(Date.now() + 1000);
+    const regenAt = new Date(nextTick.getTime() - REGEN_SECONDS * 1000);
+    await database.update(userData).set({
+      curEnergy: 0, regeneration: 10, regenAt, joinedVillageAt: new Date(0),
+    }).where(eq(userData.userId, TARGET_ID));
+    await database.insert(title).values({
+      id: "hospital-regen-title", name: "Hospital Recovery",
+      effects: [{ type: "increaseregeneration", power: 7 }],
+    });
+    await insertQuests([{ id: "hospital-title-choice", questType: "story" }]);
+    await insertQuestHistory([{
+      userId: TARGET_ID, questId: "hospital-title-choice", completed: 1, endAt: new Date(),
+      pendingRewardChoice: {
+        id: "hospital-title-offer", pickCount: 1,
+        cards: [{ id: "hospital-title-card", field: "reward_titles", amount: 1, contentId: "hospital-regen-title" }],
+      },
+    }]);
+    const api = callerForDatabase(hospitalRouter, USER_ID, beforeStatements(database, userData, [
+      async () => {}, async () => {
+        // The recipient is still hospitalized when its pending title-only reward is claimed.
+        const claim = await (await callerFor(questsRouter, TARGET_ID)).claimRewardChoice({
+          questId: "hospital-title-choice", choiceId: "hospital-title-offer", cardIds: ["hospital-title-card"],
+        });
+        expect(claim.success).toBe(true);
+        expect(claim.rewards?.reward_titles).toEqual(["Hospital Recovery"]);
+        const owned = await database.query.userTitle.findFirst({ where: eq(userTitle.userId, TARGET_ID) });
+        expect(owned?.createdAt.getTime()).toBeLessThan(nextTick.getTime());
+        // Delivery's SQL NOW(3) crosses the first complete tick after acquisition.
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, nextTick.getTime() - Date.now() + 20)));
+      },
+    ]));
+
+    const rejected = await api.userHeal({ userId: TARGET_ID, healPercentage: 100 });
+
+    expect(rejected.success).toBe(false);
+    expect(rejected.message).toContain("changed");
+    const [healer, target, student] = await Promise.all([
+      readHealer(), readHealer(TARGET_ID), readHealer(STUDENT_ID),
+    ]);
+    expect(healer).toMatchObject({ curChakra: 8000, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY });
+    expect(healer?.questData?.find((q) => q.id === "hospital-medical-quest")?.goals)
+      .toMatchObject([{ id: "heal", value: 0 }]);
+    expect(target).toMatchObject({ curHealth: 100, curEnergy: 0, regenAt, status: "HOSPITALIZED" });
+    expect(student?.medicalExperience).toBe(0);
+    expect(trigger).not.toHaveBeenCalled();
+
+    const retry = await api.userHeal({ userId: TARGET_ID, healPercentage: 100 });
+
+    expect(retry.success).toBe(true);
+    expect(await readHealer(TARGET_ID)).toMatchObject({ curHealth: 1000, curEnergy: 17, status: "HOSPITALIZED" });
+    expect((await readHealer(TARGET_ID))?.regenAt.getTime()).toBeGreaterThan(nextTick.getTime());
+    expect(await readHealer()).toMatchObject({ curChakra: 7865, medicalExperience: MEDNIN_REQUIRED_EXP.LEGENDARY + 90 });
+    expect((await readHealer(STUDENT_ID))?.medicalExperience).toBe(Math.floor((90 * SENSEI_GENIN_MED_EXP_SHARE_PERC) / 100));
   });
 
   it.each([{ max: 1000, expected: 300 }, { max: 250, expected: 250 }])(

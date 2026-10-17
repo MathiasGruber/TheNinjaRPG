@@ -54,6 +54,7 @@ export const collapseRewards = (
     collapsed.reward_bloodlines.push(...(reward.reward_bloodlines ?? []));
     collapsed.reward_sage_modes.push(...(reward.reward_sage_modes ?? []));
     collapsed.reward_badges.push(...(reward.reward_badges ?? []));
+    collapsed.reward_titles.push(...(reward.reward_titles ?? []));
 
     // Handle rank reward (take the highest rank)
     if (reward.reward_rank !== "NONE") {

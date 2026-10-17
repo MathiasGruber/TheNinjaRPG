@@ -70,7 +70,6 @@ import {
   BLOODLINE_SWAP_FREE_DAYS,
   COST_CHANGE_GENDER,
   COST_CHANGE_USERNAME,
-  COST_CUSTOM_TITLE,
   COST_REROLL_ELEMENT,
   COST_RESET_STATS,
   COST_SKILL_RESET,
@@ -103,6 +102,7 @@ import { ParentalControls } from "@/layout/ParentalControls";
 import { ReadingSettings } from "@/layout/ReadingSettings";
 import { CurrentSageMode } from "@/layout/SageMode";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
+import { Titles } from "@/layout/Titles";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
@@ -167,11 +167,10 @@ import {
   type GenderChangeSchema,
   genderChangeSchema,
   getBloodlineElements,
-  type TitleChangeSchema,
-  titleChangeSchema,
   updateUserPreferencesSchema,
 } from "@/validators/user";
 
+/** Render account settings, including display-only title selection from the player's collection. */
 export function ProfileEdit() {
   // State
   const { data: userData } = useRequiredUserData();
@@ -272,15 +271,14 @@ export function ProfileEdit() {
           <NameChange />
         </Accordion>
         <Accordion
-          title="Custom Title"
+          title="Titles"
           selectedTitle={activeElement}
-          unselectedSubtitle="Set a custom title shown next to username"
-          selectedSubtitle={`You can set your custom title for ${COST_CUSTOM_TITLE} reputation points. You
-          have ${userData.reputationPoints} reputation points.`}
+          unselectedSubtitle="Choose a collected title for your profile and tavern posts"
+          selectedSubtitle="Bonuses from all collected titles apply, whichever title you display."
           icon={Tag}
           onClick={setActiveElement}
         >
-          <CustomTitle />
+          <Titles />
         </Accordion>
         <Accordion
           title="Tavern Colors"
@@ -2239,147 +2237,6 @@ const NameChange: React.FC = () => {
   );
 };
 
-/**
- * Custom Title component
- */
-const CustomTitle: React.FC = () => {
-  // State
-  const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
-  const [showCustomTitleConfirm, setShowCustomTitleConfirm] = useState(false);
-  const [isUpdatingCustomTitle, setIsUpdatingCustomTitle] = useState(false);
-  const customTitleRequestRef = useRef(false);
-
-  // Mutations
-  const { mutateAsync: updateCustomTitle } =
-    api.blackmarket.updateCustomTitle.useMutation({
-      onMutate: prepareUserUpdate,
-      onSuccess: async (data, _input, revision) => {
-        if (data.success) {
-          // Cache reconciliation must not make a committed purchase retryable.
-          await updateUser(
-            data.userPatch?.customTitle !== undefined &&
-              data.userPatch.reputationPoints !== undefined
-              ? {
-                  customTitle: data.userPatch.customTitle,
-                  reputationPoints: data.userPatch.reputationPoints,
-                }
-              : undefined,
-            { revision },
-          ).catch(() => undefined);
-        }
-      },
-    });
-
-  // Title form
-  const form = useForm<TitleChangeSchema>({
-    resolver: zodResolver(titleChangeSchema),
-    defaultValues: { title: "" },
-  });
-  const curTitle = useWatch({ control: form.control, name: "title" });
-
-  // Form handlers
-  const onSubmit = form.handleSubmit(() => {
-    if (!isUpdatingCustomTitle) setShowCustomTitleConfirm(true);
-  });
-
-  const handleCustomTitleChange = async () => {
-    if (customTitleRequestRef.current) return;
-
-    const submittedTitle = form.getValues("title");
-    customTitleRequestRef.current = true;
-    setIsUpdatingCustomTitle(true);
-
-    try {
-      const data = await updateCustomTitle({ title: submittedTitle });
-      showMutationToast(data);
-      if (data.success) {
-        // The purchase already succeeded at this point; a cache refresh failure
-        // must not leave a retryable dialog that could charge the user again.
-        setShowCustomTitleConfirm(false);
-      } else {
-        form.setValue("title", submittedTitle, {
-          shouldDirty: true,
-          shouldValidate: true,
-        });
-      }
-    } catch {
-      // The shared tRPC error handler surfaces transport failures. Keep the
-      // confirmation and draft open so the user can safely retry.
-      form.setValue("title", submittedTitle, {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    } finally {
-      customTitleRequestRef.current = false;
-      setIsUpdatingCustomTitle(false);
-    }
-  };
-
-  // Only show if we have userData
-  if (!userData) return <Loader explanation="Loading profile page..." />;
-
-  // Derived data
-  const canBuyTitle = userData.reputationPoints >= COST_CUSTOM_TITLE;
-  const disabled = isUpdatingCustomTitle || curTitle === "" || !canBuyTitle;
-
-  return (
-    <div className="grid grid-cols-1">
-      <Form {...form}>
-        <form onSubmit={onSubmit} aria-busy={isUpdatingCustomTitle}>
-          <FormField
-            control={form.control}
-            name="title"
-            render={({ field }) => (
-              <FormItem>
-                <FormControl>
-                  <Input
-                    id="custom-title"
-                    placeholder="Your title"
-                    readOnly={isUpdatingCustomTitle}
-                    aria-disabled={isUpdatingCustomTitle}
-                    className={
-                      isUpdatingCustomTitle
-                        ? "cursor-not-allowed opacity-50"
-                        : undefined
-                    }
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <Button
-            id="set-custom-title"
-            type="submit"
-            className="my-3 w-full"
-            disabled={disabled}
-          >
-            {canBuyTitle ? "Set custom title" : "Not enough points"}
-          </Button>
-          <Modal
-            title="Confirm Custom Title"
-            isOpen={showCustomTitleConfirm}
-            setIsOpen={setShowCustomTitleConfirm}
-            proceed_label="Set custom title"
-            proceed_loading_label="Setting"
-            isLoading={isUpdatingCustomTitle}
-            keepOpenOnAccept
-            onAccept={(event) => {
-              event.preventDefault();
-              void handleCustomTitleChange();
-            }}
-          >
-            Changing your custom title costs {COST_CUSTOM_TITLE} reputation points, and
-            can only be changed by requesting another change. Are you sure you want to
-            change your title to {curTitle}?
-          </Modal>
-        </form>
-      </Form>
-    </div>
-  );
-};
-
 /** Preset-only tavern styling controls. Username and title are separate purchases. */
 const TavernColors: React.FC = () => {
   const { data: userData, prepareUserUpdate, updateUser } = useRequiredUserData();
@@ -2512,7 +2369,7 @@ const TavernColors: React.FC = () => {
                 <span
                   className={`m-1 rounded-md p-1 ${getTavernTitleClass(control.value)}`}
                 >
-                  {userData.customTitle || "Custom title preview"}
+                  {userData.displayTitle || "Title preview"}
                 </span>
               )}
             </div>

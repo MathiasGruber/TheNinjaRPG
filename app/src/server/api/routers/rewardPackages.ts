@@ -10,6 +10,7 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { calculateContentDiff } from "@/utils/diff";
 import { canAwardReputation, canManageRewards, isStaffRole } from "@/utils/permissions";
 import { idSchema } from "@/validators/misc";
@@ -38,17 +39,19 @@ export const rewardPackagesRouter = createTRPCRouter({
     .input(SaveRewardPackage)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [user, entry] = await Promise.all([
+      const [user, entry, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         input.id
           ? ctx.drizzle.query.rewardPackage.findFirst({
               where: eq(rewardPackage.id, input.id),
             })
           : undefined,
+        validateTitleRewardIds(ctx.drizzle, [input.data.rewards]),
       ]);
       if (user.isBanned || !canManageRewards(user.role))
         return errorResponse("Not allowed to maintain reward packages");
       if (input.id && !entry) return errorResponse("Reward package not found");
+      if (titleError) return errorResponse(titleError);
       if (
         !canAwardReputation(user.role) &&
         input.data.rewards.reward_reputation !== (entry?.rewards.reward_reputation ?? 0)

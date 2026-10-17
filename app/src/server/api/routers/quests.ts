@@ -59,6 +59,7 @@ import {
   recruitmentRewards,
   sageMode,
   sageModeRolls,
+  title,
   userBadge,
   userData,
   userItem,
@@ -67,6 +68,7 @@ import {
   userQuestAttempt,
   userRaidBuff,
   userRewards,
+  userTitle,
   village,
   war,
 } from "@/drizzle/schema";
@@ -189,6 +191,8 @@ import {
   getUserRegenerationGain,
   userRegenerationGainSql,
 } from "@/server/utils/regeneration";
+import { grantTitles } from "@/server/utils/titleGrants";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { recordVillageMissionProgress } from "@/server/utils/villageMission";
 import {
   extendWarParticipantSql,
@@ -856,13 +860,15 @@ export const questsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       setEmptyStringsToNulls(input.data, quest);
       // Query
-      const [user, entry, tierQuests, packages] = await Promise.all([
+      const [user, entry, tierQuests, packages, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchQuest(ctx.drizzle, input.id),
         ctx.drizzle.select().from(quest).where(eq(quest.questType, "tier")),
         ctx.drizzle.query.rewardPackage.findMany(),
+        validateTitleRewardIds(ctx.drizzle, input.data.content),
       ]);
       // Guards
+      if (titleError) return errorResponse(titleError);
       if (user.isBanned) {
         return errorResponse("You are banned and cannot perform this action");
       }
@@ -1144,6 +1150,7 @@ export const questsRouter = createTRPCRouter({
               reward_bloodlines: [],
               reward_sage_modes: [],
               reward_badges: [],
+              reward_titles: [],
               reward_items: [],
               reward_rank: "NONE",
               reward_village_membership: "NONE",
@@ -1826,19 +1833,21 @@ export const questsRouter = createTRPCRouter({
       }
       // Payout leaves questData to the snapshot claim above instead of writing back this read.
       // Package cards can also carry promotions and membership, handled by updateRewards.
-      const { items, jutsus, bloodlines, badges, sageModes } = await updateRewards({
-        pvpBoostApplied: true,
-        client: ctx.drizzle,
-        user,
-        rewards,
-        reason: "QUEST",
-        persistQuestData: false,
-      });
+      const { items, jutsus, bloodlines, badges, sageModes, titles } =
+        await updateRewards({
+          pvpBoostApplied: true,
+          client: ctx.drizzle,
+          user,
+          rewards,
+          reason: "QUEST",
+          persistQuestData: false,
+        });
       rewards.reward_items = items.map((i) => i.name);
       rewards.reward_jutsus = jutsus.map((i) => i.name);
       rewards.reward_bloodlines = bloodlines.map((i) => i.name);
       rewards.reward_sage_modes = sageModes.map((i) => i.name);
       rewards.reward_badges = badges.map((i) => i.name);
+      rewards.reward_titles = titles.map((i) => i.name);
       return {
         success: true,
         message: `Claimed rewards from ${questName}`,
@@ -2085,6 +2094,8 @@ const removeQuestTrackerByQuestId = (
  * Sage: `reward_sage_modes` rolls and records a not-yet-owned mode only when the
  * player has no equipped `sageModeId`. Already-equipped players skip the grant so
  * a mode is not burned into history they can never wear.
+ *
+ * Titles retain their first acquisition snapshot and advance the account version to fence recovery.
  */
 export const updateRewards = async (info: {
   /** Transaction sessions execute one statement at a time; ordinary callers keep parallel phases. */
@@ -2152,6 +2163,7 @@ export const updateRewards = async (info: {
     jutsus,
     bloodlines,
     badges,
+    titles,
     activeWars,
     sageModes,
   ] = await runRewardTasks(inTransaction)([
@@ -2249,6 +2261,24 @@ export const updateRewards = async (info: {
             )
             .where(
               and(inArray(badge.id, rewards.reward_badges), isNull(userBadge.userId)),
+            )
+        : [],
+    () =>
+      (rewards.reward_titles?.length ?? 0) > 0
+        ? client
+            .select({ id: title.id, name: title.name, effects: title.effects })
+            .from(title)
+            .leftJoin(
+              userTitle,
+              and(eq(userTitle.titleId, title.id), eq(userTitle.userId, user.userId)),
+            )
+            .where(
+              and(
+                inArray(title.id, rewards.reward_titles),
+                eq(title.archived, false),
+                isNull(title.legacyOwnerId),
+                isNull(userTitle.userId),
+              ),
             )
         : [],
     () =>
@@ -2535,6 +2565,13 @@ export const updateRewards = async (info: {
           badgeId: id,
         })),
       ),
+    () =>
+      grantTitles(
+        client,
+        user.userId,
+        titles.map((entry) => entry.id),
+        inTransaction,
+      ),
     ...(() => {
       if (!activeWars || activeWars.length === 0) return [];
       // Find ALL applicable wars (VILLAGE_WAR or WAR_RAID)
@@ -2652,6 +2689,7 @@ export const updateRewards = async (info: {
   // the herbs_gathered tracker by the number of gathered drops.
   return {
     items: itemsToInsert,
+    titles,
     jutsus,
     bloodlines,
     badges,
@@ -4006,6 +4044,7 @@ export const commitQuestObjectiveRewards = async (info: {
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
+    !rewards.reward_titles?.length &&
     consequences.every((entry) => entry.type === "update_user") &&
     // Terminal isolation release is conditional on the current run at payout time.
     !(resolved && isolatedRun) &&
@@ -4331,7 +4370,7 @@ export const commitQuestObjectiveRewards = async (info: {
         ]
       : []),
   ]);
-  const { items, jutsus, bloodlines, badges, sageModes } = rewardResult;
+  const { items, jutsus, bloodlines, badges, sageModes, titles } = rewardResult;
   if (releaseIsolation) {
     user.status = "AWAKE";
     user.regenAt = releasedAt;
@@ -4401,6 +4440,7 @@ export const commitQuestObjectiveRewards = async (info: {
   rewards.reward_bloodlines = bloodlines.map((i) => i.name);
   rewards.reward_sage_modes = sageModes.map((i) => i.name);
   rewards.reward_badges = badges.map((i) => i.name);
+  rewards.reward_titles = titles.map((i) => i.name);
 
   return {
     outcome: "claimed",
@@ -4966,71 +5006,84 @@ export const resolveRewardChoiceDisplays = async (
   const bloodlineIds = idsFor("reward_bloodlines");
   const sageModeIds = idsFor("reward_sage_modes");
   const badgeIds = idsFor("reward_badges");
-  const [items, jutsus, bloodlines, sageModes, badges, ownership] = await Promise.all([
-    itemIds.length > 0
-      ? client
-          .select({
-            id: item.id,
-            name: item.name,
-            image: item.image,
-            rarity: item.rarity,
-            description: item.description,
-          })
-          .from(item)
-          .where(inArray(item.id, itemIds))
-      : [],
-    jutsuIds.length > 0
-      ? client
-          .select({
-            id: jutsu.id,
-            name: jutsu.name,
-            image: jutsu.image,
-            rarity: jutsu.jutsuRank,
-            description: jutsu.description,
-          })
-          .from(jutsu)
-          .where(inArray(jutsu.id, jutsuIds))
-      : [],
-    bloodlineIds.length > 0
-      ? client
-          .select({
-            id: bloodline.id,
-            name: bloodline.name,
-            image: bloodline.image,
-            rarity: bloodline.rank,
-            description: bloodline.description,
-          })
-          .from(bloodline)
-          .where(inArray(bloodline.id, bloodlineIds))
-      : [],
-    sageModeIds.length > 0
-      ? client
-          .select({
-            id: sageMode.id,
-            name: sageMode.name,
-            image: sageMode.image,
-            description: sageMode.description,
-          })
-          .from(sageMode)
-          .where(inArray(sageMode.id, sageModeIds))
-      : [],
-    badgeIds.length > 0
-      ? client
-          .select({
-            id: badge.id,
-            name: badge.name,
-            image: badge.image,
-            description: badge.description,
-          })
-          .from(badge)
-          .where(inArray(badge.id, badgeIds))
-      : [],
-    fetchRewardChoiceOwnership(
-      client,
-      user,
-      offers.flatMap((offer) => offer.cards),
-    ),
-  ]);
+  const titleIds = idsFor("reward_titles");
+  const [items, jutsus, bloodlines, sageModes, badges, titles, ownership] =
+    await Promise.all([
+      itemIds.length > 0
+        ? client
+            .select({
+              id: item.id,
+              name: item.name,
+              image: item.image,
+              rarity: item.rarity,
+              description: item.description,
+            })
+            .from(item)
+            .where(inArray(item.id, itemIds))
+        : [],
+      jutsuIds.length > 0
+        ? client
+            .select({
+              id: jutsu.id,
+              name: jutsu.name,
+              image: jutsu.image,
+              rarity: jutsu.jutsuRank,
+              description: jutsu.description,
+            })
+            .from(jutsu)
+            .where(inArray(jutsu.id, jutsuIds))
+        : [],
+      bloodlineIds.length > 0
+        ? client
+            .select({
+              id: bloodline.id,
+              name: bloodline.name,
+              image: bloodline.image,
+              rarity: bloodline.rank,
+              description: bloodline.description,
+            })
+            .from(bloodline)
+            .where(inArray(bloodline.id, bloodlineIds))
+        : [],
+      sageModeIds.length > 0
+        ? client
+            .select({
+              id: sageMode.id,
+              name: sageMode.name,
+              image: sageMode.image,
+              description: sageMode.description,
+            })
+            .from(sageMode)
+            .where(inArray(sageMode.id, sageModeIds))
+        : [],
+      badgeIds.length > 0
+        ? client
+            .select({
+              id: badge.id,
+              name: badge.name,
+              image: badge.image,
+              description: badge.description,
+            })
+            .from(badge)
+            .where(inArray(badge.id, badgeIds))
+        : [],
+      titleIds.length
+        ? client
+            .select({
+              id: title.id,
+              name: title.name,
+              description: title.description,
+              image: sql<string>`''`.as("image"),
+            })
+            .from(title)
+            .where(inArray(title.id, titleIds))
+        : [],
+      fetchRewardChoiceOwnership(
+        client,
+        user,
+        offers.flatMap((offer) => offer.cards),
+      ),
+    ]);
   const content = new Map<
     string,
     { name: string; image: string; rarity: string | null; description: string }
@@ -5054,6 +5107,7 @@ export const resolveRewardChoiceDisplays = async (
   register("reward_bloodlines", bloodlines);
   register("reward_sage_modes", sageModes);
   register("reward_badges", badges);
+  register("reward_titles", titles);
 
   return offers.map((offer) => {
     const unavailable = getUnavailableRewardCards(offer.cards, ownership);
@@ -5124,59 +5178,88 @@ export const fetchRewardChoiceOwnership = async (
   const jutsuIds = idsFor("reward_jutsus");
   const bloodlineIds = idsFor("reward_bloodlines");
   const badgeIds = idsFor("reward_badges");
+  const titleIds = idsFor("reward_titles");
   const sageModeIds = idsFor("reward_sage_modes");
-  const [jutsus, bloodlines, badges, sageModes] = await Promise.all([
-    jutsuIds.length > 0
-      ? client
-          .select({ id: userJutsu.jutsuId })
-          .from(userJutsu)
-          .where(
-            and(
-              eq(userJutsu.userId, user.userId),
-              inArray(userJutsu.jutsuId, jutsuIds),
-            ),
-          )
-      : [],
-    bloodlineIds.length > 0
-      ? client
-          .select({ id: bloodlineRolls.bloodlineId })
-          .from(bloodlineRolls)
-          .where(
-            and(
-              eq(bloodlineRolls.userId, user.userId),
-              inArray(bloodlineRolls.bloodlineId, bloodlineIds),
-            ),
-          )
-      : [],
-    badgeIds.length > 0
-      ? client
-          .select({ id: userBadge.badgeId })
-          .from(userBadge)
-          .where(
-            and(
-              eq(userBadge.userId, user.userId),
-              inArray(userBadge.badgeId, badgeIds),
-            ),
-          )
-      : [],
-    sageModeIds.length > 0 && !user.sageModeId
-      ? client
-          .select({ id: sageModeRolls.sageModeId })
-          .from(sageModeRolls)
-          .where(
-            and(
-              eq(sageModeRolls.userId, user.userId),
-              inArray(sageModeRolls.sageModeId, sageModeIds),
-            ),
-          )
-      : [],
-  ]);
+  const [jutsus, bloodlines, badges, sageModes, ownedTitles, availableTitles] =
+    await Promise.all([
+      jutsuIds.length > 0
+        ? client
+            .select({ id: userJutsu.jutsuId })
+            .from(userJutsu)
+            .where(
+              and(
+                eq(userJutsu.userId, user.userId),
+                inArray(userJutsu.jutsuId, jutsuIds),
+              ),
+            )
+        : [],
+      bloodlineIds.length > 0
+        ? client
+            .select({ id: bloodlineRolls.bloodlineId })
+            .from(bloodlineRolls)
+            .where(
+              and(
+                eq(bloodlineRolls.userId, user.userId),
+                inArray(bloodlineRolls.bloodlineId, bloodlineIds),
+              ),
+            )
+        : [],
+      badgeIds.length > 0
+        ? client
+            .select({ id: userBadge.badgeId })
+            .from(userBadge)
+            .where(
+              and(
+                eq(userBadge.userId, user.userId),
+                inArray(userBadge.badgeId, badgeIds),
+              ),
+            )
+        : [],
+      sageModeIds.length > 0 && !user.sageModeId
+        ? client
+            .select({ id: sageModeRolls.sageModeId })
+            .from(sageModeRolls)
+            .where(
+              and(
+                eq(sageModeRolls.userId, user.userId),
+                inArray(sageModeRolls.sageModeId, sageModeIds),
+              ),
+            )
+        : [],
+      titleIds.length
+        ? client
+            .select({ id: userTitle.titleId })
+            .from(userTitle)
+            .where(
+              and(
+                eq(userTitle.userId, user.userId),
+                inArray(userTitle.titleId, titleIds),
+              ),
+            )
+        : [],
+      titleIds.length
+        ? client
+            .select({ id: title.id })
+            .from(title)
+            .where(
+              and(
+                inArray(title.id, titleIds),
+                isNull(title.legacyOwnerId),
+                eq(title.archived, false),
+              ),
+            )
+        : [],
+    ]);
   const toSet = (rows: { id: string | null }[]) =>
     new Set(rows.flatMap((row) => (row.id ? [row.id] : [])));
   return {
     jutsuIds: toSet(jutsus),
     bloodlineIds: toSet(bloodlines),
     badgeIds: toSet(badges),
+    titleIds: toSet(ownedTitles),
+    unavailableTitleIds: new Set(
+      titleIds.filter((id) => !availableTitles.some((entry) => entry.id === id)),
+    ),
     sageModeIds: toSet(sageModes),
     hasSageMode: !!user.sageModeId,
     masteryRanks: user.masteryRanks,
@@ -5246,6 +5329,7 @@ export const getRewardUserDelta = (
     rewards.reward_bloodlines.length > 0 ||
     rewards.reward_sage_modes.length > 0 ||
     rewards.reward_badges.length > 0 ||
+    (rewards.reward_titles?.length ?? 0) > 0 ||
     rewards.reward_hunter_items ||
     rewards.reward_gathering_items ||
     rewards.reward_clanpoints !== 0 ||

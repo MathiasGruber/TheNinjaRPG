@@ -49,6 +49,7 @@ import { itemRouter } from "@/routers/item";
 import { jutsuRouter } from "@/routers/jutsu";
 import { fetchUser, profileRouter } from "@/routers/profile";
 import { questsRouter } from "@/routers/quests";
+import { titleRouter } from "@/routers/title";
 import {
   baseServerResponse,
   createTRPCRouter,
@@ -79,6 +80,7 @@ import {
   unrejectProposalSchema,
 } from "@/validators/contentReview";
 import type { QuestValidator } from "@/validators/objectives";
+import type { TitleValidator } from "@/validators/title";
 
 export const contentReviewRouter = createTRPCRouter({
   /**
@@ -960,6 +962,10 @@ const updateEntity = (
       return badgeRouter
         .createCaller(ctx)
         .update({ id, data: data as z.input<typeof BadgeValidator> });
+    case "TITLE":
+      return titleRouter
+        .createCaller(ctx)
+        .update({ id, data: data as z.input<typeof TitleValidator> });
     case "GAME_ASSET":
       return gameAssetRouter
         .createCaller(ctx)
@@ -997,6 +1003,8 @@ const createEntity = async (
         return questsRouter.createCaller(ctx).create();
       case "BADGE":
         return badgeRouter.createCaller(ctx).create();
+      case "TITLE":
+        return titleRouter.createCaller(ctx).create();
       case "GAME_ASSET":
         return gameAssetRouter.createCaller(ctx).create();
       case "AI":
@@ -1064,6 +1072,8 @@ const deleteEntity = (
       return questsRouter.createCaller(ctx).delete({ id });
     case "BADGE":
       return badgeRouter.createCaller(ctx).delete({ id });
+    case "TITLE":
+      return titleRouter.createCaller(ctx).archive({ id });
     case "GAME_ASSET":
       return gameAssetRouter.createCaller(ctx).delete({ id });
     case "AI":

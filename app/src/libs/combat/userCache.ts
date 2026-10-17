@@ -1,5 +1,5 @@
 import { CombatStatNames, MasteryNames, REGEN_SECONDS } from "@/drizzle/constants";
-import type { UserData } from "@/drizzle/schema";
+import type { UserData, UserTitle } from "@/drizzle/schema";
 import {
   effectiveMasteries,
   MASTERY_REQUIREMENT_FIELDS,
@@ -30,13 +30,19 @@ type BaselineField = (typeof baselineFields)[number];
 export type CombatCacheBaseline = Pick<UserData, BaselineField> & {
   regenAt: string;
   hadTrainingQueue: boolean;
+  /** Ownership at initiation; changes require an authoritative profile refresh at completion. */
+  titleIds: string[];
   items: Pick<
     BattleUserItem,
     "id" | "quantity" | "durability" | "level" | "experience" | "equipped"
   >[];
 };
 export type CombatCacheSnapshot = CombatCacheBaseline & {
-  masterySources: MasterySources & Pick<MasteryBuffUser, "bloodlineId">;
+  masterySources: MasterySources &
+    Pick<MasteryBuffUser, "bloodlineId"> & {
+      /** Preserve acquisition snapshots for lobby reconstruction without another database read. */
+      titles?: UserTitle[];
+    };
 };
 export type CombatProfileUpdate = {
   userId: string;
@@ -60,11 +66,12 @@ export type CombatProfileUpdate = {
   items: CombatCacheSnapshot["items"];
 };
 
-/** Capture persisted progression before combat scaling and effect application. */
+/** Capture unscaled progression and passive sources for lobby reconstruction and settlement. */
 export const captureCombatCacheSnapshot = (
   user: UserData &
-    Omit<MasteryBuffUser, "items"> & {
+    Omit<MasteryBuffUser, "items" | "titles"> & {
       items: (CombatCacheBaseline["items"][number] & MasteryGear)[];
+      titles?: UserTitle[];
     },
 ): CombatCacheSnapshot => ({
   ...(Object.fromEntries(baselineFields.map((field) => [field, user[field]])) as Pick<
@@ -72,6 +79,7 @@ export const captureCombatCacheSnapshot = (
     BaselineField
   >),
   masterySources: structuredClone({
+    titles: user.titles,
     bloodlineId: user.bloodlineId,
     bloodline: user.bloodline ? { effects: user.bloodline.effects } : null,
     userSkills: user.userSkills?.map(({ skillId, activated, skill }) => ({
@@ -102,6 +110,7 @@ export const captureCombatCacheSnapshot = (
     })),
   }),
   regenAt: user.regenAt.toISOString(),
+  titleIds: user.titles?.map(({ titleId }) => titleId) ?? [],
   // Training may settle while profile refreshes are paused during combat.
   hadTrainingQueue:
     hasEnergyQueue(user) ||
@@ -134,6 +143,13 @@ export const combatProfilePatch = (
   if (
     baselineFields.some((field) => current[field] !== update.baseline[field]) ||
     current.regenAt.getTime() !== new Date(update.baseline.regenAt).getTime()
+  )
+    return;
+  // Collected effects are immutable; selecting a label does not change ownership.
+  const titleIds = current.titles?.map(({ titleId }) => titleId) ?? [];
+  if (
+    titleIds.length !== update.baseline.titleIds?.length ||
+    titleIds.some((id) => !update.baseline.titleIds.includes(id))
   )
     return;
   if (

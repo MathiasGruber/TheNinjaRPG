@@ -35,7 +35,7 @@ beforeEach(() => {
   ai = {
     userId: "ai",
     username: "Test AI",
-    customTitle: "",
+    npcTitle: "",
     gender: "Unknown",
     level: 100,
     regeneration: 60,
@@ -119,13 +119,13 @@ describe("manual AI editing", () => {
     const original = structuredClone(ai);
     await mount();
     await act(async () => {
-      editor.form.setValue("customTitle", "Updated title");
+      editor.form.setValue("npcTitle", "Updated title");
       await editor.handleUserSubmit();
     });
     expect(save).toHaveBeenCalledTimes(1);
     expect(save.mock.calls[0]?.[0]).toMatchObject({
       id: ai.userId,
-      data: { customTitle: "Updated title", activeTrainedElement: element, preferredGeneral1: null, preferredGeneral2: null, primaryElement: null, secondaryElement: null },
+      data: { npcTitle: "Updated title", activeTrainedElement: element, preferredGeneral1: null, preferredGeneral2: null, primaryElement: null, secondaryElement: null },
     });
     expect(ai).toEqual(original);
     expect(toast.showFormErrorsToast).not.toHaveBeenCalled();

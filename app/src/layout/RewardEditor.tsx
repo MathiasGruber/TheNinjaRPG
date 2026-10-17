@@ -328,6 +328,7 @@ export const RewardEditor = ({
 
 /** Fallback groups expose every reward field even when no custom catalog node includes it. */
 export const DEFAULT_REWARD_NODES = [
+  { id: "give-title", name: "Give Title", fields: ["reward_titles"] },
   {
     id: "currency",
     name: "Currency",

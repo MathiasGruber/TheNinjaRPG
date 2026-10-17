@@ -56,6 +56,7 @@ import {
   storePurchase,
   storeUserIdAlias,
   supportReview,
+  title,
   trainingLog,
   user2conversation,
   userActivityEvent,
@@ -83,6 +84,7 @@ import {
   userReview,
   userRewards,
   userSkill,
+  userTitle,
   userUpload,
   userVote,
   village,
@@ -901,6 +903,14 @@ export const staffRouter = createTRPCRouter({
       const moves = await Promise.allSettled([
         renameParentalContact(ctx.drizzle, input.userId, input.newUserId),
         ctx.drizzle
+          .update(userTitle)
+          .set({ userId: input.newUserId })
+          .where(eq(userTitle.userId, input.userId)),
+        ctx.drizzle
+          .update(title)
+          .set({ legacyOwnerId: input.newUserId })
+          .where(eq(title.legacyOwnerId, input.userId)),
+        ctx.drizzle
           .update(auctionOffer)
           .set({ ownerId: input.newUserId })
           .where(eq(auctionOffer.ownerId, input.userId)),
@@ -1481,6 +1491,8 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(damageSimulation).where(eq(damageSimulation.userId, userId)),
     client.delete(conceptImage).where(eq(conceptImage.userId, userId)),
     client.delete(userBadge).where(eq(userBadge.userId, userId)),
+    client.delete(userTitle).where(eq(userTitle.userId, userId)),
+    client.delete(title).where(eq(title.legacyOwnerId, userId)),
     client.delete(linkPromotion).where(eq(linkPromotion.userId, userId)),
     client.delete(linkPromotion).where(eq(linkPromotion.reviewedBy, userId)),
     client.delete(userUpload).where(eq(userUpload.userId, userId)),

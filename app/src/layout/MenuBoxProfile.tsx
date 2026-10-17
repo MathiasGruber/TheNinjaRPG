@@ -75,6 +75,7 @@ import { calcLevelRequirements, getExpBracket } from "@/libs/profile";
 import { isBetweenPyramidBattles } from "@/libs/questRun";
 import { cn } from "@/libs/shadui";
 import { calcCovertTrainingFinishAt } from "@/libs/stealth";
+import { regenerationBuffs } from "@/libs/titles";
 import { masteryTrainingEndsAt } from "@/libs/train";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { userBattleAtom, useUserData } from "@/utils/UserContext";
@@ -258,7 +259,9 @@ const MenuBoxProfile: React.FC = () => {
               showText={true}
               lastRegenAt={userData?.regenAt}
               regen={hasBattlePools ? 0 : passiveRegeneration}
-              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
+              timedBuffs={
+                hasBattlePools ? undefined : regenerationBuffs(userData ?? {})
+              }
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curHealth}
               total={pools.maxHealth}
@@ -272,7 +275,9 @@ const MenuBoxProfile: React.FC = () => {
               showText={true}
               lastRegenAt={userData?.regenAt}
               regen={hasBattlePools ? 0 : passiveRegeneration}
-              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
+              timedBuffs={
+                hasBattlePools ? undefined : regenerationBuffs(userData ?? {})
+              }
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curChakra}
               total={pools.maxChakra}
@@ -286,7 +291,9 @@ const MenuBoxProfile: React.FC = () => {
               showText={true}
               lastRegenAt={userData?.regenAt}
               regen={hasBattlePools ? 0 : passiveRegeneration}
-              timedBuffs={hasBattlePools ? undefined : userData?.raidBuffs}
+              timedBuffs={
+                hasBattlePools ? undefined : regenerationBuffs(userData ?? {})
+              }
               status={hasBattlePools ? "AWAKE" : userData?.status}
               current={pools.curStamina}
               total={pools.maxStamina}
@@ -301,7 +308,7 @@ const MenuBoxProfile: React.FC = () => {
                     [])
                   : undefined
               }
-              timedBuffs={userData?.raidBuffs}
+              timedBuffs={regenerationBuffs(userData ?? {})}
               color="bg-violet-500"
               showText
               lastRegenAt={userData?.regenAt}

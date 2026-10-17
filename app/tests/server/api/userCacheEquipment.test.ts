@@ -6,11 +6,13 @@ import {
   item,
   itemLoadout,
   skillTree,
+  title,
   userData,
   userItem,
   userItemImbuement,
   userSkill,
   userQueue,
+  userTitle,
 } from "@/drizzle/schema";
 import { calcEnergy } from "@/libs/profile";
 import { blackMarketRouter } from "@/server/api/routers/blackmarket";
@@ -36,7 +38,7 @@ const userId = "cache-equipment-player";
 describeWithDatabase("committed profile cache patches", () => {
   beforeEach(async () => {
     const db = await getTestDatabase();
-    await resetTables(userQueue, userItemImbuement, userSkill, skillTree, itemLoadout, userItem, item, userData, bloodline);
+    await resetTables(userTitle, title, userQueue, userItemImbuement, userSkill, skillTree, itemLoadout, userItem, item, userData, bloodline);
     await insertUsers([{
       userId,
       level: 10,
@@ -48,12 +50,16 @@ describeWithDatabase("committed profile cache patches", () => {
       seichiSilver: 300,
       ninjutsuMastery: 100,
     }]);
+    const effects = [{ type: "increasemastery" as const, power: 15, masteryTypes: ["Ninjutsu" as const] }];
+    await db.insert(title).values({ id: "cache-title", name: "Cache title", effects });
+    await db.insert(userTitle).values({ userId, titleId: "cache-title", effects });
     await insertItems([{
       id: "cache-armor",
       itemType: "ARMOR",
       slot: "CHEST",
       maxDurability: 100,
       cost: 1000,
+      requiredNinjutsuMastery: 110,
       effects: [
         makeEffect("increasemastery", { masteryTypes: ["Ninjutsu"], power: 50 }),
         makeEffect("increasemaxpools", { poolsAffected: ["Energy"], power: 200 }),
@@ -100,7 +106,7 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(stored?.reputationPoints).toBe(100 - COST_EXTRA_ITEM_SLOT);
   });
 
-  it("returns repaired worn gear together with restored mastery and energy capacity", async () => {
+  it("returns repaired worn gear with title-unlocked mastery and energy capacity", async () => {
     const db = await getTestDatabase();
     const counted = countUserReads(db);
     const caller = callerForDatabase(itemRouter, userId, counted.client);
@@ -114,14 +120,14 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(result.userPatch.money).toBeUndefined();
     expect(result.userPatch.items!.map((row) => [row.id, row.durability])).toEqual([["worn-armor", 100]]);
     expect(result.userPatch.maxEnergy).toBe(calcEnergy(10) + 200);
-    expect(result.userPatch.effectiveMasteries!.ninjutsuMastery).toBe(150);
+    expect(result.userPatch.effectiveMasteries!.ninjutsuMastery).toBe(165);
 
     const rejected = await caller.repair({ userItemId: "worn-armor" });
     expect(rejected.success).toBe(false);
     expect("data" in rejected).toBe(false);
   });
 
-  it("returns an empty equipped list and removes derived bonuses after unequipping", async () => {
+  it("removes gear bonuses and retains collected title mastery after unequipping", async () => {
     const db = await getTestDatabase();
     await db.update(userItem).set({ durability: 100 }).where(eq(userItem.id, "worn-armor"));
     const caller = await callerFor(itemRouter, userId);
@@ -130,7 +136,7 @@ describeWithDatabase("committed profile cache patches", () => {
     if (!("userPatch" in result) || !result.userPatch || !("items" in result.userPatch)) throw new Error("Missing unequip patch");
     expect(result.userPatch.items).toEqual([]);
     expect(result.userPatch.maxEnergy).toBe(calcEnergy(10));
-    expect(result.userPatch.effectiveMasteries!.ninjutsuMastery).toBe(100);
+    expect(result.userPatch.effectiveMasteries!.ninjutsuMastery).toBe(115);
   });
 
   it.each(["repairAll", "useRepairItem", "useRepairAll"] as const)("projects confirmed %s without a postwrite profile read", async (method) => {
@@ -143,7 +149,7 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(result.success).toBe(true);
     expect(counted.getReads()).toBe(1);
     expect(result.userPatch?.items?.find((row) => row.id === "worn-armor")?.durability).toBe(100);
-    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(150);
+    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(165);
     expect(result.userPatch?.maxEnergy).toBe(calcEnergy(10) + 200);
     expect(result.userPatch?.items?.some((row) => row.id === "worn-kit")).toBe(method === "repairAll");
     const stored = await db.query.userData.findFirst({ where: eq(userData.userId, userId) });
@@ -233,7 +239,7 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(result.userPatch?.itemLoadout).toBe("cache-loadout");
     expect(result.userPatch?.items?.map((row) => row.equipped)).toEqual(["CHEST"]);
     expect(result.userPatch?.maxEnergy).toBe(calcEnergy(10) + 200);
-    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(150);
+    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(165);
   });
 
   it("keeps reconciliation when the loadout pointer write cannot confirm the user", async () => {
@@ -257,7 +263,7 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(reads).toHaveBeenCalledTimes(1);
   });
 
-  it("projects the exact purchased row and preserves hidden worn gear without a readback", async () => {
+  it("auto-equips title-unlocked purchases and preserves hidden worn gear without a readback", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ villageId: "cache-home" }).where(eq(userData.userId, userId));
     await db.update(item).set({ hidden: true }).where(eq(item.id, "cache-armor"));
@@ -265,6 +271,7 @@ describeWithDatabase("committed profile cache patches", () => {
     await insertItems([{
       id: "cache-purchased", name: "Cache purchased armor", itemType: "ARMOR", slot: "HEAD", inShop: true,
       cost: 40, repsCost: 2, seichiSilverCost: 3, maxDurability: 500,
+      requiredNinjutsuMastery: 160,
       effects: [makeEffect("increasemastery", { masteryTypes: ["Ninjutsu"], power: 25 }),
         makeEffect("increasemaxpools", { poolsAffected: ["Energy"], power: 100, powerPerLevel: 1 })],
     }]);
@@ -280,7 +287,7 @@ describeWithDatabase("committed profile cache patches", () => {
     expect(purchased?.level).toBe(1);
     expect(result.userPatch?.items?.some(row => row.id === "worn-armor")).toBe(true);
     expect(result.userPatch?.maxEnergy).toBe(calcEnergy(10) + 301);
-    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(175);
+    expect(result.userPatch?.effectiveMasteries?.ninjutsuMastery).toBe(190);
     const stored = await db.query.userItem.findFirst({
       where: eq(userItem.itemId, "cache-purchased"), with: { item: true, imbuements: { with: { item: true } } },
     });

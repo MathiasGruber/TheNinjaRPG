@@ -392,14 +392,15 @@ const TEXT_FIELDS: Record<ContentProposalEntityType, string[]> = {
   BLOODLINE: ["name", "description", "rank"],
   QUEST: ["name", "description", "successDescription", "questType", "content"],
   BADGE: ["name", "description"],
+  TITLE: ["name", "description"],
   GAME_ASSET: ["name"],
-  AI: ["username", "customTitle", "level"],
+  AI: ["username", "npcTitle", "level"],
 };
 
 /** What the audit reads for each focus: only what that focus judges, so the catalog fits. */
 const VIEWS: Record<ContentAuditFocus, View> = {
   grammar: {
-    types: ["JUTSU", "ITEM", "BLOODLINE", "QUEST", "BADGE", "AI"],
+    types: ["JUTSU", "ITEM", "BLOODLINE", "QUEST", "BADGE", "TITLE", "AI"],
     fields: (entity) => {
       const fields = pick(entity.editable, TEXT_FIELDS[entity.type]);
       return "content" in fields
@@ -464,7 +465,7 @@ const VIEWS: Record<ContentAuditFocus, View> = {
     assets: ["ANIMATION", "STATIC"],
   },
   visual: {
-    types: ["JUTSU", "ITEM", "BLOODLINE", "QUEST", "BADGE", "AI"],
+    types: ["JUTSU", "ITEM", "BLOODLINE", "QUEST", "BADGE", "TITLE", "AI"],
     fields: (entity) =>
       entity.type === "QUEST"
         ? entity.editable

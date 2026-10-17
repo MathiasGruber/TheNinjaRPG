@@ -9,7 +9,9 @@ import {
   MAX_MASTERY_CAP,
   MasteryNames,
 } from "@/drizzle/constants";
+import type { UserTitle } from "@/drizzle/schema";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
+import { titleCombatTag } from "@/libs/titles";
 import type { ZodAllTags } from "@/validators/combat";
 
 export const MASTERY_TYPE_TO_STAT: Record<MasteryType, MasteryName> = {
@@ -76,11 +78,12 @@ export type MasteryBuffUser = MasteryStatSource & {
     skill: { target: SkillTreeTarget; effects: ZodAllTags[] };
   }[];
   items?: MasteryGear[];
+  titles?: Pick<UserTitle, "effects">[];
 };
 
 export type MasterySources = Pick<
   MasteryBuffUser,
-  "bloodline" | "userSkills" | "items"
+  "bloodline" | "userSkills" | "items" | "titles"
 >;
 
 /**
@@ -119,7 +122,7 @@ export const missingMasteryRequirement = (
 /**
  * Masteries as the pre-battle gates see them: stored values capped at MAX_MASTERY_CAP
  * when a character rank is present, plus the increasemastery and decreasemastery tags
- * processUsersForBattle applies from the bloodline, skills and worn
+ * processUsersForBattle applies from the bloodline, skills, collected titles and worn
  * gear, sized as the combat tags size them. Positive gear buffs can unlock more gear,
  * starting from non-gear sources, so self-unlocks and unsupported cycles cannot count.
  * Gear with mastery penalties stays anchored in non-gear sources: admitting a penalty
@@ -146,6 +149,8 @@ const resolveMasteryGear = (user: MasteryBuffUser, excludeUserItemId?: string) =
     );
     addMasteryTags(withoutGear, stored, ownTags, user.level);
   }
+  for (const owned of user.titles ?? [])
+    addMasteryTags(withoutGear, stored, owned.effects.map(titleCombatTag), 0);
   const candidates = (user.items ?? [])
     .filter(
       (ui) =>

@@ -21,7 +21,7 @@ export interface PostProps {
     rank: UserRank;
     isOutlaw: boolean;
     role: UserRole;
-    customTitle?: string | null;
+    displayTitle?: string | null;
     villageKageId?: string | null;
     villageName?: string | null;
     villageHexColor?: string | null;
@@ -176,9 +176,9 @@ const Post: React.FC<PostProps> = (props) => {
         <span className="m-1 rounded-md bg-slate-300 p-1 text-black">
           {showUserRank(props.user)}
         </span>
-        {props.user.customTitle && (
+        {props.user.displayTitle && (
           <span className={`${titleColor} m-1 rounded-md p-1`}>
-            {props.user.customTitle}
+            {props.user.displayTitle}
           </span>
         )}
         {props.user.villageKageId &&

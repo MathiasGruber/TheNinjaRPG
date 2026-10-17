@@ -2,20 +2,28 @@ import type { UserRaidBuff } from "@/drizzle/schema";
 import { getEffectPower } from "@/libs/combat/power";
 import type { BattleUserState, UserEffect } from "@/libs/combat/types";
 
-/** Persisted meal or raid bonuses, active from creation until their exclusive expiry. */
-export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt">;
+/** Recovery bonuses active from creation until exclusive expiry, including permanent title intervals. */
+export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt"> & {
+  /** Flat title bonuses stack; ordinary meal and raid bonuses compete by strength. */
+  stacking?: boolean;
+};
 
-/** Base regeneration plus the strongest active bonus, comparing static and percentage gains. */
+/** Base regeneration plus the strongest timed bonus and all additive title bonuses at this instant. */
 export const getTimedRegeneration = (
   base: number,
   buffs: readonly TimedBuff[],
   at = new Date(),
 ) => {
   let increase = 0;
+  let permanentIncrease = 0;
   for (const buff of buffs) {
     if (new Date(buff.createdAt) > at || new Date(buff.expiresAt) <= at) continue;
     for (const effect of buff.effects) {
       if (effect.type !== "increaseregeneration") continue;
+      if (buff.stacking) {
+        permanentIncrease += effect.power;
+        continue;
+      }
       increase = Math.max(
         increase,
         effect.calculation === "percentage"
@@ -24,7 +32,7 @@ export const getTimedRegeneration = (
       );
     }
   }
-  return base + increase;
+  return base + increase + permanentIncrease;
 };
 
 /**

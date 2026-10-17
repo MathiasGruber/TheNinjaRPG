@@ -1,22 +1,24 @@
 import { type SQLWrapper, sql } from "drizzle-orm";
 import { REGEN_SECONDS } from "@/drizzle/constants";
-import type { UserData } from "@/drizzle/schema";
+import type { UserData, UserTitle } from "@/drizzle/schema";
 import {
   getTimedRegenerationGain,
   getTimedRegenerationPeriods,
   type TimedBuff,
 } from "@/libs/timedBuffs";
+import { regenerationBuffs } from "@/libs/titles";
 
 type RegenerationUser = Pick<UserData, "regenAt" | "regeneration"> & {
   regenerationWithoutTimedBuffs?: number;
   raidBuffs?: readonly TimedBuff[];
+  titles?: readonly Pick<UserTitle, "effects" | "createdAt">[];
 };
 
 /** Recover complete pool ticks from the retained clock, including bonuses that have expired. */
 export const getUserRegenerationGain = (user: RegenerationUser, at: Date) =>
   getTimedRegenerationGain(
     user.regenerationWithoutTimedBuffs ?? user.regeneration,
-    user.raidBuffs ?? [],
+    regenerationBuffs(user),
     user.regenAt,
     Math.max(
       0,
@@ -38,7 +40,7 @@ export const userRegenerationGainSql = (
   // rounds to four decimal places and can move a millisecond boundary onto the prior tick.
   const boundaryTick = (boundary: number) =>
     sql`CEIL(TIMESTAMPDIFF(MICROSECOND, ${from}, ${new Date(boundary)}) * 1.000000 / ${step})`;
-  const bonuses = getTimedRegenerationPeriods(base, user.raidBuffs ?? []).map(
+  const bonuses = getTimedRegenerationPeriods(base, regenerationBuffs(user)).map(
     ({ startsAt, endsAt, bonus }) =>
       sql`${bonus} * GREATEST(0, LEAST(${ticks} + 1, ${boundaryTick(endsAt)}) - GREATEST(1, ${boundaryTick(startsAt)}))`,
   );

@@ -43,6 +43,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { fetchCommunicationPolicies } from "@/server/utils/parentalControls";
+import { displayTitleSql } from "@/server/utils/titleDisplay";
 import { getNewReactions, processMentions } from "@/utils/chat";
 import {
   canDeleteComment,
@@ -481,7 +482,7 @@ export const commentsRouter = createTRPCRouter({
           isOutlaw: posterUser.isOutlaw,
           level: posterUser.level,
           role: posterUser.role,
-          customTitle: posterUser.customTitle,
+          displayTitle: displayTitleSql(posterUser),
           federalStatus: posterUser.federalStatus,
           tavernUsernameColor: posterUser.tavernUsernameColor,
           tavernTitleColor: posterUser.tavernTitleColor,
@@ -639,7 +640,7 @@ export const commentsRouter = createTRPCRouter({
             isOutlaw: userData.isOutlaw,
             level: userData.level,
             role: userData.role,
-            customTitle: userData.customTitle,
+            displayTitle: displayTitleSql(userData),
             federalStatus: userData.federalStatus,
             tavernUsernameColor: userData.tavernUsernameColor,
             tavernTitleColor: userData.tavernTitleColor,

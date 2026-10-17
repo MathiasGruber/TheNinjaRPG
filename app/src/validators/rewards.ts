@@ -64,6 +64,8 @@ export const rewardFields = {
   /** Catalog ids granted by quests; skipped at claim if the player already has a mode. */
   reward_sage_modes: z.array(z.string()).prefault([]),
   reward_badges: z.array(z.string()).prefault([]),
+  /** Catalog IDs to grant once; acquisition stores immutable bonuses, independent of display selection. */
+  reward_titles: z.array(z.string()).prefault([]),
   reward_medical_experience: z.coerce.number().prefault(0),
   reward_hunting_experience: z.coerce.number().prefault(0),
   reward_crafting_experience: z.coerce.number().prefault(0),
@@ -95,6 +97,8 @@ export const PostProcessedRewardSchema = z.object({
   reward_bloodlines: z.array(z.string()).prefault([]),
   reward_sage_modes: z.array(z.string()).prefault([]),
   reward_badges: z.array(z.string()).prefault([]),
+  /** Display names substituted for catalog IDs after reward delivery. */
+  reward_titles: z.array(z.string()).prefault([]),
 });
 
 /** Type for post-processed rewards - single source of truth */
@@ -113,6 +117,7 @@ export const hasReward = (reward: ObjectiveRewardType) => {
     parsedReward.reward_bloodlines.length > 0 ||
     parsedReward.reward_sage_modes.length > 0 ||
     parsedReward.reward_badges.length > 0 ||
+    parsedReward.reward_titles.length > 0 ||
     parsedReward.reward_hunter_items ||
     parsedReward.reward_gathering_items
   );
@@ -168,6 +173,7 @@ export const REWARD_CHOICE_CONTENT_FIELDS = [
   "reward_bloodlines",
   "reward_sage_modes",
   "reward_badges",
+  "reward_titles",
 ] as const;
 export type RewardChoiceContentField = (typeof REWARD_CHOICE_CONTENT_FIELDS)[number];
 

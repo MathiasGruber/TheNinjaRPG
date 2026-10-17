@@ -61,6 +61,7 @@ import { sparringRouter } from "./routers/sparring";
 import { staffRouter } from "./routers/staff";
 import { stealthRouter } from "./routers/stealth";
 import { supportRouter } from "./routers/support";
+import { titleRouter } from "./routers/title";
 import { tournamentRouter } from "./routers/tournament";
 import { towerDefenseRouter } from "./routers/towerDefense";
 import { trainRouter } from "./routers/train";
@@ -84,6 +85,7 @@ export const appRouter = createTRPCRouter({
   avatar: avatarRouter,
   audio: audioRouter,
   badge: badgeRouter,
+  title: titleRouter,
   bank: bankRouter,
   blackmarket: blackMarketRouter,
   bloodline: bloodlineRouter,

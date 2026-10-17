@@ -57,6 +57,7 @@ interface SeasonFormProps {
   onPendingChange?: (pending: boolean) => void;
 }
 
+/** Author season settings and division rewards, including titles, through shared validated editors. */
 export default function SeasonForm({
   initialData,
   seasonId,
@@ -77,6 +78,7 @@ export default function SeasonForm({
   const { data: jutsus } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: bloodlines } = api.bloodline.getAllNames.useQuery(undefined);
   const { data: badges } = api.badge.getAll.useQuery(undefined);
+  const { data: titles } = api.title.getAllNames.useQuery();
 
   const form = useForm<FormValuesInput, unknown, FormValues>({
     resolver: zodResolver(rankedSeasonSchema),
@@ -181,6 +183,14 @@ export default function SeasonForm({
       });
     }
 
+    if (titles)
+      data.push({
+        id: "reward_titles",
+        label: "Give Title",
+        type: "db_values",
+        values: titles,
+        multiple: true,
+      });
     if (badges?.data) {
       data.push({
         id: "reward_badges",

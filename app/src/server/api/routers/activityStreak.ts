@@ -28,6 +28,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { isMysqlDuplicateKeyError } from "@/server/utils/mysqlErrors";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { canChangeContent } from "@/utils/permissions";
 import { isToday, isWithinDateRange } from "@/utils/time";
 import {
@@ -757,7 +758,10 @@ export const activityStreakRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch user
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, titleError] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        validateTitleRewardIds(ctx.drizzle, input),
+      ]);
 
       // Guard: permission check
       if (!canChangeContent(user.role)) {
@@ -766,6 +770,7 @@ export const activityStreakRouter = createTRPCRouter({
         );
       }
 
+      if (titleError) return errorResponse(titleError);
       // Create config first (insert before deactivation to prevent race condition)
       const configId = nanoid();
       await ctx.drizzle.insert(activityStreakConfig).values({
@@ -798,11 +803,12 @@ export const activityStreakRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Fetch user and existing config
-      const [user, existingConfig] = await Promise.all([
+      const [user, existingConfig, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.activityStreakConfig.findFirst({
           where: eq(activityStreakConfig.id, input.id),
         }),
+        validateTitleRewardIds(ctx.drizzle, input),
       ]);
 
       // Guard: permission check
@@ -817,6 +823,7 @@ export const activityStreakRouter = createTRPCRouter({
         return errorResponse("Configuration not found");
       }
 
+      if (titleError) return errorResponse(titleError);
       // Update config and delete existing rewards in parallel
       await Promise.all([
         ctx.drizzle

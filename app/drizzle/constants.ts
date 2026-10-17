@@ -78,11 +78,15 @@ export type IMG_ORIENTATION = (typeof IMG_ORIENTATIONS)[number];
 // How many seconds to regen a given regen value
 export const REGEN_SECONDS = 60;
 
+/** Shared bound for authored title bonuses in validation and the staff editor. */
+export const TITLE_MAX_EFFECTS = 20;
+
 export const ContentTypes = [
   "activityStreak",
   "asset",
   "ai",
   "badge",
+  "title",
   "bloodline",
   "bloodline_reskin",
   "item",
@@ -279,6 +283,7 @@ export const SHARED_COOLDOWN_ROUNDS = 3;
 export const LOG_TYPES = [
   "ai",
   "badge",
+  "title",
   "battleAction",
   "bloodline",
   "clan",
@@ -331,6 +336,7 @@ export const ContentProposalEntityTypes = [
   "BLOODLINE",
   "QUEST",
   "BADGE",
+  "TITLE",
   "GAME_ASSET",
   "AI",
 ] as const;
@@ -1463,7 +1469,6 @@ export const KILLING_NOTORIETY_GAIN = 5;
 // Reputation cost config
 export const STARTING_REPUTATION_POINTS = 11;
 export const COST_CHANGE_USERNAME = 5;
-export const COST_CUSTOM_TITLE = 5;
 export const COST_CHANGE_GENDER = 5;
 export const COST_TAVERN_COLOR_CHANGE = 10;
 export const COST_SWAP_BLOODLINE = 50;
@@ -2823,6 +2828,9 @@ export const IMG_MANUAL_DAM_CALCS =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJQF6qYYjhzBPya1rwfCIqOTU0cV5xgsMeo3u2.webp";
 export const IMG_MANUAL_BADGE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJOUM5LPVHevxIThUauQkGJEBY3D2cPqy8f5sp.webp";
+/** Honorary scroll representing collected titles in the manual. */
+export const IMG_MANUAL_TITLE =
+  "https://ui0arpl8sm.ufs.sh/f/manual-titles-1925.webp";
 export const IMG_MANUAL_ASSET =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJaGvHErYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk.webp";
 export const IMG_MANUAL_OPINION =
