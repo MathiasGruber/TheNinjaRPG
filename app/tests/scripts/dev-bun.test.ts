@@ -1,8 +1,9 @@
 import { afterEach, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { selectBun } from "../../../scripts/dev-bun.mjs";
+import { dirname, join } from "node:path";
+import { bunEnvironment, selectBun } from "../../../scripts/dev-bun.mjs";
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -27,6 +28,16 @@ test("an old PATH Bun falls back to a compatible installed runtime", async () =>
   const compatible = await fakeBun("1.4.3");
   expect(selectBun([old, compatible], "1.4.2")).toBe(compatible);
   expect(selectBun([compatible, old], "1.4.2")).toBe(compatible);
+});
+
+test("nested package scripts inherit the compatible Bun instead of the old PATH runtime", async () => {
+  const old = await fakeBun("1.3.14");
+  const compatible = await fakeBun("1.4.3");
+  const output = execFileSync("/bin/sh", ["-c", "bun --version"], {
+    encoding: "utf8",
+    env: bunEnvironment(compatible, { PATH: dirname(old) }),
+  });
+  expect(output.trim()).toBe("1.4.3");
 });
 
 test("minimum and newer major versions work; older and prerelease runtimes fail", async () => {

@@ -3,7 +3,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 export function selectBun(candidates, minimum) {
@@ -29,6 +29,17 @@ export function selectBun(candidates, minimum) {
   );
 }
 
+/** Package scripts also invoke `bun`; keep those descendants on the selected runtime. */
+export function bunEnvironment(binary, environment = process.env) {
+  return {
+    ...environment,
+    PATH:
+      binary === "bun"
+        ? environment.PATH
+        : `${dirname(binary)}${delimiter}${environment.PATH ?? ""}`,
+  };
+}
+
 const script = fileURLToPath(import.meta.url);
 if (process.argv[1] && realpathSync(process.argv[1]) === script) {
   try {
@@ -41,7 +52,10 @@ if (process.argv[1] && realpathSync(process.argv[1]) === script) {
     );
     if (binary !== "bun")
       console.error(`dev-bun: using ${binary} (PATH Bun is missing or too old)`);
-    const result = spawnSync(binary, process.argv.slice(2), { stdio: "inherit" });
+    const result = spawnSync(binary, process.argv.slice(2), {
+      stdio: "inherit",
+      env: bunEnvironment(binary),
+    });
     if (result.error) throw result.error;
     process.exitCode = result.status ?? 1;
   } catch (error) {
