@@ -34,8 +34,8 @@ export const readCacheReceipt = (changes: unknown, userItemId: string) => {
 };
 
 /**
- * Commit a cache debit, all grants/effects and its replay receipt atomically.
- * Bundles can insert several inventory rows, so a single guarded UPDATE cannot
+ * Commit an item debit, all grants/effects and its replay receipt atomically.
+ * Collection grants and bundles insert rows, so a single guarded UPDATE cannot
  * preserve this invariant. Validate configurations and select outcomes beforehand;
  * consume must use the supplied client and remain safe to rerun after a deadlock.
  * Return success:false only before side effects; throw after a mutation to roll back.
@@ -47,6 +47,7 @@ export const commitCacheConsumption = async ({
   userItemId,
   itemId,
   selections,
+  relatedMsg = "WeightedCacheOpening",
   consume,
 }: {
   client: DrizzleClient;
@@ -55,6 +56,7 @@ export const commitCacheConsumption = async ({
   userItemId: string;
   itemId: string;
   selections: unknown;
+  relatedMsg?: string;
   consume: (
     client: DrizzleClient,
   ) => Promise<
@@ -69,7 +71,7 @@ export const commitCacheConsumption = async ({
         userId,
         tableName: "userItem",
         relatedId: itemId,
-        relatedMsg: "WeightedCacheOpening",
+        relatedMsg,
         changes: [],
       });
       if (claimed.rowsAffected === 0) {

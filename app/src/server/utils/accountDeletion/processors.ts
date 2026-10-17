@@ -44,6 +44,7 @@ export const removeAccountProcessorData = async (userId: string) => {
   );
 };
 
+/** Accept only owned delivery hosts and distinguish generated custom IDs from provider file keys. */
 export const ownedUploadKey = (
   value: string,
 ): { key: string; keyType: "customId" | "fileKey" } | null => {
@@ -59,7 +60,9 @@ export const ownedUploadKey = (
     const key = match[1];
     return {
       key,
-      keyType: /^[A-Za-z0-9_-]{21}\.[a-z0-9]+$/.test(key) ? "customId" : "fileKey",
+      keyType: /^(?:(?:preview|pet|content)-)?[A-Za-z0-9_-]{21}\.[a-z0-9]+$/.test(key)
+        ? "customId"
+        : "fileKey",
     };
   } catch {
     return null;

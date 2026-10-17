@@ -50,8 +50,20 @@ interface AiProfileEditProps {
     items: { itemId: string; item: { name: string } }[];
   };
   hideTitle?: boolean;
+  /** Controlled mode skips profile loading and delegates persistence/pending state to the owner. */
+  configuration?: {
+    profile: { rules: AiRuleType[]; includeDefaultRules: boolean };
+    isSaving: boolean;
+    disabled?: boolean;
+    onSave: (profile: { rules: AiRuleType[]; includeDefaultRules: boolean }) => void;
+  };
+  /** Restrict the shared editor to actions supported by the caller's combat actor. */
+  availableActionTypes?: readonly ZodAllAiAction["type"][];
+  /** Restrict highest-power action filters without changing the shared rule executor. */
+  availableActionEffects?: readonly string[];
 }
 
+/** Edit an ordinary AI profile or a caller-controlled companion configuration with the same rule UI. */
 const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   // User information
   const { data: userData } = useRequiredUserData();
@@ -64,17 +76,20 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
   const aiProfileId = props.userData.aiProfileId || "Default";
   const utils = api.useUtils();
-  const isDefault = aiProfileId === "Default";
+  const isControlled = !!props.configuration;
+  const isDefault = !isControlled && aiProfileId === "Default";
 
   // Check role
   const isStaff = canChangeContent(userData?.role ?? "USER");
-  const canEdit = isStaff || !isDefault;
 
   // Data
-  const { data: profile, isPending } = api.ai.getAiProfile.useQuery(
-    { id: aiProfileId },
-    {},
-  );
+  const { data: loadedProfile, isPending: isLoadingProfile } =
+    api.ai.getAiProfile.useQuery(
+      { id: aiProfileId },
+      { enabled: !props.configuration },
+    );
+  const profile = props.configuration?.profile ?? loadedProfile;
+  const isPending = !props.configuration && isLoadingProfile;
 
   // Mutations
   const { mutate: toggleAiProfile, isPending: isToggling } =
@@ -90,7 +105,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       },
     });
 
-  const { mutate: updateAiProfile, isPending: isSaving } =
+  const { mutate: updateAiProfile, isPending: isUpdatingProfile } =
     api.ai.updateAiProfile.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
@@ -103,6 +118,9 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
         }
       },
     });
+  const isSaving = props.configuration?.isSaving ?? isUpdatingProfile;
+  const canEdit =
+    !isSaving && !props.configuration?.disabled && (isStaff || !isDefault);
 
   // Get backup rules
   const backupRules = getBackupRules();
@@ -111,14 +129,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   useEffect(() => {
     if (!profile) return;
     const copyRules = structuredClone(profile.rules);
-    if (profile.includeDefaultRules || !isStaff) {
+    if (profile.includeDefaultRules || (!isStaff && !isControlled)) {
       enforceExtraRules(copyRules, getBackupRules());
     }
     setRules(copyRules.map((rule) => ({ ...rule, id: nanoid() })));
     setIncludeDefault(profile.includeDefaultRules);
     setActiveElement("");
     setCollapsedGroups([]);
-  }, [profile, isStaff]);
+  }, [profile, isStaff, isControlled]);
 
   const groups = getUnique(
     rules.flatMap((rule) => (rule.group ? [rule.group] : [])),
@@ -204,7 +222,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
       initialBreak={true}
       padding={false}
       topRightContent={
-        isToggling ? (
+        props.configuration ? undefined : isToggling ? (
           <Loader explanation="Toggling AI Profile" />
         ) : (
           <NavTabs
@@ -403,6 +421,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                   {/* ******************** */}
                   <div className="flex flex-col gap-2">
                     <Select
+                      disabled={!canEdit}
                       defaultValue={""}
                       value={""}
                       onValueChange={(e) =>
@@ -446,26 +465,29 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       >
                         <b>{condition.type}</b>
                         <i>{condition.description}</i>
-                        <Trash2
-                          className="absolute top-2 right-2 h-6 w-6 hover:cursor-pointer hover:text-orange-500"
-                          onClick={() => {
-                            setRules((prevRules) =>
-                              prevRules.map((rule, k) => {
-                                if (k === ruleIndex) {
-                                  return {
-                                    ...rule,
-                                    conditions: rule.conditions.filter(
-                                      (_, l) => l !== conditionIndex,
-                                    ),
-                                  };
-                                }
-                                return rule;
-                              }),
-                            );
-                          }}
-                        />
+                        {canEdit && (
+                          <Trash2
+                            className="absolute top-2 right-2 h-6 w-6 hover:cursor-pointer hover:text-orange-500"
+                            onClick={() => {
+                              setRules((prevRules) =>
+                                prevRules.map((rule, k) => {
+                                  if (k === ruleIndex) {
+                                    return {
+                                      ...rule,
+                                      conditions: rule.conditions.filter(
+                                        (_, l) => l !== conditionIndex,
+                                      ),
+                                    };
+                                  }
+                                  return rule;
+                                }),
+                              );
+                            }}
+                          />
+                        )}
                         {"value" in condition && (
                           <Input
+                            disabled={!canEdit}
                             id="value"
                             type="input"
                             value={condition.value}
@@ -484,6 +506,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                             <Label>
                               Minimum range
                               <NumberInput
+                                disabled={!canEdit}
                                 aria-label="Minimum range"
                                 min={0}
                                 value={condition.minRange}
@@ -500,6 +523,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                             <Label>
                               Maximum range
                               <NumberInput
+                                disabled={!canEdit}
                                 aria-label="Maximum range"
                                 min={0}
                                 value={condition.maxRange}
@@ -517,6 +541,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         )}
                         {"effectType" in condition && (
                           <Select
+                            disabled={!canEdit}
                             value={condition.effectType}
                             onValueChange={(value) => {
                               updateCondition(
@@ -541,6 +566,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         )}
                         {"threshold" in condition && (
                           <NumberInput
+                            disabled={!canEdit}
                             id="threshold"
                             min="0"
                             max="100"
@@ -558,6 +584,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         )}
                         {"target" in condition && (
                           <Select
+                            disabled={!canEdit}
                             value={condition.target}
                             onValueChange={(value) => {
                               updateCondition(
@@ -591,6 +618,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                   {/* ******************** */}
                   <div className="flex flex-col gap-2">
                     <Select
+                      disabled={!canEdit}
                       defaultValue={currentActionType}
                       value={currentActionType}
                       onValueChange={(e) =>
@@ -604,7 +632,11 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         <SelectValue placeholder={`None`} />
                       </SelectTrigger>
                       <SelectContent id="available_action">
-                        {AiActionTypes.map((action, i) => (
+                        {AiActionTypes.filter(
+                          (action) =>
+                            !props.availableActionTypes ||
+                            props.availableActionTypes.some((type) => type === action),
+                        ).map((action, i) => (
                           <SelectItem key={`${action}-${i}`} value={action}>
                             {action}
                           </SelectItem>
@@ -619,6 +651,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       </div>
                       {"jutsuId" in rule.action && (
                         <Select
+                          disabled={!canEdit}
                           defaultValue={rule.action.jutsuId}
                           value={rule.action.jutsuId}
                           onValueChange={(e) =>
@@ -645,6 +678,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       )}
                       {"itemId" in rule.action && (
                         <Select
+                          disabled={!canEdit}
                           defaultValue={rule.action.itemId}
                           value={rule.action.itemId}
                           onValueChange={(e) =>
@@ -668,6 +702,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       )}
                       {"comboIds" in rule.action && (
                         <MultiSelect
+                          disabled={!canEdit}
                           selected={rule.action.comboIds}
                           options={[
                             ...(props.userData?.items?.map((ui) => ({
@@ -689,6 +724,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                       )}
                       {"target" in rule.action && (
                         <Select
+                          disabled={!canEdit}
                           defaultValue={rule.action.target}
                           value={rule.action.target}
                           onValueChange={(e) =>
@@ -733,6 +769,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                                 <Label key={axis}>
                                   {axis === "longitude" ? "X (column)" : "Y (row)"}
                                   <NumberInput
+                                    disabled={!canEdit}
                                     aria-label={
                                       axis === "longitude" ? "X (column)" : "Y (row)"
                                     }
@@ -768,6 +805,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         )}
                       {"effect" in rule.action && rule.action.effect && (
                         <Select
+                          disabled={!canEdit}
                           defaultValue={rule.action.effect}
                           value={rule.action.effect}
                           onValueChange={(e) =>
@@ -781,11 +819,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                             <SelectValue placeholder={`None`} />
                           </SelectTrigger>
                           <SelectContent id="available_action">
-                            {tagTypes?.map((effect, i) => (
-                              <SelectItem key={`${effect}-${i}`} value={effect}>
-                                {effect}
-                              </SelectItem>
-                            ))}
+                            {tagTypes
+                              .filter(
+                                (effect) =>
+                                  !props.availableActionEffects ||
+                                  props.availableActionEffects.includes(effect),
+                              )
+                              .map((effect, i) => (
+                                <SelectItem key={`${effect}-${i}`} value={effect}>
+                                  {effect}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       )}
@@ -808,14 +852,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
           </Badge>
         </div>
       )}
-      <div className="flex flex-row items-center gap-2 p-3">
+      <div className="flex flex-row flex-wrap items-center gap-2 p-3">
         {rules.length === 0 && <p>No rules added to this AI profile yet</p>}
         <div className="grow"></div>
-        {isStaff && (
+        {(isStaff || props.configuration) && (
           <Toggle
             id="catchAllRules"
             value={includeDefault}
-            disabled={isDefault}
+            disabled={isDefault || isSaving || props.configuration?.disabled}
             setShowActive={(value) => {
               setIncludeDefault(value);
               if (value)
@@ -829,17 +873,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
             labelInactive="No CatchAll"
           />
         )}
-        {!isSaving && canEdit && (
+        {canEdit && (
           <Button onClick={() => addRule()}>
             <FilePlus className="mr-2 h-6 w-6" /> Add Rule
           </Button>
         )}
-        {!isSaving && canEdit && (
+        {canEdit && (
           <Button variant="outline" onClick={() => addRule(true)}>
             Add Group
           </Button>
         )}
-        {!isSaving && canEdit && rules.length > 0 && (
+        {canEdit && (props.configuration || rules.length > 0) && (
           <Button
             onClick={() => {
               const parsed = updateAiProfileSchema.safeParse({
@@ -854,7 +898,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                 });
                 return;
               }
-              updateAiProfile(parsed.data);
+              if (props.configuration) {
+                props.configuration.onSave({
+                  rules: parsed.data.rules,
+                  includeDefaultRules: parsed.data.includeDefaultRules,
+                });
+              } else {
+                updateAiProfile(parsed.data);
+              }
             }}
           >
             <Save className="mr-2 h-6 w-6" /> Save Profile

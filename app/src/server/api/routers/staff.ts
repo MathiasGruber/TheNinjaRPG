@@ -71,6 +71,7 @@ import {
   userLikes,
   userLiveActivity,
   userNindo,
+  userPet,
   userPollVote,
   userPushPreference,
   userQuestAttempt,
@@ -1156,6 +1157,10 @@ export const staffRouter = createTRPCRouter({
           .set({ userId: input.newUserId })
           .where(eq(userUpload.userId, input.userId)),
         ctx.drizzle
+          .update(userPet)
+          .set({ userId: input.newUserId })
+          .where(eq(userPet.userId, input.userId)),
+        ctx.drizzle
           .update(parentalControl)
           .set({ userId: input.newUserId })
           .where(eq(parentalControl.userId, input.userId)),
@@ -1479,6 +1484,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     client.delete(linkPromotion).where(eq(linkPromotion.userId, userId)),
     client.delete(linkPromotion).where(eq(linkPromotion.reviewedBy, userId)),
     client.delete(userUpload).where(eq(userUpload.userId, userId)),
+    client.delete(userPet).where(eq(userPet.userId, userId)),
   ]);
 
   // Final batch: Delete main userData record (must be last)

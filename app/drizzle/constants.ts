@@ -471,6 +471,7 @@ export const StructureRoutes = [
   "/missionhall",
   "/ramenshop",
   "/science",
+  "/pets",
   "/souvenirs",
   "/townhall",
   "/traininggrounds",
@@ -619,6 +620,86 @@ export const UserRanks = [
 ] as const;
 export type UserRank = (typeof UserRanks)[number];
 
+export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
+
+/** Shared availability gate for companion combat, including saved opt-in settings. */
+export const PET_BATTLE_CONFIG = { enabled: true, battleTypes: ["QUEST"] as readonly BattleType[] };
+export const PET_BASE_STAT = 10;
+export const PET_REPLACEMENT_COST = 30;
+export const PET_MAX_COLLECTION_SLOTS = 6;
+export const PET_COLLECTION_SLOT_COST = 20;
+export const PET_SEICHI_SILVER_COST = 50;
+export const PetPaymentCurrencies = ["REPUTATION", "SEICHI_SILVER"] as const;
+export type PetPaymentCurrency = (typeof PetPaymentCurrencies)[number];
+/** Supporter capacity is temporary; purchased collection slots remain permanent. */
+export const PET_FED_COLLECTION_SLOTS: Record<FederalStatus, number> = {
+  NONE: 0, NORMAL: 1, SILVER: 2, GOLD: 3,
+};
+export const PET_MAX_ABILITY_SLOTS = 6;
+export const PET_MAX_CONSUME_PETS = 1;
+export const PET_TASK_MIN_RANK = 5;
+export const PET_TASK_MAX_MINUTES = 7 * 24 * 60;
+/** Rarity grants slots immediately; progression still controls the shared power budget. */
+export const PET_ABILITY_POWER_BUDGET_BONUS = 1;
+export const PET_MIN_SKILL_POWER_COST = 1;
+/** H-rank techniques cannot fit a pet loadout, regardless of its power budget. */
+export const PET_JUTSU_POWER_COST_BY_RANK = {
+  D: 1, C: 2, B: 3, A: 4, S: 5, H: Number.POSITIVE_INFINITY,
+} as const;
+export const PET_FEED_EXPERIENCE_BY_RARITY: Record<ItemRarity, number> = {
+  COMMON: 500, RARE: 750, EPIC: 1000, LEGENDARY: 1200,
+};
+/** Rolling feeding cooldown while companion battles are unavailable. */
+export const PET_FEED_COOLDOWN_HOURS = 3;
+export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
+export type PetRarity = (typeof PetRarities)[number];
+export const PET_ABILITY_SLOTS_BY_RARITY: Record<PetRarity, number> = {
+  COMMON: 2, UNCOMMON: 3, RARE: 4, EPIC: 5, LEGENDARY: 6,
+};
+export const PetRoles = ["SUPPORT", "HEALER", "ASSAULT"] as const;
+export type PetRole = (typeof PetRoles)[number];
+/** Species passives either empower both bonded actors or trigger on their enemy hits. */
+export const PetSkillTargets = ["SELF", "ENEMIES"] as const;
+/** Later supporter choices use these rarity weights; earlier choices remain shared. */
+export const PET_SPECIES_RARITY_WEIGHTS: Record<FederalStatus, Record<PetRarity, number>> = {
+  NONE: { COMMON: 7000, UNCOMMON: 2200, RARE: 600, EPIC: 170, LEGENDARY: 30 },
+  NORMAL: { COMMON: 6000, UNCOMMON: 2500, RARE: 1000, EPIC: 400, LEGENDARY: 100 },
+  SILVER: { COMMON: 5000, UNCOMMON: 2800, RARE: 1500, EPIC: 550, LEGENDARY: 150 },
+  GOLD: { COMMON: 4000, UNCOMMON: 3000, RARE: 2000, EPIC: 750, LEGENDARY: 250 },
+};
+export const PET_MAX_GENERATION_ATTEMPTS = 3;
+export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
+export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
+export const PET_GENERATION_RETRY_MS = 60 * 1000;
+export const PET_SANCTUARY_NAME = "Bondkeeper Sanctuary";
+export const PET_SANCTUARY_IMAGE =
+  "https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp";
+export const PET_SANCTUARY_LONGITUDE = 3;
+export const PET_SANCTUARY_LATITUDE = 6;
+export const PET_SANCTUARY_LORE =
+  "Beneath Wake Island's wind-bent cedars, the Bondkeepers shelter creatures touched by Seichi's wandering chakra. Their sanctuary was founded after the island's keepers learned that a willing pact could steady both shinobi and beast. No creature is bought or bound here: choose the signs of the companion you hope to meet, and the keepers will guide your first bond. A released companion returns to the sanctuary's wild groves.";
+export const PET_OPTION_COUNTS: Record<FederalStatus, number> = {
+  NONE: 3, NORMAL: 5, SILVER: 6, GOLD: 8,
+};
+export const PetSpawnPositions = ["BEHIND", "LEFT", "RIGHT", "FRONT"] as const;
+export type PetSpawnPosition = (typeof PetSpawnPositions)[number];
+export const PetGenerationStatuses = ["PENDING", "GENERATING", "READY", "FAILED"] as const;
+
+/** Pet progression follows the player experience curve at each previous rank's level cap. */
+export const PET_RANKS = [
+  { rank: 1, name: "Companion", minUserRank: "STUDENT", levelCap: 5, experienceRequired: 0 },
+  { rank: 2, name: "Scout", minUserRank: "GENIN", levelCap: 10, experienceRequired: 7500 },
+  { rank: 3, name: "Tracker", minUserRank: "GENIN", levelCap: 15, experienceRequired: 27500 },
+  { rank: 4, name: "Guardian", minUserRank: "CHUNIN", levelCap: 20, experienceRequired: 60000 },
+  { rank: 5, name: "Hunter", minUserRank: "CHUNIN", levelCap: 30, experienceRequired: 105000 },
+  { rank: 6, name: "Warden", minUserRank: "JONIN", levelCap: 40, experienceRequired: 232500 },
+  { rank: 7, name: "Sentinel", minUserRank: "JONIN", levelCap: 50, experienceRequired: 410000 },
+  { rank: 8, name: "Mythic", minUserRank: "ELITE JONIN", levelCap: 60, experienceRequired: 637500 },
+  { rank: 9, name: "Sovereign", minUserRank: "ELITE JONIN", levelCap: 80, experienceRequired: 915000 },
+  { rank: 10, name: "Celestial", minUserRank: "ELDER", levelCap: 100, experienceRequired: 1620000 },
+] as const satisfies readonly { rank: number; name: string; minUserRank: UserRank; levelCap: number; experienceRequired: number }[];
+
+
 export const ItemTypes = [
   "WEAPON",
   "CONSUMABLE",
@@ -733,6 +814,7 @@ export const JutsuTypes = [
   "CLAN",
   "EVENT",
   "AI",
+  "PETS",
 ] as const;
 export type JutsuType = (typeof JutsuTypes)[number];
 
@@ -2724,6 +2806,9 @@ export const IMG_MANUAL_CRAFTING_RECIPES =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJrZmM8nhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx.webp";
 export const IMG_MANUAL_AI =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJuTQifZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
+/** Illustrated bestiary representing the companion species catalogue. */
+export const IMG_MANUAL_PET_SPECIES =
+  "https://ui0arpl8sm.ufs.sh/f/manual-pet-species-17326854-5ec7-4037-a2d0-db475452bd99.webp";
 export const IMG_MANUAL_STAFF =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ3CT6Io8pYHJX5rdkUTfOKtvu2eGIELmSWqBx.webp";
 export const IMG_MANUAL_REVIEW =
@@ -2969,6 +3054,8 @@ export const IMG_MISSION_PVP =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJzCBxBXemvaQu94EYJs8HpxVzofny6iPtbgCZ.webp";
 export const IMG_MISSION_WAR = "/War_mission.webp";
 
+export const IMG_BUILDING_PET_SANCTUARY =
+  "https://ui0arpl8sm.ufs.sh/f/jBPMweRXHOHqCpuvFDvkb.webp";
 export const IMG_BUILDING_MISSIONHALL =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ2TCTWInMXlcRpYmJ5do0zKw4Qx6PVEtBa9b8.webp";
 export const IMG_BUILDING_SCIENCEBUILDING =

@@ -1,0 +1,566 @@
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createTRPCReact } from "@trpc/react-query";
+import { observable } from "@trpc/server/observable";
+import * as navigation from "next/navigation";
+import type { AppRouter } from "@/api/root";
+import * as client from "@/app/_trpc/client";
+import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
+import PetProfilePage from "@/app/[shell]/profile/pet/page";
+import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOTS_BY_RARITY, PET_BATTLE_CONFIG, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_BY_RARITY, PetRarities } from "@/drizzle/constants";
+import * as SectorVillage from "@/hooks/useSectorVillage";
+import * as ContentBox from "@/layout/ContentBox";
+import * as Image from "@/layout/Image";
+import * as ItemWithEffects from "@/layout/ItemWithEffects";
+import * as Link from "@/layout/Link";
+import { PetProfile } from "@/layout/PetProfile";
+import * as PetTasks from "@/layout/PetTasks";
+import * as StatsDistributionForm from "@/layout/StatsDistributionForm";
+import { getPetAbilityCapacity } from "@/libs/pets/abilities";
+import * as toast from "@/libs/toast";
+import * as UserContext from "@/utils/UserContext";
+import { petSpeciesFixture } from "../libs/pets/helpers/species";
+import { petJutsuFixture, petSkillFixture } from "../libs/pets/helpers/abilities";
+import { IncreaseStatTag } from "@/validators/combat";
+import type { PetTask } from "@/validators/petTasks";
+import { ensureDom } from "../setup-dom.mjs";
+
+const testApi = createTRPCReact<AppRouter>();
+type PetView = RouterOutputs["pets"]["getPet"];
+let owner: {
+  userId: string; role: string; status: string; rank: string; reputationPoints: number; seichiSilver: number;
+  sector: number; battleId: string | null; isOutlaw: boolean;
+  petTask?: PetTask | null;
+  village: { name: string; type: string; sector: number; structures: { route: string }[]; relationshipA: []; relationshipB: [] };
+};
+let queryClient: QueryClient;
+let data: PetView;
+let requestedPetId: string | null;
+let update: ReturnType<typeof vi.fn>;
+let saveAbilities: ReturnType<typeof vi.fn>;
+let feed: ReturnType<typeof vi.fn>;
+let saveAi: ReturnType<typeof vi.fn>;
+let getPet: ReturnType<typeof vi.fn>;
+let unlockSlot: ReturnType<typeof vi.fn>;
+let timeDiff: number;
+let previousBattleEnabled: boolean;
+let scrollDescriptor: PropertyDescriptor | undefined;
+
+const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
+const browserDescriptors = browserGlobals.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
+
+beforeEach(() => {
+  ensureDom();
+  scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => undefined });
+  Object.defineProperties(globalThis, {
+    Event: { configurable: true, value: window.Event },
+    CustomEvent: { configurable: true, value: window.CustomEvent },
+    ResizeObserver: { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } },
+  });
+  timeDiff = 0;
+  previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+  PET_BATTLE_CONFIG.enabled = true;
+  requestedPetId = "companion";
+  owner = {
+    userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000, seichiSilver: 100,
+    sector: 1, battleId: null, isOutlaw: false,
+    village: { name: "Horizon", type: "VILLAGE", sector: 1, structures: [{ route: "/home" }], relationshipA: [], relationshipB: [] },
+  };
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const pet = {
+    id: "companion", name: "Miso", rank: 7, experience: 0, storedExperience: 0,
+    speciesId: "pet-species-0", species: petSpeciesFixture({ rarity: "UNCOMMON" }), paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+    generationStatus: "READY", avatar: "/miso.webp", artRank: 7, battleEnabled: true,
+    spawnPosition: "BEHIND", jutsuIds: [], skillIds: [],
+    aiRules: [], includeDefaultRules: false, lastFedAt: null,
+    offence: 10, defence: 10, strength: 10, speed: 10, intelligence: 10, willpower: 10,
+  };
+  data = {
+    pet, pets: [pet], activePetId: pet.id, slots: 6, permanentSlots: 6, bonusSlots: 0, maxSlots: 6, slotCost: 20, slotSilverCost: 50, maxRank: 7,
+    nextRank: null, canRankUp: false, remainingGenerations: 3, generationLimit: 3,
+    generationRetryAt: null, unusedExperience: 100, dayKey: "2026-10-16",
+    canFeed: true, feedAvailableAt: null, feedMeals: [{ id: "meal", name: "Rice", quantity: 2, rarity: "COMMON", experience: PET_FEED_EXPERIENCE_BY_RARITY.COMMON }],
+    abilityCapacity: getPetAbilityCapacity(pet),
+    abilities: {
+      jutsus: Array.from({ length: 12 }, (_, i) => petJutsuFixture({ id: `jutsu-${i}`, name: `Strike ${i}` })),
+      skills: Array.from({ length: 6 }, (_, i) => petSkillFixture({ id: `skill-${i}`, name: `Skill ${i}` })),
+    },
+  } as unknown as PetView;
+  update = vi.fn((input: RouterInputs["pets"]["updatePet"]) => {
+    if (input.name === "Rejected") return { success: false, message: "This companion cannot be renamed right now." };
+    data = { ...data, pet: { ...data.pet!, ...input } };
+    return { success: true, message: "Updated" };
+  });
+  saveAbilities = vi.fn((input: RouterInputs["pets"]["updateAbilities"]) => {
+    data = { ...data, pet: { ...data.pet!, ...input } };
+    return { success: true, message: "Abilities saved" };
+  });
+  feed = vi.fn(() => ({ success: true, message: "Fed" }));
+  saveAi = vi.fn(() => ({ success: true, message: "Rules saved" }));
+  getPet = vi.fn(() => data);
+  unlockSlot = vi.fn(() => ({ success: true, message: "Slot unlocked" }));
+  Object.assign(vi.spyOn(client, "api" as never), { pets: testApi.pets, ai: testApi.ai, useUtils: testApi.useUtils });
+  vi.spyOn(navigation, "useSearchParams").mockImplementation(() => new URLSearchParams(requestedPetId ? { petId: requestedPetId } : {}) as never);
+  vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: owner, timeDiff }) as never);
+  vi.spyOn(SectorVillage, "useSectorVillage").mockImplementation(() => ({
+    sectorVillage: owner.sector === owner.village.sector || owner.isOutlaw ? owner.village : null,
+    isLoading: false,
+  }) as never);
+  vi.spyOn(ContentBox, "default").mockImplementation(({ title, subtitle, children }) => <section aria-label={title}><p>{subtitle}</p>{children}</section>);
+  vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
+  vi.spyOn(Link, "default").mockImplementation(({ href, children }) => <a href={String(href)}>{children}</a>);
+  vi.spyOn(ItemWithEffects, "default").mockImplementation(({ item }) => <p>{"description" in item ? String(item.description) : item.name}</p>);
+  vi.spyOn(StatsDistributionForm, "default").mockImplementation(({ disabled, availableStats }) => <p>{availableStats} training points {disabled ? "unavailable" : "available"}</p>);
+  vi.spyOn(PetTasks, "PetTasks").mockImplementation(({ petId }) => <p>Tasks for {petId}</p>);
+  vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
+});
+afterEach(() => {
+  cleanup();
+  queryClient.clear();
+  PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+  vi.restoreAllMocks();
+  if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollDescriptor);
+  else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  browserGlobals.forEach((key, index) => {
+    const descriptor = browserDescriptors[index];
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else Reflect.deleteProperty(globalThis, key);
+  });
+});
+
+const mount = () => {
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    const respond = async () => {
+      if (op.path === "pets.getPet") {
+        return getPet(op.input);
+      }
+      if (op.path === "pets.updatePet") return update(op.input);
+      if (op.path === "pets.unlockSlot") return unlockSlot(op.input);
+      if (op.path === "pets.updateAbilities") return saveAbilities(op.input);
+      if (op.path === "pets.feedPet") return feed(op.input);
+      if (op.path === "pets.updateAiConfig") return saveAi(op.input);
+      throw new Error(`Unexpected procedure ${op.path}`);
+    };
+    void respond().then((value) => { observer.next({ result: { data: value } }); observer.complete(); }, (error) => observer.error(error));
+  })] });
+  return render(<testApi.Provider client={trpcClient} queryClient={queryClient}><QueryClientProvider client={queryClient}><PetProfile /></QueryClientProvider></testApi.Provider>);
+};
+const selectTab = (view: ReturnType<typeof mount>, name: string) => fireEvent.mouseDown(view.getByRole("tab", { name }), { button: 0, ctrlKey: false });
+const mealButton = (view: ReturnType<typeof mount>) => view.getAllByRole("button", { name: "Feed one meal" }).find((button) => button.tagName === "BUTTON") as HTMLButtonElement;
+const confirmMeal = async (view: ReturnType<typeof mount>) => {
+  fireEvent.click(mealButton(view));
+  const dialog = await view.findByRole("dialog", { name: /Feed .* to Miso\?/ });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" }));
+};
+const openSlotDialog = async (view: ReturnType<typeof mount>) => {
+  fireEvent.click(await view.findByRole("button", { name: "Add slot" }));
+  return view.findByRole("dialog", { name: "Add a companion slot" });
+};
+
+it.each(["REPUTATION", "SEICHI_SILVER"] as const)("buys a permanent collection slot using only the chosen %s balance", async (currency) => {
+  data = { ...data, slots: 4, permanentSlots: 1, bonusSlots: 3, maxSlots: 9 };
+  owner.reputationPoints = currency === "REPUTATION" ? 20 : 0;
+  owner.seichiSilver = currency === "SEICHI_SILVER" ? 50 : 0;
+  const view = mount();
+  await view.findByRole("button", { name: "Add slot" });
+  expect(view.queryByRole("radio")).toBeNull();
+  expect(view.queryByText(/^Balance:/)).toBeNull();
+  const dialog = await openSlotDialog(view);
+  const reputation = within(dialog).getByRole("radio", { name: "20 reputation" });
+  if (currency === "SEICHI_SILVER") {
+    expect((within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  } else {
+    expect(reputation.getAttribute("aria-checked")).toBe("true");
+  }
+  const price = currency === "SEICHI_SILVER" ? "50 Seichi Silver" : "20 reputation";
+  expect(dialog.textContent).toContain("Add one permanent slot to keep up to 5 companions.");
+  expect(unlockSlot).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button", { name: `Unlock slot · ${price}` }));
+  await waitFor(() => expect(unlockSlot).toHaveBeenCalledWith({ currency }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+  expect(view.getByText(/1 permanent slot · 3 federal support bonus slots/)).toBeTruthy();
+  expect(view.getByText(/Your companions are kept if support expires/)).toBeTruthy();
+});
+
+it("opens slot pricing with no reputation and only enables payment after choosing an affordable currency", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  owner.reputationPoints = 0;
+  owner.seichiSilver = 50;
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  expect(within(dialog).getByRole("status").textContent).toBe("You need 20 more reputation to unlock this slot.");
+  const reputationPayment = within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement;
+  expect(reputationPayment.disabled).toBe(true);
+  fireEvent.click(reputationPayment);
+  expect(unlockSlot).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  expect(within(dialog).queryByRole("status")).toBeNull();
+  expect((within(dialog).getByRole("button", { name: "Unlock slot · 50 Seichi Silver" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(unlockSlot).not.toHaveBeenCalled();
+});
+
+it("does not buy a collection slot when the payment dialog is closed", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  fireEvent.click(within(dialog).getByText("Close", { selector: "button" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+  expect(unlockSlot).not.toHaveBeenCalled();
+});
+
+it("keeps a rejected slot purchase open with recoverable feedback and closes after a successful retry", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  unlockSlot.mockReturnValueOnce({ success: false, message: "Your account changed. Please try again." });
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }));
+  await within(dialog).findByRole("alert");
+  expect(within(dialog).getByRole("alert").textContent).toBe("Your account changed. Please try again.");
+  await waitFor(() => expect((within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 50 Seichi Silver" }));
+  await waitFor(() => expect(unlockSlot).toHaveBeenLastCalledWith({ currency: "SEICHI_SILVER" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+  expect(unlockSlot).toHaveBeenCalledTimes(2);
+});
+
+it("keeps a pending slot purchase guarded against duplicate payment or a changed currency", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  let completePurchase!: (result: { success: boolean; message: string }) => void;
+  unlockSlot.mockImplementationOnce(() => new Promise((resolve) => { completePurchase = resolve; }));
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }));
+  const pending = await within(dialog).findByRole("button", { name: "Unlocking slot..." }) as HTMLButtonElement;
+  expect(pending.disabled).toBe(true);
+  expect((within(dialog).getByRole("radio", { name: "50 Seichi Silver" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(pending);
+  expect(unlockSlot).toHaveBeenCalledTimes(1);
+  await act(async () => completePurchase({ success: true, message: "Slot unlocked" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+});
+
+it("omits the slot purchase action at maximum capacity", async () => {
+  const view = mount();
+  await view.findByRole("combobox", { name: "Companion" });
+  expect(view.queryByRole("button", { name: "Add slot" })).toBeNull();
+  expect(view.queryByRole("radio", { name: "20 reputation" })).toBeNull();
+});
+
+it("keeps companion management available after support expires while offering remaining permanent slots", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1, bonusSlots: 0, maxSlots: 6, pets: [data.pet!, { ...data.pet!, id: "retained", name: "Retained" }] };
+  const view = mount();
+  await view.findByRole("button", { name: "Add slot" });
+  expect(view.getByText("2 / 1 collection slots")).toBeTruthy();
+  expect((view.getByRole("combobox", { name: "Companion" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(view.getByRole("tabpanel", { name: "Care" })).toBeTruthy();
+  expect(view.getByText(/adopting requires room in your current capacity/)).toBeTruthy();
+  expect(view.getByText(/adopting requires room in your current capacity/).closest("details")?.open).toBe(true);
+  const dialog = await openSlotDialog(view);
+  expect(within(dialog).getByRole("radio", { name: "20 reputation" })).toBeTruthy();
+});
+
+it.each([false, true])("keeps companion combat off and unavailable for a saved preference of %s", async (battleEnabled) => {
+  PET_BATTLE_CONFIG.enabled = false;
+  data.pet!.battleEnabled = battleEnabled;
+  const view = mount();
+  await view.findByRole("tab", { name: "Battle" });
+  selectTab(view, "Battle");
+  const toggle = view.getByRole("switch", { name: "Join me in battle" });
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  expect((toggle as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById(toggle.getAttribute("aria-describedby")!)?.textContent).toBe("Companion battles are not available yet.");
+  expect(view.getByText("Unavailable")).toBeTruthy();
+  expect(view.queryByText("Joining battle")).toBeNull();
+  fireEvent.click(toggle);
+  expect(update).not.toHaveBeenCalled();
+});
+
+it("shows focused activities and preserves an AI draft while switching tabs", async () => {
+  const view = mount();
+  await view.findByRole("tablist", { name: "Companion activities" });
+  expect(view.getAllByRole("tabpanel")).toHaveLength(1);
+  const care = view.getByRole("tab", { name: /^Care$/ });
+  const carePanel = view.getByRole("tabpanel", { name: /^Care$/ });
+  expect(carePanel.getAttribute("aria-labelledby")).toBe(care.id);
+  expect(carePanel.textContent).toContain("Feed one meal");
+  expect(carePanel.textContent).not.toContain("training points available");
+  expect(carePanel.textContent).not.toContain("final evolution");
+  const stats = view.getAllByRole("definition")[0]!.closest("dl")!;
+  expect(stats.getAttribute("aria-label")).toBe("Companion stats");
+  expect(stats.closest("section")?.getAttribute("aria-label")).toBe("Miso");
+  expect(stats.closest('[role="tabpanel"]')).toBeNull();
+  act(() => care.focus());
+  fireEvent.keyDown(care, { key: "ArrowRight" });
+  await waitFor(() => expect(view.getByRole("tabpanel", { name: "Training" })).toBeTruthy());
+  expect(view.getByText("100 training points available")).toBeTruthy();
+  expect(view.getByText("Your companion has reached its final evolution.")).toBeTruthy();
+  expect(view.queryAllByRole("button", { name: "Feed one meal" })).toHaveLength(0);
+  fireEvent.keyDown(view.getByRole("tab", { name: "Training" }), { key: "ArrowRight" });
+  await waitFor(() => expect(view.getByRole("tabpanel", { name: "Abilities" })).toBeTruthy());
+  expect(document.activeElement).toBe(view.getByRole("tab", { name: "Abilities" }));
+  expect(view.queryByRole("button", { name: "Save Profile" })).toBeNull();
+  selectTab(view, "Battle");
+  fireEvent.click(view.getByRole("button", { name: "Add Rule" }));
+  expect(view.getByRole("button", { name: /Rule 1:/ })).toBeTruthy();
+  selectTab(view, "Abilities");
+  expect(view.queryByRole("button", { name: /Rule 1:/ })).toBeNull();
+  selectTab(view, "Battle");
+  fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+  await waitFor(() => expect(saveAi).toHaveBeenCalledTimes(1));
+  expect(saveAi.mock.calls[0]?.[0]).toMatchObject({ petId: "companion", includeDefaultRules: false });
+  expect(saveAi.mock.calls[0]?.[0].rules).toHaveLength(1);
+});
+
+it("associates a friendly blank-name error with the field and preserves backend rejection messages", async () => {
+  const view = mount();
+  await view.findByRole("tab", { name: "Settings" });
+  selectTab(view, "Settings");
+  const name = view.getByRole("textbox", { name: "Companion name" });
+  fireEvent.change(name, { target: { value: " " } });
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
+  const error = await view.findByRole("alert");
+  expect(error.textContent).toBe("Enter a companion name.");
+  expect(name.getAttribute("aria-describedby")).toContain(error.id);
+  expect(name.getAttribute("aria-invalid")).toBe("true");
+  expect(document.activeElement).toBe(name);
+  expect(update).not.toHaveBeenCalled();
+  fireEvent.change(name, { target: { value: "Rejected" } });
+  expect(view.queryByRole("alert")).toBeNull();
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
+  await view.findByText("This companion cannot be renamed right now.");
+  expect((view.getByRole("button", { name: "Save" }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.change(name, { target: { value: "Sora" } });
+  fireEvent.click(view.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(data.pet?.name).toBe("Sora"));
+});
+
+it("keeps the selected loadout and save action before compact searchable choices and enforces shared slots", async () => {
+  const view = mount();
+  await view.findByRole("tab", { name: "Abilities" });
+  selectTab(view, "Abilities");
+  const choices = view.getByRole("group", { name: "Available companion abilities" });
+  const save = view.getByRole("button", { name: "Save abilities" });
+  expect(save.compareDocumentPosition(choices) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(within(choices).getAllByRole("checkbox")).toHaveLength(18);
+  fireEvent.click(view.getByRole("checkbox", { name: /Strike 0 Jutsu/ }));
+  fireEvent.click(view.getByRole("checkbox", { name: /Strike 1 Jutsu/ }));
+  fireEvent.click(view.getByRole("checkbox", { name: /Skill 0 Skill/ }));
+  expect((view.getByRole("checkbox", { name: /Strike 2 Jutsu/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect((view.getByRole("checkbox", { name: /Strike 0 Jutsu/ }) as HTMLButtonElement).disabled).toBe(false);
+  expect(view.getAllByText("This loadout exceeds your companion's rarity-based ability slots.").every((message) => message.closest("details")?.open === false)).toBe(true);
+  fireEvent.change(view.getByRole("textbox", { name: "Find an ability" }), { target: { value: "Strike 0" } });
+  expect(within(choices).getAllByRole("checkbox")).toHaveLength(1);
+  selectTab(view, "Care");
+  selectTab(view, "Abilities");
+  fireEvent.click(view.getByRole("button", { name: "Save abilities" }));
+  await waitFor(() => expect(saveAbilities).toHaveBeenCalledWith({ petId: "companion", jutsuIds: ["jutsu-0", "jutsu-1"], skillIds: ["skill-0"] }));
+  await waitFor(() => expect((view.getByRole("button", { name: "Save abilities" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(view.getByRole("button", { name: "Clear selection" }));
+  expect(view.getByText("No abilities selected.")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Save abilities" }));
+  await waitFor(() => expect(saveAbilities).toHaveBeenLastCalledWith({ petId: "companion", jutsuIds: [], skillIds: [] }));
+});
+
+it.each([...PetRarities])("grants all %s ability slots from adoption without a purchase action", async (rarity) => {
+  data.pet = { ...data.pet!, rank: 1, artRank: 1, species: petSpeciesFixture({ rarity }) };
+  data.abilityCapacity = getPetAbilityCapacity(data.pet);
+  const view = mount();
+  await view.findByRole("tab", { name: "Abilities" });
+  selectTab(view, "Abilities");
+  expect(view.getByText(`0 / ${PET_ABILITY_SLOTS_BY_RARITY[rarity]} slots used`)).toBeTruthy();
+  expect(view.getByText(/slots from adoption. Evolving increases the power budget/)).toBeTruthy();
+  expect(view.queryByRole("button", { name: /Unlock ability slot/ })).toBeNull();
+  expect(view.getByText("0 / 2 power budget")).toBeTruthy();
+});
+
+it("shows role and compact species skills without expanding the overview", async () => {
+  data.pet!.species = petSpeciesFixture({ role: "SUPPORT", effects: [IncreaseStatTag.parse({})] });
+  const view = mount();
+  await view.findByText("Support");
+  const skills = view.getByText("Species skills · 1 tag").closest("details")!;
+  expect(skills.open).toBe(false);
+  expect(skills.textContent).toContain("Applies to the companion and its owner");
+  expect(skills.textContent).toContain("participates in an eligible battle");
+});
+
+it("offers an editable PvE preference and explains the excluded battle modes", async () => {
+  const view = mount();
+  await view.findByRole("tab", { name: "Battle" });
+  selectTab(view, "Battle");
+  const toggle = view.getByRole("switch", { name: "Join me in battle" });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  expect((toggle as HTMLButtonElement).disabled).toBe(false);
+  expect(view.getByText("Ready for PvE")).toBeTruthy();
+  expect(document.getElementById(toggle.getAttribute("aria-describedby")!)?.textContent).toContain("dungeon quest battles only");
+  fireEvent.click(toggle);
+  await waitFor(() => expect(update).toHaveBeenCalledWith({ petId: "companion", battleEnabled: false }));
+});
+
+it("locks the away companion while keeping collection navigation and other companions available", async () => {
+  owner.petTask = { petId: "companion", questHistoryId: "attempt", questId: "contract", startedAt: 1, questVersion: 1, finishesAt: Date.now() + 60000 };
+  const other = { ...data.pet!, id: "second", name: "Sora" };
+  data.pets = [data.pet!, other];
+  getPet.mockImplementation((input: { petId: string }) => input.petId === "second" ? { ...data, pet: other } : data);
+  const view = mount();
+  await view.findByText(/Miso is away on a task/);
+  fireEvent.click(view.getByRole("button", { name: "Open Tasks" }));
+  expect(view.getByText("Tasks for companion")).toBeTruthy();
+  selectTab(view, "Care");
+  expect(mealButton(view).disabled).toBe(true);
+  const collection = view.getByRole("combobox", { name: "Companion" });
+  expect((collection as HTMLButtonElement).disabled).toBe(false);
+  selectTab(view, "Training");
+  expect(view.getByText("100 training points unavailable")).toBeTruthy();
+  selectTab(view, "Abilities");
+  expect((view.getByRole("button", { name: "Save abilities" }) as HTMLButtonElement).disabled).toBe(true);
+  selectTab(view, "Battle");
+  expect((view.getByRole("switch", { name: "Join me in battle" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("button", { name: "Save Profile" })).toBeNull();
+  selectTab(view, "Settings");
+  expect((view.getByRole("textbox", { name: "Companion name" }) as HTMLInputElement).disabled).toBe(true);
+  selectTab(view, "Tasks");
+  expect(view.getByText("Tasks for companion")).toBeTruthy();
+  fireEvent.keyDown(collection, { key: "ArrowDown" });
+  fireEvent.click(await view.findByRole("option", { name: /Sora/ }));
+  await waitFor(() => expect(getPet).toHaveBeenLastCalledWith({ petId: "second" }));
+  await view.findByRole("tab", { name: "Care" });
+  selectTab(view, "Care");
+  await waitFor(() => expect(mealButton(view).disabled).toBe(false));
+  expect(view.queryByText(/Miso is away on a task/)).toBeNull();
+});
+
+it.each(["COMMON", "RARE", "EPIC", "LEGENDARY"] as const)("shows %s meal experience in selection and confirms before consuming", async (rarity) => {
+  const experience = PET_FEED_EXPERIENCE_BY_RARITY[rarity];
+  data.feedMeals = [{ ...data.feedMeals[0]!, rarity, experience }];
+  const view = mount();
+  await view.findAllByRole("button", { name: "Feed one meal" });
+  expect(view.getByRole("combobox", { name: "Meal" }).textContent).toContain(`${experience.toLocaleString()} XP`);
+  fireEvent.click(mealButton(view));
+  const dialog = await view.findByRole("dialog", { name: "Feed Rice to Miso?" });
+  expect(dialog.textContent).toContain(`${experience.toLocaleString()} unused experience`);
+  expect(feed).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" }));
+  await waitFor(() => expect(feed).toHaveBeenCalledWith({ petId: "companion", userItemId: "meal", expectedQuantity: 2 }));
+});
+
+it.each([false, true])("shows the feeding cadence with combat enabled %s and feeds using the displayed inventory snapshot", async (enabled) => {
+  PET_BATTLE_CONFIG.enabled = enabled;
+  const view = mount();
+  await view.findAllByRole("button", { name: "Feed one meal" });
+  await confirmMeal(view);
+  expect(view.getByText(enabled ? "Share a meal once each UTC day" : `Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`)).toBeTruthy();
+  await waitFor(() => expect(feed).toHaveBeenCalledWith({ petId: "companion", userItemId: "meal", expectedQuantity: 2 }));
+  expect(view.getByRole("tabpanel", { name: /^Care$/ }).textContent).not.toContain("training points");
+  selectTab(view, "Training");
+  expect(view.getByText("100 training points available")).toBeTruthy();
+});
+
+it("keeps feeding unavailable until the server-time countdown expires and refreshes eligibility in place", async () => {
+  let now = Date.now();
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  timeDiff = 5000;
+  data = { ...data, canFeed: false, feedAvailableAt: new Date(now - 3000) };
+  const view = mount();
+  await view.findByText(/Next meal available in/);
+  expect(view.queryAllByRole("button", { name: "Feed one meal" })).toHaveLength(0);
+  expect(feed).not.toHaveBeenCalled();
+  now += 1999;
+  await view.findByText("0 seconds");
+  expect(getPet).toHaveBeenCalledTimes(1);
+  expect(view.queryAllByRole("button", { name: "Feed one meal" })).toHaveLength(0);
+  data = { ...data, canFeed: true, feedAvailableAt: null };
+  now += 1;
+  await view.findAllByRole("button", { name: "Feed one meal" });
+  const action = mealButton(view);
+  expect(getPet).toHaveBeenCalledTimes(2);
+  expect((action as HTMLButtonElement).disabled).toBe(false);
+  await confirmMeal(view);
+  await waitFor(() => expect(feed).toHaveBeenCalledTimes(1));
+});
+
+it.each([
+  [1, "/travel?sector=" + MAP_WAKE_ISLAND_SECTOR, "Travel to Wake Island"],
+  [MAP_WAKE_ISLAND_SECTOR, "/pets", "Open sanctuary"],
+])("offers a reachable sanctuary destination from sector %s", async (sector, href, label) => {
+  owner.sector = Number(sector);
+  const view = mount();
+  expect((await view.findByRole("link", { name: String(label) })).getAttribute("href")).toBe(href);
+  expect(view.queryByRole("link", { name: "Visit the sanctuary" })).toBeNull();
+});
+
+it("offers one targeted sanctuary action for an empty collection", async () => {
+  data = { ...data, pet: null, pets: [], activePetId: null };
+  const view = mount();
+  const action = await view.findByRole("link", { name: "Travel to Wake Island" });
+  expect(action.getAttribute("href")).toBe(`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`);
+  expect(view.queryByRole("link", { name: "Open sanctuary" })).toBeNull();
+});
+
+it("keeps an orphaned task recoverable when the companion collection is empty", async () => {
+  requestedPetId = null;
+  data = { ...data, pet: null, pets: [], activePetId: null };
+  owner.petTask = { petId: "missing-companion", questId: "contract", questHistoryId: "attempt", startedAt: 1, questVersion: 1, finishesAt: 2 };
+  const view = mount();
+  const task = await view.findByText("Tasks for missing-companion");
+  expect(task.closest("section")?.getAttribute("aria-label")).toBe("Companion task");
+  expect(view.queryByRole("tablist", { name: "Companion activities" })).toBeNull();
+  expect(view.getByRole("link", { name: "Travel to Wake Island" })).toBeTruthy();
+});
+
+it("opens the existing home kitchen directly when the owner is at home", async () => {
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Open kitchen" })).getAttribute("href")).toBe("/home?panel=kitchen");
+});
+
+it("opens the owner kitchen for a roaming outlaw whose resolved village is the Syndicate", async () => {
+  owner.isOutlaw = true;
+  owner.sector = 2;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Open kitchen" })).getAttribute("href")).toBe("/home?panel=kitchen");
+  expect(view.queryByRole("link", { name: "Travel home to cook" })).toBeNull();
+});
+
+it("targets the owner's home village when cooking is elsewhere", async () => {
+  owner.sector = MAP_WAKE_ISLAND_SECTOR;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("link", { name: "Travel home to cook" })).getAttribute("href")).toBe("/travel?sector=1");
+  expect(view.getByText(/home kitchen in Horizon/)).toBeTruthy();
+  expect(view.queryByRole("link", { name: "Open kitchen" })).toBeNull();
+});
+
+it.each(["ASLEEP", "BATTLE"])("explains unavailable travel without leaving a working link while %s", async (status) => {
+  owner.status = status;
+  owner.sector = 2;
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  expect((await view.findByRole("button", { name: "Travel to Wake Island" }) as HTMLButtonElement).disabled).toBe(true);
+  expect((view.getByRole("button", { name: "Travel home to cook" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(view.queryByRole("link", { name: /Travel/ })).toBeNull();
+  expect(view.getAllByText(/awake state outside battle to travel/)).toHaveLength(2);
+});
+
+it("explains missing home kitchens without sending the player to an inaccessible home", async () => {
+  owner.village.structures = [];
+  data = { ...data, feedMeals: [] };
+  const view = mount();
+  await view.findByText("Your current village does not have a home kitchen.");
+  expect(view.queryByRole("link", { name: /kitchen|cook/ })).toBeNull();
+});
+
+it.each([
+  [{}, "/profile?tab=pet"],
+  [{ petId: "pet / one" }, "/profile?tab=pet&petId=pet+%2F+one"],
+  [{ petId: ["selected", "ignored"] }, "/profile?tab=pet&petId=selected"],
+] as const)("redirects the standalone profile with canonical pet selection %j", async (params, expected) => {
+  const redirect = vi.spyOn(navigation, "redirect").mockImplementation((url) => { throw new Error(String(url)); });
+  await expect(PetProfilePage({ searchParams: Promise.resolve(params as { petId?: string | string[] }) })).rejects.toThrow(expected);
+  expect(redirect).toHaveBeenCalledWith(expected);
+});

@@ -102,13 +102,14 @@ describe("inventory pages", () => {
       { message: "Invalid input", cache: false, expected: undefined },
       { message: "Failed to fetch", cache: true, expected: "Could not confirm item use. Try Consume again to check the opening." },
       { message: "Failed to fetch", cache: false, expected: "Could not confirm item use. Refresh your inventory to check the result." },
-    ])(`${file} handles $message for cache: $cache without duplicating global error feedback`, async ({ message, cache, expected }) => {
+      { message: "Failed to fetch", cache: false, pet: true, expected: "Could not confirm item use. Try Consume again to check the opening." },
+    ])(`${file} handles $message for cache: $cache without duplicating global error feedback`, async ({ message, cache, expected, pet = false }) => {
       const source = read(file);
       const callbacks = source.match(/api\.item\.consume\.useMutation\((\{[\s\S]*?\n  \})\);/)?.[1];
       if (!callbacks) throw new Error("Consume callbacks were not found");
       const toast = vi.fn();
       let isOpen = true;
-      let selected: unknown = { item: { itemType: cache ? "CONSUMABLE" : "MEAL", effects: cache ? [{ type: "noncombatconsumereward", rewardMode: "weightedCache" }] : [] } };
+      let selected: unknown = { item: { itemType: cache || pet ? "CONSUMABLE" : "MEAL", effects: cache || pet ? [{ type: "noncombatconsumereward", rewardMode: cache ? "weightedCache" : "standard", reward_pets: pet ? ["fox"] : [] }] : [] } };
       const setIsOpen = (value: boolean) => { isOpen = value; };
       const setUserItem = (value: unknown) => { selected = value; };
       const settled = source.split("const Backpack:")[1]?.match(/const onSettled = (\(\) => \{[\s\S]*?\n  \});/)?.[1];
@@ -131,6 +132,27 @@ describe("inventory pages", () => {
       } finally {
         client.clear();
       }
+    });
+  }
+
+  for (const file of ["app/[shell]/items/page.tsx", "app/[shell]/travel/page.tsx"]) {
+    it(`${file} refreshes the companion collection and forwards its generation link after a pet reward`, async () => {
+      const callbacks = read(file).match(/api\.item\.consume\.useMutation\((\{[\s\S]*?\n  \})\);/)?.[1];
+      if (!callbacks) throw new Error("Consume callbacks were not found");
+      const refreshPets = vi.fn(async () => undefined);
+      const invalidate = { invalidate: vi.fn(async () => undefined) };
+      const rewardToast = vi.fn();
+      const utils = { profile: { getUser: invalidate },
+        item: { getUserItems: invalidate, getUserItemsWithVariants: invalidate },
+        bloodline: { getItemRolls: invalidate }, raids: { getUserRaidBuffs: invalidate },
+        pets: { getPet: { invalidate: refreshPets } } };
+      const options = new Function("utils", "showRewardToast", "showMutationToast", "finishItemConsumeRequest", "userData", "onSettled", `return (${callbacks});`)(
+        utils, rewardToast, vi.fn(), vi.fn(), { userId: "recipient" }, vi.fn(),
+      ) as { onSuccess: (data: unknown, variables: { userItemId: string }) => Promise<void> };
+      const petRewards = [{ id: "new-pet", speciesId: "fox", name: "Nami" }];
+      await options.onSuccess({ success: true, rewards: {}, message: "Used contract", notifications: [], cacheRewards: [], petRewards }, { userItemId: "contract" });
+      expect(refreshPets).toHaveBeenCalledTimes(1);
+      expect(rewardToast.mock.calls[0]?.[7]).toEqual(petRewards);
     });
   }
 

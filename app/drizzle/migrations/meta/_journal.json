@@ -631,6 +631,13 @@
       "when": 1792219604760,
       "tag": "0089_kage_defense_schedule",
       "breakpoints": false
+    },
+    {
+      "idx": 90,
+      "version": "5",
+      "when": 1792224092345,
+      "tag": "0090_pet_companions",
+      "breakpoints": false
     }
   ]
 }

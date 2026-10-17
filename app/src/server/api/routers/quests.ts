@@ -28,6 +28,8 @@ import {
   MasteryNames,
   MEDNIN_EXP_CAP,
   NPC_ONLY_QUEST_TYPES,
+  PET_TASK_MAX_MINUTES,
+  PET_TASK_MIN_RANK,
   QuestTypes,
   REGEN_SECONDS,
   SAGE_MASTERY_EXP_CAP,
@@ -37,7 +39,7 @@ import {
   VILLAGE_SYNDICATE_ID,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
-import type { Quest, UserData } from "@/drizzle/schema";
+import type { Quest, UserData, UserPet } from "@/drizzle/schema";
 import {
   actionLog,
   anbuSquad,
@@ -61,6 +63,7 @@ import {
   userData,
   userItem,
   userJutsu,
+  userPet,
   userQuestAttempt,
   userRaidBuff,
   userRewards,
@@ -81,6 +84,13 @@ import {
   isSupportedOverworldBindingTask,
   validateFriendlyPlacementBindings,
 } from "@/libs/overworldAi";
+import { petExperienceGainSql } from "@/libs/pets/experience";
+import { isPetAppearanceReady } from "@/libs/pets/progression";
+import {
+  isPetTaskAttempt,
+  isPetTaskContract,
+  petTaskDispatchBlockMessage,
+} from "@/libs/pets/tasks";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
@@ -206,6 +216,12 @@ import { canAccessStructure } from "@/utils/village";
 import { idSchema } from "@/validators/misc";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import { QuestTracker, QuestValidator } from "@/validators/objectives";
+import { petSelectionSchema } from "@/validators/pets";
+import {
+  type PetTask,
+  petTaskActionSchema,
+  startPetTaskSchema,
+} from "@/validators/petTasks";
 import { questFilteringSchema } from "@/validators/quest";
 import {
   ClaimRewardChoiceSchema,
@@ -702,6 +718,10 @@ export const questsRouter = createTRPCRouter({
       });
       if (!user) return errorResponse("User does not exist");
       const current = user?.userQuests?.find((q) => q.questId === input.id && !q.endAt);
+      if (user.petTask?.questId === input.id)
+        return errorResponse(
+          "Return your companion from the Tasks tab before abandoning this contract.",
+        );
       if (user.questParty?.questId === input.id)
         return errorResponse("Leave your quest team before abandoning this quest");
       if (!current) {
@@ -743,6 +763,8 @@ export const questsRouter = createTRPCRouter({
       );
       const managedRun =
         current.questType === "battlepyramid" ||
+        current.questType === "hunting" ||
+        current.questType === "gathering" ||
         current.isolated ||
         !!current.quest.content.entryItems?.length;
       if (managedRun) {
@@ -1256,6 +1278,256 @@ export const questsRouter = createTRPCRouter({
         return { success: false, message: `Not allowed to delete quest` };
       }
     }),
+  /** Return the accepted task even when its content disappeared, so cancellation stays available. */
+  getPetTask: protectedProcedure
+    .input(petSelectionSchema.optional())
+    .query(async ({ ctx, input }) => {
+      const owner = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+        with: { pets: true },
+      });
+      if (!owner) throw serverError("NOT_FOUND", "User not found");
+      const task = owner.petTask;
+      const [contract, history] = await Promise.all([
+        task ? fetchQuest(ctx.drizzle, task.questId) : undefined,
+        task
+          ? fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, task.questId)
+          : undefined,
+      ]);
+      const pet = owner.pets.find((entry) => entry.id === task?.petId);
+      return {
+        task,
+        petName: pet?.name ?? "Companion",
+        questName: contract?.name ?? "Unavailable contract",
+        blockMessage: task
+          ? petTaskReturnBlockMessage(owner, task, contract, history, pet)
+          : null,
+        dispatchBlockMessage: petTaskDispatchBlockMessage(
+          owner,
+          owner.pets.find((entry) => entry.id === input?.petId),
+        ),
+      };
+    }),
+
+  /** Accept the normal profession contract, then reserve one exact attempt and companion. */
+  startPetTask: protectedProcedure
+    .input(startPetTaskSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [{ user }, contract, previous, pet] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId, forceRegen: true }),
+        fetchQuest(ctx.drizzle, input.questId),
+        fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, input.questId),
+        ctx.drizzle.query.userPet.findFirst({
+          where: and(eq(userPet.id, input.petId), eq(userPet.userId, ctx.userId)),
+        }),
+      ]);
+      if (!user) return errorResponse("User not found");
+      const blocked = petTaskDispatchBlockMessage(user, pet);
+      if (blocked || !pet) return errorResponse(blocked ?? "Companion not found");
+      if (!contract || !isPetTaskContract(contract))
+        return errorResponse(
+          "Content has not enabled companion tasks for this contract.",
+        );
+      const access = questUiAccessBlockMessage(contract, user, null);
+      if (access) return errorResponse(access);
+      if (!isQuestRankAllowed(contract, user))
+        return errorResponse("Your rank cannot accept this contract.");
+      const availability = isAvailableUserQuests(
+        { ...contract, ...previous },
+        user,
+        true,
+      );
+      if (!availability.check) return errorResponse(availability.message);
+      if (user.questParty?.questId === contract.id)
+        return errorResponse("Leave the quest team before delegating this contract.");
+      if (previous?.pendingRewardChoice)
+        return errorResponse(
+          "Choose this contract's waiting rewards in the Logbook before sending a companion.",
+        );
+      if (!previous || previous.completed || previous.endAt) {
+        const assigned = await assignQuestToUser({
+          client: ctx.drizzle,
+          user,
+          quest: contract,
+          source: "ui",
+          prevAttempt: previous,
+        });
+        if (!assigned.success) return assigned;
+      }
+      // Assignment may insert or reuse a row. Read its committed identity so concurrent
+      // starts cannot reserve a fabricated ID or an older generation of the same contract.
+      const history = await fetchUserQuestByQuestId(
+        ctx.drizzle,
+        ctx.userId,
+        contract.id,
+      );
+      if (!history || history.completed || history.endAt || history.pendingRewardChoice)
+        return errorResponse(
+          "The contract changed. Refresh before sending your companion.",
+        );
+      if (history.questVersion?.getTime() !== contract.updatedAt.getTime())
+        return errorResponse(
+          "This accepted contract changed. Abandon and accept it again before sending your companion.",
+        );
+      const task: PetTask = {
+        petId: pet.id,
+        questHistoryId: history.id,
+        questId: contract.id,
+        startedAt: history.startedAt.getTime(),
+        questVersion: contract.updatedAt.getTime(),
+        finishesAt: secondsFromDate(contract.petTaskMinutes * 60, new Date()).getTime(),
+      };
+      const claim = await retryOnDeadlock(() =>
+        claimUserSnapshot({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+          updatedAt: user.updatedAt,
+          where: [
+            isNull(userData.petTask),
+            eq(userData.status, "AWAKE"),
+            isNull(userData.battleId),
+            eq(userData.isBanned, false),
+            eq(userData.isAi, false),
+            eq(
+              userData.occupation,
+              contract.questType === "hunting" ? "HUNTER" : "GATHERING",
+            ),
+            eq(userData.rank, user.rank),
+            sql`EXISTS (SELECT 1 FROM ${userPet} WHERE ${userPet.id} = ${pet.id} AND ${userPet.userId} = ${ctx.userId} AND ${userPet.revision} = ${pet.revision})`,
+            petTaskAttemptCondition(task, ctx.userId),
+            petTaskContentCondition(task, user.role),
+          ],
+          set: {
+            petTask: task,
+            questData:
+              user.questData?.filter((tracker) => tracker.id !== contract.id) ?? [],
+          },
+        }),
+      );
+      return claim.success
+        ? { success: true, message: `${pet.name} left to complete ${contract.name}.` }
+        : errorResponse(
+            "The contract is accepted, but your character changed before dispatch. Refresh and send your companion again.",
+          );
+    }),
+
+  /** Claim only the final configured reward through the normal quest completion guards. */
+  collectPetTask: protectedProcedure
+    .input(petTaskActionSchema)
+    .output(userDeltaResponseSchema)
+    .mutation(async ({ ctx, input }) => {
+      const [{ user, settings }, history, pet] = await Promise.all([
+        fetchUpdatedUser({ client: ctx.drizzle, userId: ctx.userId }),
+        ctx.drizzle.query.questHistory.findFirst({
+          where: and(
+            eq(questHistory.id, input.questHistoryId),
+            eq(questHistory.userId, ctx.userId),
+          ),
+          with: { quest: true },
+        }),
+        ctx.drizzle.query.userPet.findFirst({
+          where: and(eq(userPet.id, input.petId), eq(userPet.userId, ctx.userId)),
+        }),
+      ]);
+      if (!user) return errorResponse("User not found");
+      const task = user.petTask;
+      if (
+        !task ||
+        task.petId !== input.petId ||
+        task.questHistoryId !== input.questHistoryId ||
+        task.startedAt !== input.startedAt
+      )
+        return errorResponse("This companion task is no longer active.");
+      const blocked = petTaskReturnBlockMessage(
+        user,
+        task,
+        history?.quest,
+        history,
+        pet,
+      );
+      if (blocked || !history?.quest || !pet)
+        return errorResponse(
+          blocked ?? "Contract unavailable. Return your companion without rewards.",
+        );
+      // Admission was checked at dispatch. The profile projection can omit an accepted
+      // attempt after a level change or expiry; its pinned receipt still owns the return.
+      user.userQuests = [
+        ...user.userQuests.filter((entry) => entry.questId !== task.questId),
+        { ...history, quest: history.quest },
+      ];
+      const reward = getReward(
+        user,
+        task.questId,
+        undefined,
+        settings,
+        undefined,
+        true,
+      );
+      const claim = await commitQuestObjectiveRewards({
+        client: ctx.drizzle,
+        userId: ctx.userId,
+        user,
+        ...reward,
+        existingHistory: history,
+        petTask: task,
+      });
+      if (claim.outcome !== "claimed")
+        return errorResponse(
+          "Task state changed. Refresh and collect its results again.",
+        );
+      return {
+        success: true,
+        message: `${pet.name} returned from ${history.quest.name}.${claim.rewardChoicePending ? " Choose your rewards in the Logbook." : ""}`,
+        rewards: claim.rewards,
+        notifications: claim.postNotifications,
+        rewardChoicePending: claim.rewardChoicePending,
+      };
+    }),
+
+  /** Return safely without rewards, including deleted content and a missing/restarted attempt. */
+  cancelPetTask: protectedProcedure
+    .input(petTaskActionSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const owner = await ctx.drizzle.query.userData.findFirst({
+        where: eq(userData.userId, ctx.userId),
+      });
+      const task = owner?.petTask;
+      if (
+        !owner ||
+        !task ||
+        task.petId !== input.petId ||
+        task.questHistoryId !== input.questHistoryId ||
+        task.startedAt !== input.startedAt
+      )
+        return errorResponse("This companion task is no longer active.");
+      const now = new Date();
+      // A LEFT JOIN permits recovery after content/history deletion. The exact start
+      // guard prevents cancellation from closing a restarted attempt in a reused row.
+      const cancelled = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+        UPDATE ${userData}
+        LEFT JOIN ${questHistory} ON ${questHistory.userId} = ${userData.userId}
+          AND ${questHistory.id} = ${task.questHistoryId}
+          AND ${questHistory.questId} = ${task.questId}
+          AND ${questHistory.startedAt} = ${new Date(task.startedAt)}
+          AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL
+        SET ${userData.petTask} = NULL,
+            ${userData.updatedAt} = ${getNextUserSnapshotAt(owner.updatedAt, now)},
+            ${questHistory.endAt} = ${now}
+        WHERE ${userData.userId} = ${ctx.userId}
+          AND ${userData.updatedAt} = ${owner.updatedAt}
+          AND ${petTaskReceiptCondition(task)}
+      `),
+      );
+      return cancelled.rowsAffected > 0
+        ? { success: true, message: "Your companion returned without task rewards." }
+        : errorResponse(
+            "Task state changed. Refresh and try returning your companion again.",
+          );
+    }),
+
   checkRewards: protectedProcedure
     .meta({ mcp: { description: "Check and claim quest rewards" } })
     .input(z.object({ questId: z.string(), nextObjectiveId: z.string().optional() }))
@@ -1289,6 +1561,10 @@ export const questsRouter = createTRPCRouter({
       if (!user) {
         return errorResponse("User does not exist");
       }
+      if (user.petTask?.questId === input.questId)
+        return errorResponse(
+          "Your companion is completing this contract. Collect its results from the companion Tasks tab.",
+        );
       const isolatedRun = getIsolatedPyramid(user);
       if (
         user.status !== "AWAKE" &&
@@ -2108,6 +2384,7 @@ export const updateRewards = async (info: {
     money: sql`${userData.money} + ${rewards.reward_money ?? 0}`,
     seichiSilver: sql`${userData.seichiSilver} + ${rewards.reward_seichi_silver ?? 0}`,
     earnedExperience: sql`${userData.earnedExperience} + ${rewards.reward_exp ?? 0}`,
+    petExperience: petExperienceGainSql(rewards.reward_exp ?? 0),
     villagePrestige: sql`${userData.villagePrestige} + ${rewards.reward_prestige ?? 0}`,
     reputationPoints: sql`${userData.reputationPoints} + ${rewards.reward_reputation ?? 0}`,
     reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${rewards.reward_reputation ?? 0}`,
@@ -2825,6 +3102,11 @@ export const assignQuestToUser = async (args: {
     prevAttempt,
   } = args;
 
+  if (user.petTask?.questId === questData.id)
+    return errorResponse(
+      "Your companion is completing this contract. Return it before restarting.",
+    );
+
   // NPC-only quests can never be acquired through the generic UI start endpoint.
   if (isNpcOnlyQuestType(questData.questType) && source !== "overworld_npc") {
     return errorResponse(
@@ -3188,6 +3470,11 @@ export const upsertQuestEntry = async (
         });
   // Promises to be executed
   const promises: Promise<unknown>[] = [];
+  const professionContract =
+    quest.questType === "hunting" || quest.questType === "gathering";
+  // A stale ordinary start can arrive after dispatch. Keep its tracker and reused
+  // history row untouched while the live account receipt owns this contract.
+  const noDelegatedAttempt = sql`NOT EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${user.userId} AND JSON_UNQUOTE(JSON_EXTRACT(${userData.petTask}, '$.questId')) = ${quest.id})`;
   // Restarting a quest must discard any stale tracker from prior attempts before recomputing.
   // An attempt that is still open is being re-entered, not restarted — a `start_quest`
   // objective consequence can name a quest the player is part way through — so keep its tracker.
@@ -3268,7 +3555,12 @@ export const upsertQuestEntry = async (
               }
             : {}),
         })
-        .where(eq(questHistory.id, entry.id)),
+        .where(
+          and(
+            eq(questHistory.id, entry.id),
+            professionContract ? noDelegatedAttempt : undefined,
+          ),
+        ),
     );
     entry = {
       ...entry,
@@ -3307,20 +3599,28 @@ export const upsertQuestEntry = async (
     // it in place with the same mutation the update branch applies instead of throwing a
     // duplicate-key error. On the overworld path that throw would skip the caller's
     // clearActiveNpcQuest cleanup and strand the just-claimed NPC-mission slot.
+    const duplicateUpdates = {
+      startedAt: entry.startedAt,
+      endAt: null,
+      completed: 0,
+      previousAttempts: sql`${questHistory.previousAttempts} + 1`,
+      entryPaid: false,
+      isolated: quest.content.isolated ?? false,
+      questVersion: quest.updatedAt,
+    };
     promises.push(
       client
         .insert(questHistory)
         .values(entry)
         .onDuplicateKeyUpdate({
-          set: {
-            startedAt: entry.startedAt,
-            endAt: null,
-            completed: 0,
-            previousAttempts: sql`${questHistory.previousAttempts} + 1`,
-            entryPaid: false,
-            isolated: quest.content.isolated ?? false,
-            questVersion: quest.updatedAt,
-          },
+          set: Object.fromEntries(
+            Object.entries(duplicateUpdates).map(([key, value]) => [
+              key,
+              professionContract
+                ? sql`IF(${noDelegatedAttempt}, ${value}, ${questHistory[key as keyof typeof duplicateUpdates]})`
+                : value,
+            ]),
+          ),
         }),
     );
   }
@@ -3342,7 +3642,14 @@ export const upsertQuestEntry = async (
         ...recoveryUpdate,
         ...(entry.isolated ? { status: "BATTLE" as const } : {}),
       })
-      .where(eq(userData.userId, user.userId)),
+      .where(
+        and(
+          eq(userData.userId, user.userId),
+          professionContract
+            ? sql`COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${userData.petTask}, '$.questId')), '') <> ${quest.id}`
+            : undefined,
+        ),
+      ),
   );
   // Drizzle builders are lazy; await them in order on PlanetScale's shared transaction session.
   if (inTransaction) {
@@ -3356,7 +3663,10 @@ export const upsertQuestEntry = async (
   // Instant objectives may become done before a later pass can recover their side effects.
   return {
     entry,
-    userCacheEligible: consequences.length === 0 && notifications.length === 0,
+    // A concurrent delegation may have preserved a different tracker/attempt; reload
+    // profession assignments instead of publishing this proposed in-memory projection.
+    userCacheEligible:
+      !professionContract && consequences.length === 0 && notifications.length === 0,
   };
 };
 
@@ -3382,6 +3692,96 @@ export const fetchUserQuestByQuestId = async (
   return await client.query.questHistory.findFirst({
     where: and(eq(questHistory.userId, userId), eq(questHistory.questId, questId)),
   });
+};
+
+/** Compare the complete accepted receipt, including its deadline and content revision. */
+const petTaskReceiptCondition = (task: PetTask) =>
+  sql`${userData.petTask} = CAST(${JSON.stringify(task)} AS JSON)`;
+
+/** Start only the same open, versioned attempt that was accepted through normal quest assignment. */
+const petTaskAttemptCondition = (task: PetTask, userId: string) =>
+  sql`EXISTS (SELECT 1 FROM ${questHistory} WHERE ${and(
+    eq(questHistory.userId, userId),
+    eq(questHistory.id, task.questHistoryId),
+    eq(questHistory.questId, task.questId),
+    eq(questHistory.startedAt, new Date(task.startedAt)),
+    eq(questHistory.questVersion, new Date(task.questVersion)),
+    eq(questHistory.completed, 0),
+    isNull(questHistory.endAt),
+    isNull(questHistory.pendingRewardChoice),
+  )})`;
+
+/** Content changes invalidate pending results; cancellation always remains available. */
+const petTaskContentCondition = (task: PetTask, role: UserRole) =>
+  sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${and(
+    eq(quest.id, task.questId),
+    eq(quest.updatedAt, new Date(task.questVersion)),
+    inArray(quest.questType, ["hunting", "gathering"]),
+    gte(quest.petTaskMinutes, 1),
+    lte(quest.petTaskMinutes, PET_TASK_MAX_MINUTES),
+    canPlayHiddenQuests(role) ? undefined : eq(quest.hidden, false),
+  )})`;
+
+/** Guard return and terminal history in the same account claim; occupation may change while away. */
+const petTaskOwnerReturnCondition = (userId: string, task: PetTask) =>
+  sql`${and(
+    eq(userData.status, "AWAKE"),
+    isNull(userData.battleId),
+    eq(userData.isBanned, false),
+    eq(userData.isAi, false),
+  )} AND ${task.finishesAt} <= ${Date.now()}
+    AND EXISTS (SELECT 1 FROM ${userPet} WHERE ${and(
+      eq(userPet.id, task.petId),
+      eq(userPet.userId, userId),
+      gte(userPet.rank, PET_TASK_MIN_RANK),
+      eq(userPet.generationStatus, "READY"),
+      eq(userPet.artRank, userPet.rank),
+      isNotNull(userPet.avatar),
+      ne(userPet.avatar, ""),
+    )})`;
+
+/** Explain invalid or unfinished tasks without discarding the player's ability to return safely. */
+const petTaskReturnBlockMessage = (
+  owner: Pick<UserData, "isBanned" | "isAi" | "status" | "battleId" | "role">,
+  task: PetTask,
+  contract: Quest | null | undefined,
+  history:
+    | {
+        id: string;
+        questId: string;
+        startedAt: Date;
+        questVersion: Date | null;
+        completed: number;
+        endAt: Date | null;
+      }
+    | null
+    | undefined,
+  pet: UserPet | null | undefined,
+) => {
+  if (owner.isBanned || owner.isAi)
+    return "This account cannot collect task rewards. Return your companion without rewards.";
+  if (!pet || !isPetAppearanceReady(pet) || pet.rank < PET_TASK_MIN_RANK)
+    return "This companion is unavailable. Return without rewards.";
+  if (
+    !contract ||
+    !isPetTaskContract(contract) ||
+    contract.updatedAt.getTime() !== task.questVersion ||
+    (contract.hidden && !canPlayHiddenQuests(owner.role))
+  )
+    return "This contract changed or is unavailable. Return your companion without rewards.";
+  if (
+    !isPetTaskAttempt(task, history) ||
+    !history ||
+    history.completed ||
+    history.endAt ||
+    history.questVersion?.getTime() !== task.questVersion
+  )
+    return "This contract attempt changed. Return your companion without rewards.";
+  if (owner.status !== "AWAKE" || owner.battleId)
+    return "Wake up and finish combat before collecting task rewards.";
+  if (task.finishesAt > Date.now())
+    return "Your companion is still working on this task.";
+  return null;
 };
 
 type UserQuestFromGetReward = ReturnType<typeof getReward>["userQuest"];
@@ -3512,6 +3912,8 @@ export const commitQuestObjectiveRewards = async (info: {
    * should only land on terminal completions.
    */
   postClaimUserDataPatch?: Record<string, unknown>;
+  /** Delegated attempts claim the owner receipt and history together before normal final rewards. */
+  petTask?: PetTask;
 }): Promise<CommitQuestObjectiveRewardsResult> => {
   const {
     client,
@@ -3524,6 +3926,16 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     consequences,
   } = info;
+  const petTask = info.petTask;
+  if (user.petTask && user.petTask.questId === userQuest?.questId && !petTask)
+    return { outcome: "state_changed" };
+  if (
+    petTask &&
+    (!user.petTask ||
+      JSON.stringify(user.petTask) !== JSON.stringify(petTask) ||
+      !isPetTaskAttempt(petTask, userQuest))
+  )
+    return { outcome: "state_changed" };
   if (userQuest?.id === `party-${user.questPartyId}`) {
     // Helpers keep their original completion receipt; this also covers bound NPC objectives.
     user.questData = trackers;
@@ -3556,14 +3968,16 @@ export const commitQuestObjectiveRewards = async (info: {
   // Visibility-only saves keep history valid, but any in-flight claim retries on
   // their new version; authored edits require the versioned run to restart.
   const liveQuestCondition = userQuest
-    ? sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${and(
-        eq(quest.id, userQuest.questId),
-        ne(quest.questType, "village_mission"),
-        canPlayHiddenQuests(user.role) ? undefined : eq(quest.hidden, false),
-        userQuest.quest.questType === "battlepyramid" || userQuest.isolated
-          ? eq(quest.updatedAt, userQuest.quest.updatedAt)
-          : undefined,
-      )})`
+    ? petTask
+      ? petTaskContentCondition(petTask, user.role)
+      : sql`EXISTS (SELECT 1 FROM ${quest} WHERE ${and(
+          eq(quest.id, userQuest.questId),
+          ne(quest.questType, "village_mission"),
+          canPlayHiddenQuests(user.role) ? undefined : eq(quest.hidden, false),
+          userQuest.quest.questType === "battlepyramid" || userQuest.isolated
+            ? eq(quest.updatedAt, userQuest.quest.updatedAt)
+            : undefined,
+        )})`
     : undefined;
   const senseiId =
     user.rank === "GENIN" && userQuest?.quest.questType === "mission"
@@ -3607,11 +4021,11 @@ export const commitQuestObjectiveRewards = async (info: {
     user.questData = removeQuestTrackerByQuestId(user.questData, userQuest.questId);
   }
 
-  // Isolated completion publishes history and the account snapshot together, so a failed
-  // request cannot leave terminal history holding a player between floors indefinitely.
+  // Isolated and delegated completions publish history and the account snapshot together,
+  // so a failed request cannot strand an isolated player or leave an away-pet receipt behind.
   // Other completions retain their history CAS and revert it if the snapshot claim loses.
   let resolvedCompletionCommitted = false;
-  let claimIsolatedCompletion: typeof claimUserSnapshot | undefined;
+  let claimManagedCompletion: typeof claimUserSnapshot | undefined;
   // The exact endAt stamped by the completion CAS, reused to anchor the revert below.
   let completedEndAt: Date | null = null;
   // Whether the completion CAS wrote the period counter (only for retryDelay !== "none"); the
@@ -3658,15 +4072,16 @@ export const commitQuestObjectiveRewards = async (info: {
       eq(questHistory.completed, 0),
       isNull(questHistory.endAt),
       liveQuestCondition,
-      ...(rewardChoice ? [isNull(questHistory.pendingRewardChoice)] : []),
+      ...(rewardChoice || petTask ? [isNull(questHistory.pendingRewardChoice)] : []),
     );
-    if (isolatedRun) {
+    const managedRun = petTask ? userQuest : isolatedRun;
+    if (managedRun) {
       const completedAt = completedEndAt;
       // Joined UPDATE assignment order is unspecified, so decide period rollover from
       // the loaded history and guard those values instead of rereading a changed column.
       const startsNewPeriod =
-        cps && (!isolatedRun.periodStartAt || isolatedRun.periodStartAt < cps);
-      claimIsolatedCompletion = async ({ set, where = [] }) => {
+        cps && (!managedRun.periodStartAt || managedRun.periodStartAt < cps);
+      claimManagedCompletion = async ({ set, where = [] }) => {
         // Drizzle has no joined UPDATE builder. This single guarded write closes the run
         // and removes its tracker atomically; no payout can precede a successful claim.
         const result = await retryOnDeadlock(() =>
@@ -3675,6 +4090,7 @@ export const commitQuestObjectiveRewards = async (info: {
             INNER JOIN ${questHistory} ON ${questHistory.userId} = ${userData.userId}
             SET ${userData.updatedAt} = ${completedAt},
                 ${userData.questData} = CAST(${JSON.stringify(set?.questData ?? [])} AS JSON),
+                ${petTask ? sql`${userData.petTask} = NULL,` : sql``}
                 ${questHistory.completed} = 1,
                 ${questHistory.previousCompletes} = ${questHistory.previousCompletes} + 1,
                 ${questHistory.endAt} = ${completedAt}
@@ -3687,9 +4103,10 @@ export const commitQuestObjectiveRewards = async (info: {
                 }
             WHERE ${userData.userId} = ${userId}
               AND ${userData.updatedAt} = ${user.updatedAt}
-              AND ${questHistory.id} = ${isolatedRun.id}
+              AND ${questHistory.id} = ${managedRun.id}
               AND ${completionConditions}
-              ${cps ? sql`AND ${questHistory.periodCompletes} = ${isolatedRun.periodCompletes} AND ${questHistory.periodStartAt} <=> ${isolatedRun.periodStartAt}` : sql``}
+              ${petTask ? sql`AND ${petTaskReceiptCondition(petTask)} AND ${questHistory.startedAt} = ${new Date(petTask.startedAt)} AND ${questHistory.questVersion} = ${new Date(petTask.questVersion)} AND ${petTaskOwnerReturnCondition(userId, petTask)}` : sql``}
+              ${cps ? sql`AND ${questHistory.periodCompletes} = ${managedRun.periodCompletes ?? 0} AND ${questHistory.periodStartAt} <=> ${managedRun.periodStartAt ?? null}` : sql``}
               AND ${and(...where.filter(Boolean)) ?? sql`TRUE`}
           `),
         );
@@ -3741,12 +4158,12 @@ export const commitQuestObjectiveRewards = async (info: {
     notifications,
     {
       alwaysClaimUserState: true,
-      claimUserState: claimIsolatedCompletion,
+      claimUserState: claimManagedCompletion,
       partyTrackers: trackers,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
         liveQuestCondition,
-        ...(isolatedRun
+        ...(isolatedRun && !petTask
           ? [
               eq(userData.status, "BATTLE"),
               isNull(userData.battleId),
@@ -3763,7 +4180,7 @@ export const commitQuestObjectiveRewards = async (info: {
   );
 
   if (!claimed) {
-    if (claimIsolatedCompletion && userQuest) {
+    if (claimManagedCompletion && userQuest) {
       const history = await fetchUserQuestByQuestId(client, userId, userQuest.questId);
       if (!history) return { outcome: "not_found" };
       if (history.completed >= 1) return { outcome: "already_completed" };
@@ -3782,6 +4199,7 @@ export const commitQuestObjectiveRewards = async (info: {
     }
     return { outcome: "state_changed" };
   }
+  if (petTask) user.petTask = null;
 
   const changedQuestAssignments = await runCheckRewardsPrepInParallel(
     client,
@@ -3858,7 +4276,14 @@ export const commitQuestObjectiveRewards = async (info: {
   const rewardPromise = updateRewards({
     pvpBoostApplied: true,
     client,
-    user,
+    user:
+      petTask && userQuest
+        ? {
+            ...user,
+            occupation:
+              userQuest.quest.questType === "hunting" ? "HUNTER" : "GATHERING",
+          }
+        : user,
     rewards,
     questCounterField,
     questFinishedAt: farmRewardAt,

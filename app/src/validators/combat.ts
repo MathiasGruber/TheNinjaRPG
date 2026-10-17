@@ -27,6 +27,7 @@ import {
   MasteryTypes,
   MaxPoolTypes,
   NonActionItemTypes,
+  PET_MAX_CONSUME_PETS,
   PoolTypes,
   SAGE_MASTERY_EXP_CAP,
   SAGE_MODE_MAX_LEVEL,
@@ -850,12 +851,22 @@ export const NonCombatConsumeRewardTag = z
   .object({
     ...BaseAttributes,
     ...rewardFields,
+    reward_pets: z
+      .array(z.string().min(1).max(191))
+      .max(PET_MAX_CONSUME_PETS)
+      .prefault([]),
     type: z.literal("noncombatconsumereward").prefault("noncombatconsumereward"),
     description: msg("Gain various rewards from consumption outside of combat"),
     rewardMode: z.enum(["standard", "weightedCache"]).optional(),
     weightedCache: weightedCacheDraftSchema.optional(),
   })
   .superRefine((effect, ctx) => {
+    if (effect.rewardMode === "weightedCache" && effect.reward_pets.length > 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["reward_pets"],
+        message: "Pet grants require standard rewards.",
+      });
     if (effect.rewardMode !== "weightedCache") return;
     const result = weightedCacheSchema.safeParse(effect.weightedCache);
     if (!result.success) {
@@ -1499,6 +1510,18 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   const hasNonCombatConsumeReward = data.effects.find(
     (e) => e.type === "noncombatconsumereward",
   );
+  const petRewardCount = data.effects.reduce(
+    (total, effect) =>
+      total +
+      (effect.type === "noncombatconsumereward"
+        ? (effect.reward_pets?.length ?? 0)
+        : 0),
+    0,
+  );
+  if (petRewardCount > PET_MAX_CONSUME_PETS)
+    addIssue(ctx, `An item may grant at most ${PET_MAX_CONSUME_PETS} companion.`);
+  if (petRewardCount > 0 && !data.preventBattleUsage)
+    addIssue(ctx, "Companion rewards must prevent battle usage.");
   const hasUnlockItemVariant = data.effects.find((e) => e.type === "unlockitemvariant");
   const hasSageModeActivation = data.effects.find((e) => e.type === "activatesagemode");
 

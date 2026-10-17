@@ -324,6 +324,13 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       type: "boolean",
       label: "Isolated run (no outside activities)",
     });
+  if (questType === "hunting" || questType === "gathering")
+    formData.push({
+      id: "petTaskMinutes",
+      type: "number",
+      label: "Companion task duration (minutes; blank disables)",
+      resetButton: true,
+    });
 
   if (QuestTypesWithMaxAttempts.includes(questType)) {
     formData.push({ id: "maxAttempts", type: "number", label: "Max Attempts" });

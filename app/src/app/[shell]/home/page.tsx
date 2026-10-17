@@ -9,12 +9,14 @@ import {
   House,
   MinusCircle,
   Package,
+  PawPrint,
   Pencil,
   PlusCircle,
   ShoppingBag,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +35,8 @@ import {
   ITEM_LEVEL_CAP,
   ItemRarities,
   ItemTypes,
+  MAP_WAKE_ISLAND_SECTOR,
+  PET_SANCTUARY_NAME,
 } from "@/drizzle/constants";
 import type { UserItemWithItem, UserItemWithRelations } from "@/drizzle/schema";
 import { useSleepToggle } from "@/hooks/sleep";
@@ -41,7 +45,9 @@ import { ActionSelector } from "@/layout/CombatActions";
 import ContentBox from "@/layout/ContentBox";
 import { type HomeDraft, HomeScene } from "@/layout/HomeScene";
 import { HomeSharing } from "@/layout/HomeSharing";
+import Image from "@/layout/Image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { MergeAllStacksButton } from "@/layout/MergeAllStacksButton";
 import Modal from "@/layout/Modal";
@@ -68,9 +74,21 @@ const HomeKitchen = dynamic(() => import("@/layout/Kitchen"), {
   loading: () => <Loader explanation="Loading kitchen" />,
 });
 
-/** Residence hub for shared sleep actions and owner-only storage and home management. */
+/** Keep the residence's query-driven dialogs behind the same boundary as other deep links. */
 export default function HomePage() {
+  return (
+    <Suspense fallback={<Loader explanation="Loading home" />}>
+      <Residence />
+    </Suspense>
+  );
+}
+
+/** Residence hub for shared sleep actions and owner-only storage and home management. */
+function Residence() {
   const { userData, sectorVillage, access, ownVillage } = useRequireInVillage("/home");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const canOpenKitchen = !!userData && access && ownVillage;
 
   // State
   const [selectedItem, setSelectedItem] = useState<UserItemWithRelations | undefined>(
@@ -91,6 +109,16 @@ export default function HomePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [itemTypeFilter, setItemTypeFilter] = useState("ALL");
   const [rarityFilter, setRarityFilter] = useState("ALL");
+
+  // Deep links use the existing owner-only kitchen and are consumed so closing stays final.
+  useEffect(() => {
+    if (!canOpenKitchen || searchParams.get("panel") !== "kitchen") return;
+    setIsKitchenOpen(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("panel");
+    const query = params.toString();
+    router.replace(query ? `/home?${query}` : "/home", { scroll: false });
+  }, [canOpenKitchen, router, searchParams]);
 
   // Guests use common navigation without fetching owner-only data; hooks stay unconditional.
   const {
@@ -118,6 +146,9 @@ export default function HomePage() {
     isError: isItemsError,
     refetch: userItemsRefetch,
   } = api.item.getUserItems.useQuery(undefined, {
+    enabled: !!userData && access && ownVillage,
+  });
+  const pets = api.pets.getCollection.useQuery(undefined, {
     enabled: !!userData && access && ownVillage,
   });
 
@@ -398,6 +429,85 @@ export default function HomePage() {
             onChanged={userHomeRefetch}
           />
         </div>
+      )}
+      {ownVillage && (
+        <ContentBox
+          title="Your companions"
+          subtitle="Your pet collection at home"
+          initialBreak
+        >
+          {pets.isPending ? (
+            <Loader explanation="Loading your companions..." />
+          ) : pets.error ? (
+            <div role="alert" className="space-y-2">
+              <p>{pets.error.message}</p>
+              <Button variant="outline" onClick={() => void pets.refetch()}>
+                Try again
+              </Button>
+            </div>
+          ) : pets.data?.pets.length ? (
+            <ul
+              className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+              aria-label="Pet collection"
+            >
+              {pets.data.pets.map((pet) => (
+                <li key={pet.id} className="min-w-0">
+                  <Link
+                    href={`/profile?tab=pet&petId=${encodeURIComponent(pet.id)}`}
+                    className="flex h-full flex-col items-center gap-2 rounded-lg border p-3 text-center hover:bg-muted/40"
+                  >
+                    {pet.avatar ? (
+                      <Image
+                        src={pet.avatar}
+                        alt={pet.name}
+                        width={112}
+                        height={112}
+                        className="h-28 w-28 object-contain"
+                      />
+                    ) : (
+                      <PawPrint
+                        className="h-28 w-28 p-6 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span className="w-full break-words font-semibold">{pet.name}</span>
+                    {pet.id === pets.data.activePetId && (
+                      <span className="text-muted-foreground text-sm">
+                        Active companion
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="space-y-3">
+              <p>
+                Meet your first companion at the {PET_SANCTUARY_NAME} on Wake Island.
+              </p>
+              {userData.sector === MAP_WAKE_ISLAND_SECTOR ? (
+                <Button variant="outline" asChild>
+                  <Link href="/pets">Open sanctuary</Link>
+                </Button>
+              ) : userData.status === "AWAKE" && !userData.battleId ? (
+                <Button variant="outline" asChild>
+                  <Link href={`/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`}>
+                    Travel to Wake Island
+                  </Link>
+                </Button>
+              ) : (
+                <>
+                  <Button variant="outline" disabled>
+                    Travel to Wake Island
+                  </Button>
+                  <p className="text-muted-foreground text-sm">
+                    You must be awake and out of battle to travel.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </ContentBox>
       )}
       <Modal
         title="Kitchen"

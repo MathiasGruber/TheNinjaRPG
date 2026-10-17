@@ -59,6 +59,7 @@ import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurni
 import type { HomeRoomStyle } from "@/validators/home";
 import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
+import type { PetTask } from "@/validators/petTasks";
 
 /** Staff-authored definitions; each lobby captures its own immutable content snapshot. */
 export const dungeon = mysqlTable("Dungeon", {
@@ -2497,6 +2498,14 @@ export const userData = mysqlTable(
     bank: bigint("bank", { mode: "number" }).default(1000).notNull(),
     experience: int("experience").default(0).notNull(),
     earnedExperience: int("earnedExperience").default(2000).notNull(),
+    // The active companion's unused XP is parked on its pet row when another becomes active.
+    petExperience: double("petExperience").default(0).notNull(),
+    // Lifetime adoptions keep releasing a companion from renewing the free first adoption.
+    petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
+    activePetId: varchar("activePetId", { length: 191 }),
+    petSlots: tinyint("petSlots", { unsigned: true }).default(1).notNull(),
+    /** One attempt-bound profession delegation; the companion returns when results are collected. */
+    petTask: json("petTask").$type<PetTask>(),
     rank: mysqlEnum("rank", consts.UserRanks).default("STUDENT").notNull(),
     isOutlaw: boolean("isOutlaw").default(false).notNull(),
     level: int("level").default(1).notNull(),
@@ -2876,9 +2885,86 @@ export type UserRank = UserData["rank"];
 export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
+/** Authored species identities remain available to owned pets after retirement. */
+export const petSpecies = mysqlTable(
+  "PetSpecies",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    name: varchar("name", { length: 191 }).notNull(),
+    description: varchar("description", { length: 1000 }).notNull(),
+    rarity: mysqlEnum("rarity", consts.PetRarities).default("COMMON").notNull(),
+    role: mysqlEnum("role", consts.PetRoles).default("ASSAULT").notNull(),
+    defaultJutsuIds: json("defaultJutsuIds").$type<string[]>().default([]).notNull(),
+    aiRules: json("aiRules").$type<AiRuleType[]>().default([]).notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
+    effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
+    skillTarget: mysqlEnum("skillTarget", consts.PetSkillTargets).default("SELF").notNull(),
+    isActive: boolean("isActive").default(true).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  },
+  (table) => ({ nameKey: uniqueIndex("PetSpecies_name_key").on(table.name) }),
+);
+export type PetSpecies = InferSelectModel<typeof petSpecies>;
+export type PetSpeciesInsert = InferInsertModel<typeof petSpecies>;
+
+/**
+ * Owner-bound progression, appearance and battle configuration for each companion.
+ * storedExperience holds only inactive XP; active XP lives on UserData. Species
+ * IDs and cosmetic indices preserve identity; revision guards concurrent mutations.
+ */
+export const userPet = mysqlTable(
+  "UserPet",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    name: varchar("name", { length: 40 }).notNull(),
+    speciesId: varchar("speciesId", { length: 191 }).notNull(),
+    paletteIndex: tinyint("paletteIndex", { unsigned: true }).notNull(),
+    characteristicIndex: tinyint("characteristicIndex", { unsigned: true }).notNull(),
+    auraIndex: tinyint("auraIndex", { unsigned: true }).notNull(),
+    rank: tinyint("rank", { unsigned: true }).default(1).notNull(),
+    experience: double("experience").default(0).notNull(),
+    storedExperience: double("storedExperience").default(0).notNull(),
+    lastFedAt: datetime("lastFedAt", { mode: "date", fsp: 3 }),
+    jutsuIds: json("jutsuIds").$type<string[]>().default([]).notNull(),
+    skillIds: json("skillIds").$type<string[]>().default([]).notNull(),
+    offence: double("offence").default(consts.PET_BASE_STAT).notNull(),
+    defence: double("defence").default(consts.PET_BASE_STAT).notNull(),
+    strength: double("strength").default(consts.PET_BASE_STAT).notNull(),
+    speed: double("speed").default(consts.PET_BASE_STAT).notNull(),
+    intelligence: double("intelligence").default(consts.PET_BASE_STAT).notNull(),
+    willpower: double("willpower").default(consts.PET_BASE_STAT).notNull(),
+    avatar: varchar("avatar", { length: 191 }),
+    avatarFacing: mysqlEnum("avatarFacing", consts.AvatarFacings).default("left").notNull(),
+    battleEnabled: boolean("battleEnabled").default(true).notNull(),
+    spawnPosition: mysqlEnum("spawnPosition", consts.PetSpawnPositions).default("BEHIND").notNull(),
+    aiRules: json("aiRules").$type<AiRuleType[]>().default([]).notNull(),
+    includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),
+    generationStatus: mysqlEnum("generationStatus", consts.PetGenerationStatuses).default("PENDING").notNull(),
+    generationToken: varchar("generationToken", { length: 191 }),
+    generationStartedAt: datetime("generationStartedAt", { mode: "date", fsp: 3 }),
+    generationAttempts: tinyint("generationAttempts", { unsigned: true }).default(0).notNull(),
+    generationDay: varchar("generationDay", { length: 10 }),
+    // Evolution keeps the previous accepted image until artRank catches up to rank.
+    artRank: tinyint("artRank", { unsigned: true }).default(0).notNull(),
+    revision: int("revision", { unsigned: true }).default(0).notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+    updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  },
+  (table) => ({ userIdIdx: index("UserPet_userId_idx").on(table.userId) }),
+);
+export type UserPet = InferSelectModel<typeof userPet>;
+export type UserPetInsert = InferInsertModel<typeof userPet>;
+export const userPetRelations = relations(userPet, ({ one }) => ({
+  user: one(userData, { fields: [userPet.userId], references: [userData.userId] }),
+  species: one(petSpecies, { fields: [userPet.speciesId], references: [petSpecies.id] }),
+}));
+
 export const userDataRelations = relations(userData, ({ one, many }) => ({
   home: one(userHome, { fields: [userData.userId], references: [userHome.userId] }),
   questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
+  pets: many(userPet),
   queue: many(userQueue),
   ips: many(historicalIp),
   bloodline: one(bloodline, {
@@ -4070,6 +4156,8 @@ export const quest = mysqlTable(
     medicalRank: mysqlEnum("medicalRank", consts.MEDNIN_RANKS).default("NONE"),
     huntingRank: mysqlEnum("huntingRank", consts.HUNTING_RANKS).default("NONE"),
     gatheringRank: mysqlEnum("gatheringRank", consts.GATHERING_RANKS).default("NONE"),
+    /** Content opt-in for a companion to earn final rewards without traversing objectives. */
+    petTaskMinutes: int("petTaskMinutes", { unsigned: true }),
     requiredLevel: int("requiredLevel").default(1).notNull(),
     requiredFarmingLevel: int("requiredFarmingLevel").default(0).notNull(),
     prerequisiteQuestId: varchar("prerequisiteQuestId", { length: 191 }),

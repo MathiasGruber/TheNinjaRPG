@@ -10,18 +10,23 @@ const mocks = {
   profile: { id: "custom", includeDefaultRules: true, rules: [] as AiRuleType[] },
   save: vi.fn(),
   invalidate: vi.fn(async () => undefined),
+  query: vi.fn(),
+  role: "CONTENT-ADMIN",
 };
 vi.mock("@/app/_trpc/client", () => ({
   api: {
     useUtils: () => ({ ai: { getAiProfile: { invalidate: mocks.invalidate } }, profile: { getAi: { invalidate: mocks.invalidate }, getPublicUser: { invalidate: mocks.invalidate } } }),
     ai: {
-      getAiProfile: { useQuery: () => ({ data: mocks.profile, isPending: false }) },
+      getAiProfile: { useQuery: (input: unknown, options: unknown) => {
+        mocks.query(input, options);
+        return { data: mocks.profile, isPending: false };
+      } },
       toggleAiProfile: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
       updateAiProfile: { useMutation: () => ({ mutate: mocks.save, isPending: false }) },
     },
   },
 }));
-vi.mock("@/utils/UserContext", () => ({ useRequiredUserData: () => ({ data: { role: "CONTENT-ADMIN" } }) }));
+vi.mock("@/utils/UserContext", () => ({ useRequiredUserData: () => ({ data: { role: mocks.role } }) }));
 vi.mock("@/libs/toast", createToastMock);
 vi.mock("@/layout/ContentBox", () => ({ default: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 
@@ -29,6 +34,45 @@ beforeEach(() => {
   ensureDom();
   vi.clearAllMocks();
   mocks.profile = { id: "custom", includeDefaultRules: true, rules: [{ conditions: [], action: ActionEndTurn.parse({}) }, ...getBackupRules()] };
+  mocks.role = "CONTENT-ADMIN";
+});
+
+describe("controlled companion AI configuration", () => {
+  it("saves an intentionally empty controlled profile without restoring fallback instructions", () => {
+    const onSave = vi.fn();
+    const view = render(<AiProfileEdit userData={{ aiProfileId: null, userId: "species", jutsus: [], items: [] }} configuration={{ profile: { rules: [], includeDefaultRules: false }, isSaving: false, onSave }} />);
+    fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+    expect(onSave).toHaveBeenCalledWith({ rules: [], includeDefaultRules: false });
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
+  it("saves embedded rules without loading or mutating a player AI profile", () => {
+    mocks.role = "USER";
+    const onSave = vi.fn();
+    const profile = { includeDefaultRules: false, rules: [{ conditions: [], action: ActionEndTurn.parse({}) }] };
+    const view = render(<AiProfileEdit userData={{ aiProfileId: null, userId: "pet", jutsus: [], items: [] }} configuration={{ profile, isSaving: false, onSave }} />);
+    fireEvent.click(view.getByRole("button", { name: "Add Rule" }));
+    fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+    expect(mocks.query).toHaveBeenCalledWith({ id: "Default" }, { enabled: false });
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ includeDefaultRules: false });
+    expect(onSave.mock.lastCall?.[0].rules).toHaveLength(2);
+  });
+
+  it("keeps an edited draft when controlled saving or eligibility changes", () => {
+    const onSave = vi.fn();
+    const profile = { includeDefaultRules: true, rules: mocks.profile.rules };
+    const component = (isSaving: boolean, disabled = false) => <AiProfileEdit userData={{ aiProfileId: null, userId: "pet", jutsus: [], items: [] }} configuration={{ profile, isSaving, disabled, onSave }} />;
+    const view = render(component(false));
+    fireEvent.click(view.getByRole("button", { name: "Add Rule" }));
+    view.rerender(component(true));
+    expect(view.queryByRole("button", { name: "Save Profile" })).toBeNull();
+    view.rerender(component(false, true));
+    expect(view.queryByRole("button", { name: "Save Profile" })).toBeNull();
+    view.rerender(component(false));
+    fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+    expect(onSave.mock.lastCall?.[0].rules).toHaveLength(7);
+  });
 });
 afterEach(cleanup);
 const mount = () => render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: [], items: [] }} />);

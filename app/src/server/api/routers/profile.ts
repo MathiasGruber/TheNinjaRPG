@@ -130,6 +130,7 @@ import type { NavBarDropdownLink } from "@/libs/menus";
 import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
 import { isQuestComplete } from "@/libs/objectives";
 import { isNewOnlineRecord } from "@/libs/onlineRecord";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -2849,6 +2850,7 @@ export const profileRouter = createTRPCRouter({
         .update(userData)
         .set({
           earnedExperience: sql`${userData.earnedExperience} + ${input.amount}`,
+          petExperience: petExperienceGainSql(input.amount),
         })
         .where(eq(userData.userId, input.targetUserId));
 
@@ -2901,6 +2903,7 @@ export const profileRouter = createTRPCRouter({
       // Mutation - update all users
       const result = await ctx.drizzle.update(userData).set({
         earnedExperience: sql`${userData.earnedExperience} + ${input.amount}`,
+        petExperience: petExperienceGainSql(input.amount),
       });
 
       if (result.rowsAffected === 0) {
@@ -4105,6 +4108,9 @@ const persistPassiveRegenToDb = async ({
       derivedUserUpdate[stat] = user[stat as CombatStatName];
     }
     derivedUserUpdate.experience = user.experience;
+    derivedUserUpdate.petExperience = petExperienceGainSql(
+      queuedTraining.completed.reduce((sum, entry) => sum + entry.amount, 0),
+    );
   }
 
   if (queuedMastery) {

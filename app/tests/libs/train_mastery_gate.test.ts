@@ -54,6 +54,13 @@ const ninjutsuBuff = {
 } as unknown as ZodAllTags;
 
 describe("jutsu mastery gate", () => {
+  it("reserves pet jutsu for companions even when player requirements are met", () => {
+    const available = { ...jutsu, requiredNinjutsuMastery: null };
+    expect(jutsuRequirementWarning(available, user)).toBe("");
+    expect(jutsuRequirementWarning({ ...available, jutsuType: "PETS" }, user))
+      .toBe("Only companions can use this jutsu.");
+  });
+
   it("rejects a jutsu whose mastery requirement the stored value misses", () => {
     expect(jutsuRequirementWarning(jutsu, user)).toContain("mastery");
   });

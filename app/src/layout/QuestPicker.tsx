@@ -10,10 +10,13 @@ import Accordion from "@/layout/Accordion";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import ItemWithEffects from "@/layout/ItemWithEffects";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { LogbookEntry, useCheckRewards } from "@/layout/Logbook";
+import { PetTaskDispatch } from "@/layout/PetTasks";
 import { QuestTeams } from "@/layout/QuestTeams";
 import { getActiveObjective } from "@/libs/objectives";
+import { isPetTaskContract } from "@/libs/pets/tasks";
 import { formatQuestEntryCost } from "@/libs/questRun";
 import { showMutationToast } from "@/libs/toast";
 import { getTutorialHighlightedQuestId } from "@/libs/tutorial";
@@ -193,10 +196,18 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                 <Accordion
                   title={quest.name}
                   selectedTitle={activeElement}
-                  titlePrefix={`${active ? "Active" : "Available"}: `}
+                  titlePrefix={`${userData.petTask?.questId === quest.id ? "Companion task" : active ? "Active" : "Available"}: `}
                   onClick={setActiveElement}
                 >
-                  {active ? (
+                  {userData.petTask?.questId === quest.id ? (
+                    <p className="p-3">
+                      Your companion is completing this contract.{" "}
+                      <Link className="underline" href="/profile?tab=pet">
+                        Collect results in companion Tasks
+                      </Link>
+                      .
+                    </p>
+                  ) : active ? (
                     <div className="p-3">
                       <LogbookEntry
                         userQuest={currentQuest}
@@ -204,6 +215,14 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                         hideTitle
                         showScene
                       />
+                      {isPetTaskContract(quest) && (
+                        <PetTaskDispatch
+                          questId={quest.id}
+                          questName={quest.name}
+                          minutes={quest.petTaskMinutes}
+                          entryRequirements={quest.entryRequirements}
+                        />
+                      )}
                     </div>
                   ) : (
                     <ItemWithEffects
@@ -288,6 +307,14 @@ const QuestPicker: React.FC<QuestPickerProps> = (props) => {
                               <Gamepad2 className="mr-1 h-6 w-6" />
                               Take Quest
                             </Button>
+                          )}
+                          {isPetTaskContract(quest) && (
+                            <PetTaskDispatch
+                              questId={quest.id}
+                              questName={quest.name}
+                              minutes={quest.petTaskMinutes}
+                              entryRequirements={quest.entryRequirements}
+                            />
                           )}
                         </div>
                       }

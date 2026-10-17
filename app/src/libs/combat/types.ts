@@ -241,6 +241,8 @@ export type CombatUserFields = {
    *  spawn, because the spawn rebinds controllerId to its summoner and would
    *  otherwise lose all trace of which creature it is. Server-internal. */
   summonSourceId?: string;
+  /** Persistent identity of an owned pet; the battlefield userId remains transient. */
+  petId?: string;
   // Reference IDs to static data in extraState
   relationIds: string[];
   /** Base stat values used for additive percentage modifier calculations (e.g., increaseStat, decreaseStat) */
@@ -437,6 +439,8 @@ export type ExtraState = {
     string,
     import("@/libs/timedBuffs").RegenerationPeriod[]
   >;
+  /** Accompanying pet identities frozen at initiation, including pets that later retreat. */
+  petIdsByOwner?: Record<string, string>;
   // Static data - never changes during battle (looked up by ID)
   jutsus: Record<string, Jutsu>; // jutsuId -> Jutsu (includes user jutsus + injectable jutsus)
   jutsuReskins: Record<string, JutsuReskin>; // reskinId -> Reskin data

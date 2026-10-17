@@ -1,6 +1,7 @@
 import sgMail from "@sendgrid/mail";
 import { and, asc, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { EMAIL_REMINDER_EXPERIENCE_REWARD } from "@/drizzle/constants";
 import { emailReminder, userData } from "@/drizzle/schema";
 import { env } from "@/env/server.mjs";
 import {
@@ -8,6 +9,7 @@ import {
   lockWithHourlyTimer,
   updateGameSetting,
 } from "@/libs/gamesettings";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { MONTH_S, secondsFromNow } from "@/utils/time";
@@ -71,7 +73,10 @@ export async function GET(request: Request) {
                     drizzleDB
                       .update(userData)
                       .set({
-                        earnedExperience: sql`${userData.earnedExperience} + 10000`,
+                        earnedExperience: sql`${userData.earnedExperience} + ${EMAIL_REMINDER_EXPERIENCE_REWARD}`,
+                        petExperience: petExperienceGainSql(
+                          EMAIL_REMINDER_EXPERIENCE_REWARD,
+                        ),
                       })
                       .where(eq(userData.userId, reminder.userId)),
                   ]

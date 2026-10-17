@@ -1286,6 +1286,7 @@ export const clone = (
     delete newAi.baseStatsForModifiers;
     // A clone did not receive the original's hits and must not inherit its deferred damage.
     delete newAi.diffuseDamage;
+    delete newAi.petId;
     // Place on battlefield
     newAi.userId = nanoid();
     effect.creatorId = newAi.userId;

@@ -205,6 +205,8 @@ export const canCacheCombatCompletion = (
   const baseline = battle.extraState.profileCacheSnapshots?.[userId];
   return (
     !!baseline &&
+    // Pet XP is guarded against the live ownership row; refetch its committed bank.
+    !battle.extraState.petIdsByOwner?.[userId] &&
     ["money", "seichiSilver", "experience", "earnedExperience", "pveFights"].every(
       (field) => Number.isFinite(baseline[field as "money"]),
     ) &&

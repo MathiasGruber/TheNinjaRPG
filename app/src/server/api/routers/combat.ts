@@ -90,6 +90,7 @@ import {
   userData,
   userItem,
   userJutsu,
+  userPet,
   village,
   villageAlliance,
   war,
@@ -121,6 +122,7 @@ import {
 } from "@/libs/combat/database";
 import { advanceEncounterWave, prepareEncounterWaves } from "@/libs/combat/encounters";
 import { getBattleSpawnLocations, supportsNpcAllies } from "@/libs/combat/participants";
+import { addPetsToBattle, petsAllowedInBattle } from "@/libs/combat/pets";
 import {
   applyEffects,
   applySageModeAfterRoundTransition,
@@ -184,6 +186,7 @@ import {
   getWarSide,
   isObjectiveWarActive,
 } from "@/libs/objectiveWar";
+import { petExperienceGainSql } from "@/libs/pets/experience";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -2136,6 +2139,8 @@ export const initiateBattle = async (
     rankedTopPlayersLP,
     entryInventory,
     activeEventTournaments,
+    pets,
+    petJutsus,
   ] = await Promise.all([
     // Essentials
     fetchBattleEssentials(client),
@@ -2265,6 +2270,33 @@ export const initiateBattle = async (
           limit: 100,
         })
       : [],
+    // Preload the bounded collection so parallel reads remain complete across selection swaps.
+    petsAllowedInBattle(battleType)
+      ? client.query.userPet.findMany({
+          where: inArray(userPet.userId, [...userIds, ...targetIds]),
+          with: { species: true },
+        })
+      : [],
+    petsAllowedInBattle(battleType)
+      ? client.query.jutsu.findMany({
+          where: (table) =>
+            and(
+              eq(table.jutsuType, "PETS"),
+              eq(table.hidden, false),
+              exists(
+                client
+                  .select({ one: sql`1` })
+                  .from(userPet)
+                  .where(
+                    and(
+                      inArray(userPet.userId, [...userIds, ...targetIds]),
+                      sql`JSON_CONTAINS(${userPet.jutsuIds}, JSON_QUOTE(${table.id}))`,
+                    ),
+                  ),
+              ),
+            ),
+        })
+      : [],
   ]);
 
   // Start due jutsu levels and crafts before the participants are read for the fight,
@@ -2307,6 +2339,23 @@ export const initiateBattle = async (
         tags: { source: "battleCookingSettlement" },
       });
     }
+  }
+
+  // A newly adopted selection may not exist in the earlier collection snapshot.
+  // Reject it before battle writes; the final participant CAS guards later swaps.
+  if (
+    petsAllowedInBattle(battleType) &&
+    fetchedUsers.some(
+      (user) =>
+        !user.isAi &&
+        user.activePetId &&
+        !pets.some((pet) => pet.userId === user.userId && pet.id === user.activePetId),
+    )
+  ) {
+    return {
+      success: false,
+      message: "A companion selection changed. Please try again.",
+    };
   }
 
   const entryCharges = info.questAttempt
@@ -2993,6 +3042,25 @@ export const initiateBattle = async (
       leftSideUserIds: userIds,
       leftSideUserCount,
       isSummon: false,
+      petPreload: {
+        pets,
+        ownerRanks: Object.fromEntries(
+          fetchedUsers
+            .filter((user) => !user.isAi)
+            .map((user) => [user.userId, user.rank]),
+        ),
+        abilitiesByOwner: Object.fromEntries(
+          fetchedUsers
+            .filter((user) => !user.isAi)
+            .map((user) => [
+              user.userId,
+              {
+                jutsus: petJutsus,
+                skills: user.userSkills,
+              },
+            ]),
+        ),
+      },
     });
 
   if (dungeonEncounter) {
@@ -3320,6 +3388,11 @@ export const initiateBattle = async (
         energyParticipants,
         (entry) => sql`${userData.experience} + ${entry.amount}`,
       );
+      queueUpdate.petExperience = queueCase(
+        "petExperience",
+        energyParticipants,
+        (entry) => petExperienceGainSql(entry.amount),
+      );
       for (const stat of CombatStatNames) {
         queueUpdate[stat] = queueCase(
           stat,
@@ -3499,6 +3572,24 @@ export const initiateBattle = async (
             // row is never even examined (or locked) by this update. Drizzle
             // compiles an empty list to FALSE, matching expectedRows === 0.
             inArray(userData.userId, allParticipantIds),
+            // A companion swap during preload must not claim a battle with a stale active pet.
+            ...(petsAllowedInBattle(battleType)
+              ? fetchedUsers
+                  .filter((user) => allParticipantIds.includes(user.userId))
+                  .map((user) =>
+                    or(
+                      ne(userData.userId, user.userId),
+                      and(
+                        user.activePetId
+                          ? eq(userData.activePetId, user.activePetId)
+                          : isNull(userData.activePetId),
+                        user.petTask
+                          ? sql`JSON_CONTAINS(${userData.petTask}, ${JSON.stringify(user.petTask)})`
+                          : isNull(userData.petTask),
+                      ),
+                    ),
+                  )
+              : []),
             ...(info.tournamentGame
               ? [
                   eq(userData.status, "AWAKE"),
@@ -3958,6 +4049,10 @@ export const processUsersForBattle = async (
     isSummon: boolean;
     width: number;
     height: number;
+    petPreload?: Pick<
+      Parameters<typeof addPetsToBattle>[0],
+      "pets" | "ownerRanks" | "abilitiesByOwner"
+    >;
   },
 ) => {
   // Destructure
@@ -4432,6 +4527,9 @@ export const processUsersForBattle = async (
         if (!userjutsu.jutsu) {
           return false;
         }
+        // Companion actions are installed separately after participant processing;
+        // even ranked and AI loadouts must not inherit their independent balance.
+        if (userjutsu.jutsu.jutsuType === "PETS") return false;
         if (
           !user.isAi &&
           !hasRequiredSkill(userjutsu.jutsu, { userSkills: requirementSkills })
@@ -4699,35 +4797,6 @@ export const processUsersForBattle = async (
     }
   }
 
-  // Apply ally passives after every participant has been assigned a team.
-  if (pendingSkillEffects.length > 0) {
-    for (const pending of pendingSkillEffects) {
-      const creator = usersState.find((u) => u.userId === pending.creatorId);
-      if (!creator) continue;
-      const targets = usersState.filter(
-        (u) => stillInBattle(u) && u.direction === creator.direction,
-      );
-      for (const target of targets) {
-        for (const effect of pending.effects) {
-          const realized = realizeTag({
-            tag: structuredClone(effect),
-            user: creator,
-            actionId: pending.skillId,
-            target,
-            level: pending.level,
-          });
-          realized.isNew = false;
-          realized.castThisRound = false;
-          realized.targetId = target.userId;
-          realized.fromType = "skill";
-          if (checkFriendlyFire(realized, target, usersState)) {
-            userEffects.push(realized);
-          }
-        }
-      }
-    }
-  }
-
   // Compute initial durability before conversion (needs item.item access)
   const initialDurability: Record<string, Record<string, number>> = {};
   usersState.forEach((user) => {
@@ -4967,6 +5036,46 @@ export const processUsersForBattle = async (
     convertedUsersState.push(...summonUsersState);
   }
   mergeExtraState(extraState, summonExtraState);
+
+  if (info.petPreload) {
+    addPetsToBattle({
+      ...info.petPreload,
+      usersState: convertedUsersState,
+      usersEffects: userEffects,
+      extraState,
+      battleType,
+      width,
+      height,
+    });
+  }
+
+  // Apply ally passives after every participant, including companions, has been assigned a team.
+  for (const pending of pendingSkillEffects) {
+    const creator = convertedUsersState.find((u) => u.userId === pending.creatorId);
+    if (!creator) continue;
+    const targets = convertedUsersState.filter(
+      (u) =>
+        !u.isSummonTemplate && stillInBattle(u) && u.direction === creator.direction,
+    );
+    for (const target of targets) {
+      for (const effect of pending.effects) {
+        const realized = realizeTag({
+          tag: structuredClone(effect),
+          user: creator,
+          actionId: pending.skillId,
+          target,
+          level: pending.level,
+        });
+        realized.isNew = false;
+        realized.castThisRound = false;
+        realized.targetId = target.userId;
+        realized.fromType = "skill";
+        if (checkFriendlyFire(realized, target, convertedUsersState)) {
+          userEffects.push(realized);
+        }
+      }
+    }
+  }
 
   const userIds = convertedUsersState.map((u) => u.userId);
   const { preBattleGearModifiers, filteredEffects } =

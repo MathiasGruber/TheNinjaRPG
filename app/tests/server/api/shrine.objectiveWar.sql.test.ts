@@ -13,6 +13,7 @@ import {
   mpvpBattleQueue,
   mpvpBattleUser,
   notification,
+  questHistory,
   sector,
   userData,
   village,
@@ -38,7 +39,7 @@ describeWithDatabase("shrine lobby objective war eligibility", () => {
   beforeEach(async () => {
     await resetTables(
       battleHistory, battle, mpvpBattleUser, mpvpBattleQueue, aiProfile, gameSetting,
-      notification, warAlly, war, sector, userData, villageAlliance, village,
+      notification, warAlly, war, sector, questHistory, userData, villageAlliance, village,
     );
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => Response.json(

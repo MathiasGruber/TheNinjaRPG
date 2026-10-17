@@ -167,9 +167,9 @@ export const uploadToUT = async (url: string) => {
  * Create a fast image from text using Replicate
  * Uses server-to-server transfer - UploadThing fetches directly from Replicate URL
  * Attempts flux-schnell first, falls back to prunaai/p-image on failure
- * @param prompt - The prompt to create the image from
- * @param disable_safety_checker - Whether to disable the safety checker
- * @returns The URL of the image
+ * Cancellation covers generation and upload, and must not start a fallback prediction.
+ * @param config - Prompt, model options and optional caller deadline
+ * @returns UploadThing's upload result; the caller owns review and publication
  */
 export const fastTxt2imgReplicate = async (config: {
   prompt: string;
@@ -177,6 +177,7 @@ export const fastTxt2imgReplicate = async (config: {
   disable_safety_checker?: boolean;
   output_quality?: number;
   mega_pixels?: "0.25" | "1";
+  signal?: AbortSignal;
 }) => {
   const {
     prompt,
@@ -184,6 +185,7 @@ export const fastTxt2imgReplicate = async (config: {
     disable_safety_checker = false,
     output_quality = 50,
     mega_pixels = "0.25",
+    signal,
   } = config;
   const replicate = getReplicateInstance();
 
@@ -201,24 +203,41 @@ export const fastTxt2imgReplicate = async (config: {
       num_inference_steps: 4,
       disable_safety_checker: disable_safety_checker,
     };
-    const outputs = (await replicate.run("black-forest-labs/flux-schnell", {
-      input: fluxInput,
-    })) as FileOutput[];
+    const outputs = (await runAbortable(
+      () =>
+        replicate.run("black-forest-labs/flux-schnell", {
+          input: fluxInput,
+          ...(signal ? { signal } : {}),
+        }),
+      signal,
+    )) as FileOutput[];
     output = outputs?.[0];
   } catch (fluxError) {
+    signal?.throwIfAborted();
+    if (
+      fluxError instanceof Error &&
+      ["AbortError", "TimeoutError"].includes(fluxError.name)
+    )
+      throw fluxError;
     console.warn("flux-schnell failed, falling back to prunaai/p-image:", fluxError);
   }
 
   // Fallback to prunaai/p-image if flux-schnell failed or returned no output
   if (!output) {
+    signal?.throwIfAborted();
     const pImageInput = {
       prompt: prompt,
       aspect_ratio: aspect_ratio,
       disable_safety_checker: disable_safety_checker,
     };
-    output = (await replicate.run("prunaai/p-image", {
-      input: pImageInput,
-    })) as FileOutput;
+    output = (await runAbortable(
+      () =>
+        replicate.run("prunaai/p-image", {
+          input: pImageInput,
+          ...(signal ? { signal } : {}),
+        }),
+      signal,
+    )) as FileOutput;
   }
 
   if (!output) throw new Error("No output from AI model");
@@ -227,11 +246,18 @@ export const fastTxt2imgReplicate = async (config: {
   const replicateUrl = output.url();
   const utapi = new UTApi();
   const name = `preview-${nanoid()}.webp`;
-  const uploadedFile = await utapi.uploadFilesFromUrl({
-    url: replicateUrl,
-    name,
-    customId: name,
-  });
+  const uploadedFile = await runAbortable(
+    () =>
+      utapi.uploadFilesFromUrl(
+        {
+          url: replicateUrl,
+          name,
+          customId: name,
+        },
+        signal ? { signal } : undefined,
+      ),
+    signal,
+  );
   return uploadedFile;
 };
 
@@ -244,6 +270,8 @@ type Txt2ImgConfig = {
   width: number;
   height: number;
   size: IMG_ORIENTATION;
+  /** Optional deadline for Replicate generation, cutout processing and delivery upload. */
+  signal?: AbortSignal;
 };
 
 /**
@@ -313,6 +341,7 @@ export const txt2imgGPT = async (config: Txt2ImgConfig) => {
 /**
  * Create an image from text using Google's Nano Banana via Replicate
  * Mirrors txt2imgGPT flow and returns uploaded URL(s)
+ * The optional signal bounds generation, background removal, download and upload.
  */
 export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
   const replicate = getReplicateInstance();
@@ -358,9 +387,14 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
   // in the client tRPC logger and is impossible to diagnose.
   let file: FileOutput;
   try {
-    file = (await replicate.run("google/nano-banana", {
-      input: inputs,
-    })) as FileOutput;
+    file = (await runAbortable(
+      () =>
+        replicate.run("google/nano-banana", {
+          input: inputs,
+          ...(config.signal ? { signal: config.signal } : {}),
+        }),
+      config.signal,
+    )) as FileOutput;
   } catch (cause) {
     console.error("[txt2imgNanoBanana] Replicate generation failed", {
       model: "google/nano-banana",
@@ -377,11 +411,11 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
 
   // If transparent background requested, post-process with remove-bg
   if (config.removeBg) {
-    file = await removeBackgroundReplicate(String(file.url()));
+    file = await removeBackgroundReplicate(String(file.url()), config.signal);
   }
 
   // Fetch and resize to requested bounds (match OpenAI flow)
-  const blob = await file.blob();
+  const blob = await runAbortable(() => file.blob(), config.signal);
   const arrayBuffer = await blob.arrayBuffer();
   const resultBuffer = await sharp(Buffer.from(arrayBuffer))
     .resize({ width: config.width, height: config.height, fit: "inside" })
@@ -389,21 +423,35 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
     .toBuffer();
 
   const resizedBlob = new Blob([resultBuffer as BlobPart]);
-  const uploaded = await uploadFileFromReplicate("content", resizedBlob, "webp");
+  const uploaded = await uploadFileFromReplicate(
+    "content",
+    resizedBlob,
+    "webp",
+    config.signal,
+  );
   const url = uploaded.data ? servedUfsUrl(uploaded.data) : null;
   return url ? [url] : [];
 };
 
 /**
  * Remove background from an image using lucataco/remove-bg on Replicate
+ * The caller's signal also bounds waiting on the provider's polling/network work.
  */
-export const removeBackgroundReplicate = async (imageUrl: string) => {
+export const removeBackgroundReplicate = async (
+  imageUrl: string,
+  signal?: AbortSignal,
+) => {
   const replicate = getReplicateInstance();
-  const output = (await replicate.run(
-    "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
-    {
-      input: { image: imageUrl },
-    },
+  const output = (await runAbortable(
+    () =>
+      replicate.run(
+        "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
+        {
+          input: { image: imageUrl },
+          ...(signal ? { signal } : {}),
+        },
+      ),
+    signal,
   )) as FileOutput | FileOutput[];
   const file = Array.isArray(output) ? output[0] : output;
   if (!file) throw new Error("No output from remove-bg model");
@@ -464,22 +512,52 @@ export const createThumbnail = async (url?: string | null) => {
 };
 
 /**
- * Upload a file from a Replicate run session
- * @param object - The Replicate object
- * @param key - The key of the file to upload
- * @param generationId - The generation ID
- * @returns The uploaded files
+ * Upload generated bytes under a unique custom ID used by owned-upload cleanup.
+ * @param prefix - Asset namespace included in the custom filename
+ * @param blob - Already generated image data
+ * @param extension - File extension matching the encoded bytes
+ * @param signal - Optional deadline covering the upload
+ * @returns UploadThing's upload result
  */
 export const uploadFileFromReplicate = async (
   prefix: string,
   blob: Blob,
   extension = "webp",
+  signal?: AbortSignal,
 ) => {
   const utapi = new UTApi();
   const fileName = `${prefix}-${nanoid()}.${extension}`;
   const utFiles = new UTFile([blob], fileName, { customId: fileName });
-  const uploadedFile = await utapi.uploadFiles(utFiles);
+  const uploadedFile = await runAbortable(
+    () => utapi.uploadFiles(utFiles, signal ? { signal } : undefined),
+    signal,
+  );
   return uploadedFile;
+};
+
+/** The SDK cancels predictions between polls; stop waiting when a network request stalls. */
+const runAbortable = <T>(run: () => Promise<T>, signal?: AbortSignal): Promise<T> => {
+  if (!signal) return run();
+  signal.throwIfAborted();
+  return new Promise<T>((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve()
+      .then(() => {
+        signal.throwIfAborted();
+        return run();
+      })
+      .then(
+        (value) => {
+          signal.removeEventListener("abort", abort);
+          resolve(value);
+        },
+        (error: unknown) => {
+          signal.removeEventListener("abort", abort);
+          reject(error);
+        },
+      );
+  });
 };
 
 /**

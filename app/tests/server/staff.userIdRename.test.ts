@@ -1,4 +1,3 @@
-
 import { and, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { beforeEach, expect, it } from "bun:test";
@@ -16,6 +15,8 @@ import {
   userDevice,
   userHome,
   userLiveActivity,
+  userPet,
+  petSpecies,
   userPushPreference,
   userReport,
   userReportEmbedding,
@@ -25,6 +26,7 @@ import { OPENAI_REPORT_EMBEDDING_MODEL, REPORT_EMBEDDING_DIMENSIONS, STARTING_RE
 import { registerRouter } from "@/server/api/routers/register";
 import { deleteUser, staffRouter } from "@/server/api/routers/staff";
 import { pushRouter } from "@/server/api/routers/push";
+import { petsRouter } from "@/server/api/routers/pets";
 import {
   canonicalStoreUserId,
   extendStoreSubscription,
@@ -33,7 +35,8 @@ import {
   revokeFederalStatus,
   transferStorePurchases,
 } from "@/server/utils/purchases/grant";
-import { insertUsers } from "../setup/factories";
+import { initialPetSpecies } from "../libs/pets/helpers/species";
+import { insertPetSpecies, insertUsers } from "../setup/factories";
 import { beforeStatements, failStatements } from "../setup/statements";
 import {
   callerFor,
@@ -49,6 +52,7 @@ const NEW_USER_ID = "rename-new-user";
 describeWithDatabase("staff user-id rename", () => {
   beforeEach(async () => {
     await resetTables(
+      petSpecies,
       auctionOffer,
       bloodline,
       notification,
@@ -58,6 +62,7 @@ describeWithDatabase("staff user-id rename", () => {
       userPushPreference,
       userDevice,
       userHome,
+      userPet,
       storeEntitlementRevocation,
       storeEntitlementState,
       storePurchaseTransfer,
@@ -67,6 +72,7 @@ describeWithDatabase("staff user-id rename", () => {
       userData,
       village,
     );
+    await insertPetSpecies(initialPetSpecies);
     await insertUsers([
       { userId: STAFF, username: "Terriator", role: "CODING-ADMIN" },
       { userId: OLD_USER_ID, username: "rename-target", role: "USER" },
@@ -89,6 +95,88 @@ describeWithDatabase("staff user-id rename", () => {
     expect((await caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID })).success).toBe(true);
     expect(await database.query.userHome.findFirst({ where: eq(userHome.userId, NEW_USER_ID) })).toMatchObject({ isPublic: true, roomStyles: [...roomStyles] });
     expect(await database.query.userHome.findFirst({ where: eq(userHome.userId, OLD_USER_ID) })).toBeUndefined();
+  });
+
+  it("preserves a ready companion and its owner's progression across relinking and retry", async () => {
+    const database = await getTestDatabase();
+    const pet = {
+      id: "rename-companion",
+      userId: OLD_USER_ID,
+      name: "Companion",
+      speciesId: "pet-species-1",
+      paletteIndex: 2,
+      characteristicIndex: 3,
+      auraIndex: 4,
+      rank: 2,
+      artRank: 2,
+      experience: 8000,
+      offence: 120,
+      defence: 130,
+      strength: 140,
+      speed: 150,
+      intelligence: 160,
+      willpower: 170,
+      avatar: "https://example.com/rename-companion.webp",
+      avatarFacing: "right",
+      spawnPosition: "LEFT",
+      aiRules: [{ conditions: [], action: { type: "end_turn", description: "Wait" } }],
+      includeDefaultRules: false,
+      generationStatus: "READY",
+      revision: 7,
+    } satisfies typeof userPet.$inferInsert;
+    await Promise.all([
+      database.insert(userPet).values([
+        pet,
+        { ...pet, id: "staff-companion", userId: STAFF },
+        { ...pet, id: "parked-companion", storedExperience: 80 },
+      ]),
+      database.update(userData).set({ rank: "GENIN", petExperience: 125, petAcquisitions: 3, activePetId: pet.id, petSlots: 2 }).where(eq(userData.userId, OLD_USER_ID)),
+    ]);
+    const before = await (await callerFor(petsRouter, OLD_USER_ID)).getPet();
+    if (!before.pet) throw new Error("Companion not found before rename");
+    const staffPet = await database.query.userPet.findFirst({ where: eq(userPet.userId, STAFF) });
+    const caller = await callerFor(staffRouter, STAFF);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await expect(
+        caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID }),
+      ).resolves.toMatchObject({ success: true });
+      const [after, oldPets, owner, unchangedStaffPet] = await Promise.all([
+        (await callerFor(petsRouter, NEW_USER_ID)).getPet(),
+        database.query.userPet.findMany({ where: eq(userPet.userId, OLD_USER_ID) }),
+        database.query.userData.findFirst({ columns: { petExperience: true, petAcquisitions: true }, where: eq(userData.userId, NEW_USER_ID) }),
+        database.query.userPet.findFirst({ where: eq(userPet.userId, STAFF) }),
+      ]);
+      expect(after.pet).toEqual({ ...before.pet, userId: NEW_USER_ID });
+      expect(after.unusedExperience).toBe(125);
+      expect(after.activePetId).toBe(pet.id);
+      expect(after.slots).toBe(2);
+      expect(after.pets).toHaveLength(2);
+      expect(after.pets.find((entry) => entry.id === "parked-companion")).toMatchObject({ userId: NEW_USER_ID, storedExperience: 80 });
+      expect(owner).toEqual({ petExperience: 125, petAcquisitions: 3 });
+      expect(oldPets).toEqual([]);
+      expect(unchangedStaffPet).toEqual(staffPet);
+    }
+    await deleteUser(database, NEW_USER_ID);
+    expect(await database.query.userPet.findFirst({ where: eq(userPet.id, pet.id) })).toBeUndefined();
+    expect(await database.query.userPet.findFirst({ where: eq(userPet.userId, STAFF) })).toEqual(staffPet);
+  });
+
+  it("finishes a failed companion ownership move when the rename is retried", async () => {
+    const database = await getTestDatabase();
+    await database.insert(userPet).values({
+      id: "retry-companion", userId: OLD_USER_ID, name: "Companion",
+      speciesId: "pet-species-0", paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+    });
+    await expect(
+      callerForDatabase(staffRouter, STAFF, failStatements(database, userPet)).updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID }),
+    ).rejects.toThrow("Statement failed on purpose");
+    expect(await database.query.userData.findFirst({ where: eq(userData.userId, NEW_USER_ID) })).toBeDefined();
+    expect((await database.query.userPet.findFirst({ where: eq(userPet.id, "retry-companion") }))?.userId).toBe(OLD_USER_ID);
+    await expect(
+      (await callerFor(staffRouter, STAFF)).updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID }),
+    ).resolves.toMatchObject({ success: true });
+    expect((await database.query.userPet.findFirst({ where: eq(userPet.id, "retry-companion") }))?.userId).toBe(NEW_USER_ID);
+    expect(await database.query.userPet.findMany({ where: eq(userPet.userId, OLD_USER_ID) })).toEqual([]);
   });
 
   it("closes permanent offers before deleting their owner's inventory", async () => {

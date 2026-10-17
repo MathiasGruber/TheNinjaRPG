@@ -134,6 +134,15 @@ export const cacheConsumptionResponseSchema = z.object({
   notifications: z.array(z.string()),
   rewards: PostProcessedRewardSchema.nullable(),
   cacheRewards: z.array(cacheRewardDisplaySchema),
+  petRewards: z
+    .array(
+      z.object({
+        id: z.string(),
+        speciesId: z.string(),
+        name: z.string(),
+      }),
+    )
+    .optional(),
 });
 /** Bind the saved response to its inventory stack before accepting a replay. */
 export const cacheConsumptionReceiptSchema = z.object({

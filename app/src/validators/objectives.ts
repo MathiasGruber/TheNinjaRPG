@@ -69,6 +69,7 @@ import {
   SuperRefinePassiveEffects,
 } from "@/validators/combat";
 import { masteryRequirementFields } from "@/validators/mastery";
+import { petTaskMinutesSchema } from "@/validators/petTasks";
 import {
   QuestReward,
   type QuestRewardType,
@@ -812,6 +813,7 @@ export const QuestValidatorRawSchema = z.object({
   medicalRank: z.enum(MEDNIN_RANKS).optional().nullish(),
   huntingRank: z.enum(HUNTING_RANKS).optional().nullish(),
   gatheringRank: z.enum(GATHERING_RANKS).optional().nullish(),
+  petTaskMinutes: petTaskMinutesSchema,
   requiredLevel: z.coerce.number().min(0).max(100).optional(),
   requiredFarmingLevel: z.coerce.number().min(0).max(FARMING_MAX_LEVEL).optional(),
   maxLevel: z.coerce.number().min(0).max(100).optional(),
@@ -853,6 +855,12 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  if (val.petTaskMinutes !== null && !["hunting", "gathering"].includes(val.questType))
+    ctx.addIssue({
+      code: "custom",
+      path: ["petTaskMinutes"],
+      message: "Only hunting and gathering contracts can be delegated to companions",
+    });
   const concurrentObjectives = val.content.objectives.filter(
     (o) => o.task === "espionage" || o.task === "sabotage",
   );
@@ -1081,6 +1089,9 @@ export const QuestFormRawSchema = QuestValidatorRawSchema.extend(
 /** Validate the editor's flattened run fields, clearing settings hidden by a type change. */
 export const QuestFormSchema = QuestFormRawSchema.transform((val) => ({
   ...val,
+  petTaskMinutes: ["hunting", "gathering"].includes(val.questType)
+    ? val.petTaskMinutes
+    : null,
   content: {
     ...val.content,
     entryItems: ["raid", "village_mission", "achievement"].includes(val.questType)

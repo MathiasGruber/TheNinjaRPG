@@ -15,7 +15,9 @@ import { flushSafe, isExpectedTrpcRouteError, logError } from "@/server/utils/se
 import { diagnosticTrpcInput } from "@/server/utils/trpcInput";
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+// Reference-image evolution includes generation, cutout and content verification.
+// Pet provider calls stop before this deadline so their failure remains retryable.
+export const maxDuration = 300;
 
 const handler = async (req: NextRequest) => {
   // Mutations wait for BotID's verdict (see @/server/utils/botid). Starting the check
