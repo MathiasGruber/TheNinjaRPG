@@ -18,6 +18,7 @@ import {
   WAR_FACTION_MAX_SECTORS,
   WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
+  WAR_MISSION_REQUIRED_RANK,
   WAR_POINT_CONVERSION_DAYS,
   WAR_POINT_PRESTIGE_RATE,
   WAR_PURCHASE_SHRINE_TOKEN_COST,
@@ -50,6 +51,7 @@ import {
 } from "@/libs/objectiveWar";
 import { isAvailableUserQuests } from "@/libs/quest";
 import { findActiveExclusiveRaidForSector } from "@/libs/raids";
+import { hasRequiredRank } from "@/libs/train";
 import {
   canJoinWar,
   getRaidDeclarationBlock,
@@ -95,6 +97,7 @@ import {
   canModifyCombatSettings,
   canSeeSecretData,
 } from "@/utils/permissions";
+import { capitalizeFirstLetter } from "@/utils/string";
 import { secondsFromNow } from "@/utils/time";
 import {
   completeWarMissionSchema,
@@ -199,6 +202,7 @@ export const warRouter = createTRPCRouter({
         missions: missions
           .filter(
             (q) =>
+              isObjectiveWarActive(activeWar) &&
               isAvailableUserQuests(q, { ...user, completedQuests }, true, true).check,
           )
           .flatMap((q) =>
@@ -254,6 +258,8 @@ export const warRouter = createTRPCRouter({
         objective.value <= 0
       )
         return errorResponse("This war mission is unavailable");
+      if (!isObjectiveWarActive(activeWar))
+        return errorResponse("War missions are only available during active combat");
       const eligibility = isAvailableUserQuests(
         mission,
         { ...user, completedQuests },
@@ -315,6 +321,7 @@ export const warRouter = createTRPCRouter({
             eq(userData.isBanned, false),
             sql`EXISTS (SELECT 1 FROM War currentWar WHERE currentWar.id = ${activeWar.id} AND currentWar.endedAt IS NULL AND currentWar.status = 'ACTIVE'
               AND currentWar.attackerWarHealth > 0 AND currentWar.defenderWarHealth > 0
+              AND currentWar.combatStartedAt <= SYSDATE(3)
               AND SYSDATE(3) < DATE_ADD(currentWar.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(currentWar.rules, '$.durationDays') AS UNSIGNED) DAY)
               AND (${userData.villageId} = ${side} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = currentWar.id AND membership.villageId = ${userData.villageId} AND membership.supportVillageId = ${side} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)))`,
           ),
@@ -335,10 +342,16 @@ export const warRouter = createTRPCRouter({
       const attempt = user.warMission;
       if (!attempt || attempt.id !== input.attemptId)
         return errorResponse("No matching war mission");
+      if (!hasRequiredRank(user.rank, WAR_MISSION_REQUIRED_RANK))
+        return errorResponse(
+          `War missions require ${capitalizeFirstLetter(WAR_MISSION_REQUIRED_RANK)} rank or higher`,
+        );
       const activeWar = await ctx.drizzle.query.war.findFirst({
         where: eq(war.id, attempt.warId),
         with: { warAllies: { where: activeWarAllyWhere() } },
       });
+      if (activeWar && !isObjectiveWarActive(activeWar))
+        return errorResponse("War missions are only available during active combat");
       if (
         !activeWar?.rules ||
         activeWar.endedAt ||
@@ -367,7 +380,6 @@ export const warRouter = createTRPCRouter({
       )
         return errorResponse("The sabotage target is no longer available");
       const applied = await applyObjectiveWarAction(ctx.drizzle, activeWar, {
-        allowDuringNotice: true,
         id: attempt.id,
         userId: user.userId,
         sideVillageId: attempt.sideVillageId,

@@ -33,6 +33,7 @@ import {
   SENSEI_STUDENT_MISSION_EXP_BOOST_PERC,
   TERMINAL_DIALOG_PREFIX,
   VILLAGE_SYNDICATE_ID,
+  WAR_MISSION_REQUIRED_RANK,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
 import type { GameSetting, Quest, UserData, UserItem } from "@/drizzle/schema";
@@ -74,7 +75,7 @@ import { collapseRewards } from "@/libs/rewards";
 import { getSageMasteryDisplayRank, isSageRankAtLeast } from "@/libs/sageMode";
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
-import { availableQuestLetterRanks } from "@/libs/train";
+import { availableQuestLetterRanks, hasRequiredRank } from "@/libs/train";
 import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
 import { getUnique } from "@/utils/grouping";
@@ -2195,6 +2196,14 @@ export const isAvailableUserQuests = (
   ignorePreviousAttempts = false,
   isConcurrentWarMission = false,
 ) => {
+  if (
+    questAndUserQuestInfo.questType === "war" &&
+    !hasRequiredRank(user.rank, WAR_MISSION_REQUIRED_RANK)
+  )
+    return {
+      check: false,
+      message: `War missions require ${capitalizeFirstLetter(WAR_MISSION_REQUIRED_RANK)} rank or higher`,
+    };
   if (
     !isConcurrentWarMission &&
     questAndUserQuestInfo.content?.objectives?.some(
