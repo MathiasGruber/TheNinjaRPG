@@ -122,6 +122,7 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
     state,
     now,
     paused,
+    warInterrupted,
     resetAssignments: !sameTenure || paused || state.paused || warInterrupted,
   };
 };
@@ -166,7 +167,10 @@ export const syncLockedKageDefense = async (
   const missedObservation =
     now.getTime() - priorObservation.getTime() > KAGE_DEFENSE_GRACE_MINUTES * 60_000;
   // The publication deadline freezes while war or service interruptions prevent participation.
-  if (!state.publishedAt && (hall.paused || state.paused || missedObservation)) {
+  if (
+    !state.publishedAt &&
+    (hall.paused || state.paused || hall.warInterrupted || missedObservation)
+  ) {
     state.setupDueAt = new Date(
       new Date(state.setupDueAt).getTime() +
         Math.max(0, now.getTime() - priorObservation.getTime()),
@@ -376,15 +380,7 @@ export const assignKageMatches = async (
     ({ match: m }) => m.status === "QUEUED" || m.status === "SCHEDULED",
   );
   if (!pending.length) return;
-  const history = await client.query.kageDefendedChallenges.findMany({
-    where: and(
-      inArray(
-        kageDefendedChallenges.userId,
-        pending.map((r) => r.match.userId),
-      ),
-      gte(kageDefendedChallenges.startedAt, periodStart("weekly", hall.now)),
-    ),
-  });
+  let history: KageDefendedChallenge[] | undefined;
   const occupied = new Set(
     hall.rows
       .filter(
@@ -407,6 +403,17 @@ export const assignKageMatches = async (
         "Earlier queue entry was reassigned; priority retained",
       );
     }
+    // Preserved appointments need no calendar-limit history; share one read for new slots.
+    history ??= await client.query.kageDefendedChallenges.findMany({
+      where: and(
+        inArray(
+          kageDefendedChallenges.userId,
+          pending.map((r) => r.match.userId),
+        ),
+        gte(kageDefendedChallenges.startedAt, periodStart("weekly", hall.now)),
+      ),
+    });
+    const challengerHistory = history.filter((h) => h.userId === m.userId);
     const slots = getKageSlots(
       hall.state.windows,
       new Date(
@@ -421,10 +428,7 @@ export const assignKageMatches = async (
     const assigned = slots.find(
       (date) =>
         !occupied.has(date.getTime()) &&
-        withinKageChallengeLimits(
-          history.filter((h) => h.userId === m.userId),
-          date,
-        ),
+        withinKageChallengeLimits(challengerHistory, date),
     );
     if (!assigned) continue;
     const update = {

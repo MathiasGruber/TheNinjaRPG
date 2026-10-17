@@ -35,7 +35,7 @@ import type { UserSearchResult } from "@/validators/register";
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const router = useRouter();
-  const { updateUser } = useRequiredUserData();
+  const { updateUser, timeDiff } = useRequiredUserData();
   const [draft, setDraft] = useState<KageWindow[] | null>(null);
   const nomineeForm = useForm<{ username: string; users: UserSearchResult[] }>({
     defaultValues: { username: "", users: [] },
@@ -46,13 +46,14 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   const [message, setMessage] = useState<{ success: boolean; message: string } | null>(
     null,
   );
-  const [now, setNow] = useState(Date.now());
+  const [clientNow, setClientNow] = useState(Date.now());
+  const now = clientNow - timeDiff;
   const { data, isPending, error, refetch } = api.kage.getDefenses.useQuery(
     { villageId: user.villageId ?? "" },
     { enabled: !!user.villageId, refetchInterval: 15_000 },
   );
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
+    const interval = setInterval(() => setClientNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
   /** Keep action feedback visible and refresh leadership before entering an admitted battle. */
@@ -173,7 +174,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
             ) : (
               <p className="mt-2">
                 The Kage must publish a schedule by {utc(hall.setupDeadline)}.{" "}
-                <Countdown targetDate={hall.setupDeadline} />
+                <Countdown targetDate={hall.setupDeadline} timeDiff={timeDiff} />
               </p>
             )}
             <p className="mt-2 text-muted-foreground text-sm">

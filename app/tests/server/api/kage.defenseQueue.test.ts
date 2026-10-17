@@ -47,6 +47,22 @@ describeWithDatabase("scheduled Kage defenses", () => {
   };
 
   it("reads completed defense history while waiting challengers retain no result", async () => {
+    const realFetch = globalThis.fetch;
+    // Keep the public village middleware active without requiring Redis for its SQL read.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+        return realFetch(input, init);
+      }
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(
+        Array.isArray(commands[0])
+          ? commands.map((command) => resultFor(command as unknown[]))
+          : resultFor(commands),
+      );
+    });
     const m = await join(); const db = await getTestDatabase();
     const completedAt = new Date("2026-10-11T11:00:00Z");
     await db.insert(kageDefendedChallenges).values({

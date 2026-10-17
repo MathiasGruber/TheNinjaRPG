@@ -125,13 +125,26 @@ describeWithDatabase("Kage defense maintenance", () => {
     expect(new Date(state.setupDueAt!).getTime()).toBe(now.getTime() + 24 * 3600_000 + 120_000);
   });
 
-  it("reconciles a war that started and ended between healthy observations", async () => {
+  it("freezes publication across a war between healthy observations without extending it twice", async () => {
     const db = await getTestDatabase();
-    await db.insert(war).values({ id: "maintenance-short-war", attackerVillageId: villageId, defenderVillageId: "maintenance-enemy", type: "VILLAGE_WAR", status: "DRAW", startedAt: new Date(now.getTime() + 10_000), endedAt: new Date(now.getTime() + 20_000) });
-    setSystemTime(new Date(now.getTime() + 60_000));
+    const home = (await db.query.village.findFirst())!;
+    const deadline = new Date(home.kageSchedule!.setupDueAt!);
+    await db.update(village).set({ kageSchedule: { ...home.kageSchedule!, observedAt: new Date(deadline.getTime() - 30_000).toISOString() } }).where(eq(village.id, villageId));
+    await db.insert(war).values({ id: "maintenance-short-war", attackerVillageId: villageId, defenderVillageId: "maintenance-enemy", type: "VILLAGE_WAR", status: "DEFENDER_VICTORY", startedAt: new Date(deadline.getTime() - 10_000), endedAt: new Date(deadline.getTime() + 10_000) });
+    setSystemTime(new Date(deadline.getTime() + 15_000));
     const recorded = await recordQueries(() => maintainKageDefenses(db));
     expect(recorded.statements.some((s) => /start transaction|begin/i.test(s))).toBe(true);
-    expect((await db.query.village.findFirst())?.kageSchedule?.paused).toBe(false);
+    const updated = (await db.query.village.findFirst())!;
+    const extendedDeadline = new Date(deadline.getTime() + 45_000);
+    expect(updated.kageId).toBe("maintenance-kage");
+    expect(updated.kageSchedule?.paused).toBe(false);
+    expect(updated.kageSchedule?.setupDueAt).toBe(extendedDeadline.toISOString());
+    setSystemTime(new Date(deadline.getTime() + 30_000));
+    await maintainKageDefenses(db);
+    expect((await db.query.village.findFirst())?.kageSchedule?.setupDueAt).toBe(extendedDeadline.toISOString());
+    setSystemTime(extendedDeadline);
+    await maintainKageDefenses(db);
+    expect((await db.query.village.findFirst())?.kageId).not.toBe("maintenance-kage");
   });
 
   it("initializes a changed tenure instead of copying its predecessor's state", async () => {
