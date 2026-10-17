@@ -35,7 +35,7 @@ test("nested package scripts inherit the compatible Bun instead of the old PATH 
   const compatible = await fakeBun("1.4.3");
   const output = execFileSync("/bin/sh", ["-c", "bun --version"], {
     encoding: "utf8",
-    env: bunEnvironment(compatible, { PATH: dirname(old) }),
+    env: bunEnvironment(compatible, { ...process.env, PATH: dirname(old) }),
   });
   expect(output.trim()).toBe("1.4.3");
 });
