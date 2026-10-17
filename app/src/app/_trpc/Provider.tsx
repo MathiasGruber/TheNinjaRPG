@@ -1,5 +1,6 @@
 "use client";
 
+import { useClerk } from "@clerk/nextjs";
 import * as Sentry from "@sentry/nextjs";
 import {
   MutationCache,
@@ -20,6 +21,11 @@ import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/components/ui/use-toast";
 import { BOTID_BLOCKED_MESSAGE, BOTID_RELOAD_REQUIRED_MESSAGE } from "@/libs/botid";
 import { showMutationToast } from "@/libs/toast";
+import {
+  createTrpcSessionHeaders,
+  SESSION_CHANGED_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
+} from "@/libs/trpcSession";
 import { isRetryableTrpcError } from "@/utils/error";
 import {
   api,
@@ -37,6 +43,7 @@ const TrpcClientProvider = (props: {
   cdnCachedQueryPaths: readonly string[];
   children: React.ReactNode;
 }) => {
+  const clerk = useClerk();
   const onMutateCheck = useGlobalOnMutateProtect();
   const [queryClient] = useState(
     () =>
@@ -71,6 +78,12 @@ const TrpcClientProvider = (props: {
       links: [
         retryLink({
           retry(options) {
+            if (
+              options.error.message === SESSION_CHANGED_MESSAGE ||
+              options.error.message === SESSION_EXPIRED_MESSAGE
+            ) {
+              return false;
+            }
             // Retry transient network/CDN errors (network failures, offline, invalid JSON responses)
             if (isRetryableTrpcError(options.error) && options.op.type === "query") {
               return options.attempts <= 3;
@@ -115,6 +128,8 @@ const TrpcClientProvider = (props: {
           false: httpBatchLink({
             url: `${getBaseUrl()}/api/trpc`,
             transformer: superjson,
+            // Cookies are shared by tabs; the token belongs to this tab's active session.
+            headers: createTrpcSessionHeaders(clerk),
           }),
         }),
       ],
@@ -134,6 +149,17 @@ const handleTrpcError = (error: unknown) => {
     error instanceof TRPCClientError
       ? (error.data as { code?: string } | undefined)?.code
       : undefined;
+
+  // A session can change while a batch obtains its token. The request never leaves
+  // the client, pending state settles, and the rebuilt account tree permits retrying.
+  if (
+    error instanceof Error &&
+    (error.message === SESSION_CHANGED_MESSAGE ||
+      error.message === SESSION_EXPIRED_MESSAGE)
+  ) {
+    showMutationToast({ success: false, message: error.message });
+    return;
+  }
 
   // Ignore "Unauthorized for tRPC endpoint", since this could be just the user logging out, thus queries failing
   // This error is thrown server-side by auth middleware, so we silently handle it to avoid showing
