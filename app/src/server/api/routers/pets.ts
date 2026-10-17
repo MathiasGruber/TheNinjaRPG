@@ -18,6 +18,8 @@ import {
   PET_RANKS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
+  PET_SEICHI_SILVER_COST,
+  type PetPaymentCurrency,
 } from "@/drizzle/constants";
 import {
   petSpecies,
@@ -40,6 +42,7 @@ import { generatePetAppearance } from "@/libs/pets/appearance";
 import { getDailyPetOptions, isAvailablePetAppearance } from "@/libs/pets/catalogue";
 import {
   getMaxPetRank,
+  getPetCollectionCapacity,
   getPetStatCaps,
   isPetAppearanceReady,
   petRankUpBlockMessage,
@@ -55,12 +58,14 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { getUserFederalStatus } from "@/utils/paypal";
 import { getPetDayKey, getPetFeedAvailableAt } from "@/utils/time";
 import {
   acquirePetSchema,
   assignPetExperienceSchema,
   feedPetSchema,
   petAcquisitionResponseSchema,
+  petPaymentSchema,
   petSelectionSchema,
   updatePetAbilitiesSchema,
   updatePetAiSchema,
@@ -71,8 +76,9 @@ import {
 export const petsRouter = createTRPCRouter({
   /** Buy collection capacity and debit its price in one account update. */
   unlockSlot: protectedProcedure
+    .input(petPaymentSchema.optional())
     .output(baseServerResponse)
-    .mutation(async ({ ctx }) => {
+    .mutation(async ({ ctx, input }) => {
       const { user } = await fetchPetOwner(ctx.drizzle, ctx.userId);
       if (!user) return errorResponse("User not found");
       if (user.isBanned || user.status !== "AWAKE" || user.battleId || user.isAi)
@@ -81,9 +87,14 @@ export const petsRouter = createTRPCRouter({
         );
       if (user.petSlots >= PET_MAX_COLLECTION_SLOTS)
         return errorResponse("Your companion collection has all available slots.");
-      if (user.reputationPoints < PET_COLLECTION_SLOT_COST)
+      const payment = getPetPayment(
+        user,
+        input?.currency ?? "REPUTATION",
+        PET_COLLECTION_SLOT_COST,
+      );
+      if (payment.balance < payment.cost)
         return errorResponse(
-          `A collection slot costs ${PET_COLLECTION_SLOT_COST} reputation points.`,
+          `A collection slot costs ${payment.cost} ${payment.label}.`,
         );
       const claim = await retryOnDeadlock(() =>
         claimUserSnapshot({
@@ -93,11 +104,11 @@ export const petsRouter = createTRPCRouter({
           where: [
             ...ownerMutationWhere(user),
             eq(userData.petSlots, user.petSlots),
-            gte(userData.reputationPoints, PET_COLLECTION_SLOT_COST),
+            gte(payment.column, payment.cost),
           ],
           set: {
             petSlots: sql`${userData.petSlots} + 1`,
-            reputationPoints: sql`${userData.reputationPoints} - ${PET_COLLECTION_SLOT_COST}`,
+            [payment.column.name]: sql`${payment.column} - ${payment.cost}`,
           },
         }),
       );
@@ -345,11 +356,13 @@ export const petsRouter = createTRPCRouter({
       if (!user) throw serverError("NOT_FOUND", "User not found");
       const now = new Date();
       const dayKey = getPetDayKey(now);
+      const capacity = getPetCollectionCapacity(user);
+      const federalStatus = getUserFederalStatus(user);
       const nextFeedAt = getPetFeedAvailableAt(pet?.lastFedAt ?? null);
       const feedAvailableAt = nextFeedAt && nextFeedAt > now ? nextFeedAt : null;
       const acquisitionRestriction = !species.some((entry) => entry.isActive)
         ? "The Bondkeepers are not offering new companions right now. Please check back later."
-        : user.petSlots <= pets.length
+        : capacity.slots <= pets.length
           ? "Unlock another collection slot or release a companion before adopting another."
           : acquisitionBlockMessage(user);
       const rankUpReason = pet
@@ -362,9 +375,9 @@ export const petsRouter = createTRPCRouter({
         pet: visiblePet,
         pets: pets.map(omitGenerationToken),
         activePetId: user.activePetId,
-        slots: user.petSlots,
-        maxSlots: PET_MAX_COLLECTION_SLOTS,
+        ...capacity,
         slotCost: PET_COLLECTION_SLOT_COST,
+        slotSilverCost: PET_SEICHI_SILVER_COST,
         abilities: {
           jutsus: abilities.jutsus.filter(isPetJutsuAllowed),
           skills: abilities.skills.filter(isPetSkillAllowed),
@@ -387,10 +400,11 @@ export const petsRouter = createTRPCRouter({
             isPetAppearanceReady(pet) &&
             pet.rank <= getMaxPetRank(user.rank),
         ),
-        options: getDailyPetOptions(user.userId, user.federalStatus, species, dayKey),
+        options: getDailyPetOptions(user.userId, federalStatus, species, dayKey),
         dayKey,
-        optionCount: PET_OPTION_COUNTS[user.federalStatus],
+        optionCount: PET_OPTION_COUNTS[federalStatus],
         replacementCost: user.petAcquisitions === 0 ? 0 : PET_REPLACEMENT_COST,
+        replacementSilverCost: user.petAcquisitions === 0 ? 0 : PET_SEICHI_SILVER_COST,
         canAcquire: !acquisitionRestriction,
         unavailableReason: acquisitionRestriction,
         unusedExperience:
@@ -428,7 +442,8 @@ export const petsRouter = createTRPCRouter({
       if (!user) return errorResponse("User not found");
       const restriction = acquisitionBlockMessage(user);
       if (restriction) return errorResponse(restriction);
-      if (pets.length >= user.petSlots)
+      const capacity = getPetCollectionCapacity(user);
+      if (pets.length >= capacity.slots)
         return errorResponse(
           "Unlock another collection slot or release a companion before adopting another.",
         );
@@ -440,13 +455,19 @@ export const petsRouter = createTRPCRouter({
       if (
         !isAvailablePetAppearance(
           input,
-          getDailyPetOptions(user.userId, user.federalStatus, species, dayKey),
+          getDailyPetOptions(user.userId, getUserFederalStatus(user), species, dayKey),
         )
       )
         return errorResponse("Choose from your available companion traits for today.");
-      const cost = user.petAcquisitions === 0 ? 0 : PET_REPLACEMENT_COST;
-      if (user.reputationPoints < cost)
-        return errorResponse(`Replacing a companion costs ${cost} reputation points.`);
+      const payment = getPetPayment(
+        user,
+        input.currency,
+        user.petAcquisitions === 0 ? 0 : PET_REPLACEMENT_COST,
+      );
+      if (payment.balance < payment.cost)
+        return errorResponse(
+          `Adopting a companion costs ${payment.cost} ${payment.label}.`,
+        );
       const petId = nanoid();
       try {
         // MySQL cannot insert the pet and update its owner's debit/counters/first
@@ -462,6 +483,7 @@ export const petsRouter = createTRPCRouter({
                 eq(userData.isAi, false),
                 eq(userData.sector, MAP_WAKE_ISLAND_SECTOR),
                 eq(userData.federalStatus, user.federalStatus),
+                eq(userData.staffAccount, user.staffAccount),
                 eq(userData.petAcquisitions, user.petAcquisitions),
                 eq(userData.petSlots, user.petSlots),
                 lt(
@@ -469,10 +491,10 @@ export const petsRouter = createTRPCRouter({
                     .select({ count: count() })
                     .from(userPet)
                     .where(eq(userPet.userId, user.userId)),
-                  userData.petSlots,
+                  capacity.slots,
                 ),
-                gte(userData.reputationPoints, cost),
-                // Retirement must win before a claim charges reputation or grants a pet.
+                gte(payment.column, payment.cost),
+                // Retirement must win before a claim charges either balance or grants a pet.
                 exists(
                   tx
                     .select({ id: petSpecies.id })
@@ -488,7 +510,7 @@ export const petsRouter = createTRPCRouter({
               set: {
                 ...(!user.activePetId ? { activePetId: petId, petExperience: 0 } : {}),
                 petAcquisitions: sql`${userData.petAcquisitions} + 1`,
-                reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
+                [payment.column.name]: sql`${payment.column} - ${payment.cost}`,
               },
             });
             if (!claim.success) return false;
@@ -508,8 +530,8 @@ export const petsRouter = createTRPCRouter({
         return {
           success: true,
           petId,
-          message: cost
-            ? `Companion adopted for ${cost} reputation points. Its appearance is ready to generate.`
+          message: payment.cost
+            ? `Companion adopted for ${payment.cost} ${payment.label}. Its appearance is ready to generate.`
             : "Your first companion is adopted free. Its appearance is ready to generate.",
         };
       } catch (error) {
@@ -845,6 +867,21 @@ export const petsRouter = createTRPCRouter({
       }
     }),
 });
+
+/** Keep the chosen price, label and atomic balance column together for both purchases. */
+const getPetPayment = (
+  user: Pick<UserData, "reputationPoints" | "seichiSilver">,
+  currency: PetPaymentCurrency,
+  reputationCost: number,
+) => {
+  const isSilver = currency === "SEICHI_SILVER";
+  return {
+    cost: reputationCost === 0 ? 0 : isSilver ? PET_SEICHI_SILVER_COST : reputationCost,
+    label: isSilver ? "Seichi Silver" : "reputation points",
+    balance: isSilver ? user.seichiSilver : user.reputationPoints,
+    column: isSilver ? userData.seichiSilver : userData.reputationPoints,
+  };
+};
 
 /** Load independent owner and collection snapshots in parallel. */
 const fetchPetOwner = async (client: DrizzleClient, userId: string, petId?: string) => {

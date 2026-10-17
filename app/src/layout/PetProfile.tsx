@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ import {
   PET_RANKS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
+  PET_SEICHI_SILVER_COST,
   PetSpawnPositions,
 } from "@/drizzle/constants";
 import { useSectorVillage } from "@/hooks/useSectorVillage";
@@ -84,6 +86,8 @@ export function PetProfile() {
   const utils = api.useUtils();
   const [selectedPetId, setSelectedPetId] = useState(requestedPetId);
   const [selectedMealId, setSelectedMealId] = useState("");
+  const [slotCurrency, setSlotCurrency] =
+    useState<RouterInputs["pets"]["acquirePet"]["currency"]>("REPUTATION");
   const [abilityDraft, setAbilityDraft] = useState<
     RouterInputs["pets"]["updateAbilities"] | null
   >(null);
@@ -332,6 +336,16 @@ export function PetProfile() {
     hasHomeKitchen &&
     homeVillage.sector === sectorVillage?.sector &&
     (userData.isOutlaw || canAccessStructure(userData, "/home", sectorVillage));
+  const slotCost =
+    slotCurrency === "SEICHI_SILVER" ? data.slotSilverCost : data.slotCost;
+  const slotBalance =
+    slotCurrency === "SEICHI_SILVER"
+      ? userData.seichiSilver
+      : userData.reputationPoints;
+  const slotCurrencyLabel =
+    slotCurrency === "SEICHI_SILVER" ? "Seichi Silver" : "reputation";
+  const canUnlockSlot =
+    !isBusy && userData.status === "AWAKE" && slotBalance >= slotCost;
   const collection = (
     <ContentBox
       title="Your companions"
@@ -367,34 +381,56 @@ export function PetProfile() {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {pet && sanctuaryAction}
         {data.slots < data.maxSlots && (
-          <Confirm
-            title={`Unlock a companion slot for ${data.slotCost} reputation?`}
-            disabled={
-              isBusy ||
-              userData.status !== "AWAKE" ||
-              userData.reputationPoints < data.slotCost
-            }
-            button={
-              <Button
-                variant="outline"
-                disabled={
-                  isBusy ||
-                  userData.status !== "AWAKE" ||
-                  userData.reputationPoints < data.slotCost
+          <div className="space-y-2">
+            <RadioGroup
+              aria-label="Collection slot payment"
+              value={slotCurrency}
+              disabled={isBusy}
+              className="flex flex-wrap gap-x-5 gap-y-2"
+              onValueChange={(value) => {
+                if (value === "REPUTATION" || value === "SEICHI_SILVER")
+                  setSlotCurrency(value);
+              }}
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="slot-reputation" value="REPUTATION" />
+                <Label htmlFor="slot-reputation">{data.slotCost} reputation</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem id="slot-silver" value="SEICHI_SILVER" />
+                <Label htmlFor="slot-silver">{data.slotSilverCost} Seichi Silver</Label>
+              </div>
+            </RadioGroup>
+            <div className="flex flex-wrap items-center gap-3">
+              <Confirm
+                title={`Unlock a companion slot for ${slotCost} ${slotCurrencyLabel}?`}
+                disabled={!canUnlockSlot}
+                button={
+                  <Button variant="outline" disabled={!canUnlockSlot}>
+                    Unlock slot · {slotCost} {slotCurrencyLabel}
+                  </Button>
                 }
+                onAccept={() => unlockSlot.mutate({ currency: slotCurrency })}
               >
-                Unlock slot · {data.slotCost} reputation
-              </Button>
-            }
-            onAccept={() => unlockSlot.mutate()}
-          >
-            <p>
-              Keep up to {data.slots + 1} companions. This permanent collection slot
-              costs {data.slotCost} reputation points.
-            </p>
-          </Confirm>
+                <p>
+                  Keep up to {data.slots + 1} companions. This permanent collection slot
+                  costs {slotCost} {slotCurrencyLabel}.
+                </p>
+              </Confirm>
+              <p className="text-muted-foreground text-sm" role="status">
+                Balance: {slotBalance.toLocaleString()} {slotCurrencyLabel}.
+                {slotBalance < slotCost && " Choose another currency or earn more."}
+              </p>
+            </div>
+          </div>
         )}
       </div>
+      <p className="mt-3 text-muted-foreground text-sm">
+        {data.permanentSlots} permanent {data.permanentSlots === 1 ? "slot" : "slots"}
+        {data.bonusSlots > 0 && ` · ${data.bonusSlots} federal support bonus slots`}.{" "}
+        Federal support adds slots while active. Your companions are kept if support
+        expires; adopting requires room in your current capacity.
+      </p>
     </ContentBox>
   );
 
@@ -413,7 +449,7 @@ export function PetProfile() {
             <p>
               {data.replacementCost === 0
                 ? "Your first companion is free."
-                : `Your next companion costs ${data.replacementCost} reputation points.`}{" "}
+                : `Your next companion costs ${data.replacementCost} reputation points or ${data.replacementSilverCost} Seichi Silver.`}{" "}
               Visit the sanctuary on Wake Island to meet it.
             </p>
             {sanctuaryAction}
@@ -1246,7 +1282,7 @@ export function PetProfile() {
               Releasing {pet.name} removes its progress and unused experience. Your
               other companions stay in your collection. A new companion at the{" "}
               {PET_SANCTUARY_NAME} on Wake Island costs {PET_REPLACEMENT_COST}{" "}
-              reputation points.
+              reputation points or {PET_SEICHI_SILVER_COST} Seichi Silver.
             </p>
             <Confirm
               title={`Release ${pet.name}?`}
@@ -1271,7 +1307,8 @@ export function PetProfile() {
               <p>
                 {pet.name} will return to the sanctuary. Its stats, rank and artwork are
                 removed, including its unused experience. Your next adoption will cost{" "}
-                {PET_REPLACEMENT_COST} reputation points.
+                {PET_REPLACEMENT_COST} reputation points or {PET_SEICHI_SILVER_COST}{" "}
+                Seichi Silver.
               </p>
             </Confirm>
           </ContentBox>

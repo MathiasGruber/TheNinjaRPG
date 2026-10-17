@@ -21,14 +21,24 @@ import { ensureDom } from "../setup-dom.mjs";
 const testApi = createTRPCReact<AppRouter>();
 const dayKey = "2026-10-16";
 const options = getDailyPetOptions("owner", "NONE", initialPetSpecies, dayKey);
+let owner: { status: string; reputationPoints: number; seichiSilver: number };
+
+const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
+const browserDescriptors = browserGlobals.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
 
 beforeEach(() => {
   ensureDom();
+  Object.defineProperties(globalThis, {
+    Event: { configurable: true, value: window.Event },
+    CustomEvent: { configurable: true, value: window.CustomEvent },
+    ResizeObserver: { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } },
+  });
+  owner = { status: "AWAKE", reputationPoints: 1000, seichiSilver: 100 };
   Object.assign(vi.spyOn(client, "api" as never), {
     pets: testApi.pets,
     useUtils: testApi.useUtils,
   });
-  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: { status: "AWAKE" } } as never);
+  vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: owner }) as never);
   vi.spyOn(ContentBox, "default").mockImplementation(({ children }) => <div>{children}</div>);
   vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
   vi.spyOn(Link, "default").mockImplementation(({ href, children }) => <a href={String(href)}>{children}</a>);
@@ -38,6 +48,11 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  browserGlobals.forEach((key, index) => {
+    const descriptor = browserDescriptors[index];
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else Reflect.deleteProperty(globalThis, key);
+  });
 });
 
 for (const collectionUnavailable of [false, true]) {
@@ -47,6 +62,9 @@ for (const collectionUnavailable of [false, true]) {
     const active = { id: "active", name: "Existing", rank: 1, avatar: "/existing.webp", artRank: 1, generationStatus: "READY" };
     let claimed: (RouterInputs["pets"]["acquirePet"] & { id: string; rank: number; avatar: string | null; artRank: number; generationStatus: string }) | null = null;
     let allowCollectionRead = !collectionUnavailable;
+    const currency = collectionUnavailable ? "SEICHI_SILVER" : "REPUTATION";
+    const price = collectionUnavailable ? "50 Seichi Silver" : "30 reputation";
+    if (collectionUnavailable) owner.reputationPoints = 0;
     const acquire = vi.fn((input: RouterInputs["pets"]["acquirePet"]) => {
       claimed = { ...input, id: "new-companion", rank: 1, avatar: null, artRank: 0, generationStatus: "PENDING" };
       throw new Error("Adoption response interrupted");
@@ -66,7 +84,7 @@ for (const collectionUnavailable of [false, true]) {
         const selected = claimed && (op.input as RouterInputs["pets"]["getPet"])?.petId === claimed.id ? claimed : active;
         return {
           pet: selected, pets: [active, ...(claimed ? [claimed] : [])], activePetId: active.id,
-          slots: 4, maxSlots: 6, dayKey, options, optionCount: 3, replacementCost: 100, canAcquire: true,
+          slots: 4, maxSlots: 6, dayKey, options, optionCount: 3, replacementCost: 30, replacementSilverCost: 50, canAcquire: true,
           generationLimit: 3, remainingGenerations: selected === active ? 0 : 3, generationRetryAt: null,
         };
       };
@@ -84,18 +102,20 @@ for (const collectionUnavailable of [false, true]) {
         fireEvent.click(view.getByRole("button", { name: "Continue" }));
       }
       fireEvent.change(view.getByLabelText("Companion name"), { target: { value: "Miso" } });
-      const confirm = view.getByRole("button", { name: "Confirm Form a new bond for 100 reputation?" }) as HTMLButtonElement;
+      if (collectionUnavailable) fireEvent.click(view.getByRole("radio", { name: "50 Seichi Silver" }));
+      const confirm = view.getByRole("button", { name: `Confirm Form a new bond for ${price}?` }) as HTMLButtonElement;
       expect(confirm.disabled).toBe(false);
       fireEvent.click(confirm);
       if (collectionUnavailable) {
         await view.findByText("Collection unavailable");
-        expect(view.queryByRole("button", { name: "Confirm Form a new bond for 100 reputation?" })).toBeNull();
+        expect(view.queryByRole("button", { name: `Confirm Form a new bond for ${price}?` })).toBeNull();
         allowCollectionRead = true;
         fireEvent.click(view.getByRole("button", { name: "Try again" }));
       }
       const profile = await view.findByRole("link", { name: "Open pet profile" });
       expect(profile.getAttribute("href")).toBe("/profile?tab=pet&petId=new-companion");
       expect(acquire).toHaveBeenCalledTimes(1);
+      expect(acquire).toHaveBeenCalledWith(expect.objectContaining({ currency }));
       fireEvent.click(await view.findByRole("button", { name: "Retry appearance for free" }));
       await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
       expect(acquire).toHaveBeenCalledTimes(1);
@@ -164,7 +184,7 @@ it("explains the collection limit while allowing every trait to be previewed wit
   const { view, queryClient, mutations } = renderAcquisition({
     pets: Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index}` })),
     slots: 6,
-    replacementCost: 100,
+    replacementCost: 30, replacementSilverCost: 50,
     canAcquire: false,
     unavailableReason: "Unlock another collection slot or release a companion before adopting another.",
   });
@@ -180,7 +200,7 @@ it("explains the collection limit while allowing every trait to be previewed wit
       fireEvent.click(view.getByRole("button", { name: "Continue" }));
     }
     fireEvent.change(view.getByRole("textbox", { name: "Companion name" }), { target: { value: "Preview" } });
-    const meet = view.getByRole("button", { name: "Confirm Form a new bond for 100 reputation?" }) as HTMLButtonElement;
+    const meet = view.getByRole("button", { name: "Confirm Form a new bond for 30 reputation?" }) as HTMLButtonElement;
     expect(meet.disabled).toBe(true);
     fireEvent.click(meet);
     fireEvent.submit(meet.closest("form")!);
@@ -188,6 +208,40 @@ it("explains the collection limit while allowing every trait to be previewed wit
   } finally {
     queryClient.clear();
   }
+});
+
+it("checks only the selected adoption currency and preserves the companion draft when changing payment", async () => {
+  owner.reputationPoints = 0;
+  owner.seichiSilver = 50;
+  const { view, queryClient, mutations, updateData } = renderAcquisition({ replacementCost: 30, replacementSilverCost: 50 });
+  try {
+    await view.findByRole("group", { name: "Species" });
+    for (const title of ["Species", "Colour palette", "Defining characteristic", "Aura"]) {
+      fireEvent.click(view.getByRole("group", { name: title }).querySelector("input")!);
+      fireEvent.click(view.getByRole("button", { name: "Continue" }));
+    }
+    fireEvent.change(view.getByLabelText("Companion name"), { target: { value: "Miso" } });
+    let confirm = view.getByRole("button", { name: "Confirm Form a new bond for 30 reputation?" }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(mutations).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("radio", { name: "50 Seichi Silver" }));
+    confirm = view.getByRole("button", { name: "Confirm Form a new bond for 50 Seichi Silver?" }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    expect((view.getByLabelText("Companion name") as HTMLInputElement).value).toBe("Miso");
+    owner.seichiSilver = 49;
+    await updateData({});
+    await waitFor(() => expect(confirm.disabled).toBe(true));
+    owner.reputationPoints = 30;
+    await updateData({});
+    fireEvent.click(view.getByRole("radio", { name: "30 reputation" }));
+    confirm = view.getByRole("button", { name: "Confirm Form a new bond for 30 reputation?" }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mutations).toHaveBeenCalledWith("pets.acquirePet", expect.objectContaining({ name: "Miso", currency: "REPUTATION" })));
+    await view.findByText("Your collection was checked and no new matching companion was found. You can try adopting again.");
+    expect((view.getByLabelText("Companion name") as HTMLInputElement).value).toBe("Miso");
+  } finally { queryClient.clear(); }
 });
 
 it("explains an unavailable species catalogue without an empty selection wizard", async () => {
@@ -206,7 +260,7 @@ it("explains an unavailable species catalogue without an empty selection wizard"
 function renderAcquisition(initialData: Record<string, unknown>) {
   let data = {
     pet: null, pets: [], activePetId: null, slots: 1, maxSlots: 6,
-    dayKey, options, optionCount: 3, replacementCost: 0, canAcquire: true,
+    dayKey, options, optionCount: 3, replacementCost: 0, replacementSilverCost: 0, canAcquire: true,
     generationLimit: 3, remainingGenerations: 3, generationRetryAt: null,
     unavailableReason: null,
     ...initialData,
@@ -215,7 +269,7 @@ function renderAcquisition(initialData: Record<string, unknown>) {
   const mutations = vi.fn();
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
     if (op.path !== "pets.getPet") {
-      mutations(op.path);
+      mutations(op.path, op.input);
       observer.error(TRPCClientError.from(new Error(`Unexpected procedure ${op.path}`)));
       return;
     }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
-import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST } from "@/drizzle/constants";
+import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST } from "@/drizzle/constants";
 import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
 import { petExperienceGainSql } from "@/libs/pets/experience";
@@ -61,6 +61,42 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await callerForDatabase(petsRouter, userId, database).acquirePet(input)).success).toBe(false);
     expect(await database.query.userPet.findMany()).toHaveLength(0);
     expect((await readOwner(database))?.reputationPoints).toBe(PET_REPLACEMENT_COST - 1);
+  });
+
+  it("keeps the first adoption free when Seichi Silver is selected", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ reputationPoints: 0, seichiSilver: 0 }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    expect((await callerForDatabase(petsRouter, userId, database).acquirePet({ ...input, currency: "SEICHI_SILVER" })).success).toBe(true);
+    expect(await readOwner(database)).toMatchObject({ reputationPoints: 0, seichiSilver: 0, petAcquisitions: 1 });
+    expect(await database.query.userPet.findMany()).toHaveLength(1);
+  });
+
+  it.each(["adoption", "slot"] as const)("pays for a companion %s with exactly its Silver price without spending reputation", async (purchase) => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ petAcquisitions: 1, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const result = purchase === "adoption"
+      ? await caller.acquirePet({ ...input, currency: "SEICHI_SILVER" })
+      : await caller.unlockSlot({ currency: "SEICHI_SILVER" });
+    expect(result.success).toBe(true);
+    expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, seichiSilver: 0, petSlots: purchase === "slot" ? 2 : 1, petAcquisitions: purchase === "adoption" ? 2 : 1 });
+    expect(await database.query.userPet.findMany()).toHaveLength(purchase === "adoption" ? 1 : 0);
+  });
+
+  it.each(["adoption", "slot"] as const)("does not fall back to reputation when Silver cannot cover a companion %s", async (purchase) => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ petAcquisitions: 1, seichiSilver: PET_SEICHI_SILVER_COST - 1 }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    const before = await readOwner(database);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const result = purchase === "adoption"
+      ? await caller.acquirePet({ ...input, currency: "SEICHI_SILVER" })
+      : await caller.unlockSlot({ currency: "SEICHI_SILVER" });
+    expect(result.success).toBe(false);
+    expect(await readOwner(database)).toEqual(before);
+    expect(await database.query.userPet.findMany()).toHaveLength(0);
   });
 
   it("adopts newly authored species and retains their identity for generation after retirement", async () => {
@@ -126,35 +162,117 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect(await readOwner(database)).toEqual(before);
   });
 
-  it("charges once when concurrent slot purchases reach the collection limit", async () => {
+  it("charges only the winning currency when concurrent slot purchases reach the permanent collection limit", async () => {
     const database = await getTestDatabase();
-    await database.update(userData).set({ petSlots: PET_MAX_COLLECTION_SLOTS - 1 }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ petSlots: PET_MAX_COLLECTION_SLOTS - 1, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
-    const results = await Promise.all([caller.unlockSlot(), caller.unlockSlot()]);
+    const results = await Promise.all([caller.unlockSlot({ currency: "REPUTATION" }), caller.unlockSlot({ currency: "SEICHI_SILVER" })]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
-    expect(await readOwner(database)).toMatchObject({ petSlots: PET_MAX_COLLECTION_SLOTS, reputationPoints: 200 - PET_COLLECTION_SLOT_COST });
+    const balances = { reputationPoints: results[0]!.success ? 200 - PET_COLLECTION_SLOT_COST : 200, seichiSilver: results[1]!.success ? 0 : PET_SEICHI_SILVER_COST };
+    expect(await readOwner(database)).toMatchObject({ petSlots: PET_MAX_COLLECTION_SLOTS, ...balances });
     expect((await caller.unlockSlot()).success).toBe(false);
-    expect((await readOwner(database))?.reputationPoints).toBe(200 - PET_COLLECTION_SLOT_COST);
+    expect(await readOwner(database)).toMatchObject(balances);
     await database.update(userData).set({ petSlots: 1, reputationPoints: PET_COLLECTION_SLOT_COST - 1 }).where(eq(userData.userId, userId));
     expect((await caller.unlockSlot()).success).toBe(false);
     expect((await readOwner(database))?.petSlots).toBe(1);
   });
 
-  it("adopts only one parked companion into the last free slot without moving active XP", async () => {
+  it("charges only the winning currency when adopting into the last free slot without moving active XP", async () => {
     const database = await getTestDatabase();
     await readyPet(database);
-    await database.update(userData).set({ petSlots: 2, petAcquisitions: 1, petExperience: 75 }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ petSlots: 2, petAcquisitions: 1, petExperience: 75, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
     const input = await adoptionInput(database);
     const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
-    const results = await Promise.all([caller.acquirePet(input), caller.acquirePet(input)]);
+    const results = await Promise.all([caller.acquirePet({ ...input, currency: "REPUTATION" }), caller.acquirePet({ ...input, currency: "SEICHI_SILVER" })]);
     const acquired = results.find((result) => result.success)!;
     expect(results.filter((result) => result.success)).toHaveLength(1);
-    expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 75, petAcquisitions: 2, reputationPoints: 200 - PET_REPLACEMENT_COST });
+    expect(await readOwner(database)).toMatchObject({ activePetId: petId, petExperience: 75, petAcquisitions: 2, reputationPoints: results[0]!.success ? 200 - PET_REPLACEMENT_COST : 200, seichiSilver: results[1]!.success ? 0 : PET_SEICHI_SILVER_COST });
     expect(await database.query.userPet.findMany()).toHaveLength(2);
     expect(await readPet(database, acquired.petId!)).toMatchObject({ generationStatus: "PENDING", storedExperience: 0, experience: 0 });
     expect((await caller.acquirePet(input)).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { federalStatus: "NONE" as const, staffAccount: false, bonus: 0 },
+    { federalStatus: "NORMAL" as const, staffAccount: false, bonus: 1 },
+    { federalStatus: "SILVER" as const, staffAccount: false, bonus: 2 },
+    { federalStatus: "GOLD" as const, staffAccount: false, bonus: 3 },
+    { federalStatus: "NONE" as const, staffAccount: true, bonus: 3 },
+  ])("reports effective supporter capacity without writing bonus slots: %j", async ({ federalStatus, staffAccount, bonus }) => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ federalStatus, staffAccount, petSlots: 2 }).where(eq(userData.userId, userId));
+    const before = await readOwner(database);
+    expect(await callerForDatabase(petsRouter, userId, database).getPet()).toMatchObject({ permanentSlots: 2, bonusSlots: bonus, slots: 2 + bonus, maxSlots: PET_MAX_COLLECTION_SLOTS + bonus });
+    expect(await readOwner(database)).toEqual(before);
+  });
+
+  it("adds Gold's three bonus slots above all six permanent slots without letting them be purchased again", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await Promise.all(Array.from({ length: 7 }, (_, index) => parkedPet(database, { id: `gold-parked-${index}` })));
+    await database.update(userData).set({ federalStatus: "GOLD", petSlots: PET_MAX_COLLECTION_SLOTS, petAcquisitions: 8 }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const input = await adoptionInput(database);
+    expect(await caller.getPet()).toMatchObject({ permanentSlots: 6, bonusSlots: 3, slots: 9, maxSlots: 9, canAcquire: true });
+    expect((await caller.acquirePet(input)).success).toBe(true);
+    expect(await database.query.userPet.findMany()).toHaveLength(9);
+    expect(await caller.getPet()).toMatchObject({ permanentSlots: 6, slots: 9, canAcquire: false });
+    const before = await readOwner(database);
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    expect((await caller.unlockSlot()).success).toBe(false);
+    expect(await readOwner(database)).toEqual(before);
+  });
+
+  it.each(["supporter", "staff"] as const)("rejects adoption after %s bonus capacity disappears without an updatedAt change", async (source) => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await database.update(userData).set({ federalStatus: source === "supporter" ? "GOLD" : "NONE", staffAccount: source === "staff", petAcquisitions: 1 }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    const before = (await readOwner(database))!;
+    const companionBefore = await readPet(database);
+    const hooked = beforeTransaction(database, async () => {
+      await database.update(userData).set({ federalStatus: "NONE", staffAccount: false, updatedAt: before.updatedAt }).where(eq(userData.userId, userId));
+    });
+    expect((await callerForDatabase(petsRouter, userId, hooked).acquirePet(input)).success).toBe(false);
+    expect(await readOwner(database)).toEqual({ ...before, federalStatus: "NONE", staffAccount: false });
+    expect(await readPet(database)).toEqual(companionBefore);
+    expect(await database.query.userPet.findMany()).toHaveLength(1);
+  });
+
+  it("rechecks the selected Silver balance before granting an adoption from a stale snapshot", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ petAcquisitions: 1, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    const before = (await readOwner(database))!;
+    const hooked = beforeTransaction(database, async () => {
+      await database.update(userData).set({ seichiSilver: PET_SEICHI_SILVER_COST - 1, updatedAt: before.updatedAt }).where(eq(userData.userId, userId));
+    });
+    expect((await callerForDatabase(petsRouter, userId, hooked).acquirePet({ ...input, currency: "SEICHI_SILVER" })).success).toBe(false);
+    expect(await readOwner(database)).toEqual({ ...before, seichiSilver: PET_SEICHI_SILVER_COST - 1 });
+    expect(await database.query.userPet.findMany()).toHaveLength(0);
+  });
+
+  it("retains companions, progress, activation and feeding above capacity after supporter loss", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { experience: 200 });
+    await parkedPet(database, { experience: 100, storedExperience: 30 });
+    await mealStack();
+    await database.update(userData).set({ federalStatus: "NORMAL", petExperience: 10, petAcquisitions: 2 }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    await database.update(userData).set({ federalStatus: "NONE" }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const before = await readOwner(database);
+    expect(await caller.getPet({ petId: "parked" })).toMatchObject({ slots: 1, bonusSlots: 0, canAcquire: false, unusedExperience: 30, pet: { id: "parked", experience: 100 } });
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    expect(await readOwner(database)).toEqual(before);
+    expect((await caller.activatePet({ petId: "parked" })).success).toBe(true);
+    expect((await caller.feedPet({ petId: "parked", userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(true);
+    expect(await readOwner(database)).toMatchObject({ activePetId: "parked", petSlots: 1, petExperience: 30 + PET_FEED_EXPERIENCE_PER_RANK, reputationPoints: 200 });
+    expect(await readPet(database, petId)).toMatchObject({ storedExperience: 10, experience: 200 });
+    expect(await readPet(database, "parked")).toMatchObject({ storedExperience: 0, experience: 100 });
+    expect(await database.query.userPet.findMany()).toHaveLength(2);
   });
 
   it("moves each XP bank with its companion, including XP earned immediately before the swap", async () => {

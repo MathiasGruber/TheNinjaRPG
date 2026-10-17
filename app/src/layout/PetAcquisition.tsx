@@ -7,10 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   PET_OPTION_COUNTS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
+  PET_SEICHI_SILVER_COST,
 } from "@/drizzle/constants";
 import Accordion from "@/layout/Accordion";
 import Confirm from "@/layout/Confirm";
@@ -34,6 +36,8 @@ export function PetAcquisition() {
   const { data: userData } = useRequiredUserData();
   const utils = api.useUtils();
   const [name, setName] = useState("");
+  const [currency, setCurrency] =
+    useState<RouterInputs["pets"]["acquirePet"]["currency"]>("REPUTATION");
   const [selection, setSelection] = useState<PetSelection>(emptySelection);
   const [stage, setStage] = useState(0);
   const [details, setDetails] = useState("");
@@ -65,6 +69,16 @@ export function PetAcquisition() {
     },
   );
   const dayKey = data?.dayKey;
+  const paymentCost =
+    currency === "SEICHI_SILVER"
+      ? (data?.replacementSilverCost ?? 0)
+      : (data?.replacementCost ?? 0);
+  const paymentBalance =
+    currency === "SEICHI_SILVER"
+      ? (userData?.seichiSilver ?? 0)
+      : (userData?.reputationPoints ?? 0);
+  const paymentLabel = currency === "SEICHI_SILVER" ? "Seichi Silver" : "reputation";
+  const canAfford = paymentBalance >= paymentCost;
   // A tier change can alter offerings within the same day; both changes invalidate a draft.
   const catalogueKey = data
     ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
@@ -176,7 +190,7 @@ export function PetAcquisition() {
 
   /** Validate the displayed day's selection, claim once, then generate art for that committed pet. */
   const meetPet = async () => {
-    if (inFlight.current || !data?.canAcquire || isBusy) return;
+    if (inFlight.current || !data?.canAcquire || !canAfford || isBusy) return;
     if (Object.values(selection).some((value) => value === null)) {
       setMessage("Choose one option for each of your companion's four traits.");
       return;
@@ -185,6 +199,7 @@ export function PetAcquisition() {
       name,
       ...selection,
       dayKey: data.dayKey,
+      currency,
     });
     if (!parsed.success) {
       setMessage(
@@ -256,7 +271,7 @@ export function PetAcquisition() {
   );
   const activeTrait = traitStages[stage];
   const hasSelection = selectedTraits.every(Boolean) && name.trim().length > 0;
-  const canMeetPet = data.canAcquire && hasSelection && !isBusy;
+  const canMeetPet = data.canAcquire && canAfford && hasSelection && !isBusy;
   const isReplacement = data.replacementCost > 0;
   const unavailableReason =
     data.pets.length >= data.slots && data.slots >= data.maxSlots
@@ -382,7 +397,7 @@ export function PetAcquisition() {
                   {pet.name} will return to the wild groves of the {PET_SANCTUARY_NAME}.
                   Its stats, rank, artwork and unused experience are removed. Your other
                   companions are kept. A new companion will cost {PET_REPLACEMENT_COST}{" "}
-                  reputation points.
+                  reputation points or {PET_SEICHI_SILVER_COST} Seichi Silver.
                 </p>
               </Confirm>
             </div>
@@ -444,10 +459,10 @@ export function PetAcquisition() {
             </div>
             <p>
               {isReplacement
-                ? `New companion: ${data.replacementCost} reputation points.`
+                ? `New companion: ${data.replacementCost} reputation points or ${data.replacementSilverCost} Seichi Silver.`
                 : "Your first companion is free."}{" "}
               {data.generationLimit} image attempts per companion each UTC day; failed
-              image retries cost no reputation. Choices reset at midnight UTC.
+              image retries are free. Choices reset at midnight UTC.
             </p>
             <Accordion
               title="About your bond and daily choices"
@@ -523,6 +538,38 @@ export function PetAcquisition() {
                     onChange={(event) => setName(event.target.value)}
                     className="max-w-md"
                   />
+                  {isReplacement && (
+                    <div className="pt-2">
+                      <RadioGroup
+                        aria-label="Adoption payment"
+                        value={currency}
+                        disabled={isBusy}
+                        className="flex flex-wrap gap-x-5 gap-y-2"
+                        onValueChange={(value) => {
+                          if (value === "REPUTATION" || value === "SEICHI_SILVER")
+                            setCurrency(value);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem id="adoption-reputation" value="REPUTATION" />
+                          <Label htmlFor="adoption-reputation">
+                            {data.replacementCost} reputation
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem id="adoption-silver" value="SEICHI_SILVER" />
+                          <Label htmlFor="adoption-silver">
+                            {data.replacementSilverCost} Seichi Silver
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                      <p className="mt-2 text-muted-foreground text-sm" role="status">
+                        Balance: {paymentBalance.toLocaleString()} {paymentLabel}.
+                        {!canAfford &&
+                          " Choose another currency or earn more to adopt."}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="mt-4 rounded border bg-muted/30 p-3 text-sm">
@@ -565,7 +612,7 @@ export function PetAcquisition() {
                   </Button>
                 ) : isReplacement ? (
                   <Confirm
-                    title={`Form a new bond for ${data.replacementCost} reputation?`}
+                    title={`Form a new bond for ${paymentCost} ${paymentLabel}?`}
                     disabled={!canMeetPet}
                     button={
                       <Button type="button" disabled={!canMeetPet}>
@@ -577,8 +624,8 @@ export function PetAcquisition() {
                   >
                     <p className="mb-3">
                       The Bondkeepers will guide you to a new companion. This costs{" "}
-                      {data.replacementCost} reputation points. Your companion starts at
-                      the first rank with new pet stats.
+                      {paymentCost} {paymentLabel}. Your companion starts at the first
+                      rank with new pet stats.
                     </p>
                     <p>
                       New companion: <strong>{name.trim()}</strong> ·{" "}

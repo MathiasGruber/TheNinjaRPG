@@ -1,7 +1,27 @@
 /** Pure progression and readiness rules shared by pet presentation and server guards. */
-import { getUserCaps, PET_RANKS, type UserRank } from "@/drizzle/constants";
-import type { UserPet } from "@/drizzle/schema";
+import {
+  getUserCaps,
+  PET_FED_COLLECTION_SLOTS,
+  PET_MAX_COLLECTION_SLOTS,
+  PET_RANKS,
+  type UserRank,
+} from "@/drizzle/constants";
+import type { UserData, UserPet } from "@/drizzle/schema";
 import { calcLevelRequirements } from "@/libs/profile";
+import { getUserFederalStatus } from "@/utils/paypal";
+
+/** Tier loss reduces new-adoption capacity without removing permanent slots or owned pets. */
+export const getPetCollectionCapacity = (
+  user: Pick<UserData, "petSlots" | "federalStatus" | "staffAccount">,
+) => {
+  const bonusSlots = PET_FED_COLLECTION_SLOTS[getUserFederalStatus(user)];
+  return {
+    permanentSlots: user.petSlots,
+    bonusSlots,
+    slots: user.petSlots + bonusSlots,
+    maxSlots: PET_MAX_COLLECTION_SLOTS + bonusSlots,
+  };
+};
 
 /** Resolve rank metadata, falling back to the starting rank for unknown saved values. */
 export const getPetRank = (rank: number) =>

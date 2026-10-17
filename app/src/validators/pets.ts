@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   AI_PROFILE_MAX_RULES,
   PET_MAX_ABILITY_SLOTS,
+  PetPaymentCurrencies,
   PetSpawnPositions,
 } from "@/drizzle/constants";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
@@ -12,6 +13,10 @@ import { createStatSchema } from "@/validators/combat";
 
 /** Address a saved companion; authorization is resolved from the authenticated owner. */
 export const petSelectionSchema = z.object({ petId: z.string().min(1).max(191) });
+/** Purchases debit only the chosen balance; existing callers default to reputation. */
+export const petPaymentSchema = z.object({
+  currency: z.enum(PetPaymentCurrencies).default("REPUTATION"),
+});
 /** Return the committed pet ID so artwork can be retried without repeating adoption. */
 export const petAcquisitionResponseSchema = baseServerResponse.extend({
   petId: z.string().optional(),
@@ -39,7 +44,7 @@ export const petNameSchema = z
   );
 
 /** Catalogue bounds are structural; the router also verifies the UTC day and its offered choices. */
-export const acquirePetSchema = z.object({
+export const acquirePetSchema = petPaymentSchema.extend({
   name: petNameSchema,
   dayKey: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   speciesId: z.string().min(1).max(191),

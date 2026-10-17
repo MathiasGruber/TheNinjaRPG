@@ -625,9 +625,16 @@ export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
 /** Shared availability gate for companion combat, including saved opt-in settings. */
 export const PET_BATTLE_CONFIG = { enabled: false };
 export const PET_BASE_STAT = 10;
-export const PET_REPLACEMENT_COST = 100;
+export const PET_REPLACEMENT_COST = 30;
 export const PET_MAX_COLLECTION_SLOTS = 6;
-export const PET_COLLECTION_SLOT_COST = 100;
+export const PET_COLLECTION_SLOT_COST = 20;
+export const PET_SEICHI_SILVER_COST = 50;
+export const PetPaymentCurrencies = ["REPUTATION", "SEICHI_SILVER"] as const;
+export type PetPaymentCurrency = (typeof PetPaymentCurrencies)[number];
+/** Supporter capacity is temporary; purchased collection slots remain permanent. */
+export const PET_FED_COLLECTION_SLOTS: Record<FederalStatus, number> = {
+  NONE: 0, NORMAL: 1, SILVER: 2, GOLD: 3,
+};
 export const PET_MAX_ABILITY_SLOTS = 4;
 export const PET_ABILITY_SLOT_COST = 25;
 /** Rank progression controls purchased slot capacity and the shared ability power budget. */

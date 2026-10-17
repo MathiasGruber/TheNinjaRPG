@@ -56,6 +56,7 @@ import {
   IMG_REPSHOP_GOLD,
   IMG_REPSHOP_SILVER,
   PAYPAL_DISCOUNT_PERCENT,
+  PET_FED_COLLECTION_SLOTS,
   QUEUE_WAITING_SLOTS,
   SKILL_TREE_RESET_FREE_GOLD,
   SKILL_TREE_RESET_FREE_NORMAL,
@@ -505,6 +506,9 @@ const PayPalSubscriptionButton = (props: {
           +{FED_EVENT_ITEMS_NORMAL - FED_EVENT_ITEMS_DEFAULT} Event inventory space
         </li>
         <li>+{FED_COOKING_NORMAL_SLOTS} Cooking inventory space</li>
+        <li>
+          +{PET_FED_COLLECTION_SLOTS.NORMAL} companion collection slot while active
+        </li>
         <li>+{FED_NORMAL_JUTSU_SLOTS} Jutsu slot</li>
         <li>+{FED_NORMAL_BANK_INTEREST}% bank interest</li>
         <li>{FED_JUTSU_LOADOUTS_BASE + FED_NORMAL_JUTSU_LOADOUTS} jutsu loadouts</li>
@@ -528,6 +532,9 @@ const PayPalSubscriptionButton = (props: {
           +{FED_EVENT_ITEMS_SILVER - FED_EVENT_ITEMS_DEFAULT} Event inventory space
         </li>
         <li>+{FED_COOKING_SILVER_SLOTS} Cooking inventory space</li>
+        <li>
+          +{PET_FED_COLLECTION_SLOTS.SILVER} companion collection slots while active
+        </li>
         <li>+{FED_SILVER_JUTSU_SLOTS} Jutsu slots</li>
         <li>+{FED_SILVER_BANK_INTEREST}% bank interest</li>
         <li>{FED_JUTSU_LOADOUTS_BASE + FED_SILVER_JUTSU_LOADOUTS} jutsu loadouts</li>
@@ -549,6 +556,9 @@ const PayPalSubscriptionButton = (props: {
         <li>+{FED_GOLD_INVENTORY_SLOTS} Normal Inventory space</li>
         <li>+{FED_EVENT_ITEMS_GOLD - FED_EVENT_ITEMS_DEFAULT} Event inventory space</li>
         <li>+{FED_COOKING_GOLD_SLOTS} Cooking inventory space</li>
+        <li>
+          +{PET_FED_COLLECTION_SLOTS.GOLD} companion collection slots while active
+        </li>
         <li>+{FED_GOLD_JUTSU_SLOTS} Jutsu slots</li>
         <li>+{FED_GOLD_BANK_INTEREST}% bank interest</li>
         <li>{FARM_GOLD_FED_TIME_REDUCTION_PERCENT}% faster farming</li>

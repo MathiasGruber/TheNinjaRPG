@@ -8,7 +8,7 @@ import type { AppRouter } from "@/api/root";
 import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import PetProfilePage from "@/app/[shell]/profile/pet/page";
-import { MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_FEED_COOLDOWN_HOURS } from "@/drizzle/constants";
+import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_BATTLE_CONFIG, PET_FEED_COOLDOWN_HOURS } from "@/drizzle/constants";
 import * as SectorVillage from "@/hooks/useSectorVillage";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
@@ -26,7 +26,7 @@ import { ensureDom } from "../setup-dom.mjs";
 const testApi = createTRPCReact<AppRouter>();
 type PetView = RouterOutputs["pets"]["getPet"];
 let owner: {
-  userId: string; role: string; status: string; rank: string; reputationPoints: number;
+  userId: string; role: string; status: string; rank: string; reputationPoints: number; seichiSilver: number;
   sector: number; battleId: string | null; isOutlaw: boolean;
   village: { name: string; type: string; sector: number; structures: { route: string }[]; relationshipA: []; relationshipB: [] };
 };
@@ -38,14 +38,23 @@ let saveAbilities: ReturnType<typeof vi.fn>;
 let feed: ReturnType<typeof vi.fn>;
 let saveAi: ReturnType<typeof vi.fn>;
 let getPet: ReturnType<typeof vi.fn>;
+let unlockSlot: ReturnType<typeof vi.fn>;
 let timeDiff: number;
+
+const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
+const browserDescriptors = browserGlobals.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
 
 beforeEach(() => {
   ensureDom();
+  Object.defineProperties(globalThis, {
+    Event: { configurable: true, value: window.Event },
+    CustomEvent: { configurable: true, value: window.CustomEvent },
+    ResizeObserver: { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } },
+  });
   timeDiff = 0;
   requestedPetId = "companion";
   owner = {
-    userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000,
+    userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000, seichiSilver: 100,
     sector: 1, battleId: null, isOutlaw: false,
     village: { name: "Horizon", type: "VILLAGE", sector: 1, structures: [{ route: "/home" }], relationshipA: [], relationshipB: [] },
   };
@@ -59,11 +68,11 @@ beforeEach(() => {
     offence: 10, defence: 10, strength: 10, speed: 10, intelligence: 10, willpower: 10,
   };
   data = {
-    pet, pets: [pet], activePetId: pet.id, slots: 6, maxSlots: 6, maxRank: 7,
+    pet, pets: [pet], activePetId: pet.id, slots: 6, permanentSlots: 6, bonusSlots: 0, maxSlots: 6, slotCost: 20, slotSilverCost: 50, maxRank: 7,
     nextRank: null, canRankUp: false, remainingGenerations: 3, generationLimit: 3,
     generationRetryAt: null, unusedExperience: 100, feedExperience: 25, dayKey: "2026-10-16",
     canFeed: true, feedAvailableAt: null, feedMeals: [{ id: "meal", name: "Rice", quantity: 2 }],
-    abilityCapacity: getPetAbilityCapacity(pet), abilitySlotCost: 100,
+    abilityCapacity: getPetAbilityCapacity(pet), abilitySlotCost: PET_ABILITY_SLOT_COST,
     abilities: {
       jutsus: Array.from({ length: 12 }, (_, i) => petJutsuFixture({ id: `jutsu-${i}`, name: `Strike ${i}` })),
       skills: Array.from({ length: 6 }, (_, i) => petSkillFixture({ id: `skill-${i}`, name: `Skill ${i}` })),
@@ -81,6 +90,7 @@ beforeEach(() => {
   feed = vi.fn(() => ({ success: true, message: "Fed" }));
   saveAi = vi.fn(() => ({ success: true, message: "Rules saved" }));
   getPet = vi.fn(() => data);
+  unlockSlot = vi.fn(() => ({ success: true, message: "Slot unlocked" }));
   Object.assign(vi.spyOn(client, "api" as never), { pets: testApi.pets, ai: testApi.ai, useUtils: testApi.useUtils });
   vi.spyOn(navigation, "useSearchParams").mockImplementation(() => new URLSearchParams(requestedPetId ? { petId: requestedPetId } : {}) as never);
   vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: owner, timeDiff }) as never);
@@ -100,6 +110,11 @@ afterEach(() => {
   queryClient.clear();
   PET_BATTLE_CONFIG.enabled = false;
   vi.restoreAllMocks();
+  browserGlobals.forEach((key, index) => {
+    const descriptor = browserDescriptors[index];
+    if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+    else Reflect.deleteProperty(globalThis, key);
+  });
 });
 
 const mount = () => {
@@ -110,6 +125,7 @@ const mount = () => {
         return getPet();
       }
       if (op.path === "pets.updatePet") return update(op.input);
+      if (op.path === "pets.unlockSlot") return unlockSlot(op.input);
       if (op.path === "pets.updateAbilities") return saveAbilities(op.input);
       if (op.path === "pets.feedPet") return feed(op.input);
       if (op.path === "pets.updateAiConfig") return saveAi(op.input);
@@ -120,6 +136,38 @@ const mount = () => {
   return render(<testApi.Provider client={trpcClient} queryClient={queryClient}><QueryClientProvider client={queryClient}><PetProfile /></QueryClientProvider></testApi.Provider>);
 };
 const selectTab = (view: ReturnType<typeof mount>, name: string) => fireEvent.mouseDown(view.getByRole("tab", { name }), { button: 0, ctrlKey: false });
+
+it.each(["REPUTATION", "SEICHI_SILVER"] as const)("buys a permanent collection slot using only the chosen %s balance", async (currency) => {
+  data = { ...data, slots: 4, permanentSlots: 1, bonusSlots: 3, maxSlots: 9 };
+  owner.reputationPoints = currency === "REPUTATION" ? 20 : 0;
+  owner.seichiSilver = currency === "SEICHI_SILVER" ? 50 : 0;
+  const view = mount();
+  const reputation = await view.findByRole("radio", { name: "20 reputation" });
+  if (currency === "SEICHI_SILVER") {
+    expect((view.getAllByRole("button", { name: "Unlock slot · 20 reputation" }).find((button) => button.tagName === "BUTTON") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByRole("radio", { name: "50 Seichi Silver" }));
+  } else {
+    expect(reputation.getAttribute("aria-checked")).toBe("true");
+  }
+  const price = currency === "SEICHI_SILVER" ? "50 Seichi Silver" : "20 reputation";
+  fireEvent.click(view.getAllByRole("button", { name: `Unlock slot · ${price}` }).find((button) => button.tagName === "BUTTON")!);
+  const dialog = await view.findByRole("dialog", { name: `Unlock a companion slot for ${price}?` });
+  expect(dialog.textContent).toContain(`This permanent collection slot costs ${price}.`);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" }));
+  await waitFor(() => expect(unlockSlot).toHaveBeenCalledWith({ currency }));
+  expect(view.getByText(/1 permanent slot · 3 federal support bonus slots/)).toBeTruthy();
+  expect(view.getByText(/Your companions are kept if support expires/)).toBeTruthy();
+});
+
+it("keeps companion management available after support expires while offering remaining permanent slots", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1, bonusSlots: 0, maxSlots: 6, pets: [data.pet!, { ...data.pet!, id: "retained", name: "Retained" }] };
+  const view = mount();
+  await view.findByRole("radio", { name: "20 reputation" });
+  expect(view.getByText("2 / 1 collection slots")).toBeTruthy();
+  expect((view.getByRole("combobox", { name: "Companion" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(view.getByRole("tabpanel", { name: "Care" })).toBeTruthy();
+  expect(view.getByText(/adopting requires room in your current capacity/)).toBeTruthy();
+});
 
 it.each([false, true])("keeps companion combat off and unavailable for a saved preference of %s", async (battleEnabled) => {
   data.pet!.battleEnabled = battleEnabled;
