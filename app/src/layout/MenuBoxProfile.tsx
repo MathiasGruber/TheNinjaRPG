@@ -134,7 +134,6 @@ const MenuBoxProfile: React.FC = () => {
   const trainingJutsu = sidebarTimers?.jutsuTraining;
   const { data: timedBuffs } = api.raids.getUserRaidBuffs.useQuery(undefined, {
     enabled: !!userData,
-    refetchInterval: 30000,
   });
   const mealBuffs =
     timedBuffs?.buffs.filter(
@@ -426,7 +425,6 @@ const MenuBoxProfile: React.FC = () => {
                       <Countdown
                         targetDate={buff.expiresAt}
                         timeDiff={timeDiff}
-                        format="minutesSeconds"
                         onEndShow="Expired"
                         onFinish={async () => {
                           setState((state) => state + 1);

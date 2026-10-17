@@ -5,14 +5,13 @@ import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 interface CountdownProps {
   targetDate: Date;
   className?: string;
-  format?: "default" | "minutesSeconds";
   timeDiff?: number; // Only used if the targetDate is from the server, and has not been adjusted for timeDiff already
   onFinish?: () => void;
   onEndShow?: React.ReactNode | string;
 }
 
 const Countdown: React.FC<CountdownProps> = (props) => {
-  const { targetDate, timeDiff, onFinish, onEndShow, className, format } = props;
+  const { targetDate, timeDiff, onFinish, onEndShow, className } = props;
 
   // Calculate target time once per prop change
   const targetTime = targetDate.getTime() + (timeDiff ?? 0);
@@ -41,7 +40,6 @@ const Countdown: React.FC<CountdownProps> = (props) => {
     if (msLeft <= 0) {
       return "Done";
     }
-    if (format === "minutesSeconds") return formatMinutesSeconds(msLeft);
     const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(msLeft);
     return getTimeLeftStr(days, hours, minutes, seconds);
   };
@@ -62,11 +60,7 @@ const Countdown: React.FC<CountdownProps> = (props) => {
         return true; // Signal countdown is done
       } else {
         const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(msLeft);
-        setCountString(
-          format === "minutesSeconds"
-            ? formatMinutesSeconds(msLeft)
-            : getTimeLeftStr(days, hours, minutes, seconds),
-        );
+        setCountString(getTimeLeftStr(days, hours, minutes, seconds));
         return false;
       }
     };
@@ -84,7 +78,7 @@ const Countdown: React.FC<CountdownProps> = (props) => {
       }, 500);
       return () => clearInterval(interval);
     }
-  }, [targetTime, format]);
+  }, [targetTime]);
 
   if (countString === "Done" && onEndShow) {
     return onEndShow;
@@ -100,11 +94,6 @@ const Countdown: React.FC<CountdownProps> = (props) => {
 };
 
 export default Countdown;
-
-const formatMinutesSeconds = (milliseconds: number) => {
-  const seconds = Math.ceil(milliseconds / 1000);
-  return `${Math.floor(seconds / 60)}m ${String(seconds % 60).padStart(2, "0")}s`;
-};
 
 /**
  * Timer gradually going up
