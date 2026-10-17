@@ -1,9 +1,8 @@
-import { afterEach, beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { userData, userReport, userReportComment } from "@/drizzle/schema";
 import { reportsRouter } from "@/server/api/routers/reports";
 import { insertUsers } from "../../setup/factories";
-import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 import {
   callerForDatabase,
   describeWithDatabase,
@@ -27,9 +26,6 @@ describeWithDatabase("moderator trade ban removal", () => {
       { userId: "target", isBanned: true, isSilenced: true },
       { userId: "junior", role: "JR_MODERATOR" },
     ]);
-    stubProfile("fetchUser", async (_client: unknown, id: string) =>
-      db.query.userData.findFirst({ where: eq(userData.userId, id) }),
-    );
     await db.insert(userReport).values({
       id: decision.object_id,
       reporterUserId: "staff",
@@ -41,8 +37,6 @@ describeWithDatabase("moderator trade ban removal", () => {
       status: "UNVIEWED",
     });
   });
-
-  afterEach(resetServerModuleStubs);
 
   it("lets a moderator lift a trade ban they imposed and records the decision", async () => {
     const db = await getTestDatabase();
