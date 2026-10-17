@@ -1,5 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { actionLog, title, userData, userTitle, quest, questHistory } from "@/drizzle/schema";
@@ -21,11 +21,21 @@ const effects = [{ type: "increaseregeneration" as const, power: 7 }, { type: "i
 
 describeWithDatabase("title ownership, account recovery and presentation", () => {
   beforeEach(async () => {
+    const realFetch = globalThis.fetch;
+    // Exercise the public catalog's rate limiter without requiring an external Redis service.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) return realFetch(input, init);
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({ result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1 });
+      return Response.json(Array.isArray(commands[0]) ? commands.map((command) => resultFor(command as unknown[])) : resultFor(commands));
+    });
     await resetTables(userTitle, title, userData, actionLog, quest, questHistory);
     await insertUsers([{ userId: player, username: "TitlePlayer", role: "USER", regeneration: 10, villageId: null, joinedVillageAt: new Date(0) }, { userId: "title-staff", username: "TitleStaff", role: "CONTENT-ADMIN" }]);
     const db = await getTestDatabase();
     await db.insert(title).values([{ id: "hero", name: "Hero", effects }, { id: "private", name: "Private", legacyOwnerId: "someone" }, { id: "archived", name: "Archived", archived: true }]);
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it("grants once concurrently and retains the original snapshot on retries or content edits", async () => {
     const db = await getTestDatabase();
