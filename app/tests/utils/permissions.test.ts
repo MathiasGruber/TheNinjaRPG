@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
 import type { UserRole } from "@/drizzle/constants";
 import { UserRoles } from "@/drizzle/constants";
+import type { UserData, UserReport } from "@/drizzle/schema";
 import {
   canApproveApplications,
   canAwardReputation,
   canChangeContent,
+  canClearReport,
+  canModerateReports,
   canSuggestContent,
   canDeleteConceptArt,
   canDeletePollOptions,
@@ -161,4 +164,28 @@ test("moderation roles cannot suggest content while other staff retain access", 
   }
   expect(canSuggestContent(undefined)).toBe(false);
   expect(canSuggestContent(null)).toBe(false);
+});
+
+test("trade bans can be managed and cleared by the roles that impose them", () => {
+  const report = {
+    reportedUserId: "target",
+    status: "TRADE_BAN_ACTIVATED",
+    banEnd: new Date(Date.now() + 86_400_000),
+  } as UserReport;
+  const allowed: UserRole[] = [
+    "MODERATOR",
+    "HEAD_MODERATOR",
+    "MODERATOR-ADMIN",
+    "OWNER",
+    "CODING-ADMIN",
+  ];
+  for (const role of UserRoles) {
+    const staff = { userId: "staff", role } as UserData;
+    expect(canModerateReports(staff, report)).toBe(allowed.includes(role));
+    expect(canClearReport(staff, report)).toBe(allowed.includes(role));
+    // Self-moderation stays forbidden even for otherwise authorized staff.
+    const target = { userId: "target", role } as UserData;
+    expect(canModerateReports(target, report)).toBe(false);
+    expect(canClearReport(target, report)).toBe(false);
+  }
 });
