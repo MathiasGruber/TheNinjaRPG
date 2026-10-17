@@ -865,15 +865,7 @@ export const questsRouter = createTRPCRouter({
         fetchQuest(ctx.drizzle, input.id),
         ctx.drizzle.select().from(quest).where(eq(quest.questType, "tier")),
         ctx.drizzle.query.rewardPackage.findMany(),
-        validateTitleRewardIds(
-          ctx.drizzle,
-          [input.data.content.reward, ...input.data.content.objectives].flatMap(
-            (reward) => [
-              reward,
-              ...(reward.reward_packages ?? []).map((pack) => pack.rewards),
-            ],
-          ),
-        ),
+        validateTitleRewardIds(ctx.drizzle, input.data.content),
       ]);
       // Guards
       if (titleError) return errorResponse(titleError);

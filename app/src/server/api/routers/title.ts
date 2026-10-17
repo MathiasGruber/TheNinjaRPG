@@ -45,13 +45,6 @@ export const titleRouter = createTRPCRouter({
     if (!entry) throw serverError("NOT_FOUND", "Title not found");
     return entry;
   }),
-  getMine: protectedProcedure.query(({ ctx }) =>
-    ctx.drizzle.query.userTitle.findMany({
-      where: eq(userTitle.userId, ctx.userId),
-      with: { title: true },
-      orderBy: asc(userTitle.createdAt),
-    }),
-  ),
   select: protectedProcedure
     .input(SelectTitleSchema)
     .output(baseServerResponse)

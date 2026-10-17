@@ -5,7 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { actionLog, title, userData, userTitle, quest, questHistory } from "@/drizzle/schema";
 import { titleRouter } from "@/server/api/routers/title";
-import { fetchUpdatedUser } from "@/server/api/routers/profile";
+import { fetchUpdatedUser, profileRouter } from "@/server/api/routers/profile";
 import { updateRewards, fetchRewardChoiceOwnership, questsRouter } from "@/server/api/routers/quests";
 import { grantTitles } from "@/server/utils/titleGrants";
 import { displayTitleSql } from "@/server/utils/titleDisplay";
@@ -72,7 +72,8 @@ describeWithDatabase("title ownership, account recovery and presentation", () =>
     expect((await caller.select({ titleId: "hero" })).success).toBe(true);
     const staff = await callerFor(titleRouter, "title-staff");
     expect((await staff.archive({ id: "hero" })).success).toBe(true);
-    expect((await caller.getMine())[0]?.effects).toEqual(effects);
+    const profile = await (await callerFor(profileRouter, player)).getUser();
+    expect(profile.userData?.titles?.[0]?.effects).toEqual(effects);
     expect((await caller.select({ titleId: null })).success).toBe(true);
     expect((await caller.select({ titleId: "hero" })).success).toBe(true);
     expect((await caller.getAllNames()).map((entry) => entry.id)).not.toContain("hero");
