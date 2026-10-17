@@ -10,6 +10,52 @@ CREATE TABLE `PetSpecies` (
 	CONSTRAINT `PetSpecies_name_key` UNIQUE(`name`)
 );
 
+CREATE TABLE `UserPet` (
+	`id` varchar(191) NOT NULL,
+	`userId` varchar(191) NOT NULL,
+	`name` varchar(40) NOT NULL,
+	`speciesId` varchar(191) NOT NULL,
+	`paletteIndex` tinyint unsigned NOT NULL,
+	`characteristicIndex` tinyint unsigned NOT NULL,
+	`auraIndex` tinyint unsigned NOT NULL,
+	`rank` tinyint unsigned NOT NULL DEFAULT 1,
+	`experience` double NOT NULL DEFAULT 0,
+	`storedExperience` double NOT NULL DEFAULT 0,
+	`feedDay` varchar(10),
+	`abilitySlots` tinyint unsigned NOT NULL DEFAULT 1,
+	`jutsuIds` json NOT NULL DEFAULT ('[]'),
+	`skillIds` json NOT NULL DEFAULT ('[]'),
+	`offence` double NOT NULL DEFAULT 10,
+	`defence` double NOT NULL DEFAULT 10,
+	`strength` double NOT NULL DEFAULT 10,
+	`speed` double NOT NULL DEFAULT 10,
+	`intelligence` double NOT NULL DEFAULT 10,
+	`willpower` double NOT NULL DEFAULT 10,
+	`avatar` varchar(191),
+	`avatarFacing` enum('left','right') NOT NULL DEFAULT 'left',
+	`battleEnabled` boolean NOT NULL DEFAULT true,
+	`spawnPosition` enum('BEHIND','LEFT','RIGHT','FRONT') NOT NULL DEFAULT 'BEHIND',
+	`aiRules` json NOT NULL DEFAULT ('[]'),
+	`includeDefaultRules` boolean NOT NULL DEFAULT true,
+	`generationStatus` enum('PENDING','GENERATING','READY','FAILED') NOT NULL DEFAULT 'PENDING',
+	`generationToken` varchar(191),
+	`generationStartedAt` datetime(3),
+	`generationAttempts` tinyint unsigned NOT NULL DEFAULT 0,
+	`generationDay` varchar(10),
+	`artRank` tinyint unsigned NOT NULL DEFAULT 0,
+	`revision` int unsigned NOT NULL DEFAULT 0,
+	`createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+	`updatedAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+	CONSTRAINT `UserPet_id` PRIMARY KEY(`id`)
+);
+
+ALTER TABLE `UserData`
+	ADD `petExperience` double DEFAULT 0 NOT NULL,
+	ADD `petAcquisitions` int unsigned DEFAULT 0 NOT NULL,
+	ADD `activePetId` varchar(191),
+	ADD `petSlots` tinyint unsigned DEFAULT 1 NOT NULL;
+CREATE INDEX `UserPet_userId_idx` ON `UserPet` (`userId`);
+
 INSERT INTO `PetSpecies` (`id`, `name`, `description`, `rarity`) VALUES
 ('pet-species-0', 'Fox', 'A nimble fox with a bushy tail and pointed ears', 'UNCOMMON'),
 ('pet-species-1', 'Wolf', 'A compact wolf with thick fur and an alert muzzle', 'UNCOMMON'),
@@ -76,6 +122,7 @@ INSERT INTO `PetSpecies` (`id`, `name`, `description`, `rarity`) VALUES
 ('pet-species-62', 'Mantis', 'A poised mantis with folded front limbs', 'RARE'),
 ('pet-species-63', 'Crab', 'A little crab with rounded claws', 'COMMON');
 
-ALTER TABLE `UserPet` RENAME COLUMN `speciesIndex` TO `speciesId`;
-ALTER TABLE `UserPet` MODIFY COLUMN `speciesId` varchar(191) NOT NULL;
-UPDATE `UserPet` SET `speciesId` = CONCAT('pet-species-', `speciesId`);
+INSERT INTO `VillageStructure` (`id`, `name`, `route`, `image`, `villageId`, `longitude`, `latitude`, `hasPage`, `allyAccess`, `maxLevel`)
+SELECT 'wake-bondkeeper-sanctuary', 'Bondkeeper Sanctuary', '/pets', 'https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp', `id`, 3, 6, 1, 1, 1
+FROM `Village` WHERE `name` = 'Wake Island'
+ON DUPLICATE KEY UPDATE `route` = '/pets', `image` = 'https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp';
