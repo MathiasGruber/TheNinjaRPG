@@ -7,6 +7,7 @@ import { appEvents, appleAuth, isNative, oauthBrowser } from "@/libs/native";
 
 /** Where the provider sends the player back to. Registered in both native projects. */
 const OAUTH_REDIRECT = "tnr://oauth-callback";
+const OAUTH_CALLBACK_GRACE_MS = 1000;
 
 export type NativeAuthResult =
   | { status: "complete" }
@@ -117,11 +118,16 @@ export const useNativeAuth = () => {
         // closes the sheet as well, and nothing orders the two events, so the dismissal
         // alone says nothing about which happened; that is settled below.
         let callbackUrl: URL | null = null;
+        let notifyCallback: () => void = () => undefined;
+        const callbackReceived = new Promise<void>((resolve) => {
+          notifyCallback = resolve;
+        });
         const outcome = await new Promise<"redirected" | "dismissed">((resolve) => {
           const stopUrl = appEvents.onUrlOpen((url) => {
             const callback = parseOAuthCallback(url);
             if (!callback) return;
             callbackUrl = callback;
+            notifyCallback();
             resolve("redirected");
           });
           const stopFinished = oauthBrowser.onFinished(() => resolve("dismissed"));
@@ -155,10 +161,30 @@ export const useNativeAuth = () => {
           // already advanced. Ask Clerk what happened rather than inferring it from the
           // dismissal, or a completed sign-in is reported as a cancellation and the player
           // is left signed out with a session they cannot see.
-          const settled = await reloadSignIn().catch((error) => {
+          let settled = await reloadSignIn().catch((error) => {
             if (callbackUrl) throw error;
             return null;
           });
+          if (
+            !callbackUrl &&
+            !settled?.createdSessionId &&
+            settled?.firstFactorVerification.status !== "transferable"
+          ) {
+            // The browser and App plugin deliver independent native events. Even a
+            // fast reload can finish before the URL event crosses the bridge.
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            try {
+              await Promise.race([
+                callbackReceived,
+                new Promise<void>((resolve) => {
+                  timeout = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
+                }),
+              ]);
+            } finally {
+              clearTimeout(timeout);
+            }
+            if (callbackUrl) settled = await reloadSignIn();
+          }
           if (
             settled &&
             (callbackUrl ||

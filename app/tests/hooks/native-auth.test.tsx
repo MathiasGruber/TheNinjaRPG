@@ -112,6 +112,22 @@ describe("native OAuth callback settlement", () => {
     expect(mocks.setActive).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for a callback arriving after an incomplete dismissal reload", async () => {
+    mocks.open.mockImplementation(async () => {
+      onFinished();
+      setTimeout(() => {
+        onUrl("tnr://oauth-callback?rotating_token_nonce=late-nonce");
+      }, 20);
+    });
+    mocks.reload.mockResolvedValueOnce(incomplete());
+    expect(await signIn()).toEqual({ status: "complete" });
+    expect(mocks.reload.mock.calls).toEqual([
+      [undefined],
+      [{ rotatingTokenNonce: "late-nonce" }],
+    ]);
+    expect(mocks.setActive).toHaveBeenCalledTimes(1);
+  });
+
   it("retains cancellation and permits a later attempt", async () => {
     mocks.open.mockImplementationOnce(async () => onFinished());
     mocks.reload.mockResolvedValueOnce(incomplete());
