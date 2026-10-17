@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
-import { RANKED_PVP_STATS } from "@/drizzle/constants";
+import { type BattleType, RANKED_PVP_STATS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
 import { applyEffects } from "@/libs/combat/process";
 import { refreshMasteries } from "@/libs/combat/util";
+import { captureCombatCacheSnapshot } from "@/libs/combat/userCache";
 import { effectiveMasteries } from "@/libs/mastery";
 import { jutsuRequirementWarning } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
@@ -18,9 +19,11 @@ import {
   jutsu,
   jutsuLoadout,
   jutsuReskin,
+  title,
   userData,
   userItem,
   userJutsu,
+  userTitle,
 } from "@/drizzle/schema";
 import type { CombatQueryUser } from "@/libs/combat/types";
 import { Pusher } from "@/libs/pusher";
@@ -47,6 +50,7 @@ const BATTLE = "lobby-mastery-battle";
 const seedLobby = async (
   wearArmor = false,
   raidBuffs: NonNullable<CombatQueryUser["raidBuffs"]> = [],
+  options: { titles?: CombatQueryUser["titles"]; battleType?: BattleType } = {},
 ) => {
   const db = await getTestDatabase();
   await insertUsers([
@@ -140,23 +144,28 @@ const seedLobby = async (
     village: null,
     aiProfile: essentials.defaultProfile,
     raidBuffs,
+    titles: options.titles,
   } as CombatQueryUser;
   const processed = await processUsersForBattle(db, {
     users: [raw],
     ...essentials,
     wars: essentials.activeWars,
-    battleType: "COMBAT",
+    battleType: options.battleType ?? "COMBAT",
     hide: false,
     isSummon: false,
     width: 13,
     height: 9,
   });
+  processed.extraState.profileCacheSnapshots = {
+    [USER]: captureCombatCacheSnapshot(raw),
+  };
+  refreshMasteries(processed.usersState, processed.userEffects);
   await db
     .insert(battle)
     .values({
       id: BATTLE,
       background: "default",
-      battleType: "COMBAT",
+      battleType: options.battleType ?? "COMBAT",
       roundStartAt: new Date(Date.now() + 60_000),
       usersState: processed.usersState,
       usersEffects: processed.userEffects,
@@ -188,10 +197,45 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       userItem,
       itemLoadout,
       item,
+      userTitle,
+      title,
       userData,
         );
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["COMBAT", "SPARRING"] as const)("%s retains preloaded title mastery and its jutsu and gear requirements across repeated lobby switches", async (battleType) => {
+    const db = await getTestDatabase();
+    const titles: NonNullable<CombatQueryUser["titles"]> = [250, 150].map((power, index) => ({
+      userId: USER, titleId: `mastery-title-${index}`, createdAt: new Date(),
+      effects: [{ type: "increasemastery", masteryTypes: ["Ninjutsu"], power }],
+    }));
+    await seedLobby(false, [], { titles, battleType });
+    await db.insert(title).values(titles.map((owned) => ({ id: owned.titleId, name: owned.titleId, effects: owned.effects })));
+    await db.insert(userTitle).values(titles);
+    await db.update(item).set({ requiredNinjutsuMastery: 500 }).where(eq(item.id, "armor"));
+    const initial = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+    expect(initial.usersState[0]!.ninjutsuMastery).toBe(500);
+    expect(initial.usersState[0]).not.toHaveProperty("titles");
+    // Ownership acquired after initiation belongs to the next encounter.
+    await db.insert(title).values({ id: "later-title", name: "Later title", effects: [{ type: "increasemastery", masteryTypes: ["Ninjutsu"], power: 900 }] });
+    await db.insert(userTitle).values({ userId: USER, titleId: "later-title", effects: [{ type: "increasemastery", masteryTypes: ["Ninjutsu"], power: 900 }] });
+    const caller = await callerFor(combatRouter, USER);
+    for (const itemLoadoutId of [undefined, "with-armor", "without-armor", "with-armor"]) {
+      const result = await caller.updateCombatLoadout({ battleId: BATTLE, jutsuLoadoutId: "new-jutsus", itemLoadoutId });
+      expect(result.success).toBe(true);
+      expect(result.message).toBe("");
+      expect(await equippedIds()).toEqual(["gated", "usable"]);
+      const updated = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+      const hasArmor = itemLoadoutId === "with-armor";
+      expect(updated.usersState[0]!.ninjutsuMastery).toBe(hasArmor ? 900 : 500);
+      expect(updated.usersState[0]!.jutsus.map((owned) => owned.jutsuId).sort()).toEqual(["gated", "usable"]);
+      expect(updated.usersState[0]!.items.some((owned) => owned.itemId === "armor" && owned.equipped === "CHEST")).toBe(hasArmor);
+      expect(updated.usersEffects.filter((effect) => effect.type === "increasemastery")).toHaveLength(hasArmor ? 3 : 2);
+      expect(updated.usersEffects.filter((effect) => titles.some((owned) => owned.titleId === effect.actionId))).toHaveLength(2);
+      expect(updated.usersState[0]).not.toHaveProperty("titles");
+    }
+  });
 
   it("keeps live timed bonuses once across loadout switches and drops expired and removed equipment effects", async () => {
     const expiresAt = new Date(Date.now() + 60_000);

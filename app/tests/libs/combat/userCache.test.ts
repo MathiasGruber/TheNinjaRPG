@@ -38,7 +38,7 @@ const fixture = () => {
 describe("confirmed combat profile reconciliation", () => {
   it("retains permanent title mastery through combat completion cache reconciliation", () => {
     const { raw } = fixture();
-    raw.titles = [{ effects: [{ type: "increasemastery", power: 25, masteryTypes: ["Ninjutsu"] }] }];
+    raw.titles = [{ userId: raw.userId, titleId: "mastery-title", createdAt: new Date(), effects: [{ type: "increasemastery", power: 25, masteryTypes: ["Ninjutsu"] }] }];
     const snapshot = captureCombatCacheSnapshot(raw);
     raw.titles[0]!.effects = [];
     expect(combatCacheDerived(snapshot, [], {}).effectiveMasteries.ninjutsuMastery).toBe(125);

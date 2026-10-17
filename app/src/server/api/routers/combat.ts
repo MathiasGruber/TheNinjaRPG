@@ -1194,6 +1194,10 @@ export const combatRouter = createTRPCRouter({
 
       // The battle copy carries this battle's mastery tags; gates start from stored values
       resetMasteriesToBase(user);
+      // Rebuild title bonuses from this encounter's sources, independent of later rewards.
+      const titles =
+        userBattle.extraState.profileCacheSnapshots?.[user.controllerId]?.masterySources
+          .titles;
       const bloodline = user.bloodlineId
         ? userBattle.extraState.bloodlines?.[user.bloodlineId]
         : null;
@@ -1233,6 +1237,7 @@ export const combatRouter = createTRPCRouter({
               ...user,
               bloodline,
               userSkills: activatedSkills,
+              titles,
             });
       if (!itemLoadoutResult.success) return errorResponse(itemLoadoutResult.message);
       const gateMasteries = effectiveMasteries({
@@ -1240,6 +1245,7 @@ export const combatRouter = createTRPCRouter({
         bloodline,
         userSkills: activatedSkills,
         items: useritems,
+        titles,
       });
       const validateLobbyJutsu = (jutsu: Jutsu) => {
         if (!hasRequiredSkill(jutsu, { userSkills: activatedSkills })) {
@@ -1439,6 +1445,7 @@ export const combatRouter = createTRPCRouter({
         village: village ?? null,
         aiProfile: aiProfile ?? null,
         questData: questData ?? [],
+        titles,
       };
 
       // Process only the single user
