@@ -1,18 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Grid, rectangle } from "honeycomb-grid";
 import { BattleTypes, COMBAT_ENMITY_PER_DAMAGE, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/constants";
-import type { UserPet } from "@/drizzle/schema";
+import type { AiProfile, UserPet } from "@/drizzle/schema";
+import { availableUserActions } from "@/libs/combat/actions";
 import { performAIaction } from "@/libs/combat/ai_v2";
 import { addPetsToBattle, getPetSpawnLocation, petsAllowedInBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
+import type { CombatQueryUser } from "@/libs/combat/types";
 import { hasLiveSummon, spliceOrphanedSummons } from "@/libs/combat/summon";
 import { applyPoolAdjustmentsToBase, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
 import { TerrainHex } from "@/libs/hexgrid";
+import { processUsersForBattle } from "@/server/api/routers/combat";
+import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 import { AiRule } from "@/validators/ai";
-import { IncreaseMaxPoolsTag, ShieldTag, SummonTag } from "@/validators/combat";
+import { IncreaseMaxPoolsTag, InjectJutsusTag, ShieldTag, SummonTag } from "@/validators/combat";
 import { updatePetAiSchema } from "@/validators/pets";
-import { ownedPetJutsu, ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
+import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
 
 const petFixture = (patch: Partial<UserPet> = {}): UserPet => ({
   id: "pet-1", userId: "owner", name: "Nami", rank: 1, experience: 1000,
@@ -66,10 +70,10 @@ describe("owned pets in combat", () => {
     battle.extraState.petIdsByOwner = { owner: "previous-pet" };
     const originalUsers = structuredClone(battle.usersState);
     const originalEffects = structuredClone(battle.usersEffects);
-    const jutsu = ownedPetJutsu(petJutsuFixture());
+    const jutsu = petJutsuFixture();
     const skill = ownedPetSkill(petSkillFixture());
     addPetsToBattle({ ...battle,
-      pets: [petFixture({ jutsuIds: [jutsu.jutsuId], skillIds: [skill.skillId] })],
+      pets: [petFixture({ jutsuIds: [jutsu.id], skillIds: [skill.skillId] })],
       abilitiesByOwner: { owner: { jutsus: [jutsu], skills: [skill] } },
     });
     expect(petsAllowedInBattle(battleType)).toBe(false);
@@ -128,22 +132,21 @@ describe("owned pets in combat", () => {
     expect(resolvedPet.damageDealt).toBe(0);
   });
 
-  it("preloads learned abilities at level one and applies only the pet's selected self passives", () => {
+  it("preloads published companion abilities at level one and applies only the pet's selected self passives", () => {
     const battle = scenario();
     battle.usersState[0]!.rank = "CHUNIN";
-    const learned = ownedPetJutsu();
+    const published = petJutsuFixture();
     const skill = ownedPetSkill();
     addPetsToBattle({ ...battle,
       pets: [petFixture({ rank: 4, artRank: 4, experience: 100000, abilitySlots: 2,
-        jutsuIds: [learned.jutsuId], skillIds: [skill.skillId] })],
-      abilitiesByOwner: { owner: { jutsus: [learned], skills: [skill] } },
+        jutsuIds: [published.id], skillIds: [skill.skillId] })],
+      abilitiesByOwner: { owner: { jutsus: [published], skills: [skill] } },
     });
     const actor = battle.usersState.find((u) => u.petId)!;
-    expect(actor.jutsus).toMatchObject([{ jutsuId: learned.jutsuId, level: 1,
+    expect(actor.jutsus).toMatchObject([{ jutsuId: published.id, level: 1,
       originalCooldown: 1, lastUsedRound: -1, reskinId: null }]);
-    expect(actor.jutsus[0]!.id).not.toBe(learned.id);
-    expect(learned.level).toBe(25);
-    expect(battle.extraState.jutsus[learned.jutsuId]).toEqual(learned.jutsu);
+    expect(actor.jutsus[0]!.id).not.toBe(published.id);
+    expect(battle.extraState.jutsus[published.id]).toEqual(published);
     expect(actor.activeSkillIds).toEqual([skill.skillId]);
     expect(battle.usersEffects.filter((effect) => effect.fromType === "skill"))
       .toMatchObject([{ creatorId: actor.userId, targetId: actor.userId, actionId: skill.skillId }]);
@@ -162,7 +165,7 @@ describe("owned pets in combat", () => {
         aiRules: [AiRule.parse({ conditions: [], action: {
           type: "use_specific_jutsu", jutsuId: "pet-strike", target: "CLOSEST_OPPONENT",
         } })] })],
-      abilitiesByOwner: { owner: { jutsus: [ownedPetJutsu()], skills: [] } },
+      abilitiesByOwner: { owner: { jutsus: [petJutsuFixture()], skills: [] } },
     });
     const actor = battle.usersState.find((u) => u.petId)!;
     const grid = new Grid(TerrainHex, rectangle({ width: 13, height: 9 }))
@@ -172,6 +175,67 @@ describe("owned pets in combat", () => {
     expect(result.nextActionId).toBe("pet-strike");
     expect(result.nextBattle.usersState.find((u) => u.userId === "enemy")!.curHealth).toBeLessThan(before);
     expect(result.nextBattle.usersState.find((u) => u.petId)!.jutsus[0]!.lastUsedRound).toBe(battle.round);
+  });
+
+  it.each(["COMBAT", "RANKED_PVP"] as const)("separates stale and injected companion actions from every other actor in %s", (battleType) => {
+    const battle = scenario();
+    const jutsu = petJutsuFixture();
+    battle.extraState.jutsus[jutsu.id] = jutsu;
+    battle.battleType = battleType;
+    for (const patch of [
+      { isAi: false }, { isAi: true }, { isAi: true, isSummon: true },
+    ]) {
+      const actor = battle.usersState[0]!;
+      Object.assign(actor, patch);
+      actor.jutsus = [{ id: "stale", jutsuId: jutsu.id, level: 1, experience: 0,
+        equipped: true, lastUsedRound: -1, originalCooldown: 1, reskinId: null, origin: "user" }];
+      expect(availableUserActions(battle, actor.userId).some((action) => action.id === jutsu.id)).toBe(false);
+      actor.jutsus = [];
+      battle.usersEffects = [makeEffect("injectjutsus", InjectJutsusTag.parse({ jutsuIds: [jutsu.id] }), {
+        creatorId: actor.userId, targetId: actor.userId, createdRound: battle.round, rounds: 10,
+      })];
+      expect(availableUserActions(battle, actor.userId).some((action) => action.id === jutsu.id)).toBe(false);
+      expect(actor.jutsus).toMatchObject([{ jutsuId: jutsu.id, origin: "injected" }]);
+    }
+  });
+
+  it.each(["COMBAT", "RANKED_PVP"] as const)("drops companion jutsu from player, AI and summon loadouts at %s initiation", async (battleType) => {
+    const jutsu = petJutsuFixture();
+    for (const isAi of [false, true]) {
+      for (const isSummon of [false, true]) {
+        const caster = { ...makeBattleUser("owner", { isAi, rank: "JONIN" }),
+          regeneration: 0, regenAt: new Date(), money: 0, bloodright: [],
+          effects: [], userSkills: [], items: [],
+          jutsus: [{ id: "owned", userId: "owner", jutsuId: jutsu.id, jutsu,
+            createdAt: new Date(0), updatedAt: new Date(0), level: 1, experience: 0,
+            equipped: true, finishTraining: null, reskinId: null }],
+        } as unknown as CombatQueryUser;
+        const processed = await processUsersForBattle({} as DrizzleClient, {
+          users: [caster], battleType, leftSideUserIds: ["owner"], hide: false, isSummon,
+          width: 13, height: 9, settings: [], relations: [], wars: [], villages: [],
+          defaultProfile: { id: "Default" } as AiProfile,
+        });
+        expect(processed.usersState[0]!.jutsus).toEqual([]);
+        expect(processed.extraState.jutsus[jutsu.id]).toBeUndefined();
+      }
+    }
+  });
+
+  it("does not offer ordinary jutsu to a companion from a stale or injected loadout", () => {
+    const battle = scenario();
+    add(battle);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    const jutsu = petJutsuFixture({ jutsuType: "NORMAL" });
+    battle.extraState.jutsus[jutsu.id] = jutsu;
+    actor.jutsus = [{ id: "stale", jutsuId: jutsu.id, level: 1, experience: 0,
+      equipped: true, lastUsedRound: -1, originalCooldown: 1, reskinId: null, origin: "user" }];
+    expect(availableUserActions(battle, actor.userId).some((action) => action.id === jutsu.id)).toBe(false);
+    actor.jutsus = [];
+    battle.usersEffects = [makeEffect("injectjutsus", InjectJutsusTag.parse({ jutsuIds: [jutsu.id] }), {
+      creatorId: actor.userId, targetId: actor.userId, createdRound: battle.round, rounds: 10,
+    })];
+    expect(availableUserActions(battle, actor.userId).some((action) => action.id === jutsu.id)).toBe(false);
+    expect(actor.jutsus).toMatchObject([{ jutsuId: jutsu.id, origin: "injected" }]);
   });
 
   it("casts its selected self shield through a saved highest-power AI rule", () => {
@@ -188,7 +252,7 @@ describe("owned pets in combat", () => {
     addPetsToBattle({ ...battle,
       pets: [petFixture({ jutsuIds: [jutsu.id], aiRules: savedAi.rules,
         includeDefaultRules: savedAi.includeDefaultRules })],
-      abilitiesByOwner: { owner: { jutsus: [ownedPetJutsu(jutsu)], skills: [] } },
+      abilitiesByOwner: { owner: { jutsus: [jutsu], skills: [] } },
     });
     const actor = battle.usersState.find((user) => user.petId)!;
     const grid = new Grid(TerrainHex, rectangle({ width: 13, height: 9 }))
@@ -203,9 +267,9 @@ describe("owned pets in combat", () => {
 
   it("keeps the basic pet when selected abilities were removed, changed or belong to another owner", () => {
     const battle = scenario();
-    const forbidden = ownedPetJutsu(petJutsuFixture({ effects: [SummonTag.parse({ aiId: "unloaded" })] }));
+    const forbidden = petJutsuFixture({ effects: [SummonTag.parse({ aiId: "unloaded" })] });
     addPetsToBattle({ ...battle,
-      pets: [petFixture({ jutsuIds: [forbidden.jutsuId], skillIds: ["pet-muscle"] })],
+      pets: [petFixture({ jutsuIds: [forbidden.id], skillIds: ["pet-muscle"] })],
       abilitiesByOwner: { owner: { jutsus: [forbidden],
         skills: [ownedPetSkill(petSkillFixture(), "someone-else")] } },
     });

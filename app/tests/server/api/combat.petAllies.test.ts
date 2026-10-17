@@ -35,7 +35,7 @@ describeWithDatabase("companion ally passives at battle initiation", () => {
     await insertUsers([{ userId: "summon-template", username: "Summon", isAi: true, level: 50 }]);
     await client.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
     await client.insert(jutsu).values(petJutsuFixture({
-      id: "summon", effects: [SummonTag.parse({ aiId: "summon-template" })],
+      id: "summon", jutsuType: "NORMAL", effects: [SummonTag.parse({ aiId: "summon-template" })],
     }));
     await client.insert(userJutsu).values({ id: "owned-summon", userId: "caster", jutsuId: "summon", equipped: true });
     await client.insert(userPet).values(["caster", "enemy"].map((userId) => ({

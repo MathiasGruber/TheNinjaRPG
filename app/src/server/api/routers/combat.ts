@@ -2294,23 +2294,23 @@ export const initiateBattle = async (
         })
       : [],
     petsAllowedInBattle(battleType)
-      ? client.query.userJutsu.findMany({
+      ? client.query.jutsu.findMany({
           where: (table) =>
             and(
-              inArray(table.userId, [...userIds, ...targetIds]),
+              eq(table.jutsuType, "PETS"),
+              eq(table.hidden, false),
               exists(
                 client
                   .select({ one: sql`1` })
                   .from(userPet)
                   .where(
                     and(
-                      eq(userPet.userId, table.userId),
-                      sql`JSON_CONTAINS(${userPet.jutsuIds}, JSON_QUOTE(${table.jutsuId}))`,
+                      inArray(userPet.userId, [...userIds, ...targetIds]),
+                      sql`JSON_CONTAINS(${userPet.jutsuIds}, JSON_QUOTE(${table.id}))`,
                     ),
                   ),
               ),
             ),
-          with: { jutsu: true },
         })
       : [],
   ]);
@@ -3071,7 +3071,7 @@ export const initiateBattle = async (
             .map((user) => [
               user.userId,
               {
-                jutsus: petJutsus.filter((entry) => entry.userId === user.userId),
+                jutsus: petJutsus,
                 skills: user.userSkills,
               },
             ]),
@@ -4544,6 +4544,9 @@ export const processUsersForBattle = async (
         if (!userjutsu.jutsu) {
           return false;
         }
+        // Companion actions are installed separately after participant processing;
+        // even ranked and AI loadouts must not inherit their independent balance.
+        if (userjutsu.jutsu.jutsuType === "PETS") return false;
         if (
           !user.isAi &&
           !hasRequiredSkill(userjutsu.jutsu, { userSkills: requirementSkills })

@@ -6,7 +6,7 @@ import {
   type PetAbilityLoadout,
 } from "@/libs/pets/abilities";
 import { DamageTag, SummonTag } from "@/validators/combat";
-import { ownedPetJutsu, ownedPetSkill, petJutsuFixture, petSkillFixture } from "./helpers/abilities";
+import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "./helpers/abilities";
 
 const pet = (patch: Partial<PetAbilityLoadout> = {}): PetAbilityLoadout => ({
   rank: 4, experience: 100000, abilitySlots: 2,
@@ -35,8 +35,8 @@ describe("pet ability eligibility and shared power budget", () => {
       .toBeNull();
   });
 
-  it("rechecks learned/active choices and rejects duplicate selections", () => {
-    expect(validate({}, [], [petSkillFixture()])).toContain("no longer learned");
+  it("rechecks published/active choices and rejects duplicate selections", () => {
+    expect(validate({}, [], [petSkillFixture()])).toContain("no longer available");
     expect(validate({}, [petJutsuFixture()], [])).toContain("no longer activated");
     expect(validate({ jutsuIds: ["pet-strike", "pet-strike"], skillIds: [] })).toContain("only once");
   });
@@ -57,7 +57,7 @@ describe("pet ability eligibility and shared power budget", () => {
   });
 
   it.each([
-    { hidden: true }, { injectableInBattle: true }, { jutsuType: "EVENT" },
+    { hidden: true }, { injectableInBattle: true }, { jutsuType: "EVENT" }, { jutsuType: "NORMAL" },
     { jutsuRank: "H" }, { bloodlineId: "line" }, { villageId: "village" },
     { requiredSkillId: "skill" }, { requiredBloodlineItemId: "item" },
     { requiredTaijutsuMastery: 1 }, { jutsuWeapon: "SWORD" },
@@ -81,9 +81,9 @@ describe("pet ability eligibility and shared power budget", () => {
   it("drops unavailable choices independently at battle initiation", () => {
     const selected = selectPetBattleAbilities({
       pet: pet({ jutsuIds: ["forgotten", "pet-strike"], skillIds: ["pet-muscle"] }),
-      owner: { rank: "ELDER" }, jutsus: [ownedPetJutsu()], skills: [ownedPetSkill()],
+      owner: { rank: "ELDER" }, jutsus: [petJutsuFixture()], skills: [ownedPetSkill()],
     });
-    expect(selected.jutsus.map((entry) => entry.jutsuId)).toEqual(["pet-strike"]);
+    expect(selected.jutsus.map((entry) => entry.id)).toEqual(["pet-strike"]);
     expect(selected.skills.map((entry) => entry.skillId)).toEqual(["pet-muscle"]);
     expect(selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELDER" },
       jutsus: [], skills: [{ ...ownedPetSkill(), activated: false }] }))

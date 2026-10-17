@@ -951,13 +951,14 @@ export function PetProfile() {
         <TabsContent value="abilities" forceMount hidden={activity !== "abilities"}>
           <ContentBox
             title="Companion abilities"
-            subtitle="Share compatible jutsu and skills you have unlocked"
+            subtitle="Choose pet jutsu and share your activated skills"
             alreadyHasH1
           >
             <p className="mb-3 text-sm">
-              Choose compatible jutsu and passive skills within your companion's slots
-              and power budget. Pet rank and level determine availability. Unselect an
-              ability to make room. Jutsu start at level 1 and scale with your pet.
+              Choose published pet jutsu and your activated passive skills within your
+              companion's slots and power budget. Pet rank and level determine
+              availability. Unselect an ability to make room. Jutsu start at level 1 and
+              scale with your pet.
             </p>
             <div className="mb-4 flex flex-wrap gap-2">
               <Badge variant="outline">
@@ -1122,7 +1123,7 @@ export function PetProfile() {
               )}
               {abilityChoices.length === 0 && (
                 <p className="text-sm">
-                  Learn compatible non-elemental jutsu or activate standalone self
+                  No compatible pet jutsu are published yet. Activate standalone self
                   skills to share them with your companion.
                 </p>
               )}

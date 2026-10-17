@@ -804,6 +804,7 @@ export const JutsuTypes = [
   "CLAN",
   "EVENT",
   "AI",
+  "PETS",
 ] as const;
 export type JutsuType = (typeof JutsuTypes)[number];
 

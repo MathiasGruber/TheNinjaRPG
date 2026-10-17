@@ -9,7 +9,7 @@ import {
   type UserRank,
 } from "@/drizzle/constants";
 import type { Jutsu, SkillTree, UserPet } from "@/drizzle/schema";
-import type { CombatQueryUserJutsu, CombatQueryUserSkill } from "@/libs/combat/types";
+import type { CombatQueryUserSkill } from "@/libs/combat/types";
 import { getMaxPetRank, getPetLevel } from "@/libs/pets/progression";
 import { hasRequiredRank } from "@/libs/train";
 import type { ZodAllTags } from "@/validators/combat";
@@ -67,7 +67,7 @@ const masteryRequirements = [
 export const isPetJutsuAllowed = (jutsu: Jutsu) =>
   !jutsu.hidden &&
   !jutsu.injectableInBattle &&
-  jutsu.jutsuType === "NORMAL" &&
+  jutsu.jutsuType === "PETS" &&
   jutsu.jutsuRank !== "H" &&
   !jutsu.bloodlineId &&
   !jutsu.bloodlineReskinId &&
@@ -112,8 +112,8 @@ export const isPetSkillAllowed = (skill: SkillTree) =>
 
 /**
  * Return the first player-facing loadout rejection, or null when valid.
- * The caller supplies only learned jutsus and purchased, activated skills
- * belonging to the owner; these arrays are also the ownership allowlist.
+ * The caller supplies the published companion catalogue and the owner's
+ * purchased, activated skills; only those entries may be selected.
  */
 export const validatePetAbilities = ({
   pet,
@@ -145,7 +145,7 @@ export const validatePetAbilities = ({
   let spent = 0;
   for (const id of pet.jutsuIds) {
     const jutsu = jutsus.find((entry) => entry.id === id);
-    if (!jutsu) return "A selected jutsu is no longer learned by your character.";
+    if (!jutsu) return "A selected companion jutsu is no longer available.";
     if (!isPetJutsuAllowed(jutsu)) return `${jutsu.name} is not compatible with pets.`;
     if (
       !PET_RANKS.some(
@@ -170,7 +170,7 @@ export const validatePetAbilities = ({
 };
 
 /**
- * Revalidate against initiation's frozen owner content, keeping usable choices
+ * Revalidate against initiation's frozen catalogue, keeping usable choices
  * when other content became unavailable. Saved jutsus take budget priority,
  * followed by skills; each rejected entry leaves room for later valid entries.
  */
@@ -182,11 +182,10 @@ export const selectPetBattleAbilities = ({
 }: {
   pet: PetAbilityLoadout;
   owner: { rank: UserRank };
-  jutsus: CombatQueryUserJutsu[];
+  jutsus: Jutsu[];
   skills: CombatQueryUserSkill[];
 }) => {
   const selected = { ...pet, jutsuIds: [] as string[], skillIds: [] as string[] };
-  const availableJutsus = jutsus.map((entry) => entry.jutsu);
   const availableSkills = skills
     .filter((entry) => entry.activated)
     .map((entry) => entry.skill);
@@ -196,7 +195,7 @@ export const selectPetBattleAbilities = ({
       !validatePetAbilities({
         pet: candidate,
         owner,
-        jutsus: availableJutsus,
+        jutsus,
         skills: availableSkills,
       })
     )
@@ -208,7 +207,7 @@ export const selectPetBattleAbilities = ({
       !validatePetAbilities({
         pet: candidate,
         owner,
-        jutsus: availableJutsus,
+        jutsus,
         skills: availableSkills,
       })
     )
@@ -216,7 +215,7 @@ export const selectPetBattleAbilities = ({
   }
   return {
     jutsus: selected.jutsuIds.flatMap((id) => {
-      const entry = jutsus.find((row) => row.jutsuId === id);
+      const entry = jutsus.find((row) => row.id === id);
       return entry ? [entry] : [];
     }),
     skills: selected.skillIds.flatMap((id) => {

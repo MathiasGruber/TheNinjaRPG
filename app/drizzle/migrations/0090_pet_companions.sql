@@ -130,3 +130,6 @@ INSERT INTO `VillageStructure` (`id`, `name`, `route`, `image`, `villageId`, `lo
 SELECT 'wake-bondkeeper-sanctuary', 'Bondkeeper Sanctuary', '/pets', 'https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp', `id`, 3, 6, 1, 1, 1
 FROM `Village` WHERE `name` = 'Wake Island'
 ON DUPLICATE KEY UPDATE `route` = '/pets', `image` = 'https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp';
+
+-- Companion techniques have a separate catalogue from player jutsu.
+ALTER TABLE `Jutsu` MODIFY COLUMN `jutsuType` enum('NORMAL','SPECIAL','BLOODLINE','FORBIDDEN','LOYALTY','CLAN','EVENT','AI','PETS') NOT NULL;

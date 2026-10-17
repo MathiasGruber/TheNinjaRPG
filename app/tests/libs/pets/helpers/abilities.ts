@@ -1,5 +1,5 @@
 import type { Jutsu, SkillTree } from "@/drizzle/schema";
-import type { CombatQueryUserJutsu, CombatQueryUserSkill } from "@/libs/combat/types";
+import type { CombatQueryUserSkill } from "@/libs/combat/types";
 import { DamageTag, IncreaseStatTag } from "@/validators/combat";
 
 export const petJutsuFixture = (patch: Partial<Jutsu> = {}): Jutsu => ({
@@ -7,7 +7,7 @@ export const petJutsuFixture = (patch: Partial<Jutsu> = {}): Jutsu => ({
   createdAt: new Date(0), updatedAt: new Date(0), extraBaseCost: 0,
   effects: [DamageTag.parse({ calculation: "static", power: 100, rounds: 0 })],
   target: "OPPONENT", range: 3, cooldown: 1, bloodlineId: null,
-  requiredLevel: 1, requiredRank: "STUDENT", jutsuType: "NORMAL", image: "",
+  requiredLevel: 1, requiredRank: "STUDENT", jutsuType: "PETS", image: "",
   jutsuWeapon: "NONE", statClassification: "Taijutsu", elementClassification: "None",
   battleDescription: "%user strikes %target", jutsuRank: "D", actionCostPerc: 60,
   staminaCost: 0.05, chakraCost: 0, healthCost: 0,
@@ -29,15 +29,6 @@ export const petSkillFixture = (patch: Partial<SkillTree> = {}): SkillTree => ({
   pathType: "SKILL", bloodlineId: null, seichiSilverCost: 0, hidden: false,
   skillType: "DEFAULT", folderId: null, createdAt: new Date(0), updatedAt: new Date(0),
   ...patch,
-});
-
-export const ownedPetJutsu = (
-  jutsu = petJutsuFixture(),
-  userId = "owner",
-): CombatQueryUserJutsu => ({
-  id: `owned-${jutsu.id}`, userId, jutsuId: jutsu.id, jutsu,
-  createdAt: new Date(0), updatedAt: new Date(0), level: 25, experience: 999,
-  equipped: false, finishTraining: null, reskinId: null,
 });
 
 export const ownedPetSkill = (

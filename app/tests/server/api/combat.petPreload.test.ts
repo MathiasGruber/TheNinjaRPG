@@ -34,7 +34,6 @@ describeWithDatabase("companion battle preload consistency", () => {
       artRank: 1, avatar: "/pet.png", battleEnabled: true, jutsuIds: [`${id}-strike`],
     })));
     await database.insert(jutsu).values(["first", "second"].map((id) => petJutsuFixture({ id: `${id}-strike`, name: `${id} strike` })));
-    await database.insert(userJutsu).values(["first", "second"].map((id) => ({ id: `owned-${id}`, userId: ownerId, jutsuId: `${id}-strike`, equipped: false })));
   });
   afterEach(() => {
     PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
@@ -45,10 +44,10 @@ describeWithDatabase("companion battle preload consistency", () => {
     PET_BATTLE_CONFIG.enabled = false;
     const database = await getTestDatabase();
     const petReads = vi.spyOn(database.query.userPet, "findMany");
-    const petJutsuReads = vi.spyOn(database.query.userJutsu, "findMany");
+    const jutsuReads = vi.spyOn(database.query.jutsu, "findMany");
     expect((await startBattle(database)).success).toBe(true);
     expect(petReads).not.toHaveBeenCalled();
-    expect(petJutsuReads).not.toHaveBeenCalled();
+    expect(jutsuReads.mock.calls.some(([options]) => typeof options?.where === "function")).toBe(false);
     const saved = (await database.query.battle.findFirst())!;
     expect(saved.usersState.filter((actor) => actor.petId)).toHaveLength(0);
     expect(saved.extraState.petIdsByOwner).toEqual({});
@@ -57,7 +56,7 @@ describeWithDatabase("companion battle preload consistency", () => {
     expect(await database.query.userPet.findFirst({ where: eq(userPet.id, "first") })).toMatchObject({ battleEnabled: true });
   });
 
-  it("selects the active companion and its unequipped jutsu after both preloads precede a successful swap", async () => {
+  it("selects the active companion and its published jutsu without player ownership after both preloads precede a successful swap", async () => {
     const database = await getTestDatabase();
     const client = beforeParticipantRead(database, async () => {
       expect((await callerForDatabase(petsRouter, ownerId, database).activatePet({ petId: "second" })).success).toBe(true);
@@ -140,8 +139,8 @@ const beforeParticipantRead = (database: DrizzleClient, change: () => Promise<vo
   const pets = new Proxy(database.query.userPet, { get(target, property, receiver) {
     return property === "findMany" ? (...args: Parameters<typeof target.findMany>) => afterRead(target.findMany(...args)) : Reflect.get(target, property, receiver);
   } });
-  const jutsus = new Proxy(database.query.userJutsu, { get(target, property, receiver) {
-    return property === "findMany" ? (...args: Parameters<typeof target.findMany>) => afterRead(target.findMany(...args)) : Reflect.get(target, property, receiver);
+  const jutsus = new Proxy(database.query.jutsu, { get(target, property, receiver) {
+    return property === "findMany" ? (...args: Parameters<typeof target.findMany>) => typeof args[0]?.where === "function" ? afterRead(target.findMany(...args)) : target.findMany(...args) : Reflect.get(target, property, receiver);
   } });
   const users = new Proxy(database.query.userData, { get(target, property, receiver) {
     if (property !== "findMany") return Reflect.get(target, property, receiver);
@@ -152,6 +151,6 @@ const beforeParticipantRead = (database: DrizzleClient, change: () => Promise<vo
     };
   } });
   return new Proxy(database, { get(target, property, receiver) {
-    return property === "query" ? { ...target.query, userPet: pets, userJutsu: jutsus, userData: users } : Reflect.get(target, property, receiver);
+    return property === "query" ? { ...target.query, userPet: pets, jutsu: jutsus, userData: users } : Reflect.get(target, property, receiver);
   } });
 };

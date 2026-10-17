@@ -22,12 +22,12 @@ import {
   type PetPaymentCurrency,
 } from "@/drizzle/constants";
 import {
+  jutsu,
   petSpecies,
   type UserData,
   type UserPet,
   userData,
   userItem,
-  userJutsu,
   userPet,
   userSkill,
   userUpload,
@@ -198,7 +198,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
-  /** Equip owned abilities after validating the companion's shared capacity and budget. */
+  /** Equip published pet jutsus and activated skills within the companion's shared budget. */
   updateAbilities: protectedProcedure
     .input(updatePetAbilitiesSchema)
     .output(baseServerResponse)
@@ -899,12 +899,11 @@ const fetchPetOwner = async (client: DrizzleClient, userId: string, petId?: stri
   return { user, pet, pets };
 };
 
-/** Load learned jutsus and activated skills for companion loadout validation. */
+/** Published pet jutsus are shared; passive skills still require an activated owner copy. */
 const fetchPetAbilities = async (client: DrizzleClient, userId: string) => {
   const [jutsus, skills] = await Promise.all([
-    client.query.userJutsu.findMany({
-      where: eq(userJutsu.userId, userId),
-      with: { jutsu: true },
+    client.query.jutsu.findMany({
+      where: and(eq(jutsu.jutsuType, "PETS"), eq(jutsu.hidden, false)),
     }),
     client.query.userSkill.findMany({
       where: and(eq(userSkill.userId, userId), eq(userSkill.activated, true)),
@@ -912,7 +911,7 @@ const fetchPetAbilities = async (client: DrizzleClient, userId: string) => {
     }),
   ]);
   return {
-    jutsus: jutsus.map((owned) => owned.jutsu),
+    jutsus,
     skills: skills.map((owned) => owned.skill),
   };
 };

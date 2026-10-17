@@ -169,6 +169,9 @@ export const availableUserActions = (
           .filter((userjutsu) => {
             const jutsu = getJutsu(battle, userjutsu.jutsuId);
             if (!jutsu) return false;
+            // Separate companion balance from every player, AI and summon loadout,
+            // including injected actions and snapshots saved before content edits.
+            if ((jutsu.jutsuType === "PETS") !== Boolean(user.petId)) return false;
 
             // If quest battle, exclude PVP-only jutsus
             if (isQuestBattle && jutsu.battleUsageType === "PVP") {

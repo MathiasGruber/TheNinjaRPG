@@ -7112,7 +7112,7 @@
         },
         "jutsuType": {
           "name": "jutsuType",
-          "type": "enum('NORMAL','SPECIAL','BLOODLINE','FORBIDDEN','LOYALTY','CLAN','EVENT','AI')",
+          "type": "enum('NORMAL','SPECIAL','BLOODLINE','FORBIDDEN','LOYALTY','CLAN','EVENT','AI','PETS')",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

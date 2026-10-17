@@ -339,6 +339,10 @@ const jutsuRequirementChecks = (
     });
   return [
     {
+      ok: jutsu.jutsuType !== "PETS",
+      warning: "Only companions can use this jutsu.",
+    },
+    {
       ok:
         !!opts?.ignoreSkill ||
         hasRequiredSkill(jutsu, {

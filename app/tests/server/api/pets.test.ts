@@ -681,42 +681,83 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.reputationPoints).toBe(0);
   });
 
-  it("equips only learned jutsus and activated owned skills within purchased slots and the shared budget", async () => {
+  it("offers published pet jutsus without learned copies and excludes incompatible content", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await database.insert(jutsu).values([
+      petJutsuFixture(),
+      petJutsuFixture({ id: "human-strike", name: "Human Strike", jutsuType: "NORMAL" }),
+      petJutsuFixture({ id: "hidden-strike", name: "Hidden Strike", hidden: true }),
+      petJutsuFixture({ id: "injected-strike", name: "Injected Strike", injectableInBattle: true }),
+      petJutsuFixture({ id: "elemental-strike", name: "Elemental Strike", elementClassification: "Fire" }),
+    ]);
+    await database.insert(userJutsu).values({ id: "learned-human-strike", userId, jutsuId: "human-strike" });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.getPet()).abilities.jutsus.map((entry) => entry.id)).toEqual(["pet-strike"]);
+    const originalPet = await readPet(database);
+    const originalOwner = await readOwner(database);
+    for (const id of ["human-strike", "hidden-strike", "injected-strike", "elemental-strike", "missing-strike"]) {
+      expect((await caller.updateAbilities({ petId, jutsuIds: [id], skillIds: [] })).success).toBe(false);
+      expect(await readPet(database)).toEqual(originalPet);
+      expect(await readOwner(database)).toEqual(originalOwner);
+    }
+  });
+
+  it("equips published pet jutsus and activated owned skills within purchased slots and the shared budget", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { rank: 4, artRank: 4, experience: 100000, abilitySlots: 2 });
-    await database.update(userData).set({ rank: "CHUNIN" }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ rank: "CHUNIN", petExperience: 75 }).where(eq(userData.userId, userId));
     await insertUsers([{ userId: "ability-owner", username: "AbilityOwner" }]);
     await database.insert(jutsu).values([
-      petJutsuFixture(), petJutsuFixture({ id: "foreign-strike", name: "Foreign Strike" }),
-      petJutsuFixture({ id: "expensive-strike", name: "Expensive Strike", jutsuRank: "S" }),
+      petJutsuFixture(), petJutsuFixture({ id: "expensive-strike", name: "Expensive Strike", jutsuRank: "S" }),
     ]);
     await database.insert(skillTree).values([
       petSkillFixture(), petSkillFixture({ id: "inactive-skill", name: "Inactive Skill" }),
-    ]);
-    await database.insert(userJutsu).values([
-      { id: "learned-strike", userId, jutsuId: "pet-strike" },
-      { id: "learned-expensive", userId, jutsuId: "expensive-strike" },
-      { id: "foreign-owned", userId: "ability-owner", jutsuId: "foreign-strike" },
+      petSkillFixture({ id: "foreign-skill", name: "Foreign Skill" }),
     ]);
     await database.insert(userSkill).values([
       { id: "owned-skill", userId, skillId: "pet-muscle" },
       { id: "inactive-owned", userId, skillId: "inactive-skill", activated: false },
+      { id: "foreign-owned", userId: "ability-owner", skillId: "foreign-skill" },
     ]);
     const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.getPet()).abilities.skills.map((entry) => entry.id)).toEqual(["pet-muscle"]);
     const valid = { petId, jutsuIds: ["pet-strike"], skillIds: ["pet-muscle"] };
     expect((await caller.updateAbilities(valid)).success).toBe(true);
+    const saved = await readPet(database);
     for (const loadout of [
-      { ...valid, jutsuIds: ["foreign-strike"] },
+      { ...valid, skillIds: ["foreign-skill"] },
       { ...valid, skillIds: ["inactive-skill"] },
       { ...valid, jutsuIds: ["expensive-strike"] },
       { ...valid, jutsuIds: ["pet-strike", "pet-strike"], skillIds: [] },
     ]) expect((await caller.updateAbilities(loadout)).success).toBe(false);
     await database.update(userSkill).set({ activated: false }).where(eq(userSkill.id, "owned-skill"));
     expect((await caller.updateAbilities(valid)).success).toBe(false);
-    expect(await readPet(database)).toMatchObject({ jutsuIds: valid.jutsuIds, skillIds: valid.skillIds });
-    expect((await readOwner(database))?.reputationPoints).toBe(200);
-    expect(await database.query.userJutsu.findMany()).toHaveLength(3);
-    expect(await database.query.userSkill.findMany()).toHaveLength(2);
+    expect(await readPet(database)).toEqual(saved);
+    expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, petExperience: 75 });
+    expect(await database.query.userJutsu.findMany()).toHaveLength(0);
+    expect(await database.query.userSkill.findMany()).toHaveLength(3);
+  });
+
+  it.each([
+    { state: "retired", patch: { hidden: true } },
+    { state: "retyped", patch: { jutsuType: "NORMAL" as const } },
+    { state: "injected", patch: { injectableInBattle: true } },
+  ])("excludes a saved jutsu after it is $state and rejects it without altering companion or XP", async ({ patch }) => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await database.update(userData).set({ petExperience: 75 }).where(eq(userData.userId, userId));
+    await database.insert(jutsu).values(petJutsuFixture());
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const input = { petId, jutsuIds: ["pet-strike"], skillIds: [] };
+    expect((await caller.updateAbilities(input)).success).toBe(true);
+    const savedPet = await readPet(database);
+    const owner = await readOwner(database);
+    await database.update(jutsu).set(patch).where(eq(jutsu.id, "pet-strike"));
+    expect((await caller.getPet()).abilities.jutsus).toEqual([]);
+    expect((await caller.updateAbilities(input)).success).toBe(false);
+    expect(await readPet(database)).toEqual(savedPet);
+    expect(await readOwner(database)).toEqual(owner);
   });
 
   it("resets XP gained before release and excludes the released identity from later rewards", async () => {

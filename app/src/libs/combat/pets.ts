@@ -7,14 +7,13 @@ import {
   PET_BATTLE_CONFIG,
   RANKED_LOADOUT_MAX_SUMMON_JUTSUS,
 } from "@/drizzle/constants";
-import type { UserPet } from "@/drizzle/schema";
+import type { Jutsu, UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
 import { GenNames } from "@/libs/combat/constants";
 import { summonsAllowedInBattle } from "@/libs/combat/summon";
 import { realizeTag } from "@/libs/combat/tags";
 import type {
   BattleUserState,
-  CombatQueryUserJutsu,
   CombatQueryUserSkill,
   ExtraState,
   UserEffect,
@@ -55,7 +54,7 @@ export const addPetsToBattle = (info: {
   abilitiesByOwner?: Record<
     string,
     {
-      jutsus: CombatQueryUserJutsu[];
+      jutsus: Jutsu[];
       skills: CombatQueryUserSkill[];
     }
   >;
@@ -88,10 +87,10 @@ export const addPetsToBattle = (info: {
       const selected = selectPetBattleAbilities({
         pet,
         owner: { rank: ownerRanks?.[owner.userId] ?? owner.rank },
-        jutsus: content.jutsus.filter((entry) => entry.userId === owner.userId),
+        jutsus: content.jutsus,
         skills: content.skills.filter((entry) => entry.userId === owner.userId),
       });
-      actor.jutsus = selected.jutsus.map(({ jutsu }) => {
+      actor.jutsus = selected.jutsus.map((jutsu) => {
         extraState.jutsus[jutsu.id] ??= structuredClone(jutsu);
         return {
           id: `pet:${pet.id}:jutsu:${jutsu.id}`,
