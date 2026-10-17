@@ -154,37 +154,114 @@ const confirmMeal = async (view: ReturnType<typeof mount>) => {
   const dialog = await view.findByRole("dialog", { name: /Feed .* to Miso\?/ });
   fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" }));
 };
+const openSlotDialog = async (view: ReturnType<typeof mount>) => {
+  fireEvent.click(await view.findByRole("button", { name: "Add slot" }));
+  return view.findByRole("dialog", { name: "Add a companion slot" });
+};
 
 it.each(["REPUTATION", "SEICHI_SILVER"] as const)("buys a permanent collection slot using only the chosen %s balance", async (currency) => {
   data = { ...data, slots: 4, permanentSlots: 1, bonusSlots: 3, maxSlots: 9 };
   owner.reputationPoints = currency === "REPUTATION" ? 20 : 0;
   owner.seichiSilver = currency === "SEICHI_SILVER" ? 50 : 0;
   const view = mount();
-  const reputation = await view.findByRole("radio", { name: "20 reputation" });
+  await view.findByRole("button", { name: "Add slot" });
+  expect(view.queryByRole("radio")).toBeNull();
+  expect(view.queryByText(/^Balance:/)).toBeNull();
+  const dialog = await openSlotDialog(view);
+  const reputation = within(dialog).getByRole("radio", { name: "20 reputation" });
   if (currency === "SEICHI_SILVER") {
-    expect((view.getAllByRole("button", { name: "Unlock slot · 20 reputation" }).find((button) => button.tagName === "BUTTON") as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(view.getByRole("radio", { name: "50 Seichi Silver" }));
+    expect((within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
   } else {
     expect(reputation.getAttribute("aria-checked")).toBe("true");
   }
   const price = currency === "SEICHI_SILVER" ? "50 Seichi Silver" : "20 reputation";
-  fireEvent.click(view.getAllByRole("button", { name: `Unlock slot · ${price}` }).find((button) => button.tagName === "BUTTON")!);
-  const dialog = await view.findByRole("dialog", { name: `Unlock a companion slot for ${price}?` });
-  expect(dialog.textContent).toContain(`This permanent collection slot costs ${price}.`);
-  fireEvent.click(within(dialog).getByRole("button", { name: "Proceed" }));
+  expect(dialog.textContent).toContain("Add one permanent slot to keep up to 5 companions.");
+  expect(unlockSlot).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("button", { name: `Unlock slot · ${price}` }));
   await waitFor(() => expect(unlockSlot).toHaveBeenCalledWith({ currency }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
   expect(view.getByText(/1 permanent slot · 3 federal support bonus slots/)).toBeTruthy();
   expect(view.getByText(/Your companions are kept if support expires/)).toBeTruthy();
+});
+
+it("opens slot pricing with no reputation and only enables payment after choosing an affordable currency", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  owner.reputationPoints = 0;
+  owner.seichiSilver = 50;
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  expect(within(dialog).getByRole("status").textContent).toBe("You need 20 more reputation to unlock this slot.");
+  const reputationPayment = within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement;
+  expect(reputationPayment.disabled).toBe(true);
+  fireEvent.click(reputationPayment);
+  expect(unlockSlot).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  expect(within(dialog).queryByRole("status")).toBeNull();
+  expect((within(dialog).getByRole("button", { name: "Unlock slot · 50 Seichi Silver" }) as HTMLButtonElement).disabled).toBe(false);
+  expect(unlockSlot).not.toHaveBeenCalled();
+});
+
+it("does not buy a collection slot when the payment dialog is closed", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  fireEvent.click(within(dialog).getByText("Close", { selector: "button" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+  expect(unlockSlot).not.toHaveBeenCalled();
+});
+
+it("keeps a rejected slot purchase open with recoverable feedback and closes after a successful retry", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  unlockSlot.mockReturnValueOnce({ success: false, message: "Your account changed. Please try again." });
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }));
+  await within(dialog).findByRole("alert");
+  expect(within(dialog).getByRole("alert").textContent).toBe("Your account changed. Please try again.");
+  await waitFor(() => expect((within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(within(dialog).getByRole("radio", { name: "50 Seichi Silver" }));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 50 Seichi Silver" }));
+  await waitFor(() => expect(unlockSlot).toHaveBeenLastCalledWith({ currency: "SEICHI_SILVER" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+  expect(unlockSlot).toHaveBeenCalledTimes(2);
+});
+
+it("keeps a pending slot purchase guarded against duplicate payment or a changed currency", async () => {
+  data = { ...data, slots: 1, permanentSlots: 1 };
+  let completePurchase!: (result: { success: boolean; message: string }) => void;
+  unlockSlot.mockImplementationOnce(() => new Promise((resolve) => { completePurchase = resolve; }));
+  const view = mount();
+  const dialog = await openSlotDialog(view);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Unlock slot · 20 reputation" }));
+  const pending = await within(dialog).findByRole("button", { name: "Unlocking slot..." }) as HTMLButtonElement;
+  expect(pending.disabled).toBe(true);
+  expect((within(dialog).getByRole("radio", { name: "50 Seichi Silver" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(pending);
+  expect(unlockSlot).toHaveBeenCalledTimes(1);
+  await act(async () => completePurchase({ success: true, message: "Slot unlocked" }));
+  await waitFor(() => expect(view.queryByRole("dialog", { name: "Add a companion slot" })).toBeNull());
+});
+
+it("omits the slot purchase action at maximum capacity", async () => {
+  const view = mount();
+  await view.findByRole("combobox", { name: "Companion" });
+  expect(view.queryByRole("button", { name: "Add slot" })).toBeNull();
+  expect(view.queryByRole("radio", { name: "20 reputation" })).toBeNull();
 });
 
 it("keeps companion management available after support expires while offering remaining permanent slots", async () => {
   data = { ...data, slots: 1, permanentSlots: 1, bonusSlots: 0, maxSlots: 6, pets: [data.pet!, { ...data.pet!, id: "retained", name: "Retained" }] };
   const view = mount();
-  await view.findByRole("radio", { name: "20 reputation" });
+  await view.findByRole("button", { name: "Add slot" });
   expect(view.getByText("2 / 1 collection slots")).toBeTruthy();
   expect((view.getByRole("combobox", { name: "Companion" }) as HTMLButtonElement).disabled).toBe(false);
   expect(view.getByRole("tabpanel", { name: "Care" })).toBeTruthy();
   expect(view.getByText(/adopting requires room in your current capacity/)).toBeTruthy();
+  expect(view.getByText(/adopting requires room in your current capacity/).closest("details")?.open).toBe(true);
+  const dialog = await openSlotDialog(view);
+  expect(within(dialog).getByRole("radio", { name: "20 reputation" })).toBeTruthy();
 });
 
 it.each([false, true])("keeps companion combat off and unavailable for a saved preference of %s", async (battleEnabled) => {

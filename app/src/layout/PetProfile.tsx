@@ -49,6 +49,7 @@ import Image from "@/layout/Image";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import Modal from "@/layout/Modal";
 import { PetTasks } from "@/layout/PetTasks";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import {
@@ -87,6 +88,8 @@ export function PetProfile() {
   const utils = api.useUtils();
   const [selectedPetId, setSelectedPetId] = useState(requestedPetId);
   const [selectedMealId, setSelectedMealId] = useState("");
+  const [isSlotDialogOpen, setIsSlotDialogOpen] = useState(false);
+  const slotButtonRef = useRef<HTMLButtonElement>(null);
   const [slotCurrency, setSlotCurrency] =
     useState<RouterInputs["pets"]["acquirePet"]["currency"]>("REPUTATION");
   const [abilityDraft, setAbilityDraft] = useState<
@@ -206,7 +209,10 @@ export function PetProfile() {
     onError: failMutation,
   });
   const unlockSlot = api.pets.unlockSlot.useMutation({
-    onSuccess: finishMutation,
+    onSuccess: async (result) => {
+      await finishMutation(result);
+      if (result.success) setIsSlotDialogOpen(false);
+    },
     onError: failMutation,
   });
   const feed = api.pets.feedPet.useMutation({
@@ -300,21 +306,23 @@ export function PetProfile() {
   const travelReason = cannotTravel
     ? "Return to the awake state outside battle to travel."
     : "";
+  const sanctuaryButton =
+    !isAtSanctuary && cannotTravel ? (
+      <Button variant="outline" disabled>
+        Travel to Wake Island
+      </Button>
+    ) : (
+      <Button variant="outline" asChild>
+        <Link
+          href={isAtSanctuary ? "/pets" : `/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`}
+        >
+          {isAtSanctuary ? "Open sanctuary" : "Travel to Wake Island"}
+        </Link>
+      </Button>
+    );
   const sanctuaryAction = (
     <div className="space-y-2">
-      {!isAtSanctuary && cannotTravel ? (
-        <Button variant="outline" disabled>
-          Travel to Wake Island
-        </Button>
-      ) : (
-        <Button variant="outline" asChild>
-          <Link
-            href={isAtSanctuary ? "/pets" : `/travel?sector=${MAP_WAKE_ISLAND_SECTOR}`}
-          >
-            {isAtSanctuary ? "Open sanctuary" : "Travel to Wake Island"}
-          </Link>
-        </Button>
-      )}
+      {sanctuaryButton}
       {!isAtSanctuary && (
         <p className="text-muted-foreground text-sm">
           Adoption takes place at the {PET_SANCTUARY_NAME} on Wake Island.{" "}
@@ -340,94 +348,158 @@ export function PetProfile() {
       : userData.reputationPoints;
   const slotCurrencyLabel =
     slotCurrency === "SEICHI_SILVER" ? "Seichi Silver" : "reputation";
-  const canUnlockSlot =
-    !isBusy && userData.status === "AWAKE" && slotBalance >= slotCost;
+  const slotBlockMessage =
+    userData.status !== "AWAKE" || userData.battleId
+      ? "You must be awake and out of combat to unlock a slot."
+      : slotBalance < slotCost
+        ? `You need ${(slotCost - slotBalance).toLocaleString()} more ${slotCurrencyLabel} to unlock this slot.`
+        : null;
+  const canUnlockSlot = !isBusy && !slotBlockMessage && data.slots < data.maxSlots;
   const collection = (
-    <ContentBox
-      title="Your companions"
-      subtitle={`${data.pets.length} / ${data.slots} collection slots`}
-    >
-      {!pet && message && (
-        <p role="alert" className="mb-3 text-red-600">
-          {message}
-        </p>
-      )}
-      {data.pets.length > 0 && (
-        <div className="space-y-2">
-          <Label htmlFor="pet-collection">Companion</Label>
-          <Select
-            value={pet?.id ?? ""}
-            disabled={isBusy}
-            onValueChange={setSelectedPetId}
-          >
-            <SelectTrigger id="pet-collection">
-              <SelectValue placeholder="Choose a companion" />
-            </SelectTrigger>
-            <SelectContent>
-              {data.pets.map((entry) => (
-                <SelectItem key={entry.id} value={entry.id}>
-                  {entry.name} · {getPetRank(entry.rank).name}
-                  {entry.id === data.activePetId ? " · Active" : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        {pet && sanctuaryAction}
-        {data.slots < data.maxSlots && (
-          <div className="space-y-2">
-            <RadioGroup
-              aria-label="Collection slot payment"
-              value={slotCurrency}
-              disabled={isBusy}
-              className="flex flex-wrap gap-x-5 gap-y-2"
-              onValueChange={(value) => {
-                if (value === "REPUTATION" || value === "SEICHI_SILVER")
-                  setSlotCurrency(value);
-              }}
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="slot-reputation" value="REPUTATION" />
-                <Label htmlFor="slot-reputation">{data.slotCost} reputation</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem id="slot-silver" value="SEICHI_SILVER" />
-                <Label htmlFor="slot-silver">{data.slotSilverCost} Seichi Silver</Label>
-              </div>
-            </RadioGroup>
-            <div className="flex flex-wrap items-center gap-3">
-              <Confirm
-                title={`Unlock a companion slot for ${slotCost} ${slotCurrencyLabel}?`}
-                disabled={!canUnlockSlot}
-                button={
-                  <Button variant="outline" disabled={!canUnlockSlot}>
-                    Unlock slot · {slotCost} {slotCurrencyLabel}
-                  </Button>
-                }
-                onAccept={() => unlockSlot.mutate({ currency: slotCurrency })}
-              >
-                <p>
-                  Keep up to {data.slots + 1} companions. This permanent collection slot
-                  costs {slotCost} {slotCurrencyLabel}.
-                </p>
-              </Confirm>
-              <p className="text-muted-foreground text-sm" role="status">
-                Balance: {slotBalance.toLocaleString()} {slotCurrencyLabel}.
-                {slotBalance < slotCost && " Choose another currency or earn more."}
-              </p>
-            </div>
-          </div>
+    <>
+      <ContentBox
+        title="Your companions"
+        subtitle={`${data.pets.length} / ${data.slots} collection slots`}
+      >
+        {!pet && message && (
+          <p role="alert" className="mb-3 text-red-600">
+            {message}
+          </p>
         )}
-      </div>
-      <p className="mt-3 text-muted-foreground text-sm">
-        {data.permanentSlots} permanent {data.permanentSlots === 1 ? "slot" : "slots"}
-        {data.bonusSlots > 0 && ` · ${data.bonusSlots} federal support bonus slots`}.{" "}
-        Federal support adds slots while active. Your companions are kept if support
-        expires; adopting requires room in your current capacity.
-      </p>
-    </ContentBox>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          {data.pets.length > 0 && (
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <Label htmlFor="pet-collection">Companion</Label>
+              <Select
+                value={pet?.id ?? ""}
+                disabled={isBusy}
+                onValueChange={setSelectedPetId}
+              >
+                <SelectTrigger
+                  id="pet-collection"
+                  className="min-w-0 [&>span]:truncate"
+                >
+                  <SelectValue placeholder="Choose a companion" />
+                </SelectTrigger>
+                <SelectContent>
+                  {data.pets.map((entry) => (
+                    <SelectItem key={entry.id} value={entry.id}>
+                      {entry.name}
+                      {entry.id === data.activePetId ? " · Active" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {pet && sanctuaryButton}
+            {data.slots < data.maxSlots && (
+              <Button
+                ref={slotButtonRef}
+                variant="outline"
+                disabled={isBusy}
+                onClick={() => {
+                  setMessage(null);
+                  setIsSlotDialogOpen(true);
+                }}
+              >
+                Add slot
+              </Button>
+            )}
+          </div>
+        </div>
+        {pet && !isAtSanctuary && cannotTravel && (
+          <p className="mt-2 text-muted-foreground text-sm">{travelReason}</p>
+        )}
+        <details
+          className="mt-3 text-muted-foreground text-sm"
+          open={data.pets.length > data.slots}
+        >
+          <summary className="cursor-pointer">
+            {data.permanentSlots} permanent{" "}
+            {data.permanentSlots === 1 ? "slot" : "slots"}
+            {data.bonusSlots > 0 && ` · ${data.bonusSlots} federal support bonus slots`}
+          </summary>
+          <p className="mt-2 max-w-prose">
+            Federal support adds slots while active. Your companions are kept if support
+            expires; adopting requires room in your current capacity.
+          </p>
+        </details>
+      </ContentBox>
+      {data.slots < data.maxSlots && (
+        <Modal
+          title="Add a companion slot"
+          isOpen={isSlotDialogOpen}
+          setIsOpen={setIsSlotDialogOpen}
+          returnFocusRef={slotButtonRef}
+          proceed_label={`Unlock slot · ${slotCost} ${slotCurrencyLabel}`}
+          proceed_loading_label="Unlocking slot..."
+          proceedDisabled={!canUnlockSlot}
+          isLoading={unlockSlot.isPending}
+          keepOpenOnAccept
+          onAccept={() => unlockSlot.mutate({ currency: slotCurrency })}
+        >
+          <p>
+            Add one permanent slot to keep up to {data.slots + 1} companions. Choose how
+            to pay.
+          </p>
+          <RadioGroup
+            aria-label="Collection slot payment"
+            value={slotCurrency}
+            disabled={isBusy}
+            className="gap-2 py-2"
+            onValueChange={(value) => {
+              if (value === "REPUTATION" || value === "SEICHI_SILVER")
+                setSlotCurrency(value);
+            }}
+          >
+            {[
+              {
+                value: "REPUTATION",
+                label: "reputation",
+                cost: data.slotCost,
+                balance: userData.reputationPoints,
+              },
+              {
+                value: "SEICHI_SILVER",
+                label: "Seichi Silver",
+                cost: data.slotSilverCost,
+                balance: userData.seichiSilver,
+              },
+            ].map((option) => (
+              <Label
+                key={option.value}
+                htmlFor={`slot-${option.value}`}
+                className="flex cursor-pointer items-center gap-3 rounded-md border p-3"
+              >
+                <RadioGroupItem
+                  id={`slot-${option.value}`}
+                  value={option.value}
+                  aria-label={`${option.cost} ${option.label}`}
+                />
+                <span className="flex-1">
+                  {option.cost} {option.label}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Balance: {option.balance.toLocaleString()}
+                </span>
+              </Label>
+            ))}
+          </RadioGroup>
+          {slotBlockMessage && (
+            <p role="status" className="text-sm">
+              {slotBlockMessage}
+            </p>
+          )}
+          {message && (
+            <p role="alert" className="text-destructive text-sm">
+              {message}
+            </p>
+          )}
+        </Modal>
+      )}
+    </>
   );
 
   if (!pet || !aiProfile)
