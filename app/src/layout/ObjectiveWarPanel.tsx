@@ -569,6 +569,24 @@ export const ObjectiveWarPanel = ({
                 No townhall contributions have been recorded yet.
               </p>
             )}
+            <h3 className="font-bold">Kills/Losses</h3>
+            {data.combatContributions.length ? (
+              <Table
+                data={data.combatContributions}
+                columns={[
+                  { key: "username", header: "Ninja", type: "string" },
+                  { key: "kills", header: "Kills", type: "number" },
+                  { key: "losses", header: "Losses", type: "number" },
+                ]}
+                linkColumn="userId"
+                linkPrefix="/userid/"
+                compact
+              />
+            ) : (
+              <p className="rounded-lg border bg-popover p-3 text-muted-foreground text-sm">
+                No kills or losses have been recorded yet.
+              </p>
+            )}
           </TabsContent>
         )}
       </Tabs>
