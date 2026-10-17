@@ -189,7 +189,7 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
     const userCraftingRank = getCraftingRank(userData.craftingExperience || 0);
     const craftingTime =
       selectedItem.itemType === "CONSUMABLE"
-        ? CONSUMABLE_CRAFTING_TIMES_MINS[selectedItem.rarity]
+        ? CONSUMABLE_CRAFTING_TIMES_MINS[userCraftingRank]
         : CRAFTING_TIMES_MINS[userCraftingRank][selectedItem.rarity];
 
     const sectors = countBoostingShrines(userData.village?.sectors);

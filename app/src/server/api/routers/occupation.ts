@@ -256,10 +256,10 @@ export const occupationRouter = createTRPCRouter({
       // Check rank eligibility using rank-based crafting times
       const rankCraftingTime =
         CRAFTING_TIMES_MINS[userCraftingRank][itemWithRequirements.rarity];
-      // Consumables have static crafting times that don't scale with rank
+      // Consumable crafting times depend on crafting rank rather than rarity.
       const craftingTime =
         itemWithRequirements.itemType === "CONSUMABLE"
-          ? CONSUMABLE_CRAFTING_TIMES_MINS[itemWithRequirements.rarity]
+          ? CONSUMABLE_CRAFTING_TIMES_MINS[userCraftingRank]
           : rankCraftingTime;
       // Guards - check rank eligibility regardless of item type
       if (!isMeal && rankCraftingTime === 0) {

@@ -1773,12 +1773,12 @@ export const CRAFTING_TIMES_MINS: Record<CRAFTING_RANK, Record<ItemRarity, numbe
   },
 };
 
-// Static crafting times for consumables (doesn't scale with rank)
-export const CONSUMABLE_CRAFTING_TIMES_MINS: Record<ItemRarity, number> = {
-  COMMON: 5,
-  RARE: 10,
-  EPIC: 15,
-  LEGENDARY: 20,
+// Consumable crafting times by crafting rank, independent of item rarity.
+export const CONSUMABLE_CRAFTING_TIMES_MINS: Record<CRAFTING_RANK, number> = {
+  NOVICE: 2,
+  APPRENTICE: 1.5,
+  MASTER: 1,
+  FORGEMASTER: 0.5,
 };
 
 // Ai profile config
