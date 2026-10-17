@@ -2828,6 +2828,9 @@ export const IMG_MANUAL_DAM_CALCS =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJQF6qYYjhzBPya1rwfCIqOTU0cV5xgsMeo3u2.webp";
 export const IMG_MANUAL_BADGE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJOUM5LPVHevxIThUauQkGJEBY3D2cPqy8f5sp.webp";
+/** Honorary scroll representing collected titles in the manual. */
+export const IMG_MANUAL_TITLE =
+  "https://ui0arpl8sm.ufs.sh/f/manual-titles-1925.webp";
 export const IMG_MANUAL_ASSET =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJaGvHErYYfKMcJ2B5EmWt6VsNgqxpG8OSXAQk.webp";
 export const IMG_MANUAL_OPINION =
