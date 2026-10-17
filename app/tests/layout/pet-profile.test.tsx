@@ -8,7 +8,7 @@ import type { AppRouter } from "@/api/root";
 import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import PetProfilePage from "@/app/[shell]/profile/pet/page";
-import { MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
+import { MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_FEED_COOLDOWN_HOURS } from "@/drizzle/constants";
 import * as SectorVillage from "@/hooks/useSectorVillage";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
@@ -37,9 +37,12 @@ let update: ReturnType<typeof vi.fn>;
 let saveAbilities: ReturnType<typeof vi.fn>;
 let feed: ReturnType<typeof vi.fn>;
 let saveAi: ReturnType<typeof vi.fn>;
+let getPet: ReturnType<typeof vi.fn>;
+let timeDiff: number;
 
 beforeEach(() => {
   ensureDom();
+  timeDiff = 0;
   requestedPetId = "companion";
   owner = {
     userId: "owner", role: "USER", status: "AWAKE", rank: "JONIN", reputationPoints: 1000,
@@ -52,14 +55,14 @@ beforeEach(() => {
     speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
     generationStatus: "READY", avatar: "/miso.webp", artRank: 7, battleEnabled: true,
     spawnPosition: "BEHIND", abilitySlots: 3, jutsuIds: [], skillIds: [],
-    aiRules: [], includeDefaultRules: false, feedDay: null,
+    aiRules: [], includeDefaultRules: false, lastFedAt: null,
     offence: 10, defence: 10, strength: 10, speed: 10, intelligence: 10, willpower: 10,
   };
   data = {
     pet, pets: [pet], activePetId: pet.id, slots: 6, maxSlots: 6, maxRank: 7,
     nextRank: null, canRankUp: false, remainingGenerations: 3, generationLimit: 3,
     generationRetryAt: null, unusedExperience: 100, feedExperience: 25, dayKey: "2026-10-16",
-    canFeed: true, feedMeals: [{ id: "meal", name: "Rice", quantity: 2 }],
+    canFeed: true, feedAvailableAt: null, feedMeals: [{ id: "meal", name: "Rice", quantity: 2 }],
     abilityCapacity: getPetAbilityCapacity(pet), abilitySlotCost: 100,
     abilities: {
       jutsus: Array.from({ length: 12 }, (_, i) => petJutsuFixture({ id: `jutsu-${i}`, name: `Strike ${i}` })),
@@ -77,14 +80,15 @@ beforeEach(() => {
   });
   feed = vi.fn(() => ({ success: true, message: "Fed" }));
   saveAi = vi.fn(() => ({ success: true, message: "Rules saved" }));
+  getPet = vi.fn(() => data);
   Object.assign(vi.spyOn(client, "api" as never), { pets: testApi.pets, ai: testApi.ai, useUtils: testApi.useUtils });
   vi.spyOn(navigation, "useSearchParams").mockImplementation(() => new URLSearchParams(requestedPetId ? { petId: requestedPetId } : {}) as never);
-  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({ data: owner } as never);
+  vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: owner, timeDiff }) as never);
   vi.spyOn(SectorVillage, "useSectorVillage").mockImplementation(() => ({
     sectorVillage: owner.sector === owner.village.sector || owner.isOutlaw ? owner.village : null,
     isLoading: false,
   }) as never);
-  vi.spyOn(ContentBox, "default").mockImplementation(({ title, children }) => <section aria-label={title}>{children}</section>);
+  vi.spyOn(ContentBox, "default").mockImplementation(({ title, subtitle, children }) => <section aria-label={title}><p>{subtitle}</p>{children}</section>);
   vi.spyOn(Image, "default").mockImplementation(({ alt }) => <img alt={alt} />);
   vi.spyOn(Link, "default").mockImplementation(({ href, children }) => <a href={String(href)}>{children}</a>);
   vi.spyOn(ItemWithEffects, "default").mockImplementation(({ item }) => <p>{"description" in item ? String(item.description) : item.name}</p>);
@@ -94,6 +98,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   queryClient.clear();
+  PET_BATTLE_CONFIG.enabled = false;
   vi.restoreAllMocks();
 });
 
@@ -102,7 +107,7 @@ const mount = () => {
     const respond = async () => {
       if (op.path === "pets.getPet") {
         expect(op.input).toEqual({ petId: "companion" });
-        return data;
+        return getPet();
       }
       if (op.path === "pets.updatePet") return update(op.input);
       if (op.path === "pets.updateAbilities") return saveAbilities(op.input);
@@ -217,13 +222,37 @@ it("keeps the selected loadout and save action before compact searchable choices
   await waitFor(() => expect(saveAbilities).toHaveBeenLastCalledWith({ petId: "companion", jutsuIds: [], skillIds: [] }));
 });
 
-it("feeds from the care panel using the displayed inventory snapshot", async () => {
+it.each([false, true])("shows the feeding cadence with combat enabled %s and feeds using the displayed inventory snapshot", async (enabled) => {
+  PET_BATTLE_CONFIG.enabled = enabled;
   const view = mount();
   fireEvent.click(await view.findByRole("button", { name: "Feed one meal" }));
+  expect(view.getByText(enabled ? "Share a meal once each UTC day" : `Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`)).toBeTruthy();
   await waitFor(() => expect(feed).toHaveBeenCalledWith({ petId: "companion", userItemId: "meal", expectedQuantity: 2 }));
   expect(view.getByRole("tabpanel", { name: /^Care$/ }).textContent).not.toContain("training points");
   selectTab(view, "Training");
   expect(view.getByText("100 training points available")).toBeTruthy();
+});
+
+it("keeps feeding unavailable until the server-time countdown expires and refreshes eligibility in place", async () => {
+  let now = Date.now();
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  timeDiff = 5000;
+  data = { ...data, canFeed: false, feedAvailableAt: new Date(now - 3000) };
+  const view = mount();
+  await view.findByText(/Next meal available in/);
+  expect(view.queryByRole("button", { name: "Feed one meal" })).toBeNull();
+  expect(feed).not.toHaveBeenCalled();
+  now += 1999;
+  await view.findByText("0 seconds");
+  expect(getPet).toHaveBeenCalledTimes(1);
+  expect(view.queryByRole("button", { name: "Feed one meal" })).toBeNull();
+  data = { ...data, canFeed: true, feedAvailableAt: null };
+  now += 1;
+  const action = await view.findByRole("button", { name: "Feed one meal" });
+  expect(getPet).toHaveBeenCalledTimes(2);
+  expect((action as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(action);
+  await waitFor(() => expect(feed).toHaveBeenCalledTimes(1));
 });
 
 it.each([

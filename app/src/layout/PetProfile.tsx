@@ -32,6 +32,7 @@ import {
   CombatStatNames,
   MAP_WAKE_ISLAND_SECTOR,
   PET_BATTLE_CONFIG,
+  PET_FEED_COOLDOWN_HOURS,
   PET_RANKS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
@@ -76,7 +77,7 @@ import {
  * rewards; the server remains authoritative for eligibility and mutation results.
  */
 export function PetProfile() {
-  const { data: userData } = useRequiredUserData();
+  const { data: userData, timeDiff } = useRequiredUserData();
   const { sectorVillage } = useSectorVillage(userData);
   const searchParams = useSearchParams();
   const requestedPetId = searchParams.get("petId") ?? undefined;
@@ -712,16 +713,26 @@ export function PetProfile() {
         <TabsContent value="care" forceMount hidden={activity !== "care"}>
           <ContentBox
             title="Feed your companion"
-            subtitle="Share a meal once each UTC day"
+            subtitle={
+              PET_BATTLE_CONFIG.enabled
+                ? "Share a meal once each UTC day"
+                : `Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`
+            }
             alreadyHasH1
           >
             <p className="mb-3 text-sm">
               One meal adds {formatStat(data.feedExperience)} unused pet experience to{" "}
               {pet.name}. Assign these points in the Training tab.
             </p>
-            {pet.feedDay === data.dayKey ? (
+            {data.feedAvailableAt ? (
               <p role="status">
-                {pet.name} has already been fed today. Return after midnight UTC.
+                Next meal available in{" "}
+                <Countdown
+                  targetDate={data.feedAvailableAt}
+                  timeDiff={timeDiff}
+                  onFinish={() => void refetch()}
+                />
+                .
               </p>
             ) : data.feedMeals.length === 0 ? (
               <div className="space-y-3">

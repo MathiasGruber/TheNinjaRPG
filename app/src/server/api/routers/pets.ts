@@ -8,6 +8,7 @@ import {
   PET_ABILITY_SLOT_COST,
   PET_BATTLE_CONFIG,
   PET_COLLECTION_SLOT_COST,
+  PET_FEED_COOLDOWN_HOURS,
   PET_FEED_EXPERIENCE_PER_RANK,
   PET_GENERATION_LEASE_MS,
   PET_GENERATION_RETRY_MS,
@@ -54,7 +55,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
-import { getPetDayKey } from "@/utils/time";
+import { getPetDayKey, getPetFeedAvailableAt } from "@/utils/time";
 import {
   acquirePetSchema,
   assignPetExperienceSchema,
@@ -213,7 +214,7 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
-  /** Exchange one carried meal for the companion's once-per-UTC-day XP grant. */
+  /** Exchange one carried meal for XP after the companion's feeding cooldown. */
   feedPet: protectedProcedure
     .input(feedPetSchema)
     .output(baseServerResponse)
@@ -235,17 +236,20 @@ export const petsRouter = createTRPCRouter({
         return errorResponse("Your rank does not support this companion rank.");
       if (!isPetAppearanceReady(pet))
         return errorResponse("Finish your companion's appearance before feeding it.");
-      const dayKey = getPetDayKey();
-      if (pet.feedDay === dayKey)
+      const now = new Date();
+      const feedAvailableAt = getPetFeedAvailableAt(pet.lastFedAt);
+      if (feedAvailableAt && feedAvailableAt > now)
         return errorResponse(
-          "This companion has already been fed today. Return after midnight UTC.",
+          PET_BATTLE_CONFIG.enabled
+            ? "This companion has already been fed today. Return after midnight UTC."
+            : `Feed this companion once every ${PET_FEED_COOLDOWN_HOURS} hours. Wait until its next feeding is available.`,
         );
       if (
         meal?.item.itemType !== "MEAL" ||
         meal.storedAtHome ||
         meal.isInAuction ||
         meal.equipped !== "NONE" ||
-        (meal.craftingFinishedAt && meal.craftingFinishedAt > new Date())
+        (meal.craftingFinishedAt && meal.craftingFinishedAt > now)
       )
         return errorResponse(
           "Carry a finished meal in your inventory to feed your companion.",
@@ -254,7 +258,6 @@ export const petsRouter = createTRPCRouter({
         return errorResponse("Your meal stack changed. Refresh and try again.");
       const experience = pet.rank * PET_FEED_EXPERIENCE_PER_RANK;
       const isActive = user.activePetId === pet.id;
-      const now = new Date();
       // One joined UPDATE guards the account, pet and exact meal stack before any
       // debit or XP grant. Zero quantities are harmless tombstones until cleanup.
       const fed = await retryOnDeadlock(() =>
@@ -264,7 +267,7 @@ export const petsRouter = createTRPCRouter({
           INNER JOIN ${userItem} ON ${eq(userItem.userId, userData.userId)}
           SET ${userData.updatedAt} = ${getNextUserSnapshotAt(user.updatedAt, now)},
               ${userItem.quantity} = ${meal.quantity - 1},
-              ${userPet.feedDay} = ${dayKey},
+              ${userPet.lastFedAt} = ${now},
               ${userPet.revision} = ${userPet.revision} + 1,
               ${userPet.updatedAt} = ${now},
               ${isActive ? sql`${userData.petExperience} = ${userData.petExperience} + ${experience}` : sql`${userPet.storedExperience} = ${userPet.storedExperience} + ${experience}`}
@@ -342,6 +345,8 @@ export const petsRouter = createTRPCRouter({
       if (!user) throw serverError("NOT_FOUND", "User not found");
       const now = new Date();
       const dayKey = getPetDayKey(now);
+      const nextFeedAt = getPetFeedAvailableAt(pet?.lastFedAt ?? null);
+      const feedAvailableAt = nextFeedAt && nextFeedAt > now ? nextFeedAt : null;
       const acquisitionRestriction = !species.some((entry) => entry.isActive)
         ? "The Bondkeepers are not offering new companions right now. Please check back later."
         : user.petSlots <= pets.length
@@ -374,9 +379,10 @@ export const petsRouter = createTRPCRouter({
             name: meal.item.name,
           })),
         feedExperience: pet ? pet.rank * PET_FEED_EXPERIENCE_PER_RANK : 0,
+        feedAvailableAt,
         canFeed: Boolean(
           pet &&
-            pet.feedDay !== dayKey &&
+            !feedAvailableAt &&
             !petMutationBlockMessage(user, pet) &&
             isPetAppearanceReady(pet) &&
             pet.rank <= getMaxPetRank(user.rank),

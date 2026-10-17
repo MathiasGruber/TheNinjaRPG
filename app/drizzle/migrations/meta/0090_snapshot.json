@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "4c004d45-32ca-4ef4-b86c-d3084cc7ac9c",
+  "id": "c0c3a8f8-1ca5-4e10-baa2-53a8dd462989",
   "prevId": "d0491e2f-9437-47ee-a9dd-4de095523806",
   "tables": {
     "AbEvent": {
@@ -17450,9 +17450,9 @@
           "autoincrement": false,
           "default": 0
         },
-        "feedDay": {
-          "name": "feedDay",
-          "type": "varchar(10)",
+        "lastFedAt": {
+          "name": "lastFedAt",
+          "type": "datetime(3)",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

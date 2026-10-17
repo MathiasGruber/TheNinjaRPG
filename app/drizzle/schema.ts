@@ -2917,7 +2917,7 @@ export const userPet = mysqlTable(
     rank: tinyint("rank", { unsigned: true }).default(1).notNull(),
     experience: double("experience").default(0).notNull(),
     storedExperience: double("storedExperience").default(0).notNull(),
-    feedDay: varchar("feedDay", { length: 10 }),
+    lastFedAt: datetime("lastFedAt", { mode: "date", fsp: 3 }),
     abilitySlots: tinyint("abilitySlots", { unsigned: true }).default(1).notNull(),
     jutsuIds: json("jutsuIds").$type<string[]>().default([]).notNull(),
     skillIds: json("skillIds").$type<string[]>().default([]).notNull(),

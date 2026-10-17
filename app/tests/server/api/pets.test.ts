@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
-import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_COLLECTION_SLOT_COST, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST } from "@/drizzle/constants";
+import { MAP_WAKE_ISLAND_SECTOR, PET_ABILITY_SLOT_COST, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_PER_RANK, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST } from "@/drizzle/constants";
 import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
-import { DAY_S, getPetDayKey, secondsFromNow } from "@/utils/time";
+import { DAY_S, getPetDayKey, HOUR_S, secondsFromNow } from "@/utils/time";
 import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { petJutsuFixture, petSkillFixture } from "../../libs/pets/helpers/abilities";
 import { insertItems, insertPetSpecies, insertUserItems, insertUsers } from "../../setup/factories";
@@ -355,7 +355,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await database.query.userItem.findFirst())?.quantity).toBe(2);
   });
 
-  it("consumes one meal and grants one feeding reward under concurrent requests, then resets daily", async () => {
+  it("consumes one meal and grants one feeding reward under concurrent requests, then allows another after its cooldown", async () => {
     const database = await getTestDatabase();
     await readyPet(database);
     await mealStack();
@@ -365,13 +365,46 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const results = await Promise.all([caller.feedPet(input), caller.feedPet(input)]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect((await readOwner(database))?.petExperience).toBe(10 + PET_FEED_EXPERIENCE_PER_RANK);
-    expect((await readPet(database))?.feedDay).toBe(getPetDayKey());
+    expect((await readPet(database))?.lastFedAt).toBeInstanceOf(Date);
     expect((await database.query.userItem.findFirst())?.quantity).toBe(1);
     expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(false);
-    await database.update(userPet).set({ feedDay: getPetDayKey(secondsFromNow(-DAY_S)) }).where(eq(userPet.id, petId));
+    await database.update(userPet).set({ lastFedAt: secondsFromNow(-PET_FEED_COOLDOWN_HOURS * HOUR_S) }).where(eq(userPet.id, petId));
     expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(true);
     expect(await database.query.userItem.findFirst()).toBeUndefined();
     expect((await readOwner(database))?.petExperience).toBe(10 + 2 * PET_FEED_EXPERIENCE_PER_RANK);
+  });
+
+  it.each([false, true])("enforces the exact feeding deadline across midnight with companion combat enabled=%s", async (battleEnabled) => {
+    const previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+    try {
+      PET_BATTLE_CONFIG.enabled = battleEnabled;
+      const lastFedAt = new Date("2026-10-17T23:30:00.000Z");
+      const availableAt = new Date(battleEnabled ? "2026-10-18T00:00:00.000Z" : "2026-10-18T02:30:00.000Z");
+      setSystemTime(battleEnabled ? new Date("2026-10-17T23:45:00.000Z") : new Date("2026-10-18T00:30:00.000Z"));
+      const database = await getTestDatabase();
+      await readyPet(database, { lastFedAt });
+      await mealStack();
+      const caller = callerForDatabase(petsRouter, userId, database);
+      const input = { petId, userItemId: "meal-stack", expectedQuantity: 2 };
+      expect(await caller.getPet()).toMatchObject({ canFeed: false, feedAvailableAt: availableAt });
+      const original = await readPet(database);
+      expect((await caller.feedPet(input)).success).toBe(false);
+      setSystemTime(new Date(availableAt.getTime() - 1));
+      expect((await caller.feedPet(input)).success).toBe(false);
+      expect(await readPet(database)).toEqual(original);
+      expect((await readOwner(database))?.petExperience).toBe(0);
+      expect((await database.query.userItem.findFirst())?.quantity).toBe(2);
+      setSystemTime(availableAt);
+      expect(await caller.getPet()).toMatchObject({ canFeed: true, feedAvailableAt: null });
+      expect((await caller.feedPet(input)).success).toBe(true);
+      expect((await readPet(database))?.lastFedAt).toEqual(availableAt);
+      expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
+      expect((await database.query.userItem.findFirst())?.quantity).toBe(1);
+      expect((await caller.feedPet({ ...input, expectedQuantity: 1 })).success).toBe(false);
+    } finally {
+      PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+      setSystemTime();
+    }
   });
 
   it("feeds a parked companion into its own bank, which follows it when activated", async () => {
@@ -401,11 +434,11 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const input = { petId, userItemId: "meal-stack", expectedQuantity: 1 };
     expect((await caller.feedPet(input)).success).toBe(true);
     expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
-    expect((await readPet(database))?.feedDay).toBe(getPetDayKey());
+    expect((await readPet(database))?.lastFedAt).toBeInstanceOf(Date);
     expect((await database.query.userItem.findFirst())?.quantity).toBe(0);
     expect((await caller.getPet()).feedMeals).toEqual([]);
     expect((await caller.feedPet(input)).success).toBe(false);
-    await database.update(userPet).set({ feedDay: getPetDayKey(secondsFromNow(-DAY_S)) }).where(eq(userPet.id, petId));
+    await database.update(userPet).set({ lastFedAt: secondsFromNow(-PET_FEED_COOLDOWN_HOURS * HOUR_S) }).where(eq(userPet.id, petId));
     expect((await caller.feedPet(input)).success).toBe(false);
     expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_PER_RANK);
   });
@@ -423,7 +456,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     }]);
     expect((await callerForDatabase(petsRouter, userId, hooked).feedPet({ petId, userItemId: "meal-stack", expectedQuantity: 2 })).success).toBe(false);
     expect((await readOwner(database))?.petExperience).toBe(10);
-    expect((await readPet(database))?.feedDay).toBeNull();
+    expect((await readPet(database))?.lastFedAt).toBeNull();
     expect((await database.query.userItem.findFirst())?.quantity).toBe(changed === "stack" ? 1 : 2);
   });
 
@@ -446,7 +479,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await database.update(userPet).set({ generationStatus: "PENDING" }).where(eq(userPet.id, petId));
     expect((await caller.feedPet(input)).success).toBe(false);
     expect((await readOwner(database))?.petExperience).toBe(0);
-    expect((await readPet(database))?.feedDay).toBeNull();
+    expect((await readPet(database))?.lastFedAt).toBeNull();
     expect((await database.query.userItem.findFirst())?.quantity).toBe(2);
   });
 

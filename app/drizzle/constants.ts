@@ -639,6 +639,8 @@ export const PET_JUTSU_POWER_COST_BY_RANK = {
   D: 1, C: 2, B: 3, A: 4, S: 5, H: Number.POSITIVE_INFINITY,
 } as const;
 export const PET_FEED_EXPERIENCE_PER_RANK = 500;
+/** Rolling feeding cooldown while companion battles are unavailable. */
+export const PET_FEED_COOLDOWN_HOURS = 3;
 export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 export type PetRarity = (typeof PetRarities)[number];
 /** Later supporter choices use these rarity weights; earlier choices remain shared. */

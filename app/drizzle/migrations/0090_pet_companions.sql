@@ -21,7 +21,7 @@ CREATE TABLE `UserPet` (
 	`rank` tinyint unsigned NOT NULL DEFAULT 1,
 	`experience` double NOT NULL DEFAULT 0,
 	`storedExperience` double NOT NULL DEFAULT 0,
-	`feedDay` varchar(10),
+	`lastFedAt` datetime(3),
 	`abilitySlots` tinyint unsigned NOT NULL DEFAULT 1,
 	`jutsuIds` json NOT NULL DEFAULT ('[]'),
 	`skillIds` json NOT NULL DEFAULT ('[]'),
