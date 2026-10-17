@@ -7,6 +7,7 @@ import { appEvents, appleAuth, isNative, oauthBrowser } from "@/libs/native";
 
 /** Where the provider sends the player back to. Registered in both native projects. */
 const OAUTH_REDIRECT = "tnr://oauth-callback";
+const OAUTH_CALLBACK_GRACE_MS = 1000;
 
 export type NativeAuthResult =
   | { status: "complete" }
@@ -63,6 +64,9 @@ export const useNativeAuth = () => {
             "This account needs a few more details. Finish signing up on the web.",
         };
       }
+      if (result.firstFactorVerification.error) {
+        return toResult({ errors: [result.firstFactorVerification.error] });
+      }
       return { status: "error", message: "Sign-in did not complete" };
     },
     [clerk],
@@ -113,9 +117,18 @@ export const useNativeAuth = () => {
         // buttons disabled — but the two are not mutually exclusive. A successful return
         // closes the sheet as well, and nothing orders the two events, so the dismissal
         // alone says nothing about which happened; that is settled below.
+        let callbackUrl: URL | null = null;
+        let notifyCallback: () => void = () => undefined;
+        const callbackReceived = new Promise<void>((resolve) => {
+          notifyCallback = resolve;
+        });
         const outcome = await new Promise<"redirected" | "dismissed">((resolve) => {
           const stopUrl = appEvents.onUrlOpen((url) => {
-            if (url.startsWith(OAUTH_REDIRECT)) resolve("redirected");
+            const callback = parseOAuthCallback(url);
+            if (!callback) return;
+            callbackUrl = callback;
+            notifyCallback();
+            resolve("redirected");
           });
           const stopFinished = oauthBrowser.onFinished(() => resolve("dismissed"));
           stopListening = () => {
@@ -125,16 +138,55 @@ export const useNativeAuth = () => {
           void oauthBrowser.open(target.toString()).catch(() => resolve("dismissed"));
         });
 
+        const reloadSignIn = async () => {
+          // Clerk rotates the native client through the callback nonce. Discarding it
+          // leaves the WebView reading the client from before the browser's sign-in.
+          const nonce =
+            callbackUrl?.searchParams.get("rotating_token_nonce") || undefined;
+          const result = await signIn.reload(
+            nonce ? { rotatingTokenNonce: nonce } : undefined,
+          );
+          const latestNonce =
+            callbackUrl?.searchParams.get("rotating_token_nonce") || undefined;
+          // Dismissal can win the race and start a reload just before the URL arrives.
+          if (latestNonce && latestNonce !== nonce && !result.createdSessionId) {
+            return signIn.reload({ rotatingTokenNonce: latestNonce });
+          }
+          return result;
+        };
+
         if (outcome === "dismissed") {
           // The sheet closing is not proof the player backed out: the redirect closes it
           // too, and if that event lands first this branch runs on a sign-in Clerk has
           // already advanced. Ask Clerk what happened rather than inferring it from the
           // dismissal, or a completed sign-in is reported as a cancellation and the player
           // is left signed out with a session they cannot see.
-          const settled = await signIn.reload().catch(() => null);
+          let settled = await reloadSignIn().catch((error) => {
+            if (callbackUrl) throw error;
+            return null;
+          });
           if (
-            settled?.createdSessionId ||
-            settled?.firstFactorVerification.status === "transferable"
+            !callbackUrl &&
+            !settled?.createdSessionId &&
+            settled?.firstFactorVerification.status !== "transferable"
+          ) {
+            // The browser and App plugin deliver independent native events. Even a
+            // fast reload can finish before the URL event crosses the bridge.
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            await Promise.race([
+              callbackReceived,
+              new Promise<void>((resolve) => {
+                timeout = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
+              }),
+            ]);
+            clearTimeout(timeout);
+            if (callbackUrl) settled = await reloadSignIn();
+          }
+          if (
+            settled &&
+            (callbackUrl ||
+              settled.createdSessionId ||
+              settled.firstFactorVerification.status === "transferable")
           ) {
             return await completeOrTransfer(settled);
           }
@@ -144,7 +196,7 @@ export const useNativeAuth = () => {
 
         // The sign-in was advanced by the browser, not by this page, so the local copy is
         // stale until it is refetched.
-        const reloaded = await signIn.reload();
+        const reloaded = await reloadSignIn();
         return await completeOrTransfer(reloaded);
       } catch (error) {
         return toResult(error);
@@ -157,6 +209,24 @@ export const useNativeAuth = () => {
   );
 
   return { isReady, isPending, signInWithApple, signInWithProvider };
+};
+
+/** Only this registered callback belongs to an outstanding native sign-in. */
+const parseOAuthCallback = (url: string): URL | null => {
+  try {
+    const parsed = new URL(url);
+    const expected = new URL(OAUTH_REDIRECT);
+    return parsed.protocol === expected.protocol &&
+      parsed.hostname === expected.hostname &&
+      (parsed.pathname === "" || parsed.pathname === "/") &&
+      !parsed.username &&
+      !parsed.password &&
+      !parsed.port
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
 };
 
 /**
