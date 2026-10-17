@@ -4,10 +4,12 @@ import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 
 /**
- * Ownership and its account snapshot must commit together: a stale recovery read must not
- * advance regenAt past acquisition with the old bonuses. Lock through the guarded update
- * first, then timestamp the grant. Existing encounters retain their preloaded passives and
- * recovery rates; acquired bonuses enter account recovery and subsequent encounters.
+ * Publish ownership and the account version in one commit. A hospital heal settles at SQL
+ * NOW(3), so either autocommit write order can advance regenAt past acquisition with stale
+ * bonuses. One guarded UPDATE cannot insert missing UserTitle rows; these two writes need
+ * a short transaction. Advance the account version before timestamping the immutable grant.
+ * Existing encounters retain their preloaded passives and recovery rates.
+ * @param inTransaction - Reuse the caller's transaction instead of nesting another session.
  */
 export const grantTitles = async (
   client: DrizzleClient,

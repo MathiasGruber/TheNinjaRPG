@@ -2,7 +2,10 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { title } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 
-/** Archived and private legacy labels cannot be authored into new reward payloads. */
+/**
+ * Check distinct title IDs across final rewards, objectives and nested packages.
+ * Return a user-facing error, or null when all references are public and available.
+ */
 export const validateTitleRewardIds = async (
   client: DrizzleClient,
   rewards: unknown,

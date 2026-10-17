@@ -64,6 +64,7 @@ export const rewardFields = {
   /** Catalog ids granted by quests; skipped at claim if the player already has a mode. */
   reward_sage_modes: z.array(z.string()).prefault([]),
   reward_badges: z.array(z.string()).prefault([]),
+  /** Catalog IDs to grant once; acquisition stores immutable bonuses, independent of display selection. */
   reward_titles: z.array(z.string()).prefault([]),
   reward_medical_experience: z.coerce.number().prefault(0),
   reward_hunting_experience: z.coerce.number().prefault(0),
@@ -96,6 +97,7 @@ export const PostProcessedRewardSchema = z.object({
   reward_bloodlines: z.array(z.string()).prefault([]),
   reward_sage_modes: z.array(z.string()).prefault([]),
   reward_badges: z.array(z.string()).prefault([]),
+  /** Display names substituted for catalog IDs after reward delivery. */
   reward_titles: z.array(z.string()).prefault([]),
 });
 

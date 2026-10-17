@@ -7,6 +7,7 @@ import { describeTitleEffect } from "@/libs/titles";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 
+/** Choose the public label from profile-loaded titles while all collected bonuses stay active. */
 export const Titles = () => {
   const { data: user, prepareUserUpdate, updateUser } = useRequiredUserData();
   const data = user?.titles ?? [];

@@ -122,7 +122,7 @@ export const missingMasteryRequirement = (
 /**
  * Masteries as the pre-battle gates see them: stored values capped at MAX_MASTERY_CAP
  * when a character rank is present, plus the increasemastery and decreasemastery tags
- * processUsersForBattle applies from the bloodline, skills and worn
+ * processUsersForBattle applies from the bloodline, skills, collected titles and worn
  * gear, sized as the combat tags size them. Positive gear buffs can unlock more gear,
  * starting from non-gear sources, so self-unlocks and unsupported cycles cannot count.
  * Gear with mastery penalties stays anchored in non-gear sources: admitting a penalty

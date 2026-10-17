@@ -4498,7 +4498,7 @@ export const processUsersForBattle = async (
           realized.isNew = false;
           realized.castThisRound = false;
           realized.targetId = user.userId;
-          // Owned title bonuses share the permanent passive contract of skills.
+          // Clear cannot remove permanent ownership bonuses; reuse the protected skill source.
           realized.fromType = "skill";
           userEffects.push(realized);
         }

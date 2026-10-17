@@ -17,6 +17,7 @@ import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import { type TitleData, TitleValidator } from "@/validators/title";
 
+/** Load an authorized catalog record before mounting its editable form. */
 export default function TitleEdit({
   params,
 }: {
@@ -41,6 +42,7 @@ export default function TitleEdit({
   return <SingleTitleEdit title={data} refetch={() => void refetch()} />;
 }
 
+/** Edit future award bonuses without changing snapshots already collected by players. */
 const SingleTitleEdit = ({ title, refetch }: { title: Title; refetch: () => void }) => {
   const form = useForm<TitleData>({
     values: title,
@@ -59,6 +61,7 @@ const SingleTitleEdit = ({ title, refetch }: { title: Title; refetch: () => void
       }
     },
   });
+  // Custom effect controls participate in the shared form's dirty and validation lifecycle.
   const setEffects = (next: TitleData["effects"]) =>
     form.setValue("effects", next, { shouldDirty: true, shouldValidate: true });
   return (

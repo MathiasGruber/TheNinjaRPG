@@ -30,6 +30,7 @@ type BaselineField = (typeof baselineFields)[number];
 export type CombatCacheBaseline = Pick<UserData, BaselineField> & {
   regenAt: string;
   hadTrainingQueue: boolean;
+  /** Ownership at initiation; changes require an authoritative profile refresh at completion. */
   titleIds: string[];
   items: Pick<
     BattleUserItem,
@@ -39,6 +40,7 @@ export type CombatCacheBaseline = Pick<UserData, BaselineField> & {
 export type CombatCacheSnapshot = CombatCacheBaseline & {
   masterySources: MasterySources &
     Pick<MasteryBuffUser, "bloodlineId"> & {
+      /** Preserve acquisition snapshots for lobby reconstruction without another database read. */
       titles?: UserTitle[];
     };
 };

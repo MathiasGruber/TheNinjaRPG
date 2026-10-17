@@ -135,7 +135,9 @@ export type RewardChoiceOwnership = {
   jutsuIds: ReadonlySet<string>;
   bloodlineIds: ReadonlySet<string>;
   badgeIds: ReadonlySet<string>;
+  /** All collected titles, including archived ones, are unavailable as duplicate choices. */
   titleIds?: ReadonlySet<string>;
+  /** Missing, archived or private catalog references cannot be claimed even when unowned. */
   unavailableTitleIds?: ReadonlySet<string>;
   /** Sage modes in the player's roll history. */
   sageModeIds: ReadonlySet<string>;

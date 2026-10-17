@@ -11,6 +11,7 @@ import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 
+/** Manage active and archived catalog entries without exposing private legacy player labels. */
 export default function ManualTitles() {
   const router = useRouter();
   const { data: user } = useUserData();

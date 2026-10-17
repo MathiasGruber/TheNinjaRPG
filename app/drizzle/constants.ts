@@ -78,6 +78,7 @@ export type IMG_ORIENTATION = (typeof IMG_ORIENTATIONS)[number];
 // How many seconds to regen a given regen value
 export const REGEN_SECONDS = 60;
 
+/** Shared bound for authored title bonuses in validation and the staff editor. */
 export const TITLE_MAX_EFFECTS = 20;
 
 export const ContentTypes = [

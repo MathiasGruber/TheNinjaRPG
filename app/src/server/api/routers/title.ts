@@ -17,13 +17,16 @@ import { canChangeContent } from "@/utils/permissions";
 import { idSchema } from "@/validators/misc";
 import { SelectTitleSchema, UpdateTitleSchema } from "@/validators/title";
 
+/** Public reward options, staff catalog management and ownership-guarded label selection. */
 export const titleRouter = createTRPCRouter({
+  /** Public reward selectors offer only active, staff-authored titles. */
   getAllNames: publicProcedure.query(({ ctx }) =>
     ctx.drizzle.query.title.findMany({
       where: and(isNull(title.legacyOwnerId), eq(title.archived, false)),
       orderBy: asc(title.name),
     }),
   ),
+  /** Staff can inspect archived catalog entries; private legacy labels stay excluded. */
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     if (!canChangeContent(user.role))
@@ -33,6 +36,7 @@ export const titleRouter = createTRPCRouter({
       orderBy: asc(title.name),
     });
   }),
+  /** Authorize the editor read and exclude per-player legacy rows. */
   get: protectedProcedure.input(idSchema).query(async ({ ctx, input }) => {
     const [user, entry] = await Promise.all([
       fetchUser(ctx.drizzle, ctx.userId),
@@ -45,6 +49,7 @@ export const titleRouter = createTRPCRouter({
     if (!entry) throw serverError("NOT_FOUND", "Title not found");
     return entry;
   }),
+  /** Change only the displayed label; null clears it without removing any owned bonus. */
   select: protectedProcedure
     .input(SelectTitleSchema)
     .output(baseServerResponse)
@@ -84,6 +89,7 @@ export const titleRouter = createTRPCRouter({
         message: input.titleId ? "Title selected" : "Title cleared",
       };
     }),
+  /** Create a catalog entry and return its ID for the shared content editor. */
   create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     if (user.isBanned || !canChangeContent(user.role))
@@ -102,6 +108,7 @@ export const titleRouter = createTRPCRouter({
     ]);
     return { success: true, message: id };
   }),
+  /** Stop future grants without deleting ownership or its snapshotted bonuses. */
   archive: protectedProcedure
     .input(idSchema)
     .output(baseServerResponse)
@@ -137,6 +144,7 @@ export const titleRouter = createTRPCRouter({
       );
       return { success: true, message: "Title archived" };
     }),
+  /** Save future award content and outdate proposals based on the previous catalog version. */
   update: protectedProcedure
     .input(UpdateTitleSchema)
     .output(baseServerResponse)

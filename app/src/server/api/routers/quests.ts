@@ -2094,6 +2094,8 @@ const removeQuestTrackerByQuestId = (
  * Sage: `reward_sage_modes` rolls and records a not-yet-owned mode only when the
  * player has no equipped `sageModeId`. Already-equipped players skip the grant so
  * a mode is not burned into history they can never wear.
+ *
+ * Titles retain their first acquisition snapshot and advance the account version to fence recovery.
  */
 export const updateRewards = async (info: {
   /** Transaction sessions execute one statement at a time; ordinary callers keep parallel phases. */

@@ -1,6 +1,6 @@
 import { type SQLWrapper, sql } from "drizzle-orm";
 
-/** One scalar projection works for relational reads and aliased tavern joins without extra queries. */
+/** Resolve NPC or selected player labels inside existing profile reads and aliased tavern joins. */
 export const displayTitleSql = (user: {
   isAi: SQLWrapper;
   npcTitle: SQLWrapper;
