@@ -68,10 +68,7 @@ import {
   showsItemLevelBadge,
   userItemActionBadges,
 } from "@/libs/item";
-import {
-  finishItemConsumeRequest,
-  getItemConsumeRequestId,
-} from "@/libs/itemConsumption";
+import { finishItemConsumeRequest, getItemConsumeInput } from "@/libs/itemConsumption";
 import { gearMissingMastery } from "@/libs/mastery";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
@@ -1112,10 +1109,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   </Button>
                 }
                 onAccept={() =>
-                  consume({
-                    userItemId: useritem.id,
-                    expectedQuantity: useritem.quantity,
-                  })
+                  consume(getItemConsumeInput(userData?.userId ?? "", useritem))
                 }
               >
                 <p>
@@ -1240,14 +1234,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
                   variant="info"
                   disabled={isConsuming}
                   onClick={() =>
-                    consume({
-                      userItemId: useritem.id,
-                      expectedQuantity: useritem.quantity,
-                      requestId: getItemConsumeRequestId(
-                        userData?.userId ?? "",
-                        useritem.id,
-                      ),
-                    })
+                    consume(getItemConsumeInput(userData?.userId ?? "", useritem))
                   }
                 >
                   <Cookie className="mr-2 h-5 w-5" />
