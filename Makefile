@@ -25,7 +25,8 @@ endif
 
 -include ./app/.env
 
-PORT ?= 3000
+PORT ?=
+export PORT REQUEST USER_KEY ENDPOINT INPUT_FILE
 
 ## List of available commands:
 ---------------General------------------: # -------------------------------------------------------
@@ -94,10 +95,33 @@ bun: install ensure-env ensure-services ## Execute bun command in local developm
 	cd app && bun $(ARGS)
 
 .PHONY: start
-start: ensure-env # Run Next.js server, access at http://localhost:PORT
-	@echo "${GREEN}start on port $(PORT)${RESET}"
-	rm -rf app/.next
-	@FORCE_COLOR=1 make bun -- dev -p $(PORT) 2>&1 | grep -v "Ignoring Unsecure message event"
+start: # Run this worktree's server in the foreground (PORT optional)
+	@node scripts/dev-server.mjs start
+
+.PHONY: dev-prepare
+dev-prepare: ensure-env # Prepare a worktree without starting a server
+	@test -f app/.env || { echo 'dev: app/.env missing; copy app/.env.example and configure it.' >&2; exit 1; }
+	@$(MAKE) install ensure-services
+
+.PHONY: dev-up dev-status dev-down dev-browser dev-browser-release
+dev-up: # Start/reuse this worktree's server, wait for HTTP readiness, print JSON
+	@node scripts/dev-server.mjs up
+dev-status: # Show this worktree's server, log, and browser lease as JSON
+	@node scripts/dev-server.mjs status
+dev-down: # Stop only this worktree's managed server; leave shared Docker alone
+	@node scripts/dev-server.mjs down
+dev-browser: # Acquire/renew the shared Chrome login lease for this chat
+	@node scripts/dev-server.mjs browser-acquire
+dev-browser-release: # Release this chat's Chrome login lease
+	@node scripts/dev-server.mjs browser-release
+
+.PHONY: dev-user dev-call dev-doctor
+dev-user: ensure-env # Provision REQUEST=<json file>, save private credentials
+	@cd app && bun run scripts/dev-user.ts provision
+dev-call: ensure-env # Call ENDPOINT as USER_KEY with optional INPUT_FILE
+	@cd app && bun run scripts/dev-user.ts call
+dev-doctor: ensure-env # Show env/broker/database configuration without secrets
+	@cd app && bun run scripts/dev-user.ts doctor
 
 .PHONY: build
 build: ensure-env # Build Next.js app
@@ -161,6 +185,7 @@ emptymigration: ensure-env # Create database migration file
 	
 ----------------Tests-------------------: # -------------------------------------------------------
 .PHONY: test
+test: export NODE_ENV = test
 test: # Run unit tests with Bun
 	@echo "${YELLOW}Running unit tests ${RESET}"
 	cd app && bun run test
