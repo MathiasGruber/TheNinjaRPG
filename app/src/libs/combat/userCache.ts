@@ -30,6 +30,7 @@ type BaselineField = (typeof baselineFields)[number];
 export type CombatCacheBaseline = Pick<UserData, BaselineField> & {
   regenAt: string;
   hadTrainingQueue: boolean;
+  titleIds: string[];
   items: Pick<
     BattleUserItem,
     "id" | "quantity" | "durability" | "level" | "experience" | "equipped"
@@ -107,6 +108,7 @@ export const captureCombatCacheSnapshot = (
     })),
   }),
   regenAt: user.regenAt.toISOString(),
+  titleIds: user.titles?.map(({ titleId }) => titleId) ?? [],
   // Training may settle while profile refreshes are paused during combat.
   hadTrainingQueue:
     hasEnergyQueue(user) ||
@@ -139,6 +141,13 @@ export const combatProfilePatch = (
   if (
     baselineFields.some((field) => current[field] !== update.baseline[field]) ||
     current.regenAt.getTime() !== new Date(update.baseline.regenAt).getTime()
+  )
+    return;
+  // Collected effects are immutable; selecting a label does not change ownership.
+  const titleIds = current.titles?.map(({ titleId }) => titleId) ?? [];
+  if (
+    titleIds.length !== update.baseline.titleIds?.length ||
+    titleIds.some((id) => !update.baseline.titleIds.includes(id))
   )
     return;
   if (

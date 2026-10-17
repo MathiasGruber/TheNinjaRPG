@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
@@ -14,6 +15,10 @@ import { getUnavailableRewardCards, buildRewardChoiceCards } from "@/libs/reward
 import { postProcessRewards } from "@/libs/quest";
 import { ENTITY_CONFIG } from "@/libs/contentReview/entities";
 import { ObjectiveReward } from "@/validators/rewards";
+import { captureCombatCacheSnapshot, combatCacheDerived, combatProfilePatch, type CombatProfileUpdate } from "@/libs/combat/userCache";
+import { effectiveMasteries } from "@/libs/mastery";
+import type { UserWithRelations } from "@/server/api/routers/profile";
+import { prepareUserUpdate, updateUserCache } from "@/utils/userCache";
 import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
 
@@ -138,6 +143,46 @@ describeWithDatabase("title ownership, account recovery and presentation", () =>
     expect(result.user?.titles?.[0]?.title?.name).toBe("Hero");
     expect(result.user?.effectiveMasteries?.ninjutsuMastery).toBeDefined();
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, player) })).toMatchObject({ activeTitleId: null, regeneration: 10 });
+  });
+
+  it("refreshes completion mastery after claiming a title-only reward during the encounter", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ status: "BATTLE", battleId: "title-fight", ninjutsuMastery: 100 }).where(eq(userData.userId, player));
+    await db.update(title).set({ effects: [{ type: "increasemastery", power: 25, masteryTypes: ["Ninjutsu"] }] }).where(eq(title.id, "hero"));
+    const before = (await db.query.userData.findFirst({ where: eq(userData.userId, player), with: { titles: true } }))!;
+    const snapshot = captureCombatCacheSnapshot({ ...before, items: [] });
+    await insertQuests([{ id: "battle-title-choice", name: "Battle Title", questType: "story" }]);
+    await insertQuestHistory([{ userId: player, questId: "battle-title-choice", completed: 1, endAt: new Date(), pendingRewardChoice: {
+      id: "battle-title-offer", pickCount: 1, cards: [{ id: "battle-title-card", field: "reward_titles", amount: 1, contentId: "hero" }],
+    } }]);
+    const claimed = await (await callerFor(questsRouter, player)).claimRewardChoice({ questId: "battle-title-choice", choiceId: "battle-title-offer", cardIds: ["battle-title-card"] });
+    expect(claimed.success).toBe(true);
+    expect(claimed.userDelta).toBeUndefined();
+    const owned = (await db.query.userData.findFirst({ where: eq(userData.userId, player), with: { titles: true } }))!;
+    expect(owned.status).toBe("BATTLE");
+    const current: NonNullable<UserWithRelations> = { ...owned, items: [], userQuests: [], completedQuests: [], effectiveMasteries: effectiveMasteries(owned) };
+    expect(current.effectiveMasteries?.ninjutsuMastery).toBe(125);
+    const { masterySources: _private, ...baseline } = snapshot;
+    const update: CombatProfileUpdate = { userId: player, battleId: "title-fight", baseline, items: [], userDelta: {}, userPatch: {
+      status: "AWAKE", curHealth: owned.curHealth, curStamina: owned.curStamina, curChakra: owned.curChakra, curEnergy: owned.curEnergy,
+      regenAt: owned.regenAt, stealthCooldownAt: new Date(), pvpStreak: owned.pvpStreak, pveFights: owned.pveFights + 1, questData: owned.questData,
+      ...combatCacheDerived(snapshot, [], {}),
+    } };
+    expect(update.userPatch.effectiveMasteries.ninjutsuMastery).toBe(100);
+    const key = [["profile", "getUser"], { type: "query" }];
+    const client = new QueryClient();
+    client.setQueryData(key, { userData: current });
+    let reads = 0;
+    const observer = new QueryObserver(client, { queryKey: key, staleTime: Infinity, queryFn: async () => {
+      reads++;
+      return { userData: { ...current, status: "AWAKE", battleId: null } };
+    } });
+    const close = observer.subscribe(() => {});
+    try {
+      await updateUserCache(client, key, (user) => combatProfilePatch(user, update), { revision: prepareUserUpdate(client, key), delta: update.userDelta });
+      expect(client.getQueryData<{ userData: typeof current }>(key)?.userData.effectiveMasteries?.ninjutsuMastery).toBe(125);
+      expect(reads).toBe(1);
+    } finally { close(); client.clear(); }
   });
 });
 

@@ -48,8 +48,13 @@ describe("confirmed combat profile reconciliation", () => {
     update.userPatch.status = "BATTLE";
     expect(combatProfilePatch(current, update)).toMatchObject({ status: "BATTLE", battleId: null });
   });
-  it("applies one normal equipped fight without fetching and refuses replay", async () => {
+  it.each([false, true])("applies one normal equipped fight without fetching and refuses replay (collected titles: %s)", async (hasTitles) => {
     const { current, update } = fixture();
+    if (hasTitles) {
+      current.titles = ["second", "first"].map((titleId) => ({ userId: current.userId, titleId, effects: [], createdAt: new Date() }));
+      update.baseline.titleIds = ["first", "second"];
+      current.activeTitleId = "second";
+    }
     const client = new QueryClient();
     client.setQueryData(key, { userData: current });
     let reads = 0;
@@ -135,7 +140,17 @@ describe("confirmed combat profile reconciliation", () => {
       { energyQueueTail: 1 },
       { items: current.items.map((item) => ({ ...item, durability: 99 })) },
       { regenAt: new Date(current.regenAt.getTime() + 1) },
+      { titles: [{ userId: current.userId, titleId: "new-title", createdAt: new Date(), effects: [] }] },
     ]) expect(combatProfilePatch({ ...current, ...changed } as typeof current, update)).toBeUndefined();
+  });
+
+  it("refreshes changed ownership even when the title count matches", () => {
+    const { current, update } = fixture();
+    update.baseline.titleIds = ["previous-title"];
+    current.titles = [{ userId: current.userId, titleId: "new-title", createdAt: new Date(), effects: [] }];
+    expect(combatProfilePatch(current, update)).toBeUndefined();
+    current.titles = [];
+    expect(combatProfilePatch(current, update)).toBeUndefined();
   });
 
   it("preserves worn slots and items omitted by battle gates while applying confirmed wear", () => {
