@@ -183,6 +183,7 @@ test("trade bans can be managed and cleared by the roles that impose them", () =
     const staff = { userId: "staff", role } as UserData;
     expect(canModerateReports(staff, report)).toBe(allowed.includes(role));
     expect(canClearReport(staff, report)).toBe(allowed.includes(role));
+    // Self-moderation stays forbidden even for otherwise authorized staff.
     const target = { userId: "target", role } as UserData;
     expect(canModerateReports(target, report)).toBe(false);
     expect(canClearReport(target, report)).toBe(false);

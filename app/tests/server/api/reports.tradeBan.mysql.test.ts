@@ -17,6 +17,9 @@ const decision = {
   banTimeUnit: "days" as const,
 };
 
+/**
+ * Exercise real router decisions so permissions also cover persisted restrictions and audit comments.
+ */
 describeWithDatabase("moderator trade ban removal", () => {
   beforeEach(async () => {
     const db = await getTestDatabase();
