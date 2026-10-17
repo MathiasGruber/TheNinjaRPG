@@ -8,11 +8,13 @@ import { showUserRank } from "@/libs/profile";
 import { isProfileIndexable } from "@/libs/profileIndexing";
 import { absoluteUrl, buildMetadata, noindexMetadata } from "@/libs/seo";
 import { drizzleDB } from "@/server/db";
+import { displayTitleSql } from "@/server/utils/titleDisplay";
 
 // Cached so generateMetadata and the page render share a single lookup rather than
 // each issuing their own query for the same profile.
 const fetchProfile = cache(async (username: string) => {
   return await drizzleDB.query.userData.findFirst({
+    extras: (table) => ({ displayTitle: displayTitleSql(table).as("displayTitle") }),
     columns: {
       userId: true,
       username: true,
@@ -20,7 +22,7 @@ const fetchProfile = cache(async (username: string) => {
       rank: true,
       isOutlaw: true,
       avatar: true,
-      customTitle: true,
+
       updatedAt: true,
       isAi: true,
       isBanned: true,
@@ -77,7 +79,7 @@ export default async function PublicProfile(props: {
         rank: user.rank,
         isOutlaw: user.isOutlaw,
         avatar: user.avatar,
-        customTitle: user.customTitle,
+        displayTitle: user.displayTitle,
         villageName: user.village?.name,
       }}
       defaultBackHref="/users"

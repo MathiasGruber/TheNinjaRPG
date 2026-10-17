@@ -345,6 +345,12 @@ export const showRewardToast = (
               <b>Jutsus: </b> {rewards.reward_jutsus.join(", ")}
             </span>
           )}
+          {rewards.reward_titles.length > 0 && (
+            <div>
+              <b>Titles: </b>
+              {rewards.reward_titles.join(", ")}
+            </div>
+          )}
           {rewards.reward_badges.length > 0 && (
             <span className="break-words">
               <b>Badges: </b> {rewards.reward_badges.join(", ")}

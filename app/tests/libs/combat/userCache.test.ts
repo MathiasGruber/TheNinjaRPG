@@ -36,6 +36,13 @@ const fixture = () => {
 };
 
 describe("confirmed combat profile reconciliation", () => {
+  it("retains permanent title mastery through combat completion cache reconciliation", () => {
+    const { raw } = fixture();
+    raw.titles = [{ effects: [{ type: "increasemastery", power: 25, masteryTypes: ["Ninjutsu"] }] }];
+    const snapshot = captureCombatCacheSnapshot(raw);
+    raw.titles[0]!.effects = [];
+    expect(combatCacheDerived(snapshot, [], {}).effectiveMasteries.ninjutsuMastery).toBe(125);
+  });
   it("preserves BATTLE between isolated Pyramid floors while clearing the settled battle", () => {
     const { current, update } = fixture();
     update.userPatch.status = "BATTLE";

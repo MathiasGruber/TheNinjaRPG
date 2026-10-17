@@ -763,23 +763,6 @@ export const canEditUsername = (role: UserRole) => {
   ].includes(role);
 };
 
-export const canEditCustomTitle = (role: UserRole) => {
-  return [
-    "CONTENT-ADMIN",
-    "OWNER",
-    "CODING-ADMIN",
-    "CONTENT",
-    "BALANCE",
-    "HEAD_CONTENT",
-    "HEAD_BALANCE",
-    "EVENT",
-    "HEAD_EVENT",
-    "EVENT-ADMIN",
-    "MODERATOR-ADMIN",
-    "CODER",
-  ].includes(role);
-};
-
 export const canEditBloodline = (role: UserRole) => {
   return [
     "CONTENT-ADMIN",

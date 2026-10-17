@@ -122,7 +122,6 @@ import {
   canCloneUser,
   canDeleteReferral,
   canEditBloodline,
-  canEditCustomTitle,
   canEditItems,
   canEditJutsus,
   canEditQuests,
@@ -165,7 +164,7 @@ export interface PublicUserSeed {
   isOutlaw: boolean;
   avatar: string | null;
   /** Appended in brackets by the loaded render, so the seeded subtitle must match. */
-  customTitle?: string | null;
+  displayTitle?: string | null;
   villageName?: string | null;
 }
 
@@ -984,7 +983,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
 
   // Profile name
   let profileName = `${profile.username}`;
-  if (profile.customTitle) profileName += ` [${profile.customTitle}]`;
+  if (profile.displayTitle) profileName += ` [${profile.displayTitle}]`;
 
   // Render
   return (
@@ -2032,7 +2031,7 @@ const PublicUserSkeleton: React.FC<PublicUserSkeletonProps> = ({
   seed,
 }) => {
   const seedName = seed
-    ? `${seed.username}${seed.customTitle ? ` [${seed.customTitle}]` : ""}`
+    ? `${seed.username}${seed.displayTitle ? ` [${seed.displayTitle}]` : ""}`
     : null;
   return (
     <>
@@ -2393,7 +2392,6 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
   // Permission checks
   const perms = {
     canEditUsername: canEditUsername(userRole),
-    canEditCustomTitle: canEditCustomTitle(userRole),
     canEditBloodline: canEditBloodline(userRole),
     canEditVillage: canEditVillage(userRole),
     canEditRank: canEditRank(userRole),
@@ -2434,7 +2432,6 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
     profile,
     {
       canEditUsername: perms.canEditUsername,
-      canEditCustomTitle: perms.canEditCustomTitle,
       canEditBloodline: perms.canEditBloodline,
       canEditVillage: perms.canEditVillage,
       canEditRank: perms.canEditRank,

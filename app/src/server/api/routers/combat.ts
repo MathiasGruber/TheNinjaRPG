@@ -219,6 +219,7 @@ import {
   getTimedRegenerationGain,
   getTimedRegenerationPeriods,
 } from "@/libs/timedBuffs";
+import { regenerationBuffs, titleCombatTag } from "@/libs/titles";
 import { isActiveEventEntrant } from "@/libs/tournament/events";
 import {
   applyMasteryTrainingGains,
@@ -2048,6 +2049,7 @@ export const initiateBattle = async (
     client.query.userData.findMany({
       with: {
         raidBuffs: true,
+        titles: true,
         cookingJobs: true,
         bloodline: { with: { bloodrightTiers: true } },
         sageMode: true,
@@ -2459,7 +2461,7 @@ export const initiateBattle = async (
       user.userId,
       getTimedRegenerationPeriods(
         energyRegeneration[user.userId] ?? 0,
-        user.raidBuffs.filter((buff) => buff.expiresAt > user.regenAt),
+        regenerationBuffs(user).filter((buff) => buff.expiresAt > user.regenAt),
       ),
     ]),
   );
@@ -2494,7 +2496,7 @@ export const initiateBattle = async (
     const regenerationGain = (fromTick: number, toTick: number) =>
       getTimedRegenerationGain(
         calcActiveUserRegen(user, settings, false),
-        user.raidBuffs,
+        regenerationBuffs(user),
         new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
         toTick - fromTick,
         REGEN_SECONDS,
@@ -4192,7 +4194,7 @@ export const processUsersForBattle = async (
         ? 0
         : getTimedRegenerationGain(
             baseRegen,
-            inputUser.raidBuffs ?? [],
+            regenerationBuffs(inputUser),
             user.regenAt,
             Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
             REGEN_SECONDS,
@@ -4343,6 +4345,7 @@ export const processUsersForBattle = async (
       ...user,
       bloodline: isRankedBattle ? null : user.bloodline,
       userSkills: isRankedBattle ? [] : user.userSkills,
+      titles: isRankedBattle ? [] : inputUser.titles,
       items: user.items.filter((ui) => fitsBattle(ui.item.battleUsageType)),
     };
     // Unequip worn gear that cannot work this battle before the jutsu filter and the
@@ -4473,6 +4476,28 @@ export const processUsersForBattle = async (
       );
       user.userSkills = []; // Reset to avoid storing in battle table
     }
+
+    if (!isRankedBattle) {
+      for (const owned of inputUser.titles ?? []) {
+        for (const effect of owned.effects) {
+          if (effect.type !== "increasemastery") continue;
+          const realized = realizeTag({
+            tag: titleCombatTag(effect) as UserEffect,
+            user,
+            actionId: owned.titleId,
+            target: user,
+            level: 0,
+          });
+          realized.isNew = false;
+          realized.castThisRound = false;
+          realized.targetId = user.userId;
+          realized.fromType = "item";
+          userEffects.push(realized);
+        }
+      }
+    }
+    // Ownership was resolved at initiation; actions only consume realized battle effects.
+    delete user.titles;
 
     for (const buff of inputUser.raidBuffs ?? []) {
       if (buff.expiresAt <= new Date()) continue;

@@ -1722,6 +1722,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     enabled: fields.includes("skillId"),
   });
 
+  const { data: titleData } = api.title.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("reward_titles"),
+  });
+
   const { data: badgeData } = api.badge.getAll.useQuery(undefined, {
     enabled: fields.includes("reward_badges"),
   });
@@ -2060,6 +2064,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           values: sageModes,
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
+          type: "db_values",
+        };
+      } else if ((value as string) === "reward_titles" && titleData) {
+        return {
+          id: value,
+          values: titleData,
+          multiple: true,
+          label: "Give Title",
           type: "db_values",
         };
       } else if ((value as string) === "reward_badges" && badgeData?.data) {
@@ -2419,6 +2431,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       fields.includes("useJutsuIds"),
   });
 
+  const { data: titleData } = api.title.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("reward_titles"),
+  });
+
   const { data: badgeData } = api.badge.getAll.useQuery(undefined, {
     enabled: fields.includes("reward_badges"),
   });
@@ -2691,6 +2707,14 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
           type: "db_values",
+        };
+      } else if (value === "reward_titles" && titleData) {
+        return {
+          id: value,
+          values: titleData,
+          multiple: true,
+          label: "Give Title",
+          type: "db_values" as const,
         };
       } else if (value === "reward_badges" && badgeData?.data) {
         return {
@@ -2968,6 +2992,7 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   const { data: itemData } = api.item.getAllNames.useQuery();
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery();
   const { data: badgeData } = api.badge.getAll.useQuery();
+  const { data: titleData } = api.title.getAllNames.useQuery();
   const { data: bloodlineData } = api.bloodline.getAllNames.useQuery();
   const { data: sageModeData } = api.sageMode.getAllNames.useQuery();
 
@@ -3056,6 +3081,14 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
           label: FORM_LABEL_MAP[value] ?? value,
           type: "db_values" as const,
         };
+      } else if (value === "reward_titles" && titleData) {
+        return {
+          id: value,
+          values: titleData,
+          multiple: true,
+          label: "Give Title",
+          type: "db_values" as const,
+        };
       } else if (value === "reward_badges" && badgeData?.data) {
         return {
           id: value,
@@ -3137,6 +3170,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   reward_bloodlines: "Reward Bloodlines",
   reward_sage_modes: "Reward Sage Modes",
   reward_badges: "Reward Badges",
+  reward_titles: "Give Title",
   reward_money: "Ryo",
   reward_exp: "Experience",
   reward_prestige: "Prestige",

@@ -57,6 +57,7 @@ import {
 import { isUserCurrentlyStealthed } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import { getTimedRegenerationGain, type TimedBuff } from "@/libs/timedBuffs";
+import { regenerationBuffs } from "@/libs/titles";
 import {
   calcGlobalTravelTime,
   calcIsInVillage,
@@ -1141,7 +1142,7 @@ const completeGlobalTravel = (
   );
   const recovery = getTimedRegenerationGain(
     user.regeneration,
-    user.raidBuffs ?? [],
+    regenerationBuffs(user),
     user.regenAt,
     recoveryTicks,
     REGEN_SECONDS,
@@ -1191,6 +1192,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
           where: and(sql`${userItem.equipped} <> 'NONE'`, gt(userItem.quantity, 0)),
           with: { item: true, imbuements: { with: { item: true } } },
         },
+        titles: true,
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
       },
     }),

@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { z } from "zod";
 import type { ContentProposalEntityType, ContentType } from "@/drizzle/constants";
 import {
@@ -9,6 +9,7 @@ import {
   item,
   jutsu,
   quest,
+  title,
   userData,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -22,6 +23,7 @@ import {
   JutsuValidatorRawSchema,
 } from "@/validators/combat";
 import { QuestValidator, QuestValidatorRawSchema } from "@/validators/objectives";
+import { TitleValidator } from "@/validators/title";
 import { ENTITY_LABELS } from "./labels";
 import { contentVersion } from "./version";
 
@@ -93,7 +95,7 @@ const keysOf = (schema: { shape: Record<string, unknown> }) =>
 /** AI fields shown by the manual AI editor (libs/ais.ts), plus its effect list. */
 const AI_EDITABLE_KEYS = [
   "username",
-  "customTitle",
+  "npcTitle",
   "avatar",
   "avatar3d",
   "avatarFacing",
@@ -282,6 +284,35 @@ export const ENTITY_CONFIG: Record<ContentProposalEntityType, EntityConfig> = {
           .select({ name: badge.name })
           .from(badge)
           .where(inArray(badge.name, names))
+      ).map((row) => row.name),
+  },
+  TITLE: {
+    contentType: "title",
+    label: ENTITY_LABELS.TITLE,
+    editableKeys: keysOf(TitleValidator),
+    validator: TitleValidator,
+    detailHref: (id) => `/manual/title/edit/${id}`,
+    load: async (client, ids) => {
+      const rows = await client.query.title.findMany({
+        where: and(
+          isNull(title.legacyOwnerId),
+          ids ? inArray(title.id, ids) : undefined,
+        ),
+      });
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        image: null,
+        isHidden: row.archived,
+        payload: { ...row },
+      }));
+    },
+    findNames: async (client, names) =>
+      (
+        await client
+          .select({ name: title.name })
+          .from(title)
+          .where(inArray(title.name, names))
       ).map((row) => row.name),
   },
   GAME_ASSET: {

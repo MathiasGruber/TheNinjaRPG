@@ -508,9 +508,9 @@ const Conversation: React.FC<ConversationProps> = (props) => {
             isOutlaw: senderUser?.isOutlaw ?? userData.isOutlaw,
             level: senderUser?.level ?? userData.level,
             role: senderUser?.role ?? userData.role,
-            customTitle: senderUser
-              ? (senderUser.customTitle ?? "")
-              : userData.customTitle,
+            displayTitle: senderUser
+              ? (senderUser.displayTitle ?? "")
+              : (userData.displayTitle ?? ""),
             federalStatus: senderUser?.federalStatus ?? userData.federalStatus,
             tavernUsernameColor: senderUser
               ? (senderUser.tavernUsernameColor ?? "DEFAULT")

@@ -114,6 +114,7 @@ export type CombatQueryCompletedQuest = {
  * Some fields are optional as they're not included in all combat queries (e.g., summons).
  */
 export type CombatQueryUser = UserData & {
+  titles?: import("@/drizzle/schema").UserTitle[];
   /** Loaded at initiation and realized into battle effects; never fetched during an action. */
   raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
   /** Completion receipts loaded only for settlement before entering combat. */

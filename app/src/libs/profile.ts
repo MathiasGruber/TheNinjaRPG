@@ -24,6 +24,7 @@ import type {
   Clan,
   GameSetting,
   UserData,
+  UserTitle,
   Village,
   VillageStructure,
 } from "@/drizzle/schema";
@@ -43,6 +44,7 @@ import { getPvpBoost } from "@/libs/pvpExperience";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import type { SectorUser } from "@/libs/threejs/types";
 import { getTimedRegeneration, type TimedBuff } from "@/libs/timedBuffs";
+import { regenerationBuffs } from "@/libs/titles";
 import { getReducedGainsDays } from "@/libs/train";
 import { getVillageLoyaltyBonuses, percentageMultiplier } from "@/libs/villageLoyalty";
 import { capitalizeFirstLetter } from "@/utils/string";
@@ -393,6 +395,7 @@ export const showUserRank = (user?: { rank?: UserRank; isOutlaw?: boolean }) => 
 export const calcActiveUserRegen = (
   user: UserData & {
     raidBuffs?: TimedBuff[];
+    titles?: Pick<UserTitle, "effects" | "createdAt">[];
     clan?: Clan | null;
     bloodline?: Bloodline | null;
     village?: (Village & { structures?: VillageStructure[] }) | null;
@@ -449,7 +452,7 @@ export const calcActiveUserRegen = (
   regeneration *= (100 + warFactor) / 100;
 
   const base = regeneration * (1 + getPvpBoost(user, settings).totalPercent / 100);
-  return includeTimedBuffs ? getTimedRegeneration(base, user.raidBuffs ?? []) : base;
+  return includeTimedBuffs ? getTimedRegeneration(base, regenerationBuffs(user)) : base;
 };
 
 /** Energy capacity includes usable worn gear, bloodline and activated skill pool effects. */

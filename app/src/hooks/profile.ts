@@ -11,7 +11,6 @@ import { updateUserSchema } from "@/validators/user";
 
 export interface EditUserPermissions {
   canEditUsername?: boolean;
-  canEditCustomTitle?: boolean;
   canEditBloodline?: boolean;
   canEditVillage?: boolean;
   canEditRank?: boolean;
@@ -39,7 +38,6 @@ export const useUserEditForm = (
   // Permissions with defaults set to false
   const {
     canEditUsername = false,
-    canEditCustomTitle = false,
     canEditBloodline = false,
     canEditVillage = false,
     canEditRank = false,
@@ -112,9 +110,6 @@ export const useUserEditForm = (
 
   if (canEditUsername) {
     formData.push({ id: "username", type: "text" });
-  }
-  if (canEditCustomTitle) {
-    formData.push({ id: "customTitle", type: "text" });
   }
   if (canEditUserRoles && canEditUserRoles.length > 0)
     formData.push({ id: "role", type: "str_array", values: canEditUserRoles });

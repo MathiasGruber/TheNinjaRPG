@@ -137,7 +137,7 @@ const searchUserResultSchema = z.object({
   federalStatus: z.enum(FederalStatuses),
   role: z.enum(UserRoles).optional(),
   isOutlaw: z.boolean().optional(),
-  customTitle: z.string().optional(),
+  displayTitle: z.string().optional(),
   nRecruited: z.number().optional().nullish(),
   tavernMessages: z.number().optional().nullish(),
   tavernUsernameColor: z.enum(TavernColorPresets).optional(),

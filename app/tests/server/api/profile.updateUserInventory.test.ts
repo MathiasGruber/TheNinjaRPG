@@ -115,7 +115,7 @@ describeWithDatabase("profile updates preserve ownership lists", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it.each(["HEAD_EVENT", "CODING-ADMIN"] as const)("preserves ownership when %s submits a full profile form for a title change", async (role) => {
+  it.each(["HEAD_EVENT", "CODING-ADMIN"] as const)("preserves ownership when %s submits a full profile form", async (role) => {
     const database = await getTestDatabase();
     await database.update(userData).set({ role }).where(eq(userData.userId, STAFF));
     const before = await inventory();
@@ -125,8 +125,7 @@ describeWithDatabase("profile updates preserve ownership lists", () => {
       id: OWNER,
       data: updateUserSchema.parse({
         ...profile,
-        customTitle: "Updated title",
-        reason: "Correct the approved player's custom title",
+        reason: "Save the approved player profile",
         items: profile.items.map((entry) => entry.itemId),
         jutsus: profile.jutsus.map((entry) => entry.jutsuId),
       }),
@@ -136,7 +135,7 @@ describeWithDatabase("profile updates preserve ownership lists", () => {
     expect(profile.items.map((entry) => entry.itemId)).toEqual(["inventory-item"]);
     expect(profile.jutsus.map((entry) => entry.jutsuId)).toEqual(["inventory-jutsu"]);
     const owner = await database.query.userData.findFirst({ where: eq(userData.userId, OWNER) });
-    expect(owner?.customTitle).toBe("Updated title");
+    expect(owner?.activeTitleId).toBeNull();
   });
 
   it.each(["USER", "EVENT", "CODER"] as const)("hides another user's ownership lists from %s", async (role) => {

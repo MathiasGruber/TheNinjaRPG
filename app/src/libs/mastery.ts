@@ -9,7 +9,9 @@ import {
   MAX_MASTERY_CAP,
   MasteryNames,
 } from "@/drizzle/constants";
+import type { UserTitle } from "@/drizzle/schema";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
+import { titleCombatTag } from "@/libs/titles";
 import type { ZodAllTags } from "@/validators/combat";
 
 export const MASTERY_TYPE_TO_STAT: Record<MasteryType, MasteryName> = {
@@ -76,11 +78,12 @@ export type MasteryBuffUser = MasteryStatSource & {
     skill: { target: SkillTreeTarget; effects: ZodAllTags[] };
   }[];
   items?: MasteryGear[];
+  titles?: Pick<UserTitle, "effects">[];
 };
 
 export type MasterySources = Pick<
   MasteryBuffUser,
-  "bloodline" | "userSkills" | "items"
+  "bloodline" | "userSkills" | "items" | "titles"
 >;
 
 /**
@@ -146,6 +149,8 @@ const resolveMasteryGear = (user: MasteryBuffUser, excludeUserItemId?: string) =
     );
     addMasteryTags(withoutGear, stored, ownTags, user.level);
   }
+  for (const owned of user.titles ?? [])
+    addMasteryTags(withoutGear, stored, owned.effects.map(titleCombatTag), 0);
   const candidates = (user.items ?? [])
     .filter(
       (ui) =>

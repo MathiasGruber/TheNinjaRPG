@@ -488,6 +488,7 @@ export const getReward = (
         if (objective.reward_jutsus) {
           rawRewards.reward_jutsus.push(...objective.reward_jutsus);
         }
+        rawRewards.reward_titles.push(...(objective.reward_titles ?? []));
         if (objective.reward_badges) {
           rawRewards.reward_badges.push(...objective.reward_badges);
         }

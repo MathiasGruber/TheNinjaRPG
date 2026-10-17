@@ -135,6 +135,8 @@ export type RewardChoiceOwnership = {
   jutsuIds: ReadonlySet<string>;
   bloodlineIds: ReadonlySet<string>;
   badgeIds: ReadonlySet<string>;
+  titleIds?: ReadonlySet<string>;
+  unavailableTitleIds?: ReadonlySet<string>;
   /** Sage modes in the player's roll history. */
   sageModeIds: ReadonlySet<string>;
   /** The player has a sage mode equipped, so no sage mode card can be granted. */
@@ -186,12 +188,15 @@ export const getUnavailableRewardCards = (
     }
     const id = card.contentId;
     if (!id) continue;
-    if (card.field === "reward_sage_modes" && ownership.hasSageMode) {
+    if (card.field === "reward_titles" && ownership.unavailableTitleIds?.has(id)) {
+      unavailable.set(card.id, "Title is no longer available");
+    } else if (card.field === "reward_sage_modes" && ownership.hasSageMode) {
       unavailable.set(card.id, REWARD_CHOICE_SAGE_EQUIPPED_REASON);
     } else if (
       (card.field === "reward_jutsus" && ownership.jutsuIds.has(id)) ||
       (card.field === "reward_bloodlines" && ownership.bloodlineIds.has(id)) ||
       (card.field === "reward_badges" && ownership.badgeIds.has(id)) ||
+      (card.field === "reward_titles" && ownership.titleIds?.has(id)) ||
       (card.field === "reward_sage_modes" && ownership.sageModeIds.has(id))
     ) {
       unavailable.set(card.id, REWARD_CHOICE_OWNED_REASON);
@@ -316,6 +321,7 @@ export const rewardFromChoiceCards = (
       case "reward_bloodlines":
       case "reward_sage_modes":
       case "reward_badges":
+      case "reward_titles":
         if (card.contentId) reward[card.field].push(card.contentId);
         break;
       default:
@@ -400,5 +406,6 @@ export const REWARD_CHOICE_CATEGORY_LABELS: Record<RewardChoiceCard["field"], st
     reward_bloodlines: "Bloodline",
     reward_sage_modes: "Sage Mode",
     reward_badges: "Badge",
+    reward_titles: "Title",
     reward_package: "Reward Package",
   } as Record<RewardChoiceCard["field"], string>;

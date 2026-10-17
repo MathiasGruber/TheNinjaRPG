@@ -37,6 +37,7 @@ beforeEach(() => {
     useUtils: () => ({}),
     item: { getAllNames: names }, jutsu: { getAllNames: names },
     profile: { getAllAiNames: names }, village: { getAllNames: names },
+    title: { getAllNames: names },
     badge: { getAll: names }, gameAsset: { getAllNames: names },
     bloodline: { getAllNames: names }, sageMode: { getAllNames: names },
     quests: { getAllNames: names, update: { useMutation: () => ({ mutateAsync: save, isPending: false }) } },

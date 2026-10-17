@@ -323,6 +323,8 @@ export const getRewardArray = (reward?: QuestRewardType) => {
   if (questReward.reward_jutsus.length > 0) {
     rewards.push(`${questReward.reward_jutsus.length} jutsus`);
   }
+  if (questReward.reward_titles.length > 0)
+    rewards.push(`${questReward.reward_titles.length} titles`);
   if (questReward.reward_badges.length > 0) {
     rewards.push(`${questReward.reward_badges.length} badges`);
   }

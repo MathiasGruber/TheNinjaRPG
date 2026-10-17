@@ -72,6 +72,7 @@ export const captureCombatCacheSnapshot = (
     BaselineField
   >),
   masterySources: structuredClone({
+    titles: user.titles?.map((owned) => ({ effects: owned.effects })),
     bloodlineId: user.bloodlineId,
     bloodline: user.bloodline ? { effects: user.bloodline.effects } : null,
     userSkills: user.userSkills?.map(({ skillId, activated, skill }) => ({

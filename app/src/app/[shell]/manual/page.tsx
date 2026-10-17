@@ -71,6 +71,7 @@ export default function ManualMain() {
     { name: "logs", img: IMG_MANUAL_LOGS },
     { name: "damage_calcs", img: IMG_MANUAL_DAM_CALCS },
     { name: "badge", img: IMG_MANUAL_BADGE },
+    { name: "title", img: IMG_MANUAL_BADGE },
     { name: "asset", img: IMG_MANUAL_ASSET },
     { name: "opinions", img: IMG_MANUAL_OPINION },
     { name: "awards", img: IMG_MANUAL_AWARDS },

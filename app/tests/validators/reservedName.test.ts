@@ -4,7 +4,6 @@ import {
   isReservedCustomTitle,
   RESERVED_CUSTOM_TITLE_MESSAGE,
 } from "@/validators/reservedName";
-import { titleChangeSchema } from "@/validators/user";
 
 describe("isReservedCustomTitle", () => {
   it.each(UserRoles.filter((role) => role !== "USER"))(
@@ -34,21 +33,5 @@ describe("isReservedCustomTitle", () => {
   it("allows unrelated titles", () => {
     expect(isReservedCustomTitle("Shadow Walker")).toBe(false);
     expect(isReservedCustomTitle("Chunin")).toBe(false);
-  });
-});
-
-describe("titleChangeSchema", () => {
-  it("rejects reserved titles with a clear message", () => {
-    const result = titleChangeSchema.safeParse({ title: "Moderator" });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toBe(RESERVED_CUSTOM_TITLE_MESSAGE);
-    }
-  });
-
-  it("accepts allowed titles", () => {
-    expect(titleChangeSchema.parse({ title: "Shadow Walker" })).toEqual({
-      title: "Shadow Walker",
-    });
   });
 });

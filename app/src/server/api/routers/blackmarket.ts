@@ -6,7 +6,6 @@ import type { ElementName } from "@/drizzle/constants";
 import {
   BasicElementName,
   COST_CHANGE_GENDER,
-  COST_CUSTOM_TITLE,
   COST_EXTRA_ITEM_SLOT,
   COST_EXTRA_JUTSU_SLOT,
   COST_REROLL_ELEMENT,
@@ -46,11 +45,6 @@ import type { DatabasePromiseReturn } from "@/utils/typeutils";
 import { rerollElementSchema } from "@/validators/blackmarket";
 import { statSchema } from "@/validators/combat";
 import { genders } from "@/validators/register";
-import {
-  isReservedCustomTitle,
-  RESERVED_CUSTOM_TITLE_MESSAGE,
-} from "@/validators/reservedName";
-import { titleChangeSchema } from "@/validators/user";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 import { fetchUser } from "./profile";
 
@@ -390,70 +384,6 @@ export const blackMarketRouter = createTRPCRouter({
           ? undefined
           : { money: -offer.requestedRyo, reputationPoints: offer.repsForSale },
       };
-    }),
-  // Update custom title
-  updateCustomTitle: protectedProcedure
-    .meta({ mcp: { description: "Update user's custom title" } })
-    .input(titleChangeSchema)
-    .output(userDeltaResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      // Fetch
-      const [user, villages] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchVillages(ctx.drizzle),
-      ]);
-      // Guard
-      if (user.reputationPoints < COST_CUSTOM_TITLE) {
-        return errorResponse("Not enough reputation points");
-      }
-      if (input.title === user.customTitle) {
-        return errorResponse("Custom title is the same");
-      }
-      if (user.isBanned) return errorResponse("You are banned");
-      if (
-        isReservedCustomTitle(
-          input.title,
-          villages.map((village) => village.name),
-        )
-      ) {
-        return errorResponse(RESERVED_CUSTOM_TITLE_MESSAGE);
-      }
-      // Mutate
-      const result = await ctx.drizzle
-        .update(userData)
-        .set({
-          customTitle: input.title,
-          reputationPoints: sql`reputationPoints - ${COST_CUSTOM_TITLE}`,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            eq(userData.customTitle, user.customTitle),
-            eq(userData.reputationPoints, user.reputationPoints),
-            gte(userData.reputationPoints, COST_CUSTOM_TITLE),
-          ),
-        );
-      if (result.rowsAffected === 0) {
-        return errorResponse("Your profile or reputation changed. Please try again");
-      } else {
-        await ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "user",
-          changes: [`Custom title changed from ${user.customTitle} to ${input.title}`],
-          relatedId: ctx.userId,
-          relatedMsg: `Update: ${user.customTitle} -> ${input.title}`,
-          relatedImage: user.avatarLight,
-        });
-        return {
-          success: true,
-          message: "Custom title updated",
-          userPatch: {
-            customTitle: input.title,
-            reputationPoints: user.reputationPoints - COST_CUSTOM_TITLE,
-          },
-        };
-      }
     }),
   changeUserGender: protectedProcedure
     .meta({ mcp: { description: "Change user's gender" } })

@@ -63,6 +63,7 @@ import {
   purgeRaidChatMembership,
 } from "@/server/utils/raidChat";
 import { fetchRaidJoinUser, fetchRaidListUser } from "@/server/utils/raidUser";
+import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { canChangeContent } from "@/utils/permissions";
 import { secondsFromDate } from "@/utils/time";
@@ -502,11 +503,12 @@ export const raidsRouter = createTRPCRouter({
       if (!ctx.userId) return errorResponse("Not authenticated");
 
       // Query - parallel fetch
-      const [user, questData] = await Promise.all([
+      const [user, questData, titleError] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.quest.findFirst({
           where: and(eq(quest.id, input.questId), eq(quest.questType, "raid")),
         }),
+        validateTitleRewardIds(ctx.drizzle, input.rewards),
       ]);
 
       // Guard
@@ -517,6 +519,7 @@ export const raidsRouter = createTRPCRouter({
         return errorResponse("Raid quest not found");
       }
 
+      if (titleError) return errorResponse(titleError);
       // Mutation
       await ctx.drizzle.insert(raidDamageThreshold).values({
         id: nanoid(),
@@ -552,13 +555,17 @@ export const raidsRouter = createTRPCRouter({
       if (!ctx.userId) return errorResponse("Not authenticated");
 
       // Query
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, titleError] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        validateTitleRewardIds(ctx.drizzle, input.rewards),
+      ]);
 
       // Guard
       if (!canChangeContent(user.role)) {
         return errorResponse("Not authorized to update damage thresholds");
       }
 
+      if (titleError) return errorResponse(titleError);
       // Mutation
       const result = await ctx.drizzle
         .update(raidDamageThreshold)
@@ -1463,7 +1470,7 @@ export const raidsRouter = createTRPCRouter({
       // Note: We intentionally do NOT roll back the claim on failure because updateRewards is not atomic.
       // If we rolled back, a retry could double-grant rewards that succeeded before the failure.
       // Keeping the claim marked prevents double-grants; partial failures can be investigated manually.
-      const { items, jutsus, bloodlines, badges } = await updateRewards({
+      const { items, jutsus, bloodlines, badges, titles } = await updateRewards({
         client: ctx.drizzle,
         user,
         rewards: processedRewards,
@@ -1494,6 +1501,7 @@ export const raidsRouter = createTRPCRouter({
         reward_jutsus: jutsus.map((j) => j.name),
         reward_bloodlines: bloodlines.map((b) => b.name),
         reward_badges: badges.map((b) => b.name),
+        reward_titles: titles.map((t) => t.name),
       };
 
       return {

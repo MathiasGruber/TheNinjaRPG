@@ -3,7 +3,9 @@ import { getEffectPower } from "@/libs/combat/power";
 import type { BattleUserState, UserEffect } from "@/libs/combat/types";
 
 /** Persisted meal or raid bonuses, active from creation until their exclusive expiry. */
-export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt">;
+export type TimedBuff = Pick<UserRaidBuff, "effects" | "createdAt" | "expiresAt"> & {
+  stacking?: boolean;
+};
 
 /** Base regeneration plus the strongest active bonus, comparing static and percentage gains. */
 export const getTimedRegeneration = (
@@ -12,10 +14,15 @@ export const getTimedRegeneration = (
   at = new Date(),
 ) => {
   let increase = 0;
+  let permanentIncrease = 0;
   for (const buff of buffs) {
     if (new Date(buff.createdAt) > at || new Date(buff.expiresAt) <= at) continue;
     for (const effect of buff.effects) {
       if (effect.type !== "increaseregeneration") continue;
+      if (buff.stacking) {
+        permanentIncrease += effect.power;
+        continue;
+      }
       increase = Math.max(
         increase,
         effect.calculation === "percentage"
@@ -24,7 +31,7 @@ export const getTimedRegeneration = (
       );
     }
   }
-  return base + increase;
+  return base + increase + permanentIncrease;
 };
 
 /**

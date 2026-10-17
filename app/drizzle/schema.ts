@@ -1,3 +1,4 @@
+import type { TitleEffect } from "@/validators/title";
 import type { MethodSize } from "@/validators/methodSize";
 import type { EventTournamentState } from "@/validators/tournament";
 import { z } from "zod";
@@ -2733,7 +2734,8 @@ export const userData = mysqlTable(
       .default(0)
       .notNull(),
     extraReskinSlots: tinyint("extraReskinSlots").default(2).notNull(),
-    customTitle: varchar("customTitle", { length: 191 }).default("").notNull(),
+    npcTitle: varchar("npcTitle", { length: 191 }).default("").notNull(),
+    activeTitleId: varchar("activeTitleId", { length: 191 }),
     marriageSlots: int("marriageSlots", { unsigned: true }).default(1).notNull(),
     aiProfileId: varchar("aiProfileId", { length: 191 }),
     effects: json("effects").$type<ZodAllTags[]>().default([]).notNull(),
@@ -2995,6 +2997,8 @@ export const userDataRelations = relations(userData, ({ one, many }) => ({
   farmCollectionLogs: many(farmCollectionLog),
   jutsus: many(userJutsu),
   badges: many(userBadge),
+  titles: many(userTitle),
+  activeTitle: one(title, { fields: [userData.activeTitleId], references: [title.id] }),
   recruitedUsers: many(userData, { relationName: "recruiter" }),
   recruiter: one(userData, {
     fields: [userData.recruiterId],
@@ -4661,6 +4665,35 @@ export const dailyBankInterestRelations = relations(dailyBankInterest, ({ one })
     fields: [dailyBankInterest.userId],
     references: [userData.userId],
   }),
+}));
+
+/** Staff catalog; legacy labels belong to one player and stay out of catalog tools. */
+export const title = mysqlTable("Title", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  name: varchar("name", { length: 191 }).notNull(),
+  description: varchar("description", { length: 512 }).default("").notNull(),
+  effects: json("effects").$type<TitleEffect[]>().default([]).notNull(),
+  legacyOwnerId: varchar("legacyOwnerId", { length: 191 }),
+  archived: boolean("archived").default(false).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+}, (table) => ({ catalog: index("Title_catalog_idx").on(table.legacyOwnerId, table.archived) }));
+export type Title = InferSelectModel<typeof title>;
+
+/** Snapshot permanent bonuses at acquisition so content edits cannot rewrite accrued recovery. */
+export const userTitle = mysqlTable("UserTitle", {
+  userId: varchar("userId", { length: 191 }).notNull(),
+  titleId: varchar("titleId", { length: 191 }).notNull(),
+  effects: json("effects").$type<TitleEffect[]>().default([]).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.userId, table.titleId] }),
+  title: index("UserTitle_title_idx").on(table.titleId),
+}));
+export type UserTitle = InferSelectModel<typeof userTitle>;
+export const userTitleRelations = relations(userTitle, ({ one }) => ({
+  title: one(title, { fields: [userTitle.titleId], references: [title.id] }),
+  user: one(userData, { fields: [userTitle.userId], references: [userData.userId] }),
 }));
 
 export const badge = mysqlTable(

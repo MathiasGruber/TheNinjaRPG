@@ -100,6 +100,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   const { data: sageModes, isPending: l10 } =
     api.sageMode.getAllNames.useQuery(undefined);
 
+  const { data: titles, isPending: l11 } = api.title.getAllNames.useQuery();
+
   // Mutation for updating item
   const utils = api.useUtils();
   const { mutateAsync: updateQuest, isPending: isUpdating } =
@@ -193,6 +195,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
           reward_skillpoints: data.reward_skillpoints,
           reward_jutsus: data.reward_jutsus,
           reward_badges: data.reward_badges,
+          reward_titles: data.reward_titles,
           reward_items: data.reward_items,
           reward_hunter_items: data.reward_hunter_items,
           reward_hunter_items_ids: data.reward_hunter_items_ids,
@@ -256,7 +259,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10 || l11;
 
   // Watch for changes
   const imageUrl = useWatch({
@@ -542,6 +545,15 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
       multiple: true,
     });
   }
+
+  if (titles)
+    formData.push({
+      id: "reward_titles",
+      label: "Give Title",
+      type: "db_values",
+      values: titles,
+      multiple: true,
+    });
 
   // Add badges if they exist
   if (badges?.data) {

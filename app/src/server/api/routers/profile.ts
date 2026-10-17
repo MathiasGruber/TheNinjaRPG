@@ -63,6 +63,7 @@ import type {
   UserJutsu,
   UserQuest,
   UserQueue,
+  UserTitle,
   UserVote,
   Village,
   VillageAlliance,
@@ -169,6 +170,7 @@ import {
   getTimedRegenerationGain,
   type TimedBuff,
 } from "@/libs/timedBuffs";
+import { regenerationBuffs } from "@/libs/titles";
 import {
   applyMasteryTrainingGains,
   getReducedGainsDays,
@@ -226,6 +228,7 @@ import {
 } from "@/server/utils/regeneration";
 import { retainSanctionIps } from "@/server/utils/sanctionTombstone";
 import { fetchPublishedSectorMaps } from "@/server/utils/sectorMap";
+import { displayTitleSql } from "@/server/utils/titleDisplay";
 import {
   fetchJutsuQueueSummary,
   hasDueTimedJob,
@@ -241,7 +244,6 @@ import {
   canChangeUserRolesTo,
   canDeleteUsers,
   canEditBloodline,
-  canEditCustomTitle,
   canEditItems,
   canEditJutsus,
   canEditRank,
@@ -1629,23 +1631,6 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("Not allowed to change username");
       }
 
-      const customTitleChanged =
-        input.data.customTitle !== undefined &&
-        input.data.customTitle !== target.customTitle;
-      if (customTitleChanged && !canEditCustomTitle(user.role)) {
-        return errorResponse("Not allowed to change custom title");
-      }
-      if (
-        customTitleChanged &&
-        input.data.customTitle &&
-        isReservedCustomTitle(
-          input.data.customTitle,
-          villages.map((v) => v.name),
-        )
-      ) {
-        return errorResponse(RESERVED_CUSTOM_TITLE_MESSAGE);
-      }
-
       const bloodlineChanged = input.data.bloodlineId !== target.bloodlineId;
       if (bloodlineChanged && !canEditBloodline(user.role)) {
         return errorResponse("Not allowed to change bloodline");
@@ -1783,7 +1768,6 @@ export const profileRouter = createTRPCRouter({
           .set({
             userId: target.userId,
             ...(usernameChanged ? { username: input.data.username } : {}),
-            ...(customTitleChanged ? { customTitle: input.data.customTitle } : {}),
             ...(bloodlineChanged
               ? {
                   ...bloodrightSwapRefund(input.data.bloodlineId),
@@ -1839,7 +1823,7 @@ export const profileRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Set empty strings to null
       setEmptyStringsToNulls(input.data, userData);
-      input.data.customTitle = input.data.customTitle ?? "";
+      input.data.npcTitle = input.data.npcTitle ?? "";
 
       // Queries
       const newUsername = input.data.username;
@@ -1869,10 +1853,10 @@ export const profileRouter = createTRPCRouter({
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
       if (usernameTaken) return errorResponse("Username already taken");
       if (
-        input.data.customTitle &&
-        input.data.customTitle !== ai.customTitle &&
+        input.data.npcTitle &&
+        input.data.npcTitle !== ai.npcTitle &&
         isReservedCustomTitle(
-          input.data.customTitle,
+          input.data.npcTitle,
           villages.map((v) => v.name),
         )
       ) {
@@ -2124,6 +2108,7 @@ export const profileRouter = createTRPCRouter({
             where: and(ne(userItem.equipped, "NONE"), gt(userItem.quantity, 0)),
             with: { item: true, imbuements: { with: { item: true } } },
           },
+          titles: { with: { title: true } },
           userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
         },
       });
@@ -2352,6 +2337,9 @@ export const profileRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       return ctx.drizzle.query.userData.findMany({
+        extras: (table) => ({
+          displayTitle: displayTitleSql(table).as("displayTitle"),
+        }),
         columns: {
           userId: true,
           username: true,
@@ -2362,7 +2350,7 @@ export const profileRouter = createTRPCRouter({
           role: true,
           federalStatus: true,
           isAi: true,
-          customTitle: true,
+
           nRecruited: true,
           tavernMessages: true,
           tavernUsernameColor: true,
@@ -2396,6 +2384,9 @@ export const profileRouter = createTRPCRouter({
         }),
         ctx.drizzle.query.userData.findFirst({
           where: and(eq(userData.userId, input.userId)),
+          extras: (table) => ({
+            displayTitle: displayTitleSql(table).as("displayTitle"),
+          }),
           columns: {
             aiProfileId: true,
             avatar: true,
@@ -2405,7 +2396,7 @@ export const profileRouter = createTRPCRouter({
             curChakra: true,
             curHealth: true,
             curStamina: true,
-            customTitle: true,
+
             deletionAt: true,
             earnedExperience: true,
             experience: true,
@@ -2594,6 +2585,9 @@ export const profileRouter = createTRPCRouter({
     })
     .query(async ({ ctx }) => {
       return ctx.drizzle.query.userData.findMany({
+        extras: (table) => ({
+          displayTitle: displayTitleSql(table).as("displayTitle"),
+        }),
         columns: { userId: true, username: true, avatarLight: true, rankedLp: true },
         where: eq(userData.isAi, false),
         orderBy: [desc(userData.rankedLp), desc(userData.experience)],
@@ -3192,6 +3186,7 @@ const fetchUpdatedUserOnce = async (props: {
   const queryUpdatedUser = () =>
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
+      extras: (table) => ({ displayTitle: displayTitleSql(table).as("displayTitle") }),
       with: {
         bloodline: true,
         questParty: { with: questPartyRelations },
@@ -3242,6 +3237,7 @@ const fetchUpdatedUserOnce = async (props: {
           ),
         },
         votes: true,
+        titles: { with: { title: true } },
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
         cookingJobs: true,
         raidBuffs: true,
@@ -3379,6 +3375,7 @@ const fetchUpdatedUserOnce = async (props: {
         regeneration: calcActiveUserRegen(user, settings, false),
         regenAt: user.regenAt,
         raidBuffs: user.raidBuffs,
+        titles: user.titles,
       };
       const recovery = getUserRegenerationGain(regenerationUser, now);
       const maxEnergy = calcMaxEnergy(user);
@@ -3546,7 +3543,8 @@ const fetchUpdatedUserOnce = async (props: {
   // Retain the stored base rate separately from the derived rate for accrued ticks.
   // Settle accrued pools when a regeneration bonus crosses a boundary, even inside the normal throttle.
   if (
-    user?.raidBuffs.some(
+    user &&
+    regenerationBuffs(user).some(
       (buff) =>
         buff.effects.some((effect) => effect.type === "increaseregeneration") &&
         [buff.createdAt, buff.expiresAt].some(
@@ -3563,7 +3561,10 @@ const fetchUpdatedUserOnce = async (props: {
     // Add bloodline, structure, etc.  regen to regeneration
     accruedBaseRegeneration = calcActiveUserRegen(user, settings, false);
     user.regenerationWithoutTimedBuffs = accruedBaseRegeneration;
-    user.regeneration = getTimedRegeneration(accruedBaseRegeneration, user.raidBuffs);
+    user.regeneration = getTimedRegeneration(
+      accruedBaseRegeneration,
+      regenerationBuffs(user),
+    );
     user.maxEnergy = calcMaxEnergy(user);
   }
 
@@ -3679,7 +3680,7 @@ const fetchUpdatedUserOnce = async (props: {
           );
           regenerationAfterExpulsion = getTimedRegeneration(
             user.regenerationWithoutTimedBuffs,
-            user.raidBuffs,
+            regenerationBuffs(user),
           );
         }
         forceRegen = true;
@@ -3773,7 +3774,7 @@ const fetchUpdatedUserOnce = async (props: {
     const regenerationGain = (fromTick: number, toTick: number) =>
       getTimedRegenerationGain(
         accruedBaseRegeneration,
-        user.raidBuffs,
+        regenerationBuffs(user),
         new Date(user.regenAt.getTime() + fromTick * REGEN_SECONDS * 1000),
         toTick - fromTick,
         REGEN_SECONDS,
@@ -4626,6 +4627,8 @@ export type UserWithRelations =
   | (UserData & {
       /** Derived regeneration before timed bonuses, retained for pending recovery ticks. */
       regenerationWithoutTimedBuffs?: number;
+      displayTitle?: string;
+      titles?: (UserTitle & { title?: import("@/drizzle/schema").Title })[];
       raidBuffs?: TimedBuff[];
       questParty?: LoadedQuestParty | null;
       pvpBoost?: ReturnType<typeof getPvpBoost>;

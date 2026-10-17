@@ -50,7 +50,7 @@ describe("getPublicUsersSchema", () => {
 });
 
 describe("updateUserSchema", () => {
-  it("allows unchanged legacy reserved titles through to change-aware validation", () => {
+  it("ignores removed player custom-title inputs", () => {
     expect(
       updateUserSchema.safeParse({
         username: "LegacyUser",
@@ -77,7 +77,7 @@ describe("getSearchValidator", () => {
       federalStatus: "NONE" as const,
       role: "EVENT" as const,
       isOutlaw: true,
-      customTitle: "Event Host",
+      displayTitle: "Event Host",
       nRecruited: 3,
       tavernMessages: 99,
       tavernUsernameColor: "NAVY" as const,
