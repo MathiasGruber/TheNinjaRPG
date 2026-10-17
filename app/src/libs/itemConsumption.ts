@@ -29,3 +29,20 @@ export const finishItemConsumeRequest = (userId: string, userItemId: string) => 
     // Storage availability does not affect the authoritative server receipt.
   }
 };
+
+/**
+ * Build the consume mutation input for an owned stack, shared by every consume button.
+ * The server rejects meals without the rendered quantity snapshot; meals settle
+ * immediately, so only non-meals keep a retryable opening identity.
+ */
+export const getItemConsumeInput = (
+  userId: string,
+  useritem: { id: string; quantity: number; item: { itemType: string } },
+) =>
+  useritem.item.itemType === "MEAL"
+    ? { userItemId: useritem.id, expectedQuantity: useritem.quantity }
+    : {
+        userItemId: useritem.id,
+        expectedQuantity: useritem.quantity,
+        requestId: getItemConsumeRequestId(userId, useritem.id),
+      };

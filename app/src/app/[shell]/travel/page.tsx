@@ -62,10 +62,7 @@ import {
   VILLAGE_REDUCED_GAINS_DAYS,
 } from "@/drizzle/constants";
 import type { UserItemWithItem } from "@/drizzle/schema";
-import {
-  finishItemConsumeRequest,
-  getItemConsumeRequestId,
-} from "@/libs/itemConsumption";
+import { finishItemConsumeRequest, getItemConsumeInput } from "@/libs/itemConsumption";
 
 type RevealedPlayer = {
   userId: string;
@@ -671,6 +668,13 @@ function Travel() {
           utils.profile.getUser.invalidate(),
           utils.item.getUserItems.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
+          utils.raids.getUserRaidBuffs.invalidate(),
+        ]);
+      } else if (useritem?.item.itemType === "MEAL") {
+        // A rejected snapshot must refresh the next modal's quantity and account state.
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.item.getUserItems.invalidate(),
         ]);
       }
     },
@@ -1457,13 +1461,7 @@ function Travel() {
                     <Button
                       variant="info"
                       onClick={() =>
-                        consume({
-                          userItemId: useritem.id,
-                          requestId: getItemConsumeRequestId(
-                            userData?.userId ?? "",
-                            useritem.id,
-                          ),
-                        })
+                        consume(getItemConsumeInput(userData?.userId ?? "", useritem))
                       }
                     >
                       <Cookie className="mr-2 h-5 w-5" />
