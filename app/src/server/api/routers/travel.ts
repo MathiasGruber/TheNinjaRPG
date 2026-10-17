@@ -1003,6 +1003,7 @@ export const travelRouter = createTRPCRouter({
                   client: ctx.drizzle,
                   scaleTarget: true,
                   biome: "default",
+                  autoCombatUserIds: user.defaultAutoCombat ? [ctx.userId] : undefined,
                 },
                 "VILLAGE_PROTECTOR",
               );

@@ -451,6 +451,7 @@ export const overworldAiRouter = createTRPCRouter({
             client: ctx.drizzle,
             placement,
             userId: ctx.userId,
+            autoCombat: activeUser.defaultAutoCombat,
             scaleTarget,
             scaleGains,
             questBattleSource: { questId: bound.questId, objectiveId: full.id },
@@ -591,6 +592,7 @@ export const overworldAiRouter = createTRPCRouter({
           client: ctx.drizzle,
           placement,
           userId: ctx.userId,
+          autoCombat: activeUser.defaultAutoCombat,
           scaleTarget: true,
           scaleGains: 1,
         });
@@ -870,6 +872,8 @@ const startOverworldBattle = (opts: {
   client: DrizzleClient;
   placement: NonNullable<Awaited<ReturnType<typeof fetchPlacement>>>;
   userId: string;
+  /** The player's stored defaultAutoCombat preference. */
+  autoCombat: boolean;
   scaleTarget: boolean;
   scaleGains: number;
   allyAiIds?: string[];
@@ -895,6 +899,7 @@ const startOverworldBattle = (opts: {
       client: opts.client,
       scaleTarget: opts.scaleTarget,
       biome: "default",
+      autoCombatUserIds: opts.autoCombat ? [opts.userId] : undefined,
     },
     "OVERWORLD",
     opts.scaleGains,

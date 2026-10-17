@@ -796,7 +796,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
               onCheckedChange={setAutoCombat}
             />
             <Label htmlFor="default-auto-combat">
-              Start battles with auto combat (your AI profile fights for you)
+              Start non-PvP battles with auto combat (your AI profile fights for you)
             </Label>
             <br />
             <br />
