@@ -24,6 +24,7 @@ import {
   protectedProcedure,
   publicProcedure,
 } from "@/server/api/trpc";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canDeleteConceptArt, getBanOrSilenceRestriction } from "@/utils/permissions";
 import {
   conceptArtFilterSchema,
@@ -133,30 +134,37 @@ export const conceptartRouter = createTRPCRouter({
       if (!imageUrl) return errorResponse("Failed to create image");
       // Mutate
       const imageId = nanoid();
-      const debit = await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: sql`${userData.reputationPoints} - ${COST_CONCEPT_IMAGE}`,
-        })
-        .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            gte(userData.reputationPoints, COST_CONCEPT_IMAGE),
-          ),
-        );
-      if (debit.rowsAffected === 0) {
+      // The charge and image must commit together so a failed insert cannot spend points.
+      const saved = await retryOnDeadlock(() =>
+        ctx.drizzle.transaction(async (tx) => {
+          const debit = await tx
+            .update(userData)
+            .set({
+              reputationPoints: sql`${userData.reputationPoints} - ${COST_CONCEPT_IMAGE}`,
+            })
+            .where(
+              and(
+                eq(userData.userId, ctx.userId),
+                gte(userData.reputationPoints, COST_CONCEPT_IMAGE),
+              ),
+            );
+          if (debit.rowsAffected === 0) return false;
+          await tx.insert(conceptImage).values({
+            id: imageId,
+            userId: ctx.userId,
+            prompt: input.prompt,
+            seed: input.seed,
+            status: "success",
+            image: imageUrl,
+            mediaType: "image",
+            done: true,
+          });
+          return true;
+        }),
+      );
+      if (!saved) {
         return errorResponse("Not enough reputation points");
       }
-      await ctx.drizzle.insert(conceptImage).values({
-        id: imageId,
-        userId: ctx.userId,
-        prompt: input.prompt,
-        seed: input.seed,
-        status: "success",
-        image: imageUrl,
-        mediaType: "image",
-        done: true,
-      });
       return {
         success: true,
         message: "Image created",

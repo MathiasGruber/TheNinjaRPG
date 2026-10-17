@@ -734,8 +734,8 @@ export const homeRouter = createTRPCRouter({
 });
 
 /** Cosmetic home writes need account state and its home sector without advancing gameplay timers. */
-const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
-  client.query.userData.findFirst({
+const fetchHomeFurnitureUser = async (client: DrizzleClient, userId: string) => {
+  const user = await client.query.userData.findFirst({
     where: eq(userData.userId, userId),
     columns: {
       homeType: true,
@@ -759,6 +759,9 @@ const fetchHomeFurnitureUser = (client: DrizzleClient, userId: string) =>
       },
     },
   });
+  // Deleted item definitions can leave inventory rows behind, as in fetchUserItems.
+  return user && { ...user, items: user.items.filter((owned) => owned.item) };
+};
 
 type HomeFurnitureUser = NonNullable<
   Awaited<ReturnType<typeof fetchHomeFurnitureUser>>

@@ -9,22 +9,29 @@ export type TimeFrame = (typeof timeFrame)[number];
 export const mediaTypes = ["image", "video"] as const;
 
 export const conceptArtPromptSchema = z.object({
-  prompt: z.string().min(0).prefault(""),
+  prompt: z.string().max(5000, "Prompt cannot exceed 5000 characters").prefault(""),
   seed: z
     .int()
     .min(0)
-    .max(4294967295)
+    .max(2147483647, "Seed cannot exceed 2147483647")
     .prefault(() => Math.floor(Math.random() * 1000000)),
 });
 export type ConceptPromptType = z.infer<typeof conceptArtPromptSchema>;
 
 export const conceptVideoPromptSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required"),
-  negative_prompt: z.string().optional().prefault(""),
+  prompt: z
+    .string()
+    .min(1, "Prompt is required")
+    .max(5000, "Prompt cannot exceed 5000 characters"),
+  negative_prompt: z
+    .string()
+    .max(5000, "Negative prompt cannot exceed 5000 characters")
+    .optional()
+    .prefault(""),
   seed: z
     .int()
     .min(0)
-    .max(4294967295)
+    .max(2147483647, "Seed cannot exceed 2147483647")
     .prefault(() => Math.floor(Math.random() * 1000000)),
   start_image: z
     .url()

@@ -77,6 +77,28 @@ describeWithDatabase("owned furniture persistence", () => {
     return { owner: users[0]!, inventory };
   };
 
+  it("ignores inventory with deleted item definitions in home reads and layout saves", async () => {
+    const db = await getTestDatabase();
+    await insertUserItems([{ id: "orphan-row", userId, itemId: "deleted-item", storedAtHome: true, homeX: 50, homeY: 50 }]);
+    await db.update(userHome).set({ isPublic: true }).where(eq(userHome.userId, userId));
+    const owner = await callerFor(homeRouter, userId);
+    const visitor = await callerFor(homeRouter, "other-owner");
+    const before = await snapshot();
+    const read = await recordQueries(() => owner.getUserHome());
+    expect(read.statements).toHaveLength(1);
+    expect(read.result?.furniture.map(({ id }) => id)).toContain("cabinet-a");
+    expect(read.result?.furniture.map(({ id }) => id)).not.toContain("orphan-row");
+    expect(read.result?.layout.map(({ id }) => id)).not.toContain("orphan-row");
+    const visit = await visitor.getVisitedHome({ userId });
+    expect(visit.success).toBe(true);
+    expect(visit.home?.furniture.map(({ id }) => id)).toContain("cabinet-a");
+    expect(visit.home?.furniture.map(({ id }) => id)).not.toContain("orphan-row");
+    expect(await snapshot()).toEqual(before);
+    expect((await owner.saveFurnitureLayout({ homeType: "NONE", revision: 0, placements: layout() })).success).toBe(true);
+    expectLayout((await owner.getUserHome())?.layout, layout());
+    expect((await snapshot()).inventory.find(({ id }) => id === "orphan-row")).toEqual(before.inventory.find(({ id }) => id === "orphan-row"));
+  });
+
   it("publishes separate rooms and finishes together, then stores removed-room furniture permanently on downgrade", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ homeType: "TOWN_HOUSE" }).where(eq(userData.userId, userId));
