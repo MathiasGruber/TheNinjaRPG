@@ -312,7 +312,7 @@ export const ENTITY_CONFIG: Record<ContentProposalEntityType, EntityConfig> = {
         await client
           .select({ name: title.name })
           .from(title)
-          .where(inArray(title.name, names))
+          .where(and(isNull(title.legacyOwnerId), inArray(title.name, names)))
       ).map((row) => row.name),
   },
   GAME_ASSET: {

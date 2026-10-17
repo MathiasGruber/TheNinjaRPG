@@ -11,6 +11,7 @@ import {
   storePurchase,
   storePurchaseTransfer,
   storeUserIdAlias,
+  title,
   userData,
   userDevice,
   userHome,
@@ -20,6 +21,7 @@ import {
   userPushPreference,
   userReport,
   userReportEmbedding,
+  userTitle,
   village,
 } from "@/drizzle/schema";
 import { OPENAI_REPORT_EMBEDDING_MODEL, REPORT_EMBEDDING_DIMENSIONS, STARTING_REPUTATION_POINTS } from "@/drizzle/constants";
@@ -63,6 +65,8 @@ describeWithDatabase("staff user-id rename", () => {
       userDevice,
       userHome,
       userPet,
+      userTitle,
+      title,
       storeEntitlementRevocation,
       storeEntitlementState,
       storePurchaseTransfer,
@@ -185,6 +189,32 @@ describeWithDatabase("staff user-id rename", () => {
     await deleteUser(database, OLD_USER_ID);
     expect((await database.select().from(auctionOffer))[0]?.status).toBe("CANCELLED");
     expect(await database.select().from(userData).where(eq(userData.userId, OLD_USER_ID))).toHaveLength(0);
+  });
+
+  it("moves collected titles and private labels on rename and removes only the deleted account's titles", async () => {
+    const database = await getTestDatabase();
+    const effects = [{ type: "increaseregeneration" as const, power: 7 }];
+    await database.insert(title).values([
+      { id: "rename-title", name: "Public Title", effects },
+      { id: "rename-private-title", name: "Private Label", legacyOwnerId: OLD_USER_ID },
+    ]);
+    await database.insert(userTitle).values([
+      { userId: OLD_USER_ID, titleId: "rename-title", effects },
+      { userId: OLD_USER_ID, titleId: "rename-private-title" },
+      { userId: STAFF, titleId: "rename-title", effects },
+    ]);
+    await database.update(userData).set({ activeTitleId: "rename-private-title" }).where(eq(userData.userId, OLD_USER_ID));
+    const caller = await callerFor(staffRouter, STAFF);
+    expect((await caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID })).success).toBe(true);
+    expect(await database.query.userTitle.findMany({ where: eq(userTitle.userId, OLD_USER_ID) })).toHaveLength(0);
+    const owned = await database.query.userTitle.findMany({ where: eq(userTitle.userId, NEW_USER_ID) });
+    expect(owned).toHaveLength(2);
+    expect(owned.find((entry) => entry.titleId === "rename-title")?.effects).toEqual(effects);
+    expect((await database.query.title.findFirst({ where: eq(title.id, "rename-private-title") }))?.legacyOwnerId).toBe(NEW_USER_ID);
+    expect((await database.query.userData.findFirst({ where: eq(userData.userId, NEW_USER_ID) }))?.activeTitleId).toBe("rename-private-title");
+    await deleteUser(database, NEW_USER_ID);
+    expect((await database.query.userTitle.findMany()).map((entry) => entry.userId)).toEqual([STAFF]);
+    expect((await database.query.title.findMany()).map((entry) => entry.id)).toEqual(["rename-title"]);
   });
 
   it("removes stored moderation summaries for a deleted reporter or reported user", async () => {

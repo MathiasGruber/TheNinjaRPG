@@ -12,6 +12,7 @@ import { validateTitleRewardIds } from "@/server/utils/titleRewards";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { getUnavailableRewardCards, buildRewardChoiceCards } from "@/libs/rewardChoice";
 import { postProcessRewards } from "@/libs/quest";
+import { ENTITY_CONFIG } from "@/libs/contentReview/entities";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertUsers, insertQuests, insertQuestHistory } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
@@ -86,6 +87,11 @@ describeWithDatabase("title ownership, account recovery and presentation", () =>
     const staff = await callerFor(titleRouter, "title-staff");
     expect((await staff.getAll()).map((entry) => entry.id)).not.toContain("private");
     expect((await staff.update({ id: "private", data: { name: "Stolen", description: "", effects: [], archived: false } })).success).toBe(false);
+  });
+
+  it("excludes private player labels from catalog name collisions while retaining archived catalog names", async () => {
+    const db = await getTestDatabase();
+    expect((await ENTITY_CONFIG.TITLE.findNames(db, ["Hero", "Private", "Archived"])).sort()).toEqual(["Archived", "Hero"]);
   });
 
   it("delivers title rewards through the shared payout path and resolves selected labels in public and aliased tavern queries", async () => {
