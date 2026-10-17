@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Grid, rectangle } from "honeycomb-grid";
-import { COMBAT_ENMITY_PER_DAMAGE, PET_BASE_STAT } from "@/drizzle/constants";
+import { BattleTypes, COMBAT_ENMITY_PER_DAMAGE, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
 import { performAIaction } from "@/libs/combat/ai_v2";
-import { addPetsToBattle, getPetSpawnLocation } from "@/libs/combat/pets";
+import { addPetsToBattle, getPetSpawnLocation, petsAllowedInBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
 import { hasLiveSummon, spliceOrphanedSummons } from "@/libs/combat/summon";
 import { applyPoolAdjustmentsToBase, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
@@ -50,6 +50,36 @@ const add = (battle: ReturnType<typeof scenario>, pets = [petFixture()]) =>
   addPetsToBattle({ ...battle, pets });
 
 describe("owned pets in combat", () => {
+  let previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+  beforeEach(() => {
+    previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+    PET_BATTLE_CONFIG.enabled = true;
+  });
+  afterEach(() => {
+    PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+  });
+
+  it.each([...BattleTypes])("excludes pets, abilities and settlement identities from %s while companion battles are disabled", (battleType) => {
+    PET_BATTLE_CONFIG.enabled = false;
+    const battle = scenario();
+    battle.battleType = battleType;
+    battle.extraState.petIdsByOwner = { owner: "previous-pet" };
+    const originalUsers = structuredClone(battle.usersState);
+    const originalEffects = structuredClone(battle.usersEffects);
+    const jutsu = ownedPetJutsu(petJutsuFixture());
+    const skill = ownedPetSkill(petSkillFixture());
+    addPetsToBattle({ ...battle,
+      pets: [petFixture({ jutsuIds: [jutsu.jutsuId], skillIds: [skill.skillId] })],
+      abilitiesByOwner: { owner: { jutsus: [jutsu], skills: [skill] } },
+    });
+    expect(petsAllowedInBattle(battleType)).toBe(false);
+    expect(battle.usersState).toEqual(originalUsers);
+    expect(battle.usersEffects).toEqual(originalEffects);
+    expect(battle.extraState.petIdsByOwner).toEqual({});
+    expect(battle.extraState.aiProfiles).toEqual({});
+    expect(battle.extraState.jutsus).toEqual({});
+  });
+
   it("uses pet progression and a distinct identity without inheriting the owner's abilities", () => {
     const battle = scenario();
     add(battle);

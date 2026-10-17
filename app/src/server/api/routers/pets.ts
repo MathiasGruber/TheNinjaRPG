@@ -6,6 +6,7 @@ import {
   CombatStatNames,
   MAP_WAKE_ISLAND_SECTOR,
   PET_ABILITY_SLOT_COST,
+  PET_BATTLE_CONFIG,
   PET_COLLECTION_SLOT_COST,
   PET_FEED_EXPERIENCE_PER_RANK,
   PET_GENERATION_LEASE_MS,
@@ -584,6 +585,8 @@ export const petsRouter = createTRPCRouter({
       const restriction = petMutationBlockMessage(user, pet);
       if (restriction || !user || !pet)
         return errorResponse(restriction ?? "Pet not found");
+      if (input.battleEnabled && !PET_BATTLE_CONFIG.enabled)
+        return errorResponse("Companion battles are not available yet.");
       if (input.battleEnabled && pet.rank > getMaxPetRank(user.rank))
         return errorResponse("Your rank does not support this companion rank.");
       const { petId: _petId, ...patch } = input;
@@ -708,7 +711,7 @@ export const petsRouter = createTRPCRouter({
       return changed
         ? {
             success: true,
-            message: `Your companion is now ${next.name}. Generate its evolved appearance to return it to battle.`,
+            message: `Your companion is now ${next.name}. Generate its evolved appearance to continue training.`,
           }
         : changedResponse();
     }),

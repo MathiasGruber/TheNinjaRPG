@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
+import { PET_BATTLE_CONFIG } from "@/drizzle/constants";
 import { aiProfile, battle, itemLoadout, jutsu, skillTree, userData, userJutsu, userPet, petSpecies, userSkill } from "@/drizzle/schema";
 import { getEffectiveMaxPool } from "@/libs/combat/util";
 import { calcHP } from "@/libs/profile";
@@ -12,12 +13,18 @@ import { insertPetSpecies, insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("companion ally passives at battle initiation", () => {
+  let previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
   beforeEach(async () => {
+    previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+    PET_BATTLE_CONFIG.enabled = true;
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(petSpecies, battle, aiProfile, itemLoadout, userJutsu, jutsu, userSkill, skillTree, userPet, userData);
     await insertPetSpecies(initialPetSpecies);
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+    vi.restoreAllMocks();
+  });
 
   it.each(["left", "right"] as const)("includes only the caster's %s team and initializes pet pools once", async (direction) => {
     const client = await getTestDatabase();

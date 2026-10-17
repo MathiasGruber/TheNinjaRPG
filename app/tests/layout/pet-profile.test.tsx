@@ -116,6 +116,21 @@ const mount = () => {
 };
 const selectTab = (view: ReturnType<typeof mount>, name: string) => fireEvent.mouseDown(view.getByRole("tab", { name }), { button: 0, ctrlKey: false });
 
+it.each([false, true])("keeps companion combat off and unavailable for a saved preference of %s", async (battleEnabled) => {
+  data.pet!.battleEnabled = battleEnabled;
+  const view = mount();
+  await view.findByRole("tab", { name: "Battle" });
+  selectTab(view, "Battle");
+  const toggle = view.getByRole("switch", { name: "Join me in battle" });
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
+  expect((toggle as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById(toggle.getAttribute("aria-describedby")!)?.textContent).toBe("Companion battles are not available yet.");
+  expect(view.getByText("Unavailable")).toBeTruthy();
+  expect(view.queryByText("Joining battle")).toBeNull();
+  fireEvent.click(toggle);
+  expect(update).not.toHaveBeenCalled();
+});
+
 it("shows focused activities and preserves an AI draft while switching tabs", async () => {
   const view = mount();
   await view.findByRole("tablist", { name: "Companion activities" });

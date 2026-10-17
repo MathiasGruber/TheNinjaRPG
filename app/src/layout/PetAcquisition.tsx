@@ -338,7 +338,7 @@ export function PetAcquisition() {
               <p className="text-sm">
                 {pet.generationStatus === "GENERATING"
                   ? "Your companion's image is being created. You can safely return to your pet profile while it finishes."
-                  : "Your companion has been claimed. Finish its appearance for free before it can join battle."}
+                  : "Your companion has been claimed. Finish its appearance for free to train and earn experience."}
               </p>
             )}
             {!appearanceReady && (

@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CombatStatNames,
   MAP_WAKE_ISLAND_SECTOR,
+  PET_BATTLE_CONFIG,
   PET_RANKS,
   PET_REPLACEMENT_COST,
   PET_SANCTUARY_NAME,
@@ -610,11 +611,12 @@ export function PetProfile() {
             How companion experience and battles work
           </summary>
           <p className="mt-2">
-            While your eligible active companion joins battle, new player experience
-            also earns pet experience. Switching companions keeps each pet's progress
-            and unused experience. Companions join ordinary PvP and standard PvE. Ranked
-            matches and automatically resolved Kage and clan challenges exclude
-            companions.
+            New player experience also earns experience for your eligible active
+            companion. Switching companions keeps each pet's progress and unused
+            experience.{" "}
+            {PET_BATTLE_CONFIG.enabled
+              ? "Companions join ordinary PvP and standard PvE. Ranked matches and automatically resolved Kage and clan challenges exclude companions."
+              : "Companion battles are not available yet."}
           </p>
           <p className="mt-2">Assigned experience: {formatStat(pet.experience)}.</p>
         </details>
@@ -633,7 +635,7 @@ export function PetProfile() {
             <p className="text-sm">
               {pet.generationStatus === "FAILED"
                 ? "The last image attempt did not finish. Retry this same companion for free."
-                : "Your pet can join battle and earn experience after its appearance is ready."}{" "}
+                : "Your pet can train and earn experience after its appearance is ready."}{" "}
               Creating the image can take a few minutes.
             </p>
             <p className="text-muted-foreground text-sm">
@@ -665,9 +667,9 @@ export function PetProfile() {
           <p className="mt-4 rounded border bg-muted/30 p-3" role="status">
             {data.maxRank > 0
               ? `Your current shinobi rank supports companions up to ${getPetRank(data.maxRank).name}.`
-              : "Your current shinobi rank does not support a battle companion."}{" "}
-            This pet keeps its progress and can join battle again when your rank allows
-            it.
+              : "Your current shinobi rank does not support this companion rank."}{" "}
+            This pet keeps its progress. Reach the required shinobi rank to continue
+            training and evolution.
           </p>
         )}
         {userData.status !== "AWAKE" && (
@@ -812,7 +814,7 @@ export function PetProfile() {
                 data.unusedExperience < 1
               }
               title="Assign Pet Experience"
-              subtitle={`${formatStat(data.unusedExperience)} points available for your companion${!rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn experience with your pet joining battle to allocate points" : ""}`}
+              subtitle={`${formatStat(data.unusedExperience)} points available for your companion${!rankAllowed ? " · Your shinobi rank must support this pet" : !appearanceReady ? " · Finish its appearance to allocate points" : userData.status !== "AWAKE" ? " · You must be awake to allocate points" : data.unusedExperience < 1 ? " · Earn player experience with an eligible active companion to allocate points" : ""}`}
               isPending={assign.isPending}
             />
           </div>
@@ -1116,8 +1118,12 @@ export function PetProfile() {
               <div className="flex items-center gap-3">
                 <Switch
                   id="pet-battle-enabled"
-                  checked={pet.battleEnabled}
+                  checked={PET_BATTLE_CONFIG.enabled && pet.battleEnabled}
+                  aria-describedby={
+                    PET_BATTLE_CONFIG.enabled ? undefined : "pet-battle-availability"
+                  }
                   disabled={
+                    !PET_BATTLE_CONFIG.enabled ||
                     settingsDisabled ||
                     (!pet.battleEnabled && (!rankAllowed || !appearanceReady))
                   }
@@ -1127,12 +1133,22 @@ export function PetProfile() {
                 />
                 <Label htmlFor="pet-battle-enabled">Join me in battle</Label>
                 <Badge variant="outline">
-                  {pet.id === data.activePetId && canUsePet(pet, userData)
-                    ? "Joining battle"
-                    : "Paused"}
+                  {!PET_BATTLE_CONFIG.enabled
+                    ? "Unavailable"
+                    : pet.id === data.activePetId && canUsePet(pet, userData)
+                      ? "Joining battle"
+                      : "Paused"}
                 </Badge>
               </div>
             </div>
+            {!PET_BATTLE_CONFIG.enabled && (
+              <p
+                id="pet-battle-availability"
+                className="mt-3 text-muted-foreground text-sm"
+              >
+                Companion battles are not available yet.
+              </p>
+            )}
           </ContentBox>
           <div className="mt-4">
             <AiProfileEdit

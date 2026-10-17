@@ -668,6 +668,19 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     });
   });
 
+  it.each([false, true])("rejects enabling combat without changing a companion's saved %s preference or other settings", async (battleEnabled) => {
+    const database = await getTestDatabase();
+    await readyPet(database, { battleEnabled });
+    const original = await readPet(database);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect(await caller.updatePet({ petId, battleEnabled: true, name: "Rejected" })).toMatchObject({
+      success: false, message: "Companion battles are not available yet.",
+    });
+    expect(await readPet(database)).toEqual(original);
+    expect((await caller.updatePet({ petId, battleEnabled: false, name: "Still configurable" })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ battleEnabled: false, name: "Still configurable" });
+  });
+
   it("preserves a downgraded owner's pet while preventing enable, training, AI edits and evolution", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { rank: 2, artRank: 2, battleEnabled: false });

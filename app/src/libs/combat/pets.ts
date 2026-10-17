@@ -4,6 +4,7 @@ import type { BattleType, PetSpawnPosition, UserRank } from "@/drizzle/constants
 import {
   CombatStatNames,
   PET_BASE_STAT,
+  PET_BATTLE_CONFIG,
   RANKED_LOADOUT_MAX_SUMMON_JUTSUS,
 } from "@/drizzle/constants";
 import type { UserPet } from "@/drizzle/schema";
@@ -28,8 +29,9 @@ import {
 } from "@/libs/pets/progression";
 import { calcCP, calcHP, calcSP } from "@/libs/profile";
 
-/** Owned pets follow modes that disallow additional summoned combatants. */
+/** Companion combat availability takes precedence over owner settings and mode rules. */
 export const petsAllowedInBattle = (battleType: BattleType) =>
+  PET_BATTLE_CONFIG.enabled &&
   summonsAllowedInBattle({ battleType }) &&
   !(
     RANKED_LOADOUT_MAX_SUMMON_JUTSUS === 0 &&

@@ -622,6 +622,8 @@ export type UserRank = (typeof UserRanks)[number];
 
 export const EMAIL_REMINDER_EXPERIENCE_REWARD = 10_000;
 
+/** Shared availability gate for companion combat, including saved opt-in settings. */
+export const PET_BATTLE_CONFIG = { enabled: false };
 export const PET_BASE_STAT = 10;
 export const PET_REPLACEMENT_COST = 100;
 export const PET_MAX_COLLECTION_SLOTS = 6;

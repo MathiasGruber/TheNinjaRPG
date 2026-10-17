@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
+import { MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG } from "@/drizzle/constants";
 import { aiProfile, battle, jutsu, userData, userJutsu, userPet, petSpecies } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
@@ -15,7 +15,10 @@ import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables }
 const ownerId = "defender";
 
 describeWithDatabase("companion battle preload consistency", () => {
+  let previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
   beforeEach(async () => {
+    previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+    PET_BATTLE_CONFIG.enabled = true;
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     await resetTables(petSpecies, battle, aiProfile, userJutsu, jutsu, userPet, userData);
     await insertPetSpecies(initialPetSpecies);
@@ -33,7 +36,26 @@ describeWithDatabase("companion battle preload consistency", () => {
     await database.insert(jutsu).values(["first", "second"].map((id) => petJutsuFixture({ id: `${id}-strike`, name: `${id} strike` })));
     await database.insert(userJutsu).values(["first", "second"].map((id) => ({ id: `owned-${id}`, userId: ownerId, jutsuId: `${id}-strike`, equipped: false })));
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+    vi.restoreAllMocks();
+  });
+
+  it("starts battles without companion reads or actors when companion battles are disabled", async () => {
+    PET_BATTLE_CONFIG.enabled = false;
+    const database = await getTestDatabase();
+    const petReads = vi.spyOn(database.query.userPet, "findMany");
+    const petJutsuReads = vi.spyOn(database.query.userJutsu, "findMany");
+    expect((await startBattle(database)).success).toBe(true);
+    expect(petReads).not.toHaveBeenCalled();
+    expect(petJutsuReads).not.toHaveBeenCalled();
+    const saved = (await database.query.battle.findFirst())!;
+    expect(saved.usersState.filter((actor) => actor.petId)).toHaveLength(0);
+    expect(saved.extraState.petIdsByOwner).toEqual({});
+    expect(Object.keys(saved.extraState.aiProfiles).some((id) => id.startsWith("pet:"))).toBe(false);
+    expect(Object.keys(saved.extraState.jutsus)).not.toContain("first-strike");
+    expect(await database.query.userPet.findFirst({ where: eq(userPet.id, "first") })).toMatchObject({ battleEnabled: true });
+  });
 
   it("selects the active companion and its unequipped jutsu after both preloads precede a successful swap", async () => {
     const database = await getTestDatabase();

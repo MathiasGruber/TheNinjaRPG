@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { RANKED_PVP_STATS } from "@/drizzle/constants";
+import { PET_BATTLE_CONFIG, RANKED_PVP_STATS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
 import { addPetsToBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
@@ -304,7 +304,13 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     const initial = await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) });
     if (!pet || !initial) throw new Error("Missing pet lobby fixture");
     initial.usersState[0]!.activePetId = pet.id;
-    addPetsToBattle({ ...initial, pets: [pet] });
+    const previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
+    try {
+      PET_BATTLE_CONFIG.enabled = true;
+      addPetsToBattle({ ...initial, pets: [pet] });
+    } finally {
+      PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
+    }
     const petActor = initial.usersState.find((actor) => actor.petId === pet.id);
     if (!petActor?.aiProfileId) throw new Error("Missing preloaded pet AI identity");
     const aiProfileId = petActor.aiProfileId;
