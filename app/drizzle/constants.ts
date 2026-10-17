@@ -880,17 +880,29 @@ export type TournamentMatchState = (typeof TournamentMatchStates)[number];
 export const AutoBattleTypes = ["KAGE_AI", "CLAN_CHALLENGE"];
 
 /**
+ * Battle types that always start under manual control, whatever the player's
+ * stored defaultAutoCombat says: every PvP type, plus SHRINE_WAR, whose shrine
+ * lobbies put human attackers against human defenders and which counts as an
+ * act of war (it lifts the attacker's immunity like a PvP attack). Nobody can
+ * leave their profile fighting other players unattended. SHRINE_WAR stays out
+ * of PvpBattleTypes because that list also drives the lobby timer, initiative
+ * order and PvP rewards, which shrine battles deliberately do not share.
+ */
+export const ManualStartBattleTypes: BattleType[] = [...PvpBattleTypes, "SHRINE_WAR"];
+
+/**
  * Battle types that may be STARTED with auto combat already enabled, from the
- * arena page's toggle or a player's stored defaultAutoCombat. QUEST is in the
- * list because the tutorial introduces auto combat in the arena and then sends
- * the player straight into a quest fight: starting that one manually reads as
- * the setting having failed. PvP types are deliberately absent, so nobody can
- * leave their profile fighting other players unattended.
+ * arena page's toggle or a player's stored defaultAutoCombat: every battle type
+ * not in ManualStartBattleTypes, so a newly added PvE type is eligible by
+ * default. Tournament AI games and mutually agreed Kage AI matches are PvP
+ * types that initiateBattle admits separately.
  *
  * The in-combat toggle is broader: it is available in every battle type except
  * AutoBattleTypes, which are always fully AI-driven.
  */
-export const AutoCombatBattleTypes = ["ARENA", "TRAINING", "QUEST"];
+export const AutoCombatBattleTypes: BattleType[] = BattleTypes.filter(
+  (type) => !ManualStartBattleTypes.includes(type),
+);
 
 export const BattleDataEntryType = [
   "jutsu",

@@ -1342,6 +1342,7 @@ export const raidsRouter = createTRPCRouter({
             client: ctx.drizzle,
             targetIds: [raidData.firstAiId],
             raidQuestId: raid.id,
+            autoCombatFromDefaults: true,
             givePools: raidData.objective.givePools,
             startingEffects: [
               ...(raidData.objective.applyBuffs ?? []),

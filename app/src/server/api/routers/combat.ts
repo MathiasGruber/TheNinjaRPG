@@ -1992,6 +1992,12 @@ export const initiateBattle = async (
     clanBattle?: { queueId: string; battleId: string };
     /** Human users whose turns should be driven by their own AI profile (auto combat) */
     autoCombatUserIds?: string[];
+    /**
+     * Start every initiating human whose stored defaultAutoCombat is on with auto
+     * combat, read from the user rows initiateBattle already loads. For group
+     * battles whose callers do not hold the members' settings.
+     */
+    autoCombatFromDefaults?: boolean;
     /** Stable event launch identity; participant claims require its WAITING recovery token. */
     tournamentGame?: { id: string; battleId: string; aiOnly: boolean };
     /** Scheduled receipt and tenure revalidated after preload; AI mode requires mutual consent. */
@@ -3033,8 +3039,16 @@ export const initiateBattle = async (
 
   // Hand requested users' turns to their own AI profile (auto combat). Gated on
   // AutoCombatBattleTypes so callers cannot enable it for unsupported battles.
+  const autoCombatUserIds = [
+    ...(info.autoCombatUserIds ?? []),
+    ...(info.autoCombatFromDefaults
+      ? users
+          .filter((u) => !u.isAi && u.defaultAutoCombat && userIds.includes(u.userId))
+          .map((u) => u.userId)
+      : []),
+  ];
   if (
-    info.autoCombatUserIds?.length &&
+    autoCombatUserIds.length &&
     (AutoCombatBattleTypes.includes(battleType) ||
       !!info.tournamentGame ||
       !!info.kageMatch?.ai)
@@ -3043,7 +3057,7 @@ export const initiateBattle = async (
       if (
         !user.isAi &&
         !user.isSummon &&
-        info.autoCombatUserIds?.includes(user.controllerId)
+        autoCombatUserIds.includes(user.controllerId)
       ) {
         user.isAutoCombat = true;
       }

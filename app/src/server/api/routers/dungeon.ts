@@ -413,6 +413,7 @@ export const dungeonRouter = createTRPCRouter({
                 targetIds: floor.waves.flatMap((w) => w.aiIds),
                 biome: run.content.background,
                 forceKeepPools: true,
+                autoCombatFromDefaults: true,
                 coop: {
                   kind: "dungeon",
                   battleId,

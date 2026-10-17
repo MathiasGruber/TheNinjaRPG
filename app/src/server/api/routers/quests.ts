@@ -4204,11 +4204,9 @@ const executeClaimedQuestConsequences = async ({
                           !!entry.quest.content.entryItems?.length),
                     )
                   : undefined,
-                // Honour the player's stored preference here too. Without it the
-                // tutorial teaches auto combat in the arena and then hands the
-                // player a manual quest fight, which reads as the setting having
-                // stopped working. initiateBattle still gates on
-                // AutoCombatBattleTypes, so a random encounter stays manual.
+                // Honour the player's stored preference for quest fights and random
+                // encounters (including hunting) alike; initiateBattle gates on
+                // AutoCombatBattleTypes, which admits every non-PvP battle type.
                 autoCombatUserIds: user.defaultAutoCombat ? [user.userId] : undefined,
               },
               opponent.type === "random_encounter" ? "RANDOM_ENCOUNTER" : "QUEST",
