@@ -17,6 +17,7 @@ import {
   Stethoscope,
   Sun,
   Swords,
+  Utensils,
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "@/app/_trpc/client";
@@ -131,6 +132,14 @@ const MenuBoxProfile: React.FC = () => {
     enabled: !!userData,
   });
   const trainingJutsu = sidebarTimers?.jutsuTraining;
+  const { data: timedBuffs } = api.raids.getUserRaidBuffs.useQuery(undefined, {
+    enabled: !!userData,
+    refetchInterval: 30000,
+  });
+  const mealBuffs =
+    timedBuffs?.buffs.filter(
+      (buff) => buff.itemId && buff.expiresAt.getTime() + timeDiff > Date.now(),
+    ) ?? [];
 
   /** Finish time for stealth or sensory training at the training grounds */
   const covertTrainingFinishAt = useMemo(() => {
@@ -406,6 +415,36 @@ const MenuBoxProfile: React.FC = () => {
               <TooltipContent>Money on hand</TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {mealBuffs.map((buff) => (
+            <TooltipProvider key={buff.id} delayDuration={50}>
+              <Tooltip>
+                <TooltipTrigger className="w-full">
+                  <div className="flex flex-row items-center">
+                    <Utensils className="mr-2 h-6 w-6" />
+                    <span>
+                      Meal:{" "}
+                      <Countdown
+                        targetDate={buff.expiresAt}
+                        timeDiff={timeDiff}
+                        format="minutesSeconds"
+                        onEndShow="Expired"
+                        onFinish={async () => {
+                          setState((state) => state + 1);
+                          await Promise.all([
+                            utils.raids.getUserRaidBuffs.invalidate(),
+                            utils.profile.getUser.invalidate(),
+                          ]);
+                        }}
+                      />
+                    </span>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Meal effect: {buff.item?.name ?? "Meal"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ))}
           {userData && immunitySecsLeft > 0 && (
             <TooltipProvider delayDuration={50}>
               <Tooltip>
