@@ -151,6 +151,7 @@ export const warRouter = createTRPCRouter({
         contributions,
         completedQuests,
         ownVillage,
+        kills,
       ] = await Promise.all([
         ctx.drizzle.query.war.findFirst({
           where: eq(war.id, input.warId),
@@ -191,9 +192,36 @@ export const warRouter = createTRPCRouter({
           .from(village)
           .innerJoin(userData, eq(userData.villageId, village.id))
           .where(eq(userData.userId, ctx.userId)),
+        ctx.drizzle.query.warKill.findMany({
+          columns: { killerId: true, victimId: true },
+          where: eq(warKill.warId, input.warId),
+          with: {
+            killer: { columns: { username: true } },
+            victim: { columns: { username: true } },
+          },
+        }),
       ]);
       if (!activeWar?.rules || !getWarSide(activeWar, user.villageId)) return null;
       const side = getWarSide(activeWar, user.villageId)!;
+      const combatContributions = new Map<
+        string,
+        { userId: string; username: string; kills: number; losses: number }
+      >();
+      for (const kill of kills) {
+        for (const participant of [
+          { userId: kill.killerId, user: kill.killer, result: "kills" as const },
+          { userId: kill.victimId, user: kill.victim, result: "losses" as const },
+        ]) {
+          const contribution = combatContributions.get(participant.userId) ?? {
+            userId: participant.userId,
+            username: participant.user?.username ?? "Unknown ninja",
+            kills: 0,
+            losses: 0,
+          };
+          contribution[participant.result] += 1;
+          combatContributions.set(participant.userId, contribution);
+        }
+      }
       return {
         war: maskWarObjectives(
           activeWar,
@@ -218,6 +246,12 @@ export const warRouter = createTRPCRouter({
           ),
         camps,
         contributions,
+        combatContributions: [...combatContributions.values()].sort(
+          (a, b) =>
+            b.kills - a.kills ||
+            a.losses - b.losses ||
+            a.username.localeCompare(b.username),
+        ),
         attempt: user.warMission,
       };
     }),

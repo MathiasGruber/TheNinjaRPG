@@ -175,6 +175,7 @@ const makeInfo = (): ObjectiveInfo => ({
     resolvedAt: null,
   })),
   contributions: [],
+  combatContributions: [],
   attempt: null,
 });
 
