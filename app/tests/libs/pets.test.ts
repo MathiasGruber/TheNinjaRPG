@@ -14,7 +14,7 @@ afterEach(() => vi.restoreAllMocks());
 
 describe("companion appearance choices", () => {
   it("offers stable subscriber supersets from an explicit species catalogue", () => {
-    expect([initialPetSpecies.length, PET_PALETTES.length, PET_CHARACTERISTICS.length, PET_AURAS.length]).toEqual([64, 32, 16, 8]);
+    expect([initialPetSpecies.length, PET_PALETTES.length, PET_CHARACTERISTICS.length, PET_AURAS.length]).toEqual([67, 32, 16, 8]);
     for (const catalogue of [initialPetSpecies, PET_PALETTES, PET_CHARACTERISTICS, PET_AURAS])
       expect(new Set(catalogue.map(({ name }) => name)).size).toBe(catalogue.length);
     const normal = getDailyPetOptions("one-player", "NONE", initialPetSpecies, "2026-10-11");
