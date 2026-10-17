@@ -24,6 +24,13 @@ Pass `PORT=3123` to either command to request a port; an occupied port fails wit
 killing its listener. A second invocation never starts another Next against the same
 `.next` directory. Caches are preserved. Restart after changing env/configuration.
 
+Application Make commands select a Bun at least as new as `app/package.json`'s
+`packageManager`, checking PATH then `~/.bun/bin/bun`. Setup uses `--frozen-lockfile`:
+it must not re-resolve dependencies or rewrite the lockfile. If neither installed Bun
+is compatible, install a compatible version and retry; do not regenerate the lockfile
+with an older runtime. Use `make bun add <package>` for deliberate dependency changes,
+or `make bun install` to refresh the lockfile after intentionally editing the manifest.
+
 Background logs stream immediately to `logPath`. Preparation errors fail promptly;
 a five-minute readiness timeout leaves a slow server running. Inspect status/logs,
 then rerun `dev-up` to wait again. Status reports the managed process; verify individual

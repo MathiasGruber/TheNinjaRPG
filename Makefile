@@ -65,11 +65,11 @@ setup: ensure-services # Start required services and install bun locally
 .PHONY: install
 install: ensure-skills # Install application dependencies with bun locally
 	@echo "${GREEN}install${RESET}"
-	bun install --cwd ./app --save-text-lockfile
+	node scripts/dev-bun.mjs install --cwd ./app --frozen-lockfile
 
 .PHONY: ensure-env
 ensure-env: # Ensure app/.env exists in this worktree (links it from the main worktree if missing)
-	@bash scripts/dev-ensure-env.sh
+	@bash scripts/dev-ensure-env.sh >&2
 
 .PHONY: ensure-services
 ensure-services: # Ensure the shared local service stack is running (parallel-worktree safe)
@@ -90,9 +90,9 @@ clean: # Clean all local application installation folders
 reset: clean install # Clean and reinstall all dependencies
 
 .PHONY: bun
-bun: install ensure-env ensure-services ## Execute bun command in local development.
+bun: $(if $(filter install add remove update,$(firstword $(ARGS))),ensure-skills,install) ensure-env ensure-services ## Execute bun command in local development.
 	@echo "${GREEN}bun${RESET}"
-	cd app && bun $(ARGS)
+	cd app && node ../scripts/dev-bun.mjs $(ARGS)
 
 .PHONY: start
 start: # Run this worktree's server in the foreground (PORT optional)
@@ -117,21 +117,21 @@ dev-browser-release: # Release this chat's Chrome login lease
 
 .PHONY: dev-user dev-call dev-doctor
 dev-user: ensure-env # Provision REQUEST=<json file>, save private credentials
-	@cd app && bun run scripts/dev-user.ts provision
+	@cd app && node ../scripts/dev-bun.mjs run scripts/dev-user.ts provision
 dev-call: ensure-env # Call ENDPOINT as USER_KEY with optional INPUT_FILE
-	@cd app && bun run scripts/dev-user.ts call
+	@cd app && node ../scripts/dev-bun.mjs run scripts/dev-user.ts call
 dev-doctor: ensure-env # Show env/broker/database configuration without secrets
-	@cd app && bun run scripts/dev-user.ts doctor
+	@cd app && node ../scripts/dev-bun.mjs run scripts/dev-user.ts doctor
 
 .PHONY: build
 build: ensure-env # Build Next.js app
 	@echo "${GREEN}build${RESET}"
-	cd app && bun run build
+	cd app && node ../scripts/dev-bun.mjs run build
 
 .PHONY: bundleanalysis
 bundleanalysis: ensure-env # Build Next.js app with bundle analysis
 	@echo "${GREEN}bundleanalysis${RESET}"
-	cd app && bun run build-stats
+	cd app && node ../scripts/dev-bun.mjs run build-stats
 
 .PHONY: mcp-servers
 mcp-servers: # Start MCP servers
@@ -166,34 +166,34 @@ browser-tools-server: # Run browser-tools MCP server, allowing AI to see browser
 .PHONY: dbpush
 dbpush: ensure-env ensure-services # Push schema to db without creating migrations
 	@echo "${YELLOW}Pushing database schema to database${RESET}"
-	cd app && bun dbpush
+	cd app && node ../scripts/dev-bun.mjs dbpush
 
 .PHONY: seed
 seed: ensure-env ensure-services # Seed database
 	@echo "${YELLOW}Seed data into database ${RESET}"
-	cd app && bun seed
+	cd app && node ../scripts/dev-bun.mjs seed
 	
 .PHONY: makemigrations
 makemigrations: ensure-env # Create database migration file
 	@echo "${YELLOW}Create database migrations file ${RESET}"
-	cd app && bun makemigrations
+	cd app && node ../scripts/dev-bun.mjs makemigrations
 
 .PHONY: emptymigration
 emptymigration: ensure-env # Create database migration file
 	@echo "${YELLOW}Create empty migrations file ${RESET}"
-	cd app && bun emptymigration
+	cd app && node ../scripts/dev-bun.mjs emptymigration
 	
 ----------------Tests-------------------: # -------------------------------------------------------
 .PHONY: test
 test: export NODE_ENV = test
 test: # Run unit tests with Bun
 	@echo "${YELLOW}Running unit tests ${RESET}"
-	cd app && bun run test
+	cd app && node ../scripts/dev-bun.mjs run test
 
 .PHONY: lint
 lint: # Run linting of the project
 	@echo "${YELLOW}Running linting ${RESET}"
-	cd app && bun run lint
+	cd app && node ../scripts/dev-bun.mjs run lint
 
 .PHONY: format
 format: # Run biome formatter on the project
@@ -202,12 +202,12 @@ format: # Run biome formatter on the project
 
 .PHONY: check
 check: # Run Biome and TypeScript checks
-	cd app && bun run check
+	cd app && node ../scripts/dev-bun.mjs run check
 
 .PHONY: typecheck
 typecheck: # Run TypeScript type checking
 	@echo "${YELLOW}Running TypeScript type checking${RESET}"
-	cd app && bun run typecheck
+	cd app && node ../scripts/dev-bun.mjs run typecheck
 
 -------------DEPENDENCIES---------------: # -------------------------------------------------------
 .PHONY: deps-upgrade

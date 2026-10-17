@@ -1,5 +1,5 @@
 /** Local CLI for the existing preview broker. Bun loads app/.env using dotenv syntax. */
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { devPaths, devStatus } from "../../scripts/dev-server.mjs";
 import {
@@ -64,8 +64,9 @@ async function main() {
     input.runId ??= `local-${paths.key}-${crypto.randomUUID().slice(0, 8)}`;
     const result = aiTestUserResponseSchema.parse(await callBroker("", input));
     await mkdir(artifactDir, { recursive: true, mode: 0o700 });
+    const temporaryCredentials = `${credentials}.${crypto.randomUUID()}.tmp`;
     await writeFile(
-      credentials,
+      temporaryCredentials,
       JSON.stringify(
         {
           ...result,
@@ -83,6 +84,7 @@ async function main() {
       ),
       { mode: 0o600 },
     );
+    await rename(temporaryCredentials, credentials);
     console.log(
       JSON.stringify(
         {

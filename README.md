@@ -30,6 +30,10 @@ services without recreating them or deleting `.next`. `make dev-doctor` shows th
 target and broker configuration without exposing credentials. Worktrees still share
 the database in `app/.env`.
 
+Application Make commands select a compatible Bun from PATH or `~/.bun/bin/bun` using
+the minimum version in `app/package.json`. Installation uses the committed lockfile
+with `--frozen-lockfile`; dependency changes go through `make bun add <package>`.
+
 The [dev-server skill](.agents/skills/tnr-dev-server/SKILL.md) documents disposable users,
 authenticated endpoint calls and Chrome coordination. Tabs, windows and different ports
 share cookies: use supported isolated Chrome contexts, or acquire `make dev-browser`

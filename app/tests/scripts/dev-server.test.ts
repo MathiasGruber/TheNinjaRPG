@@ -128,6 +128,27 @@ describe("parallel worktree dev servers", () => {
     }
   }, 10_000);
 
+  test("a port reserved during preparation cannot be taken by a sibling", async () => {
+    const { root, directory } = await fixture();
+    const sibling = join(directory, "sibling");
+    git(root, "worktree", "add", "--detach", sibling, "HEAD");
+    roots.push(sibling);
+    await writeFile(join(root, "Makefile"), "dev-prepare:\n\t@sleep 2\n");
+    await writeFile(join(sibling, "Makefile"), "dev-prepare:\n\t@sleep 2\n");
+    const listener = createServer();
+    await new Promise<void>((done) => listener.listen(0, done));
+    const port = (listener.address() as { port: number }).port;
+    await new Promise<void>((done) => listener.close(() => done()));
+    const results = await Promise.all([
+      command(root, "up", String(port)),
+      command(sibling, "up", String(port)),
+    ]);
+    expect(results.filter(({ code }) => code === 0)).toHaveLength(1);
+    expect(results.filter(({ code }) => code !== 0)).toHaveLength(1);
+    const winner = results.find(({ code }) => code === 0);
+    expect(JSON.parse(winner?.output ?? "{}").port).toBe(port);
+  }, 15_000);
+
   test("preparation failures propagate with an actionable log", async () => {
     const { root } = await fixture();
     await writeFile(
