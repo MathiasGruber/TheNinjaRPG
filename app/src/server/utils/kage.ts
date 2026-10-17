@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, exists, gte, inArray, or, sql } from "drizzle-orm";
 import {
   KAGE_CHALLENGER_DAILY_LIMIT,
   KAGE_CHALLENGER_WEEKLY_LIMIT,
@@ -12,8 +12,8 @@ import {
 } from "@/drizzle/constants";
 import {
   battle,
-  type KageChallenge,
-  kageChallenge,
+  type KageDefendedChallenge,
+  kageDefendedChallenges,
   userData,
   village,
   war,
@@ -67,17 +67,21 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
       with: { kage: true },
     }),
     client
-      .select({ match: kageChallenge, user: userData, liveBattleId: battle.id })
-      .from(kageChallenge)
-      .innerJoin(userData, eq(kageChallenge.challengerId, userData.userId))
-      .leftJoin(battle, eq(kageChallenge.battleId, battle.id))
+      .select({
+        match: kageDefendedChallenges,
+        user: userData,
+        liveBattleId: battle.id,
+      })
+      .from(kageDefendedChallenges)
+      .innerJoin(userData, eq(kageDefendedChallenges.userId, userData.userId))
+      .leftJoin(battle, eq(kageDefendedChallenges.battleId, battle.id))
       .where(
         and(
-          eq(kageChallenge.villageId, villageId),
-          inArray(kageChallenge.status, activeKageMatchStatuses),
+          eq(kageDefendedChallenges.villageId, villageId),
+          inArray(kageDefendedChallenges.status, activeKageMatchStatuses),
         ),
       )
-      .orderBy(asc(kageChallenge.createdAt), asc(kageChallenge.id)),
+      .orderBy(asc(kageDefendedChallenges.createdAt), asc(kageDefendedChallenges.id)),
     client.query.war.findMany({
       columns: { id: true, status: true, startedAt: true, endedAt: true },
       where: and(
@@ -185,7 +189,7 @@ export const syncLockedKageDefense = async (
       // battle with an active receipt therefore represents an interrupted launch/result.
       if (!row.liveBattleId) {
         const resolved = await client
-          .update(kageChallenge)
+          .update(kageDefendedChallenges)
           .set({
             status: "CANCELLED",
             resolvedAt: now,
@@ -193,20 +197,25 @@ export const syncLockedKageDefense = async (
             startedAt: null,
             outcome: "Battle ended without a recorded result; no prestige charged",
           })
-          .where(and(eq(kageChallenge.id, m.id), eq(kageChallenge.status, m.status)));
+          .where(
+            and(
+              eq(kageDefendedChallenges.id, m.id),
+              eq(kageDefendedChallenges.status, m.status),
+            ),
+          );
         if (resolved.rowsAffected) m.status = "CANCELLED";
       }
       continue;
     }
     if (getKageEligibility(row.user, v.id) || row.user.userId === v.kageId) {
       await client
-        .update(kageChallenge)
+        .update(kageDefendedChallenges)
         .set({
           status: "CANCELLED",
           resolvedAt: now,
           outcome: "Challenger no longer eligible",
         })
-        .where(eq(kageChallenge.id, m.id));
+        .where(eq(kageDefendedChallenges.id, m.id));
       m.status = "CANCELLED";
       continue;
     }
@@ -222,9 +231,9 @@ export const syncLockedKageDefense = async (
       (row.user.status === "HOSPITALIZED" || v.kage?.status === "HOSPITALIZED")
     ) {
       await client
-        .update(kageChallenge)
+        .update(kageDefendedChallenges)
         .set({ hospitalDeferred: true, checkedInAt: null })
-        .where(eq(kageChallenge.id, m.id));
+        .where(eq(kageDefendedChallenges.id, m.id));
       m.hospitalDeferred = true;
       continue;
     }
@@ -255,16 +264,16 @@ export const syncLockedKageDefense = async (
             Math.max(later.match.notBefore.getTime(), blockedUntil.getTime()),
           );
           await client
-            .update(kageChallenge)
+            .update(kageDefendedChallenges)
             .set({ notBefore: later.match.notBefore })
-            .where(eq(kageChallenge.id, later.match.id));
+            .where(eq(kageDefendedChallenges.id, later.match.id));
         }
       }
 
       await client
-        .update(kageChallenge)
+        .update(kageDefendedChallenges)
         .set({ scheduledAt: m.scheduledAt, hospitalDeferred: false, checkedInAt: null })
-        .where(eq(kageChallenge.id, m.id));
+        .where(eq(kageDefendedChallenges.id, m.id));
     }
     if (now.getTime() <= m.scheduledAt.getTime() + KAGE_DEFENSE_GRACE_MINUTES * 60_000)
       continue;
@@ -297,25 +306,25 @@ export const syncLockedKageDefense = async (
       else {
         m.status = "FORFEITED";
         await client
-          .update(kageChallenge)
+          .update(kageDefendedChallenges)
           .set({
             status: "FORFEITED",
             resolvedAt: now,
             outcome: "Challenger absent or unavailable; no prestige charged",
           })
-          .where(eq(kageChallenge.id, m.id));
+          .where(eq(kageDefendedChallenges.id, m.id));
       }
     } else {
       state.missedStarts += 1;
       m.status = "FORFEITED";
       await client
-        .update(kageChallenge)
+        .update(kageDefendedChallenges)
         .set({
           status: "FORFEITED",
           resolvedAt: now,
           outcome: "Kage did not start the attended match; attendance strike recorded",
         })
-        .where(eq(kageChallenge.id, m.id));
+        .where(eq(kageDefendedChallenges.id, m.id));
       if (state.missedStarts >= KAGE_DEFENSE_MAX_NO_SHOWS) {
         await removeAbsentKage(client, hall);
         return false;
@@ -334,7 +343,7 @@ export const syncLockedKageDefense = async (
 const resetMatch = async (
   client: DrizzleClient,
   hall: KageDefenseHall,
-  m: KageChallenge,
+  m: KageDefendedChallenge,
   outcome: string,
 ) => {
   const update = {
@@ -349,7 +358,10 @@ const resetMatch = async (
     outcome,
   };
   Object.assign(m, update);
-  await client.update(kageChallenge).set(update).where(eq(kageChallenge.id, m.id));
+  await client
+    .update(kageDefendedChallenges)
+    .set(update)
+    .where(eq(kageDefendedChallenges.id, m.id));
 };
 
 /**
@@ -364,13 +376,13 @@ export const assignKageMatches = async (
     ({ match: m }) => m.status === "QUEUED" || m.status === "SCHEDULED",
   );
   if (!pending.length) return;
-  const history = await client.query.kageChallenge.findMany({
+  const history = await client.query.kageDefendedChallenges.findMany({
     where: and(
       inArray(
-        kageChallenge.challengerId,
-        pending.map((r) => r.match.challengerId),
+        kageDefendedChallenges.userId,
+        pending.map((r) => r.match.userId),
       ),
-      gte(kageChallenge.startedAt, periodStart("weekly", hall.now)),
+      gte(kageDefendedChallenges.startedAt, periodStart("weekly", hall.now)),
     ),
   });
   const occupied = new Set(
@@ -410,7 +422,7 @@ export const assignKageMatches = async (
       (date) =>
         !occupied.has(date.getTime()) &&
         withinKageChallengeLimits(
-          history.filter((h) => h.challengerId === m.challengerId),
+          history.filter((h) => h.userId === m.userId),
           date,
         ),
     );
@@ -424,13 +436,16 @@ export const assignKageMatches = async (
     Object.assign(m, update);
     occupied.add(assigned.getTime());
     after = secondsFromDate(KAGE_DEFENSE_SLOT_MINUTES * 60, assigned);
-    await client.update(kageChallenge).set(update).where(eq(kageChallenge.id, m.id));
+    await client
+      .update(kageDefendedChallenges)
+      .set(update)
+      .where(eq(kageDefendedChallenges.id, m.id));
   }
 };
 
 /** Whether another start fits the UTC day and Monday-based week containing the proposed time. */
 export const withinKageChallengeLimits = (
-  matches: Pick<KageChallenge, "startedAt">[],
+  matches: Pick<KageDefendedChallenge, "startedAt">[],
   now: Date,
 ) => {
   const day = periodStart("daily", now),
@@ -493,7 +508,7 @@ const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) =>
       ),
     );
   await client
-    .update(kageChallenge)
+    .update(kageDefendedChallenges)
     .set({
       status: "QUEUED",
       scheduledAt: null,
@@ -504,8 +519,8 @@ const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) =>
     })
     .where(
       and(
-        eq(kageChallenge.villageId, hall.village.id),
-        inArray(kageChallenge.status, ["QUEUED", "SCHEDULED"]),
+        eq(kageDefendedChallenges.villageId, hall.village.id),
+        inArray(kageDefendedChallenges.status, ["QUEUED", "SCHEDULED"]),
       ),
     );
 };
@@ -544,36 +559,47 @@ const readKageDefensePublic = async (client: DrizzleClient, villageId: string) =
     }),
     client
       .select({
-        id: kageChallenge.id,
-        challengerId: kageChallenge.challengerId,
+        id: kageDefendedChallenges.id,
+        challengerId: kageDefendedChallenges.userId,
         username: userData.username,
-        status: kageChallenge.status,
-        scheduledAt: kageChallenge.scheduledAt,
-        checkedInAt: kageChallenge.checkedInAt,
-        rescheduled: kageChallenge.rescheduled,
-        aiRequested: kageChallenge.aiRequested,
-        aiAccepted: kageChallenge.aiAccepted,
-        hospitalDeferred: kageChallenge.hospitalDeferred,
-        battleId: kageChallenge.battleId,
+        status: kageDefendedChallenges.status,
+        scheduledAt: kageDefendedChallenges.scheduledAt,
+        checkedInAt: kageDefendedChallenges.checkedInAt,
+        rescheduled: kageDefendedChallenges.rescheduled,
+        aiRequested: kageDefendedChallenges.aiRequested,
+        aiAccepted: kageDefendedChallenges.aiAccepted,
+        hospitalDeferred: kageDefendedChallenges.hospitalDeferred,
+        battleId: kageDefendedChallenges.battleId,
       })
-      .from(kageChallenge)
-      .innerJoin(userData, eq(userData.userId, kageChallenge.challengerId))
+      .from(kageDefendedChallenges)
+      .innerJoin(userData, eq(userData.userId, kageDefendedChallenges.userId))
       .where(
         and(
-          eq(kageChallenge.villageId, villageId),
-          inArray(kageChallenge.status, activeKageMatchStatuses),
+          eq(kageDefendedChallenges.villageId, villageId),
+          inArray(kageDefendedChallenges.status, activeKageMatchStatuses),
         ),
       )
-      .orderBy(asc(kageChallenge.createdAt), asc(kageChallenge.id)),
-    client.query.kageChallenge.findMany({
-      columns: { id: true, challengerId: true, outcome: true, resolvedAt: true },
-      where: and(
-        eq(kageChallenge.villageId, villageId),
-        inArray(kageChallenge.status, ["COMPLETED", "CANCELLED", "FORFEITED"]),
-      ),
-      orderBy: [desc(kageChallenge.resolvedAt)],
-      limit: 10,
-    }),
+      .orderBy(asc(kageDefendedChallenges.createdAt), asc(kageDefendedChallenges.id)),
+    client
+      .select({
+        id: kageDefendedChallenges.id,
+        challengerId: kageDefendedChallenges.userId,
+        outcome: kageDefendedChallenges.outcome,
+        resolvedAt: kageDefendedChallenges.resolvedAt,
+      })
+      .from(kageDefendedChallenges)
+      .where(
+        and(
+          eq(kageDefendedChallenges.villageId, villageId),
+          inArray(kageDefendedChallenges.status, [
+            "COMPLETED",
+            "CANCELLED",
+            "FORFEITED",
+          ]),
+        ),
+      )
+      .orderBy(desc(kageDefendedChallenges.resolvedAt))
+      .limit(10),
   ]);
   if (!v) return null;
   return {
@@ -591,4 +617,84 @@ const readKageDefensePublic = async (client: DrizzleClient, villageId: string) =
     queue,
     history,
   };
+};
+
+/**
+ * Keep idle tenures observed without loading combatants or opening transactions.
+ * Active matches, expired setup deadlines and interrupted observations retain full
+ * reconciliation. The version/tenure guard lets concurrent queue or leadership
+ * changes win without overwriting their schedule; the next tick observes them.
+ */
+export const maintainKageDefenses = async (client: DrizzleClient) => {
+  const now = new Date();
+  const uninterruptedSince = secondsFromDate(-KAGE_DEFENSE_GRACE_MINUTES * 60, now);
+  const villages = await client
+    .select({
+      id: village.id,
+      kageId: village.kageId,
+      leaderUpdatedAt: village.leaderUpdatedAt,
+      version: village.kageScheduleVersion,
+      state: village.kageSchedule,
+      hasMatches: exists(
+        client
+          .select({ id: kageDefendedChallenges.id })
+          .from(kageDefendedChallenges)
+          .where(
+            and(
+              eq(kageDefendedChallenges.villageId, village.id),
+              inArray(kageDefendedChallenges.status, activeKageMatchStatuses),
+            ),
+          ),
+      ).mapWith(Boolean),
+      hasWar: exists(
+        client
+          .select({ id: war.id })
+          .from(war)
+          .where(
+            and(
+              eq(war.type, "VILLAGE_WAR"),
+              or(
+                eq(war.attackerVillageId, village.id),
+                eq(war.defenderVillageId, village.id),
+              ),
+              or(eq(war.status, "ACTIVE"), gte(war.startedAt, uninterruptedSince)),
+            ),
+          ),
+      ).mapWith(Boolean),
+    })
+    .from(village)
+    .where(eq(village.type, "VILLAGE"));
+  await Promise.all(
+    villages.map(async (v) => {
+      const state = v.state;
+      if (
+        !state ||
+        state.kageId !== v.kageId ||
+        state.tenure !== v.leaderUpdatedAt.toISOString() ||
+        !state.setupDueAt ||
+        state.paused ||
+        v.hasMatches ||
+        v.hasWar ||
+        !(new Date(state.observedAt) >= uninterruptedSince) ||
+        (!state.publishedAt && v.kageId && !(now < new Date(state.setupDueAt)))
+      ) {
+        await syncKageDefense(client, v.id);
+        return;
+      }
+      await client
+        .update(village)
+        .set({
+          kageSchedule: { ...state, observedAt: now.toISOString() },
+          kageScheduleVersion: sql`${village.kageScheduleVersion} + 1`,
+        })
+        .where(
+          and(
+            eq(village.id, v.id),
+            eq(village.kageScheduleVersion, v.version),
+            eq(village.kageId, v.kageId),
+            eq(village.leaderUpdatedAt, v.leaderUpdatedAt),
+          ),
+        );
+    }),
+  );
 };

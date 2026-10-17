@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, it } from "bun:test";
 import mysql from "mysql2/promise";
+import { baselineTableSql, quoteIdentifier, type SnapshotTable } from "../setup/migrations";
 import { describeWithDatabase } from "../setup/testDatabase";
 
 describeWithDatabase("home furniture inventory migration", () => {
@@ -188,32 +189,3 @@ describeWithDatabase("home furniture inventory migration", () => {
     }
   }, 30_000);
 });
-
-/** Reconstructs a pre-migration table from its snapshot for isolated migration validation. */
-const baselineTableSql = (table: SnapshotTable) => {
-  const definitions = Object.values(table.columns).map(
-    (column) =>
-      `${quoteIdentifier(column.name)} ${column.type}${column.notNull ? " NOT NULL" : ""}${column.default !== undefined ? ` DEFAULT ${String(column.default).replaceAll("\\'", "'")}` : ""}`,
-  );
-  for (const key of Object.values(table.compositePrimaryKeys)) {
-    definitions.push(`PRIMARY KEY (${key.columns.map(quoteIdentifier).join(", ")})`);
-  }
-  for (const index of Object.values(table.indexes).filter((index) => index.isUnique)) {
-    definitions.push(
-      `UNIQUE KEY ${quoteIdentifier(index.name)} (${index.columns.map(quoteIdentifier).join(", ")})`,
-    );
-  }
-  return `CREATE TABLE ${quoteIdentifier(table.name)} (${definitions.join(", ")})`;
-};
-
-const quoteIdentifier = (name: string) => `\`${name.replaceAll("`", "``")}\``;
-
-type SnapshotTable = {
-  name: string;
-  columns: Record<
-    string,
-    { name: string; type: string; notNull: boolean; default?: unknown }
-  >;
-  compositePrimaryKeys: Record<string, { columns: string[] }>;
-  indexes: Record<string, { name: string; columns: string[]; isUnique: boolean }>;
-};

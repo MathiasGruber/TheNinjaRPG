@@ -27,7 +27,6 @@ import {
   bounty,
   clan,
   dataBattleAction,
-  kageChallenge,
   kageDefendedChallenges,
   logBattleLengths,
   mpvpBattleQueue,
@@ -601,17 +600,19 @@ const completeKageDefense = async (
     curBattle.usersEffects,
   );
   await client
-    .update(kageChallenge)
+    .update(kageDefendedChallenges)
     .set({
       status: "COMPLETED",
+      didWin: won ? 1 : 0,
+      rounds: curBattle.round,
       resolvedAt: new Date(),
       outcome: won ? "Challenger won the title fight" : "Kage defended the title",
     })
     .where(
       and(
-        eq(kageChallenge.id, match.id),
-        eq(kageChallenge.status, "BATTLE"),
-        eq(kageChallenge.battleId, curBattle.id),
+        eq(kageDefendedChallenges.id, match.id),
+        eq(kageDefendedChallenges.status, "BATTLE"),
+        eq(kageDefendedChallenges.battleId, curBattle.id),
       ),
     );
 };
@@ -650,20 +651,32 @@ export const updateKage = async (
   ];
 
   await Promise.all([
-    // Both PvP clients can finalize the same battle. The unique battleId makes
-    // this insert idempotent; the no-op update preserves the first canonical row.
-    client
-      .insert(kageDefendedChallenges)
-      .values({
-        id: nanoid(),
-        battleId: curBattle.id,
-        villageId: challenger.villageId,
-        userId: challenger.userId,
-        kageId: defenderId,
-        didWin: challengerDidWin ? 1 : 0,
-        rounds: curBattle.round,
-      })
-      .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
+    // Scheduled fights finish their original queue row with the terminal battle claim.
+    // Fights admitted before scheduling still need a completed receipt; battleId
+    // makes those retries idempotent without recreating a scheduled queue entry.
+    ...(!curBattle.extraState.kageMatch
+      ? [
+          client
+            .insert(kageDefendedChallenges)
+            .values({
+              id: nanoid(),
+              battleId: curBattle.id,
+              villageId: challenger.villageId,
+              userId: challenger.userId,
+              kageId: defenderId,
+              status: "COMPLETED",
+              notBefore: curBattle.createdAt,
+              startedAt: curBattle.createdAt,
+              resolvedAt: new Date(),
+              outcome: challengerDidWin
+                ? "Challenger won the title fight"
+                : "Kage defended the title",
+              didWin: challengerDidWin ? 1 : 0,
+              rounds: curBattle.round,
+            })
+            .onDuplicateKeyUpdate({ set: { id: sql`id` } }),
+        ]
+      : []),
 
     // Move the hat only if the challenger actually wins. CAS on the kage this
     // battle defeated: a delayed second finalization of an old battle must not

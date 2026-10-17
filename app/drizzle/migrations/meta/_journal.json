@@ -614,8 +614,8 @@
     {
       "idx": 87,
       "version": "5",
-      "when": 1792172836873,
-      "tag": "0087_kage_defense_schedule",
+      "when": 1792130735780,
+      "tag": "0087_tough_lady_vermin",
       "breakpoints": false
     },
     {
@@ -623,6 +623,13 @@
       "version": "5",
       "when": 1792218228385,
       "tag": "0088_real_kylun",
+      "breakpoints": false
+    },
+    {
+      "idx": 89,
+      "version": "5",
+      "when": 1792219604760,
+      "tag": "0089_kage_defense_schedule",
       "breakpoints": false
     }
   ]

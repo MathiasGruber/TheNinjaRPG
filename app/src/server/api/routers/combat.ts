@@ -75,7 +75,7 @@ import {
   gameSetting,
   item,
   jutsu,
-  kageChallenge,
+  kageDefendedChallenges,
   mpvpBattleQueue,
   mpvpBattleUser,
   quest,
@@ -3761,29 +3761,29 @@ export const initiateBattle = async (
             );
           if (leader.rowsAffected !== 1) throw rejected;
           const receipt = await tx
-            .update(kageChallenge)
+            .update(kageDefendedChallenges)
             .set({ status: "BATTLE", battleId, startedAt: launchAt })
             .where(
               and(
-                eq(kageChallenge.id, m.id),
-                eq(kageChallenge.status, "SCHEDULED"),
-                eq(kageChallenge.kageId, m.kageId),
-                eq(kageChallenge.tenure, new Date(m.tenure)),
-                isNotNull(kageChallenge.checkedInAt),
-                eq(kageChallenge.hospitalDeferred, false),
-                lte(kageChallenge.scheduledAt, launchAt),
+                eq(kageDefendedChallenges.id, m.id),
+                eq(kageDefendedChallenges.status, "SCHEDULED"),
+                eq(kageDefendedChallenges.kageId, m.kageId),
+                eq(kageDefendedChallenges.tenure, new Date(m.tenure)),
+                isNotNull(kageDefendedChallenges.checkedInAt),
+                eq(kageDefendedChallenges.hospitalDeferred, false),
+                lte(kageDefendedChallenges.scheduledAt, launchAt),
                 gte(
-                  kageChallenge.scheduledAt,
+                  kageDefendedChallenges.scheduledAt,
                   secondsFromDate(-KAGE_DEFENSE_GRACE_MINUTES * 60, launchAt),
                 ),
                 m.ai
                   ? and(
-                      eq(kageChallenge.aiRequested, true),
-                      eq(kageChallenge.aiAccepted, true),
+                      eq(kageDefendedChallenges.aiRequested, true),
+                      eq(kageDefendedChallenges.aiAccepted, true),
                     )
                   : or(
-                      eq(kageChallenge.aiRequested, false),
-                      eq(kageChallenge.aiAccepted, false),
+                      eq(kageDefendedChallenges.aiRequested, false),
+                      eq(kageDefendedChallenges.aiAccepted, false),
                     ),
               ),
             );

@@ -900,7 +900,7 @@ const KageHall: React.FC<{
                     hover_effect={true}
                     size={200}
                   />
-                  {challenge.didWin > 0 ? (
+                  {(challenge.didWin ?? 0) > 0 ? (
                     <p className="font-bold text-green-500 text-sm">
                       Won, {challenge.rounds} rounds
                     </p>
@@ -910,10 +910,10 @@ const KageHall: React.FC<{
                     </p>
                   )}
                   <p className="text-xs italic">
-                    {challenge.createdAt.toLocaleDateString()}
+                    {(challenge.resolvedAt ?? challenge.createdAt).toLocaleDateString()}
                   </p>
                   <p className="text-xs italic">
-                    {challenge.createdAt.toLocaleTimeString()}
+                    {(challenge.resolvedAt ?? challenge.createdAt).toLocaleTimeString()}
                   </p>
                 </Link>
               </div>

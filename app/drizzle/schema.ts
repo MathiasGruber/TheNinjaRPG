@@ -3934,35 +3934,10 @@ export const villageAllianceRelations = relations(villageAlliance, ({ one }) => 
   }),
 }));
 
-export const kageChallenge = mysqlTable("KageChallenge", {
-  id: varchar("id", { length: 191 }).primaryKey().notNull(),
-  villageId: varchar("villageId", { length: 191 }).notNull(),
-  challengerId: varchar("challengerId", { length: 191 }).notNull(),
-  kageId: varchar("kageId", { length: 191 }).notNull(),
-  tenure: datetime("tenure", { mode: "date", fsp: 3 }).notNull(),
-  status: mysqlEnum("status", consts.KAGE_MATCH_STATUSES).default("QUEUED").notNull(),
-  activeChallengerId: varchar("activeChallengerId", { length: 191 }).generatedAlwaysAs(
-    sql`CASE WHEN \`status\` IN ('QUEUED','SCHEDULED','STARTING','BATTLE') THEN \`challengerId\` ELSE NULL END`, { mode: "stored" }),
-  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
-  scheduledAt: datetime("scheduledAt", { mode: "date", fsp: 3 }),
-  notBefore: datetime("notBefore", { mode: "date", fsp: 3 }).notNull(),
-  checkedInAt: datetime("checkedInAt", { mode: "date", fsp: 3 }),
-  rescheduled: boolean("rescheduled").default(false).notNull(),
-  hospitalDeferred: boolean("hospitalDeferred").default(false).notNull(),
-  aiRequested: boolean("aiRequested").default(false).notNull(),
-  aiAccepted: boolean("aiAccepted").default(false).notNull(),
-  battleId: varchar("battleId", { length: 191 }),
-  startedAt: datetime("startedAt", { mode: "date", fsp: 3 }),
-  resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
-  outcome: varchar("outcome", { length: 512 }),
-}, (table) => ({
-  activeKey: uniqueIndex("KageChallenge_activeChallenger_key").on(table.activeChallengerId),
-  battleKey: uniqueIndex("KageChallenge_battleId_key").on(table.battleId),
-  queueIdx: index("KageChallenge_village_status_created_idx").on(table.villageId, table.status, table.createdAt),
-  historyIdx: index("KageChallenge_challenger_started_idx").on(table.challengerId, table.startedAt),
-}));
-export type KageChallenge = InferSelectModel<typeof kageChallenge>;
-
+/**
+ * One row follows a title challenge from queue admission through its final result.
+ * Historical defenses have no recorded tenure; unplayed entries have no result or rounds.
+ */
 export const kageDefendedChallenges = mysqlTable(
   "KageDefendedChallenges",
   {
@@ -3971,23 +3946,50 @@ export const kageDefendedChallenges = mysqlTable(
     villageId: varchar("villageId", { length: 191 }).notNull(),
     userId: varchar("userId", { length: 191 }).notNull(),
     kageId: varchar("kageId", { length: 191 }).notNull(),
-    didWin: tinyint("didWin").default(0).notNull(),
+    tenure: datetime("tenure", { mode: "date", fsp: 3 }),
+    status: mysqlEnum("status", consts.KAGE_MATCH_STATUSES).default("QUEUED").notNull(),
+    activeChallengerId: varchar("activeChallengerId", {
+      length: 191,
+    }).generatedAlwaysAs(
+      sql`CASE WHEN \`status\` IN ('QUEUED','SCHEDULED','STARTING','BATTLE') THEN \`userId\` ELSE NULL END`,
+      { mode: "stored" },
+    ),
     createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
       .default(sql`(CURRENT_TIMESTAMP(3))`)
       .notNull(),
-    rounds: int("rounds").notNull(),
+    scheduledAt: datetime("scheduledAt", { mode: "date", fsp: 3 }),
+    notBefore: datetime("notBefore", { mode: "date", fsp: 3 }).notNull(),
+    checkedInAt: datetime("checkedInAt", { mode: "date", fsp: 3 }),
+    rescheduled: boolean("rescheduled").default(false).notNull(),
+    hospitalDeferred: boolean("hospitalDeferred").default(false).notNull(),
+    aiRequested: boolean("aiRequested").default(false).notNull(),
+    aiAccepted: boolean("aiAccepted").default(false).notNull(),
+    startedAt: datetime("startedAt", { mode: "date", fsp: 3 }),
+    resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
+    outcome: varchar("outcome", { length: 512 }),
+    didWin: tinyint("didWin"),
+    rounds: int("rounds"),
   },
-  (table) => {
-    return {
-      battleIdKey: uniqueIndex("KageDefendedChallenges_battleId_key").on(
-        table.battleId,
-      ),
-      villageIdIdx: index("VillageKageChallenges_villageId_idx").on(table.villageId),
-      userIdIdx: index("VillageKageChallenges_userId_idx").on(table.userId),
-      kageIDIdx: index("VillageKageChallenges_kageID_idx").on(table.kageId),
-    };
-  },
+  (table) => ({
+    activeKey: uniqueIndex("KageDefendedChallenges_activeChallenger_key").on(
+      table.activeChallengerId,
+    ),
+    battleIdKey: uniqueIndex("KageDefendedChallenges_battleId_key").on(table.battleId),
+    queueIdx: index("KageDefendedChallenges_village_status_created_idx").on(
+      table.villageId,
+      table.status,
+      table.createdAt,
+    ),
+    historyIdx: index("KageDefendedChallenges_user_started_idx").on(
+      table.userId,
+      table.startedAt,
+    ),
+    villageIdIdx: index("VillageKageChallenges_villageId_idx").on(table.villageId),
+    userIdIdx: index("VillageKageChallenges_userId_idx").on(table.userId),
+    kageIDIdx: index("VillageKageChallenges_kageID_idx").on(table.kageId),
+  }),
 );
+export type KageDefendedChallenge = InferSelectModel<typeof kageDefendedChallenges>;
 
 export const kageDefendedChallengesRelations = relations(
   kageDefendedChallenges,
