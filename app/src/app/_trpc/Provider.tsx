@@ -78,6 +78,12 @@ const TrpcClientProvider = (props: {
       links: [
         retryLink({
           retry(options) {
+            if (
+              options.error.message === SESSION_CHANGED_MESSAGE ||
+              options.error.message === SESSION_EXPIRED_MESSAGE
+            ) {
+              return false;
+            }
             // Retry transient network/CDN errors (network failures, offline, invalid JSON responses)
             if (isRetryableTrpcError(options.error) && options.op.type === "query") {
               return options.attempts <= 3;
