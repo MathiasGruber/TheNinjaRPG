@@ -4955,6 +4955,7 @@ const fetchUserEquipmentSnapshot = (client: DrizzleClient, userId: string) =>
   client.query.userData.findFirst({
     where: eq(userData.userId, userId),
     with: {
+      titles: true,
       bloodline: { columns: { effects: true } },
       userSkills: {
         where: eq(userSkill.activated, true),
