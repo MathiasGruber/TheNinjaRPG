@@ -173,16 +173,13 @@ export const useNativeAuth = () => {
             // The browser and App plugin deliver independent native events. Even a
             // fast reload can finish before the URL event crosses the bridge.
             let timeout: ReturnType<typeof setTimeout> | undefined;
-            try {
-              await Promise.race([
-                callbackReceived,
-                new Promise<void>((resolve) => {
-                  timeout = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
-                }),
-              ]);
-            } finally {
-              clearTimeout(timeout);
-            }
+            await Promise.race([
+              callbackReceived,
+              new Promise<void>((resolve) => {
+                timeout = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
+              }),
+            ]);
+            clearTimeout(timeout);
             if (callbackUrl) settled = await reloadSignIn();
           }
           if (
