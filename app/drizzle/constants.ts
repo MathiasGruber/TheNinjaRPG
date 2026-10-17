@@ -1028,6 +1028,7 @@ export const UserRequestTypes = [
   "MARRIAGE",
   "KAGE",
   "WAR_ALLY",
+  "HOME",
 ] as const;
 export type UserRequestType = (typeof UserRequestTypes)[number];
 
@@ -3101,19 +3102,83 @@ export const HOME_FURNITURE_STARTERS = [
   { itemId: "home-garden", x: 86, y: 90.91 },
 ] as const;
 
-/** Missing home actions use free basics only when an available owned furnishing cannot fit. */
-export const HOME_FURNITURE_ESSENTIALS = [
-  { action: "sleep", itemId: "home-sleeping-mat", name: "sleeping area", x: 22, y: 15.15 },
-  { action: "storage", itemId: "home-storage-box", name: "storage", x: 75, y: 15.15 },
-  { action: "kitchen", itemId: "home-kitchen-utensils", name: "kitchen", x: 76, y: 57.58 },
-] as const;
-
 /** Floor-space margins keep furniture reachable at scene edges on every home tier. */
 export const HOME_FURNITURE_POSITION_MIN = 0;
 export const HOME_FURNITURE_POSITION_MAX = 100;
 export const HOME_FURNITURE_MIN_WIDTH = 6;
 export const HOME_FURNITURE_MAX_WIDTH = 40;
 export const HOME_FURNITURE_MAX_PLACEMENTS = 50;
+/** A property's room limit includes its yard; room identities remain stable across tiers. */
+export const HOME_MAX_ROOMS = 11;
+export const HOME_MAX_INVITATIONS = 100;
+/** Pending home invitations follow the request cleaner’s one-day retention. */
+export const HOME_INVITATION_EXPIRY_SECONDS = 24 * 3600;
+export const HOME_ROOM_IDS = ["main", "room-1", "room-2", "room-3", "room-4", "room-5", "room-6", "room-7", "room-8", "room-9", "yard"] as const;
+/** Persist palette keys so editor choices and rendered wall finishes share one source. */
+export const HOME_WALL_PAINTS = { ivory: "#ddd0ac", sage: "#a9ba9a", indigo: "#8b96b7", rose: "#cfaaa3", charcoal: "#777b80" } as const;
+/** Complete property paintings share their source with every foreground depth mask. */
+export const IMG_HOME_PROPERTIES = {
+  NONE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/Teveo0f5yUTysHpT9iBly.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/IhUIzHX0Yulu0zXkaD0cI.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/5c-DiCzFxZit_rAadfaPm.webp",
+  },
+  STUDIO_APARTMENT: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/p9CC-MXfVyXHpVtdNgAMP.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/xPtQG6LSY7aOO9H02Dujf.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/S6X_DL27oVSK30TlbeQSz.webp",
+  },
+  ONE_BED_APARTMENT: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/zZgQZUapi3Ic_z0ttTlNx.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/zHXXqoq5X3zD-BEZ-s0BS.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/1NgeNXBMkNb03ft4SKgX8.webp",
+  },
+  TWO_BED_HOUSE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/UjeXrQdLH7IwmUew8CLNV.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/snPYLB1NrLCbtS8K7aBF2.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/9ceuDm_w3Wg4h6vIOjISb.webp",
+  },
+  TOWN_HOUSE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/C2Iyp7Ajrm6J3oHLKyrML.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/G4fWN1hShhXwwjr4iifNc.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/yB-Q_45IMvxLjRM_G4Xzl.webp",
+  },
+  SMALL_MANSION: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/IzzdPoXFWbhr5Kwg2MWCo.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/zbCwVuibq8VPxINCVYWlY.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/kmHN7Jt5YV-emX-0E6uC_.webp",
+  },
+  SMALL_ESTATE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/ruVUTcpbZKHMdIwUIhGk8.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/rBSqH3cgAVK1IA0vAq-Su.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/Ro4zck4yoK7raUfQRDgBs.webp",
+  },
+  LARGE_ESTATE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/xeRcJI_5_jV_o5HPq2pMM.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/dQVI9UEdFTQisptYrVkOU.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/d6twNfrmQTkVgrimWiixL.webp",
+  },
+  PALACE: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/NCwEPLcUquXAl9I7UsCw9.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/18xWm4l4TnfWF3DdCfzRt.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/DwwMWzYaDMSaEl7pJ1a54.webp",
+  },
+  MARSHMALLOWOPOLIS: {
+    ground: "https://ui0arpl8sm.ufs.sh/f/mHgkezr9HvQYRaB6ozWT8.webp",
+    dessert: "https://ui0arpl8sm.ufs.sh/f/6pPTckK4b4V386uNILYEW.webp",
+    snow: "https://ui0arpl8sm.ufs.sh/f/mrRYdYfkt8sfPbOv17xa0.webp",
+  },
+} as const satisfies Record<HomeType, Record<"ground" | "dessert" | "snow", string>>;
+/** Original retains the authored floor; other finishes use measured room surface masks. */
+export const HOME_FLOOR_TILES = {
+  original: null,
+  cedar: "https://ui0arpl8sm.ufs.sh/f/tSoM_Rq-bCEP3dJJvUfiC.webp",
+  oak: "https://ui0arpl8sm.ufs.sh/f/yozmhQoEyur_AuQnabpAW.webp",
+  slate: "https://ui0arpl8sm.ufs.sh/f/2-DXtElMITFF--JiIW8Pk.webp",
+  terracotta: "https://ui0arpl8sm.ufs.sh/f/v2dMX-jt0CGomn1vHS12x.webp",
+} as const;
+/** Furniture storage is independent of item storage and can hold every room's display capacity. */
+export const HOME_FURNITURE_STORAGE_CAPACITY = HOME_FURNITURE_MAX_PLACEMENTS * HOME_MAX_ROOMS;
 
 /** The fixed room camera foreshortens furniture facing along the front-to-back floor axis. */
 export const HOME_FURNITURE_FLOOR_DEPTH_RATIO = 0.7;

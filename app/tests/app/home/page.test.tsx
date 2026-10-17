@@ -8,13 +8,15 @@ import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
 import HomePage from "@/app/[shell]/home/page";
 import * as dialog from "@/components/ui/dialog";
-import { HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
+import { type HomeType, HomeTypeDetails, IMG_HOME_KITCHEN } from "@/drizzle/constants";
 import * as sleep from "@/hooks/sleep";
 import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as Link from "@/layout/Link";
 import * as Modal from "@/layout/Modal";
-import type { HomeFurniture } from "@/libs/home";
+import { getHomeFurnitureGeometry, type HomeFurniture, unprojectHomePlacement } from "@/libs/home";
+import { getHomeRooms } from "@/libs/homeProperty";
+import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import * as Kitchen from "@/layout/Kitchen";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
@@ -45,8 +47,8 @@ const ownedItems = basics.map((piece) => ({
   item: { id: piece.itemId, name: piece.name, image: piece.image, itemType: "FURNITURE", slot: "NONE", rarity: "COMMON", hidden: false },
 })) as unknown as RouterOutputs["item"]["getUserItems"];
 const essentialHome: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-  homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-  furniture: basics, furnitureRevision: 3, layout: [...layout],
+  homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+  furniture: basics, furnitureRevision: 3, styles: [], isPublic: false, layout: [...layout],
 };
 
 const testApi = createTRPCReact<AppRouter>();
@@ -81,6 +83,7 @@ beforeEach(() => {
   });
   vi.spyOn(UserContext, "useRequireInVillage").mockReturnValue({
     userData: {
+      userId: "home-test-user",
       homeType: "NONE",
       status: "AWAKE",
       money: 1000,
@@ -135,6 +138,11 @@ for (const hasCachedInventory of [false, true]) {
       await queryClient.invalidateQueries({ queryKey: itemKey });
     }
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       const result = async () => {
         if (op.path === "home.getUserHome") {
           homeQueries++;
@@ -172,7 +180,8 @@ for (const hasCachedInventory of [false, true]) {
       expect(dialog.queryByText("You don't have any items stored in your home.")).toBeNull();
       expect(dialog.queryByRole("button", { name: "Merge all stacks" })).toBeNull();
       await act(async () => { finishInventory(); await inventoryReady; });
-      expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+      expect(await dialog.findByRole("tab", { name: "Furniture (3)" })).toBeTruthy();
+      await act(async () => { fireEvent.mouseDown(dialog.getByRole("tab", { name: "Furniture (3)" }), { button: 0 }); });
       for (const piece of basics) expect(dialog.getAllByAltText(piece.name).length).toBeGreaterThan(0);
       await act(async () => { finishPregrantRead(); await pregrantRead; });
       expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)).toEqual(ownedItems);
@@ -194,6 +203,11 @@ for (const hasMissingInventory of [false, true]) {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       if (op.path === "home.getUserHome") {
         homeQueries++;
         observer.next({ result: { data: essentialHome } });
@@ -219,7 +233,7 @@ for (const hasMissingInventory of [false, true]) {
         expect((await dialog.findByRole("alert")).textContent).toContain("Unable to load home storage.");
         expect(dialog.queryByRole("tab", { name: /Stored Items/ })).toBeNull();
       } else {
-        expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+        expect(await dialog.findByRole("tab", { name: "Furniture (3)" })).toBeTruthy();
       }
       // New result objects and furniture ordering must not restart the same missing-ID refresh.
       await act(async () => {
@@ -230,7 +244,7 @@ for (const hasMissingInventory of [false, true]) {
       expect(homeQueries).toBe(1);
       if (hasMissingInventory) {
         fireEvent.click(dialog.getByRole("button", { name: "Retry" }));
-        expect(await dialog.findByRole("tab", { name: `Stored Items (3 / ${HomeTypeDetails.NONE.storage} slots used)` })).toBeTruthy();
+        expect(await dialog.findByRole("tab", { name: "Furniture (3)" })).toBeTruthy();
         expect(itemQueries).toBe(3);
         expect(homeQueries).toBe(2);
       }
@@ -279,11 +293,16 @@ it("refreshes a selected furniture variant when returning from inventory", async
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     if (op.path === "home.getUserHome") {
       homeQueries++;
       const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-        homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-        furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3,
+        homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+        furniture: [{ ...chair, image: selectedImage }], furnitureRevision: 3, styles: [], isPublic: false,
         layout: [{ id: chair.id, x: 50, y: 50, rotation: 0 }],
       };
       observer.next({ result: { data: home } });
@@ -316,6 +335,113 @@ it("refreshes a selected furniture variant when returning from inventory", async
   }
 });
 
+it("refreshes furniture storage after a downgrade stores a carried piece from a removed room", async () => {
+  let home: typeof essentialHome = { ...essentialHome, homeType: "TOWN_HOUSE", furniture: [...basics, rug], layout: [...layout, { id: rug.id, x: 50, y: 50, rotation: 0, room: "room-1" }] };
+  let items = [...ownedItems, { ...ownedItems[0]!, id: rug.id, itemId: rug.itemId, storedAtHome: false, item: { ...ownedItems[0]!.item, id: rug.itemId, name: rug.name, image: rug.image } }];
+  let itemQueries = 0;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
+    let data;
+    if (op.path === "home.getUserHome") data = { ...home };
+    else if (op.path === "item.getUserItems") {
+      itemQueries++;
+      data = items.map((row) => ({ ...row }));
+    } else if (op.path === "home.getAvailableUpgrades") {
+      data = [{ type: "TWO_BED_HOUSE", ...HomeTypeDetails.TWO_BED_HOUSE, isUpgrade: false, upgradeCost: 0, downgradeRefund: 100 }];
+    } else if (op.path === "home.upgradeHome") {
+      expect(op.input).toEqual({ homeType: "TWO_BED_HOUSE" });
+      home = { ...home, homeType: "TWO_BED_HOUSE", layout: [...layout], furnitureRevision: home.furnitureRevision + 1 };
+      items = items.map((row) => row.id === rug.id ? { ...row, storedAtHome: true } : row);
+      data = { success: true, message: "Downgraded" };
+    } else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Manage home" }));
+    const management = within(view.getByRole("dialog"));
+    await act(async () => { fireEvent.mouseDown(management.getByRole("tab", { name: "Downgrades" }), { button: 0 }); });
+    fireEvent.click(management.getByRole("button", { name: "Downgrade" }));
+    await waitFor(() => expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)!.find(({ id }) => id === rug.id)!.storedAtHome).toBe(true));
+    expect(itemQueries).toBe(2);
+    fireEvent.click(management.getAllByRole("button", { name: "Close" })[0]!);
+    fireEvent.click(view.getByRole("button", { name: "Home storage" }));
+    const storage = within(view.getByRole("dialog"));
+    expect(storage.getByRole("tab", { name: "Furniture (4)" })).toBeTruthy();
+    await act(async () => { fireEvent.mouseDown(storage.getByRole("tab", { name: "Furniture (4)" }), { button: 0 }); });
+    expect(storage.getAllByAltText(rug.name).length).toBeGreaterThan(0);
+    await act(async () => { fireEvent.mouseDown(storage.getByRole("tab", { name: "Inventory" }), { button: 0 }); });
+    expect(storage.queryByAltText(rug.name)).toBeNull();
+  } finally {
+    queryClient.clear();
+  }
+}, 20_000);
+
+it("refreshes furniture storage after placing a carried piece and waits for its inventory", async () => {
+  let home = { ...essentialHome, furniture: [...basics, rug] };
+  let items = [...ownedItems, { ...ownedItems[0]!, id: rug.id, itemId: rug.itemId, storedAtHome: false, item: { ...ownedItems[0]!.item, id: rug.itemId, name: rug.name, image: rug.image } }];
+  let finishInventory = () => {};
+  const inventoryReady = new Promise<void>((resolve) => { finishInventory = resolve; });
+  let itemQueries = 0;
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const itemKey = getQueryKey(testApi.item.getUserItems, undefined, "query");
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
+    const result = async () => {
+      if (op.path === "home.getUserHome") return { ...home };
+      if (op.path === "item.getUserItems") {
+        if (++itemQueries > 1) await inventoryReady;
+        return items.map((row) => ({ ...row }));
+      }
+      if (op.path === "home.getAvailableUpgrades") return [];
+      if (op.path === "home.saveFurnitureLayout") {
+        const draft = op.input as RouterInputs["home"]["saveFurnitureLayout"];
+        home = { ...home, layout: draft.placements, furnitureRevision: home.furnitureRevision + 1 };
+        items = items.map((row) => row.id === rug.id ? { ...row, storedAtHome: true } : row);
+        return { success: true, message: "Saved" };
+      }
+      throw new Error(`Unexpected procedure ${op.path}`);
+    };
+    void result().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Decorate" }));
+    fireEvent.click(view.getByRole("button", { name: /Woven Rug.*Place$/ }));
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(itemQueries).toBe(2));
+    expect(queryClient.isMutating()).toBe(1);
+    expect((view.getByRole("button", { name: "Saving…" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { finishInventory(); await inventoryReady; });
+    await waitFor(() => expect(view.queryByRole("button", { name: "Save layout" })).toBeNull());
+    expect(queryClient.getQueryData<RouterOutputs["item"]["getUserItems"]>(itemKey)!.find(({ id }) => id === rug.id)!.storedAtHome).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Home storage" }));
+    expect(view.getByRole("tab", { name: "Furniture (4)" })).toBeDefined();
+  } finally {
+    finishInventory();
+    queryClient.clear();
+  }
+});
+
 for (const success of [true, false]) {
   it(`keeps the editor disabled through refreshing a ${success ? "successful" : "rejected"} save`, async () => {
     let finishRefresh = () => {};
@@ -325,10 +451,11 @@ for (const success of [true, false]) {
     let homeQueries = 0;
     const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
       homeType: "NONE",
+      biome: "ground",
       regen: HomeTypeDetails.NONE.regen,
       storage: HomeTypeDetails.NONE.storage,
       furniture,
-      furnitureRevision: 3,
+      furnitureRevision: 3, styles: [], isPublic: false,
       layout: [...layout],
     };
     const save = vi.fn((draft: RouterInputs["home"]["saveFurnitureLayout"]) => {
@@ -349,6 +476,11 @@ for (const success of [true, false]) {
         () =>
           ({ op }) =>
             observable((observer) => {
+              if (op.path === "home.getHomeRequests") {
+                observer.next({ result: { data: [] } });
+                observer.complete();
+                return;
+              }
               const result = async () => {
                 if (op.path === "home.getUserHome") {
                   if (++homeQueries > 1) await refreshed;
@@ -435,11 +567,16 @@ it("opens home management from the header and waits for refreshed inventory befo
   const refreshed = new Promise<void>((resolve) => { finishRefresh = resolve; });
   let homeQueries = 0;
   const home: NonNullable<RouterOutputs["home"]["getUserHome"]> = {
-    homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-    furniture: [...furniture], furnitureRevision: 3, layout: [...layout],
+    homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+    furniture: [...furniture], furnitureRevision: 3, styles: [], isPublic: false, layout: [...layout],
   };
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
     const result = async () => {
       if (op.path === "home.getUserHome") {
         if (++homeQueries > 1) await refreshed;
@@ -490,6 +627,78 @@ it("opens home management from the header and waits for refreshed inventory befo
   }
 }, 20_000);
 
+it("preserves a draft across a tier refresh and requires recovery before saving", async () => {
+  const home = { ...essentialHome, furniture, homeType: "TOWN_HOUSE" as const, layout: [...layout] };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const homeKey = getQueryKey(testApi.home.getUserHome, undefined, "query");
+  const save = vi.fn().mockReturnValue({ success: false, message: "Retained" });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    if (op.path === "home.getHomeRequests") {
+      observer.next({ result: { data: [] } });
+      observer.complete();
+      return;
+    }
+    let data;
+    if (op.path === "home.getUserHome") data = home;
+    else if (op.path === "item.getUserItems") data = ownedItems;
+    else if (op.path === "home.getAvailableUpgrades") data = [];
+    else if (op.path === "home.saveFurnitureLayout") data = save(op.input);
+    else throw new Error(`Unexpected procedure ${op.path}`);
+    observer.next({ result: { data } });
+    observer.complete();
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><HomePage /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    fireEvent.click(await view.findByRole("button", { name: "Decorate" }));
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "sage" } });
+    fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "room-1" } });
+    fireEvent.change(view.getByLabelText("Wall paint"), { target: { value: "rose" } });
+    const bed = view.getByRole("button", { name: "Move Bed" });
+    /** A tier changes painted world bounds; the captured draft must retain its room-local anchors. */
+    const normalizedPosition = (homeType: HomeType) => {
+      const room = getHomeRooms(homeType).find(({ id }) => id === "room-1")!;
+      const origin = getHomeFurnitureGeometry(furniture[0]!, { id: furniture[0]!.id, x: 0, y: 0, rotation: 0, room: room.id }, homeType).visibleBounds;
+      return unprojectHomePlacement({
+        x: (Number.parseFloat(bed.style.left) - room.x) * 100 / room.width - origin.x + HOME_FLOOR_PROJECTION.x,
+        y: (Number.parseFloat(bed.style.top) - room.y) * 100 / room.height - origin.y + HOME_FLOOR_PROJECTION.y,
+      });
+    };
+    const position = normalizedPosition("TOWN_HOUSE");
+    await act(async () => {
+      queryClient.setQueryData(homeKey, { ...home, homeType: "SMALL_MANSION", furnitureRevision: 4 });
+    });
+    await view.findByRole("button", { name: "Decorate Room 6" });
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("room-1");
+    expect(normalizedPosition("SMALL_MANSION").x).toBeCloseTo(position.x, 8);
+    expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
+    fireEvent.keyDown(bed, { key: "ArrowRight" });
+    expect(normalizedPosition("SMALL_MANSION").x).toBeCloseTo(position.x, 8);
+    expect(normalizedPosition("SMALL_MANSION").y).toBeCloseTo(position.y, 8);
+    expect(view.getByRole("alert").textContent).toContain("Your home tier changed. Cancel and reopen");
+    expect((view.getByRole("button", { name: "Save layout" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(view.getByRole("button", { name: "Decorate Room 2" }));
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("rose");
+    fireEvent.click(view.getByRole("button", { name: "Decorate Main room" }));
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("sage");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    expect(save).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    expect(view.queryByRole("alert")).toBeNull();
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("main");
+    expect((view.getByLabelText("Wall paint") as HTMLSelectElement).value).toBe("ivory");
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]![0]).toMatchObject({ homeType: "SMALL_MANSION", revision: 4, styles: [] });
+  } finally {
+    queryClient.clear();
+  }
+});
+
 it("opens the kitchen with owned artwork or its fallback and returns focus to its action", async () => {
   for (const hasKitchen of [true, false]) {
     const kitchen: HomeFurniture = {
@@ -498,10 +707,15 @@ it("opens the kitchen with owned artwork or its fallback and returns focus to it
     };
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+      if (op.path === "home.getHomeRequests") {
+        observer.next({ result: { data: [] } });
+        observer.complete();
+        return;
+      }
       if (op.path === "home.getUserHome") {
         observer.next({ result: { data: {
-          homeType: "NONE", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
-          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
+          homeType: "NONE", biome: "ground", regen: HomeTypeDetails.NONE.regen, storage: HomeTypeDetails.NONE.storage,
+          furniture: hasKitchen ? [kitchen] : [], furnitureRevision: 3, styles: [], isPublic: false, layout: hasKitchen ? [{ id: kitchen.id, x: 76, y: 57.58, rotation: 0 }] : [],
         } } });
       } else if (op.path === "home.getAvailableUpgrades" || op.path === "item.getUserItems") {
         observer.next({ result: { data: [] } });

@@ -55,6 +55,7 @@ import type {
 import type { NormalizedSectorMap } from "@/libs/sector-map/types";
 import type { GuideFaqItem } from "@/validators/guide";
 import type { FurnitureData, FurnitureVariantData } from "@/validators/itemFurniture";
+import type { HomeRoomStyle } from "@/validators/home";
 import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } from "@/validators/war";
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
 
@@ -2873,6 +2874,7 @@ export type UserStatus = UserData["status"];
 export type FederalStatus = UserData["federalStatus"];
 
 export const userDataRelations = relations(userData, ({ one, many }) => ({
+  home: one(userHome, { fields: [userData.userId], references: [userHome.userId] }),
   questParty: one(questParty, { fields: [userData.questPartyId], references: [questParty.id] }),
   queue: many(userQueue),
   ips: many(historicalIp),
@@ -3071,6 +3073,7 @@ export const userItem = mysqlTable(
     homeX: double("homeX"),
     homeY: double("homeY"),
     homeRotation: tinyint("homeRotation", { unsigned: true }).default(0).notNull(),
+    homeRoom: mysqlEnum("homeRoom", consts.HOME_ROOM_IDS).default("main").notNull(),
     craftingFinishedAt: datetime("craftingFinishedAt", { mode: "date", fsp: 3 }),
     isInAuction: boolean("isInAuction").default(false).notNull(),
     activeVariantId: varchar("activeVariantId", { length: 191 }),
@@ -4592,6 +4595,13 @@ export const userBadgeRelations = relations(userBadge, ({ one }) => ({
   }),
 }));
 
+/** Home-only finishes and visibility stay outside the frequently read account snapshot. */
+export const userHome = mysqlTable("UserHome", {
+  userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
+  roomStyles: json("roomStyles").$type<HomeRoomStyle[]>().default([]).notNull(),
+  isPublic: boolean("isPublic").default(false).notNull(),
+});
+
 export const userRequest = mysqlTable(
   "UserRequest",
   {
@@ -4602,6 +4612,11 @@ export const userRequest = mysqlTable(
     type: mysqlEnum("type", consts.UserRequestTypes).notNull(),
     value: int("value").default(0),
     relatedId: varchar("relatedId", { length: 191 }),
+    // Terminal invitations release this slot; the same owner cannot grant duplicate active access.
+    activeHomeReceiverId: varchar("activeHomeReceiverId", { length: 191 }).generatedAlwaysAs(
+      sql`CASE WHEN \`type\` = 'HOME' AND \`status\` IN ('PENDING', 'ACCEPTED') THEN \`receiverId\` ELSE NULL END`,
+      { mode: "stored" },
+    ),
     // MySQL unique indexes allow multiple NULLs, so this atomically limits a
     // sender to one pending ANBU request while leaving every other request type
     // and terminal ANBU request unrestricted.
@@ -4629,6 +4644,7 @@ export const userRequest = mysqlTable(
       pendingAnbuSenderUnique: unique("UserRequest_pending_anbu_sender_unique").on(
         table.pendingAnbuSenderId,
       ),
+      activeHomePairUnique: unique("UserRequest_active_home_pair_unique").on(table.senderId, table.activeHomeReceiverId),
     };
   },
 );

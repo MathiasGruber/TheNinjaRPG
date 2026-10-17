@@ -14,6 +14,7 @@ import {
   storeUserIdAlias,
   userData,
   userDevice,
+  userHome,
   userLiveActivity,
   userPushPreference,
   userReport,
@@ -56,6 +57,7 @@ describeWithDatabase("staff user-id rename", () => {
       userLiveActivity,
       userPushPreference,
       userDevice,
+      userHome,
       storeEntitlementRevocation,
       storeEntitlementState,
       storePurchaseTransfer,
@@ -77,6 +79,16 @@ describeWithDatabase("staff user-id rename", () => {
     const caller = await callerFor(staffRouter, STAFF);
     expect((await caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID })).success).toBe(true);
     expect((await database.select().from(auctionOffer))[0]).toMatchObject({ ownerId: NEW_USER_ID, accepterId: NEW_USER_ID });
+  });
+
+  it("moves home styles and visibility when an account ID changes", async () => {
+    const database = await getTestDatabase();
+    const roomStyles = [{ room: "main", paint: "sage", floor: "slate" }] as const;
+    await database.insert(userHome).values({ userId: OLD_USER_ID, isPublic: true, roomStyles: [...roomStyles] });
+    const caller = await callerFor(staffRouter, STAFF);
+    expect((await caller.updateUserId({ userId: OLD_USER_ID, newUserId: NEW_USER_ID })).success).toBe(true);
+    expect(await database.query.userHome.findFirst({ where: eq(userHome.userId, NEW_USER_ID) })).toMatchObject({ isPublic: true, roomStyles: [...roomStyles] });
+    expect(await database.query.userHome.findFirst({ where: eq(userHome.userId, OLD_USER_ID) })).toBeUndefined();
   });
 
   it("closes permanent offers before deleting their owner's inventory", async () => {

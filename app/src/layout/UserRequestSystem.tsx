@@ -25,6 +25,9 @@ interface UserRequestSystemProps {
   onCancel: (props: { id: string }) => void;
   /** When true, show accept/reject for pending requests not sent by this user (e.g. kage moderating) */
   canModerateRequests?: boolean;
+  /** Actions for requests whose accepted state remains active, such as shared access. */
+  renderAcceptedActions?: (request: ReturnedRequest) => React.ReactNode;
+  compact?: boolean;
 }
 
 const UserRequestSystem: React.FC<UserRequestSystemProps> = (props) => {
@@ -69,10 +72,14 @@ const UserRequestSystem: React.FC<UserRequestSystemProps> = (props) => {
   return (
     <div>
       {challengesSent && challengesSent.length > 0 && (
-        <Table data={challengesSent} columns={sentColumns} />
+        <Table data={challengesSent} columns={sentColumns} compact={props.compact} />
       )}
       {challengesReceived && challengesReceived.length > 0 && (
-        <Table data={challengesReceived} columns={receivedColumns} />
+        <Table
+          data={challengesReceived}
+          columns={receivedColumns}
+          compact={props.compact}
+        />
       )}
     </div>
   );
@@ -88,6 +95,10 @@ const ChallengeActionsBox: React.FC<ChallengeActionsBoxProps> = (props) => {
 
   // Loader
   if (isLoading) return <Loader />;
+
+  if (challenge.status === "ACCEPTED") {
+    return props.renderAcceptedActions?.(challenge);
+  }
 
   if (challenge.status === "PENDING") {
     if (challenge.senderId === userId) {

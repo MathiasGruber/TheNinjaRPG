@@ -1,6 +1,6 @@
 
 import { eq } from "drizzle-orm";
-import { beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import {
   actionLog,
   item,
@@ -12,7 +12,7 @@ import {
 } from "@/drizzle/schema";
 import * as actualModerator from "@/libs/moderator";
 import { profileRouter } from "@/server/api/routers/profile";
-import type { UpdateUserInput } from "@/validators/user";
+import { type UpdateUserInput, updateUserSchema } from "@/validators/user";
 import { insertItems, insertUsers } from "../../setup/factories";
 import {
   callerFor,
@@ -50,8 +50,20 @@ const inventory = async () => {
   return { items, jutsus };
 };
 
-describeWithDatabase("profile updates preserve omitted ownership lists", () => {
+describeWithDatabase("profile updates preserve ownership lists", () => {
   beforeEach(async () => {
+    const realFetch = globalThis.fetch;
+    // Keep public-profile rate limiting active without an external Redis call.
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+        return realFetch(input, init);
+      }
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(Array.isArray(commands[0]) ? commands.map((command) => resultFor(command as unknown[])) : resultFor(commands));
+    });
     await resetTables(actionLog, userItem, userJutsu, item, jutsu, userData, village);
     const database = await getTestDatabase();
     await database
@@ -100,6 +112,39 @@ describeWithDatabase("profile updates preserve omitted ownership lists", () => {
         level: 9,
         equipped: true,
       });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each(["HEAD_EVENT", "CODING-ADMIN"] as const)("preserves ownership when %s submits a full profile form for a title change", async (role) => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ role }).where(eq(userData.userId, STAFF));
+    const before = await inventory();
+    const caller = await callerFor(profileRouter, STAFF);
+    const profile = (await caller.getPublicUser({ userId: OWNER }))!;
+    const result = await caller.updateUser({
+      id: OWNER,
+      data: updateUserSchema.parse({
+        ...profile,
+        customTitle: "Updated title",
+        reason: "Correct the approved player's custom title",
+        items: profile.items.map((entry) => entry.itemId),
+        jutsus: profile.jutsus.map((entry) => entry.jutsuId),
+      }),
+    });
+    expect(result.success).toBe(true);
+    expect(await inventory()).toEqual(before);
+    expect(profile.items.map((entry) => entry.itemId)).toEqual(["inventory-item"]);
+    expect(profile.jutsus.map((entry) => entry.jutsuId)).toEqual(["inventory-jutsu"]);
+    const owner = await database.query.userData.findFirst({ where: eq(userData.userId, OWNER) });
+    expect(owner?.customTitle).toBe("Updated title");
+  });
+
+  it.each(["USER", "EVENT", "CODER"] as const)("hides another user's ownership lists from %s", async (role) => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ role }).where(eq(userData.userId, STAFF));
+    const profile = await (await callerFor(profileRouter, STAFF)).getPublicUser({ userId: OWNER });
+    expect(profile?.items).toEqual([]);
+    expect(profile?.jutsus).toEqual([]);
   });
 
   it("removes only the staff flag when both ownership lists are omitted", async () => {

@@ -142,7 +142,9 @@ export const usePusherHandler = (
               ),
             });
           }
-        } else if (data.type === "userMessage") {
+        } else if (data.type === "userMessage" || data.type === "homeInvitation") {
+          if (data.type === "homeInvitation")
+            await utils.home.getHomeRequests.invalidate();
           showMutationToast({
             success: true,
             message: data.message ?? "You have a new message",

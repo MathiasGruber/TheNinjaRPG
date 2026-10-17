@@ -14,8 +14,10 @@ import {
   recruitReferral,
   userAttribute,
   userData,
+  userItem,
   village,
 } from "@/drizzle/schema";
+import { HOME_FURNITURE_STARTERS } from "@/drizzle/constants";
 import { profileRouter } from "@/routers/profile";
 import { updateRewards } from "@/server/api/routers/quests";
 import { registerRouter } from "@/server/api/routers/register";
@@ -100,6 +102,7 @@ describeWithDatabase("recruit rank milestones end to end", () => {
       recruitReferral,
       userAttribute,
       userData,
+      userItem,
       village,
     );
     await insertUsers([
@@ -137,6 +140,13 @@ describeWithDatabase("recruit rank milestones end to end", () => {
       eligibilityReason: "SHARED_IP",
     });
     expect((await recruiterRep())?.nRecruited).toBe(1);
+    const database = await getTestDatabase();
+    const starters = await database.query.userItem.findMany({ where: eq(userItem.userId, "recruit-shared") });
+    expect(starters.map(({ itemId }) => itemId).sort()).toEqual(HOME_FURNITURE_STARTERS.map(({ itemId }) => itemId).sort());
+    for (const { itemId, x, y } of HOME_FURNITURE_STARTERS) {
+      expect(starters.find((piece) => piece.itemId === itemId)).toMatchObject({ quantity: 1, storedAtHome: true, homeX: x, homeY: y });
+    }
+    expect(await database.query.userData.findFirst({ where: eq(userData.userId, "recruit-shared"), columns: { homeFurnitureRevision: true } })).toEqual({ homeFurnitureRevision: 0 });
   });
 
   it("marks a recruit from a fresh IP eligible, and one without an IP eligible but unchecked", async () => {

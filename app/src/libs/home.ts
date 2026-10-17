@@ -1,6 +1,4 @@
 import {
-  HOME_FURNITURE_ESSENTIALS,
-  HOME_FURNITURE_MAX_PLACEMENTS,
   HOME_FURNITURE_POSITION_MAX,
   HOME_FURNITURE_POSITION_MIN,
   HOME_FURNITURE_ROTATION_DEGREES,
@@ -9,7 +7,12 @@ import {
   type HomeFurnitureRotation,
   type HomeType,
 } from "@/drizzle/constants";
-import { HOME_FLOOR_PROJECTION, HOME_ROOM_GEOMETRY } from "@/libs/homeRoomGeometry";
+import {
+  getHomePlacementRoom,
+  getHomeRooms,
+  homeRoomLayoutError,
+} from "@/libs/homeProperty";
+import { HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
 import type {
@@ -83,15 +86,21 @@ export const unprojectHomePlacement = (point: HomePoint) => ({
 export const getHomeFurnitureGeometry = (
   furniture: HomeFurniture,
   placement: HomePlacement,
+  homeType: HomeType,
 ) => {
   const view = getHomeFurnitureView(furniture, placement.rotation);
   const anchor = projectHomePlacement(placement);
-  // The room is 4:3; vertical percentages account for the source image's own aspect ratio.
-  const height = (view.width * (4 / 3)) / view.geometry.aspectRatio;
+  const room = getHomeRooms(homeType).find(
+    ({ id }) => id === getHomePlacementRoom(placement),
+  );
+  const width = (view.width * 100) / (room?.width ?? 100);
+  // Scale against the 4:3 world canvas before converting into room-local vertical percentages.
+  const height =
+    (view.width * (4 / 3) * 100) / view.geometry.aspectRatio / (room?.height ?? 100);
   const image = {
-    x: anchor.x - view.width / 2,
+    x: anchor.x - width / 2,
     y: anchor.y - (height * view.groundAnchor) / 100,
-    width: view.width,
+    width,
     height,
   };
   const bounds = (rect: FurnitureImageBounds) => ({
@@ -113,6 +122,8 @@ export const homeLayoutPlacementError = (
   furniture: HomeFurniture[],
   homeType: HomeType,
 ) => {
+  const roomError = homeRoomLayoutError(placements, homeType);
+  if (roomError) return roomError;
   const available = new Map(furniture.map((piece) => [piece.id, piece]));
   for (const placement of placements) {
     const piece = available.get(placement.id);
@@ -131,11 +142,12 @@ export const homeLayoutPlacementError = (
   for (const [index, placement] of placements.entries()) {
     const piece = available.get(placement.id);
     if (!piece || piece.isFloor) continue;
-    const footprint = getHomeFurnitureGeometry(piece, placement).footprint;
+    const footprint = getHomeFurnitureGeometry(piece, placement, homeType).footprint;
     for (const other of placements.slice(index + 1)) {
       const otherPiece = available.get(other.id);
       if (
         !otherPiece ||
+        getHomePlacementRoom(other) !== getHomePlacementRoom(placement) ||
         otherPiece.isFloor ||
         (piece.action === "farm") !== (otherPiece.action === "farm")
       )
@@ -143,7 +155,7 @@ export const homeLayoutPlacementError = (
       if (
         doHomeBoundsOverlap(
           footprint,
-          getHomeFurnitureGeometry(otherPiece, other).footprint,
+          getHomeFurnitureGeometry(otherPiece, other, homeType).footprint,
         )
       ) {
         return `${piece.name} overlaps ${otherPiece.name}. Move them apart before saving`;
@@ -183,13 +195,14 @@ export const fitHomeFurniturePlacement = (
     : placements.flatMap((other) => {
         const piece = available.get(other.id);
         return other.id !== placement.id &&
+          getHomePlacementRoom(other) === getHomePlacementRoom(placement) &&
           piece &&
           !piece.isFloor &&
           (piece.action === "farm") === (furniture.action === "farm")
-          ? [getHomeFurnitureGeometry(piece, other).footprint]
+          ? [getHomeFurnitureGeometry(piece, other, homeType).footprint]
           : [];
       });
-  const footprint = getHomeFurnitureGeometry(furniture, clamped).footprint;
+  const footprint = getHomeFurnitureGeometry(furniture, clamped, homeType).footprint;
   if (!obstacles.some((other) => doHomeBoundsOverlap(footprint, other))) return clamped;
 
   const anchor = projectHomePlacement(clamped);
@@ -216,7 +229,7 @@ export const fitHomeFurniturePlacement = (
   );
   for (const point of candidates) {
     const candidate = { ...clamped, ...unprojectHomePlacement(point) };
-    const bounds = getHomeFurnitureGeometry(furniture, candidate).footprint;
+    const bounds = getHomeFurnitureGeometry(furniture, candidate, homeType).footprint;
     if (!obstacles.some((other) => doHomeBoundsOverlap(bounds, other)))
       return candidate;
   }
@@ -231,124 +244,34 @@ export const recoverHomeLayout = (
 ): HomePlacement[] => {
   const available = new Map(furniture.map((piece) => [piece.id, piece]));
   const recovered: HomePlacement[] = [];
-  for (const placement of placements) {
-    const piece = available.get(placement.id);
+  for (const original of placements) {
+    const piece = available.get(original.id);
     if (!piece) continue;
-    const rotation = getHomeFurnitureRotations(piece).includes(placement.rotation)
-      ? placement.rotation
-      : 0;
-    const fitted = fitHomeFurniturePlacement(
-      { ...placement, rotation },
-      piece,
-      recovered,
-      furniture,
-      homeType,
-    );
-    if (fitted) recovered.push(fitted);
-  }
-  return recovered;
-};
-
-/** Every saved room keeps its sleeping, storage, and kitchen actions reachable. */
-export const homeLayoutEssentialsError = (
-  placements: HomePlacement[],
-  furniture: Pick<HomeFurniture, "id" | "action">[],
-) => {
-  const placed = new Set(placements.map(({ id }) => id));
-  const actions = new Set(
-    furniture.filter(({ id }) => placed.has(id)).map(({ action }) => action),
-  );
-  const missing = HOME_FURNITURE_ESSENTIALS.filter(
-    ({ action }) => !actions.has(action),
-  );
-  return missing.length
-    ? `Place essential furniture before saving: ${missing.map(({ name }) => name).join(", ")}`
-    : null;
-};
-
-/** Fit missing actions first; displaced pieces remain ordinary owned, unplaced inventory. */
-export const completeHomeLayoutEssentials = (
-  placements: HomePlacement[],
-  furniture: HomeFurniture[],
-  homeType: HomeType,
-): HomePlacement[] => {
-  let completed = [...placements];
-  const available = new Map(furniture.map((piece) => [piece.id, piece]));
-  for (const essential of HOME_FURNITURE_ESSENTIALS) {
-    if (completed.some(({ id }) => available.get(id)?.action === essential.action))
-      continue;
-    const candidates = furniture
-      .filter(({ action }) => action === essential.action)
-      .sort((a, b) => a.id.localeCompare(b.id));
-    const fit = (pieces: HomePlacement[]) => {
-      if (pieces.length >= HOME_FURNITURE_MAX_PLACEMENTS) return null;
-      for (const piece of candidates) {
-        for (const rotation of getHomeFurnitureRotations(piece)) {
-          const fitted = fitHomeFurniturePlacement(
-            { id: piece.id, x: essential.x, y: essential.y, rotation },
-            piece,
-            pieces,
-            furniture,
-            homeType,
-          );
-          if (fitted) return fitted;
-        }
-      }
-      return null;
-    };
-    const fitted = fit(completed);
-    if (fitted) {
-      completed.push(fitted);
-      continue;
-    }
-    // Keep one furnishing per action, including farming; redundant copies can free capacity.
-    const preservedActions = new Set<HomeFurnitureAction>();
-    const optional = completed.filter(({ id }) => {
-      const action = available.get(id)?.action;
-      if (action === null) return true;
-      if (!action) return false;
-      if (preservedActions.has(action)) return true;
-      preservedActions.add(action);
-      return false;
-    });
-    const optionalIds = new Set(optional.map(({ id }) => id));
-    let recovered = false;
-    for (const piece of optional) {
-      const remaining = completed.filter(({ id }) => id !== piece.id);
-      const fitted = fit(remaining);
+    const placement =
+      piece.action === "farm" && getHomePlacementRoom(original) === "main"
+        ? { ...original, room: "yard" as const }
+        : original;
+    const rotations = getHomeFurnitureRotations(piece);
+    const preferred = rotations.includes(placement.rotation) ? placement.rotation : 0;
+    // A retained room can become shallower when the property's painting changes.
+    for (const rotation of [
+      preferred,
+      ...rotations.filter((value) => value !== preferred),
+    ]) {
+      const fitted = fitHomeFurniturePlacement(
+        { ...placement, rotation },
+        piece,
+        recovered,
+        furniture,
+        homeType,
+      );
       if (fitted) {
-        completed = [...remaining, fitted];
-        recovered = true;
+        recovered.push(fitted);
         break;
       }
     }
-    if (recovered) continue;
-    const actionsOnly = completed.filter(({ id }) => !optionalIds.has(id));
-    const essentialPlacement = fit(actionsOnly);
-    if (!essentialPlacement) continue;
-    const essentialPiece = available.get(essentialPlacement.id);
-    if (!essentialPiece) continue;
-    // Only optional pieces touching the new footprint need to return to storage.
-    completed = completed.filter((placement) => {
-      const piece = available.get(placement.id);
-      return (
-        !piece ||
-        !optionalIds.has(placement.id) ||
-        !homeLayoutPlacementError(
-          [placement, essentialPlacement],
-          [piece, essentialPiece],
-          homeType,
-        )
-      );
-    });
-    while (completed.length >= HOME_FURNITURE_MAX_PLACEMENTS) {
-      const index = completed.findIndex(({ id }) => optionalIds.has(id));
-      if (index < 0) break;
-      completed.splice(index, 1);
-    }
-    completed.push(essentialPlacement);
   }
-  return completed;
+  return recovered;
 };
 
 /** Null coordinates keep an owned item unplaced without a second inventory or layout document. */
@@ -358,6 +281,7 @@ export const getHomeLayout = (
     homeX: number | null;
     homeY: number | null;
     homeRotation: number;
+    homeRoom?: HomePlacement["room"];
   }[],
 ): HomePlacement[] =>
   items.flatMap((piece) =>
@@ -365,6 +289,9 @@ export const getHomeLayout = (
       ? [
           {
             id: piece.id,
+            ...(piece.homeRoom && piece.homeRoom !== "main"
+              ? { room: piece.homeRoom }
+              : {}),
             x: piece.homeX,
             y: piece.homeY,
             rotation: HOME_FURNITURE_ROTATIONS.includes(
@@ -403,19 +330,23 @@ export const homeLayoutOrientationError = (
     : null;
 };
 
-/** Rooms have convex floor regions; shrinking their edges by the footprint gives valid anchors. */
+/** Measured convex floor regions shrink by the footprint to keep every piece on usable ground. */
 const getHomeAnchorPolygon = (
   furniture: HomeFurniture,
   placement: HomePlacement,
   homeType: HomeType,
 ) => {
-  const region =
-    furniture.action === "farm"
-      ? HOME_ROOM_GEOMETRY[homeType].outdoor
-      : HOME_ROOM_GEOMETRY[homeType].interior;
+  const room = getHomeRooms(homeType).find(
+    ({ id }) => id === getHomePlacementRoom(placement),
+  );
+  const isYard = room?.isYard;
+  // Decorative lawn and cultivation ground remain separate within the garden.
+  if (isYard && furniture.action && furniture.action !== "farm") return [];
+  if (!room || (!isYard && furniture.action === "farm")) return [];
+  const region = furniture.action === "farm" ? room.outdoor : room.interior;
   if (region.length < 3) return [];
   const anchor = projectHomePlacement(placement);
-  const geometry = getHomeFurnitureGeometry(furniture, placement);
+  const geometry = getHomeFurnitureGeometry(furniture, placement, homeType);
   const footprint = {
     ...geometry.footprint,
     x: geometry.footprint.x - anchor.x,
@@ -493,7 +424,11 @@ const clipHomeAnchorPolygon = (
   return clipped;
 };
 
-const isPointInHomePolygon = (point: HomePoint, polygon: readonly HomePoint[]) => {
+/** Use the placement polygon for room targeting as well as furniture boundary checks. */
+export const isPointInHomePolygon = (
+  point: HomePoint,
+  polygon: readonly HomePoint[],
+) => {
   if (polygon.length < 3) return false;
   const orientation = homePolygonOrientation(polygon);
   return polygon.every((edge, index) => {

@@ -1,6 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
-import { HomeTypeDetails } from "@/drizzle/constants";
+import { HOME_FURNITURE_STORAGE_CAPACITY, HomeTypeDetails } from "@/drizzle/constants";
 import { item, itemPurchaseCounter, itemVariant, userData, userItem, userItemImbuement, userItemVariant, village } from "@/drizzle/schema";
 import { calcMaxItems } from "@/libs/item";
 import { homeRouter } from "@/server/api/routers/home";
@@ -16,7 +16,7 @@ const userId = "furniture-buyer";
 const villageId = "furniture-village";
 const price = 100;
 const money = 1_000;
-const capacity = HomeTypeDetails.NONE.storage;
+const capacity = HOME_FURNITURE_STORAGE_CAPACITY;
 
 /** Standard item checkout delivers furniture into the same guarded home-storage economy. */
 describeWithDatabase("standard furniture purchases", () => {
@@ -41,7 +41,7 @@ describeWithDatabase("standard furniture purchases", () => {
     ]);
     return { owner: owners[0]!, inventory, counters };
   };
-  const storedRows = async (count: number, itemId = "ordinary") => insertUserItems(
+  const storedRows = async (count: number, itemId = "furniture") => insertUserItems(
     Array.from({ length: count }, (_, index) => ({ id: `stored-${itemId}-${index}`, userId, itemId, storedAtHome: true })),
   );
   const buy = async () => (await callerFor(itemRouter, userId)).buy({ itemId: "furniture", villageId, stack: 1 });
@@ -74,7 +74,7 @@ describeWithDatabase("standard furniture purchases", () => {
     expect(after.inventory.every(({ itemId, quantity, storedAtHome }) => itemId === "furniture" && quantity === 1 && storedAtHome)).toBe(true);
   });
 
-  it("rejects a full normal home-storage bucket without payment or delivery", async () => {
+  it("rejects a full furniture home-storage bucket without payment or delivery", async () => {
     await storedRows(capacity);
     const before = await snapshot();
     expect(await buy()).toMatchObject({ success: false, message: expect.stringContaining("storage is full") });
@@ -90,12 +90,12 @@ describeWithDatabase("standard furniture purchases", () => {
     expect((await snapshot()).inventory.filter(({ storedAtHome }) => storedAtHome)).toHaveLength(1);
   });
 
-  it("keeps material home storage separate from ordinary furniture capacity", async () => {
-    await storedRows(capacity, "material");
-    await storedRows(capacity - 1);
+  it("keeps full ordinary and material storage separate from furniture capacity", async () => {
+    await storedRows(HomeTypeDetails.NONE.storage, "material");
+    await storedRows(HomeTypeDetails.NONE.storage, "ordinary");
     expect((await buy()).success).toBe(true);
     const after = await snapshot();
-    expect(after.inventory.filter(({ storedAtHome, itemId }) => storedAtHome && itemId !== "material")).toHaveLength(capacity);
+    expect(after.inventory.filter(({ storedAtHome, itemId }) => storedAtHome && itemId === "furniture")).toHaveLength(1);
   });
 
   it("delivers only one of two concurrent purchases into the final storage slot", async () => {
@@ -108,16 +108,16 @@ describeWithDatabase("standard furniture purchases", () => {
     expect(results.filter(({ success }) => success)).toHaveLength(1);
     const after = await snapshot();
     expect(after.inventory).toHaveLength(capacity);
-    expect(after.inventory.filter(({ itemId }) => itemId === "furniture")).toHaveLength(1);
+    expect(after.inventory.filter(({ id }) => !id.startsWith("stored-"))).toHaveLength(1);
     expect(after.owner.money).toBe(money - price);
   });
 
-  it("rejects checkout after a downgrade reduces the checked home capacity", async () => {
+  it("rejects checkout after a concurrent downgrade changes the home snapshot", async () => {
     const database = await getTestDatabase();
     await database.update(userData).set({
       homeType: "STUDIO_APARTMENT", regenAt: new Date(Date.now() + 60_000),
     }).where(eq(userData.userId, userId));
-    await storedRows(capacity);
+    await storedRows(capacity - 1);
     const before = await snapshot();
     let downgrade: Awaited<ReturnType<ReturnType<typeof homeRouter.createCaller>["upgradeHome"]>> | undefined;
     const raced = new Proxy(database, {
@@ -139,22 +139,22 @@ describeWithDatabase("standard furniture purchases", () => {
     expect(after.owner.updatedAt.getTime()).toBeGreaterThan(before.owner.updatedAt.getTime());
   });
 
-  it("rejects a stale downgrade after checkout fills its target home capacity", async () => {
+  it("rejects a stale downgrade after checkout fills the furniture storage bucket", async () => {
     const database = await getTestDatabase();
     await database.update(userData).set({
       homeType: "STUDIO_APARTMENT", regenAt: new Date(Date.now() + 60_000),
     }).where(eq(userData.userId, userId));
-    await storedRows(capacity);
+    await storedRows(capacity - 1);
     let purchase: Awaited<ReturnType<ReturnType<typeof itemRouter.createCaller>["buy"]>> | undefined;
-    const raced = beforeStatements(database, userData, [async () => { purchase = await buy(); }]);
+    const raced = beforeStatements(database, userItem, [async () => { purchase = await buy(); }]);
     const downgrade = await callerForDatabase(homeRouter, userId, raced).upgradeHome({ homeType: "NONE" });
     expect(purchase?.success).toBe(true);
     expect(downgrade.success).toBe(false);
     const after = await snapshot();
     expect(after.owner.homeType).toBe("STUDIO_APARTMENT");
-    expect(after.inventory).toHaveLength(capacity + 1);
+    expect(after.inventory).toHaveLength(capacity);
     expect(after.owner.money).toBe(money - price);
-    expect(after.inventory.filter(({ storedAtHome }) => storedAtHome).length).toBeLessThanOrEqual(HomeTypeDetails[after.owner.homeType].storage);
+    expect(after.inventory.filter(({ storedAtHome }) => storedAtHome).length).toBeLessThanOrEqual(HOME_FURNITURE_STORAGE_CAPACITY);
   });
 
   it("rejects insufficient funds and unsupported stacks without consuming quota", async () => {

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, lte, or } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, ne, or } from "drizzle-orm";
 import { z } from "zod";
 import { SENSEI_MAX_STUDENT_LEVEL, SENSEI_RANKS } from "@/drizzle/constants";
 import { userData, userRequest } from "@/drizzle/schema";
@@ -211,7 +211,7 @@ export const fetchStudents = async (client: DrizzleClient, userId: string) => {
 };
 
 /**
- * Deletes all user requests where the senderId matches the given userId.
+ * Clears requests affected by village or rank changes while preserving home access.
  *
  * @param client - The DrizzleClient instance used to perform the delete operation.
  * @param userId - The ID of the user whose requests should be deleted.
@@ -220,5 +220,10 @@ export const fetchStudents = async (client: DrizzleClient, userId: string) => {
 export const deleteRequests = async (client: DrizzleClient, userId: string) => {
   return await client
     .delete(userRequest)
-    .where(or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)));
+    .where(
+      and(
+        or(eq(userRequest.senderId, userId), eq(userRequest.receiverId, userId)),
+        ne(userRequest.type, "HOME"),
+      ),
+    );
 };

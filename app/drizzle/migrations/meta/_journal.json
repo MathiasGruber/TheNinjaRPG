@@ -610,6 +610,13 @@
       "when": 1792081738201,
       "tag": "0086_yellow_dexter_bennett",
       "breakpoints": false
+    },
+    {
+      "idx": 87,
+      "version": "5",
+      "when": 1792130735780,
+      "tag": "0087_tough_lady_vermin",
+      "breakpoints": false
     }
   ]
 }

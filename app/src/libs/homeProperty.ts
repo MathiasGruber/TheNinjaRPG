@@ -1,0 +1,154 @@
+import {
+  HOME_FURNITURE_MAX_PLACEMENTS,
+  HOME_ROOM_IDS,
+  type HomeType,
+} from "@/drizzle/constants";
+import {
+  HOME_ART_PLANS,
+  type HomePoint,
+  homeArtRectPolygon,
+} from "@/libs/homeRoomGeometry";
+import { clamp } from "@/utils/math";
+import type { HomePlacement, HomeRoomStyle } from "@/validators/home";
+
+/** Stable identities tie saved placements and finishes to rooms across home tier changes. */
+export type HomeRoomId = (typeof HOME_ROOM_IDS)[number];
+/** Room-local coordinates map to measured floor areas in one complete painting. */
+export type HomeRoom = {
+  id: HomeRoomId;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isYard: boolean;
+  interior: HomePoint[];
+  outdoor: HomePoint[];
+};
+/** Translation is measured in viewport percentages and applied after scaling the property. */
+export type HomeCamera = { x: number; y: number; scale: number };
+
+/** Fit the complete painting, including the usable gardens, into the viewport. */
+export const getHomeOverviewCamera = (homeType: HomeType): HomeCamera => ({
+  x: 0,
+  y: 0,
+  scale: 100 / HOME_ART_PLANS[homeType].size,
+});
+
+/** A rectangular painting bounds navigation without snapping between unrelated room centers. */
+export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCamera => {
+  const scale = clamp(camera.scale, getHomeOverviewCamera(homeType).scale, 1.8);
+  const extent = HOME_ART_PLANS[homeType].size * scale;
+  return {
+    scale,
+    x: clamp(camera.x, 100 - extent, 0),
+    y: clamp(camera.y, 100 - extent, 0),
+  };
+};
+
+/** Frame the selected floor at a useful magnification without leaving the painted property. */
+export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamera => {
+  const room = getHomeRooms(homeType).find((room) => room.id === id);
+  if (!room) return getHomeOverviewCamera(homeType);
+  const scale = Math.min(1.8, 100 / Math.max(room.width, room.height));
+  return boundHomeCamera(
+    {
+      scale,
+      x: 50 - (room.x + room.width / 2) * scale,
+      y: 50 - (room.y + room.height / 2) * scale,
+    },
+    homeType,
+  );
+};
+
+/** Keep the world point under the wheel pointer or pinch midpoint anchored while zooming. */
+export const zoomHomeCamera = (
+  camera: HomeCamera,
+  scale: number,
+  before: { x: number; y: number },
+  after = before,
+): HomeCamera => ({
+  scale,
+  x: after.x - ((before.x - camera.x) * scale) / camera.scale,
+  y: after.y - ((before.y - camera.y) * scale) / camera.scale,
+});
+
+/** Floor measurements retain normalized anchors while furniture keeps its physical proportions. */
+export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
+  const plan = HOME_ART_PLANS[homeType];
+  const unit = plan.size / 100;
+  const rooms: HomeRoom[] = plan.floors.map(([left, top, right, bottom], index) => {
+    const width = ((right - left) * unit) / 0.78;
+    const height = ((bottom - top) * unit) / 0.54;
+    return {
+      id: HOME_ROOM_IDS[index] ?? "main",
+      name: index === 0 ? "Main room" : `Room ${index + 1}`,
+      x: left * unit - width * 0.12,
+      y: top * unit - height * 0.26,
+      width,
+      height,
+      isYard: false,
+      interior: homeArtRectPolygon([12, 26, 90, 80]),
+      outdoor: [],
+    };
+  });
+  // Both yard regions share a canvas so decorative furniture cannot occupy the cultivation clearing.
+  const left = Math.min(plan.lawn[0], plan.garden[0]);
+  const top = Math.min(plan.lawn[1], plan.garden[1]);
+  const right = Math.max(plan.lawn[2], plan.garden[2]);
+  const bottom = Math.max(plan.lawn[3], plan.garden[3]);
+  const width = ((right - left) * unit) / 0.78;
+  const height = ((bottom - top) * unit) / 0.54;
+  const x = left * unit - width * 0.12;
+  const y = top * unit - height * 0.26;
+  const local = (point: HomePoint) => ({
+    x: ((point.x * unit - x) * 100) / width,
+    y: ((point.y * unit - y) * 100) / height,
+  });
+  rooms.push({
+    id: "yard",
+    name: "Garden",
+    x,
+    y,
+    width,
+    height,
+    isYard: true,
+    interior: homeArtRectPolygon(plan.lawn).map(local),
+    outdoor: homeArtRectPolygon(plan.garden).map(local),
+  });
+  return rooms;
+};
+
+/** Placements without an explicit room retain the original main-room coordinates. */
+export const getHomePlacementRoom = (
+  placement: Pick<HomePlacement, "room">,
+): HomeRoomId => placement.room ?? "main";
+
+/** Check tier-specific room membership and per-room capacity before geometry validation. */
+export const homeRoomLayoutError = (
+  placements: HomePlacement[],
+  homeType: HomeType,
+) => {
+  const rooms = getHomeRooms(homeType);
+  for (const placement of placements) {
+    if (!rooms.some(({ id }) => id === getHomePlacementRoom(placement)))
+      return "This room is no longer part of your home. Refresh and try again";
+  }
+  for (const room of rooms) {
+    if (
+      placements.filter((placement) => getHomePlacementRoom(placement) === room.id)
+        .length > HOME_FURNITURE_MAX_PLACEMENTS
+    )
+      return `${room.name} can display up to ${HOME_FURNITURE_MAX_PLACEMENTS} pieces`;
+  }
+  return null;
+};
+
+/** Finishes may be sparse, but each available room can appear at most once. */
+export const homeRoomStylesError = (styles: HomeRoomStyle[], homeType: HomeType) => {
+  const rooms = getHomeRooms(homeType);
+  return new Set(styles.map(({ room }) => room)).size !== styles.length ||
+    styles.some(({ room }) => !rooms.some(({ id }) => id === room))
+    ? "Choose finishes once for each available room"
+    : null;
+};

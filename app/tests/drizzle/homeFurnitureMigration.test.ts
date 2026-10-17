@@ -5,6 +5,50 @@ import mysql from "mysql2/promise";
 import { describeWithDatabase } from "../setup/testDatabase";
 
 describeWithDatabase("home furniture inventory migration", () => {
+  it("adds rooms and home sharing directly to the existing schema without changing account or inventory data", async () => {
+    const connection = await mysql.createConnection({ uri: process.env.TEST_MYSQL_URL, multipleStatements: true });
+    const prefix = `home_rooms_${randomUUID().replaceAll("-", "")}_`;
+    const names = ["UserData", "UserItem", "UserRequest", "UserHome"];
+    const query = <T extends mysql.QueryResult = mysql.QueryResult>(statement: string, values?: unknown[]) =>
+      connection.query<T>(statement.replace(/\b(UserData|UserItem|UserRequest|UserHome)\b/g, `${prefix}$1`), values);
+    try {
+      const snapshot = JSON.parse(await readFile("drizzle/migrations/meta/0086_snapshot.json", "utf8")) as { tables: Record<string, SnapshotTable> };
+      for (const name of ["UserData", "UserItem", "UserRequest"]) await query(baselineTableSql(snapshot.tables[name]!));
+      await query("INSERT INTO UserData (userId, username, gender, money, bank, homeFurnitureRevision) VALUES ('owner', 'Owner', 'Other', 123456, 654321, 7)");
+      await query("INSERT INTO UserItem (id, userId, itemId, homeX, homeY) VALUES ('placed', 'owner', 'furniture', 50, 50), ('stored', 'owner', 'furniture', NULL, NULL)");
+      await query("INSERT INTO UserRequest (id, senderId, receiverId, status, type) VALUES ('spar', 'owner', 'guest', 'PENDING', 'SPAR')");
+      const [accountsBefore] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserData");
+      const [inventoryBefore] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserItem ORDER BY id");
+      const [requestsBefore] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserRequest");
+      const migration = await readFile("drizzle/migrations/0087_tough_lady_vermin.sql", "utf8");
+      expect(migration).not.toContain("--> statement-breakpoint");
+      await query(migration);
+      const [accounts] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserData");
+      expect(accounts).toEqual(accountsBefore);
+      const [inventory] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserItem ORDER BY id");
+      expect(inventory.map(({ homeRoom, ...row }) => row)).toEqual(inventoryBefore);
+      expect(inventory.every((row) => row.homeRoom === "main")).toBe(true);
+      const [requests] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserRequest");
+      expect(requests.map(({ activeHomeReceiverId, ...row }) => row)).toEqual(requestsBefore);
+      expect(requests[0]!.activeHomeReceiverId).toBeNull();
+      const [homes] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserHome");
+      expect(homes).toHaveLength(0);
+      await query("INSERT INTO UserHome (userId) VALUES ('owner')");
+      const [defaults] = await query<mysql.RowDataPacket[]>("SELECT * FROM UserHome");
+      expect(defaults.map(({ userId, roomStyles, isPublic }) => ({ userId, roomStyles, isPublic }))).toEqual([{ userId: "owner", roomStyles: [], isPublic: 0 }]);
+      for (const room of ["main", ...Array.from({ length: 9 }, (_, index) => `room-${index + 1}`), "yard"]) {
+        await query("INSERT INTO UserItem (id, userId, itemId, homeRoom) VALUES (?, 'owner', 'furniture', ?)", [room, room]);
+      }
+      await query("INSERT INTO UserRequest (id, senderId, receiverId, status, type) VALUES ('invite', 'owner', 'guest', 'PENDING', 'HOME')");
+      await expect(query("INSERT INTO UserRequest (id, senderId, receiverId, status, type) VALUES ('duplicate', 'owner', 'guest', 'ACCEPTED', 'HOME')")).rejects.toMatchObject({ code: "ER_DUP_ENTRY" });
+      await query("UPDATE UserRequest SET status = 'REJECTED' WHERE id = 'invite'");
+      await query("INSERT INTO UserRequest (id, senderId, receiverId, status, type) VALUES ('accepted', 'owner', 'guest', 'ACCEPTED', 'HOME')");
+    } finally {
+      await connection.query(`DROP TABLE IF EXISTS ${names.map((name) => quoteIdentifier(prefix + name)).join(", ")}`);
+      await connection.end();
+    }
+  }, 30_000);
+
   it("seeds ordinary furniture and grants starter copies without changing balances or existing inventory", async () => {
     const connection = await mysql.createConnection({
       uri: process.env.TEST_MYSQL_URL,

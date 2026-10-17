@@ -114,6 +114,17 @@ describeWithDatabase("war ally reservations during request expiry", () => {
     expect((await db.query.village.findFirst({ where: eq(village.id, "joining") }))?.tokens).toBe(1100);
   });
 
+  it("keeps accepted home access while expiring old pending and terminal invitations", async () => {
+    const db = await getTestDatabase();
+    const createdAt = new Date(Date.now() - 25 * 3_600_000);
+    await db.insert(userRequest).values([
+      ...(["PENDING", "ACCEPTED", "REJECTED", "CANCELLED"] as const).map((status) => ({ id: `home-${status}`, type: "HOME" as const, senderId: "host", receiverId: `guest-${status}`, status, createdAt })),
+      { id: "home-fresh", type: "HOME", senderId: "host", receiverId: "new-guest", status: "PENDING" },
+    ]);
+    await expireRequests(db);
+    expect((await db.select({ id: userRequest.id }).from(userRequest)).map(({ id }) => id).sort()).toEqual(["home-ACCEPTED", "home-fresh"]);
+  });
+
   it("preserves an accepted membership and its payment after the request expires", async () => {
     const db = await getTestDatabase();
     expect((await acceptWarAllyOffer(db, offer)).success).toBe(true);
