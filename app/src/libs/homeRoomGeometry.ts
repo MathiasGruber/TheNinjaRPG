@@ -452,6 +452,7 @@ function palaceArtPlan(size: number, roomCount: number): HomeArtPlan {
     [[[58.6589, 37.5], [62.6302, 37.5], [62.6302, 39.5508], [58.6589, 39.5508]]],
   ];
   if (roomCount === 9) {
+    // Palace shares the right hall with room 7; Marshmallowopolis decorates it as room 10.
     floorSurfaces[6]?.push(...(floorSurfaces[9] ?? []));
     paint[6]?.push(...(paint[9] ?? []));
   }

@@ -73,6 +73,7 @@ const handlers = {
 };
 
 describe("FarmPlotInspector", () => {
+  // Register cleanup for this suite even when Testing Library's module is already cached.
   afterEach(cleanup);
   beforeEach(() => {
     ensureDom();

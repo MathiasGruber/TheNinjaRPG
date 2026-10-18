@@ -233,7 +233,10 @@ const containsSourceLandmark = (polygons: readonly (readonly (readonly [number, 
   return polygons.some((polygon) => containsArtPoint(polygon, x * 100 / 1536, y * 100 / 1024));
 };
 
-/** Ray casting supports concave artwork masks and paint's connected lamp cutouts. */
+/**
+ * Check percentage contours with paint's even-odd fill; the authored floors and foreground
+ * have the same interior under nonzero fill. The placement predicate assumes convex polygons.
+ */
 const containsArtPoint = (polygon: readonly (readonly [number, number])[], x: number, y: number) => {
   let inside = false;
   for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {

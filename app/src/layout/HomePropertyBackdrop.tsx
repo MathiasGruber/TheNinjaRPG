@@ -159,7 +159,10 @@ export const HomePropertyBackdrop = ({
   );
 };
 
-/** Paint is composited with each copy of the artwork so furniture retains its ground depth. */
+/**
+ * Composite paint at each artwork layer's depth so furniture keeps its occlusion.
+ * Size uses world percentages for the base painting and 100% inside a clipped foreground copy.
+ */
 const HomeWallPaint = ({
   roomStyle,
   polygon,
