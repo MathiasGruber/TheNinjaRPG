@@ -205,7 +205,10 @@ export default function MyJutsu() {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.jutsu.getUserJutsus.invalidate();
+        await Promise.all([
+          utils.jutsu.getUserJutsus.invalidate(),
+          utils.jutsu.getLoadouts.invalidate(),
+        ]);
       }
       // Optimistically update loadout
       if (data?.data && userData) {
@@ -228,7 +231,10 @@ export default function MyJutsu() {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.jutsu.getUserJutsus.invalidate();
+          await Promise.all([
+            utils.jutsu.getUserJutsus.invalidate(),
+            utils.jutsu.getLoadouts.invalidate(),
+          ]);
         }
       },
       onSettled,
@@ -249,14 +255,15 @@ export default function MyJutsu() {
       onSuccess: async (data, variables) => {
         showMutationToast(data);
         if (data.success) {
-          if (data.userPatch?.loadout) {
-            const loadout = data.userPatch.loadout;
-            await updateUser((current) =>
-              current?.jutsuLoadout === variables.loadoutId ? { loadout } : {},
-            );
-          } else {
-            await utils.profile.getUser.invalidate();
-          }
+          const loadout = data.userPatch?.loadout;
+          await Promise.all([
+            utils.jutsu.getLoadouts.invalidate(),
+            loadout
+              ? updateUser((current) =>
+                  current?.jutsuLoadout === variables.loadoutId ? { loadout } : {},
+                )
+              : utils.profile.getUser.invalidate(),
+          ]);
         }
       },
       onSettled: () => {
@@ -339,6 +346,7 @@ export default function MyJutsu() {
             utils.jutsu.getUserJutsus.invalidate(),
             utils.jutsu.getEvolutions.invalidate(),
             utils.jutsu.getUserJutsuOwnership.invalidate(),
+            utils.jutsu.getLoadouts.invalidate(),
             utils.profile.getUser.invalidate(),
           ]);
           setIsOpen(false);
