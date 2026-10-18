@@ -78,6 +78,8 @@ describe("painted home properties", () => {
 
   it.each([
     { homeType: "MANSION", room: 2, floor: [[255, 565], [350, 562], [486, 620], [490, 650]], architecture: [[350, 543], [256, 541], [480, 575], [510, 614], [350, 664]] },
+    { homeType: "MANSION", room: 4, floor: [[490, 500], [530, 540], [530, 580]], architecture: [[490, 550], [490, 570], [503, 530], [508, 520], [480, 585]] },
+    { homeType: "MANSION", room: 5, floor: [[920, 430], [950, 450], [1000, 440]], architecture: [[920, 470], [930, 475], [912, 490], [940, 450], [1030, 440], [1025, 420], [1030, 460]] },
     { homeType: "MANSION", room: 7, floor: [[1085, 612], [1100, 605], [1110, 532], [1250, 620]], architecture: [[1085, 563], [1070, 604], [1090, 640], [1248, 515]] },
     { homeType: "PALACE", room: 0, floor: [[735, 398], [800, 398], [710, 390], [824, 390]], architecture: [[710, 398], [824, 398]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 0, floor: [[735, 398], [800, 398], [710, 390], [824, 390]], architecture: [[710, 398], [824, 398]] },
