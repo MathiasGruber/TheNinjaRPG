@@ -103,7 +103,11 @@ export function PetProfile() {
   const [abilitySearch, setAbilitySearch] = useState("");
   const [abilityKind, setAbilityKind] = useState("all");
   const [isEvolving, setIsEvolving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingPetIds, setGeneratingPetIds] = useState<string[]>([]);
+  const [generationMessages, setGenerationMessages] = useState<
+    Record<string, string | null>
+  >({});
+  const pendingGenerations = useRef(new Set<string>());
   // Close the gap before React paints pending state, including multi-step evolution.
   const inFlight = useRef(false);
   const { data, isPending, error, refetch } = api.pets.getPet.useQuery(
@@ -113,7 +117,7 @@ export function PetProfile() {
       staleTime: 0,
       refetchOnMount: "always",
       refetchInterval: (query) =>
-        isGenerating ||
+        generatingPetIds.length > 0 ||
         isEvolving ||
         query.state.data?.pets.some((entry) => entry.generationStatus === "GENERATING")
           ? 3000
@@ -121,6 +125,7 @@ export function PetProfile() {
     },
   );
   const pet = data?.pet;
+  const isGenerating = !!pet && generatingPetIds.includes(pet.id);
   const aiProfile = useMemo(
     () =>
       pet ? { rules: pet.aiRules, includeDefaultRules: pet.includeDefaultRules } : null,
@@ -160,31 +165,44 @@ export function PetProfile() {
     setMessage(null);
   }, [pet?.id, pet?.name, nameForm]);
 
-  const finishMutation = async (result: { success: boolean; message: string }) => {
-    setMessage(result.success ? null : result.message);
-    showMutationToast(result);
+  const invalidatePetData = async () => {
     await Promise.all([
       utils.pets.getPet.invalidate(),
       utils.pets.getCollection.invalidate(),
       utils.profile.getUser.invalidate(),
     ]);
   };
+  const finishMutation = async (result: { success: boolean; message: string }) => {
+    setMessage(result.success ? null : result.message);
+    showMutationToast(result);
+    await invalidatePetData();
+  };
   const failMutation = async (cause: { message: string }) => {
     setMessage(cause.message);
-    // A network failure may arrive after the server commits an adoption or artwork claim.
-    await Promise.all([
-      utils.pets.getPet.invalidate(),
-      utils.pets.getCollection.invalidate(),
-      utils.profile.getUser.invalidate(),
-    ]);
+    // A network failure may arrive after the server commits the update.
+    await invalidatePetData();
   };
   const update = api.pets.updatePet.useMutation({
     onSuccess: finishMutation,
     onError: failMutation,
   });
   const generate = api.pets.generateAppearance.useMutation({
-    onSuccess: finishMutation,
-    onError: failMutation,
+    onMutate: ({ petId }) => data?.pets.find((entry) => entry.id === petId)?.name,
+    onSuccess: async (result, { petId }, name) => {
+      setGenerationMessages((previous) => ({
+        ...previous,
+        [petId]: result.success ? null : result.message,
+      }));
+      showMutationToast({
+        ...result,
+        message: `${name ?? "Companion"}: ${result.message}`,
+      });
+      await invalidatePetData();
+    },
+    onError: async (cause, { petId }) => {
+      setGenerationMessages((previous) => ({ ...previous, [petId]: cause.message }));
+      await invalidatePetData();
+    },
   });
   const evolve = api.pets.rankUp.useMutation({
     onSuccess: finishMutation,
@@ -232,7 +250,6 @@ export function PetProfile() {
   const isBusy =
     isEvolving ||
     update.isPending ||
-    generate.isPending ||
     evolve.isPending ||
     assign.isPending ||
     updateAi.isPending ||
@@ -246,28 +263,32 @@ export function PetProfile() {
   const generateAppearance = async (
     appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
   ) => {
-    if (inFlight.current || !pet) return;
-    inFlight.current = true;
-    setIsGenerating(true);
-    setMessage(null);
+    if (inFlight.current || !pet || isBusy || pendingGenerations.current.has(pet.id))
+      return;
+    const petId = pet.id;
+    // Artwork requests belong to their companion; routine care and collection navigation stay available.
+    pendingGenerations.current.add(petId);
+    setGeneratingPetIds([...pendingGenerations.current]);
+    setGenerationMessages((previous) => ({ ...previous, [petId]: null }));
     try {
       await generate.mutateAsync({
-        petId: pet.id,
+        petId,
         ...(appearance ? { appearance } : {}),
       });
     } catch {
       // Both the shared error toast and the inline message leave the retry action available.
     } finally {
-      inFlight.current = false;
-      setIsGenerating(false);
+      pendingGenerations.current.delete(petId);
+      setGeneratingPetIds([...pendingGenerations.current]);
     }
   };
   /** Commit progression first, then generate its matching form; artwork failure remains retryable. */
   const evolvePet = async () => {
-    if (inFlight.current || !pet) return;
+    if (inFlight.current || !pet || pendingGenerations.current.has(pet.id)) return;
     inFlight.current = true;
     setIsEvolving(true);
     setMessage(null);
+    setGenerationMessages((previous) => ({ ...previous, [pet.id]: null }));
     try {
       const result = await evolve.mutateAsync({ petId: pet.id });
       if (result.success) await generate.mutateAsync({ petId: pet.id });
@@ -551,13 +572,65 @@ export function PetProfile() {
   const settingsDisabled = isBusy || isAway || userData.status !== "AWAKE";
   const nextRank = data.nextRank;
   const canEvolve =
-    data.canRankUp && data.remainingGenerations > 0 && !settingsDisabled;
+    data.canRankUp &&
+    data.remainingGenerations > 0 &&
+    !settingsDisabled &&
+    !isGenerating;
   const retryAt = data.generationRetryAt ? new Date(data.generationRetryAt) : null;
   const selectedMeal =
     data.feedMeals.find((meal) => meal.id === selectedMealId) ?? data.feedMeals[0];
   const canRetryGeneration = retryAt
     ? retryAt.getTime() <= Date.now()
     : pet.generationStatus !== "GENERATING";
+  const appearanceControls = (
+    <div className="space-y-2" aria-live="polite">
+      <p className="text-muted-foreground text-sm">
+        {data.remainingGenerations} / {data.generationLimit} image attempts remain
+        today. Attempts reset at midnight UTC.
+      </p>
+      {canRetryGeneration ? (
+        <PetAppearanceButton
+          key={pet.id}
+          pet={pet}
+          options={data.options}
+          dayKey={data.dayKey}
+          variant={appearanceReady ? "outline" : "default"}
+          disabled={
+            settingsDisabled ||
+            isGenerating ||
+            !rankAllowed ||
+            data.remainingGenerations <= 0
+          }
+          onGenerate={generateAppearance}
+        >
+          {isGenerating || isEvolving
+            ? "Creating appearance..."
+            : appearanceReady
+              ? "Regenerate appearance"
+              : "Create / retry appearance"}
+        </PetAppearanceButton>
+      ) : pet.generationStatus === "GENERATING" ? (
+        appearanceReady ? (
+          <p className="text-sm" role="status">
+            Creating appearance... Your current appearance stays usable.
+          </p>
+        ) : (
+          <Loader explanation="Creating appearance..." />
+        )
+      ) : null}
+      {!canRetryGeneration && retryAt && (
+        <p className="text-muted-foreground text-sm">
+          Appearance retry available in{" "}
+          <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
+        </p>
+      )}
+      {generationMessages[pet.id] && (
+        <p role="alert" className="text-red-600 text-sm">
+          {generationMessages[pet.id]}
+        </p>
+      )}
+    </div>
+  );
   // Adapt only stats/rank for the shared player allocator; its submit handler
   // spends the selected pet's bank through the pets router.
   const statsUser = {
@@ -775,57 +848,24 @@ export function PetProfile() {
           </p>
           <p className="mt-2">Assigned experience: {formatStat(pet.experience)}.</p>
         </details>
-        <div
-          className="mt-5 space-y-3 rounded border bg-muted/30 p-4"
-          aria-live="polite"
-        >
-          <p className="font-semibold">
-            {pet.generationStatus === "GENERATING"
-              ? "Your companion's appearance is being created"
-              : appearanceReady
-                ? "Regenerate your companion's appearance"
+        {!appearanceReady && (
+          <div className="mt-5 space-y-3 rounded border bg-muted/30 p-4">
+            <p className="font-semibold">
+              {pet.generationStatus === "GENERATING"
+                ? "Your companion's appearance is being created"
                 : pet.artRank > 0
                   ? "Finish your companion's evolution"
                   : "Create your companion's appearance"}
-          </p>
-          <p className="text-sm">
-            {appearanceReady
-              ? "Choose different colours, a characteristic or an aura for your companion. Its species, rank and progress stay the same."
-              : pet.generationStatus === "FAILED"
+            </p>
+            <p className="text-sm">
+              {pet.generationStatus === "FAILED"
                 ? "The last image attempt did not finish. Retry this same companion for free."
                 : "Your pet can train and earn experience after its appearance is ready."}{" "}
-            Creating the image can take a few minutes.
-          </p>
-          <p className="text-muted-foreground text-sm">
-            {data.remainingGenerations} / {data.generationLimit} image attempts remain
-            today. Attempts reset at midnight UTC.
-          </p>
-          {canRetryGeneration ? (
-            <PetAppearanceButton
-              pet={pet}
-              options={data.options}
-              dayKey={data.dayKey}
-              disabled={
-                settingsDisabled || !rankAllowed || data.remainingGenerations <= 0
-              }
-              onGenerate={generateAppearance}
-            >
-              {generate.isPending
-                ? "Creating appearance..."
-                : appearanceReady
-                  ? "Regenerate appearance"
-                  : "Create / retry appearance"}
-            </PetAppearanceButton>
-          ) : pet.generationStatus === "GENERATING" ? (
-            <Loader explanation="Creating appearance..." />
-          ) : null}
-          {!canRetryGeneration && retryAt && (
-            <p className="text-muted-foreground text-sm">
-              Appearance retry available in{" "}
-              <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
+              Creating the image can take a few minutes.
             </p>
-          )}
-        </div>
+            {appearanceControls}
+          </div>
+        )}
         {!rankAllowed && (
           <p className="mt-4 rounded border bg-muted/30 p-3" role="status">
             {data.maxRank > 0
@@ -1401,6 +1441,12 @@ export function PetProfile() {
                   />
                 </form>
               </Form>
+              {appearanceReady && (
+                <div className="space-y-1.5">
+                  <Label>Appearance</Label>
+                  {appearanceControls}
+                </div>
+              )}
             </div>
           </ContentBox>
           <ContentBox
@@ -1419,6 +1465,7 @@ export function PetProfile() {
               className="break-words [&>div]:min-w-0"
               disabled={
                 settingsDisabled ||
+                isGenerating ||
                 (pet.generationStatus === "GENERATING" && !canRetryGeneration)
               }
               button={
@@ -1426,6 +1473,7 @@ export function PetProfile() {
                   variant="destructive"
                   disabled={
                     settingsDisabled ||
+                    isGenerating ||
                     (pet.generationStatus === "GENERATING" && !canRetryGeneration)
                   }
                 >

@@ -2,7 +2,7 @@ import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonProps } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -21,6 +21,7 @@ export function PetAppearanceButton({
   options,
   dayKey,
   disabled,
+  variant,
   children,
   onGenerate,
 }: PetAppearanceButtonProps) {
@@ -53,6 +54,7 @@ export function PetAppearanceButton({
       <Button
         ref={buttonRef}
         disabled={disabled}
+        variant={variant}
         onClick={() => {
           if (!canChoose) {
             void onGenerate();
@@ -87,7 +89,7 @@ export function PetAppearanceButton({
           <p className="text-muted-foreground text-sm">
             Choose today's traits for {pet.name}. Each generation uses one image
             attempt. The new image and traits replace the current appearance only after
-            generation succeeds.
+            generation succeeds. Creating the image can take a few minutes.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {fields.map(({ field, label, choices, catalogue }) => {
@@ -147,6 +149,7 @@ type PetAppearanceButtonProps = {
   options: RouterOutputs["pets"]["getPet"]["options"];
   dayKey: string;
   disabled: boolean;
+  variant?: ButtonProps["variant"];
   children: ReactNode;
   onGenerate: (
     appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
