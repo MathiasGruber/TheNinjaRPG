@@ -17,11 +17,13 @@ function testMocks() {
     client: QueryClient;
     disable: ReturnType<typeof vi.fn<() => Promise<{ success: boolean; message: string }>>>;
     updateUser: ReturnType<typeof vi.fn<(patch: UserPatch) => Promise<void>>>;
+    rewardHook: ReturnType<typeof vi.fn>;
   } };
   globals.__tutorialAssistantMocks ??= {
     client: new QueryClient(),
     disable: vi.fn(async () => ({ success: true, message: "Saved" })),
     updateUser: vi.fn(async (patch: UserPatch) => { await updateUserCache(testMocks().client, key, patch); }),
+    rewardHook: vi.fn(),
   };
   return globals.__tutorialAssistantMocks;
 }
@@ -44,7 +46,10 @@ vi.mock("@/hooks/tutorial", () => {
   return { TUTORIAL_STEPS: [step], TUTORIAL_HOSPITALIZED_STEP: step, useTutorialStep: () => ({ currentStep: step, currentStepNumber: 0, isAssistantVisible: true, setIsAssistantVisible: vi.fn(), updateTutorialStep: vi.fn() }) };
 });
 vi.mock("@/hooks/useAbVariant", () => ({ useAbVariant: () => ({ variant: "A" }) }));
-vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => ({ checkRewards: vi.fn(), isCheckingRewards: false }) }));
+vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => {
+  testMocks().rewardHook();
+  return { checkRewards: vi.fn(), isCheckingRewards: false };
+} }));
 vi.mock("@/layout/Image", () => ({ default: () => null }));
 vi.mock("@/layout/Objective", () => ({ Objective: () => null }));
 vi.mock("@/components/ui/sortable-list", () => ({ SortableList: () => null }));
@@ -83,6 +88,32 @@ const observe = (queryFn: () => Promise<ReturnType<typeof profile>>) => {
   const observer = new QueryObserver(mocks.client, { queryKey: key, staleTime: Infinity, queryFn });
   close = observer.subscribe(() => {});
 };
+
+describe("TutorialAssistant account boundary", () => {
+  it("does not mount login-required reward hooks for signed-out visitors", () => {
+    mocks.client.removeQueries({ queryKey: key });
+    const view = renderAssistant();
+    expect(view.container.innerHTML).toBe("");
+    expect(mocks.rewardHook).not.toHaveBeenCalled();
+  });
+
+  it("mounts after a profile arrives and unmounts when it disappears", () => {
+    mocks.client.removeQueries({ queryKey: key });
+    const view = renderAssistant();
+    expect(mocks.rewardHook).not.toHaveBeenCalled();
+
+    mocks.client.setQueryData(key, profile());
+    view.rerender(<TutorialAssistant rightSideBarOpen={false} setRightSideBarOpen={() => {}} rightSideBarRef={{ current: null }} />);
+    expect(mocks.rewardHook).toHaveBeenCalled();
+    expect(view.getByRole("button", { name: "Disable tutorial" })).toBeTruthy();
+
+    mocks.rewardHook.mockClear();
+    mocks.client.removeQueries({ queryKey: key });
+    view.rerender(<TutorialAssistant rightSideBarOpen={false} setRightSideBarOpen={() => {}} rightSideBarRef={{ current: null }} />);
+    expect(view.container.innerHTML).toBe("");
+    expect(mocks.rewardHook).not.toHaveBeenCalled();
+  });
+});
 
 describe("TutorialAssistant disable reconciliation", () => {
   it("keeps an idle success fetch-free and closes the confirmation", async () => {
