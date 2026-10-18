@@ -46,6 +46,7 @@ import JutsuFiltering, {
   useFiltering,
 } from "@/layout/JutsuFiltering";
 import JutsuLoadoutSelector from "@/layout/JutsuLoadoutSelector";
+import { JutsuLoadoutSharing } from "@/layout/JutsuLoadoutSharing";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { EVOLUTION_STAT_FIELDS } from "@/libs/evolution";
@@ -421,8 +422,9 @@ export default function MyJutsu() {
         subtitle={subtitle}
         topRightContent={
           !isOpen && (
-            <div className="flex min-w-0 flex-row items-center gap-2">
+            <div className="flex min-w-0 flex-row flex-wrap items-center gap-2">
               <JutsuLoadoutSelector compact />
+              <JutsuLoadoutSharing />
               <JutsuFiltering state={state} />
               <Confirm
                 title="Unequip all jutsu"

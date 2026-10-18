@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   and,
   asc,
@@ -58,6 +59,7 @@ import type { ComputedJutsuLoadout, JutsuCapFlags, JutsuEquipCap } from "@/libs/
 import {
   canEquipUnderCaps,
   computeJutsuLoadoutAssignments,
+  computeJutsuLoadoutPreview,
   countEquippedByCap,
   findExceededJutsuEquipCap,
   getFreeTransfers,
@@ -151,7 +153,12 @@ import {
   updateJutsuReskinSchema,
   updateJutsuSchema,
 } from "@/validators/jutsu";
-import { renameLoadoutSchema } from "@/validators/loadout";
+import {
+  importJutsuLoadoutSchema,
+  previewJutsuLoadoutSchema,
+  renameLoadoutSchema,
+  sharedJutsuLoadoutTextSchema,
+} from "@/validators/loadout";
 import { idSchema } from "@/validators/misc";
 import { QuestTracker } from "@/validators/objectives";
 import {
@@ -459,6 +466,102 @@ export const jutsuRouter = createTRPCRouter({
             userPatch: { jutsuLoadout: id, loadout: { jutsuIds: loadout.jutsuIds } },
           }
         : result;
+    }),
+
+  previewJutsuLoadout: protectedProcedure
+    .input(previewJutsuLoadoutSchema)
+    .mutation(async ({ ctx, input }) => {
+      const result = await prepareJutsuLoadoutImport(ctx.drizzle, ctx.userId, input);
+      if (!result.success) return result;
+      return {
+        success: true as const,
+        message: "Loadout preview ready",
+        preview: result.preview,
+      };
+    }),
+
+  importJutsuLoadout: protectedProcedure
+    .input(importJutsuLoadoutSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const result = await prepareJutsuLoadoutImport(ctx.drizzle, ctx.userId, input);
+      if (!result.success) return result;
+      if (input.previewToken !== result.preview.token) {
+        return errorResponse(
+          "Loadout or eligibility changed. Preview again before replacing.",
+        );
+      }
+      const { loadout, user, userjutsus, preview } = result;
+      if (preview.jutsuIds.length === 0) {
+        return errorResponse(
+          "No usable jutsu to import. The loadout was left unchanged.",
+        );
+      }
+      const isActive = user.jutsuLoadout === loadout.id;
+      const guard = and(
+        eq(jutsuLoadout.id, loadout.id),
+        eq(jutsuLoadout.userId, ctx.userId),
+        eq(userData.userId, ctx.userId),
+        eq(jutsuLoadout.name, loadout.name),
+        sql`${jutsuLoadout.jutsuIds} = CAST(${JSON.stringify(loadout.jutsuIds)} AS JSON)`,
+        sql`${userData.jutsuLoadout} <=> ${user.jutsuLoadout}`,
+        eq(userData.federalStatus, user.federalStatus),
+        eq(userData.staffAccount, user.staffAccount),
+      );
+      const sameIds =
+        JSON.stringify(loadout.jutsuIds) === JSON.stringify(preview.jutsuIds);
+      if (
+        sameIds &&
+        (!isActive ||
+          userjutsus.every(
+            (entry) => entry.equipped === preview.jutsuIds.includes(entry.jutsuId),
+          ))
+      ) {
+        // Confirm the no-op against one current snapshot, including equipment for
+        // an active destination, before acknowledging the import without a write.
+        const current = await ctx.drizzle
+          .select({ id: jutsuLoadout.id, jutsuId: userJutsu.jutsuId })
+          .from(jutsuLoadout)
+          .innerJoin(userData, eq(userData.userId, jutsuLoadout.userId))
+          .leftJoin(
+            userJutsu,
+            and(eq(userJutsu.userId, userData.userId), eq(userJutsu.equipped, true)),
+          )
+          .where(guard);
+        const equippedIds = current.flatMap((entry) =>
+          entry.jutsuId === null ? [] : [entry.jutsuId],
+        );
+        if (
+          current.length === 0 ||
+          (isActive &&
+            (equippedIds.length !== preview.jutsuIds.length ||
+              equippedIds.some((id) => !preview.jutsuIds.includes(id))))
+        ) {
+          return errorResponse("Loadout changed. Preview again before replacing.");
+        }
+        return { success: true, message: "Loadout already matches" };
+      }
+
+      // A single statement keeps the saved order and equipped flags together.
+      // Snapshot guards also stop a concurrent selection, rename, allowance change,
+      // or edit from being overwritten between revalidation and this write.
+      const savedIds = sql`CAST(${JSON.stringify(preview.jutsuIds)} AS JSON)`;
+      const write = isActive
+        ? sql`UPDATE ${jutsuLoadout}
+            INNER JOIN ${userData} ON ${userData.userId} = ${jutsuLoadout.userId}
+            LEFT JOIN ${userJutsu} ON ${userJutsu.userId} = ${userData.userId}
+            SET ${jutsuLoadout.jutsuIds} = ${savedIds},
+                ${userJutsu.equipped} = CASE WHEN ${inArray(userJutsu.jutsuId, preview.jutsuIds)} THEN 1 ELSE 0 END
+            WHERE ${guard}`
+        : sql`UPDATE ${jutsuLoadout}
+            INNER JOIN ${userData} ON ${userData.userId} = ${jutsuLoadout.userId}
+            SET ${jutsuLoadout.jutsuIds} = ${savedIds}
+            WHERE ${guard}`;
+      const changed = await retryOnDeadlock(() => ctx.drizzle.execute(write));
+      if (changed.rowsAffected === 0) {
+        return errorResponse("Loadout changed. Preview again before replacing.");
+      }
+      return { success: true, message: "Loadout replaced" };
     }),
 
   getReskinParents: protectedProcedure.query(({ ctx }) =>
@@ -2486,12 +2589,63 @@ export const getJutsuRelations = async (client: DrizzleClient, jutsuId: string) 
 };
 export type JutsuRelations = Awaited<ReturnType<typeof getJutsuRelations>>;
 
-/**
- * Fetch all loadouts for a user
- * @param client - The database client
- * @param userId - The ID of the user to fetch loadouts for
- * @returns A promise that resolves to the result of the select
- */
+/** Resolve the same destination and eligibility snapshot for preview and confirmation. */
+const prepareJutsuLoadoutImport = async (
+  client: DrizzleClient,
+  userId: string,
+  input: { loadoutId: string; text: string },
+) => {
+  const parsed = sharedJutsuLoadoutTextSchema.safeParse(input.text);
+  if (!parsed.success)
+    return errorResponse("Invalid or unsupported jutsu loadout text");
+  const jutsuIds = parsed.data.jutsuIds;
+  const [loadouts, data, userjutsus, content] = await Promise.all([
+    fetchJutsuLoadouts(client, userId),
+    fetchUpdatedUser({ client, userId }),
+    fetchUserJutsus(client, userId),
+    client.query.jutsu.findMany({
+      where: inArray(jutsu.id, jutsuIds),
+      columns: { id: true, name: true, hidden: true },
+    }),
+  ]);
+  const { user } = data;
+  if (!user) return errorResponse("User not found");
+  const destination = resolveSelectableLoadout(
+    loadouts,
+    input.loadoutId,
+    fedJutsuLoadouts(user),
+  );
+  if (!destination.ok) return errorResponse(destination.message);
+  const loadout = destination.loadout;
+  const preview = computeJutsuLoadoutPreview({
+    jutsuIds,
+    userjutsus,
+    user,
+    content,
+    masteries: effectiveMasteries(user),
+  });
+  // The digest binds confirmation to the ordered result and destination snapshot.
+  // Submission always recomputes eligibility; the token confers no ownership.
+  const token = createHash("sha256")
+    .update(
+      JSON.stringify({
+        loadout,
+        active: user.jutsuLoadout,
+        allowance: fedJutsuLoadouts(user),
+        preview,
+      }),
+    )
+    .digest("hex");
+  return {
+    success: true as const,
+    preview: { ...preview, token },
+    loadout,
+    user,
+    userjutsus,
+  };
+};
+
+/** Fetch the stable slot order used for both display and allowance checks. */
 export const fetchJutsuLoadouts = async (client: DrizzleClient, userId: string) => {
   return await client.query.jutsuLoadout.findMany({
     where: eq(jutsuLoadout.userId, userId),

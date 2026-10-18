@@ -51,6 +51,18 @@ export interface ComputedJutsuLoadout {
   invalidJutsus: string[];
 }
 
+export type JutsuLoadoutExclusionReason =
+  | "not-owned"
+  | "unavailable"
+  | "requirements"
+  | "equip-limit";
+
+type JutsuLoadoutExclusion = {
+  jutsuId: string;
+  reason: JutsuLoadoutExclusionReason;
+  message: string;
+};
+
 type JutsuCapMatchInput = Pick<Jutsu, "effects" | "jutsuType">;
 
 /**
@@ -283,12 +295,23 @@ export const computeJutsuLoadoutCapAssignments = (args: {
   jutsuIds: string[];
   userjutsus: JutsuLoadoutValidationInput[];
   maxEquip: number;
-  validateJutsu?: (userJutsu: JutsuLoadoutValidationInput) => string | undefined;
+  validateJutsu?: (
+    userJutsu: JutsuLoadoutValidationInput,
+  ) => string | Pick<JutsuLoadoutExclusion, "message" | "reason"> | undefined;
+  onExcluded?: (entry: JutsuLoadoutExclusion) => void;
 }): ComputedJutsuLoadout => {
   const { jutsuIds, userjutsus, maxEquip, validateJutsu } = args;
   const equipIds: string[] = [];
   const invalidJutsus: string[] = [];
   const counts = emptyCapCounts();
+  const exclude = (
+    jutsuId: string,
+    message: string,
+    reason: JutsuLoadoutExclusionReason,
+  ) => {
+    invalidJutsus.push(message);
+    args.onExcluded?.({ jutsuId, message, reason });
+  };
 
   // A jutsu is equipped or not (no quantity), and the equip CASE matches by
   // jutsuId, so duplicates must not consume slots or category capacity.
@@ -297,25 +320,31 @@ export const computeJutsuLoadoutCapAssignments = (args: {
   jutsuLoop: for (const jutsuId of uniqueJutsuIds) {
     const userJutsu = userjutsus.find((entry) => entry.jutsuId === jutsuId);
     if (!userJutsu) {
-      invalidJutsus.push("Jutsu not found");
+      exclude(jutsuId, "Jutsu not found", "not-owned");
       continue;
     }
 
     const validationError = validateJutsu?.(userJutsu);
     if (validationError) {
-      invalidJutsus.push(validationError);
+      exclude(
+        jutsuId,
+        typeof validationError === "string" ? validationError : validationError.message,
+        typeof validationError === "string" ? "requirements" : validationError.reason,
+      );
       continue;
     }
 
     const flags = getJutsuCapFlags(userJutsu.jutsu);
     if (equipIds.length >= maxEquip) {
-      invalidJutsus.push(`${userJutsu.jutsu.name}: equip limit reached`);
+      exclude(jutsuId, `${userJutsu.jutsu.name}: equip limit reached`, "equip-limit");
       continue;
     }
     for (const cap of JUTSU_EQUIP_CAPS) {
       if (flags[cap.key] && counts[cap.key] >= cap.max) {
-        invalidJutsus.push(
+        exclude(
+          jutsuId,
           `${userJutsu.jutsu.name}: ${getJutsuCategoryDef(cap.key).label} jutsu limit reached`,
+          "equip-limit",
         );
         continue jutsuLoop;
       }
@@ -347,15 +376,17 @@ export const computeJutsuLoadoutAssignments = (args: {
   user: NonNullable<UserWithRelations>;
   /** effectiveMasteries of the user; see canUseJutsu */
   masteries?: MasteryStatSource;
+  onExcluded?: (entry: JutsuLoadoutExclusion) => void;
 }): ComputedJutsuLoadout => {
   const { jutsuIds, userjutsus, user, masteries } = args;
   return computeJutsuLoadoutCapAssignments({
     jutsuIds,
     userjutsus,
     maxEquip: calcJutsuEquipLimit(user),
+    onExcluded: args.onExcluded,
     validateJutsu: ({ jutsu }) => {
       if (jutsu.hidden && !canChangeContent(user.role)) {
-        return `${jutsu.name} is hidden`;
+        return { message: `${jutsu.name} is hidden`, reason: "unavailable" };
       }
       if (!canUseJutsu(jutsu, user, false, masteries)) {
         return `${jutsu.name}: missing requirements`;
@@ -363,6 +394,42 @@ export const computeJutsuLoadoutAssignments = (args: {
       return undefined;
     },
   });
+};
+
+/** Ordered sharing preview; names and eligibility always come from server data. */
+export const computeJutsuLoadoutPreview = (
+  args: Parameters<typeof computeJutsuLoadoutAssignments>[0] & {
+    content: Pick<Jutsu, "id" | "name" | "hidden">[];
+  },
+) => {
+  const exclusions = new Map<string, JutsuLoadoutExclusion>();
+  const { equipIds } = computeJutsuLoadoutAssignments({
+    ...args,
+    onExcluded: (entry) => exclusions.set(entry.jutsuId, entry),
+  });
+  const entries = [...new Set(args.jutsuIds)].map((jutsuId) => {
+    const content = args.content.find((entry) => entry.id === jutsuId);
+    const unavailable =
+      !content || (content.hidden && !canChangeContent(args.user.role));
+    const exclusion = exclusions.get(jutsuId);
+    return {
+      jutsuId,
+      name: unavailable ? "Unavailable jutsu" : content.name,
+      accepted: !unavailable && !exclusion,
+      reason: unavailable ? ("unavailable" as const) : (exclusion?.reason ?? null),
+      message: unavailable
+        ? "Content is unavailable"
+        : exclusion?.reason === "not-owned"
+          ? "Not owned"
+          : (exclusion?.message ?? "Ready to import"),
+    };
+  });
+  return {
+    entries,
+    jutsuIds: equipIds.filter((id) =>
+      entries.some((e) => e.jutsuId === id && e.accepted),
+    ),
+  };
 };
 
 /**
