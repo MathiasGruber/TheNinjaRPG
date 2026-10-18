@@ -87,6 +87,10 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", room: 5, floor: [[580, 420], [613, 450], [615, 474], [612, 490]], architecture: [[580, 450], [595, 440], [597, 450], [597, 474], [608, 440], [610, 468], [605, 490]] },
     { homeType: "PALACE", room: 6, floor: [[925, 420], [925, 440], [923, 450], [922, 474], [927, 490]], architecture: [[932, 440], [933, 450], [932, 474], [930, 440], [927, 470], [932, 490]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 9, floor: [[925, 420], [925, 440], [923, 450], [922, 474], [927, 490]], architecture: [[932, 440], [933, 450], [932, 474], [930, 440], [927, 470], [932, 490]] },
+    { homeType: "PALACE", room: 3, floor: [[380, 442], [366, 442], [364, 448]], architecture: [[380, 420], [361, 442], [363, 445]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 3, floor: [[380, 442], [366, 442], [364, 448]], architecture: [[380, 420], [361, 442], [363, 445]] },
+    { homeType: "PALACE", room: 7, floor: [[1156, 442], [1171, 443], [1170, 448]], architecture: [[1156, 420], [1173, 443], [1175, 446]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 7, floor: [[1156, 442], [1171, 443], [1170, 448]], architecture: [[1156, 420], [1173, 443], [1175, 446]] },
   ] as const)("traces $homeType room $room finishes around source-art doors, lamps and post caps", ({ homeType, room, floor, architecture }) => {
     const plan = HOME_ART_PLANS[homeType];
     for (const point of floor) {
@@ -133,11 +137,11 @@ describe("painted home properties", () => {
     for (const { room, points } of [
       { room: 0, points: [[768, 278]] },
       { room: 1, points: [[731, 520], [805, 520]] },
-      { room: 2, points: [[500, 422]] },
+      { room: 2, points: [[500, 422], [380, 420]] },
       { room: 3, points: [[230, 390]] },
       { room: 4, points: [[500, 473], [500, 563]] },
       { room: 5, points: [[620, 414], [650, 510]] },
-      { room: 6, points: [[1030, 422]] },
+      { room: 6, points: [[1030, 422], [1156, 420]] },
       { room: 7, points: [[1330, 430]] },
       { room: 8, points: [[1020, 473], [1020, 563]] },
       { room: homeType === "PALACE" ? 6 : 9, points: [[900, 414], [880, 510]] },
@@ -206,12 +210,12 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", room: 1, walls: [[717, 560], [819, 560]], fixtures: [[728, 560], [806, 560], [722, 560], [813, 560], [730, 568], [805, 568]] },
     { homeType: "PALACE", room: 2, walls: [[450, 290]], fixtures: [[390, 315], [419, 315]] },
     { homeType: "PALACE", room: 6, walls: [[1080, 290]], fixtures: [[1118, 315], [1145, 315]] },
-    { homeType: "PALACE", room: 7, walls: [[1199, 350], [1214, 515]], fixtures: [[1194, 358], [1310, 380], [1205, 514]] },
+    { homeType: "PALACE", room: 7, walls: [[1199, 350], [1214, 515], [1270, 350], [1270, 355], [1270, 363]], fixtures: [[1194, 358], [1310, 380], [1205, 514], [1270, 344], [1280, 350], [1285, 350], [1280, 362], [1285, 365]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 0, walls: [[622, 541]], fixtures: [[630, 550]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 2, walls: [[450, 290]], fixtures: [[390, 315], [419, 315]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 3, walls: [[233, 515]], fixtures: [[223, 375], [223, 505]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 6, walls: [[1080, 290]], fixtures: [[1118, 315], [1145, 315]] },
-    { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1199, 350], [1214, 515]], fixtures: [[1194, 358], [1310, 380], [1205, 514]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1199, 350], [1214, 515], [1270, 350], [1270, 355], [1270, 363]], fixtures: [[1194, 358], [1310, 380], [1205, 514], [1270, 344], [1280, 350], [1285, 350], [1280, 362], [1285, 365]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 8, walls: [[1000, 455], [980, 595], [1090, 595]], fixtures: [[1030, 595], [935, 555]] },
   ] as const)("covers $homeType room $room wall faces while preserving windows and lamps", ({ homeType, room, walls, fixtures }) => {
     const [width, height] = HOME_ART_PLANS[homeType].aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
