@@ -165,6 +165,30 @@ describe("painted home properties", () => {
     }
   });
 
+  it.each(["PALACE", "MARSHMALLOWOPOLIS"] as const)("finishes %s hall recesses while preserving their doors, post caps and rails", (homeType) => {
+    const plan = HOME_ART_PLANS[homeType];
+    const foreground = plan.foreground.map(({ polygon }) => polygon);
+    for (const { room, floor, architecture } of [
+      { room: 5, floor: [[573, 415], [572, 418], [571, 425], [682, 510], [650, 514], [666, 515]], architecture: [[568, 418], [565, 410], [595, 428], [640, 514], [680, 514], [665, 518]] },
+      { room: homeType === "PALACE" ? 6 : 9, floor: [[940, 412], [960, 414], [965, 421], [952, 427], [964, 428], [852, 510], [869, 514], [888, 515]], architecture: [[968, 420], [975, 410], [937, 427], [950, 433], [851, 514], [895, 514], [875, 518]] },
+    ] as const) {
+      for (const point of floor) {
+        expect(containsSourceLandmark(plan.floorSurfaces[room]!, point)).toBe(true);
+        expect(containsSourceLandmark(foreground, point)).toBe(false);
+      }
+      for (const point of architecture) {
+        expect(containsSourceLandmark(plan.floorSurfaces[room]!, point)).toBe(false);
+      }
+    }
+    for (const point of [[665, 518], [875, 518]] as const) {
+      expect(containsSourceLandmark(foreground, point)).toBe(true);
+    }
+    // The floor beyond each door remains assigned to its neighboring room.
+    for (const [point, room] of [[[545, 420], 2], [[990, 420], 6]] as const) {
+      expect(plan.floorSurfaces.flatMap((surfaces, index) => containsSourceLandmark(surfaces, point) ? [index] : [])).toEqual([room]);
+    }
+  });
+
   it("keeps neighboring Mansion floors separate beside the open door", () => {
     const point = [481, 595] as const;
     const covered = HOME_ART_PLANS.MANSION.floorSurfaces.flatMap((surfaces, room) => containsSourceLandmark(surfaces, point) ? [room] : []);
@@ -223,6 +247,14 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", room: 6, walls: [[1080, 290]], fixtures: [[1118, 315], [1145, 315]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1199, 350], [1214, 515], [1270, 350], [1270, 355], [1270, 363]], fixtures: [[1194, 358], [1310, 380], [1205, 514], [1270, 344], [1280, 350], [1285, 350], [1280, 362], [1285, 365]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 8, walls: [[1000, 455], [980, 595], [1090, 595]], fixtures: [[1030, 595], [935, 555]] },
+    { homeType: "PALACE", room: 2, walls: [[600, 275], [600, 290], [600, 297]], fixtures: [[567, 290], [600, 301], [634, 285]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 2, walls: [[600, 275], [600, 290], [600, 297]], fixtures: [[567, 290], [600, 301], [634, 285]] },
+    { homeType: "PALACE", room: 6, walls: [[936, 275], [936, 290], [936, 297]], fixtures: [[903, 285], [936, 301], [971, 285]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 6, walls: [[936, 275], [936, 290], [936, 297]], fixtures: [[903, 285], [936, 301], [971, 285]] },
+    { homeType: "PALACE", room: 7, walls: [[1190, 348], [1194, 366], [1257, 350], [1272, 355], [1263, 367], [1196, 502], [1212, 510], [1212, 531], [1196, 531]], fixtures: [[1194, 358], [1263, 355], [1263, 361], [1200, 507], [1195, 513], [1206, 513], [1200, 517], [1200, 527], [1263, 370], [1190, 518], [1210, 539]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1190, 348], [1194, 366], [1257, 350], [1272, 355], [1263, 367], [1196, 502], [1212, 510], [1212, 531], [1196, 531]], fixtures: [[1194, 358], [1263, 355], [1263, 361], [1200, 507], [1195, 513], [1206, 513], [1200, 517], [1200, 527], [1263, 370], [1190, 518], [1210, 539]] },
+    { homeType: "PALACE", room: 3, walls: [[326, 502], [327, 530], [340, 531]], fixtures: [[320, 515], [336, 507], [330, 513], [336, 519], [336, 526], [343, 520], [333, 538]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 3, walls: [[326, 502], [327, 530], [340, 531]], fixtures: [[320, 515], [336, 507], [330, 513], [336, 519], [336, 526], [343, 520], [333, 538]] },
   ] as const)("covers $homeType room $room wall faces while preserving windows and lamps", ({ homeType, room, walls, fixtures }) => {
     const plan = HOME_ART_PLANS[homeType];
     const [width, height] = plan.aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
