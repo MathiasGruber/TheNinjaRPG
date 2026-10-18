@@ -231,7 +231,7 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
               </p>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-y-2">
             <Button
               variant="outline"
               disabled={isPending}
