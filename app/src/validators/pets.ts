@@ -101,6 +101,7 @@ export const petAppearanceQualitySchema = z.object({
   completeBody: z.boolean(),
   noGroundOrScene: z.boolean(),
   identityPreserved: z.boolean(),
+  evolutionStronger: z.boolean(),
   avatarFacing: z.enum(AvatarFacings),
   reason: z.string().min(1).max(600),
 });

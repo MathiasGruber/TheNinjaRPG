@@ -5,16 +5,31 @@ import { OPENAI_REVIEW_MODEL } from "@/drizzle/constants";
 import { classifyPetAppearanceImage, validatePetAppearanceQuality } from "@/libs/pets/quality";
 import { petAppearanceQualitySchema } from "@/validators/pets";
 
-const accepted = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, avatarFacing: "left" as const, reason: "A complete, clean sprite" };
+const accepted = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, evolutionStronger: true, avatarFacing: "left" as const, reason: "A complete, clean sprite" };
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("pet visual quality", () => {
-  it("rejects extra heads, bad anatomy, ground, wrong species or lost identity", () => {
-    for (const field of ["singleAnimal", "anatomyCorrect", "noGroundOrScene", "speciesMatches", "identityPreserved", "completeBody"] as const)
+  it("rejects visual defects, lost identity and evolutions without a clear strength gain", () => {
+    for (const field of ["singleAnimal", "anatomyCorrect", "noGroundOrScene", "speciesMatches", "identityPreserved", "completeBody", "evolutionStronger"] as const)
       expect(() => validatePetAppearanceQuality({ ...accepted, [field]: false, reason: `Invalid ${field}` })).toThrow(field);
     for (const avatarFacing of ["left", "right"] as const)
       expect(() => validatePetAppearanceQuality({ ...accepted, avatarFacing })).not.toThrow();
+  });
+
+  it.each([
+    { previousRank: 1, hasPrevious: true, required: true },
+    { previousRank: 2, hasPrevious: true, required: false },
+    { previousRank: undefined, hasPrevious: true, required: false },
+    { previousRank: 1, hasPrevious: false, required: false },
+  ])("requires visible progression only for a known lower-rank reference: %j", async ({ previousRank, hasPrevious, required }) => {
+    const model = vi.spyOn(ai, "generateText").mockResolvedValue({ output: accepted } as never);
+    const candidate = await input();
+    await classifyPetAppearanceImage({ ...candidate, previousRank, previousImage: hasPrevious ? await fixture() : undefined }, new AbortController().signal);
+    expect(model).toHaveBeenCalledTimes(1);
+    const content = model.mock.calls[0]![0].messages?.[0]?.content;
+    if (!Array.isArray(content) || content[0]?.type !== "text") throw new Error("Expected review context");
+    expect(JSON.parse(content[0].text)).toMatchObject({ rank: candidate.rank, previousRank: previousRank ?? null, evolutionRequired: required, images: hasPrevious ? ["PREVIOUS", "CANDIDATE"] : ["CANDIDATE"] });
   });
 
   it("does not call vision after an abort, and observes a caller abort in flight", async () => {
@@ -65,7 +80,7 @@ describe("pet visual quality", () => {
       maxRetries: 0,
       maxOutputTokens: 500,
       messages: [{ role: "user", content: [
-        { type: "text", text: `Requested animal: ${candidate.species}. Identity: ${candidate.identity}. Evolution rank ${candidate.rank} of 10. The first image is PREVIOUS, the last image is CANDIDATE.` },
+        { type: "text", text: expect.any(String) },
         ...[previous, candidate.image].map(() => ({ type: "file", data: expect.any(Buffer), mediaType: "image/png", providerOptions: { openai: { imageDetail: "high" } } })),
       ] }],
     }));

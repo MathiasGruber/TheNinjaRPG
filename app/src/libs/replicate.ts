@@ -261,11 +261,15 @@ export const fastTxt2imgReplicate = async (config: {
   return uploadedFile;
 };
 
+type BackgroundRemovalModel = "lucataco" | "851-labs";
+
 type Txt2ImgConfig = {
   preprompt: string;
   prompt: string;
   previousImg?: string | null;
   removeBg: boolean;
+  /** Nano Banana sprites can opt into hard segmentation; other artwork keeps its existing cutout. */
+  backgroundRemovalModel?: BackgroundRemovalModel;
   userId: string;
   width: number;
   height: number;
@@ -411,7 +415,11 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
 
   // If transparent background requested, post-process with remove-bg
   if (config.removeBg) {
-    file = await removeBackgroundReplicate(String(file.url()), config.signal);
+    file = await removeBackgroundReplicate(
+      String(file.url()),
+      config.signal,
+      config.backgroundRemovalModel,
+    );
   }
 
   // Fetch and resize to requested bounds (match OpenAI flow)
@@ -434,20 +442,28 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
 };
 
 /**
- * Remove background from an image using lucataco/remove-bg on Replicate
+ * Remove the background, retaining the standard model unless crisp sprite edges are requested.
  * The caller's signal also bounds waiting on the provider's polling/network work.
  */
 export const removeBackgroundReplicate = async (
   imageUrl: string,
   signal?: AbortSignal,
+  model: BackgroundRemovalModel = "lucataco",
 ) => {
   const replicate = getReplicateInstance();
   const output = (await runAbortable(
     () =>
       replicate.run(
-        "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
+        model === "851-labs"
+          ? "851-labs/background-remover:a029dff38972b5fda4ec5d75d7d1cd25aeff621d2cf4946a41055d7db66b80bc"
+          : "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
         {
-          input: { image: imageUrl },
+          input: {
+            image: imageUrl,
+            ...(model === "851-labs"
+              ? { threshold: 0.5, background_type: "rgba", format: "png" }
+              : {}),
+          },
           ...(signal ? { signal } : {}),
         },
       ),

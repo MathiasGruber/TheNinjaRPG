@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import sharp from "sharp";
 import { Moderations } from "openai/resources/moderations";
 import * as moderator from "@/libs/moderator";
-import { PIXEL_ART_STYLE } from "@/libs/imagePrompts";
+import { PIXEL_ART_RENDERING } from "@/libs/imagePrompts";
 import { downloadPetImage, generatePetAppearance } from "@/libs/pets/appearance";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import * as quality from "@/libs/pets/quality";
@@ -14,7 +14,7 @@ const avatarUrl = "https://example.com/accepted-pet.webp";
 const correctedUrl = "https://example.com/corrected-pet.webp";
 const normalizedUrl = "https://example.com/normalized-pet.webp";
 const pet = { userId: "pet-owner", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
-const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, avatarFacing: "left" as const, reason: "A valid pet sprite" };
+const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, evolutionStronger: true, avatarFacing: "left" as const, reason: "A valid pet sprite" };
 
 beforeEach(() => vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue(acceptedQuality));
 afterEach(() => vi.restoreAllMocks());
@@ -27,7 +27,7 @@ describe("companion provider pipeline", () => {
     const legacyProvider = vi.spyOn(replicate, "fastTxt2imgReplicate");
     const uploads: string[] = [];
     expect(await generatePetAppearance(pet, async (url) => { uploads.push(url); })).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
-    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ previousImg: undefined, removeBg: true, width: 512, height: 512, size: "square", preprompt: expect.stringContaining(PIXEL_ART_STYLE) }));
+    expect(provider).toHaveBeenCalledWith(expect.objectContaining({ previousImg: undefined, removeBg: true, backgroundRemovalModel: "851-labs", width: 512, height: 512, size: "square", preprompt: expect.stringContaining(PIXEL_ART_RENDERING) }));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/webp;base64,/), true, expect.any(AbortSignal));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(1);
     expect(quality.classifyPetAppearanceImage).toHaveBeenCalledTimes(1);
@@ -122,17 +122,28 @@ describe("companion provider pipeline", () => {
     expect(quality.classifyPetAppearanceImage).not.toHaveBeenCalled();
   });
 
-  it("uses the previous accepted rank image for evolution and applies the same safety checks", async () => {
-    const buffer = await cutout();
+  it("sends an opaque neutral evolution reference while preserving its pixels, gaps and alpha review evidence", async () => {
+    const previous = await cutout();
+    const buffer = await cutout(80);
     vi.spyOn(moderator, "classifyNsfwImage").mockResolvedValue({ isNsfw: false, reason: "Safe" });
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(new Blob([buffer as BlobPart])));
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => new Response(new Blob([(String(url) === sourceUrl ? previous : buffer) as BlobPart])));
     const edit = vi.spyOn(replicate, "txt2imgNanoBanana").mockResolvedValue([avatarUrl]);
     const founder = vi.spyOn(replicate, "fastTxt2imgReplicate");
     expect(await generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async () => {})).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
-    expect(edit).toHaveBeenCalledWith(expect.objectContaining({ previousImg: sourceUrl, removeBg: true, prompt: expect.stringContaining("SAME individual animal") }));
+    expect(edit).toHaveBeenCalledWith(expect.objectContaining({ removeBg: true, prompt: expect.stringContaining("SAME individual animal") }));
+    await expectOpaqueReference(edit.mock.calls[0]![0].previousImg, previous);
     expect(founder).not.toHaveBeenCalled();
     expect(moderator.classifyNsfwImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/webp;base64,/), true, expect.any(AbortSignal));
-    expect(quality.classifyPetAppearanceImage).toHaveBeenCalledWith(expect.objectContaining({ image: buffer, previousImage: buffer, rank: 2 }), expect.any(AbortSignal));
+    expect(quality.classifyPetAppearanceImage).toHaveBeenCalledWith(expect.objectContaining({ image: buffer, previousImage: previous, rank: 2, previousRank: 1 }), expect.any(AbortSignal));
+  });
+
+  it("passes a same-rank redraw to review without treating it as another evolution", async () => {
+    const buffer = await cutout();
+    const edit = stubFounder(buffer);
+    await generatePetAppearance({ ...pet, rank: 4, artRank: 4, avatar: sourceUrl }, async () => {});
+    expect(quality.classifyPetAppearanceImage).toHaveBeenCalledWith(expect.objectContaining({ rank: 4, previousRank: 4, previousImage: buffer }), expect.any(AbortSignal));
+    expect(edit.mock.calls[0]![0].prompt).toContain("Do not evolve");
+    await expectOpaqueReference(edit.mock.calls[0]![0].previousImg, buffer);
   });
 
   it("redraws a founder's wrong species anatomy once while keeping its traits and all checks", async () => {
@@ -153,17 +164,14 @@ describe("companion provider pipeline", () => {
     expect(await generatePetAppearance(crow, async (url) => { owned.push(url); }, controller.signal)).toEqual({ avatar: normalizedUrl, avatarFacing: "left" });
     expect(edit).toHaveBeenCalledTimes(2);
     expect(edit.mock.calls[1]![0]).toEqual(expect.objectContaining({
-      previousImg: avatarUrl, removeBg: true, signal: controller.signal,
+      removeBg: true, signal: controller.signal,
       prompt: expect.stringContaining("A baby chick instead of the requested crow"),
     }));
     expect(edit.mock.calls[1]![0].prompt).toContain(crow.species.description);
     expect(edit.mock.calls[1]![0].prompt).toContain("Evolution rank 1 of 10");
-    expect(edit.mock.calls[0]![0].prompt.startsWith("Full-body Crow companion")).toBe(true);
-    expect(edit.mock.calls[1]![0].prompt.startsWith("Redraw the supplied candidate as a full-body Crow")).toBe(true);
-    expect(edit.mock.calls[1]![0].prompt).toContain("Redraw incorrect head, beak, body and silhouette");
+    await expectOpaqueReference(edit.mock.calls[1]![0].previousImg, buffer);
     for (const trait of [PET_PALETTES[crow.paletteIndex]!, PET_CHARACTERISTICS[crow.characteristicIndex]!, PET_AURAS[crow.auraIndex]!])
       expect(edit.mock.calls[1]![0].prompt).toContain(trait.description);
-    expect(edit.mock.calls[1]![0].prompt).toContain("cosmetic colours and markings only where compatible with its natural anatomy");
     expect(review).toHaveBeenCalledTimes(2);
     expect(review.mock.calls[1]![0]).toMatchObject({ image: buffer, species: crow.species.name, rank: 1 });
     expect(review.mock.calls[1]![1]).toBe(controller.signal);
@@ -220,19 +228,42 @@ describe("companion provider pipeline", () => {
     expect(provider).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects an evolution ground fragment while preserving the accepted reference", async () => {
+  it.each([
+    { check: "noGroundOrScene", reason: "A ground patch below the feet" },
+    { check: "evolutionStronger", reason: "Only the edge glow changed; the animal does not look stronger" },
+  ] as const)("repairs a rejected evolution's $check once from its accepted reference", async ({ check, reason }) => {
     const previous = { ...pet, rank: 2, artRank: 1, avatar: sourceUrl };
     vi.spyOn(moderator, "classifyNsfwImage").mockResolvedValue({ isNsfw: false, reason: "Safe" });
-    const buffer = await cutout();
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(new Blob([buffer as BlobPart])));
-    const edit = vi.spyOn(replicate, "txt2imgNanoBanana").mockResolvedValue([avatarUrl]);
-    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, noGroundOrScene: false, reason: "A ground patch below the feet" });
+    const reference = await cutout();
+    const buffer = await cutout(80);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => new Response(new Blob([(String(url) === sourceUrl ? reference : buffer) as BlobPart])));
+    const edit = vi.spyOn(replicate, "txt2imgNanoBanana").mockResolvedValueOnce([avatarUrl]).mockResolvedValueOnce([correctedUrl]);
+    const review = vi.spyOn(quality, "classifyPetAppearanceImage")
+      .mockResolvedValueOnce({ ...acceptedQuality, [check]: false, reason })
+      .mockResolvedValueOnce(acceptedQuality);
     const owned: string[] = [];
-    await expect(generatePetAppearance(previous, async (url) => { owned.push(url); })).rejects.toThrow("ground patch");
+    expect(await generatePetAppearance(previous, async (url) => { owned.push(url); })).toEqual({ avatar: correctedUrl, avatarFacing: "left" });
     expect(previous.avatar).toBe(sourceUrl);
     expect(previous.artRank).toBe(1);
-    expect(edit).toHaveBeenCalledTimes(1);
-    expect(owned).toEqual([avatarUrl]);
+    expect(edit).toHaveBeenCalledTimes(2);
+    expect(edit.mock.calls[1]![0].previousImg).toBe(edit.mock.calls[0]![0].previousImg);
+    await expectOpaqueReference(edit.mock.calls[1]![0].previousImg, reference);
+    expect(edit.mock.calls[1]![0].prompt).toContain(reason);
+    expect(review).toHaveBeenCalledTimes(2);
+    for (const [input] of review.mock.calls) expect(input).toMatchObject({ previousImage: reference, previousRank: 1, rank: 2 });
+    expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(2);
+    expect(owned).toEqual([avatarUrl, correctedUrl]);
+  });
+
+  it("rejects an evolution after its one repair still fails and tracks both uploads", async () => {
+    const buffer = await cutout();
+    const edit = stubFounder(buffer).mockResolvedValueOnce([avatarUrl]).mockResolvedValueOnce([correctedUrl]);
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, noGroundOrScene: false, reason: "A ground patch below the feet" });
+    const owned: string[] = [];
+    await expect(generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async (url) => { owned.push(url); })).rejects.toThrow("ground patch");
+    expect(edit).toHaveBeenCalledTimes(2);
+    expect(quality.classifyPetAppearanceImage).toHaveBeenCalledTimes(2);
+    expect(owned).toEqual([avatarUrl, correctedUrl]);
   });
 
   it("sends the downloaded WebP bytes through the SDK instead of asking OpenAI to fetch a fresh upload", async () => {
@@ -302,10 +333,25 @@ const stubFounder = (buffer: Buffer, moderate = true) => {
   return vi.spyOn(replicate, "txt2imgNanoBanana").mockResolvedValue([avatarUrl]);
 };
 
-const cutout = async () => {
+/** Reference preparation must preserve the animal and make even enclosed alpha gaps unambiguous. */
+const expectOpaqueReference = async (dataUrl: string | null | undefined, original: Buffer) => {
+  expect(dataUrl).toStartWith("data:image/png;base64,");
+  const prepared = Buffer.from(dataUrl!.split(",")[1]!, "base64");
+  expect(await sharp(prepared).metadata()).toMatchObject({ format: "png", width: 128, height: 128, hasAlpha: false });
+  const pixels = await sharp(prepared).raw().toBuffer();
+  const originalPixels = await sharp(original).ensureAlpha().raw().toBuffer();
+  for (const [x, y] of [[0, 0], [60, 60]] as const) {
+    expect([...pixels.subarray((y * 128 + x) * 3, (y * 128 + x) * 3 + 3)]).toEqual([240, 240, 240]);
+    expect(originalPixels[(y * 128 + x) * 4 + 3]).toBe(0);
+  }
+  expect(pixels.subarray((30 * 128 + 50) * 3, (30 * 128 + 50) * 3 + 3)).toEqual(originalPixels.subarray((30 * 128 + 50) * 4, (30 * 128 + 50) * 4 + 3));
+};
+
+const cutout = async (red = 180) => {
   const data = Buffer.alloc(128 * 128 * 4);
   for (let y = 20; y < 110; y++) for (let x = 35; x < 95; x++) {
-    data[(y * 128 + x) * 4] = 180;
+    if (y >= 50 && y < 70 && x >= 55 && x < 65) continue;
+    data[(y * 128 + x) * 4] = red;
     data[(y * 128 + x) * 4 + 3] = 255;
   }
   return sharp(data, { raw: { width: 128, height: 128, channels: 4 } }).webp().toBuffer();
