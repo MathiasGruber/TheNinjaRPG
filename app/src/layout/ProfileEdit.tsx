@@ -518,7 +518,11 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
   // Queries & mutations
   const [showActive, setShowActive] = useState<string>("preferred");
   const { data: profile, isPending: isPendingProfile } =
-    api.profile.getPublicUser.useQuery({ userId: userId }, { enabled: !!userId });
+    api.profile.getPublicUser.useQuery(
+      { userId },
+      // Tagging invalidates inventory queries, so reload these choices on return.
+      { enabled: !!userId, refetchOnMount: "always" },
+    );
   const { data: userData, updateUser } = useRequiredUserData();
   const utils = api.useUtils();
   const [battleDescriptionDraft, setBattleDescriptionDraft] = useState(
@@ -829,7 +833,24 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             </Confirm>
           </TabsContent>
           <TabsContent value="aiprofile">
-            <AiProfileEdit userData={profile} hideTitle />
+            <p className="mb-3 text-muted-foreground text-sm">
+              Only currently tagged jutsu and items are available for selection.
+            </p>
+            <AiProfileEdit
+              userData={{
+                ...profile,
+                jutsus: profile.jutsus.filter((entry) => entry.equipped),
+                items: profile.items.filter(
+                  (entry) => entry.equipped !== "NONE" && entry.quantity > 0,
+                ),
+              }}
+              comboActionNames={Object.fromEntries([
+                // Full ownership supplies display names, while the choices above stay tagged-only.
+                ...profile.jutsus.map((entry) => [entry.jutsuId, entry.jutsu.name]),
+                ...profile.items.map((entry) => [entry.itemId, entry.item.name]),
+              ])}
+              hideTitle
+            />
           </TabsContent>
         </Tabs>
       </div>

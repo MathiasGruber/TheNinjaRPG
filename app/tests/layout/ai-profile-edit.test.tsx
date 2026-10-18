@@ -1,10 +1,10 @@
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import AiProfileEdit from "@/layout/AiProfileEdit";
-import { ActionMoveTowardsOpponent, ActionEndTurn, getBackupRules, type AiRuleType } from "@/validators/ai";
+import { ActionMoveTowardsOpponent, ActionEndTurn, ActionSpecificCombo, ActionUseSpecificJutsu, getBackupRules, type AiRuleType } from "@/validators/ai";
 
 const mocks = {
   profile: { id: "custom", includeDefaultRules: true, rules: [] as AiRuleType[] },
@@ -176,5 +176,121 @@ describe("AI coordinate editor", () => {
     expect(mocks.save).not.toHaveBeenCalled();
     changeCoordinate(view, "X (column)", "2");
     expect(save(view).rules[0]!.action).toMatchObject({ coordinates: { longitude: 2, latitude: 4 } });
+  });
+});
+
+describe("AI action pickers", () => {
+  const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
+  const browserDescriptors = browserGlobals.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
+  let scrollDescriptor: PropertyDescriptor | undefined;
+  beforeEach(() => {
+    Object.defineProperties(globalThis, {
+      Event: { configurable: true, value: window.Event },
+      CustomEvent: { configurable: true, value: window.CustomEvent },
+      ResizeObserver: { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } },
+    });
+    scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => undefined });
+    mocks.profile.rules[0]!.action = ActionUseSpecificJutsu.parse({ jutsuId: "fire" });
+  });
+  afterEach(async () => {
+    await act(async () => {
+      cleanup();
+      // Radix dispatches its unmount focus event on the next timer tick.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    browserGlobals.forEach((key, index) => {
+      const descriptor = browserDescriptors[index];
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    });
+    if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollDescriptor);
+    else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  });
+  const jutsus = [
+    { jutsuId: "fire", jutsu: { name: "Fire Ball" } },
+    { jutsuId: "water", jutsu: { name: "Water Wall" } },
+  ];
+  /** Open the first rule with the supplied selectable jutsu definitions. */
+  const picker = (options = jutsus) => {
+    const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: options, items: [] }} />);
+    fireEvent.click(headers(view)[0]!);
+    return view;
+  };
+  it("searches names case-insensitively, selects a result and saves its ID", async () => {
+    const view = picker();
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "WATER" } });
+    await waitFor(() => expect(view.queryByRole("option", { name: "Fire Ball" })).toBeNull());
+    fireEvent.click(view.getByRole("option", { name: "Water Wall" }));
+    expect(view.queryByPlaceholderText("Search jutsu...")).toBeNull();
+    expect(view.getByRole("combobox", { name: "Specific jutsu" }).textContent).toContain("Water Wall");
+    expect(save(view).rules[0]?.action).toMatchObject({ jutsuId: "water" });
+  });
+  it("names the focused jutsu search for assistive technology", async () => {
+    const view = picker();
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    const search = view.getByRole("combobox", { name: "Search jutsu" });
+    await waitFor(() => expect(document.activeElement).toBe(search));
+  });
+  it("shows an empty search and recovers when the query is cleared", async () => {
+    const view = picker();
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "missing" } });
+    await waitFor(() => expect(view.getByText("No jutsu found.")).toBeTruthy());
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "" } });
+    await waitFor(() => expect(view.getAllByRole("option")).toHaveLength(2));
+  });
+  it("keeps unavailable saved IDs without adding them to the options", () => {
+    const view = picker([jutsus[1]!]);
+    expect(view.getByRole("combobox", { name: "Specific jutsu" }).textContent).toContain("Selected jutsu unavailable");
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(view.getAllByRole("option")).toHaveLength(1);
+    expect(view.queryByRole("option", { name: "Fire Ball" })).toBeNull();
+    expect(save(view).rules[0]?.action).toMatchObject({ jutsuId: "fire" });
+  });
+  it("deduplicates owned copies and handles an empty loadout", () => {
+    const view = picker([jutsus[0]!, jutsus[0]!]);
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(view.getAllByRole("option")).toHaveLength(1);
+    cleanup();
+    const empty = picker([]);
+    fireEvent.click(empty.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(empty.getByText("No jutsu found.")).toBeTruthy();
+  });
+  /** Exercise label fallbacks with available, untagged, and unknown saved references. */
+  const comboPicker = () => {
+    mocks.profile.rules[0]!.action = ActionSpecificCombo.parse({ comboIds: ["fire", "pill", "missing", "water"] });
+    const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: [jutsus[1]!], items: [] }} comboActionNames={{ fire: "Fire Ball", pill: "Chakra Pill", water: "Water Wall" }} />);
+    fireEvent.click(headers(view)[0]!);
+    return view;
+  };
+  it("names unavailable combo selections without offering them or discarding saved IDs", () => {
+    const view = comboPicker();
+    expect(view.getByRole("button", { name: "Remove Fire Ball (unavailable)" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Remove Chakra Pill (unavailable)" })).toBeTruthy();
+    expect(view.getByRole("button", { name: "Remove Unavailable action" })).toBeTruthy();
+    expect(view.queryByText("missing")).toBeNull();
+    fireEvent.click(view.getAllByRole("combobox").find((element) => element.textContent?.includes("Water Wall"))!);
+    expect(view.getAllByRole("option").map((option) => option.textContent)).toEqual(["Water Wall"]);
+    expect(save(view).rules[0]?.action).toMatchObject({ comboIds: ["fire", "pill", "missing", "water"] });
+  });
+  it("removes unavailable combo actions only when requested", () => {
+    const view = comboPicker();
+    fireEvent.click(view.getByRole("button", { name: "Remove Fire Ball (unavailable)" }));
+    expect(save(view).rules[0]?.action).toMatchObject({ comboIds: ["pill", "missing", "water"] });
+  });
+  it.each([false, true])("retains supplied combo choices for staff and companion editors (controlled=%s)", (controlled) => {
+    mocks.role = controlled ? "USER" : "CONTENT-ADMIN";
+    mocks.profile.rules[0]!.action = ActionSpecificCombo.parse({ comboIds: ["fire"] });
+    const onSave = vi.fn();
+    const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus, items: [] }} configuration={controlled ? { profile: mocks.profile, isSaving: false, onSave } : undefined} />);
+    fireEvent.click(headers(view)[0]!);
+    expect(view.getByRole("button", { name: "Remove Fire Ball" })).toBeTruthy();
+    fireEvent.click(view.getAllByRole("combobox").find((element) => element.textContent?.includes("Fire Ball"))!);
+    expect(view.getAllByRole("option")).toHaveLength(2);
+    fireEvent.click(view.getByRole("option", { name: "Water Wall" }));
+    fireEvent.click(view.getByRole("button", { name: "Save Profile" }));
+    expect((controlled ? onSave : mocks.save).mock.lastCall?.[0].rules[0]?.action).toMatchObject({ comboIds: ["fire", "water"] });
   });
 });
