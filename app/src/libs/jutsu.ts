@@ -412,6 +412,10 @@ export const computeJutsuLoadoutPreview = (
     const unavailable =
       !content || (content.hidden && !canChangeContent(args.user.role));
     const exclusion = exclusions.get(jutsuId);
+    const prefix = `${args.userjutsus.find((entry) => entry.jutsuId === jutsuId)?.jutsu.name}: `;
+    const message = exclusion?.message.startsWith(prefix)
+      ? exclusion.message.slice(prefix.length)
+      : exclusion?.message;
     return {
       jutsuId,
       name: unavailable ? "Unavailable jutsu" : content.name,
@@ -421,7 +425,7 @@ export const computeJutsuLoadoutPreview = (
         ? "Content is unavailable"
         : exclusion?.reason === "not-owned"
           ? "Not owned"
-          : (exclusion?.message ?? "Ready to import"),
+          : (message ?? "Ready to import"),
     };
   });
   return {
