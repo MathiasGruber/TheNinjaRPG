@@ -4202,7 +4202,8 @@ export const processUsersForBattle = async (
         : getTimedRegenerationGain(
             baseRegen,
             regenerationBuffs(inputUser),
-            user.regenAt,
+            // Lobby reconstruction reads this timestamp from battle JSON.
+            new Date(user.regenAt),
             Math.max(0, Math.floor(secondsPassed(user.regenAt) / REGEN_SECONDS)),
             REGEN_SECONDS,
           );
