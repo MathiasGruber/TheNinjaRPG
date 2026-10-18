@@ -67,6 +67,8 @@ interface AiProfileEditProps {
     items: { itemId: string; item: { name: string } }[];
   };
   hideTitle?: boolean;
+  /** Owned names for saved combo references outside the selectable loadout. */
+  comboActionNames?: Record<string, string>;
   /** Controlled mode skips profile loading and delegates persistence/pending state to the owner. */
   configuration?: {
     profile: { rules: AiRuleType[]; includeDefaultRules: boolean };
@@ -716,6 +718,12 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         <MultiSelect
                           disabled={!canEdit}
                           selected={rule.action.comboIds}
+                          getSelectedLabel={(id) => {
+                            const name = props.comboActionNames?.[id];
+                            return name
+                              ? `${name} (unavailable)`
+                              : "Unavailable action";
+                          }}
                           options={[
                             ...items.map((ui) => ({
                               value: ui.itemId,
@@ -965,7 +973,7 @@ const JutsuSelect = ({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
+        <Command label="Search jutsu">
           <CommandInput placeholder="Search jutsu..." />
           <CommandList>
             <CommandEmpty>No jutsu found.</CommandEmpty>

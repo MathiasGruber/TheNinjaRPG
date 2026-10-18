@@ -844,6 +844,10 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                   (entry) => entry.equipped !== "NONE" && entry.quantity > 0,
                 ),
               }}
+              comboActionNames={Object.fromEntries([
+                ...profile.jutsus.map((entry) => [entry.jutsuId, entry.jutsu.name]),
+                ...profile.items.map((entry) => [entry.itemId, entry.item.name]),
+              ])}
               hideTitle
             />
           </TabsContent>

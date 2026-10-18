@@ -21,6 +21,8 @@ export type OptionType = {
 interface MultiSelectProps {
   options: OptionType[];
   selected: string[];
+  /** Resolve saved values that are absent from the selectable options. */
+  getSelectedLabel?: (value: string) => string;
   onChange: React.Dispatch<React.SetStateAction<string[]>>;
   className?: string;
   isDirty?: boolean;
@@ -33,6 +35,7 @@ interface MultiSelectProps {
 function MultiSelect({
   options,
   selected,
+  getSelectedLabel,
   onChange,
   className,
   isDirty,
@@ -65,11 +68,12 @@ function MultiSelect({
     }
   };
 
-  const sortedSelected = [...selected].sort((a, b) => {
-    const aOption = options.find((o) => o.value === a);
-    const bOption = options.find((o) => o.value === b);
-    return aOption?.label.localeCompare(bOption?.label ?? "") ?? 0;
-  });
+  const getLabel = (value: string) =>
+    options.find((option) => option.value === value)?.label ??
+    getSelectedLabel?.(value);
+  const sortedSelected = [...selected].sort(
+    (a, b) => getLabel(a)?.localeCompare(getLabel(b) ?? "") ?? 0,
+  );
 
   return (
     <Popover
@@ -104,7 +108,7 @@ function MultiSelect({
           <div className="flex flex-wrap gap-1">
             {sortedSelected.length > 0 ? (
               sortedSelected.map((item, i) => {
-                const option = options.find((o) => o.value === item);
+                const label = getLabel(item) ?? item;
                 return (
                   <Badge
                     variant="secondary"
@@ -114,7 +118,7 @@ function MultiSelect({
                       if (!disabled) handleUnselect(item);
                     }}
                   >
-                    {option?.label ?? item}
+                    {label}
                     <button
                       type="button"
                       disabled={disabled}
@@ -124,7 +128,7 @@ function MultiSelect({
                         e.stopPropagation();
                       }}
                       onClick={() => handleUnselect(item)}
-                      aria-label={`Remove ${option?.label ?? item}`}
+                      aria-label={`Remove ${label}`}
                     >
                       <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
                     </button>
