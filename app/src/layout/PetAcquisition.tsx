@@ -74,9 +74,13 @@ export function PetAcquisition() {
       : (userData?.reputationPoints ?? 0);
   const paymentLabel = currency === "SEICHI_SILVER" ? "Seichi Silver" : "reputation";
   const canAfford = paymentBalance >= paymentCost;
-  // A tier change can alter offerings within the same day; both changes invalidate a draft.
+  // Day, tier and appearance changes invalidate a draft; adoption only removes a species.
   const catalogueKey = data
-    ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
+    ? `${data.dayKey}:${data.optionCount}:${[
+        data.options.palettes,
+        data.options.characteristics,
+        data.options.auras,
+      ]
         .flatMap((options) => options.map(petTraitValue))
         .join(",")}`
     : null;
