@@ -609,13 +609,16 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY[rarity]);
   });
 
-  it.each([false, true])("enforces the exact feeding deadline across midnight with companion combat enabled=%s", async (battleEnabled) => {
+  for (const [fedAt, nextFeedAt, duringCooldown] of [
+    ["2026-10-18T01:00:00.000Z", "2026-10-18T04:00:00.000Z", "2026-10-18T02:00:00.000Z"],
+    ["2026-10-17T23:30:00.000Z", "2026-10-18T02:30:00.000Z", "2026-10-18T00:30:00.000Z"],
+  ] as const) it.each([false, true])(`enforces the three-hour deadline after ${fedAt} with companion combat enabled=%s`, async (battleEnabled) => {
     const previousBattleEnabled = PET_BATTLE_CONFIG.enabled;
     try {
       PET_BATTLE_CONFIG.enabled = battleEnabled;
-      const lastFedAt = new Date("2026-10-17T23:30:00.000Z");
-      const availableAt = new Date(battleEnabled ? "2026-10-18T00:00:00.000Z" : "2026-10-18T02:30:00.000Z");
-      setSystemTime(battleEnabled ? new Date("2026-10-17T23:45:00.000Z") : new Date("2026-10-18T00:30:00.000Z"));
+      const lastFedAt = new Date(fedAt);
+      const availableAt = new Date(nextFeedAt);
+      setSystemTime(new Date(duringCooldown));
       const database = await getTestDatabase();
       await readyPet(database, { lastFedAt });
       await mealStack();
@@ -623,7 +626,8 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
       const input = { petId, userItemId: "meal-stack", expectedQuantity: 2 };
       expect(await caller.getPet()).toMatchObject({ canFeed: false, feedAvailableAt: availableAt });
       const original = await readPet(database);
-      expect((await caller.feedPet(input)).success).toBe(false);
+      expect(await caller.feedPet(input)).toMatchObject({ success: false,
+        message: `Feed this companion once every ${PET_FEED_COOLDOWN_HOURS} hours. Wait until its next feeding is available.` });
       setSystemTime(new Date(availableAt.getTime() - 1));
       expect((await caller.feedPet(input)).success).toBe(false);
       expect(await readPet(database)).toEqual(original);

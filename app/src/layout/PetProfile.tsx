@@ -887,11 +887,7 @@ export function PetProfile() {
         <TabsContent value="care" forceMount hidden={activity !== "care"}>
           <ContentBox
             title="Feed your companion"
-            subtitle={
-              PET_BATTLE_CONFIG.enabled
-                ? "Share a meal once each UTC day"
-                : `Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`
-            }
+            subtitle={`Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`}
             alreadyHasH1
           >
             <p className="mb-3 text-sm">

@@ -226,9 +226,7 @@ export const petsRouter = createTRPCRouter({
       const feedAvailableAt = getPetFeedAvailableAt(pet.lastFedAt);
       if (feedAvailableAt && feedAvailableAt > now)
         return errorResponse(
-          PET_BATTLE_CONFIG.enabled
-            ? "This companion has already been fed today. Return after midnight UTC."
-            : `Feed this companion once every ${PET_FEED_COOLDOWN_HOURS} hours. Wait until its next feeding is available.`,
+          `Feed this companion once every ${PET_FEED_COOLDOWN_HOURS} hours. Wait until its next feeding is available.`,
         );
       if (
         meal?.item.itemType !== "MEAL" ||
