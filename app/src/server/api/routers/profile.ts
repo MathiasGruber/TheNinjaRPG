@@ -39,7 +39,6 @@ import {
   MAX_ATTRIBUTES,
   MAX_SKILL_POINTS,
   MasteryNames,
-  PET_GENERATION_LEASE_MS,
   REGEN_SECONDS,
   SENSEI_MAX_STUDENT_LEVEL,
   SHRINE_BOOST_TYPES,
@@ -134,6 +133,7 @@ import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
 import { isQuestComplete } from "@/libs/objectives";
 import { isNewOnlineRecord } from "@/libs/onlineRecord";
 import { petExperienceGainSql } from "@/libs/pets/experience";
+import { hasActiveGeneration } from "@/libs/pets/progression";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -2788,11 +2788,7 @@ export const profileRouter = createTRPCRouter({
         );
       if (!pet) return errorResponse("Companion not found");
       const now = new Date();
-      if (
-        pet.generationStatus === "GENERATING" &&
-        (!pet.generationStartedAt ||
-          now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS)
-      ) {
+      if (hasActiveGeneration(pet, now)) {
         return errorResponse(
           "This companion's image is still generating. Wait for it to finish before resetting attempts.",
         );

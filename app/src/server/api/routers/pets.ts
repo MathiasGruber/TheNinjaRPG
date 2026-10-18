@@ -45,6 +45,7 @@ import {
   getMaxPetRank,
   getPetCollectionCapacity,
   getPetStatCaps,
+  hasActiveGeneration,
   isPetAppearanceReady,
   petRankUpBlockMessage,
 } from "@/libs/pets/progression";
@@ -996,11 +997,6 @@ const petMutationBlockMessage = (
   return null;
 };
 
-/** Abandoned generation leases expire without releasing ownership. */
-const hasActiveGeneration = (pet: UserPet, now = new Date()) =>
-  pet.generationStatus === "GENERATING" &&
-  (!pet.generationStartedAt ||
-    now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS);
 /** Keep the validated rank, active identity and ability to mutate current at commit. */
 const ownerMutationWhere = (user: UserData) => [
   eq(userData.status, "AWAKE"),
