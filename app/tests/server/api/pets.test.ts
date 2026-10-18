@@ -1119,9 +1119,10 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
       generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1), generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
     const caller = callerForDatabase(petsRouter, userId, database);
     expect(await caller.getPet()).toMatchObject({ canFeed: true, remainingGenerations: 0 });
+    const before = await readPet(database);
     await database.update(userData).set({ petExperience: 100 }).where(eq(userData.userId, userId));
     expect((await caller.assignExperience({ ...stats, petId })).success).toBe(true);
-    expect(await readPet(database)).toMatchObject({ avatar, artRank: 1, offence: 10 });
+    expect(await readPet(database)).toMatchObject({ avatar, artRank: 1, offence: before!.offence + stats.offence });
   });
 
   it("applies the daily limit to accepted artwork and renews attempts on the next UTC day", async () => {

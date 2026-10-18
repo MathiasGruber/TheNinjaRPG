@@ -126,7 +126,7 @@ describeWithDatabase("companion profession task dispatch and rewards", () => {
     await database.update(userPet).set({ generationStatus: "GENERATING", generationStartedAt: new Date(0), generationToken: "abandoned-redraw" }).where(eq(userPet.id, petId));
     expect((await dispatch(database)).success).toBe(true);
     const task = (await readOwner(database))!.petTask!;
-    setSystemTime(task.finishesAt);
+    setSystemTime(new Date(task.finishesAt));
     expect((await callerForDatabase(questsRouter, ownerId, database).collectPetTask(task)).success).toBe(true);
     expect((await readOwner(database))?.money).toBe(1050);
     expect((await readOwner(database))?.petTask).toBeNull();
