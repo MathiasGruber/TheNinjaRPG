@@ -83,6 +83,10 @@ describe("painted home properties", () => {
     { homeType: "MANSION", room: 7, floor: [[1085, 612], [1100, 605], [1110, 532], [1250, 620]], architecture: [[1085, 563], [1070, 604], [1090, 640], [1248, 515]] },
     { homeType: "PALACE", room: 0, floor: [[735, 398], [800, 398], [710, 390], [824, 390]], architecture: [[710, 398], [824, 398]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 0, floor: [[735, 398], [800, 398], [710, 390], [824, 390]], architecture: [[710, 398], [824, 398]] },
+    { homeType: "PALACE", room: 5, floor: [[580, 420], [613, 450], [615, 474], [612, 490]], architecture: [[580, 450], [595, 440], [597, 450], [597, 474], [608, 440], [610, 468], [605, 490]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 5, floor: [[580, 420], [613, 450], [615, 474], [612, 490]], architecture: [[580, 450], [595, 440], [597, 450], [597, 474], [608, 440], [610, 468], [605, 490]] },
+    { homeType: "PALACE", room: 6, floor: [[925, 420], [925, 440], [923, 450], [922, 474], [927, 490]], architecture: [[932, 440], [933, 450], [932, 474], [930, 440], [927, 470], [932, 490]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 9, floor: [[925, 420], [925, 440], [923, 450], [922, 474], [927, 490]], architecture: [[932, 440], [933, 450], [932, 474], [930, 440], [927, 470], [932, 490]] },
   ] as const)("traces $homeType room $room finishes around source-art doors, lamps and post caps", ({ homeType, room, floor, architecture }) => {
     const plan = HOME_ART_PLANS[homeType];
     for (const point of floor) {
@@ -198,6 +202,8 @@ describe("painted home properties", () => {
     { homeType: "MANSION", room: 6, walls: [[1263, 470]], fixtures: [[1252, 465], [1260, 490]] },
     { homeType: "MANSION", room: 7, walls: [[1270, 627]], fixtures: [[1278, 623]] },
     { homeType: "PALACE", room: 0, walls: [[622, 541]], fixtures: [[630, 550]] },
+    { homeType: "PALACE", room: 1, walls: [[717, 560], [819, 560]], fixtures: [[728, 560], [806, 560], [722, 560], [813, 560], [730, 568], [805, 568]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 1, walls: [[717, 560], [819, 560]], fixtures: [[728, 560], [806, 560], [722, 560], [813, 560], [730, 568], [805, 568]] },
     { homeType: "PALACE", room: 2, walls: [[450, 290]], fixtures: [[390, 315], [419, 315]] },
     { homeType: "PALACE", room: 6, walls: [[1080, 290]], fixtures: [[1118, 315], [1145, 315]] },
     { homeType: "PALACE", room: 7, walls: [[1199, 350], [1214, 515]], fixtures: [[1194, 358], [1310, 380], [1205, 514]] },
