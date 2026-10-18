@@ -347,7 +347,15 @@ interface TutorialAssistantProps {
  * @param rightSideBarRef - Reference to the right side bar
  * @returns
  */
-const TutorialAssistant: React.FC<TutorialAssistantProps> = ({
+const TutorialAssistant: React.FC<TutorialAssistantProps> = (props) => {
+  const { data: userData } = useUserData();
+  // The game shell also wraps public pages. Reward hooks require a player and redirect
+  // anonymous visitors, so keep them unmounted until the profile is available.
+  if (!userData) return null;
+  return <PlayerTutorialAssistant {...props} />;
+};
+
+const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
   rightSideBarOpen,
   setRightSideBarOpen,
   rightSideBarRef,
