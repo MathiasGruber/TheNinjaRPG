@@ -69,9 +69,6 @@ export const HomePropertyBackdrop = ({
         const surfaces = plan.floorSurfaces[index];
         const texture = HOME_FLOOR_TILES[style.floor];
         if (!surfaces || !texture) return null;
-        const points = surfaces.flat();
-        const left = Math.min(...points.map(([x]) => x));
-        const top = Math.min(...points.map(([, y]) => y));
         return (
           <svg
             key={style.room}
@@ -83,6 +80,24 @@ export const HomePropertyBackdrop = ({
             style={{ ...size, zIndex: 1 }}
           >
             <defs>
+              {/* Share the painting origin across rooms; undo its aspect stretch for the 4:3 textures. */}
+              <pattern
+                id={`${id}-${style.room}-texture`}
+                patternUnits="userSpaceOnUse"
+                x={0}
+                y={0}
+                width={32}
+                height={24}
+                patternTransform={`scale(${1 / (plan.aspectRatio ?? 4 / 3)} 1)`}
+              >
+                {/* The painting supplies the floor if this optional finish fails to load. */}
+                <image
+                  href={transformImageUrl(texture)}
+                  width={32}
+                  height={24}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </pattern>
               <clipPath id={`${id}-${style.room}-floor`}>
                 {surfaces.map((polygon, index) => (
                   <polygon
@@ -92,14 +107,10 @@ export const HomePropertyBackdrop = ({
                 ))}
               </clipPath>
             </defs>
-            {/* The complete painting supplies the floor if this optional finish fails to load. */}
-            <image
-              href={transformImageUrl(texture)}
-              x={left}
-              y={top}
-              width={Math.max(...points.map(([x]) => x)) - left}
-              height={Math.max(...points.map(([, y]) => y)) - top}
-              preserveAspectRatio="none"
+            <rect
+              width={100}
+              height={100}
+              fill={`url(#${id}-${style.room}-texture)`}
               clipPath={`url(#${id}-${style.room}-floor)`}
             />
           </svg>
