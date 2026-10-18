@@ -51,6 +51,17 @@ afterEach(async () => {
 });
 
 describe("jutsu loadout sharing dialogs", () => {
+  it.each(["Export", "Import"])("returns focus to the %s opener after cancellation", async (mode) => {
+    const { view } = setup();
+    const opener = view.getByRole("button", { name: mode });
+    opener.focus();
+    fireEvent.click(opener);
+    await waitFor(() => expect(view.getByRole("dialog").contains(document.activeElement)).toBe(true));
+    fireEvent.click(view.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
   it("supports a single slot and cancellation after preview never replaces it", async () => {
     const { view, props, pasteAndPreview } = setup();
     await pasteAndPreview();
@@ -68,6 +79,7 @@ describe("jutsu loadout sharing dialogs", () => {
     await waitFor(() => expect(props.onImported).toHaveBeenCalledTimes(1));
     expect(props.onReplace).toHaveBeenCalledWith({ loadoutId: "one", text: exportJutsuLoadout(["strike"]), previewToken: preview.token });
     await waitFor(() => expect(view.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(view.getByRole("button", { name: "Import" })));
   });
 
   it("keeps selectable text when clipboard access fails", async () => {

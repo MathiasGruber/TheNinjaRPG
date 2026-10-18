@@ -65,10 +65,12 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
   const [isPending, setIsPending] = useState(false);
   const pendingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const returnFocusRef = useRef<HTMLButtonElement>(null);
   const selected = props.loadouts.find((entry) => entry.id === loadoutId);
   const exportText = selected ? exportJutsuLoadout(selected.jutsuIds) : "";
 
-  const open = (next: "export" | "import") => {
+  const open = (next: "export" | "import", trigger: HTMLButtonElement) => {
+    returnFocusRef.current = trigger;
     setLoadoutId(
       props.loadouts.find((entry) => entry.id === props.activeId)?.id ??
         props.loadouts[0]?.id ??
@@ -129,14 +131,14 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
     <>
       <Button
         size="sm"
-        onClick={() => open("export")}
+        onClick={(event) => open("export", event.currentTarget)}
         disabled={!props.loadouts.length}
       >
         Export
       </Button>
       <Button
         size="sm"
-        onClick={() => open("import")}
+        onClick={(event) => open("import", event.currentTarget)}
         disabled={!props.loadouts.length}
       >
         Import
@@ -148,7 +150,16 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
           if (!isOpen && !pendingRef.current) setMode(null);
         }}
       >
-        <DialogContent className={modalViewportClassName} closeDisabled={isPending}>
+        <DialogContent
+          className={modalViewportClassName}
+          closeDisabled={isPending}
+          onCloseAutoFocus={(event) => {
+            if (returnFocusRef.current?.isConnected) {
+              event.preventDefault();
+              returnFocusRef.current.focus();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               {mode === "export" ? "Export jutsu loadout" : "Import jutsu loadout"}
