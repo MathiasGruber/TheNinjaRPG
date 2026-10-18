@@ -199,8 +199,12 @@ export function PetProfile() {
       });
       await invalidatePetData();
     },
-    onError: async (cause, { petId }) => {
+    onError: async (cause, { petId }, name) => {
       setGenerationMessages((previous) => ({ ...previous, [petId]: cause.message }));
+      showMutationToast({
+        success: false,
+        message: `${name ?? "Companion"}: ${cause.message}`,
+      });
       await invalidatePetData();
     },
   });

@@ -392,6 +392,9 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
     await act(async () => { finishGeneration(); });
     await waitFor(() => expect(getPet).toHaveBeenLastCalledWith({ petId: "second" }));
     expect(view.getAllByRole("alert").map((entry) => entry.textContent)).toEqual(["This companion cannot be renamed right now."]);
+    if (outcome === "network error") {
+      expect(toast.showMutationToast).toHaveBeenCalledWith({ success: false, message: "Miso: Miso image response lost" });
+    }
     await selectCompanion("Miso");
     const retry = await view.findByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement;
     expect(retry.disabled).toBe(false);
