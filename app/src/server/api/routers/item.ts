@@ -1657,7 +1657,7 @@ export const itemRouter = createTRPCRouter({
             userId: ctx.userId,
             userItemId: input.tokenUserItemId,
             expectedQuantity: tokenItem.quantity,
-            where: [eq(userItem.isInAuction, false), hasNoHuntingBattle(ctx.userId)],
+            where: [eq(userItem.isInAuction, false)],
           }),
         );
       } catch {
@@ -2990,7 +2990,6 @@ export const itemRouter = createTRPCRouter({
             userItemId: input.repairItemId,
             expectedQuantity: repairUserItem.quantity,
             where: [
-              hasNoHuntingBattle(ctx.userId),
               eq(userItem.equipped, repairUserItem.equipped),
               eq(userItem.level, repairUserItem.level),
               eq(userItem.experience, repairUserItem.experience),
@@ -3135,7 +3134,6 @@ export const itemRouter = createTRPCRouter({
               expectedQuantity: repairKitRow.quantity,
               nextQuantity: repairKitRow.quantity - quantityUsed,
               where: [
-                hasNoHuntingBattle(ctx.userId),
                 eq(userItem.equipped, repairKitRow.equipped),
                 eq(userItem.level, repairKitRow.level),
                 eq(userItem.experience, repairKitRow.experience),
