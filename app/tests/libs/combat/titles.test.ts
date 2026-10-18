@@ -1,5 +1,5 @@
 import { expect, it } from "bun:test";
-import { RANKED_PVP_STATS } from "@/drizzle/constants";
+import { RANKED_PVP_STATS, REGEN_SECONDS } from "@/drizzle/constants";
 import type { AiProfile } from "@/drizzle/schema";
 import { applyEffects } from "@/libs/combat/process";
 import { clear } from "@/libs/combat/tags";
@@ -19,6 +19,31 @@ const preload = (caster: CombatQueryUser, battleType: "COMBAT" | "RANKED_PVP" | 
     users: [caster], battleType, leftSideUserIds: [caster.userId], hide: false, isSummon: false,
     width: 10, height: 10, settings: [], relations: [], wars: [], villages: [], defaultProfile: { id: "default" } as AiProfile,
   });
+
+it.each(["increasemastery", "increaseregeneration"] as const)(
+  "reprocesses a JSON combatant with a %s title after regeneration ticks elapse",
+  async (type) => {
+    const caster = titleUser();
+    caster.regenAt = new Date(Date.now() - REGEN_SECONDS * 2500);
+    caster.status = "AWAKE";
+    caster.regeneration = 10;
+    caster.curHealth = caster.curChakra = caster.curStamina = 100;
+    caster.titles![0]!.createdAt = new Date(caster.regenAt.getTime() - 1000);
+    caster.titles![0]!.effects = [
+      type === "increasemastery"
+        ? { type, power: 15, masteryTypes: ["Ninjutsu"] }
+        : { type, power: 5 },
+    ];
+    const serialized = JSON.parse(JSON.stringify(caster)) as CombatQueryUser;
+    expect(typeof serialized.regenAt).toBe("string");
+    const expected = (await preload(caster)).usersState[0]!;
+    const actual = (await preload(serialized)).usersState[0]!;
+    expect(expected.curHealth).toBeGreaterThan(100);
+    expect(actual.curHealth).toBe(expected.curHealth);
+    expect(actual.curChakra).toBe(expected.curChakra);
+    expect(actual.curStamina).toBe(expected.curStamina);
+  },
+);
 
 it("preloads every owned title mastery once, omits transient ownership and retains encounter snapshots", async () => {
   const caster = titleUser();

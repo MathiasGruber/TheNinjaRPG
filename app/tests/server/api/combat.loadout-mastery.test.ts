@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { type BattleType, RANKED_PVP_STATS } from "@/drizzle/constants";
+import { type BattleType, RANKED_PVP_STATS, REGEN_SECONDS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
 import { applyEffects } from "@/libs/combat/process";
 import { refreshMasteries } from "@/libs/combat/util";
@@ -217,6 +217,13 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
     const initial = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
     expect(initial.usersState[0]!.ninjutsuMastery).toBe(500);
     expect(initial.usersState[0]).not.toHaveProperty("titles");
+    // Battle JSON retains the pre-combat status and serializes dates as strings.
+    // Elapsed ticks must not make title-bearing lobby switches fail or refill pools.
+    initial.usersState[0]!.regenAt = new Date(Date.now() - REGEN_SECONDS * 2500);
+    initial.usersState[0]!.curHealth = 50;
+    initial.usersState[0]!.curChakra = 40;
+    initial.usersState[0]!.curStamina = 30;
+    await db.update(battle).set({ usersState: initial.usersState }).where(eq(battle.id, BATTLE));
     // Ownership acquired after initiation belongs to the next encounter.
     await db.insert(title).values({ id: "later-title", name: "Later title", effects: [{ type: "increasemastery", masteryTypes: ["Ninjutsu"], power: 900 }] });
     await db.insert(userTitle).values({ userId: USER, titleId: "later-title", effects: [{ type: "increasemastery", masteryTypes: ["Ninjutsu"], power: 900 }] });
@@ -227,6 +234,7 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
       expect(result.message).toBe("");
       expect(await equippedIds()).toEqual(["gated", "usable"]);
       const updated = (await db.query.battle.findFirst({ where: eq(battle.id, BATTLE) }))!;
+      expect(updated.usersState[0]).toMatchObject({ curHealth: 50, curChakra: 40, curStamina: 30 });
       const hasArmor = itemLoadoutId === "with-armor";
       expect(updated.usersState[0]!.ninjutsuMastery).toBe(hasArmor ? 900 : 500);
       expect(updated.usersState[0]!.jutsus.map((owned) => owned.jutsuId).sort()).toEqual(["gated", "usable"]);
