@@ -6,6 +6,7 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { HUNTING_RANKS } from "@/drizzle/constants";
+import { HuntingRewards } from "@/layout/CombatRewards";
 import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
@@ -410,41 +411,5 @@ export function HuntingBoard({
         )}
       </div>
     </ContentBox>
-  );
-}
-
-/** Display already-settled rewards; rendering or refreshing never claims them again. */
-export function HuntingRewards({ receipt }: { receipt: HuntingReceipt }) {
-  return (
-    <section className="space-y-1 rounded border p-3" aria-label="Hunting result">
-      <h3 className="font-semibold">
-        {receipt.outcome === "Won" ? "Victory Settled" : receipt.outcome} ·{" "}
-        {receipt.contractName}
-      </h3>
-      {receipt.outcome === "Won" ? (
-        <>
-          {receipt.materials.map((m, i) => (
-            <p key={`${m.itemId}-${i}`}>
-              {m.bonus ? "Bonus" : "Guaranteed"}: {m.quantity}× {m.name}
-            </p>
-          ))}
-          <p>
-            +{receipt.experience.toLocaleString()} hunting experience ·{" "}
-            {getHuntingRank(receipt.totalExperience)}
-          </p>
-          <p>{receipt.remaining} successful hunts remaining</p>
-          {receipt.cooldownUntil && (
-            <p>
-              Contract cooldown until {new Date(receipt.cooldownUntil).toLocaleString()}
-            </p>
-          )}
-        </>
-      ) : (
-        <p>
-          No completion rewards. Your hunt allowance and preparation are preserved;
-          recover and retry.
-        </p>
-      )}
-    </section>
   );
 }

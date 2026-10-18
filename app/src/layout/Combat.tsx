@@ -26,6 +26,7 @@ import { useTutorialStep } from "@/hooks/tutorial";
 import { usePageActive } from "@/hooks/usePageActive";
 import { CombatAggro } from "@/layout/CombatAggro";
 import { CombatResourceBars } from "@/layout/CombatResourceBars";
+import { CombatRewards } from "@/layout/CombatRewards";
 import { HuntingBoard } from "@/layout/HuntingBoard";
 import Image from "@/layout/Image";
 import ItemLoadoutSelector from "@/layout/ItemLoadoutSelector";
@@ -85,7 +86,6 @@ import {
 } from "@/libs/threejs/util";
 import { showMutationToast } from "@/libs/toast";
 import { preloadAudioBuffers, savedSfxVolume } from "@/utils/audio";
-import { capitalizeFirstLetter } from "@/utils/string";
 import { secondsFromNow } from "@/utils/time";
 import {
   combatActionIdAtom,
@@ -1532,7 +1532,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   return (
     <>
-      <div id="tutorial-combat-field" ref={mountRef} hidden={!!result?.hunting}></div>
+      <div id="tutorial-combat-field" ref={mountRef} hidden={!!result}></div>
 
       {!result && !isInLobby && !webglError && battleState.battle && (
         <CombatResourceBars
@@ -1678,161 +1678,27 @@ const Combat: React.FC<CombatProps> = (props) => {
         )}
       {/* FINAL DONE SCREEN */}
       {result && (
-        <div
-          className={
-            result.hunting
-              ? "relative z-20 bg-black/90"
-              : "absolute top-0 right-0 bottom-0 left-0 z-20 m-auto overflow-y-auto bg-black/90"
-          }
-        >
-          <div className="text-center text-white">
+        <div className="relative z-20 bg-black/90">
+          <div className="mx-auto max-w-3xl px-3 pb-3 text-center text-white sm:px-5 sm:pb-5">
             <p className="p-5 pb-2 text-3xl">You {result.outcome}</p>
-            {result.hunting && (
-              <div className="mx-auto max-w-3xl bg-background p-4 text-foreground">
+            <div className="space-y-4 bg-background p-3 text-foreground sm:p-4">
+              {result.hunting && (
                 <HuntingBoard
                   victory={result.hunting}
                   onStarted={() => setBattleAtom(undefined)}
                 />
-              </div>
-            )}
-            {battleType === "QUEST" && (
-              <p>
-                Quest Energy is restored when you claim the completed quest's rewards.
-              </p>
-            )}
-            <div className="grid grid-cols-2">
-              {battleRef.current &&
-                isPvpEnergyRewardBattle(battleRef.current, props.userId) && (
-                  <p>
-                    PvP Energy reward: {result.energyReward ?? 0}
-                    {(result.energyReward ?? 0) > 0 && " (restored up to capacity)"}
-                  </p>
-                )}
-              {result.lpDiff !== 0 && (
-                <div>
-                  {result.lpDiff > 0 ? (
-                    <p>Ranked PvP LP: +{result.lpDiff.toFixed(2)}</p>
-                  ) : (
-                    <p>Ranked PvP LP: {result.lpDiff.toFixed(2)}</p>
-                  )}
-                </div>
               )}
-              {(result.pvpExperience ?? 0) > 0 && (
-                <p>PvP Experience: +{result.pvpExperience?.toFixed(2)}</p>
-              )}
-              {(result.weeklyPvpKills ?? 0) > 0 && (
-                <p>Weekly PvP kills: +{result.weeklyPvpKills}</p>
-              )}
-              {result.experience > 0 && (
-                <p>Experience Points: {result.experience.toFixed(2)}</p>
-              )}
-              {result.earnedExperience > 0 && (
-                <p>Unassigned Experience: {result.earnedExperience.toFixed(2)}</p>
-              )}
-              {result.offence > 0 && <p>Offence: {result.offence.toFixed(2)}</p>}
-              {result.defence > 0 && <p>Defence: {result.defence.toFixed(2)}</p>}
-              {Object.entries(result.masteryGains ?? {})
-                .filter(([, gain]) => gain > 0)
-                .map(([mastery, gain]) => (
-                  <p key={mastery}>
-                    {capitalizeFirstLetter(mastery.replace("Mastery", ""))} Mastery:{" "}
-                    {gain.toFixed(2)}
-                  </p>
-                ))}
-              {result.intelligence > 0 && (
-                <p>Intelligence: {result.intelligence.toFixed(2)}</p>
-              )}
-              {userData?.isOutlaw && result.villagePrestige !== 0 && (
-                <p>Notoriety: {result.villagePrestige.toFixed(2)}</p>
-              )}
-              {!userData?.isOutlaw && result.villagePrestige !== 0 && (
-                <p>Village Prestige: {result.villagePrestige.toFixed(2)}</p>
-              )}
-              {result.villageTokens !== 0 && (
-                <p>Village Tokens: {result.villageTokens.toFixed(2)}</p>
-              )}
-              {result.clanPoints !== 0 && (
-                <p>Clan points: {result.clanPoints.toFixed(2)}</p>
-              )}
-              {result.money > 0 && <p>Money gained: {result.money.toFixed(2)}</p>}
-              {result.money < 0 && <p>Money lost: {result.money.toFixed(2)}</p>}
-              {result.seichiSilver > 0 && <p>Seichi Silver: {result.seichiSilver}</p>}
-              {result.strength > 0 && <p>Strength: {result.strength.toFixed(2)}</p>}
-              {result.willpower > 0 && <p>Willpower: {result.willpower.toFixed(2)}</p>}
-              {result.speed > 0 && <p>Speed: {result.speed.toFixed(2)}</p>}
-              {result.bountiesClaimed.map((bounty) => {
-                return (
-                  <p key={bounty.bountyId}>
-                    Bounty claimed: {bounty.amountRyo.toFixed(2)} Ryo
-                  </p>
-                );
-              })}
-              {result.warHealthInfo &&
-                Object.entries(result.warHealthInfo).map(([villageName, change]) => {
-                  const key = `${villageName}-${change}`;
-                  if (change > 0) {
-                    return (
-                      <p key={key} className="text-green-500">
-                        {villageName} War HP: +{change.toFixed(2)}
-                      </p>
-                    );
-                  } else if (change < 0) {
-                    return (
-                      <p key={key} className="text-red-500">
-                        {villageName} War HP: {change.toFixed(2)}
-                      </p>
-                    );
-                  }
-                  return null;
-                })}
-              {result.shrineInfo &&
-                Object.entries(result.shrineInfo).map(([sectorId, change]) => {
-                  const key = `sector-${sectorId}-${change}`;
-                  if (change > 0) {
-                    return (
-                      <p key={key} className="text-green-500">
-                        Shrine HP in sector {sectorId}: +{change.toFixed(2)}
-                      </p>
-                    );
-                  } else if (change < 0) {
-                    return (
-                      <p key={key} className="text-red-500">
-                        Shrine HP in sector {sectorId}: {change.toFixed(2)}
-                      </p>
-                    );
-                  }
-                  return null;
-                })}
-              {result.villageWarShrineDisplay &&
-                Object.entries(result.villageWarShrineDisplay).map(
-                  ([warName, change]) => {
-                    const key = `war-shrine-${warName}-${change}`;
-                    if (change > 0) {
-                      return (
-                        <p key={key} className="text-green-500">
-                          War Shrine HP ({warName}): +{change.toFixed(2)}
-                        </p>
-                      );
-                    } else if (change < 0) {
-                      return (
-                        <p key={key} className="text-red-500">
-                          War Shrine HP ({warName}): {change.toFixed(2)}
-                        </p>
-                      );
-                    }
-                    return null;
-                  },
-                )}
-              {result.droppedItems &&
-                result.droppedItems.length > 0 &&
-                result.droppedItems.map((d) => (
-                  <p key={d.itemId} className="text-green-500">
-                    Looted: {d.name}
-                  </p>
-                ))}
+              <CombatRewards
+                result={result}
+                isOutlaw={!!userData?.isOutlaw}
+                isQuest={battleType === "QUEST"}
+                showPvpEnergy={
+                  !!battleRef.current &&
+                  isPvpEnergyRewardBattle(battleRef.current, props.userId)
+                }
+              />
             </div>
-
-            <div className="flex flex-row justify-center gap-2 p-5">
+            <div className="grid gap-2 pt-3 sm:grid-cols-2 [&>:only-child]:sm:col-span-2">
               <Link
                 href={
                   getIsolatedPyramid(userData)
@@ -1841,7 +1707,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                       ? "/hospital"
                       : "/profile"
                 }
-                className={`${showNextMatch || showTravelBtn || showShrineAgain ? "basis-1/2" : "basis-1/1"} w-full`}
+                className="w-full"
               >
                 <Button
                   id="return"
@@ -1856,7 +1722,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                 </Button>
               </Link>
               {showShrineAgain && (
-                <Link href="/shrine" className="w-full basis-1/2">
+                <Link href="/shrine" className="w-full">
                   <Button id="return" className="w-full">
                     Back to Shrine
                   </Button>
@@ -1865,10 +1731,10 @@ const Combat: React.FC<CombatProps> = (props) => {
               {showNextMatch &&
                 arenaOpponentId &&
                 (!currentStep || !userData?.tutorialOn) && (
-                  <div>
+                  <div className="space-y-2">
                     <Button
                       id="return"
-                      className="w-full basis-1/2"
+                      className="w-full"
                       disabled={isArenaHealPending || isStartingArenaBattle}
                       aria-busy={isStartingArenaBattle}
                       aria-live="polite"
@@ -1882,7 +1748,7 @@ const Combat: React.FC<CombatProps> = (props) => {
 
                     <Button
                       id="heal-return"
-                      className="mt-1 w-full basis-1/2"
+                      className="w-full"
                       disabled={
                         isArenaHealPending ||
                         isStartingArenaBattle ||
@@ -1928,7 +1794,7 @@ const Combat: React.FC<CombatProps> = (props) => {
                 </Link>
               )}
               {showTravelBtn && (
-                <Link href="/travel" className="basis-1/2">
+                <Link href="/travel" className="w-full">
                   <Button id="toTravel" className="w-full">
                     To Map
                   </Button>
