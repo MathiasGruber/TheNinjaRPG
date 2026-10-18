@@ -8,7 +8,7 @@ import {
   PetRarities,
   type PetRarity,
 } from "@/drizzle/constants";
-import type { PetSpecies } from "@/drizzle/schema";
+import type { PetSpecies, UserData } from "@/drizzle/schema";
 import { getPetDayKey } from "@/utils/time";
 
 /** A catalogue ID persisted on pets, with authored display and model-prompt text. */
@@ -147,17 +147,21 @@ const dailySpecies = (
  * Reproduce an owner's UTC-day offerings from the current available species.
  * Subscriber tiers extend the same ordered prefix; species are drawn without
  * replacement and the other trait families use independent deterministic seeds.
+ * Remove claims after rolling so adoption cannot replace a consumed daily offer.
  */
 export const getDailyPetOptions = (
   userId: string,
   federalStatus: FederalStatus,
   species: readonly PetSpeciesOption[],
   dayKey = getPetDayKey(),
+  claims?: UserData["petDailyClaims"],
 ) => {
   const count = PET_OPTION_COUNTS[federalStatus];
   const seed = `${userId}:${dayKey}`;
   return {
-    species: dailySpecies(species, `${seed}:species`, count),
+    species: dailySpecies(species, `${seed}:species`, count).filter(
+      ({ id }) => claims?.dayKey !== dayKey || !claims.speciesIds.includes(id),
+    ),
     palettes: dailyOptions(PET_PALETTES, `${seed}:palette`, count),
     characteristics: dailyOptions(PET_CHARACTERISTICS, `${seed}:characteristic`, count),
     auras: dailyOptions(PET_AURAS, `${seed}:aura`, count),

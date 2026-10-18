@@ -66,6 +66,7 @@ import {
   acquirePetSchema,
   assignPetExperienceSchema,
   feedPetSchema,
+  generatePetAppearanceSchema,
   petAcquisitionResponseSchema,
   petPaymentSchema,
   petSelectionSchema,
@@ -333,13 +334,22 @@ export const petsRouter = createTRPCRouter({
       const dayKey = getPetDayKey(now);
       const capacity = getPetCollectionCapacity(user);
       const federalStatus = getUserFederalStatus(user);
+      const options = getDailyPetOptions(
+        user.userId,
+        federalStatus,
+        species,
+        dayKey,
+        user.petDailyClaims,
+      );
       const nextFeedAt = getPetFeedAvailableAt(pet?.lastFedAt ?? null);
       const feedAvailableAt = nextFeedAt && nextFeedAt > now ? nextFeedAt : null;
       const acquisitionRestriction = !species.some((entry) => entry.isActive)
         ? "The Bondkeepers are not offering new companions right now. Please check back later."
         : capacity.slots <= pets.length
           ? "Unlock another collection slot or release a companion before adopting another."
-          : acquisitionBlockMessage(user);
+          : options.species.length === 0
+            ? "You have adopted all of today's companion species. New choices arrive at midnight UTC."
+            : acquisitionBlockMessage(user);
       const rankUpReason = pet
         ? (petMutationBlockMessage(user, pet) ?? petRankUpBlockMessage(pet, user))
         : "Adopt a pet first.";
@@ -375,7 +385,7 @@ export const petsRouter = createTRPCRouter({
             isPetAppearanceReady(pet) &&
             pet.rank <= getMaxPetRank(user.rank),
         ),
-        options: getDailyPetOptions(user.userId, federalStatus, species, dayKey),
+        options,
         dayKey,
         optionCount: PET_OPTION_COUNTS[federalStatus],
         replacementCost: user.petAcquisitions === 0 ? 0 : PET_REPLACEMENT_COST,
@@ -430,10 +440,22 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           "Today's companion choices changed. Refresh and choose again.",
         );
+      const claimedSpecies =
+        user.petDailyClaims?.dayKey === dayKey ? user.petDailyClaims.speciesIds : [];
+      if (claimedSpecies.includes(input.speciesId))
+        return errorResponse(
+          "You have already adopted this species today. New choices arrive at midnight UTC.",
+        );
       if (
         !isAvailablePetAppearance(
           input,
-          getDailyPetOptions(user.userId, getUserFederalStatus(user), species, dayKey),
+          getDailyPetOptions(
+            user.userId,
+            getUserFederalStatus(user),
+            species,
+            dayKey,
+            user.petDailyClaims,
+          ),
         )
       )
         return errorResponse("Choose from your available companion traits for today.");
@@ -498,6 +520,10 @@ export const petsRouter = createTRPCRouter({
               set: {
                 ...(!user.activePetId ? { activePetId: petId, petExperience: 0 } : {}),
                 petAcquisitions: sql`${userData.petAcquisitions} + 1`,
+                petDailyClaims: {
+                  dayKey,
+                  speciesIds: [...claimedSpecies, input.speciesId],
+                },
                 [payment.column.name]: sql`${payment.column} - ${payment.cost}`,
               },
             });
@@ -726,7 +752,7 @@ export const petsRouter = createTRPCRouter({
 
   /** Claim a bounded generation lease and accept only its matching provider result. */
   generateAppearance: protectedProcedure
-    .input(petSelectionSchema)
+    .input(generatePetAppearanceSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const { user, pet } = await fetchPetOwner(ctx.drizzle, ctx.userId, input.petId);
@@ -758,11 +784,45 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
         );
+      if (input.appearance) {
+        if (pet.avatar || pet.artRank > 0 || pet.rank !== 1)
+          return errorResponse("An established companion keeps its appearance traits.");
+        // Cosmetics roll independently of species; rewards need not be in daily offers.
+        const choices = getDailyPetOptions(
+          user.userId,
+          getUserFederalStatus(user),
+          [],
+          dayKey,
+        );
+        const selected = input.appearance;
+        if (
+          selected.dayKey !== dayKey ||
+          (selected.paletteIndex !== pet.paletteIndex &&
+            !choices.palettes.some(
+              (option) => option.index === selected.paletteIndex,
+            )) ||
+          (selected.characteristicIndex !== pet.characteristicIndex &&
+            !choices.characteristics.some(
+              (option) => option.index === selected.characteristicIndex,
+            )) ||
+          (selected.auraIndex !== pet.auraIndex &&
+            !choices.auras.some((option) => option.index === selected.auraIndex))
+        )
+          return errorResponse(
+            "Today's appearance choices changed. Refresh and choose again.",
+          );
+      }
+      const appearance = input.appearance && {
+        paletteIndex: input.appearance.paletteIndex,
+        characteristicIndex: input.appearance.characteristicIndex,
+        auraIndex: input.appearance.auraIndex,
+      };
       const token = nanoid();
       const claim = await retryOnDeadlock(() =>
         ctx.drizzle
           .update(userPet)
           .set({
+            ...appearance,
             generationStatus: "GENERATING",
             generationToken: token,
             generationStartedAt: now,
@@ -779,17 +839,24 @@ export const petsRouter = createTRPCRouter({
                 ne(userPet.artRank, userPet.rank),
                 isNull(userPet.avatar),
               ),
-              sql`EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${ctx.userId} AND ${userData.isBanned} = false AND ${userData.rank} = ${user.rank})`,
+              sql`EXISTS (SELECT 1 FROM ${userData}
+                WHERE ${userData.userId} = ${ctx.userId} AND ${userData.isBanned} = false
+                AND ${userData.rank} = ${user.rank}
+                AND ${userData.federalStatus} = ${user.federalStatus}
+                AND ${userData.staffAccount} = ${user.staffAccount})`,
             ),
           ),
       );
       if (claim.rowsAffected !== 1) return changedResponse();
       try {
-        const avatar = await generatePetAppearance(pet, async (imageUrl) => {
-          await ctx.drizzle
-            .insert(userUpload)
-            .values({ id: nanoid(), userId: ctx.userId, imageUrl });
-        });
+        const avatar = await generatePetAppearance(
+          { ...pet, ...appearance },
+          async (imageUrl) => {
+            await ctx.drizzle
+              .insert(userUpload)
+              .values({ id: nanoid(), userId: ctx.userId, imageUrl });
+          },
+        );
         const accepted = await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)

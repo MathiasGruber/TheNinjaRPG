@@ -196,3 +196,9 @@ export const adjustSeichiSilverSchema = z.object({
   reason: z.string().trim().min(10).max(500),
 });
 export type AdjustSeichiSilverSchema = z.infer<typeof adjustSeichiSilverSchema>;
+
+export const resetPetImageGenerationSchema = z.object({
+  userId: z.string().min(1),
+  petId: z.string().min(1),
+  reason: z.string().trim().min(10).max(500),
+});

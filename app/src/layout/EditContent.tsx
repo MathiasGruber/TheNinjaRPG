@@ -2032,15 +2032,8 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           label: "Companion species",
           type: "db_values",
           multiple: true,
-          values: (petSpecies ?? [])
-            .filter(
-              (species) =>
-                species.isActive || watchAll.reward_pets?.includes(species.id),
-            )
-            .map((species) => ({
-              id: species.id,
-              name: species.isActive ? species.name : `${species.name} (unavailable)`,
-            })),
+          // Daily-offer availability does not restrict authored companion rewards.
+          values: (petSpecies ?? []).map(({ id, name }) => ({ id, name })),
         };
       } else if ((value as string) === "reward_jutsus" && jutsuData) {
         return {

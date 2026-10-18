@@ -91,6 +91,16 @@ describeWithDatabase("consumable companion rewards", () => {
     expect(await db.query.userPet.findFirst({ where: eq(userPet.id, "existing-pet") })).toMatchObject({ storedExperience: 99 });
   });
 
+  it("grants an authored species excluded from daily sanctuary offers", async () => {
+    const db = await getTestDatabase();
+    await db.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, "gift-species"));
+    const response = await callerForDatabase(itemRouter, USER, db).consume(input);
+    expect(response.success, response.message).toBe(true);
+    expect(await db.query.userPet.findFirst()).toMatchObject({ speciesId: "gift-species", jutsuIds: ["pet-strike"] });
+    expect((await db.query.userItem.findFirst())?.quantity).toBe(1);
+    expect(await db.query.userData.findFirst()).toMatchObject({ money: 107, petAcquisitions: 1 });
+  });
+
   it("leaves the item and bundled money untouched when capacity is full", async () => {
     const db = await getTestDatabase(); await insertExistingPet();
     expect(await callerForDatabase(itemRouter, USER, db).consume(input)).toMatchObject({ success: false, message: expect.stringContaining("collection slot") });
@@ -118,7 +128,7 @@ describeWithDatabase("consumable companion rewards", () => {
     expect((await callerForDatabase(itemRouter, USER, db).consume(input)).success).toBe(true);
   });
 
-  it.each(["capacity", "species", "rank", "supporter", "active"] as const)("rechecks live %s when it changes after preload", async (change) => {
+  it.each(["capacity", "species", "species defaults", "rank", "supporter", "active"] as const)("rechecks live %s when it changes after preload", async (change) => {
     const db = await getTestDatabase();
     if (change === "supporter") {
       await db.update(userData).set({ federalStatus: "GOLD" }).where(eq(userData.userId, USER));
@@ -126,7 +136,8 @@ describeWithDatabase("consumable companion rewards", () => {
     }
     const raced = beforeClaim(db, async () => {
       if (change === "capacity") await insertExistingPet();
-      else if (change === "species") await db.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, "gift-species"));
+      else if (change === "species") await db.delete(petSpecies).where(eq(petSpecies.id, "gift-species"));
+      else if (change === "species defaults") await db.update(petSpecies).set({ defaultJutsuIds: [], updatedAt: new Date(Date.now() + 1000) }).where(eq(petSpecies.id, "gift-species"));
       else await db.update(userData).set(change === "rank" ? { rank: "NONE" } : change === "supporter" ? { federalStatus: "NONE" } : { activePetId: "another-selection" }).where(eq(userData.userId, USER));
     });
     expect((await callerForDatabase(itemRouter, USER, raced).consume(input)).success).toBe(false);
@@ -135,10 +146,10 @@ describeWithDatabase("consumable companion rewards", () => {
     expect(await db.query.actionLog.findMany()).toHaveLength(0);
   });
 
-  it("rejects malformed, unavailable and receipt-less grants before consuming", async () => {
+  it("rejects malformed, missing-species and receipt-less grants before consuming", async () => {
     const db = await getTestDatabase(); const caller = callerForDatabase(itemRouter, USER, db);
     expect((await caller.consume({ userItemId: input.userItemId })).success).toBe(false);
-    await db.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, "gift-species"));
+    await db.delete(petSpecies).where(eq(petSpecies.id, "gift-species"));
     expect((await caller.consume(input)).success).toBe(false);
     await db.update(item).set({ effects: [{ ...rewardEffect(), reward_pets: ["one", "two"] }] }).where(eq(item.id, "pet-gift"));
     expect((await caller.consume(input)).success).toBe(false);
@@ -154,15 +165,27 @@ describeWithDatabase("consumable companion rewards", () => {
     expect(NonCombatConsumeRewardTag.safeParse({ reward_pets: ["gift-species"], rewardMode: "weightedCache" }).success).toBe(false);
   });
 
-  it("rejects an unavailable species when Content saves the reward item", async () => {
+  it.each([true, false])("lets Content save a reward species with daily offers %s", async (isActive) => {
     const db = await getTestDatabase();
     await db.update(userData).set({ role: "CODER" }).where(eq(userData.userId, USER));
-    await db.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, "gift-species"));
+    await db.update(petSpecies).set({ isActive }).where(eq(petSpecies.id, "gift-species"));
     const row = await fetchItemWithCraftingRequirements(db, "pet-gift");
     if (!row) throw new Error("Missing companion reward item");
     const response = await callerForDatabase(itemRouter, USER, db).update({
       id: row.id, data: ItemValidator.parse({ ...row, cost: 1, target: "SELF", method: "SINGLE" }),
     });
-    expect(response).toEqual({ success: false, message: "Companion rewards must reference available species." });
+    expect(response.success, response.message).toBe(true);
+  });
+
+  it("rejects a missing species when Content saves the reward item", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "CODER" }).where(eq(userData.userId, USER));
+    await db.delete(petSpecies).where(eq(petSpecies.id, "gift-species"));
+    const row = await fetchItemWithCraftingRequirements(db, "pet-gift");
+    if (!row) throw new Error("Missing companion reward item");
+    const response = await callerForDatabase(itemRouter, USER, db).update({
+      id: row.id, data: ItemValidator.parse({ ...row, cost: 1, target: "SELF", method: "SINGLE" }),
+    });
+    expect(response).toEqual({ success: false, message: "Companion rewards must reference existing species." });
   });
 });

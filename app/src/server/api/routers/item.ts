@@ -681,11 +681,10 @@ export const itemRouter = createTRPCRouter({
         );
       if (
         rewardPetSpeciesIds(input.data.effects).some(
-          (id) =>
-            !rewardSpecies.some((species) => species.id === id && species.isActive),
+          (id) => !rewardSpecies.some((species) => species.id === id),
         )
       )
-        return errorResponse("Companion rewards must reference available species.");
+        return errorResponse("Companion rewards must reference existing species.");
       // Validate evolution chain constraints
       if (input.data.parentItemId) {
         const graphValidation = validateEvolutionGraph({
@@ -2203,9 +2202,8 @@ export const itemRouter = createTRPCRouter({
             where: and(eq(jutsu.jutsuType, "PETS"), eq(jutsu.hidden, false)),
           }),
         ]);
-        const selected = species.find(
-          (entry) => entry.id === petRewardIds[0] && entry.isActive,
-        );
+        // Authored rewards may grant species excluded from daily sanctuary offers.
+        const selected = species.find((entry) => entry.id === petRewardIds[0]);
         if (!selected)
           return errorResponse(
             "This companion species is unavailable. Please contact staff.",
@@ -2599,7 +2597,6 @@ export const itemRouter = createTRPCRouter({
                         .where(
                           and(
                             eq(petSpecies.id, petReward.speciesId),
-                            eq(petSpecies.isActive, true),
                             rewardSpeciesUpdatedAt
                               ? eq(petSpecies.updatedAt, rewardSpeciesUpdatedAt)
                               : undefined,

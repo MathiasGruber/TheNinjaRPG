@@ -257,6 +257,9 @@ export const canUnstuckVillage = (role: UserRole) => {
   return isStaffRole(role);
 };
 
+/** Staff can restore image attempts when a companion generation needs support. */
+export const canResetPetImageGeneration = (role: UserRole) => isStaffRole(role);
+
 export const canSeeSecretData = (role: UserRole) => {
   return [
     "CONTENT",

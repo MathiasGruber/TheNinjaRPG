@@ -15,6 +15,7 @@ import Countdown from "@/layout/Countdown";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import { PetAppearanceButton } from "@/layout/PetAppearanceButton";
 import type { PetAppearanceOption, PetSpeciesOption } from "@/libs/pets/catalogue";
 import { getPetRank, isPetAppearanceReady } from "@/libs/pets/progression";
 import { showMutationToast } from "@/libs/toast";
@@ -209,13 +210,18 @@ export function PetAcquisition() {
     }
   };
   /** Resume artwork for the saved companion without re-entering the adoption/charge path. */
-  const retryAppearance = async () => {
+  const retryAppearance = async (
+    appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
+  ) => {
     if (inFlight.current || !data?.pet) return;
     inFlight.current = true;
     setIsAcquiring(true);
     setMessage(null);
     try {
-      await generate.mutateAsync({ petId: data.pet.id });
+      await generate.mutateAsync({
+        petId: data.pet.id,
+        ...(appearance ? { appearance } : {}),
+      });
     } catch {
       // The inline error keeps the companion and retry action visible.
     } finally {
@@ -358,18 +364,21 @@ export function PetAcquisition() {
                 </Button>
               )}
               {canRetry && (
-                <Button
+                <PetAppearanceButton
+                  pet={pet}
+                  options={data.options}
+                  dayKey={data.dayKey}
                   disabled={
                     isBusy ||
                     data.remainingGenerations <= 0 ||
                     userData.status !== "AWAKE"
                   }
-                  onClick={() => void retryAppearance()}
+                  onGenerate={retryAppearance}
                 >
                   {generate.isPending
                     ? "Creating appearance..."
                     : "Retry appearance for free"}
-                </Button>
+                </PetAppearanceButton>
               )}
             </div>
             {!appearanceReady && retryAt && !canRetry && (

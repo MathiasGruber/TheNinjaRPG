@@ -772,21 +772,24 @@ const CompanionRewardDraftForm = () => {
 
 describe("companion reward editing", () => {
   afterEach(() => vi.restoreAllMocks());
-  it("selects an active authored species by ID and excludes retired species", async () => {
+  it.each([
+    ["Fox", "fox-id"],
+    ["Gift Fox", "gift-id"],
+  ])("saves %s as a companion reward regardless of daily-offer availability", async (name, id) => {
     vi.spyOn(names, "useQuery").mockReturnValue({ data: [
       { id: "fox-id", name: "Fox", isActive: true },
-      { id: "retired-id", name: "Retired Fox", isActive: false },
+      { id: "gift-id", name: "Gift Fox", isActive: false },
     ] } as never);
     const view = render(<CompanionRewardDraftForm />);
     const field = view.getByText("Companion species").closest<HTMLElement>('[data-slot="form-item"]');
     if (!field) throw new Error("Missing companion species field");
     fireEvent.click(within(field).getByRole("combobox"));
     expect(await view.findByRole("option", { name: "Fox" })).toBeDefined();
-    expect(view.queryByRole("option", { name: "Retired Fox" })).toBeNull();
-    fireEvent.click(view.getByRole("option", { name: "Fox" }));
+    expect(view.getByRole("option", { name: "Gift Fox" })).toBeDefined();
+    fireEvent.click(view.getByRole("option", { name }));
     fireEvent.click(view.getByRole("button", { name: "Save companion reward" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ reward_pets: ["fox-id"] });
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ reward_pets: [id] });
   });
 });
 

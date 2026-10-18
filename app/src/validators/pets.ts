@@ -65,6 +65,18 @@ export const acquirePetSchema = petPaymentSchema.extend({
     .max(PET_AURAS.length - 1),
 });
 
+/** Ungenerated companions can choose daily cosmetics without changing their awarded species. */
+export const generatePetAppearanceSchema = petSelectionSchema.extend({
+  appearance: acquirePetSchema
+    .pick({
+      dayKey: true,
+      paletteIndex: true,
+      characteristicIndex: true,
+      auraIndex: true,
+    })
+    .optional(),
+});
+
 /** Partial settings update that must supply at least one field besides the companion ID. */
 export const updatePetSchema = z
   .object({

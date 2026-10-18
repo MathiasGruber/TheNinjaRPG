@@ -47,6 +47,15 @@ describe("companion appearance choices", () => {
     expect(acquirePetSchema.safeParse({ name: "Kumo", dayKey: "2026-10-11", ...selection, auraIndex: 8 }).success).toBe(false);
   });
 
+  it("removes claimed species without rolling replacements or changing other daily traits", () => {
+    const dayKey = "2026-10-18";
+    const original = getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey);
+    const speciesIds = [original.species[0]!.id, original.species[3]!.id];
+    const remaining = getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey, { dayKey, speciesIds });
+    expect(remaining).toEqual({ ...original, species: original.species.filter(({ id }) => !speciesIds.includes(id)) });
+    expect(getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey, { dayKey: "2026-10-17", speciesIds })).toEqual(original);
+  });
+
   it("restricts names and stat allocations without accepting free-form art prompts", () => {
     expect(petNameSchema.parse("  Kumo  ")).toBe("Kumo");
     expect(petNameSchema.safeParse("Kumo\u202e").success).toBe(false);
