@@ -324,6 +324,27 @@ describeWithDatabase("Hunting inventory admission", () => {
     expect((await db.query.itemLoadout.findFirst())!.itemData).toEqual(action === "unequip" ? [] : [{ userItemId: selected, itemId: selected === "worn" ? "potion" : "spare", slot: "ITEM_1" }]);
   });
 
+  it("saves committed equipment when a hunt starts before its loadout update", async () => {
+    await insertUserItems([
+      { id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: "ITEM_1" },
+      { id: "spare", itemId: "spare", userId: "hunter", quantity: 2 },
+    ]);
+    const { db, hunter, id } = await prepare();
+    await db.insert(itemLoadout).values({ id: "current", userId: "hunter", itemData: [{ userItemId: "worn", itemId: "potion", slot: "ITEM_1" }] });
+    await db.update(userData).set({ itemLoadout: "current", staffAccount: true }).where(eq(userData.userId, "hunter"));
+    // Admit only after the equipment swap commits, immediately before saving its template.
+    const client = beforeStatements(db, itemLoadout, [async () => {
+      expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "spare") })).toMatchObject({ equipped: "ITEM_1" });
+      expect((await hunter.start({ id })).success).toBe(true);
+    }]);
+    expect((await callerForDatabase(itemRouter, "hunter", client).toggleEquip({ userItemId: "spare", slot: "ITEM_1" })).success).toBe(true);
+    expect((await db.query.itemLoadout.findFirst())!.itemData).toEqual([{ userItemId: "spare", itemId: "spare", slot: "ITEM_1" }]);
+    const current = await settle(db);
+    expect(current.usersState.find((user) => user.userId === "hunter")!.items.map((row) => row.id)).toEqual(["spare"]);
+    expect((await callerForDatabase(itemRouter, "hunter", db).selectItemLoadout({ id: "current" })).success).toBe(true);
+    expect((await db.query.userItem.findMany()).filter((row) => row.equipped === "ITEM_1").map((row) => row.id)).toEqual(["spare"]);
+  });
+
   it.each([false, true])("keeps an equipment swap atomic against hunting admission (hunt first: %s)", async (huntFirst) => {
     await insertUserItems([
       { id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: "ITEM_1" },

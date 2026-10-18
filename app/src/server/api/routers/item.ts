@@ -1949,7 +1949,8 @@ export const itemRouter = createTRPCRouter({
           outcomes.some((saved) => saved.rowsAffected !== result.expectedRowsAffected)
         )
           return errorResponse(HUNTING_INVENTORY_UNAVAILABLE_MESSAGE);
-        // A rejected equipment write must not overwrite the saved loadout.
+        // Save only committed equipment. A hunt starting afterward must not leave
+        // its template stale; this write cannot alter the encounter's equipment.
         if (user.itemLoadout) {
           const currentLoadout = loadouts.find((l) => l.id === user.itemLoadout);
           if (currentLoadout) {
@@ -1958,12 +1959,7 @@ export const itemRouter = createTRPCRouter({
               ctx.drizzle
                 .update(itemLoadout)
                 .set({ itemData: newItemData })
-                .where(
-                  and(
-                    eq(itemLoadout.id, currentLoadout.id),
-                    hasNoHuntingBattle(ctx.userId),
-                  ),
-                ),
+                .where(eq(itemLoadout.id, currentLoadout.id)),
             );
           }
         }
