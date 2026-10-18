@@ -1945,7 +1945,9 @@ export const itemRouter = createTRPCRouter({
         const outcomes = await Promise.all(
           result.promises.map((write) => retryOnDeadlock(async () => write)),
         );
-        if (outcomes.some((saved) => saved.rowsAffected !== 1))
+        if (
+          outcomes.some((saved) => saved.rowsAffected !== result.expectedRowsAffected)
+        )
           return errorResponse(HUNTING_INVENTORY_UNAVAILABLE_MESSAGE);
         // A rejected equipment write must not overwrite the saved loadout.
         if (user.itemLoadout) {
@@ -4246,7 +4248,7 @@ export const toggleEquipItem = async (
   }
   // Response info
   let message = "";
-  let promises: Promise<{ rowsAffected: number }>[] = [];
+  const changedIds = [useritem.id];
   // Mutate
   if (doEquip) {
     const userItemInSlot = newUserItems.find(
@@ -4256,68 +4258,36 @@ export const toggleEquipItem = async (
     useritem.equipped = newEquipSlot;
     if (userItemInSlot) {
       userItemInSlot.equipped = "NONE";
+      changedIds.push(userItemInSlot.id);
     }
-    // Promises
-    promises = [
-      client
-        .update(userItem)
-        .set({
-          equipped: newEquipSlot,
-          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userItem.updatedAt}))`,
-        })
-        .where(
-          and(
-            eq(userItem.id, useritem.id),
-            eq(userItem.userId, user.userId),
-            gt(userItem.quantity, 0),
-            hasNoHuntingBattle(user.userId),
-          ),
-        ),
-      ...(userItemInSlot
-        ? [
-            client
-              .update(userItem)
-              .set({
-                equipped: "NONE",
-                updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userItem.updatedAt}))`,
-              })
-              .where(
-                and(
-                  eq(userItem.id, userItemInSlot.id),
-                  eq(userItem.userId, user.userId),
-                  gt(userItem.quantity, 0),
-                  hasNoHuntingBattle(user.userId),
-                ),
-              ),
-          ]
-        : []),
-    ];
     message = `Equipped ${info.name}`;
   } else {
     useritem.equipped = "NONE";
-    promises = [
-      client
-        .update(userItem)
-        .set({
-          equipped: "NONE",
-          updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userItem.updatedAt}))`,
-        })
-        .where(
-          and(
-            eq(userItem.id, useritem.id),
-            eq(userItem.userId, user.userId),
-            gt(userItem.quantity, 0),
-            hasNoHuntingBattle(user.userId),
-          ),
-        ),
-    ];
     message = `Unequipped ${info.name}`;
   }
+  // Swap both rows together so hunting cannot preload two items in the same slot.
+  const promises = [
+    client
+      .update(userItem)
+      .set({
+        equipped: sql`CASE WHEN ${userItem.id} = ${useritem.id} THEN ${useritem.equipped} ELSE 'NONE' END`,
+        updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${userItem.updatedAt}))`,
+      })
+      .where(
+        and(
+          inArray(userItem.id, changedIds),
+          eq(userItem.userId, user.userId),
+          gt(userItem.quantity, 0),
+          hasNoHuntingBattle(user.userId),
+        ),
+      ),
+  ];
   // Return information
   return {
     success: true,
     message,
     promises,
+    expectedRowsAffected: changedIds.length,
     newUserItems,
   };
 };

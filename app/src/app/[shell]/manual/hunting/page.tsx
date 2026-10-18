@@ -36,6 +36,7 @@ export default function HuntingEditor() {
       setMessage(r.message);
       if (r.success && "id" in r) {
         setId(r.id);
+        setContent(r.content);
         await Promise.all([definitions.refetch(), utils.hunting.getBoard.invalidate()]);
       }
     },

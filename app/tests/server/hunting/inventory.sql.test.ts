@@ -308,6 +308,44 @@ describeWithDatabase("Hunting inventory admission", () => {
     "sell", "unequip", "toggle", "replace",
     "empty-loadout", "replacement-loadout", "same-loadout",
   ] as const;
+
+  it.each(["swap", "equip", "unequip"] as const)("persists a normal %s and its saved loadout", async (action) => {
+    const db = await getTestDatabase();
+    await insertUserItems([
+      { id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: action === "equip" ? "NONE" : "ITEM_1" },
+      { id: "spare", itemId: "spare", userId: "hunter", quantity: 2 },
+    ]);
+    await db.insert(itemLoadout).values({ id: "current", userId: "hunter", itemData: [] });
+    await db.update(userData).set({ itemLoadout: "current" }).where(eq(userData.userId, "hunter"));
+    const selected = action === "swap" ? "spare" : "worn";
+    expect((await callerForDatabase(itemRouter, "hunter", db).toggleEquip({ userItemId: selected, slot: "ITEM_1" })).success).toBe(true);
+    const equipped = (await db.query.userItem.findMany()).filter((row) => row.equipped !== "NONE");
+    expect(equipped.map((row) => row.id)).toEqual(action === "unequip" ? [] : [selected]);
+    expect((await db.query.itemLoadout.findFirst())!.itemData).toEqual(action === "unequip" ? [] : [{ userItemId: selected, itemId: selected === "worn" ? "potion" : "spare", slot: "ITEM_1" }]);
+  });
+
+  it.each([false, true])("keeps an equipment swap atomic against hunting admission (hunt first: %s)", async (huntFirst) => {
+    await insertUserItems([
+      { id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: "ITEM_1" },
+      { id: "spare", itemId: "spare", userId: "hunter", quantity: 2 },
+    ]);
+    const { db, hunter, id } = await prepare();
+    let started = false;
+    const start = async () => {
+      expect((await hunter.start({ id })).success).toBe(true);
+      started = true;
+    };
+    // With separate row updates, admission before the displaced write sees both items.
+    const client = beforeStatements(db, userItem, huntFirst ? [start] : [async () => {}, start]);
+    const result = await callerForDatabase(itemRouter, "hunter", client).toggleEquip({ userItemId: "spare", slot: "ITEM_1" });
+    expect(result.success).toBe(!huntFirst);
+    if (!started) await start();
+    const expected = huntFirst ? "worn" : "spare";
+    expect((await db.query.userItem.findMany()).filter((row) => row.equipped === "ITEM_1").map((row) => row.id)).toEqual([expected]);
+    const current = (await db.query.battle.findFirst())!;
+    expect(current.usersState.find((user) => user.userId === "hunter")!.items.map((row) => row.id)).toEqual([expected]);
+  });
+
   const changeInventory = (db: DrizzleClient, action: (typeof inventoryActions)[number]) => {
     const inventory = callerForDatabase(itemRouter, "hunter", db);
     switch (action) {

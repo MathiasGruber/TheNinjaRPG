@@ -30,6 +30,74 @@ describeWithDatabase("staff changes during hunting admission", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  it("assigns distinct contract IDs to concurrent saves with the same draft ID", async () => {
+    const db = await getTestDatabase();
+    let reads = 0;
+    let release!: () => void;
+    const bothRead = new Promise<void>((resolve) => { release = resolve; });
+    const habitatQuery = new Proxy(db.query.huntingHabitat, { get(target, key, receiver) {
+      if (key === "findMany") return async (...args: Parameters<typeof target.findMany>) => {
+        const rows = await target.findMany(...args);
+        if (++reads === 2) release();
+        await bothRead;
+        return rows;
+      };
+      return Reflect.get(target, key, receiver);
+    } });
+    const query = new Proxy(db.query, { get(target, key, receiver) {
+      return key === "huntingHabitat" ? habitatQuery : Reflect.get(target, key, receiver);
+    } });
+    const client = new Proxy(db, { get(target, key, receiver) {
+      return key === "query" ? query : Reflect.get(target, key, receiver);
+    } });
+    const staff = callerForDatabase(huntingRouter, "staff", client);
+    const saved = await Promise.all(["First", "Second"].map((name) => {
+      const content = huntingHabitatContent();
+      content.name = name;
+      content.contracts[0]!.id = "draft-contract";
+      return staff.save({ content });
+    }));
+    const habitats = saved.map((result) => {
+      expect(result.success).toBe(true);
+      if (!("content" in result)) throw Error("Habitat save failed");
+      expect(result.content.contracts[0]!.id).not.toBe("draft-contract");
+      return result;
+    });
+    const [first, second] = habitats as [typeof habitats[number], typeof habitats[number]];
+    expect(first.content.contracts[0]!.id).not.toBe(second.content.contracts[0]!.id);
+    const logs = await db.query.actionLog.findMany();
+    for (const habitat of habitats) {
+      expect(await db.query.huntingHabitat.findFirst({ where: eq(huntingHabitat.id, habitat.id) })).toMatchObject({ content: habitat.content });
+      expect(logs.find((log) => log.relatedId === habitat.id)?.changes).toEqual([JSON.stringify(habitat.content)]);
+    }
+    const hunter = callerForDatabase(huntingRouter, "hunter", db);
+    expect((await hunter.accept({ habitatId: first.id, contractId: first.content.contracts[0]!.id, version: null })).success).toBe(true);
+    await db.update(huntingProgress).set({ used: 2 });
+    const session = (await db.query.huntingSession.findFirst())!;
+    expect(await hunter.accept({ habitatId: second.id, contractId: second.content.contracts[0]!.id, version: session.version })).toMatchObject({ success: true, message: expect.stringContaining("Contract accepted") });
+    expect(await db.query.huntingSession.findFirst()).toMatchObject({ habitatId: second.id });
+    expect((await db.query.huntingProgress.findMany()).map((p) => p.used).sort()).toEqual([0, 2]);
+  });
+
+  it("retains existing contract IDs and allowances when saving the returned draft again", async () => {
+    const db = await getTestDatabase();
+    await db.insert(huntingProgress).values({ userId: "hunter", contractId: "contract", used: 2 });
+    const content = huntingHabitatContent();
+    content.contracts[0]!.hunts = 2;
+    content.contracts.push({ ...content.contracts[0]!, id: "new-draft" });
+    const staff = callerForDatabase(huntingRouter, "staff", db);
+    const first = await staff.save({ id: "forest", content });
+    if (!("content" in first)) throw Error("Habitat save failed");
+    expect(first.content.contracts[0]!.id).toBe("contract");
+    expect(first.content.contracts[1]!.id).not.toBe("new-draft");
+    const progress = (await db.query.huntingProgress.findFirst())!;
+    expect(progress).toMatchObject({ used: 2, version: 1 });
+    expect(progress.cooldownUntil!.getTime()).toBeGreaterThan(Date.now());
+    expect(await staff.save({ id: first.id, content: first.content })).toMatchObject({ success: true, content: first.content });
+    expect(await db.query.huntingProgress.findFirst()).toEqual(progress);
+    expect(await staff.save({ content: first.content })).toMatchObject({ success: false, message: "A contract ID is already used by another habitat." });
+  });
+
   const prepare = async () => {
     const db = await getTestDatabase();
     const hunter = callerForDatabase(huntingRouter, "hunter", db);

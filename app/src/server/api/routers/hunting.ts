@@ -156,6 +156,17 @@ export const huntingRouter = createTRPCRouter({
       )
         return errorResponse("A contract ID is already used by another habitat.");
       const id = input.id ?? nanoid();
+      const existingIds = new Set(
+        habitats.find((h) => h.id === input.id)?.content.contracts.map((c) => c.id),
+      );
+      // New contracts get server IDs so concurrent habitat saves cannot share progress.
+      const content = {
+        ...input.content,
+        contracts: input.content.contracts.map((c) => ({
+          ...c,
+          id: existingIds.has(c.id) ? c.id : nanoid(),
+        })),
+      };
       const inCombat = new Error(
         "Hunters are fighting in this habitat. Wait for those battles to finish before editing.",
       );
@@ -169,7 +180,7 @@ export const huntingRouter = createTRPCRouter({
             if (input.id) {
               const saved = await tx
                 .update(huntingHabitat)
-                .set({ content: input.content, updatedAt: new Date() })
+                .set({ content, updatedAt: new Date() })
                 .where(
                   and(
                     eq(huntingHabitat.id, id),
@@ -186,8 +197,8 @@ export const huntingRouter = createTRPCRouter({
             } else
               await tx
                 .insert(huntingHabitat)
-                .values({ id, content: input.content, updatedAt: new Date() });
-            for (const contract of input.content.contracts) {
+                .values({ id, content, updatedAt: new Date() });
+            for (const contract of content.contracts) {
               // A reduced allowance that is already exhausted must replenish after its cooldown.
               await tx
                 .update(huntingProgress)
@@ -216,9 +227,9 @@ export const huntingRouter = createTRPCRouter({
         relatedId: id,
         tableName: "huntingHabitat",
         relatedMsg: "Updated hunting habitat",
-        changes: [JSON.stringify(input.content)],
+        changes: [JSON.stringify(content)],
       });
-      return { success: true, message: "Habitat saved.", id };
+      return { success: true, message: "Habitat saved.", id, content };
     }),
   /** Active sessions retain their habitat; staff can disable it instead of deleting it. */
   delete: protectedProcedure.input(huntingIdSchema).mutation(async ({ ctx, input }) => {
