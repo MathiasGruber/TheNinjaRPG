@@ -195,6 +195,38 @@ it("chooses daily cosmetics for a gifted founder, keeps its saved look available
   expect(await view.findByRole("alert")).toHaveProperty("textContent", "Please retry your image.");
 });
 
+it("selects founder cosmetics with Enter without generating until confirmation", async () => {
+  data = { ...data, pet: { ...data.pet!, rank: 1, artRank: 0, avatar: null,
+    paletteIndex: data.options.palettes[0]!.index,
+    characteristicIndex: data.options.characteristics[0]!.index,
+    auraIndex: data.options.auras[0]!.index,
+  } };
+  const view = mount();
+  fireEvent.click(await view.findByRole("button", { name: "Create / retry appearance" }));
+  const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+  for (const [label, entries] of [["Palette", data.options.palettes], ["Characteristic", data.options.characteristics], ["Aura", data.options.auras]] as const) {
+    const trigger = within(dialog).getByRole("combobox", { name: label });
+    act(() => trigger.focus());
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const initial = await view.findByRole("option", { name: entries[0]!.name });
+    await waitFor(() => expect(document.activeElement).toBe(initial));
+    fireEvent.keyDown(initial, { key: "ArrowDown" });
+    const chosen = view.getByRole("option", { name: entries[1]!.name });
+    await waitFor(() => expect(document.activeElement).toBe(chosen));
+    await act(async () => { fireEvent.keyDown(chosen, { key: "Enter" }); });
+    expect(generate).not.toHaveBeenCalled();
+    expect(view.getByRole("dialog", { name: "Choose companion appearance" })).toBe(dialog);
+    expect(trigger.textContent).toContain(entries[1]!.name);
+  }
+  fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+  expect(generate).toHaveBeenCalledWith({ petId: "companion", appearance: {
+    dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
+    characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index,
+  } });
+  expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
+});
+
 it("retries an evolution from its accepted image without offering cosmetic changes", async () => {
   data = { ...data, pet: { ...data.pet!, rank: 2, artRank: 1, generationStatus: "FAILED" } };
   const view = mount();

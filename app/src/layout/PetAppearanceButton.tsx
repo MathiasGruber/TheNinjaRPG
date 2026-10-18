@@ -107,7 +107,12 @@ export function PetAppearanceButton({
                     <SelectTrigger id={`pet-appearance-${field}`} className="w-full">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      onKeyDown={(event) => {
+                        // Enter chooses a trait without reaching the modal's confirmation shortcut.
+                        if (event.key === "Enter") event.stopPropagation();
+                      }}
+                    >
                       {available.map((option) => (
                         <SelectItem key={option.index} value={String(option.index)}>
                           {option.name}
