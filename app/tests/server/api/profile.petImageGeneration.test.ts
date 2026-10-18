@@ -89,9 +89,9 @@ describeWithDatabase("staff companion image recovery", () => {
       generationStartedAt: null, generationAttempts: 0, avatar: "https://example.com/accepted.webp", artRank: 1, rank: 2 });
   });
 
-  it("keeps accepted art ready instead of enabling an unrelated reroll", async () => {
+  it.each(["READY", "GENERATING"] as const)("keeps accepted art ready when restoring attempts from %s", async (generationStatus) => {
     const database = await getTestDatabase();
-    await createPet({ generationStatus: "READY", avatar: "https://example.com/accepted.webp", artRank: 2 });
+    await createPet({ generationStatus, generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1), avatar: "https://example.com/accepted.webp", artRank: 2 });
     expect((await callerForDatabase(profileRouter, "support-staff", database).resetPetImageGeneration(input)).success).toBe(true);
     expect(await database.query.userPet.findFirst()).toMatchObject({ generationStatus: "READY", avatar: "https://example.com/accepted.webp", artRank: 2, rank: 2 });
   });

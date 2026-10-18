@@ -66,7 +66,7 @@ export const acquirePetSchema = petPaymentSchema.extend({
     .max(PET_AURAS.length - 1),
 });
 
-/** Ungenerated companions can choose daily cosmetics without changing their awarded species. */
+/** Founders and same-rank redraws can choose daily cosmetics without changing species. */
 export const generatePetAppearanceSchema = petSelectionSchema.extend({
   appearance: acquirePetSchema
     .pick({

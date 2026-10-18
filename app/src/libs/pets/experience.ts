@@ -28,7 +28,7 @@ export const petExperienceGainSql = (experience: number, petId?: string | null) 
     WHERE ${userPet.userId} = ${userData.userId}
       AND ${userPet.id} = ${userData.activePetId}
       AND ${userPet.battleEnabled} = true
-      AND ${userPet.generationStatus} = 'READY'
+      AND ${userPet.generationStatus} IN ('READY', 'GENERATING')
       AND ${userPet.artRank} = ${userPet.rank}
       AND ${userPet.avatar} IS NOT NULL AND ${userPet.avatar} <> ''
       AND ${userPet.rank} <= ${maxRank}

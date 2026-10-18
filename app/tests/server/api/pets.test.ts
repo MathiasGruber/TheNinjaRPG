@@ -1077,6 +1077,76 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.releasePet({ petId })).success).toBe(true);
   });
 
+  it.each([1, 3])("regenerates accepted rank %s artwork with daily cosmetics without changing progression or charging adoption", async (rank) => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank, artRank: rank, experience: 100, generationDay: getPetDayKey(), generationAttempts: 1 });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const data = await caller.getPet();
+    const selected = { dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
+      characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index };
+    const beforeOwner = await readOwner(database);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockImplementation(async (candidate) => {
+      expect(candidate).toMatchObject({ rank, artRank: rank, avatar, paletteIndex: selected.paletteIndex });
+      // Neither the current sprite nor its saved cosmetics change before acceptance.
+      expect(await readPet(database)).toMatchObject({ avatar, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, generationStatus: "GENERATING" });
+      return { avatar: "https://example.com/redrawn.webp", avatarFacing: "left" };
+    });
+    expect((await caller.generateAppearance({ petId, appearance: selected })).success).toBe(true);
+    expect(generate).toHaveBeenCalledTimes(1);
+    const { dayKey: _, ...traits } = selected;
+    expect(await readPet(database)).toMatchObject({ ...traits, avatar: "https://example.com/redrawn.webp", generationStatus: "READY", generationAttempts: 2,
+      rank, artRank: rank, experience: 100, speciesId: "pet-species-0" });
+    expect(await readOwner(database)).toEqual(beforeOwner);
+  });
+
+  it("keeps accepted artwork and traits usable after a failed regeneration", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const data = await caller.getPet();
+    vi.spyOn(sentry, "logError").mockImplementation(() => {});
+    vi.spyOn(appearance, "generatePetAppearance").mockRejectedValue(new Error("Provider failed"));
+    expect((await caller.generateAppearance({ petId, appearance: { dayKey: data.dayKey,
+      paletteIndex: data.options.palettes[1]!.index, characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index } })).success).toBe(false);
+    expect(await readPet(database)).toMatchObject({ avatar, artRank: 1, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0,
+      generationStatus: "READY", generationToken: null, generationAttempts: 1 });
+    expect((await caller.getPet()).canFeed).toBe(true);
+  });
+
+  it("keeps accepted art usable after the final redraw lease expires without requiring another attempt", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "GENERATING", generationToken: "abandoned-redraw",
+      generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1), generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect(await caller.getPet()).toMatchObject({ canFeed: true, remainingGenerations: 0 });
+    await database.update(userData).set({ petExperience: 100 }).where(eq(userData.userId, userId));
+    expect((await caller.assignExperience({ ...stats, petId })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ avatar, artRank: 1, offence: 10 });
+  });
+
+  it("applies the daily limit to accepted artwork and renews attempts on the next UTC day", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId })).success).toBe(false);
+    expect(generate).not.toHaveBeenCalled();
+    await database.update(userPet).set({ generationDay: "2000-01-01" }).where(eq(userPet.id, petId));
+    expect((await caller.generateAppearance({ petId })).success).toBe(true);
+    expect(await readPet(database)).toMatchObject({ generationAttempts: 1, generationDay: getPetDayKey() });
+  });
+
+  it("lets only one simultaneous redraw of accepted artwork spend an attempt", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
+    const results = await Promise.all([caller.generateAppearance({ petId }), caller.generateAppearance({ petId })]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect((await readPet(database))?.generationAttempts).toBe(1);
+  });
+
   it("customizes a rewarded species outside daily offers without changing species or charging adoption", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });

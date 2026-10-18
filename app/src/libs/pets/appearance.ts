@@ -14,7 +14,7 @@ import {
 import { txt2imgNanoBanana, uploadFileFromReplicate } from "@/libs/replicate";
 import { servedUfsUrl } from "@/libs/uploadthing";
 
-/** Authored identity and last accepted image needed for initial art or an evolution. */
+/** Authored traits and last accepted image needed for initial art, redraws or evolution. */
 type AppearancePet = Pick<
   UserPet,
   | "userId"
@@ -53,11 +53,11 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
   const rank = getPetRank(pet.rank);
   const identity = `${species.description}. Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
-  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
+  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face and use the requested palette, characteristic and aura. Keep all limbs inside the frame.`;
   const edit =
     pet.artRank < pet.rank
       ? "Create a newly drawn full-body design of the next evolution, using the reference to identify the SAME individual animal rather than copying its body design. Carry forward or increase the visual weight of its developed crest, mantle, protective layers and rear display. You may reshape, merge and reorganize those native structures into a stronger new silhouette; do not erase developed features or return to a simpler form. Make this rank's milestone a substantial physical redesign of its build and native structures. It must read clearly stronger even with all markings and aura ignored. A near-copy, extra decoration, brighter outline or camera zoom is not an evolution. Preserve identity, not an identical pose or silhouette."
-      : "Redraw the supplied image as the SAME individual animal at its CURRENT rank, power and maturity. Do not evolve it, rank it up or age it.";
+      : "Redraw the supplied image as the SAME individual animal at its CURRENT rank, power and maturity. Apply the requested palette, characteristic and aura even when they differ from the reference; replace the old cosmetic traits. Retain its developed physical build and native structures. Do not evolve it, rank it up or age it.";
   return pet.avatar
     ? `${maturity} ${edit} The neutral reference backdrop is only for readability. Use the animal as an identity reference and redraw it cleanly; remove all prior background, shadow and image artifacts. ${identity} ${PET_ART_STYLE}`
     : `Full-body ${species.name} companion with recognizable species anatomy and natural adult proportions. ${identity} ${maturity} ${PET_ART_STYLE}`;

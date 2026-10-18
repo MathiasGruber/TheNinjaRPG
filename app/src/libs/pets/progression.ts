@@ -54,13 +54,13 @@ export const hasActiveGeneration = (
   (!pet.generationStartedAt ||
     now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS);
 
-/** A visual evolution must finish before the next evolution or battle participation. */
+/** Accepted current-rank art stays usable while a cosmetic replacement is generating. */
 export const isPetAppearanceReady = (
   pet: Pick<UserPet, "rank" | "generationStatus" | "artRank" | "avatar">,
 ) =>
   pet.rank >= 1 &&
   pet.rank <= PET_RANKS.length &&
-  pet.generationStatus === "READY" &&
+  (pet.generationStatus === "READY" || pet.generationStatus === "GENERATING") &&
   pet.artRank === pet.rank &&
   Boolean(pet.avatar);
 
@@ -90,12 +90,22 @@ export const getPetStatCaps = (pet: Pick<UserPet, "rank">) =>
 
 /** Return the first progression prerequisite to show the owner, or null when met. */
 export const petRankUpBlockMessage = (
-  pet: Pick<UserPet, "rank" | "experience" | "generationStatus" | "artRank" | "avatar">,
+  pet: Pick<
+    UserPet,
+    "rank" | "experience" | "generationStatus" | "artRank" | "avatar"
+  > &
+    Partial<Pick<UserPet, "generationStartedAt">>,
   owner: { rank: UserRank },
 ) => {
   const next = PET_RANKS.find((entry) => entry.rank === pet.rank + 1);
   if (!next) return "Your pet has reached its highest rank.";
-  if (!isPetAppearanceReady(pet))
+  if (
+    hasActiveGeneration({
+      ...pet,
+      generationStartedAt: pet.generationStartedAt ?? null,
+    }) ||
+    !isPetAppearanceReady(pet)
+  )
     return "Finish your pet's current appearance before evolving again.";
   if (next.rank > getMaxPetRank(owner.rank))
     return `Reach ${next.minUserRank} before evolving to ${next.name}.`;

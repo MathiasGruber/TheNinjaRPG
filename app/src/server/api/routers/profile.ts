@@ -2804,7 +2804,11 @@ export const profileRouter = createTRPCRouter({
           generationStartedAt: null,
           generationToken: null,
           generationStatus:
-            pet.generationStatus === "GENERATING" ? "FAILED" : pet.generationStatus,
+            pet.generationStatus === "GENERATING"
+              ? pet.avatar && pet.artRank === pet.rank
+                ? "READY"
+                : "FAILED"
+              : pet.generationStatus,
           revision: sql`${userPet.revision} + 1`,
           updatedAt: now,
         })

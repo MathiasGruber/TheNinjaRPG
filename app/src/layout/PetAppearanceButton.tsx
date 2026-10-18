@@ -15,7 +15,7 @@ import type { UserPet } from "@/drizzle/schema";
 import Modal from "@/layout/Modal";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 
-/** Choose cosmetics before a founder's first accepted image; evolutions retain their identity. */
+/** Choose cosmetics for founders and redraws; pending evolutions retain their identity. */
 export function PetAppearanceButton({
   pet,
   options,
@@ -31,7 +31,7 @@ export function PetAppearanceButton({
     auraIndex: pet.auraIndex,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const canChoose = pet.rank === 1 && pet.artRank === 0 && !pet.avatar;
+  const canChoose = pet.artRank === pet.rank || (pet.rank === 1 && !pet.avatar);
   const fields = [
     {
       field: "paletteIndex",
@@ -85,8 +85,9 @@ export function PetAppearanceButton({
           }}
         >
           <p className="text-muted-foreground text-sm">
-            Choose today's traits for {pet.name}. Your selection is saved when image
-            generation starts.
+            Choose today's traits for {pet.name}. Each generation uses one image
+            attempt. The new image and traits replace the current appearance only after
+            generation succeeds.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {fields.map(({ field, label, choices, catalogue }) => {

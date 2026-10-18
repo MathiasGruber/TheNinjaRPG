@@ -242,7 +242,7 @@ export function PetProfile() {
     feed.isPending ||
     updateAbilities.isPending;
 
-  /** Generate a founder or retry an evolution without repeating adoption or rank-up. */
+  /** Generate or redraw a companion without repeating adoption or rank-up. */
   const generateAppearance = async (
     appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
   ) => {
@@ -555,7 +555,9 @@ export function PetProfile() {
   const retryAt = data.generationRetryAt ? new Date(data.generationRetryAt) : null;
   const selectedMeal =
     data.feedMeals.find((meal) => meal.id === selectedMealId) ?? data.feedMeals[0];
-  const canRetryGeneration = retryAt === null || retryAt.getTime() <= Date.now();
+  const canRetryGeneration = retryAt
+    ? retryAt.getTime() <= Date.now()
+    : pet.generationStatus !== "GENERATING";
   // Adapt only stats/rank for the shared player allocator; its submit handler
   // spends the selected pet's bank through the pets router.
   const statsUser = {
@@ -773,51 +775,57 @@ export function PetProfile() {
           </p>
           <p className="mt-2">Assigned experience: {formatStat(pet.experience)}.</p>
         </details>
-        {!appearanceReady && (
-          <div
-            className="mt-5 space-y-3 rounded border bg-muted/30 p-4"
-            aria-live="polite"
-          >
-            <p className="font-semibold">
-              {pet.generationStatus === "GENERATING"
-                ? "Your companion's appearance is being created"
+        <div
+          className="mt-5 space-y-3 rounded border bg-muted/30 p-4"
+          aria-live="polite"
+        >
+          <p className="font-semibold">
+            {pet.generationStatus === "GENERATING"
+              ? "Your companion's appearance is being created"
+              : appearanceReady
+                ? "Regenerate your companion's appearance"
                 : pet.artRank > 0
                   ? "Finish your companion's evolution"
                   : "Create your companion's appearance"}
-            </p>
-            <p className="text-sm">
-              {pet.generationStatus === "FAILED"
+          </p>
+          <p className="text-sm">
+            {appearanceReady
+              ? "Choose different colours, a characteristic or an aura for your companion. Its species, rank and progress stay the same."
+              : pet.generationStatus === "FAILED"
                 ? "The last image attempt did not finish. Retry this same companion for free."
                 : "Your pet can train and earn experience after its appearance is ready."}{" "}
-              Creating the image can take a few minutes.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              {data.remainingGenerations} / {data.generationLimit} image attempts remain
-              today. Attempts reset at midnight UTC.
-            </p>
-            {canRetryGeneration ? (
-              <PetAppearanceButton
-                pet={pet}
-                options={data.options}
-                dayKey={data.dayKey}
-                disabled={settingsDisabled || data.remainingGenerations <= 0}
-                onGenerate={generateAppearance}
-              >
-                {generate.isPending
-                  ? "Creating appearance..."
+            Creating the image can take a few minutes.
+          </p>
+          <p className="text-muted-foreground text-sm">
+            {data.remainingGenerations} / {data.generationLimit} image attempts remain
+            today. Attempts reset at midnight UTC.
+          </p>
+          {canRetryGeneration ? (
+            <PetAppearanceButton
+              pet={pet}
+              options={data.options}
+              dayKey={data.dayKey}
+              disabled={
+                settingsDisabled || !rankAllowed || data.remainingGenerations <= 0
+              }
+              onGenerate={generateAppearance}
+            >
+              {generate.isPending
+                ? "Creating appearance..."
+                : appearanceReady
+                  ? "Regenerate appearance"
                   : "Create / retry appearance"}
-              </PetAppearanceButton>
-            ) : pet.generationStatus === "GENERATING" ? (
-              <Loader explanation="Creating appearance..." />
-            ) : null}
-            {!canRetryGeneration && retryAt && (
-              <p className="text-muted-foreground text-sm">
-                Appearance retry available in{" "}
-                <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
-              </p>
-            )}
-          </div>
-        )}
+            </PetAppearanceButton>
+          ) : pet.generationStatus === "GENERATING" ? (
+            <Loader explanation="Creating appearance..." />
+          ) : null}
+          {!canRetryGeneration && retryAt && (
+            <p className="text-muted-foreground text-sm">
+              Appearance retry available in{" "}
+              <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
+            </p>
+          )}
+        </div>
         {!rankAllowed && (
           <p className="mt-4 rounded border bg-muted/30 p-3" role="status">
             {data.maxRank > 0

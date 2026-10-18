@@ -3811,7 +3811,7 @@ const petTaskOwnerReturnCondition = (userId: string, task: PetTask) =>
       eq(userPet.id, task.petId),
       eq(userPet.userId, userId),
       gte(userPet.rank, PET_TASK_MIN_RANK),
-      eq(userPet.generationStatus, "READY"),
+      inArray(userPet.generationStatus, ["READY", "GENERATING"]),
       eq(userPet.artRank, userPet.rank),
       isNotNull(userPet.avatar),
       ne(userPet.avatar, ""),

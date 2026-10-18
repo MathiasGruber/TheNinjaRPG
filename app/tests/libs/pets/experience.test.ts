@@ -1,5 +1,6 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq, sql } from "drizzle-orm";
+import { PET_MAX_GENERATION_ATTEMPTS } from "@/drizzle/constants";
 import {
   gameSetting, quest, questHistory, trainingLog, userData, userPet, petSpecies,
   userQueue, userVote,
@@ -69,7 +70,7 @@ describeWithDatabase("accompanying pet experience against real MySQL", () => {
 
   it.each([
     { battleEnabled: false }, { generationStatus: "PENDING" },
-    { generationStatus: "GENERATING" }, { generationStatus: "FAILED" },
+    { generationStatus: "GENERATING", artRank: 0 }, { generationStatus: "FAILED" },
     { artRank: 0 }, { avatar: null }, { avatar: "" }, { rank: 4, artRank: 4 },
   ] satisfies Partial<typeof userPet.$inferInsert>[])(
     "grants normal player XP without pet XP when the pet is unavailable: %j",
@@ -80,6 +81,12 @@ describeWithDatabase("accompanying pet experience against real MySQL", () => {
       expect((await readUser()).petExperience).toBe(23);
     },
   );
+
+  it("keeps earning XP from accepted art during an abandoned redraw with no attempts left", async () => {
+    await insertPet({ generationStatus: "GENERATING", generationStartedAt: new Date(0), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+    await grantExperience(17);
+    expect((await readUser()).petExperience).toBe(40);
+  });
 
   it("checks the owner's live rank including NONE rather than a stale eligibility snapshot", async () => {
     const database = await getTestDatabase();

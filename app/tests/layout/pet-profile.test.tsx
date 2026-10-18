@@ -235,6 +235,44 @@ it("retries an evolution from its accepted image without offering cosmetic chang
   expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
 });
 
+it.each([1, 7])("regenerates a rank %s companion with new cosmetics after accepted artwork", async (rank) => {
+  data = { ...data, pet: { ...data.pet!, rank, artRank: rank }, remainingGenerations: 2 };
+  const view = mount();
+  fireEvent.click(await view.findByRole("button", { name: "Regenerate appearance" }));
+  const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+  expect(view.getByText(/2 \/ 3 image attempts remain today/)).toBeTruthy();
+  for (const [label, entries] of [["Palette", data.options.palettes], ["Characteristic", data.options.characteristics], ["Aura", data.options.auras]] as const) {
+    fireEvent.click(within(dialog).getByRole("combobox", { name: label }));
+    fireEvent.click(await view.findByRole("option", { name: entries[1]!.name }));
+  }
+  fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledWith({ petId: "companion", appearance: {
+    dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
+    characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index,
+  } }));
+  expect(await view.findByRole("alert")).toHaveProperty("textContent", "Please retry your image.");
+  expect(view.getByRole("img", { name: "Miso" })).toBeTruthy();
+  expect((view.getByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+it("disables regeneration after exhausting attempts", async () => {
+  data = { ...data, remainingGenerations: 0 };
+  const view = mount();
+  expect((await view.findByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(view.getByText(/0 \/ 3 image attempts remain today/)).toBeTruthy();
+  expect(generate).not.toHaveBeenCalled();
+});
+
+it("waits for the server retry time before offering another redraw", async () => {
+  data = { ...data, generationRetryAt: new Date(Date.now() + 2000) };
+  const view = mount();
+  await view.findByText(/Appearance retry available in/);
+  expect(view.queryByRole("button", { name: "Regenerate appearance" })).toBeNull();
+  data = { ...data, generationRetryAt: null };
+  await view.findByRole("button", { name: "Regenerate appearance" }, { timeout: 4000 });
+  expect(getPet).toHaveBeenCalledTimes(2);
+});
+
 it.each(["REPUTATION", "SEICHI_SILVER"] as const)("buys a permanent collection slot using only the chosen %s balance", async (currency) => {
   data = { ...data, slots: 4, permanentSlots: 1, bonusSlots: 3, maxSlots: 9 };
   owner.reputationPoints = currency === "REPUTATION" ? 20 : 0;
