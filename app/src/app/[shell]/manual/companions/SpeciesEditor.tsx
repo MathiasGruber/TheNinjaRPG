@@ -168,7 +168,9 @@ const SpeciesForm = ({
                   tag={effect}
                   effects={validEffects}
                   setEffects={setEffects}
-                  availableTags={tagTypes}
+                  availableTags={tagTypes.filter(
+                    (type) => type !== "move" && type !== "barrier",
+                  )}
                   submitLoading={isSaving}
                 />
               </div>

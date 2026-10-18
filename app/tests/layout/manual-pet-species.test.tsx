@@ -215,7 +215,10 @@ it("edits role, default loadout and species passives through separate compact ta
   fireEvent.mouseDown(view.getByRole("tab", { name: "Pet skills" }), { button: 0, ctrlKey: false });
   fireEvent.click(view.getByRole("button", { name: "Add pet skill tag" }));
   expect(view.getByText("Pet skill tag 1")).toBeTruthy();
-  expect(view.getByText(/Available skill tags:/).textContent).toContain("summon");
+  const availableTags = view.getByText(/Available skill tags:/).textContent?.replace("Available skill tags: ", "").split(", ");
+  expect(availableTags).not.toContain("move");
+  expect(availableTags).not.toContain("barrier");
+  expect(availableTags).toEqual(expect.arrayContaining(["moveprevent", "summon", "clone"]));
   act(() => editor.form.setValue("skillTarget", "ENEMIES", { shouldDirty: true }));
   fireEvent.click(view.getByRole("button", { name: "Save to Database" }));
   await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
