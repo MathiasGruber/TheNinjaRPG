@@ -15,6 +15,7 @@ import Countdown from "@/layout/Countdown";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import { PetAppearanceButton } from "@/layout/PetAppearanceButton";
 import type { PetAppearanceOption, PetSpeciesOption } from "@/libs/pets/catalogue";
 import { getPetRank, isPetAppearanceReady } from "@/libs/pets/progression";
 import { showMutationToast } from "@/libs/toast";
@@ -73,9 +74,13 @@ export function PetAcquisition() {
       : (userData?.reputationPoints ?? 0);
   const paymentLabel = currency === "SEICHI_SILVER" ? "Seichi Silver" : "reputation";
   const canAfford = paymentBalance >= paymentCost;
-  // A tier change can alter offerings within the same day; both changes invalidate a draft.
+  // Day, tier and appearance changes invalidate a draft; adoption only removes a species.
   const catalogueKey = data
-    ? `${data.dayKey}:${data.optionCount}:${Object.values(data.options)
+    ? `${data.dayKey}:${data.optionCount}:${[
+        data.options.palettes,
+        data.options.characteristics,
+        data.options.auras,
+      ]
         .flatMap((options) => options.map(petTraitValue))
         .join(",")}`
     : null;
@@ -209,13 +214,18 @@ export function PetAcquisition() {
     }
   };
   /** Resume artwork for the saved companion without re-entering the adoption/charge path. */
-  const retryAppearance = async () => {
+  const retryAppearance = async (
+    appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
+  ) => {
     if (inFlight.current || !data?.pet) return;
     inFlight.current = true;
     setIsAcquiring(true);
     setMessage(null);
     try {
-      await generate.mutateAsync({ petId: data.pet.id });
+      await generate.mutateAsync({
+        petId: data.pet.id,
+        ...(appearance ? { appearance } : {}),
+      });
     } catch {
       // The inline error keeps the companion and retry action visible.
     } finally {
@@ -253,7 +263,7 @@ export function PetAcquisition() {
   const isReplacement = data.replacementCost > 0;
   const isCollectionFull = data.pets.length >= data.slots;
   const unavailableReason =
-    isCollectionFull && data.slots >= data.maxSlots
+    isCollectionFull && data.slots >= data.maxSlots && data.options.species.length > 0
       ? "Your collection is full. Release a companion before adopting another."
       : data.unavailableReason;
   const appearanceReady = pet ? isPetAppearanceReady(pet) : false;
@@ -358,18 +368,21 @@ export function PetAcquisition() {
                 </Button>
               )}
               {canRetry && (
-                <Button
+                <PetAppearanceButton
+                  pet={pet}
+                  options={data.options}
+                  dayKey={data.dayKey}
                   disabled={
                     isBusy ||
                     data.remainingGenerations <= 0 ||
                     userData.status !== "AWAKE"
                   }
-                  onClick={() => void retryAppearance()}
+                  onGenerate={retryAppearance}
                 >
                   {generate.isPending
                     ? "Creating appearance..."
                     : "Retry appearance for free"}
-                </Button>
+                </PetAppearanceButton>
               )}
             </div>
             {!appearanceReady && retryAt && !canRetry && (

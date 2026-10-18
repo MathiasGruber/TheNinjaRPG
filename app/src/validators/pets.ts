@@ -2,6 +2,7 @@
 import { z } from "zod";
 import {
   AI_PROFILE_MAX_RULES,
+  AvatarFacings,
   PET_MAX_ABILITY_SLOTS,
   PetPaymentCurrencies,
   PetSpawnPositions,
@@ -65,6 +66,18 @@ export const acquirePetSchema = petPaymentSchema.extend({
     .max(PET_AURAS.length - 1),
 });
 
+/** Ungenerated companions can choose daily cosmetics without changing their awarded species. */
+export const generatePetAppearanceSchema = petSelectionSchema.extend({
+  appearance: acquirePetSchema
+    .pick({
+      dayKey: true,
+      paletteIndex: true,
+      characteristicIndex: true,
+      auraIndex: true,
+    })
+    .optional(),
+});
+
 /** Partial settings update that must supply at least one field besides the companion ID. */
 export const updatePetSchema = z
   .object({
@@ -88,6 +101,8 @@ export const petAppearanceQualitySchema = z.object({
   completeBody: z.boolean(),
   noGroundOrScene: z.boolean(),
   identityPreserved: z.boolean(),
+  evolutionStronger: z.boolean(),
+  avatarFacing: z.enum(AvatarFacings),
   reason: z.string().min(1).max(600),
 });
 

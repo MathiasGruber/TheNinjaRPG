@@ -3,11 +3,14 @@ import { and, eq, sql } from "drizzle-orm";
 import { ItemRarities, PetRarities, PET_ABILITY_SLOTS_BY_RARITY, type ItemRarity, MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_BY_RARITY, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST } from "@/drizzle/constants";
 import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
+import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
+import * as creation from "@/libs/pets/creation";
 import { AiRule } from "@/validators/ai";
 import type { PetTask } from "@/validators/petTasks";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { petsRouter } from "@/server/api/routers/pets";
 import type { DrizzleClient } from "@/server/db";
+import * as sentry from "@/server/utils/sentry";
 import { DAY_S, getPetDayKey, HOUR_S, secondsFromNow } from "@/utils/time";
 import { initialPetSpecies } from "../../libs/pets/helpers/species";
 import { petJutsuFixture, petSkillFixture } from "../../libs/pets/helpers/abilities";
@@ -22,6 +25,34 @@ const stats = { offence: 10, defence: 0, strength: 0, speed: 0, intelligence: 0,
 const task = (patch: Partial<PetTask> = {}): PetTask => ({ petId, questId: "hunting-contract",
   questHistoryId: "profession-attempt", startedAt: 1, questVersion: 1, finishesAt: Date.now() + 60000, ...patch });
 
+it("explains exhausted daily offers before collection capacity, even after a companion is released", async () => {
+  const owner = {
+    userId, rank: "GENIN", status: "AWAKE", sector: MAP_WAKE_ISLAND_SECTOR,
+    federalStatus: "NONE", staffAccount: false, petSlots: 1, petAcquisitions: 1,
+    petExperience: 0, activePetId: petId, petDailyClaims: null as null | { dayKey: string; speciesIds: string[] },
+  };
+  let pets = [{ id: petId, rank: 1, generationStatus: "FAILED", generationAttempts: 0, storedExperience: 0 }];
+  const database = { query: {
+    userData: { findFirst: async () => owner },
+    userPet: { findMany: async () => pets },
+    petSpecies: { findMany: async () => initialPetSpecies },
+    jutsu: { findMany: async () => [] },
+    userSkill: { findMany: async () => [] },
+    userItem: { findMany: async () => [] },
+  } } as unknown as DrizzleClient;
+  const caller = callerForDatabase(petsRouter, userId, database);
+  const available = await caller.getPet();
+  expect(available.options.species.length).toBeGreaterThan(0);
+  expect(available.unavailableReason).toContain("Unlock another collection slot");
+  owner.petDailyClaims = { dayKey: available.dayKey, speciesIds: available.options.species.map(({ id }) => id) };
+  const exhausted = await caller.getPet();
+  expect(exhausted).toMatchObject({ options: { species: [] }, canAcquire: false,
+    unavailableReason: "You have adopted all of today's companion species. New choices arrive at midnight UTC." });
+  pets = [];
+  expect(await caller.getPet()).toMatchObject({ options: { species: [] }, canAcquire: false,
+    unavailableReason: exhausted.unavailableReason });
+});
+
 describeWithDatabase("Companion ownership, economy and generation", () => {
   beforeEach(async () => {
     await resetTables(petSpecies, userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);
@@ -32,6 +63,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
 
   it("lets only one concurrent request claim the first free companion", async () => {
     const database = await getTestDatabase();
+    await database.update(userData).set({ petSlots: 2 }).where(eq(userData.userId, userId));
     const input = await adoptionInput(database);
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.acquirePet(input), caller.acquirePet(input)]);
@@ -40,6 +72,9 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const owner = await readOwner(database);
     expect(owner?.petAcquisitions).toBe(1);
     expect(owner?.reputationPoints).toBe(200);
+    expect(owner?.petDailyClaims).toEqual({ dayKey: input.dayKey, speciesIds: [input.speciesId] });
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    expect((await caller.getPet()).options.species.some(({ id }) => id === input.speciesId)).toBe(false);
   });
 
   it("copies eligible species defaults on sanctuary adoption without sharing mutable loadout state", async () => {
@@ -64,12 +99,63 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.acquirePet(input)).success).toBe(false);
     const acquiredPet = await readPet(database);
     expect((await caller.releasePet({ petId: acquiredPet!.id })).success).toBe(true);
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    const replacementInput = await adoptionInput(database);
     const racing = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
-    const results = await Promise.all([racing.acquirePet(input), racing.acquirePet(input)]);
+    const results = await Promise.all([racing.acquirePet(replacementInput), racing.acquirePet(replacementInput)]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
     const owner = await readOwner(database);
     expect(owner?.petAcquisitions).toBe(2);
     expect(owner?.reputationPoints).toBe(200 - PET_REPLACEMENT_COST);
+  });
+
+  it("consumes each offered species once while preserving the remaining daily offers", async () => {
+    const database = await getTestDatabase();
+    await database.update(userData).set({ petSlots: 2 }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const original = await caller.getPet();
+    const first = await adoptionInput(database);
+    expect((await caller.acquirePet(first)).success).toBe(true);
+    const remaining = await caller.getPet();
+    expect(remaining.options).toEqual({ ...original.options, species: original.options.species.slice(1) });
+    const second = await adoptionInput(database);
+    expect((await caller.acquirePet(second)).success).toBe(true);
+    expect((await readOwner(database))?.petDailyClaims).toEqual({ dayKey: first.dayKey, speciesIds: [first.speciesId, second.speciesId] });
+    expect((await readOwner(database))?.reputationPoints).toBe(200 - PET_REPLACEMENT_COST);
+  });
+
+  it("keeps released daily offers consumed until midnight UTC and resets the claim ledger", async () => {
+    setSystemTime(new Date("2026-10-18T23:59:59Z"));
+    const database = await getTestDatabase();
+    const caller = callerForDatabase(petsRouter, userId, database);
+    await database.update(petSpecies).set({ isActive: false });
+    await database.update(petSpecies).set({ isActive: true }).where(eq(petSpecies.id, initialPetSpecies[0]!.id));
+    const input = await adoptionInput(database);
+    const adopted = await caller.acquirePet(input);
+    expect(adopted.success).toBe(true);
+    expect((await caller.releasePet({ petId: adopted.petId! })).success).toBe(true);
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    expect(await caller.getPet()).toMatchObject({ options: { species: [] }, canAcquire: false, unavailableReason: expect.stringContaining("midnight UTC") });
+    setSystemTime(new Date("2026-10-19T00:00:01Z"));
+    const nextDay = await adoptionInput(database);
+    expect(nextDay.speciesId).toBe(input.speciesId);
+    expect((await caller.acquirePet(nextDay)).success).toBe(true);
+    expect((await readOwner(database))?.petDailyClaims).toEqual({ dayKey: "2026-10-19", speciesIds: [input.speciesId] });
+  });
+
+  it("does not consume a daily offer or charge its owner when the pet insertion fails", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database);
+    await database.update(userData).set({ petSlots: 2, petAcquisitions: 1 }).where(eq(userData.userId, userId));
+    const input = await adoptionInput(database);
+    const before = await readOwner(database);
+    const create = creation.createPetFromSpecies;
+    vi.spyOn(creation, "createPetFromSpecies").mockImplementation((args) => ({ ...create(args), id: petId }));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.acquirePet(input)).success).toBe(false);
+    expect(await readOwner(database)).toEqual(before);
+    expect((await caller.getPet()).options.species.some(({ id }) => id === input.speciesId)).toBe(true);
+    expect(await database.query.userPet.findMany()).toHaveLength(1);
   });
 
   it("does not create a replacement without its full guarded payment", async () => {
@@ -79,6 +165,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await callerForDatabase(petsRouter, userId, database).acquirePet(input)).success).toBe(false);
     expect(await database.query.userPet.findMany()).toHaveLength(0);
     expect((await readOwner(database))?.reputationPoints).toBe(PET_REPLACEMENT_COST - 1);
+    expect((await readOwner(database))?.petDailyClaims).toBeNull();
   });
 
   it("keeps the first adoption free when Seichi Silver is selected", async () => {
@@ -132,7 +219,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const view = await caller.getPet();
     expect(view.options.species).toEqual([]);
     expect(view.pet?.species).toMatchObject({ ...species, isActive: false });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId: pet.id })).success).toBe(true);
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({ species: expect.objectContaining({ id: species.id, description: species.description, isActive: false }) }), expect.any(Function));
   });
@@ -168,6 +255,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const stalePets = await database.query.userPet.findMany();
     const input = await adoptionInput(database);
     expect((await callerForDatabase(petsRouter, userId, database).acquirePet(input)).success).toBe(true);
+    const nextInput = await adoptionInput(database);
     const petQueries = new Proxy(database.query.userPet, { get(target, property, receiver) {
       return property === "findMany" ? async () => stalePets : Reflect.get(target, property, receiver);
     } });
@@ -175,7 +263,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
       return property === "query" ? { ...target.query, userPet: petQueries } : Reflect.get(target, property, receiver);
     } });
     const before = await readOwner(database);
-    expect((await callerForDatabase(petsRouter, userId, skewed).acquirePet(input)).success).toBe(false);
+    expect((await callerForDatabase(petsRouter, userId, skewed).acquirePet(nextInput)).success).toBe(false);
     expect(await database.query.userPet.findMany()).toHaveLength(2);
     expect(await readOwner(database)).toEqual(before);
   });
@@ -200,7 +288,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await readyPet(database);
     await database.update(userData).set({ petSlots: 2, petAcquisitions: 1, petExperience: 75, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
     const input = await adoptionInput(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.acquirePet({ ...input, currency: "REPUTATION" }), caller.acquirePet({ ...input, currency: "SEICHI_SILVER" })]);
     const acquired = results.find((result) => result.success)!;
@@ -449,7 +537,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await parkedPet(database, { id: "foreign", userId: "other-owner", generationStatus: "PENDING", artRank: 0, avatar: null, generationToken: "private" });
     await mealStack();
     const before = await readOwner(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     const selection = { petId: "foreign" };
     const results = await Promise.all([
@@ -686,7 +774,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await mealStack();
     await database.update(userData).set({ rank: "ELDER", petExperience: 100, petTask: task() }).where(eq(userData.userId, userId));
     const beforeOwner = await readOwner(database); const beforePet = await readPet(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     const results = await Promise.all([
       caller.activatePet({ petId }), caller.releasePet({ petId }), caller.rankUp({ petId }),
@@ -944,18 +1032,93 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.releasePet({ petId })).success).toBe(true);
   });
 
+  it("customizes a rewarded species outside daily offers without changing species or charging adoption", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
+    await database.update(petSpecies).set({ isActive: false }).where(eq(petSpecies.id, "pet-species-0"));
+    await database.update(userData).set({ sector: 1 }).where(eq(userData.userId, userId));
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const data = await caller.getPet();
+    const selected = { dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
+      characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index };
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId, appearance: selected })).success).toBe(true);
+    const { dayKey: _, ...traits } = selected;
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ ...traits, speciesId: "pet-species-0" }), expect.any(Function));
+    expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, avatarFacing: "left", generationAttempts: 1 });
+    expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, petAcquisitions: 0 });
+  });
+
+  it.each(["dayKey", "paletteIndex", "characteristicIndex", "auraIndex"] as const)("rejects unavailable founder %s before changing traits or spending an attempt", async (field) => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const data = await caller.getPet(); const before = await readPet(database);
+    const appearanceInput = { dayKey: data.dayKey, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0 };
+    if (field === "dayKey") appearanceInput.dayKey = "2000-01-01";
+    else {
+      const all = field === "paletteIndex" ? PET_PALETTES : field === "characteristicIndex" ? PET_CHARACTERISTICS : PET_AURAS;
+      const offered = field === "paletteIndex" ? data.options.palettes : field === "characteristicIndex" ? data.options.characteristics : data.options.auras;
+      appearanceInput[field] = all.find((option) => option.index !== 0 && !offered.some((entry) => entry.index === option.index))!.index;
+    }
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId, appearance: appearanceInput })).success).toBe(false);
+    expect(generate).not.toHaveBeenCalled();
+    expect(await readPet(database)).toEqual(before);
+  });
+
+  it("allows keeping a founder's saved cosmetics after daily offerings change", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "FAILED", avatar: null, artRank: 0 });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    const data = await caller.getPet();
+    const paletteIndex = PET_PALETTES.find((entry) => !data.options.palettes.some((option) => option.index === entry.index))!.index;
+    await database.update(userPet).set({ paletteIndex }).where(eq(userPet.id, petId));
+    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId, appearance: { dayKey: data.dayKey, paletteIndex, characteristicIndex: 0, auraIndex: 0 } })).success).toBe(true);
+    expect((await readPet(database))?.paletteIndex).toBe(paletteIndex);
+  });
+
+  it("does not restyle an accepted identity while generating its evolution", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank: 2, artRank: 1, generationStatus: "PENDING" });
+    const caller = callerForDatabase(petsRouter, userId, database); const before = await readPet(database);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId, appearance: { dayKey: getPetDayKey(), paletteIndex: 0, characteristicIndex: 0, auraIndex: 0 } })).success).toBe(false);
+    expect(generate).not.toHaveBeenCalled();
+    expect(await readPet(database)).toEqual(before);
+  });
+
+  it("does not save stale supporter choices if the owner's tier changes before the lease claim", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
+    await database.update(userData).set({ federalStatus: "GOLD" }).where(eq(userData.userId, userId));
+    const data = await callerForDatabase(petsRouter, userId, database).getPet(); const before = await readPet(database);
+    const hooked = beforeStatements(database, userPet, [() => database.update(userData).set({ federalStatus: "NONE" }).where(eq(userData.userId, userId))]);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    expect((await callerForDatabase(petsRouter, userId, hooked).generateAppearance({ petId, appearance: {
+      dayKey: data.dayKey, paletteIndex: data.options.palettes.at(-1)!.index,
+      characteristicIndex: data.options.characteristics.at(-1)!.index, auraIndex: data.options.auras.at(-1)!.index,
+    } })).success).toBe(false);
+    expect(generate).not.toHaveBeenCalled();
+    expect(await readPet(database)).toEqual(before);
+  });
+
   it("keeps an adopted pet on provider failure and retries without charging again", async () => {
     const database = await getTestDatabase();
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.acquirePet(await adoptionInput(database))).success).toBe(true);
     const petId = (await readPet(database))!.id;
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockRejectedValueOnce(new Error("Provider unavailable"));
+    const error = new Error("Provider unavailable");
+    const report = vi.spyOn(sentry, "logError").mockImplementation(() => {});
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockRejectedValueOnce(error);
     expect((await caller.generateAppearance({ petId })).success).toBe(false);
+    expect(report).toHaveBeenCalledWith(error, "Companion appearance generation failed", { petId, rank: 1 });
     expect((await readPet(database))?.generationStatus).toBe("FAILED");
     expect((await readOwner(database))?.petAcquisitions).toBe(1);
     expect((await readOwner(database))?.reputationPoints).toBe(200);
     await database.update(userPet).set({ generationStartedAt: new Date(Date.now() - PET_GENERATION_RETRY_MS - 1000) }).where(eq(userPet.userId, userId));
-    generate.mockImplementation(async (_pet, onUpload) => { await onUpload(avatar); return avatar; });
+    generate.mockImplementation(async (_pet, onUpload) => { await onUpload(avatar); return { avatar, avatarFacing: "left" }; });
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationStatus).toBe("READY");
     expect((await readPet(database))?.generationAttempts).toBe(2);
@@ -968,7 +1131,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("lets only one generation claim reach the provider", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.generateAppearance({ petId }), caller.generateAppearance({ petId })]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
@@ -979,7 +1142,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("respects daily attempts and resets their count on the next UTC day", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "FAILED", artRank: 0, avatar: null, generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.generateAppearance({ petId })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();
@@ -991,7 +1154,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("recovers a stale lease without accepting the old token's completion", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "GENERATING", artRank: 0, avatar: null, generationToken: "abandoned-token", generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1000), generationAttempts: 1, generationDay: getPetDayKey() });
-    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationToken).toBeNull();
@@ -1003,12 +1166,13 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", artRank: 0, avatar: null });
     vi.spyOn(appearance, "generatePetAppearance").mockImplementation(async () => {
-      await database.update(userPet).set({ generationToken: "newer-token", avatar: "/newer.webp", revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-      return avatar;
+      await database.update(userPet).set({ generationToken: "newer-token", avatar: "/newer.webp", avatarFacing: "right", revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
+      return { avatar, avatarFacing: "left" };
     });
     const result = await callerForDatabase(petsRouter, userId, database).generateAppearance({ petId });
     expect(result.success).toBe(false);
     expect((await readPet(database))?.avatar).toBe("/newer.webp");
+    expect((await readPet(database))?.avatarFacing).toBe("right");
     expect((await readPet(database))?.generationToken).toBe("newer-token");
   });
 
@@ -1037,7 +1201,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("rejects generation if its pet snapshot changes before the provider claim", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", artRank: 0, avatar: null });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const hooked = beforeStatements(database, userPet, [() => database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId))]);
     expect((await callerForDatabase(petsRouter, userId, hooked).generateAppearance({ petId })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();

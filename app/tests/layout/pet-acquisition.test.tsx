@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
@@ -55,6 +55,70 @@ afterEach(() => {
   });
 });
 
+it("keeps a successful adoption intact while its claimed species leaves the daily offers and artwork is pending", async () => {
+  let claimed: (RouterInputs["pets"]["acquirePet"] & { id: string; rank: number; avatar: string | null; artRank: number; generationStatus: string }) | null = null;
+  let finishGeneration: () => void = () => undefined;
+  const generation = new Promise<void>((resolve) => { finishGeneration = resolve; });
+  const acquire = vi.fn((input: RouterInputs["pets"]["acquirePet"]) => {
+    claimed = { ...input, id: "new-companion", rank: 1, avatar: null, artRank: 0, generationStatus: "PENDING" };
+    return { success: true, message: "Companion adopted", petId: claimed.id };
+  });
+  const generate = vi.fn(async (input: RouterInputs["pets"]["generateAppearance"]) => {
+    expect(input).toEqual({ petId: "new-companion" });
+    await generation;
+    claimed = { ...claimed!, avatar: "/new-companion.webp", artRank: 1, generationStatus: "READY" };
+    return { success: true, message: "Appearance ready" };
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+  const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
+    const respond = async () => {
+      if (op.path === "pets.acquirePet") return acquire(op.input as RouterInputs["pets"]["acquirePet"]);
+      if (op.path === "pets.generateAppearance") return generate(op.input as RouterInputs["pets"]["generateAppearance"]);
+      if (op.path !== "pets.getPet") throw new Error(`Unexpected procedure ${op.path}`);
+      return {
+        pet: claimed, pets: claimed ? [claimed] : [], activePetId: claimed?.id ?? null,
+        slots: 4, maxSlots: 6, dayKey,
+        options: getDailyPetOptions("owner", "NONE", initialPetSpecies, dayKey, claimed ? { dayKey, speciesIds: [claimed.speciesId] } : undefined),
+        optionCount: 3, replacementCost: 0, replacementSilverCost: 0, canAcquire: true,
+        generationLimit: 3, remainingGenerations: 3, generationRetryAt: null,
+      };
+    };
+    void respond().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
+  })] });
+  try {
+    const view = render(
+      <testApi.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}><PetAcquisition /></QueryClientProvider>
+      </testApi.Provider>,
+    );
+    await view.findByRole("group", { name: "Species" });
+    for (const field of ["speciesId", "paletteIndex", "characteristicIndex", "auraIndex"]) {
+      fireEvent.click(view.container.querySelector(`input[name="pet-${field}"]`)!);
+      fireEvent.click(view.getByRole("button", { name: "Continue" }));
+    }
+    fireEvent.change(view.getByLabelText("Companion name"), { target: { value: "Miso" } });
+    fireEvent.click(view.getByRole("button", { name: "Meet my first companion" }));
+    const profile = await view.findByRole("link", { name: "Open pet profile" });
+    expect(profile.getAttribute("href")).toBe("/profile?tab=pet&petId=new-companion");
+    await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    expect(view.getByText("Creating your companion's unique image. This can take a few minutes...")).toBeDefined();
+    expect(view.queryByRole("alert")?.textContent ?? null).toBeNull();
+    expect(acquire).toHaveBeenCalledTimes(1);
+    expect(acquire).toHaveBeenCalledWith({
+      name: "Miso", currency: "REPUTATION", dayKey,
+      speciesId: options.species[0]!.id, paletteIndex: options.palettes[0]!.index,
+      characteristicIndex: options.characteristics[0]!.index, auraIndex: options.auras[0]!.index,
+    });
+    finishGeneration();
+    await view.findByText("Your new companion is ready to join you.");
+    expect(view.queryByRole("alert")?.textContent ?? null).toBeNull();
+    expect(acquire).toHaveBeenCalledTimes(1);
+  } finally {
+    finishGeneration();
+    queryClient.clear();
+  }
+});
+
 for (const collectionUnavailable of [false, true]) {
   it(collectionUnavailable
     ? "blocks another paid adoption until a failed collection check can recover the saved companion"
@@ -70,7 +134,9 @@ for (const collectionUnavailable of [false, true]) {
       throw new Error("Adoption response interrupted");
     });
     const generate = vi.fn((input: RouterInputs["pets"]["generateAppearance"]) => {
-      expect(input).toEqual({ petId: "new-companion" });
+      expect(input).toEqual({ petId: "new-companion", appearance: {
+        dayKey, paletteIndex: claimed!.paletteIndex, characteristicIndex: claimed!.characteristicIndex, auraIndex: claimed!.auraIndex,
+      } });
       claimed = { ...claimed!, avatar: "/new-companion.webp", artRank: 1, generationStatus: "READY" };
       return { success: true, message: "Appearance ready" };
     });
@@ -117,6 +183,8 @@ for (const collectionUnavailable of [false, true]) {
       expect(acquire).toHaveBeenCalledTimes(1);
       expect(acquire).toHaveBeenCalledWith(expect.objectContaining({ currency }));
       fireEvent.click(await view.findByRole("button", { name: "Retry appearance for free" }));
+      const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
       await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
       expect(acquire).toHaveBeenCalledTimes(1);
     } finally {
@@ -183,6 +251,44 @@ for (const federalStatus of ["NONE", "GOLD"] as const) {
   });
 }
 
+it("preserves the current draft when a claimed species is removed from the offers", async () => {
+  const { view, queryClient, updateData } = renderAcquisition({});
+  try {
+    await view.findByRole("group", { name: "Species" });
+    for (const field of ["speciesId", "paletteIndex", "characteristicIndex", "auraIndex"]) {
+      fireEvent.click(view.container.querySelector(`input[name="pet-${field}"]`)!);
+      fireEvent.click(view.getByRole("button", { name: "Continue" }));
+    }
+    fireEvent.change(view.getByLabelText("Companion name"), { target: { value: "Miso" } });
+    await updateData({ options: { ...options, species: options.species.slice(1) } });
+    await waitFor(() => expect(view.getByLabelText("Selected traits").textContent).toBe([
+      options.palettes[0]!.name, options.characteristics[0]!.name, options.auras[0]!.name,
+    ].join(" · ")));
+    expect(view.queryByRole("alert")?.textContent ?? null).toBeNull();
+    expect((view.getByLabelText("Companion name") as HTMLInputElement).value).toBe("Miso");
+    expect(view.getByText("Step 5 of 5")).toBeDefined();
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    expect((view.getAllByRole("radio")[0] as HTMLInputElement).checked).toBe(true);
+  } finally { queryClient.clear(); }
+});
+
+it.each(["optionCount", "palettes", "characteristics", "auras"] as const)("refreshes the draft when %s changes within the same day", async (changed) => {
+  const { view, queryClient, updateData } = renderAcquisition({});
+  try {
+    await view.findByRole("group", { name: "Species" });
+    fireEvent.click(view.getAllByRole("radio")[0]!);
+    fireEvent.click(view.getByRole("button", { name: "Continue" }));
+    expect(view.getByRole("group", { name: "Colour palette" })).toBeDefined();
+    await updateData(changed === "optionCount"
+      ? { optionCount: 4 }
+      : { options: { ...options, [changed]: [...options[changed]].reverse() } });
+    await view.findByText("Your available companion traits changed. Review the choices again.");
+    expect(view.getByRole("group", { name: "Species" })).toBeDefined();
+    expect(view.queryByLabelText("Selected traits")).toBeNull();
+    expect((view.getByRole("button", { name: "Continue" }) as HTMLButtonElement).disabled).toBe(true);
+  } finally { queryClient.clear(); }
+});
+
 it("explains the collection limit while allowing every trait to be previewed without adopting", async () => {
   const { view, queryClient, mutations } = renderAcquisition({
     pets: Array.from({ length: 6 }, (_, index) => ({ id: `pet-${index}` })),
@@ -243,7 +349,8 @@ it("keeps a full collection focused on management without duplicating the ready 
 
 for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
   it(`preserves ${generationStatus.toLowerCase()} appearance recovery when the collection is full`, async () => {
-    const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus };
+    const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus,
+      paletteIndex: options.palettes[0]!.index, characteristicIndex: options.characteristics[0]!.index, auraIndex: options.auras[0]!.index };
     const { view, queryClient, mutations } = renderAcquisition({
       pet, pets: [pet], activePetId: pet.id, canAcquire: false,
       generationRetryAt: generationStatus === "GENERATING" ? new Date(Date.now() + 60_000) : null,
@@ -259,12 +366,39 @@ for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
         expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
       } else {
         fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
-        await waitFor(() => expect(mutations).toHaveBeenCalledWith("pets.generateAppearance", { petId: "saved" }));
+        const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+        expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+        expect(mutations).not.toHaveBeenCalled();
+        fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+        await waitFor(() => expect(mutations).toHaveBeenCalledWith("pets.generateAppearance", { petId: "saved", appearance: {
+          dayKey, paletteIndex: pet.paletteIndex, characteristicIndex: pet.characteristicIndex, auraIndex: pet.auraIndex,
+        } }));
         expect(mutations).toHaveBeenCalledTimes(1);
       }
     } finally { queryClient.clear(); }
   });
 }
+
+it.each([1, 6])("preserves exhausted daily-offer guidance and free appearance recovery in a full collection (max slots: %s)", async (maxSlots) => {
+  const message = "You have adopted all of today's companion species. New choices arrive at midnight UTC.";
+  const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus: "FAILED",
+    paletteIndex: options.palettes[0]!.index, characteristicIndex: options.characteristics[0]!.index, auraIndex: options.auras[0]!.index };
+  const { view, queryClient, mutations } = renderAcquisition({
+    pet, pets: [pet], activePetId: pet.id, maxSlots,
+    options: { ...options, species: [] }, canAcquire: false, unavailableReason: message,
+  });
+  try {
+    await view.findByText(message);
+    expect(view.getByRole("link", { name: "Manage my collection" })).toBeDefined();
+    expect(view.queryByText(/Release a companion before adopting/)).toBeNull();
+    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Preview today's choices" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
+    const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+    expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+    expect(mutations).not.toHaveBeenCalled();
+  } finally { queryClient.clear(); }
+});
 
 it("checks only the selected adoption currency and preserves the companion draft when changing payment", async () => {
   owner.reputationPoints = 0;

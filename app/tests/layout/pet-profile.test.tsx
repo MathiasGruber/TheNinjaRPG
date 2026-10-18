@@ -18,6 +18,7 @@ import { PetProfile } from "@/layout/PetProfile";
 import * as PetTasks from "@/layout/PetTasks";
 import * as StatsDistributionForm from "@/layout/StatsDistributionForm";
 import { getPetAbilityCapacity } from "@/libs/pets/abilities";
+import { getDailyPetOptions, PET_PALETTES } from "@/libs/pets/catalogue";
 import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
 import { petSpeciesFixture } from "../libs/pets/helpers/species";
@@ -43,6 +44,7 @@ let feed: ReturnType<typeof vi.fn>;
 let saveAi: ReturnType<typeof vi.fn>;
 let getPet: ReturnType<typeof vi.fn>;
 let unlockSlot: ReturnType<typeof vi.fn>;
+let generate: ReturnType<typeof vi.fn>;
 let timeDiff: number;
 let previousBattleEnabled: boolean;
 let scrollDescriptor: PropertyDescriptor | undefined;
@@ -81,6 +83,7 @@ beforeEach(() => {
     pet, pets: [pet], activePetId: pet.id, slots: 6, permanentSlots: 6, bonusSlots: 0, maxSlots: 6, slotCost: 20, slotSilverCost: 50, maxRank: 7,
     nextRank: null, canRankUp: false, remainingGenerations: 3, generationLimit: 3,
     generationRetryAt: null, unusedExperience: 100, dayKey: "2026-10-16",
+    options: getDailyPetOptions("owner", "NONE", [pet.species], "2026-10-16"),
     canFeed: true, feedAvailableAt: null, feedMeals: [{ id: "meal", name: "Rice", quantity: 2, rarity: "COMMON", experience: PET_FEED_EXPERIENCE_BY_RARITY.COMMON }],
     abilityCapacity: getPetAbilityCapacity(pet),
     abilities: {
@@ -101,6 +104,7 @@ beforeEach(() => {
   saveAi = vi.fn(() => ({ success: true, message: "Rules saved" }));
   getPet = vi.fn(() => data);
   unlockSlot = vi.fn(() => ({ success: true, message: "Slot unlocked" }));
+  generate = vi.fn(() => ({ success: false, message: "Please retry your image." }));
   Object.assign(vi.spyOn(client, "api" as never), { pets: testApi.pets, ai: testApi.ai, useUtils: testApi.useUtils });
   vi.spyOn(navigation, "useSearchParams").mockImplementation(() => new URLSearchParams(requestedPetId ? { petId: requestedPetId } : {}) as never);
   vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(() => ({ data: owner, timeDiff }) as never);
@@ -141,6 +145,7 @@ const mount = () => {
       if (op.path === "pets.updateAbilities") return saveAbilities(op.input);
       if (op.path === "pets.feedPet") return feed(op.input);
       if (op.path === "pets.updateAiConfig") return saveAi(op.input);
+      if (op.path === "pets.generateAppearance") return generate(op.input);
       throw new Error(`Unexpected procedure ${op.path}`);
     };
     void respond().then((value) => { observer.next({ result: { data: value } }); observer.complete(); }, (error) => observer.error(error));
@@ -158,6 +163,77 @@ const openSlotDialog = async (view: ReturnType<typeof mount>) => {
   fireEvent.click(await view.findByRole("button", { name: "Add slot" }));
   return view.findByRole("dialog", { name: "Add a companion slot" });
 };
+
+it("chooses daily cosmetics for a gifted founder, keeps its saved look available and resets cancelled drafts", async () => {
+  const savedPalette = PET_PALETTES.find((entry) => !data.options.palettes.some(({ index }) => index === entry.index))!;
+  data = { ...data, pet: { ...data.pet!, rank: 1, artRank: 0, avatar: null, generationStatus: "PENDING", paletteIndex: savedPalette.index } };
+  const view = mount();
+  const openAppearance = async () => {
+    fireEvent.click(await view.findByRole("button", { name: "Create / retry appearance" }));
+    return view.findByRole("dialog", { name: "Choose companion appearance" });
+  };
+  let dialog = await openAppearance();
+  expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+  expect(within(dialog).queryByLabelText("Species")).toBeNull();
+  expect(within(dialog).getByRole("combobox", { name: "Palette" }).textContent).toContain(`${savedPalette.name} (current)`);
+  fireEvent.click(within(dialog).getByRole("combobox", { name: "Palette" }));
+  fireEvent.click(await view.findByRole("option", { name: data.options.palettes[0]!.name }));
+  fireEvent.click(within(dialog).getAllByRole("button", { name: "Close" })[0]!);
+  expect(generate).not.toHaveBeenCalled();
+  dialog = await openAppearance();
+  expect(within(dialog).getByRole("combobox", { name: "Palette" }).textContent).toContain(`${savedPalette.name} (current)`);
+  for (const [label, entries] of [["Palette", data.options.palettes], ["Characteristic", data.options.characteristics], ["Aura", data.options.auras]] as const) {
+    fireEvent.click(within(dialog).getByRole("combobox", { name: label }));
+    fireEvent.click(await view.findByRole("option", { name: entries[0]!.name }));
+  }
+  fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledWith({ petId: "companion", appearance: {
+    dayKey: data.dayKey, paletteIndex: data.options.palettes[0]!.index,
+    characteristicIndex: data.options.characteristics[0]!.index, auraIndex: data.options.auras[0]!.index,
+  } }));
+  expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
+  expect(await view.findByRole("alert")).toHaveProperty("textContent", "Please retry your image.");
+});
+
+it("selects founder cosmetics with Enter without generating until confirmation", async () => {
+  data = { ...data, pet: { ...data.pet!, rank: 1, artRank: 0, avatar: null,
+    paletteIndex: data.options.palettes[0]!.index,
+    characteristicIndex: data.options.characteristics[0]!.index,
+    auraIndex: data.options.auras[0]!.index,
+  } };
+  const view = mount();
+  fireEvent.click(await view.findByRole("button", { name: "Create / retry appearance" }));
+  const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+  for (const [label, entries] of [["Palette", data.options.palettes], ["Characteristic", data.options.characteristics], ["Aura", data.options.auras]] as const) {
+    const trigger = within(dialog).getByRole("combobox", { name: label });
+    act(() => trigger.focus());
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    const initial = await view.findByRole("option", { name: entries[0]!.name });
+    await waitFor(() => expect(document.activeElement).toBe(initial));
+    fireEvent.keyDown(initial, { key: "ArrowDown" });
+    const chosen = view.getByRole("option", { name: entries[1]!.name });
+    await waitFor(() => expect(document.activeElement).toBe(chosen));
+    await act(async () => { fireEvent.keyDown(chosen, { key: "Enter" }); });
+    expect(generate).not.toHaveBeenCalled();
+    expect(view.getByRole("dialog", { name: "Choose companion appearance" })).toBe(dialog);
+    expect(trigger.textContent).toContain(entries[1]!.name);
+  }
+  fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+  expect(generate).toHaveBeenCalledWith({ petId: "companion", appearance: {
+    dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
+    characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index,
+  } });
+  expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
+});
+
+it("retries an evolution from its accepted image without offering cosmetic changes", async () => {
+  data = { ...data, pet: { ...data.pet!, rank: 2, artRank: 1, generationStatus: "FAILED" } };
+  const view = mount();
+  fireEvent.click(await view.findByRole("button", { name: "Create / retry appearance" }));
+  await waitFor(() => expect(generate).toHaveBeenCalledWith({ petId: "companion" }));
+  expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
+});
 
 it.each(["REPUTATION", "SEICHI_SILVER"] as const)("buys a permanent collection slot using only the chosen %s balance", async (currency) => {
   data = { ...data, slots: 4, permanentSlots: 1, bonusSlots: 3, maxSlots: 9 };

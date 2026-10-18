@@ -47,6 +47,15 @@ describe("companion appearance choices", () => {
     expect(acquirePetSchema.safeParse({ name: "Kumo", dayKey: "2026-10-11", ...selection, auraIndex: 8 }).success).toBe(false);
   });
 
+  it("removes claimed species without rolling replacements or changing other daily traits", () => {
+    const dayKey = "2026-10-18";
+    const original = getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey);
+    const speciesIds = [original.species[0]!.id, original.species[3]!.id];
+    const remaining = getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey, { dayKey, speciesIds });
+    expect(remaining).toEqual({ ...original, species: original.species.filter(({ id }) => !speciesIds.includes(id)) });
+    expect(getDailyPetOptions("player", "GOLD", initialPetSpecies, dayKey, { dayKey: "2026-10-17", speciesIds })).toEqual(original);
+  });
+
   it("restricts names and stat allocations without accepting free-form art prompts", () => {
     expect(petNameSchema.parse("  Kumo  ")).toBe("Kumo");
     expect(petNameSchema.safeParse("Kumo\u202e").success).toBe(false);
@@ -86,9 +95,23 @@ describe("companion progression", () => {
 describe("companion image safety and AI controls", () => {
   it("uses authored rank-specific growth and reference preservation prompts", () => {
     const base = { userId: "player", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
-    expect(getPetAppearancePrompt(base)).toContain("small young companion");
-    expect(getPetAppearancePrompt({ ...base, rank: 10, artRank: 9, avatar: "/previous.webp" })).toContain("celestial legendary beast");
-    expect(getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" })).toContain("Preserve its exact species");
+    const founder = getPetAppearancePrompt(base);
+    expect(founder.startsWith(`Full-body ${base.species.name} companion`)).toBe(true);
+    expect(founder).toContain("natural adult proportions");
+    const rankedPrompts = PET_RANKS.map(({ rank, name }) => {
+      const prompt = getPetAppearancePrompt({ ...base, rank, artRank: rank - 1, avatar: "/previous.webp" });
+      expect(prompt).toContain(`Evolution rank ${rank} of 10 (${name})`);
+      expect(prompt).toContain(base.species.description);
+      return prompt;
+    });
+    expect(new Set(rankedPrompts).size).toBe(10);
+    const evolution = getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" });
+    expect(evolution).toContain("next evolution");
+    expect(evolution).toContain("SAME individual animal");
+    const restyle = getPetAppearancePrompt({ ...base, rank: 2, artRank: 2, avatar: "/previous.webp" });
+    expect(restyle).toContain("Do not evolve it, rank it up or age it");
+    expect(restyle).toContain("Evolution rank 2 of 10");
+    expect(restyle).not.toContain("next evolution");
     expect(() => getPetAppearancePrompt({ ...base, species: null })).toThrow("Invalid pet appearance");
     const retiredSpecies = { ...initialPetSpecies[0]!, name: "Spirit fox", description: "A fox with translucent ears", isActive: false };
     expect(getPetAppearancePrompt({ ...base, species: retiredSpecies })).toContain(retiredSpecies.description);

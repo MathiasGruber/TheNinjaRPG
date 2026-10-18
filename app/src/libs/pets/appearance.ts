@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS } from "@/drizzle/constants";
 import type { PetSpecies, UserPet } from "@/drizzle/schema";
 import { validateSceneCharacterImage } from "@/libs/contentReview/sceneCharacter";
+import { PIXEL_ART_RENDERING } from "@/libs/imagePrompts";
 import { classifyNsfwImage } from "@/libs/moderator";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import { getPetRank } from "@/libs/pets/progression";
@@ -10,12 +11,7 @@ import {
   classifyPetAppearanceImage,
   validatePetAppearanceQuality,
 } from "@/libs/pets/quality";
-import {
-  fastTxt2imgReplicate,
-  removeBackgroundReplicate,
-  txt2imgNanoBanana,
-  uploadFileFromReplicate,
-} from "@/libs/replicate";
+import { txt2imgNanoBanana, uploadFileFromReplicate } from "@/libs/replicate";
 import { servedUfsUrl } from "@/libs/uploadthing";
 
 /** Authored identity and last accepted image needed for initial art or an evolution. */
@@ -31,23 +27,25 @@ type AppearancePet = Pick<
   | "avatar"
 > & { species: Pick<PetSpecies, "id" | "name" | "description"> | null };
 
-const PET_ART_STYLE =
-  "Detailed retro pixel art for TheNinja-RPG, exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate limbs, no extra heads, duplicate animals or detached body parts. Clear readable silhouette, complete head, feet and tail inside the frame with a small margin, relaxed three-quarter pose with the face or beak pointing toward the viewer's LEFT, mature animal proportions, restrained fantasy shinobi accents. Isolated subject on a plain solid background for background removal. Floating sprite without any ground patch, floor, pedestal, platform or cast/contact shadow. No scenery, frame, text, watermark, humanoid body, weapons, blood, gore or sexual content.";
+const PET_ART_STYLE = `${PIXEL_ART_RENDERING}
+TheNinja-RPG animal sprite: exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate adult anatomy and head-to-body proportions, no extra heads, duplicate animals or detached body parts. Cosmetic colours, markings, accessories and aura must preserve recognizable species anatomy. Bright eyes mean clear highlights at natural eye size, never an enlarged head or eyes or a shortened beak. Show animal strength through a powerful native torso, shoulders, haunches and species-specific fur, feathers or scales. Keep animal limb anatomy: no hands, human arms or humanoid torso. Use an elevated three-quarter isometric view with the face or beak pointing toward the viewer's LEFT. Fit the complete animal, including every crest tip, foot and tail, inside the central 80% of the canvas with empty 10% margins on all four sides. Keep the same canvas and view angle across ranks. Reframe when needed to fit a physically redesigned form inside the safe margins; uniform scaling, zoom or filling more of the frame alone is not strength.
+Clean sprite composition overrides cinematic lighting: draw on a perfectly uniform light gray (#f0f0f0) background, including every gap between legs, tails, wings and body. The backdrop is not part of the animal. Redraw clean hard pixel boundaries; never trace or copy background pixels, grey/black fringe, shadows or artifacts from a reference. Express the selected aura through crisp luminous markings ON the animal, never an exterior glow, outline, cloud, smoke, orbiting ring, floating particles or haze. No dark backdrop, gradient, ground patch, floor, pedestal, platform, cast/contact shadow, scenery, frame, text, watermark, humanoid body, weapons, blood, gore, sexual content, cartoon or chibi proportions, soft shading or smoothed edges.`;
 
 const MAX_PET_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PET_IMAGE_PIXELS = 1024 * 1024;
 
+/** Distinct native structures make each rank a physical evolution while retaining its identity. */
 const RANK_APPEARANCES = [
-  "A small young companion with simple natural markings, soft features and a barely visible aura",
-  "An alert adolescent scout with a sharper gaze, a taller stance and a trace of chakra at the silhouette",
-  "A mature muscular tracker with stronger natural anatomy, confident posture and clearly defined identity markings",
-  "A powerful adult guardian with a protective natural crest or ruff and a visible, restrained chakra glow",
-  "A formidable battle-seasoned hunter with a broad strong silhouette, focused eyes and layered natural markings; no injuries or gore",
-  "An imposing warden with ornate chakra patterns following the original identity markings and stronger species-appropriate crest details",
-  "A majestic sentinel with regal natural proportions, prominent species-appropriate mane, feathers, shell or crest and a luminous aura",
-  "A mythic beast with grand mature anatomy, bright chakra markings and controlled spirit wisps gathered tightly around the body",
-  "A sovereign companion with an impressive natural mantle or elaborate crest, richly luminous identity markings and dense controlled chakra motes",
-  "A celestial legendary beast, unmistakably the same individual at its fullest majestic maturity, with extraordinary species-appropriate crest or mantle, radiant original markings and a brilliant contained chakra aura",
+  "A modest companion: a lean compact adult with a simple unadorned natural silhouette and no developed crest, mantle or decorative armour",
+  "A sturdy scout: visibly deepen and strengthen the torso, and replace the light idle stance with a firmly braced, confident stance",
+  "A powerful tracker: keep every existing crest, ruff and protective feather, but transform the supporting body into a low, forward-ready hunting stance. Give it visibly larger, heavier native paws or talons (or thicker wing/fin roots), longer strong claws where natural, and pronounced powerful haunches. Make the extremities roughly half again as substantial as the prior form while preserving its recognizable facial design and natural eye proportions. The changed leg geometry, extremities and body build must be conspicuous, not just new fur lines",
+  "An armoured guardian: preserve the powerful paws, talons and hunting build, then add a NEW broad, two-tier protective mantle of native fur, overlapping feathers, scales or shell around the shoulders and chest. Its layered outline must project conspicuously beyond the previous simple ruff or body edge. Broaden and deepen the supporting chest/core so this is a heavy protective form, not the same animal with extra fur lines or a changed foreleg pose",
+  "A formidable hunter: radically develop its existing natural weapons. Give it conspicuously long, thick, hooked claws or talons, and a longer, heavier native beak or jaw; use powerful locomotor fins for a species without these features. These must be large new shapes, not tiny details. Support them with a deeper athletic torso and much heavier native legs, wing roots or swimming core in a forward, ready-to-strike stance. Retain its developed crest, guardian mantle and recognizable facial design",
+  "An imposing warden: flare the native shoulder protection into broad projecting shields of THREE stepped layers of fur, feathers, scales or shell. Spread any existing wings or fins partway to support those wide shields; retain the original limb count. This protective outline must become dramatically wider than the supplied form, not painted-on lines. Give it a deep barrel chest and heavy supporting neck beneath the wide protection, retaining its crest, mantle and natural weapons",
+  "A majestic sentinel: expand its existing native rear display into a sweeping layered tail, tail-feather fan, caudal fin or rear shell/body contour, visibly broader and more substantial than before. Reinforce the rear body and supporting limbs or swimming/flight core beneath that display; retain the heavy front mantle",
+  "A mythic beast: build a high, broad, two-tier dorsal mantle along the entire neck and back from its native fur, feathers, dorsal fin or shell ridge. These large angular layers must rise well beyond the old back line, comparable in height to its head, rather than a few small spikes. Deepen and thicken the body beneath them. Keep the previous rear display fully spread and at least as developed; shrinking it to add back details is not progress. No new limb type, horn or body part absent from this species",
+  "A sovereign companion: raise and widen the existing head/neck crest, mane, feather crown or front shell contour into a grand tiered upper silhouette, preserving the recognizable face and natural eye proportions. Give it an exceptionally broad, deep front body with thick natural support and a planted commanding stance",
+  "A celestial legendary beast: add TWO large NEW structural tiers. Below the existing neck/chest mantle, build a broad projecting lower protective tier with long native fur, feather, fin or shell points extending outward on both sides of the chest. Below the existing rear fan/display, add a second large sweeping lower tier extending down and out, visibly separate from the upper tier. Preserve the high crown and developed protection, but rebuild the supporting chest and native limbs into a much heavier, firmly planted apex body; mammal paws must have broad padded bases carrying their claws. Reframe to fit all tips. These must be conspicuous new projecting contours, not extra surface lines or a larger copy of the old fans",
 ] as const;
 
 /** Only authored catalogue text enters the model; the player's chosen name is never a prompt. */
@@ -55,17 +53,21 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
   const rank = getPetRank(pet.rank);
   const identity = `${species.description}. Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
-  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. This rank's age, stature and maturity override words such as young, small or modest in the species description. Higher ranks must look visibly stronger and more majestic, while retaining the original species, face, colour layout and distinctive identity. Keep all limbs inside the frame.`;
+  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
+  const edit =
+    pet.artRank < pet.rank
+      ? "Create a newly drawn full-body design of the next evolution, using the reference to identify the SAME individual animal rather than copying its body design. Carry forward or increase the visual weight of its developed crest, mantle, protective layers and rear display. You may reshape, merge and reorganize those native structures into a stronger new silhouette; do not erase developed features or return to a simpler form. Make this rank's milestone a substantial physical redesign of its build and native structures. It must read clearly stronger even with all markings and aura ignored. A near-copy, extra decoration, brighter outline or camera zoom is not an evolution. Preserve identity, not an identical pose or silhouette."
+      : "Redraw the supplied image as the SAME individual animal at its CURRENT rank, power and maturity. Do not evolve it, rank it up or age it.";
   return pet.avatar
-    ? `Edit the supplied image into the next evolution of the SAME individual animal. Preserve its exact species, face, eye colours, primary colour placement, distinctive markings, accessories and basic left-facing pose. Do not replace or redesign the animal. ${identity} ${maturity} ${PET_ART_STYLE}`
-    : `One original friendly animal companion. ${identity} ${maturity} ${PET_ART_STYLE}`;
+    ? `${maturity} ${edit} The neutral reference backdrop is only for readability. Use the animal as an identity reference and redraw it cleanly; remove all prior background, shadow and image artifacts. ${identity} ${PET_ART_STYLE}`
+    : `Full-body ${species.name} companion with recognizable species anatomy and natural adult proportions. ${identity} ${maturity} ${PET_ART_STYLE}`;
 };
 
 /**
  * Produce a moderated, complete cutout and verify an evolution's visual identity.
  * Await onUpload for each stored intermediate/final URL before further review so
  * the caller can track and clean up uploads even when a later check fails.
- * Returning a URL does not persist readiness; the caller owns that guarded write.
+ * The caller persists the accepted image and its facing together in a guarded write.
  */
 export const generatePetAppearance = async (
   pet: AppearancePet,
@@ -74,92 +76,109 @@ export const generatePetAppearance = async (
 ) => {
   signal.throwIfAborted();
   const prompt = getPetAppearancePrompt(pet);
+  const { species } = getPetAppearanceTraits(pet);
   // Fetch the accepted reference before spending on an edit, then reuse it for identity review.
   const previousImage = pet.avatar
     ? await downloadPetImage(pet.avatar, signal)
     : undefined;
-  let avatar: string | undefined;
-  let image: Buffer | undefined;
-  if (pet.avatar) {
-    // The existing reference-image path retains the previous accepted form instead of rerolling identity.
-    [avatar] = await txt2imgNanoBanana({
+  /** Apply the same cutout, moderation and visual checks to initial and corrective candidates. */
+  const generateCandidate = async (
+    candidatePrompt: string,
+    referenceImage?: Buffer,
+  ) => {
+    signal.throwIfAborted();
+    // Explicit opaque reference pixels prevent transparent gaps being interpreted as black fur.
+    // Inline bytes reuse the downloaded image without another upload or provider request.
+    const reference = referenceImage
+      ? await sharp(referenceImage, { limitInputPixels: MAX_PET_IMAGE_PIXELS })
+          .flatten({ background: "#f0f0f0" })
+          .png()
+          .toBuffer()
+      : undefined;
+    signal.throwIfAborted();
+    const [avatar] = await txt2imgNanoBanana({
       preprompt: PET_ART_STYLE,
-      prompt,
-      previousImg: pet.avatar,
+      prompt: candidatePrompt,
+      previousImg: reference
+        ? `data:image/png;base64,${reference.toString("base64")}`
+        : undefined,
       removeBg: true,
+      backgroundRemovalModel: "851-labs",
       userId: pet.userId,
       width: 512,
       height: 512,
       size: "square",
       signal,
     });
-    if (avatar) await onUpload(avatar);
-    if (avatar) image = await downloadPetImage(avatar, signal);
-  } else {
-    const generated = await fastTxt2imgReplicate({
-      prompt,
-      aspect_ratio: "1:1",
-      disable_safety_checker: false,
-      output_quality: 80,
-      mega_pixels: "0.25",
-      signal,
-    });
-    const source = generated.data ? servedUfsUrl(generated.data) : null;
-    if (!source) throw new Error("The image provider did not return an image");
-    await onUpload(source);
-    await checkModeration(await downloadPetImage(source, signal), signal);
-    const cutout = await removeBackgroundReplicate(source, signal);
-    image = await sharp(await downloadPetImage(String(cutout.url()), signal), {
+    if (!avatar) throw new Error("The image provider did not return an image");
+    await onUpload(avatar);
+    const image = await downloadPetImage(avatar, signal);
+    await checkModeration(image, signal);
+    await validateSceneCharacterImage(image);
+    const verdict = await reviewVisualQuality(image, previousImage, pet, signal);
+    return { avatar, image, verdict };
+  };
+  let candidate = await generateCandidate(prompt, previousImage);
+  try {
+    validatePetAppearanceQuality(candidate.verdict);
+  } catch {
+    // Correct visual failures once under the same deadline; safety/provider failures never retry.
+    // Evolution repairs start from the accepted form so rejected cutout artifacts do not propagate.
+    candidate = await generateCandidate(
+      `Create a new full-body ${species.name} candidate from the supplied reference. The previous attempt was rejected for these visible defects: ${candidate.verdict.reason}. Correct those defects while following this complete request: ${prompt}`,
+      previousImage ?? candidate.image,
+    );
+    validatePetAppearanceQuality(candidate.verdict);
+  }
+  signal.throwIfAborted();
+  let avatar = candidate.avatar;
+  // Keep profiles and evolution references left-facing without another model prediction.
+  // Lossless mirroring preserves the reviewed pixels and transparency.
+  if (candidate.verdict.avatarFacing === "right") {
+    const mirrored = await sharp(candidate.image, {
       limitInputPixels: MAX_PET_IMAGE_PIXELS,
     })
-      .resize({ width: 512, height: 512, fit: "inside" })
-      .webp({ quality: 80 })
+      .flop()
+      .webp({ lossless: true, exact: true })
       .toBuffer();
-    await validateSceneCharacterImage(image);
-    await checkModeration(image, signal);
-    await checkVisualQuality(image, previousImage, pet, signal);
+    signal.throwIfAborted();
     const uploaded = await uploadFileFromReplicate(
       "pet",
-      new Blob([image as BlobPart]),
+      new Blob([mirrored as BlobPart], { type: "image/webp" }),
       "webp",
       signal,
     );
-    avatar = uploaded.data ? servedUfsUrl(uploaded.data) : undefined;
-    if (avatar) await onUpload(avatar);
-  }
-  if (!avatar || !image) throw new Error("The image provider did not return an image");
-  if (pet.avatar) {
-    await checkModeration(image, signal);
-    await validateSceneCharacterImage(image);
-    await checkVisualQuality(image, previousImage, pet, signal);
+    if (!uploaded.data) throw new Error("Could not upload the normalized pet image");
+    avatar = servedUfsUrl(uploaded.data);
+    await onUpload(avatar);
   }
   signal.throwIfAborted();
-  return avatar;
+  return { avatar, avatarFacing: "left" as const };
 };
 
-/** Check the candidate against authored traits and, for evolution, the accepted prior form. */
-const checkVisualQuality = async (
+/** Review the candidate's species and, for evolution, the accepted prior identity. */
+const reviewVisualQuality = async (
   image: Buffer,
   previousImage: Buffer | undefined,
   pet: AppearancePet,
   signal: AbortSignal,
 ) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
-  const verdict = await classifyPetAppearanceImage(
+  return classifyPetAppearanceImage(
     {
       image,
       previousImage,
-      species: species.description,
+      species: species.name,
       identity: [
         palette.description,
         characteristic.description,
         aura.description,
       ].join(". "),
       rank: pet.rank,
+      previousRank: pet.artRank,
     },
     signal,
   );
-  validatePetAppearanceQuality(verdict);
 };
 
 /** Resolve saved catalogue IDs and reject corrupt identity before calling an image model. */

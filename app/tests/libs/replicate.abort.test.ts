@@ -36,9 +36,9 @@ describe("image provider abort propagation", () => {
     expect(uploading).not.toHaveBeenCalled();
   });
 
-  it("does not dispatch a background-removal model with an already aborted signal", async () => {
+  it.each([undefined, "851-labs"] as const)("does not dispatch a %s background-removal model with an already aborted signal", async (model) => {
     const run = vi.spyOn(Replicate.prototype, "run");
-    await expect(removeBackgroundReplicate("https://example.com/source.webp", AbortSignal.abort())).rejects.toThrow();
+    await expect(removeBackgroundReplicate("https://example.com/source.webp", AbortSignal.abort(), model)).rejects.toThrow();
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -55,17 +55,30 @@ describe("image provider abort propagation", () => {
     expect(uploading.mock.calls[0]![1]?.signal).toBe(controller.signal);
   });
 
-  it("propagates an evolution signal through Nano Banana, background removal and upload", async () => {
+  it.each([undefined, "851-labs"] as const)("propagates an evolution signal through Nano Banana, %s background removal and upload", async (backgroundRemovalModel) => {
     const controller = new AbortController();
     const buffer = await sharp({ create: { width: 64, height: 64, channels: 4, background: "transparent" } }).webp().toBuffer();
     const file = { url: () => new URL("https://example.com/provider.webp"), blob: async () => new Blob([buffer as BlobPart]) };
     const run = vi.spyOn(Replicate.prototype, "run").mockResolvedValue(file);
     const uploading = vi.spyOn(UTApi.prototype, "uploadFiles").mockResolvedValue(upload as never);
-    expect(await txt2imgNanoBanana({ preprompt: "Pixel art", prompt: "Evolve the same fox", previousImg: "https://example.com/previous.webp", removeBg: true, userId: "owner", width: 512, height: 512, size: "square", signal: controller.signal })).toEqual([upload.data.ufsUrl]);
+    expect(await txt2imgNanoBanana({ preprompt: "Pixel art", prompt: "Evolve the same fox", previousImg: "https://example.com/previous.webp", removeBg: true, backgroundRemovalModel, userId: "owner", width: 512, height: 512, size: "square", signal: controller.signal })).toEqual([upload.data.ufsUrl]);
     expect(run).toHaveBeenCalledTimes(2);
     expect(run.mock.calls[0]![0]).toBe("google/nano-banana");
-    expect(String(run.mock.calls[1]![0])).toStartWith("lucataco/remove-bg:");
+    expect(String(run.mock.calls[1]![0])).toStartWith(backgroundRemovalModel === "851-labs" ? "851-labs/background-remover:" : "lucataco/remove-bg:");
+    expect(run.mock.calls[1]![1].input).toEqual(backgroundRemovalModel === "851-labs"
+      ? { image: "https://example.com/provider.webp", threshold: 0.5, background_type: "rgba", format: "png" }
+      : { image: "https://example.com/provider.webp" });
     expect(run.mock.calls.every((call) => call[1].signal === controller.signal)).toBe(true);
     expect(uploading.mock.calls[0]![1]?.signal).toBe(controller.signal);
+  });
+
+  it("keeps a generated scene intact when background removal is disabled", async () => {
+    const buffer = await sharp({ create: { width: 64, height: 64, channels: 3, background: "white" } }).webp().toBuffer();
+    const file = { url: () => new URL("https://example.com/provider.webp"), blob: async () => new Blob([buffer as BlobPart]) };
+    const run = vi.spyOn(Replicate.prototype, "run").mockResolvedValue(file);
+    vi.spyOn(UTApi.prototype, "uploadFiles").mockResolvedValue(upload as never);
+    expect(await txt2imgNanoBanana({ preprompt: "Pixel art", prompt: "A forest", removeBg: false, backgroundRemovalModel: "851-labs", userId: "owner", width: 512, height: 512, size: "square" })).toEqual([upload.data.ufsUrl]);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run.mock.calls[0]![0]).toBe("google/nano-banana");
   });
 });

@@ -2,6 +2,7 @@
 import {
   getUserCaps,
   PET_FED_COLLECTION_SLOTS,
+  PET_GENERATION_LEASE_MS,
   PET_MAX_COLLECTION_SLOTS,
   PET_RANKS,
   type UserRank,
@@ -40,6 +41,18 @@ export const getMaxPetRank = (ownerRank: UserRank) => {
   };
   return ranks[ownerRank];
 };
+
+/**
+ * Abandoned generation leases expire without releasing ownership.
+ * A missing start time stays active so incomplete leases cannot be replaced or reset.
+ */
+export const hasActiveGeneration = (
+  pet: Pick<UserPet, "generationStatus" | "generationStartedAt">,
+  now = new Date(),
+) =>
+  pet.generationStatus === "GENERATING" &&
+  (!pet.generationStartedAt ||
+    now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS);
 
 /** A visual evolution must finish before the next evolution or battle participation. */
 export const isPetAppearanceReady = (

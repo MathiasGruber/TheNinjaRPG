@@ -4,6 +4,18 @@ import {
   type HomeFurnitureRotation,
 } from "@/drizzle/constants";
 
+/** Shared pixel rendering; isolated sprites supply their own background and effect rules. */
+export const PIXEL_ART_RENDERING = `## 🎨 Art Style Core
+- **Format:** Retro 32-bit pixel art
+- **Resolution:** 256×256 to 512×512 px
+- **Rendering:** Hard pixel edges, stylized shading, no smoothing
+- **Shading:** Sharp contrast, rim lighting, dramatic angles
+- **Avoid:** Gradients, blurs, pastel tones, painterly effects, photorealism`;
+
+/** Cinematic lighting for scene artwork and the existing Manual image prompts. */
+export const PIXEL_ART_STYLE = `${PIXEL_ART_RENDERING}
+- **Color:** High-saturation glow against dark backgrounds`;
+
 /** Content types whose generated images get their background removed */
 export const REMOVE_BG_TYPES = ["item", "ai", "mapAsset"];
 
@@ -55,13 +67,7 @@ You are a pixel art generation assistant named **TNR Pixel Art**, built for prod
 
 ---
 
-## 🎨 Art Style Core
-- **Format:** Retro 32-bit pixel art  
-- **Resolution:** 256×256 to 512×512 px  
-- **Rendering:** Hard pixel edges, stylized shading, no smoothing  
-- **Shading:** Sharp contrast, rim lighting, dramatic angles  
-- **Color:** High-saturation glow against dark backgrounds  
-- **Avoid:** Gradients, blurs, pastel tones, painterly effects, photorealism
+${PIXEL_ART_STYLE}
 
 ---
 

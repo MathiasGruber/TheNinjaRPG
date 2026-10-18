@@ -101,6 +101,7 @@ import {
   userItemImbuement,
   userJutsu,
   userNindo,
+  userPet,
   userPollVote,
   userQueue,
   userReport,
@@ -132,6 +133,7 @@ import { moderateContent, validateUserUpdateReason } from "@/libs/moderator";
 import { isQuestComplete } from "@/libs/objectives";
 import { isNewOnlineRecord } from "@/libs/onlineRecord";
 import { petExperienceGainSql } from "@/libs/pets/experience";
+import { hasActiveGeneration } from "@/libs/pets/progression";
 import {
   calcActiveUserRegen,
   calcCP,
@@ -255,6 +257,7 @@ import {
   canInteractWithPolls,
   canModerateRoles,
   canOnlyEditSelf,
+  canResetPetImageGeneration,
   canSeeIps,
   canSeeSecretData,
   getApprovalGroup,
@@ -262,6 +265,7 @@ import {
 import { checkForBadWords } from "@/utils/profanity";
 import sanitize from "@/utils/sanitize";
 import {
+  getPetDayKey,
   getTimeOfLastReset,
   isDifferentDay,
   secondsFromDate,
@@ -282,6 +286,7 @@ import {
   assignableMasteryNames,
   createAssignedExperienceSchema,
   getPublicUsersSchema,
+  resetPetImageGenerationSchema,
   tavernColorChangeSchema,
   updateUserPreferencesSchema,
   updateUserSchema,
@@ -2738,6 +2743,94 @@ export const profileRouter = createTRPCRouter({
       return {
         success: true,
         message: "Successfully claimed reputation points for voting",
+      };
+    }),
+  /** Load support controls on demand without publishing generation leases. */
+  getPetImageGenerationForStaff: protectedProcedure
+    .input(idSchema)
+    .query(async ({ ctx, input }) => {
+      const [actor, pets] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userPet.findMany({
+          where: eq(userPet.userId, input.id),
+          columns: {
+            id: true,
+            name: true,
+            generationStatus: true,
+            generationDay: true,
+            generationAttempts: true,
+          },
+        }),
+      ]);
+      if (actor.isBanned || !canResetPetImageGeneration(actor.role)) return [];
+      const dayKey = getPetDayKey();
+      return pets.map(({ generationDay, ...pet }) => ({
+        ...pet,
+        generationAttempts: generationDay === dayKey ? pet.generationAttempts : 0,
+      }));
+    }),
+  /** Restore a companion's daily allowance without replacing its accepted artwork. */
+  resetPetImageGeneration: protectedProcedure
+    .input(resetPetImageGenerationSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [actor, pet] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.userPet.findFirst({
+          where: and(eq(userPet.id, input.petId), eq(userPet.userId, input.userId)),
+        }),
+      ]);
+      if (actor.isBanned)
+        return errorResponse("You are banned and cannot perform this action");
+      if (!canResetPetImageGeneration(actor.role))
+        return errorResponse(
+          "You don't have permission to reset companion image attempts",
+        );
+      if (!pet) return errorResponse("Companion not found");
+      const now = new Date();
+      if (hasActiveGeneration(pet, now)) {
+        return errorResponse(
+          "This companion's image is still generating. Wait for it to finish before resetting attempts.",
+        );
+      }
+      if (pet.generationDay !== getPetDayKey(now) || pet.generationAttempts === 0)
+        return errorResponse("This companion has no image attempts to reset today");
+      // The revision guard prevents clearing a generation lease claimed after our read.
+      const result = await ctx.drizzle
+        .update(userPet)
+        .set({
+          generationAttempts: 0,
+          generationDay: null,
+          generationStartedAt: null,
+          generationToken: null,
+          generationStatus:
+            pet.generationStatus === "GENERATING" ? "FAILED" : pet.generationStatus,
+          revision: sql`${userPet.revision} + 1`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(userPet.id, pet.id),
+            eq(userPet.userId, input.userId),
+            eq(userPet.revision, pet.revision),
+          ),
+        );
+      if (result.rowsAffected !== 1)
+        return errorResponse("The companion changed. Refresh and try again.");
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        tableName: "user",
+        relatedId: input.userId,
+        relatedMsg: input.reason.slice(0, ACTION_LOG_RELATED_MSG_MAX_LENGTH),
+        changes: [
+          `Reset companion image attempts for ${pet.name} (${pet.id}) from ${pet.generationAttempts} to 0`,
+        ],
+        relatedImage: pet.avatar,
+      });
+      return {
+        success: true,
+        message: `${pet.name}'s image attempts have been reset.`,
       };
     }),
   // Read a user's Seichi Silver balance (staff only) — kept off the public profile

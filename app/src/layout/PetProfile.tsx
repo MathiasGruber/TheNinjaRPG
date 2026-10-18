@@ -1,6 +1,6 @@
 "use client";
 
-import { PawPrint, RefreshCw, Sparkles } from "lucide-react";
+import { PawPrint, Sparkles } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -50,6 +50,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
+import { PetAppearanceButton } from "@/layout/PetAppearanceButton";
 import { PetTasks } from "@/layout/PetTasks";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import {
@@ -241,14 +242,19 @@ export function PetProfile() {
     feed.isPending ||
     updateAbilities.isPending;
 
-  /** Retry the saved companion's current artwork without repeating adoption or rank-up. */
-  const generateAppearance = async () => {
+  /** Generate a founder or retry an evolution without repeating adoption or rank-up. */
+  const generateAppearance = async (
+    appearance?: RouterInputs["pets"]["generateAppearance"]["appearance"],
+  ) => {
     if (inFlight.current || !pet) return;
     inFlight.current = true;
     setIsGenerating(true);
     setMessage(null);
     try {
-      await generate.mutateAsync({ petId: pet.id });
+      await generate.mutateAsync({
+        petId: pet.id,
+        ...(appearance ? { appearance } : {}),
+      });
     } catch {
       // Both the shared error toast and the inline message leave the retry action available.
     } finally {
@@ -790,15 +796,17 @@ export function PetProfile() {
               today. Attempts reset at midnight UTC.
             </p>
             {canRetryGeneration ? (
-              <Button
+              <PetAppearanceButton
+                pet={pet}
+                options={data.options}
+                dayKey={data.dayKey}
                 disabled={settingsDisabled || data.remainingGenerations <= 0}
-                onClick={() => void generateAppearance()}
+                onGenerate={generateAppearance}
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
                 {generate.isPending
                   ? "Creating appearance..."
                   : "Create / retry appearance"}
-              </Button>
+              </PetAppearanceButton>
             ) : pet.generationStatus === "GENERATING" ? (
               <Loader explanation="Creating appearance..." />
             ) : null}

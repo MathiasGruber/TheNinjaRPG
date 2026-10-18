@@ -2544,6 +2544,8 @@ export const userData = mysqlTable(
     petExperience: double("petExperience").default(0).notNull(),
     // Lifetime adoptions keep releasing a companion from renewing the free first adoption.
     petAcquisitions: int("petAcquisitions", { unsigned: true }).default(0).notNull(),
+    /** Sanctuary species claimed this UTC day remain consumed after their pets are released. */
+    petDailyClaims: json("petDailyClaims").$type<{ dayKey: string; speciesIds: string[] }>(),
     activePetId: varchar("activePetId", { length: 191 }),
     petSlots: tinyint("petSlots", { unsigned: true }).default(1).notNull(),
     /** One attempt-bound profession delegation; the companion returns when results are collected. */
