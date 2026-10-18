@@ -29,8 +29,10 @@ import type { ZodAllTags, ZodJutsuInput, ZodJutsuType } from "@/validators/comba
 import { JutsuValidator } from "@/validators/combat";
 
 /**
- * Hook used when creating frontend forms for editing jutsus
- * @param data
+ * Build the staff jutsu editor with shared validation and content-diff submission.
+ * Species restrictions are editable only for PETS jutsu and cleared when saving other types.
+ * @param data - Saved content used to initialize the form and calculate changes.
+ * @param refetch - Reload saved content after a successful update.
  */
 export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Case type

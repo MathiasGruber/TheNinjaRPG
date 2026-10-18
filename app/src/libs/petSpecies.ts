@@ -66,6 +66,7 @@ export const usePetSpeciesEditForm = (
     { jutsuType: ["PETS"], hidden: false, limit: 1000 },
     { getNextPageParam: (page) => page.nextCursor },
   );
+  // New species have no ID yet; only editing can offer jutsu locked to this species.
   const availableJutsus =
     catalogue.data?.pages
       .flatMap((page) => page.data)

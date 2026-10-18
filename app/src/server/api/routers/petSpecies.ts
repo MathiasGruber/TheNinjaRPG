@@ -55,6 +55,7 @@ export const petSpeciesRouter = createTRPCRouter({
       if (!canChangeContent(user.role))
         return errorResponse("Not allowed to create companion species");
       if (existing) return errorResponse("Companion species name already exists");
+      // The new species ID does not exist yet, so defaults must allow any species.
       if (
         defaults.length !== input.defaultJutsuIds.length ||
         defaults.some(

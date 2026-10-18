@@ -113,6 +113,7 @@ export const isPetSkillAllowed = (skill: SkillTree) =>
  * Return the first player-facing loadout rejection, or null when valid.
  * The caller supplies the published companion catalogue and the owner's
  * purchased, activated skills; only those entries may be selected.
+ * Species restrictions are checked here for both saved loadouts and battle selection.
  */
 export const validatePetAbilities = ({
   pet,
@@ -236,6 +237,7 @@ const isAllowedEffect = (effect: ZodAllTags, allowed: Set<ZodAllTags["type"]>) =
   (!("elements" in effect) || !effect.elements?.some((element) => element !== "None"));
 
 /** Persisted selections plus the progression fields needed to validate their limits. */
+/** Saved selections and species identity needed for capacity and eligibility checks. */
 export type PetAbilityLoadout = Pick<
   UserPet,
   "rank" | "experience" | "jutsuIds" | "skillIds"

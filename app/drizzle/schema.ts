@@ -1812,6 +1812,7 @@ export const jutsu = mysqlTable(
     healthCostReducePerLvl: double("healthCostReducePerLvl").default(0).notNull(),
     healthCost: double("healthCost").default(0).notNull(),
     villageId: varchar("villageId", { length: 191 }),
+    /** Null allows any companion species; a value restricts PETS jutsu to that species. */
     requiredPetSpeciesId: varchar("requiredPetSpeciesId", { length: 191 }),
     method: mysqlEnum("method", consts.AttackMethods).default("SINGLE").notNull(),
     coordinateTargeting: json("coordinateTargeting").$type<CoordinateTargeting>(),

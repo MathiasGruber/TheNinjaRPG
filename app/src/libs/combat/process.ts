@@ -345,6 +345,7 @@ export const applyEffects = (
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
     e.castThisRound = startRound === curRound;
+    // Ignore movement passives because no combat action selected their destination.
     if (e.fromType === "skill" && e.type === "move") return;
     if (
       e.isNew &&
@@ -356,7 +357,8 @@ export const applyEffects = (
       const grid = spawnGrid;
       const origin = grid.getHex({ col: e.longitude, row: e.latitude });
       if (!creator || !origin) return;
-      // Resolve against earlier spawns in this pass, using normal empty-ground rules.
+      // Innate casts originate on occupied cells; choose the nearest empty destination.
+      // Include earlier spawns in this pass when checking occupancy to prevent overlap.
       const destination = grid
         .toArray()
         .filter(

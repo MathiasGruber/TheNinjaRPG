@@ -30,6 +30,8 @@ export const petsAllowedInBattle = (battleType: BattleType) =>
 /**
  * Mutate initiation's preloaded state with at most one eligible active pet per owner.
  * Abilities, passives and AI rules are frozen here so later turns need no pet reads.
+ * Species ground effects enter battlefield processing; enemy passives trigger
+ * when an action reaches an opponent.
  * petIdsByOwner records only pets actually spawned, binding settlement XP to them.
  */
 export const addPetsToBattle = (info: {

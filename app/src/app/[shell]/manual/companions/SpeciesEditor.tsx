@@ -169,6 +169,7 @@ const SpeciesForm = ({
                   effects={validEffects}
                   setEffects={setEffects}
                   availableTags={tagTypes.filter(
+                    // Innate skills cannot select empty ground or invoke system-only sage activation.
                     (type) =>
                       type !== "move" &&
                       type !== "barrier" &&

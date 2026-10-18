@@ -1286,6 +1286,7 @@ export const clone = (
     delete newAi.baseStatsForModifiers;
     // A clone did not receive the original's hits and must not inherit its deferred damage.
     delete newAi.diffuseDamage;
+    // Remove companion identity so clones cannot access PETS-only jutsu.
     delete newAi.petId;
     delete newAi.petSpeciesId;
     // Place on battlefield

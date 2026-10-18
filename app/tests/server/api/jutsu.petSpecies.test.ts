@@ -23,6 +23,7 @@ describeWithDatabase("companion species requirements in jutsu editing", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
+  /** Exercise staff validation and persistence through the real jutsu update procedure. */
   const save = async (requiredPetSpeciesId: string | null, jutsuType = "PETS") => {
     const database = await getTestDatabase();
     const entry = await database.query.jutsu.findFirst({ where: eq(jutsu.id, "pet-strike") });

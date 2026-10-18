@@ -1026,6 +1026,7 @@ export const jutsuRouter = createTRPCRouter({
       return { success: true, message: `Evolved into ${evolutionJutsu.name}!` };
     }),
 
+  /** Validate content and species/default-loadout compatibility before saving a jutsu. */
   update: protectedProcedure
     .input(updateJutsuSchema)
     .output(baseServerResponse)
@@ -1096,6 +1097,7 @@ export const jutsuRouter = createTRPCRouter({
           : Promise.resolve(null),
         input.data.requiredPetSpeciesId
           ? ctx.drizzle.query.petSpecies.findMany({
+              // Retired species still keep defaults used by their owned companions.
               columns: { id: true },
               where: sql`JSON_CONTAINS(${petSpecies.defaultJutsuIds}, JSON_QUOTE(${input.id}))`,
             })

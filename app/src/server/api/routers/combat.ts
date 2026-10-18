@@ -4149,10 +4149,11 @@ export const initiateBattle = async (
  * allowing copies of the same NPC template on opposite sides. Lobby and summon
  * callers may use `leftSideUserIds` instead. Spawn cells are allocated without reuse;
  * initiation validates capacity before calling this function.
+ * Companion species summons join initiation's preload so their effect dispatch needs no reads.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.
- * @returns Processed user effects, combatant states and static `extraState` data.
+ * @returns User and ground effects, combatant states, durability and static `extraState` data.
  */
 export const processUsersForBattle = async (
   client: DrizzleClient,
