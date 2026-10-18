@@ -92,20 +92,18 @@ export const getPetStatCaps = (pet: Pick<UserPet, "rank">) =>
 export const petRankUpBlockMessage = (
   pet: Pick<
     UserPet,
-    "rank" | "experience" | "generationStatus" | "artRank" | "avatar"
-  > &
-    Partial<Pick<UserPet, "generationStartedAt">>,
+    | "rank"
+    | "experience"
+    | "generationStatus"
+    | "generationStartedAt"
+    | "artRank"
+    | "avatar"
+  >,
   owner: { rank: UserRank },
 ) => {
   const next = PET_RANKS.find((entry) => entry.rank === pet.rank + 1);
   if (!next) return "Your pet has reached its highest rank.";
-  if (
-    hasActiveGeneration({
-      ...pet,
-      generationStartedAt: pet.generationStartedAt ?? null,
-    }) ||
-    !isPetAppearanceReady(pet)
-  )
+  if (hasActiveGeneration(pet) || !isPetAppearanceReady(pet))
     return "Finish your pet's current appearance before evolving again.";
   if (next.rank > getMaxPetRank(owner.rank))
     return `Reach ${next.minUserRank} before evolving to ${next.name}.`;

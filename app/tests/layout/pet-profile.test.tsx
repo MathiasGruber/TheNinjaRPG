@@ -260,6 +260,7 @@ it.each([0, 2])("keeps ready-pet care compact with %s attempts and offers redraw
   expect(redraw.disabled).toBe(attempts === 0);
   expect(redraw.className).toContain("border-input");
   expect(settings.textContent).toContain(`${attempts} / 3 image attempts remain today`);
+  expect(generate).not.toHaveBeenCalled();
 });
 
 it("keeps failed missing-art recovery visible above the activity tabs", async () => {
@@ -295,16 +296,6 @@ it.each([1, 7])("regenerates a rank %s companion with new cosmetics after accept
   expect(await view.findByRole("alert")).toHaveProperty("textContent", "Please retry your image.");
   expect(view.getByRole("img", { name: "Miso" })).toBeTruthy();
   expect((view.getByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement).disabled).toBe(false);
-});
-
-it("disables regeneration after exhausting attempts", async () => {
-  data = { ...data, remainingGenerations: 0 };
-  const view = mount();
-  await view.findByRole("tab", { name: "Settings" });
-  selectTab(view, "Settings");
-  expect((await view.findByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(view.getByText(/0 \/ 3 image attempts remain today/)).toBeTruthy();
-  expect(generate).not.toHaveBeenCalled();
 });
 
 it("waits for the server retry time before offering another redraw", async () => {
