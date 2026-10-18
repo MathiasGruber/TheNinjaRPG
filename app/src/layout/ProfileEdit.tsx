@@ -845,6 +845,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                 ),
               }}
               comboActionNames={Object.fromEntries([
+                // Full ownership supplies display names, while the choices above stay tagged-only.
                 ...profile.jutsus.map((entry) => [entry.jutsuId, entry.jutsu.name]),
                 ...profile.items.map((entry) => [entry.itemId, entry.item.name]),
               ])}

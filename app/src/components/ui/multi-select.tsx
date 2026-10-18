@@ -21,7 +21,7 @@ export type OptionType = {
 interface MultiSelectProps {
   options: OptionType[];
   selected: string[];
-  /** Resolve saved values that are absent from the selectable options. */
+  /** Label saved values missing from options without making them selectable. */
   getSelectedLabel?: (value: string) => string;
   onChange: React.Dispatch<React.SetStateAction<string[]>>;
   className?: string;
@@ -68,9 +68,11 @@ function MultiSelect({
     }
   };
 
+  /** Prefer selectable labels and use the caller's fallback for saved references. */
   const getLabel = (value: string) =>
     options.find((option) => option.value === value)?.label ??
     getSelectedLabel?.(value);
+  // Sort badges for display without changing the caller's selection order.
   const sortedSelected = [...selected].sort(
     (a, b) => getLabel(a)?.localeCompare(getLabel(b) ?? "") ?? 0,
   );

@@ -60,6 +60,7 @@ import {
 import { tagTypes } from "@/validators/combat";
 
 interface AiProfileEditProps {
+  /** Profile identity and selectable definitions; saved rules can reference missing entries. */
   userData: {
     aiProfileId: string | null;
     userId: string;
@@ -140,6 +141,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   const isSaving = props.configuration?.isSaving ?? isUpdatingProfile;
   const canEdit =
     !isSaving && !props.configuration?.disabled && (isStaff || !isDefault);
+  // Rules store definition IDs, so multiple owned copies must produce one choice.
   const jutsus = getUnique(props.userData.jutsus, "jutsuId");
   const items = getUnique(props.userData.items, "itemId");
 
@@ -939,6 +941,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
 
 export default AiProfileEdit;
 
+/** Search allowed jutsu while retaining saved IDs until the player selects a replacement. */
 const JutsuSelect = ({
   value,
   onChange,
@@ -952,6 +955,7 @@ const JutsuSelect = ({
 }) => {
   const [open, setOpen] = useState(false);
   useEffect(() => {
+    // Saving or losing edit access must not leave a picker open when editing resumes.
     if (disabled) setOpen(false);
   }, [disabled]);
   return (

@@ -211,6 +211,7 @@ describe("AI action pickers", () => {
     { jutsuId: "fire", jutsu: { name: "Fire Ball" } },
     { jutsuId: "water", jutsu: { name: "Water Wall" } },
   ];
+  /** Open the first rule with the supplied selectable jutsu definitions. */
   const picker = (options = jutsus) => {
     const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: options, items: [] }} />);
     fireEvent.click(headers(view)[0]!);
@@ -257,6 +258,7 @@ describe("AI action pickers", () => {
     fireEvent.click(empty.getByRole("combobox", { name: "Specific jutsu" }));
     expect(empty.getByText("No jutsu found.")).toBeTruthy();
   });
+  /** Exercise label fallbacks with available, untagged, and unknown saved references. */
   const comboPicker = () => {
     mocks.profile.rules[0]!.action = ActionSpecificCombo.parse({ comboIds: ["fire", "pill", "missing", "water"] });
     const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: [jutsus[1]!], items: [] }} comboActionNames={{ fire: "Fire Ball", pill: "Chakra Pill", water: "Water Wall" }} />);
