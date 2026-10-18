@@ -4828,7 +4828,7 @@ const BracketEligibilityBadge: React.FC<BracketEligibilityBadgeProps> = ({
 };
 
 /** Support recovery shares the profile's staff toolbar and audited reason workflow. */
-const ResetPetImageGeneration = ({
+export const ResetPetImageGeneration = ({
   userId,
   username,
 }: {
@@ -4839,6 +4839,7 @@ const ResetPetImageGeneration = ({
   const [petId, setPetId] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const utils = api.useUtils();
   const {
     data: pets,
@@ -4877,6 +4878,7 @@ const ResetPetImageGeneration = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <button
+              ref={buttonRef}
               type="button"
               className="rounded-sm hover:text-orange-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={`Reset companion image attempts for ${username}`}
@@ -4895,6 +4897,7 @@ const ResetPetImageGeneration = ({
         title="Reset companion image attempts"
         isOpen={isOpen}
         setIsOpen={setIsOpen}
+        returnFocusRef={buttonRef}
         proceed_label="Reset attempts"
         proceed_loading_label="Resetting"
         isLoading={isPending}
@@ -4938,7 +4941,12 @@ const ResetPetImageGeneration = ({
                 <SelectTrigger id="reset-pet-image">
                   <SelectValue placeholder="Choose a companion" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  onKeyDown={(event) => {
+                    // Enter chooses a companion without reaching the modal's confirmation shortcut.
+                    if (event.key === "Enter") event.stopPropagation();
+                  }}
+                >
                   {pets.map((pet) => (
                     <SelectItem key={pet.id} value={pet.id}>
                       {pet.name} · {pet.generationAttempts}/
