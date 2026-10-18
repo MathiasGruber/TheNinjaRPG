@@ -1,6 +1,6 @@
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import AiProfileEdit from "@/layout/AiProfileEdit";
@@ -193,8 +193,12 @@ describe("AI specific jutsu picker", () => {
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => undefined });
     mocks.profile.rules[0]!.action = ActionUseSpecificJutsu.parse({ jutsuId: "fire" });
   });
-  afterEach(() => {
-    cleanup();
+  afterEach(async () => {
+    await act(async () => {
+      cleanup();
+      // Radix dispatches its unmount focus event on the next timer tick.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     browserGlobals.forEach((key, index) => {
       const descriptor = browserDescriptors[index];
       if (descriptor) Object.defineProperty(globalThis, key, descriptor);
