@@ -2,7 +2,7 @@ import { z } from "zod";
 import { describe, expect, it } from "bun:test";
 import { PET_ABILITY_SLOTS_BY_RARITY, PetRarities } from "@/drizzle/constants";
 import { ActionEndTurn } from "@/validators/ai";
-import { AllTags, SuperRefineEffects, SuperRefinePassiveEffects, IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
+import { AllTags, SuperRefineEffects, SuperRefinePassiveEffects, BarrierTag, IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
 import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { petAiProfileSchema, updatePetAiSchema } from "@/validators/pets";
 
@@ -29,7 +29,7 @@ describe("authored companion species contracts", () => {
     }
   });
 
-  it("accepts every game tag type with the standard passive targeting rules", () => {
+  it("validates game tags with standard passive targeting and empty-ground requirements", () => {
     const standardEffects = z.array(AllTags).superRefine(SuperRefineEffects).superRefine(SuperRefinePassiveEffects);
     for (const schema of AllTags.options) {
       const effect = schema.parse({});
@@ -40,5 +40,16 @@ describe("authored companion species contracts", () => {
     }
     expect(PetSpeciesValidator.safeParse({ ...species, effects: [IncreaseStatTag.parse({ target: "COORDINATES" })] }).success).toBe(false);
     expect(PetSpeciesValidator.safeParse({ ...species, skillTarget: "ALLIES" }).success).toBe(false);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("rejects barriers that cannot target empty ground in %s species skills", (skillTarget) => {
+    const parsed = PetSpeciesValidator.safeParse({ ...species, skillTarget,
+      effects: [BarrierTag.parse({ staticAssetPath: "barrier" })],
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(parsed.error.issues).toContainEqual(expect.objectContaining({
+      path: ["effects", 0, "type"],
+      message: "Barrier tags require an empty-ground combat action.",
+    }));
   });
 });

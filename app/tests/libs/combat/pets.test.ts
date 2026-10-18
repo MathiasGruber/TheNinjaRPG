@@ -14,7 +14,7 @@ import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 import { AiRule } from "@/validators/ai";
-import { BarrierTag, CloneTag, DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, MoveTag, ShieldTag, SummonTag, VisualTag } from "@/validators/combat";
+import { CloneTag, DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, MoveTag, ShieldTag, SummonTag, VisualTag } from "@/validators/combat";
 import { updatePetAiSchema } from "@/validators/pets";
 import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
 import { petSpeciesFixture } from "../pets/helpers/species";
@@ -440,7 +440,7 @@ describe("owned pets in combat", () => {
     expect(bonuses.every((effect) => effect.targetId === "enemy" && "power" in effect && effect.power === 20)).toBe(true);
   });
 
-  it.each([MoveTag.parse({}), SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), BarrierTag.parse({ staticAssetPath: "barrier" }), VisualTag.parse({})])("queues innate $type effects on the owner's and companion's cells", (effect) => {
+  it.each([MoveTag.parse({}), SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), VisualTag.parse({})])("queues innate $type effects on the owner's and companion's cells", (effect) => {
     const battle = scenario();
     const species = petSpeciesFixture({ effects: [effect, ShieldTag.parse({})] });
     add(battle, [petFixture({ species })]);
