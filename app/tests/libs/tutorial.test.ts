@@ -11,6 +11,7 @@ import {
   isTutorialItemBuyStep,
   isTutorialJutsuPickStep,
   isTutorialPageMatch,
+  isTutorialReferencePage,
   isTutorialActive,
   isUsableHighlightRect,
   TUTORIAL_HOME_SECTOR,
@@ -45,6 +46,18 @@ const elementIdBlocks = () =>
   [...readTutorialStepsSource().matchAll(/elementIds:\s*\[([\s\S]*?)\]/g)].map(
     (match) => match[1] ?? "",
   );
+
+describe("isTutorialReferencePage", () => {
+  it.each(["/guide", "/guide/getting-started", "/rules", "/help"])(
+    "pauses guidance on %s",
+    (pathname) => expect(isTutorialReferencePage(pathname)).toBe(true),
+  );
+
+  it.each(["/profile", "/village", "/combat", "/manual", "/guide/edit", "/guide/edit/article", "/guidebook"])(
+    "keeps guidance active on %s",
+    (pathname) => expect(isTutorialReferencePage(pathname)).toBe(false),
+  );
+});
 
 describe("getTutorialStepPath", () => {
   it("strips in-page hashes", () => {

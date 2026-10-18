@@ -43,6 +43,7 @@ import { cn } from "@/libs/shadui";
 import {
   isTutorialCaptureStep,
   isTutorialPageMatch,
+  isTutorialReferencePage,
   isUsableHighlightRect,
 } from "@/libs/tutorial";
 import { getMobileOperatingSystem } from "@/utils/hardware";
@@ -349,9 +350,11 @@ interface TutorialAssistantProps {
  */
 const TutorialAssistant: React.FC<TutorialAssistantProps> = (props) => {
   const { data: userData } = useUserData();
+  const pathname = usePublicPathname();
   // The game shell also wraps public pages. Reward hooks require a player and redirect
   // anonymous visitors, so keep them unmounted until the profile is available.
-  if (!userData) return null;
+  // Pause guidance on reference pages so its redirects and overlays cannot block help.
+  if (!userData || isTutorialReferencePage(pathname)) return null;
   return <PlayerTutorialAssistant {...props} />;
 };
 

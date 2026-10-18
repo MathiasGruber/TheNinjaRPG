@@ -18,12 +18,20 @@ function testMocks() {
     disable: ReturnType<typeof vi.fn<() => Promise<{ success: boolean; message: string }>>>;
     updateUser: ReturnType<typeof vi.fn<(patch: UserPatch) => Promise<void>>>;
     rewardHook: ReturnType<typeof vi.fn>;
+    pathname: string;
+    push: ReturnType<typeof vi.fn>;
+    replace: ReturnType<typeof vi.fn>;
+    updateTutorialStep: ReturnType<typeof vi.fn>;
   } };
   globals.__tutorialAssistantMocks ??= {
     client: new QueryClient(),
     disable: vi.fn(async () => ({ success: true, message: "Saved" })),
     updateUser: vi.fn(async (patch: UserPatch) => { await updateUserCache(testMocks().client, key, patch); }),
     rewardHook: vi.fn(),
+    pathname: "/profile",
+    push: vi.fn(),
+    replace: vi.fn(),
+    updateTutorialStep: vi.fn(),
   };
   return globals.__tutorialAssistantMocks;
 }
@@ -39,11 +47,11 @@ vi.mock("@/app/_trpc/client", () => ({ api: {
   profile: { updatePreferences: { useMutation: () => ({ mutateAsync: testMocks().disable }) } },
   gameAsset: { getSceneAssets: { useQuery: () => ({ data: [] }) } },
 } }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
-vi.mock("@/utils/routing", () => ({ usePublicPathname: () => "/profile" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: testMocks().push, replace: testMocks().replace }) }));
+vi.mock("@/utils/routing", () => ({ usePublicPathname: () => testMocks().pathname }));
 vi.mock("@/hooks/tutorial", () => {
   const step = { id: "welcome", title: "Welcome", description: "Welcome", page: "/profile" };
-  return { TUTORIAL_STEPS: [step], TUTORIAL_HOSPITALIZED_STEP: step, useTutorialStep: () => ({ currentStep: step, currentStepNumber: 0, isAssistantVisible: true, setIsAssistantVisible: vi.fn(), updateTutorialStep: vi.fn() }) };
+  return { TUTORIAL_STEPS: [step], TUTORIAL_HOSPITALIZED_STEP: step, useTutorialStep: () => ({ currentStep: step, currentStepNumber: 0, isAssistantVisible: true, setIsAssistantVisible: vi.fn(), updateTutorialStep: testMocks().updateTutorialStep }) };
 });
 vi.mock("@/hooks/useAbVariant", () => ({ useAbVariant: () => ({ variant: "A" }) }));
 vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => {
@@ -65,6 +73,7 @@ beforeEach(() => {
     dialogSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
   }
   vi.clearAllMocks();
+  mocks.pathname = "/profile";
   mocks.client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.client.setQueryData(key, profile());
   mocks.disable.mockResolvedValue({ success: true, message: "Saved" });
@@ -113,6 +122,42 @@ describe("TutorialAssistant account boundary", () => {
     expect(view.container.innerHTML).toBe("");
     expect(mocks.rewardHook).not.toHaveBeenCalled();
   });
+});
+
+describe("TutorialAssistant reference pages", () => {
+  it.each(["/guide", "/guide/getting-started", "/rules", "/help"])(
+    "leaves %s readable without changing the tutorial",
+    (pathname) => {
+      mocks.pathname = pathname;
+      const view = renderAssistant();
+      expect(view.container.innerHTML).toBe("");
+      expect(mocks.rewardHook).not.toHaveBeenCalled();
+      expect(mocks.push).not.toHaveBeenCalled();
+      expect(mocks.replace).not.toHaveBeenCalled();
+      expect(mocks.updateTutorialStep).not.toHaveBeenCalled();
+      expect(mocks.client.getQueryData<ReturnType<typeof profile>>(key)).toEqual(profile());
+    },
+  );
+
+  it("resumes the same step when returning to its page", () => {
+    const view = renderAssistant();
+    mocks.pathname = "/guide";
+    view.rerender(<TutorialAssistant rightSideBarOpen={false} setRightSideBarOpen={() => {}} rightSideBarRef={{ current: null }} />);
+    expect(view.container.innerHTML).toBe("");
+    mocks.pathname = "/profile";
+    view.rerender(<TutorialAssistant rightSideBarOpen={false} setRightSideBarOpen={() => {}} rightSideBarRef={{ current: null }} />);
+    expect(view.getByRole("button", { name: "Disable tutorial" })).toBeTruthy();
+    expect(mocks.client.getQueryData<ReturnType<typeof profile>>(key)).toEqual(profile());
+  });
+
+  it.each(["/village", "/guide/edit/article"])(
+    "keeps the tutorial redirect on %s",
+    (pathname) => {
+      mocks.pathname = pathname;
+      renderAssistant();
+      expect(mocks.push).toHaveBeenCalledWith("/profile");
+    },
+  );
 });
 
 describe("TutorialAssistant disable reconciliation", () => {

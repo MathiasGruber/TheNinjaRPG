@@ -15,6 +15,12 @@ export const isTutorialActive = (
   user.tutorialOn !== false &&
   (user.tutorialStep ?? 0) < TUTORIAL_STEPS_COUNT;
 
+/** Public reference pages stay readable without advancing or disabling the tutorial. */
+export const isTutorialReferencePage = (pathname: string) =>
+  pathname === "/help" ||
+  pathname === "/rules" ||
+  /^\/guide(?:\/(?!edit$)[^/]+)?$/.test(pathname);
+
 /** Step that asks the player to start training a jutsu (Sonic Slash). */
 export const TUTORIAL_JUTSU_PICK_STEP_ID = "eSBZJXRN_MCSYM90z3d5f";
 
