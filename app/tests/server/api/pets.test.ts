@@ -609,6 +609,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.petExperience).toBe(PET_FEED_EXPERIENCE_BY_RARITY[rarity]);
   });
 
+  // Midnight cannot shorten a cooldown or delay a companion's second meal that day.
   for (const [fedAt, nextFeedAt, duringCooldown] of [
     ["2026-10-18T01:00:00.000Z", "2026-10-18T04:00:00.000Z", "2026-10-18T02:00:00.000Z"],
     ["2026-10-17T23:30:00.000Z", "2026-10-18T02:30:00.000Z", "2026-10-18T00:30:00.000Z"],
