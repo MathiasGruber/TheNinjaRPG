@@ -1,5 +1,6 @@
 "use client";
 
+import { Download, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -139,18 +140,20 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
   return (
     <>
       <Button
-        size="sm"
+        hoverText="Export loadout"
+        aria-label="Export"
         onClick={(event) => open("export", event.currentTarget)}
         disabled={!props.loadouts.length}
       >
-        Export
+        <Download className="h-6 w-6" aria-hidden />
       </Button>
       <Button
-        size="sm"
+        hoverText="Import loadout"
+        aria-label="Import"
         onClick={(event) => open("import", event.currentTarget)}
         disabled={!props.loadouts.length}
       >
-        Import
+        <Upload className="h-6 w-6" aria-hidden />
       </Button>
       {props.loadError && <p role="alert">{props.loadError}</p>}
       <Dialog
