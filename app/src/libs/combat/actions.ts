@@ -30,7 +30,11 @@ import {
   SHARED_COOLDOWN_ROUNDS,
 } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
-import { BARRIER_DAMAGE_TAG_TYPES, COMBAT_SECONDS } from "@/libs/combat/constants";
+import {
+  BARRIER_DAMAGE_TAG_TYPES,
+  COMBAT_SECONDS,
+  GROUND_EFFECT_TAG_TYPES,
+} from "@/libs/combat/constants";
 import { recordMasteryUsage } from "@/libs/combat/mastery";
 import { areBattleAllies } from "@/libs/combat/participants";
 import { resolvePotencyTags } from "@/libs/combat/potency";
@@ -1187,7 +1191,11 @@ export const insertAction = (info: {
           effect.longitude = target.longitude;
           effect.latitude = target.latitude;
           if (checkFriendlyFire(effect, target, alive)) {
-            usersEffects.push(effect);
+            if (GROUND_EFFECT_TAG_TYPES.has(tag.type)) {
+              groundEffects.push(effect);
+            } else {
+              usersEffects.push(effect);
+            }
           }
         }
       }

@@ -3053,7 +3053,7 @@ export const initiateBattle = async (
       : undefined;
 
   // Create the users array to be inserted into the battle
-  const { userEffects, usersState, extraState, initialDurability } =
+  const { userEffects, usersState, extraState, initialDurability, groundEffects } =
     await processUsersForBattle(client, {
       users: dungeonEncounter
         ? users.slice(
@@ -3231,7 +3231,6 @@ export const initiateBattle = async (
   }
 
   // Starting ground effects
-  const groundEffects: GroundEffect[] = [];
   const groundAssets = assets.filter(
     (a) => a.onInitialBattleField && a.type === "STATIC",
   );
@@ -4217,6 +4216,7 @@ export const processUsersForBattle = async (
     ),
   );
   const userEffects: UserEffect[] = [];
+  const groundEffects: GroundEffect[] = [];
   const enemySkills: NonNullable<ExtraState["enemySkills"]> = {};
   const pendingSkillEffects: {
     creatorId: string;
@@ -5195,6 +5195,7 @@ export const processUsersForBattle = async (
       ...info.petPreload,
       usersState: convertedUsersState,
       usersEffects: userEffects,
+      groundEffects,
       extraState,
       battleType,
       width,
@@ -5237,6 +5238,7 @@ export const processUsersForBattle = async (
 
   return {
     userEffects: filteredEffects,
+    groundEffects,
     usersState: convertedUsersState,
     extraState,
     initialDurability,

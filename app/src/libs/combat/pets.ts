@@ -4,12 +4,13 @@ import type { BattleType, PetSpawnPosition, UserRank } from "@/drizzle/constants
 import { CombatStatNames, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/constants";
 import type { Jutsu, PetSpecies, UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
-import { GenNames } from "@/libs/combat/constants";
+import { GenNames, GROUND_EFFECT_TAG_TYPES } from "@/libs/combat/constants";
 import { realizeTag } from "@/libs/combat/tags";
 import type {
   BattleUserState,
   CombatQueryUserSkill,
   ExtraState,
+  GroundEffect,
   UserEffect,
 } from "@/libs/combat/types";
 import { rollInitiative } from "@/libs/combat/util";
@@ -40,6 +41,7 @@ export const addPetsToBattle = (info: {
   height: number;
   ownerRanks?: Record<string, UserRank>;
   usersEffects?: UserEffect[];
+  groundEffects?: GroundEffect[];
   abilitiesByOwner?: Record<
     string,
     {
@@ -125,7 +127,7 @@ export const addPetsToBattle = (info: {
         target.enemySkillIds ??= [];
         target.enemySkillIds.push(sourceId);
       }
-    } else if (pet.species.skillTarget === "SELF" && info.usersEffects) {
+    } else if (pet.species.skillTarget === "SELF") {
       for (const target of [owner, actor]) {
         for (const effect of speciesEffects) {
           const realized = realizeTag({
@@ -135,11 +137,19 @@ export const addPetsToBattle = (info: {
             actionId: sourceId,
             level: target.level,
           });
-          realized.isNew = false;
-          realized.castThisRound = false;
-          realized.targetId = target.userId;
           realized.fromType = "skill";
-          info.usersEffects.push(realized);
+          if (GROUND_EFFECT_TAG_TYPES.has(effect.type)) {
+            realized.longitude = target.longitude;
+            realized.latitude = target.latitude;
+            // Battles start at round one; summons/clones must cast on first processing.
+            realized.createdRound = 1;
+            info.groundEffects?.push(realized);
+          } else {
+            realized.isNew = false;
+            realized.castThisRound = false;
+            realized.targetId = target.userId;
+            info.usersEffects?.push(realized);
+          }
         }
       }
     }

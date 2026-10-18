@@ -1044,6 +1044,7 @@ export const jutsuRouter = createTRPCRouter({
         reskinParent,
         reskinGroup,
         requiredSpecies,
+        defaultSpecies,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchJutsu(ctx.drizzle, input.id),
@@ -1093,6 +1094,12 @@ export const jutsuRouter = createTRPCRouter({
               columns: { id: true },
             })
           : Promise.resolve(null),
+        input.data.requiredPetSpeciesId
+          ? ctx.drizzle.query.petSpecies.findMany({
+              columns: { id: true },
+              where: sql`JSON_CONTAINS(${petSpecies.defaultJutsuIds}, JSON_QUOTE(${input.id}))`,
+            })
+          : Promise.resolve([]),
       ]);
       if (input.data.reskinParentJutsuId) {
         if (
@@ -1141,6 +1148,10 @@ export const jutsuRouter = createTRPCRouter({
         (input.data.jutsuType !== "PETS" || !requiredSpecies)
       )
         return errorResponse("Select a valid companion species for a PETS jutsu");
+      if (
+        defaultSpecies.some((species) => species.id !== input.data.requiredPetSpeciesId)
+      )
+        return errorResponse("This jutsu is a default for another companion species");
       // Guard
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");

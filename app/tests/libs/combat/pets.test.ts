@@ -14,7 +14,7 @@ import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 import { AiRule } from "@/validators/ai";
-import { DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, ShieldTag, SummonTag } from "@/validators/combat";
+import { BarrierTag, CloneTag, DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, MoveTag, ShieldTag, SummonTag, VisualTag } from "@/validators/combat";
 import { updatePetAiSchema } from "@/validators/pets";
 import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
 import { petSpeciesFixture } from "../pets/helpers/species";
@@ -438,6 +438,64 @@ describe("owned pets in combat", () => {
     expect(bonuses).toHaveLength(2);
     expect(bonuses.map((effect) => effect.creatorId)).toEqual(["owner", actor.userId]);
     expect(bonuses.every((effect) => effect.targetId === "enemy" && "power" in effect && effect.power === 20)).toBe(true);
+  });
+
+  it.each([MoveTag.parse({}), SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), BarrierTag.parse({ staticAssetPath: "barrier" }), VisualTag.parse({})])("queues innate $type effects on the owner's and companion's cells", (effect) => {
+    const battle = scenario();
+    const species = petSpeciesFixture({ effects: [effect, ShieldTag.parse({})] });
+    add(battle, [petFixture({ species })]);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    expect(battle.groundEffects).toHaveLength(2);
+    for (const [index, target] of [battle.usersState[0]!, actor].entries()) {
+      expect(battle.groundEffects[index]).toMatchObject({
+        type: effect.type, creatorId: target.userId, longitude: target.longitude,
+        latitude: target.latitude, isNew: true, createdRound: battle.round, fromType: "skill",
+      });
+    }
+    expect(battle.usersEffects.map((tag) => tag.type)).toEqual(["shield", "shield"]);
+    expect(species.effects[0]).toEqual(effect);
+  });
+
+  it("executes innate summons once from their preloaded AI template", () => {
+    const battle = scenario();
+    battle.usersState.push(makeBattleUser("template", {
+      isAi: true, isSummon: true, isSummonTemplate: true, controllerId: "summoned-ai",
+      curHealth: 0, longitude: 0, latitude: 0, effects: [],
+    }));
+    add(battle, [petFixture({ species: petSpeciesFixture({
+      effects: [SummonTag.parse({ aiId: "summoned-ai", aiHp: 500, power: 100 })],
+    }) })]);
+    const spawned = (state: typeof battle) => state.usersState.filter((user) => user.summonSourceId === "summoned-ai");
+    const resolved = applyEffects(battle, "owner").newBattle;
+    expect(spawned(resolved)).toHaveLength(2);
+    expect(spawned(resolved).every((user) => user.curHealth === 500 && user.direction === "left")).toBe(true);
+    expect(spawned(applyEffects(resolved, "owner").newBattle)).toHaveLength(2);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("preloads species summons and returns %s effects from battle initiation", async (skillTarget) => {
+    const participant = (id: string, isAi: boolean) => ({
+      ...makeBattleUser(id, { isAi, rank: "GENIN", activePetId: isAi ? null : "pet-1" }),
+      regeneration: 0, regenAt: new Date(), money: 0, bloodright: [],
+      effects: [], userSkills: [], items: [], jutsus: [],
+    }) as unknown as CombatQueryUser;
+    const findMany = vi.fn(async () => [participant("summoned-ai", true)]);
+    const processed = await processUsersForBattle({ query: { userData: { findMany } } } as unknown as DrizzleClient, {
+      users: [participant("owner", false)], battleType: "QUEST", leftSideUserIds: ["owner"],
+      hide: false, isSummon: false, width: 13, height: 9, settings: [], relations: [], wars: [], villages: [],
+      defaultProfile: { id: "Default" } as AiProfile,
+      petPreload: { pets: [petFixture({ species: petSpeciesFixture({ skillTarget,
+        effects: [SummonTag.parse({ aiId: "summoned-ai" })],
+      }) })] },
+    });
+    expect(findMany).toHaveBeenCalledTimes(1);
+    expect(processed.usersState.find((user) => user.controllerId === "summoned-ai"))
+      .toMatchObject({ isSummonTemplate: true, curHealth: 0 });
+    expect(processed.groundEffects).toHaveLength(skillTarget === "SELF" ? 2 : 0);
+    expect(processed.userEffects.some((effect) => effect.type === "summon")).toBe(false);
+    if (skillTarget === "ENEMIES") {
+      expect(processed.extraState.enemySkills?.["pet:pet-1:species"])
+        .toMatchObject([{ type: "summon", aiId: "summoned-ai" }]);
+    }
   });
 
   it("uses the normal autonomous AI with preloaded basic actions", () => {
