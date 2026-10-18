@@ -2018,6 +2018,8 @@ export const itemRouter = createTRPCRouter({
         };
       }
 
+      // The timestamp acknowledges an already-unequipped row, while the hunting
+      // guard rejects a stale request after encounter admission.
       const itemUnequipPromises: Promise<{ rowsAffected: number }>[] =
         equippedItems.map((ui) =>
           ctx.drizzle
@@ -2037,8 +2039,8 @@ export const itemRouter = createTRPCRouter({
             ),
         );
 
-      // The timestamp acknowledges an already-unequipped row, while the hunting
-      // guard rejects a stale request after encounter admission.
+      // Save committed unequips even if a hunt starts afterward; clearing the
+      // template cannot alter the encounter's equipment.
       const loadoutClearPromise =
         shouldClearLoadout && currentLoadout
           ? ctx.drizzle
@@ -2048,7 +2050,6 @@ export const itemRouter = createTRPCRouter({
                 and(
                   eq(itemLoadout.id, currentLoadout.id),
                   eq(itemLoadout.userId, ctx.userId),
-                  hasNoHuntingBattle(ctx.userId),
                 ),
               )
           : undefined;

@@ -345,6 +345,28 @@ describeWithDatabase("Hunting inventory admission", () => {
     expect((await db.query.userItem.findMany()).filter((row) => row.equipped === "ITEM_1").map((row) => row.id)).toEqual(["spare"]);
   });
 
+  it.each([false, true])("clears the saved loadout after unequipping (hunt before template: %s)", async (admitBetween) => {
+    await insertUserItems([{ id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: "ITEM_1" }]);
+    const { db, hunter, id } = await prepare();
+    await db.insert(itemLoadout).values({ id: "current", userId: "hunter", itemData: [{ userItemId: "worn", itemId: "potion", slot: "ITEM_1" }] });
+    await db.update(userData).set({ itemLoadout: "current", staffAccount: true }).where(eq(userData.userId, "hunter"));
+    const client = beforeStatements(db, itemLoadout, [async () => {
+      expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "worn") })).toMatchObject({ equipped: "NONE" });
+      if (admitBetween) expect((await hunter.start({ id })).success).toBe(true);
+    }]);
+    expect(await callerForDatabase(itemRouter, "hunter", client).unequipAllItems()).toMatchObject({
+      success: true,
+      message: "Unequipped 1 item and cleared active loadout",
+    });
+    expect((await db.query.itemLoadout.findFirst())!.itemData).toEqual([]);
+    if (admitBetween) {
+      const current = await settle(db);
+      expect(current.usersState.find((user) => user.userId === "hunter")!.items).toEqual([]);
+    }
+    expect((await callerForDatabase(itemRouter, "hunter", db).selectItemLoadout({ id: "current" })).success).toBe(true);
+    expect(await db.query.userItem.findFirst({ where: eq(userItem.id, "worn") })).toMatchObject({ equipped: "NONE" });
+  });
+
   it.each([false, true])("keeps an equipment swap atomic against hunting admission (hunt first: %s)", async (huntFirst) => {
     await insertUserItems([
       { id: "worn", itemId: "potion", userId: "hunter", quantity: 3, equipped: "ITEM_1" },
