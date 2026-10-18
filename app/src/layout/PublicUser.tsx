@@ -4867,6 +4867,7 @@ export const ResetPetImageGeneration = ({
         utils.pets.getPet.invalidate(),
       ]);
     },
+    onError: (cause) => setError(cause.message),
   });
   const canReset = Boolean(
     selectedPet?.generationAttempts && reason.trim().length >= 10,
