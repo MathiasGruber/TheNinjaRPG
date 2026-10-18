@@ -1,4 +1,18 @@
 import type { RenameLoadoutSchema } from "@/validators/loadout";
+import { sharedJutsuLoadoutSchema } from "@/validators/loadout";
+
+/**
+ * Serialize versioned ordinary jutsu IDs in first-occurrence order.
+ * @throws ZodError when the IDs exceed the shared format's bounds.
+ */
+export const exportJutsuLoadout = (jutsuIds: string[]) =>
+  JSON.stringify(
+    sharedJutsuLoadoutSchema.parse({
+      type: "tnr-jutsu-loadout",
+      version: 1,
+      jutsuIds,
+    }),
+  );
 
 /**
  * Looks up a loadout by id but only within the loadouts the user is currently

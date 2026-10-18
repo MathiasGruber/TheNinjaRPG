@@ -11,6 +11,7 @@ import type { UserJutsuWithRelations } from "@/drizzle/schema";
 import {
   computeJutsuLoadoutAssignments,
   computeJutsuLoadoutCapAssignments,
+  computeJutsuLoadoutPreview,
 } from "@/libs/jutsu";
 import type { UserWithRelations } from "@/routers/profile";
 import * as train from "@/libs/train";
@@ -55,6 +56,47 @@ const uj = (over: {
   }) as unknown as UserJutsuWithRelations;
 
 const USER = { role: "USER" } as unknown as NonNullable<UserWithRelations>;
+
+describe("jutsu loadout sharing preview", () => {
+  it("returns ordered accepted entries and every exclusion category without revealing hidden names", () => {
+    calcJutsuEquipLimitMock.mockReturnValue(1);
+    const owned = [
+      uj({ jutsuId: "hidden", name: "Secret", hidden: true }),
+      uj({ jutsuId: "gated", usable: false }),
+      uj({ jutsuId: "b" }),
+      uj({ jutsuId: "a" }),
+    ];
+    const result = computeJutsuLoadoutPreview({
+      jutsuIds: ["deleted", "hidden", "not-owned", "gated", "b", "a", "b"],
+      userjutsus: owned,
+      user: USER,
+      content: [
+        ...owned.map((entry) => ({ id: entry.jutsuId, name: entry.jutsu.name, hidden: entry.jutsu.hidden })),
+        { id: "not-owned", name: "Unlearned", hidden: false },
+      ],
+    });
+    expect(result.jutsuIds).toEqual(["b"]);
+    expect(result.entries.map((entry) => [entry.jutsuId, entry.accepted, entry.reason])).toEqual([
+      ["deleted", false, "unavailable"], ["hidden", false, "unavailable"],
+      ["not-owned", false, "not-owned"], ["gated", false, "requirements"],
+      ["b", true, null], ["a", false, "equip-limit"],
+    ]);
+    expect(result.entries[1]?.name).toBe("Unavailable jutsu");
+    expect(JSON.stringify(result)).not.toContain("Secret");
+    expect(result.entries[2]?.name).toBe("Unlearned");
+  });
+
+  it("reports category caps and keeps later eligible entries", () => {
+    const heals = Array.from({ length: JUTSU_MAX_HEAL_EQUIPPED + 1 }, (_, index) => uj({ jutsuId: `heal-${index}`, effectTypes: ["heal"] }));
+    const owned = [...heals, uj({ jutsuId: "normal" })];
+    const result = computeJutsuLoadoutPreview({
+      jutsuIds: owned.map((entry) => entry.jutsuId), userjutsus: owned, user: USER,
+      content: owned.map((entry) => ({ id: entry.jutsuId, name: entry.jutsu.name, hidden: false })),
+    });
+    expect(result.jutsuIds).toEqual([...heals.slice(0, JUTSU_MAX_HEAL_EQUIPPED).map((entry) => entry.jutsuId), "normal"]);
+    expect(result.entries[JUTSU_MAX_HEAL_EQUIPPED]).toMatchObject({ accepted: false, reason: "equip-limit" });
+  });
+});
 
 describe("computeJutsuLoadoutAssignments", () => {
   beforeEach(() => {
