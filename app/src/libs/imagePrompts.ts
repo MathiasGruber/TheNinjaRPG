@@ -4,6 +4,15 @@ import {
   type HomeFurnitureRotation,
 } from "@/drizzle/constants";
 
+/** Shared rendering rules; subject anatomy and composition belong to each artwork prompt. */
+export const PIXEL_ART_STYLE = `## 🎨 Art Style Core
+- **Format:** Retro 32-bit pixel art
+- **Resolution:** 256×256 to 512×512 px
+- **Rendering:** Hard pixel edges, stylized shading, no smoothing
+- **Shading:** Sharp contrast, rim lighting, dramatic angles
+- **Color:** High-saturation glow against dark backgrounds
+- **Avoid:** Gradients, blurs, pastel tones, painterly effects, photorealism`;
+
 /** Content types whose generated images get their background removed */
 export const REMOVE_BG_TYPES = ["item", "ai", "mapAsset"];
 
@@ -55,13 +64,7 @@ You are a pixel art generation assistant named **TNR Pixel Art**, built for prod
 
 ---
 
-## 🎨 Art Style Core
-- **Format:** Retro 32-bit pixel art  
-- **Resolution:** 256×256 to 512×512 px  
-- **Rendering:** Hard pixel edges, stylized shading, no smoothing  
-- **Shading:** Sharp contrast, rim lighting, dramatic angles  
-- **Color:** High-saturation glow against dark backgrounds  
-- **Avoid:** Gradients, blurs, pastel tones, painterly effects, photorealism
+${PIXEL_ART_STYLE}
 
 ---
 

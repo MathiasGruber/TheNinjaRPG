@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
 import * as ai from "ai";
-import { OPENAI_MODERATION_MODEL } from "@/drizzle/constants";
+import { OPENAI_REVIEW_MODEL } from "@/drizzle/constants";
 import { classifyPetAppearanceImage, validatePetAppearanceQuality } from "@/libs/pets/quality";
 import { petAppearanceQualitySchema } from "@/validators/pets";
 
@@ -41,7 +41,8 @@ describe("pet visual quality", () => {
     expect(timeout).toHaveBeenCalledWith(30_000);
     expect(model).toHaveBeenCalledTimes(1);
     expect(model).toHaveBeenCalledWith(expect.objectContaining({
-      model: expect.objectContaining({ modelId: OPENAI_MODERATION_MODEL }),
+      model: expect.objectContaining({ modelId: OPENAI_REVIEW_MODEL }),
+      providerOptions: { openai: { reasoningEffort: "none" } },
       maxRetries: 0,
       maxOutputTokens: 500,
       messages: [{ role: "user", content: [

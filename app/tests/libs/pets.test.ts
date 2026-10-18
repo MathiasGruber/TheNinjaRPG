@@ -86,9 +86,15 @@ describe("companion progression", () => {
 describe("companion image safety and AI controls", () => {
   it("uses authored rank-specific growth and reference preservation prompts", () => {
     const base = { userId: "player", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
-    expect(getPetAppearancePrompt(base)).toContain("small young companion");
+    const founder = getPetAppearancePrompt(base);
+    expect(founder.startsWith(`Full-body ${base.species.name} companion`)).toBe(true);
+    expect(founder).toContain("natural adult proportions");
+    expect(founder).toContain("A modest companion");
+    expect(founder).not.toContain("small young companion");
     expect(getPetAppearancePrompt({ ...base, rank: 10, artRank: 9, avatar: "/previous.webp" })).toContain("celestial legendary beast");
-    expect(getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" })).toContain("Preserve its exact species");
+    const evolution = getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" });
+    expect(evolution).toContain("Preserve its exact species");
+    expect(evolution).not.toContain("adolescent");
     expect(() => getPetAppearancePrompt({ ...base, species: null })).toThrow("Invalid pet appearance");
     const retiredSpecies = { ...initialPetSpecies[0]!, name: "Spirit fox", description: "A fox with translucent ears", isActive: false };
     expect(getPetAppearancePrompt({ ...base, species: retiredSpecies })).toContain(retiredSpecies.description);

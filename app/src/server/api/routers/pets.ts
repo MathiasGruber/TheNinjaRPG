@@ -59,6 +59,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { logError } from "@/server/utils/sentry";
 import { getUserFederalStatus } from "@/utils/paypal";
 import { getPetDayKey, getPetFeedAvailableAt } from "@/utils/time";
 import {
@@ -817,10 +818,10 @@ export const petsRouter = createTRPCRouter({
           );
         return { success: true, message: "Your companion's appearance is ready." };
       } catch (error) {
-        console.error("Companion appearance generation failed", {
+        // Returned failures bypass tRPC's onError; retain diagnostics while the UI offers a retry.
+        logError(error, "Companion appearance generation failed", {
           petId: pet.id,
           rank: pet.rank,
-          error,
         });
         await retryOnDeadlock(() =>
           ctx.drizzle

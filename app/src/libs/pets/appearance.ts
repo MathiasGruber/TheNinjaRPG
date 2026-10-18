@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS } from "@/drizzle/constants";
 import type { PetSpecies, UserPet } from "@/drizzle/schema";
 import { validateSceneCharacterImage } from "@/libs/contentReview/sceneCharacter";
+import { PIXEL_ART_STYLE } from "@/libs/imagePrompts";
 import { classifyNsfwImage } from "@/libs/moderator";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import { getPetRank } from "@/libs/pets/progression";
@@ -10,13 +11,7 @@ import {
   classifyPetAppearanceImage,
   validatePetAppearanceQuality,
 } from "@/libs/pets/quality";
-import {
-  fastTxt2imgReplicate,
-  removeBackgroundReplicate,
-  txt2imgNanoBanana,
-  uploadFileFromReplicate,
-} from "@/libs/replicate";
-import { servedUfsUrl } from "@/libs/uploadthing";
+import { txt2imgNanoBanana } from "@/libs/replicate";
 
 /** Authored identity and last accepted image needed for initial art or an evolution. */
 type AppearancePet = Pick<
@@ -31,15 +26,15 @@ type AppearancePet = Pick<
   | "avatar"
 > & { species: Pick<PetSpecies, "id" | "name" | "description"> | null };
 
-const PET_ART_STYLE =
-  "Detailed retro pixel art for TheNinja-RPG, exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate limbs, no extra heads, duplicate animals or detached body parts. Clear readable silhouette, complete head, feet and tail inside the frame with a small margin, relaxed three-quarter pose with the face or beak pointing toward the viewer's LEFT, mature animal proportions, restrained fantasy shinobi accents. Isolated subject on a plain solid background for background removal. Floating sprite without any ground patch, floor, pedestal, platform or cast/contact shadow. No scenery, frame, text, watermark, humanoid body, weapons, blood, gore or sexual content.";
+const PET_ART_STYLE = `${PIXEL_ART_STYLE}
+TheNinja-RPG animal sprite: exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate adult anatomy and head-to-body proportions, no extra heads, duplicate animals or detached body parts. Cosmetic colours, markings, accessories and aura must preserve recognizable species anatomy. Bright eyes mean clear highlights at natural eye size, never an enlarged head or eyes or a shortened beak. Clear readable silhouette, complete head, feet and tail inside the frame with a small margin, fixed elevated three-quarter isometric view and a relaxed pose with the face or beak pointing toward the viewer's LEFT, restrained fantasy shinobi accents. Isolated subject on a plain solid background for background removal. Floating sprite without any ground patch, floor, pedestal, platform or cast/contact shadow. No scenery, frame, text, watermark, humanoid body, weapons, blood, gore, sexual content, cartoon or chibi proportions, soft shading or smoothed edges.`;
 
 const MAX_PET_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PET_IMAGE_PIXELS = 1024 * 1024;
 
 const RANK_APPEARANCES = [
-  "A small young companion with simple natural markings, soft features and a barely visible aura",
-  "An alert adolescent scout with a sharper gaze, a taller stance and a trace of chakra at the silhouette",
+  "A modest companion with simple natural markings, an unadorned silhouette and a barely visible aura",
+  "An alert lean scout with a focused gaze, a taller stance and a trace of chakra at the silhouette",
   "A mature muscular tracker with stronger natural anatomy, confident posture and clearly defined identity markings",
   "A powerful adult guardian with a protective natural crest or ruff and a visible, restrained chakra glow",
   "A formidable battle-seasoned hunter with a broad strong silhouette, focused eyes and layered natural markings; no injuries or gore",
@@ -55,10 +50,10 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
   const rank = getPetRank(pet.rank);
   const identity = `${species.description}. Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
-  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. This rank's age, stature and maturity override words such as young, small or modest in the species description. Higher ranks must look visibly stronger and more majestic, while retaining the original species, face, colour layout and distinctive identity. Keep all limbs inside the frame.`;
+  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Show power through stature, stance, markings and aura, not baby-to-adult anatomy. Natural adult species proportions override words such as young or small in the species description. Higher ranks must look visibly stronger and more majestic, while retaining the original species, face, colour layout and distinctive identity. Keep all limbs inside the frame.`;
   return pet.avatar
     ? `Edit the supplied image into the next evolution of the SAME individual animal. Preserve its exact species, face, eye colours, primary colour placement, distinctive markings, accessories and basic left-facing pose. Do not replace or redesign the animal. ${identity} ${maturity} ${PET_ART_STYLE}`
-    : `One original friendly animal companion. ${identity} ${maturity} ${PET_ART_STYLE}`;
+    : `Full-body ${species.name} companion with recognizable species anatomy and natural adult proportions. ${identity} ${maturity} ${PET_ART_STYLE}`;
 };
 
 /**
@@ -74,18 +69,18 @@ export const generatePetAppearance = async (
 ) => {
   signal.throwIfAborted();
   const prompt = getPetAppearancePrompt(pet);
+  const { species } = getPetAppearanceTraits(pet);
   // Fetch the accepted reference before spending on an edit, then reuse it for identity review.
   const previousImage = pet.avatar
     ? await downloadPetImage(pet.avatar, signal)
     : undefined;
-  let avatar: string | undefined;
-  let image: Buffer | undefined;
-  if (pet.avatar) {
-    // The existing reference-image path retains the previous accepted form instead of rerolling identity.
-    [avatar] = await txt2imgNanoBanana({
+  // Every candidate follows the same model, cutout, moderation and visual review path.
+  const generateCandidate = async (candidatePrompt: string, previousImg?: string) => {
+    signal.throwIfAborted();
+    const [avatar] = await txt2imgNanoBanana({
       preprompt: PET_ART_STYLE,
-      prompt,
-      previousImg: pet.avatar,
+      prompt: candidatePrompt,
+      previousImg,
       removeBg: true,
       userId: pet.userId,
       width: 512,
@@ -93,63 +88,43 @@ export const generatePetAppearance = async (
       size: "square",
       signal,
     });
-    if (avatar) await onUpload(avatar);
-    if (avatar) image = await downloadPetImage(avatar, signal);
-  } else {
-    const generated = await fastTxt2imgReplicate({
-      prompt,
-      aspect_ratio: "1:1",
-      disable_safety_checker: false,
-      output_quality: 80,
-      mega_pixels: "0.25",
-      signal,
-    });
-    const source = generated.data ? servedUfsUrl(generated.data) : null;
-    if (!source) throw new Error("The image provider did not return an image");
-    await onUpload(source);
-    await checkModeration(await downloadPetImage(source, signal), signal);
-    const cutout = await removeBackgroundReplicate(source, signal);
-    image = await sharp(await downloadPetImage(String(cutout.url()), signal), {
-      limitInputPixels: MAX_PET_IMAGE_PIXELS,
-    })
-      .resize({ width: 512, height: 512, fit: "inside" })
-      .webp({ quality: 80 })
-      .toBuffer();
-    await validateSceneCharacterImage(image);
+    if (!avatar) throw new Error("The image provider did not return an image");
+    await onUpload(avatar);
+    const image = await downloadPetImage(avatar, signal);
     await checkModeration(image, signal);
-    await checkVisualQuality(image, previousImage, pet, signal);
-    const uploaded = await uploadFileFromReplicate(
-      "pet",
-      new Blob([image as BlobPart]),
-      "webp",
-      signal,
+    await validateSceneCharacterImage(image);
+    const verdict = await reviewVisualQuality(image, previousImage, pet, signal);
+    return { avatar, verdict };
+  };
+  let candidate = await generateCandidate(prompt, pet.avatar ?? undefined);
+  try {
+    validatePetAppearanceQuality(candidate.verdict);
+  } catch (error) {
+    if (pet.avatar) throw error;
+    // Correct a rejected founder once; provider and safety failures never spend on a repair.
+    candidate = await generateCandidate(
+      `Redraw the supplied candidate as a full-body ${species.name}. Correct these visible defects: ${candidate.verdict.reason}. Redraw incorrect head, beak, body and silhouette into the requested species; retain cosmetic colours and markings only where compatible with its natural anatomy. ${prompt}`,
+      candidate.avatar,
     );
-    avatar = uploaded.data ? servedUfsUrl(uploaded.data) : undefined;
-    if (avatar) await onUpload(avatar);
-  }
-  if (!avatar || !image) throw new Error("The image provider did not return an image");
-  if (pet.avatar) {
-    await checkModeration(image, signal);
-    await validateSceneCharacterImage(image);
-    await checkVisualQuality(image, previousImage, pet, signal);
+    validatePetAppearanceQuality(candidate.verdict);
   }
   signal.throwIfAborted();
-  return avatar;
+  return candidate.avatar;
 };
 
-/** Check the candidate against authored traits and, for evolution, the accepted prior form. */
-const checkVisualQuality = async (
+/** Review the candidate's species and, for evolution, the accepted prior identity. */
+const reviewVisualQuality = async (
   image: Buffer,
   previousImage: Buffer | undefined,
   pet: AppearancePet,
   signal: AbortSignal,
 ) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
-  const verdict = await classifyPetAppearanceImage(
+  return classifyPetAppearanceImage(
     {
       image,
       previousImage,
-      species: species.description,
+      species: species.name,
       identity: [
         palette.description,
         characteristic.description,
@@ -159,7 +134,6 @@ const checkVisualQuality = async (
     },
     signal,
   );
-  validatePetAppearanceQuality(verdict);
 };
 
 /** Resolve saved catalogue IDs and reject corrupt identity before calling an image model. */
