@@ -62,6 +62,21 @@ describe("painted home properties", () => {
     }
   });
 
+  it.each([
+    { room: 1, floor: [[253, 245], [267, 245], [270, 251]], architecture: [[253, 235], [268, 237], [241, 245], [280, 230]] },
+    { room: 2, floor: [[248, 489], [259, 489], [264, 485]], architecture: [[243, 480], [253, 482], [238, 490], [275, 476]] },
+    { room: 3, floor: [[1173, 245], [1188, 245], [1192, 250]], architecture: [[1175, 236], [1193, 237], [1200, 245], [1159, 230]] },
+    { room: 4, floor: [[1194, 490], [1200, 490], [1200, 494]], architecture: [[1196, 480], [1205, 482], [1210, 490], [1185, 477]] },
+  ] as const)("finishes Town House room $room floors around the corner lamp plinth feet", ({ room, floor, architecture }) => {
+    const plan = HOME_ART_PLANS.TOWN_HOUSE;
+    for (const [landmarks, expected] of [[floor, true], [architecture, false]] as const) {
+      const surfaces = expected ? plan.floorSurfaces[room]! : plan.floorSurfaces.flat();
+      for (const [x, y] of landmarks) {
+        expect(surfaces.some((polygon) => containsArtPoint(polygon, x * 100 / 1448, y * 100 / 1086))).toBe(expected);
+      }
+    }
+  });
+
   it("finishes Mansion Room 2 to its wall joins without foreground restoring the floor", () => {
     const plan = HOME_ART_PLANS.MANSION;
     // Source-art landmarks beside the back, side and front wall joins, including both sides of the door.
@@ -259,6 +274,10 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1190, 348], [1194, 366], [1257, 350], [1272, 355], [1263, 367], [1196, 502], [1212, 510], [1212, 531], [1196, 531]], fixtures: [[1194, 358], [1263, 355], [1263, 361], [1200, 507], [1195, 513], [1206, 513], [1200, 517], [1200, 527], [1263, 370], [1190, 518], [1210, 539]] },
     { homeType: "PALACE", room: 3, walls: [[326, 502], [327, 530], [340, 531]], fixtures: [[320, 515], [336, 507], [330, 513], [336, 519], [336, 526], [343, 520], [333, 538]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 3, walls: [[326, 502], [327, 530], [340, 531]], fixtures: [[320, 515], [336, 507], [330, 513], [336, 519], [336, 526], [343, 520], [333, 538]] },
+    { homeType: "PALACE", room: 3, walls: [[210, 486], [222, 493], [208, 500], [229, 506], [210, 513], [222, 516], [229, 522]], fixtures: [[218, 483], [202, 494], [235, 514], [230, 531], [216, 489], [216, 496], [217, 505], [217, 512], [215, 519]] },
+    { homeType: "PALACE", room: 7, walls: [[1335, 487], [1326, 491], [1337, 492], [1315, 504], [1314, 520], [1323, 514], [1324, 515]], fixtures: [[1326, 483], [1305, 512], [1341, 495], [1315, 528], [1331, 490], [1326, 498], [1331, 505], [1331, 513], [1330, 520], [1302, 527]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 3, walls: [[210, 486], [222, 493], [208, 500], [229, 506], [210, 513], [222, 516], [229, 522]], fixtures: [[218, 483], [202, 494], [235, 514], [230, 531], [216, 489], [216, 496], [217, 505], [217, 512], [215, 519]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1335, 487], [1326, 491], [1337, 492], [1315, 504], [1314, 520], [1323, 514], [1324, 515]], fixtures: [[1326, 483], [1305, 512], [1341, 495], [1315, 528], [1331, 490], [1326, 498], [1331, 505], [1331, 513], [1330, 520], [1302, 527]] },
   ] as const)("covers $homeType room $room wall faces while preserving windows and lamps", ({ homeType, room, walls, fixtures }) => {
     const plan = HOME_ART_PLANS[homeType];
     const [width, height] = plan.aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
