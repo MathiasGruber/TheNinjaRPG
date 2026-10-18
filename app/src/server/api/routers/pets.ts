@@ -755,7 +755,11 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
-  /** Claim a bounded generation lease and accept only its matching provider result. */
+  /**
+   * Claim one attempt atomically before calling the image provider, then accept only
+   * its matching lease. Accepted art and cosmetics remain unchanged until success;
+   * same-rank redraws may change cosmetics, while evolutions retain their identity.
+   */
   generateAppearance: protectedProcedure
     .input(generatePetAppearanceSchema)
     .output(baseServerResponse)
@@ -890,6 +894,7 @@ export const petsRouter = createTRPCRouter({
           petId: pet.id,
           rank: pet.rank,
         });
+        // A failed redraw keeps usable art; unfinished founders and evolutions still need recovery.
         await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)

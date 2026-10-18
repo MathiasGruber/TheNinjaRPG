@@ -2803,6 +2803,7 @@ export const profileRouter = createTRPCRouter({
           generationDay: null,
           generationStartedAt: null,
           generationToken: null,
+          // Expired redraws retain usable art; unfinished evolutions remain retryable.
           generationStatus:
             pet.generationStatus === "GENERATING"
               ? pet.avatar && pet.artRank === pet.rank

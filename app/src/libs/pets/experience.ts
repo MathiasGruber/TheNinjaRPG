@@ -23,6 +23,7 @@ export const petExperienceGainSql = (experience: number, petId?: string | null) 
   const identity = petId ? sql`AND ${userPet.id} = ${petId}` : sql``;
   // The live identity guard excludes released/replaced pets, while the correlated
   // rank check also stops progression after the owner loses the required rank.
+  // Match isPetAppearanceReady: accepted current-rank art remains usable during redraws.
   return sql`${userData.petExperience} + IF(EXISTS (
     SELECT 1 FROM ${userPet}
     WHERE ${userPet.userId} = ${userData.userId}

@@ -103,10 +103,12 @@ export function PetProfile() {
   const [abilitySearch, setAbilitySearch] = useState("");
   const [abilityKind, setAbilityKind] = useState("all");
   const [isEvolving, setIsEvolving] = useState(false);
+  // Background progress and feedback belong to the initiating pet, even after selection changes.
   const [generatingPetIds, setGeneratingPetIds] = useState<string[]>([]);
   const [generationMessages, setGenerationMessages] = useState<
     Record<string, string | null>
   >({});
+  // The ref rejects duplicate starts before rendering; state drives controls and polling.
   const pendingGenerations = useRef(new Set<string>());
   // Close the gap before React paints pending state, including multi-step evolution.
   const inFlight = useRef(false);
@@ -165,6 +167,7 @@ export function PetProfile() {
     setMessage(null);
   }, [pet?.id, pet?.name, nameForm]);
 
+  /** Reconcile pet and player views after a committed or uncertain mutation. */
   const invalidatePetData = async () => {
     await Promise.all([
       utils.pets.getPet.invalidate(),
@@ -187,6 +190,7 @@ export function PetProfile() {
     onError: failMutation,
   });
   const generate = api.pets.generateAppearance.useMutation({
+    // Capture the name before the player can rename or switch companions.
     onMutate: ({ petId }) => data?.pets.find((entry) => entry.id === petId)?.name,
     onSuccess: async (result, { petId }, name) => {
       setGenerationMessages((previous) => ({
@@ -201,6 +205,7 @@ export function PetProfile() {
     },
     onError: async (cause, { petId }, name) => {
       setGenerationMessages((previous) => ({ ...previous, [petId]: cause.message }));
+      // A local onError replaces the provider's default toast, so report background failures here.
       showMutationToast({
         success: false,
         message: `${name ?? "Companion"}: ${cause.message}`,
@@ -280,7 +285,7 @@ export function PetProfile() {
         ...(appearance ? { appearance } : {}),
       });
     } catch {
-      // Both the shared error toast and the inline message leave the retry action available.
+      // Mutation callbacks show a named toast and retain the pet's inline error for retry.
     } finally {
       pendingGenerations.current.delete(petId);
       setGeneratingPetIds([...pendingGenerations.current]);
