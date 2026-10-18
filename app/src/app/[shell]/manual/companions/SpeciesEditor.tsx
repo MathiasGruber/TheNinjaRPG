@@ -169,7 +169,10 @@ const SpeciesForm = ({
                   effects={validEffects}
                   setEffects={setEffects}
                   availableTags={tagTypes.filter(
-                    (type) => type !== "move" && type !== "barrier",
+                    (type) =>
+                      type !== "move" &&
+                      type !== "barrier" &&
+                      type !== "activatesagemode",
                   )}
                   submitLoading={isSaving}
                 />

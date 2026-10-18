@@ -218,6 +218,7 @@ it("edits role, default loadout and species passives through separate compact ta
   const availableTags = view.getByText(/Available skill tags:/).textContent?.replace("Available skill tags: ", "").split(", ");
   expect(availableTags).not.toContain("move");
   expect(availableTags).not.toContain("barrier");
+  expect(availableTags).not.toContain("activatesagemode");
   expect(availableTags).toEqual(expect.arrayContaining(["moveprevent", "summon", "clone"]));
   act(() => editor.form.setValue("skillTarget", "ENEMIES", { shouldDirty: true }));
   fireEvent.click(view.getByRole("button", { name: "Save to Database" }));
