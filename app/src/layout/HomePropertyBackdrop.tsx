@@ -9,7 +9,7 @@ import {
   IMG_HOME_PROPERTIES,
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
-import { HOME_ART_PLANS } from "@/libs/homeRoomGeometry";
+import { HOME_ART_PLANS, type HomeArtPolygon } from "@/libs/homeRoomGeometry";
 import { STRUCTURE_GROUND_TERRAIN } from "@/libs/sector-map/terrains";
 import { bunnyImageUrl, transformImageUrl } from "@/utils/image";
 import type { HomeRoomStyle } from "@/validators/home";
@@ -69,9 +69,6 @@ export const HomePropertyBackdrop = ({
         const surfaces = plan.floorSurfaces[index];
         const texture = HOME_FLOOR_TILES[style.floor];
         if (!surfaces || !texture) return null;
-        const points = surfaces.flat();
-        const left = Math.min(...points.map(([x]) => x));
-        const top = Math.min(...points.map(([, y]) => y));
         return (
           <svg
             key={style.room}
@@ -83,6 +80,24 @@ export const HomePropertyBackdrop = ({
             style={{ ...size, zIndex: 1 }}
           >
             <defs>
+              {/* Share the painting origin across rooms; undo its aspect stretch for the 4:3 textures. */}
+              <pattern
+                id={`${id}-${style.room}-texture`}
+                patternUnits="userSpaceOnUse"
+                x={0}
+                y={0}
+                width={32}
+                height={24}
+                patternTransform={`scale(${1 / (plan.aspectRatio ?? 4 / 3)} 1)`}
+              >
+                {/* The painting supplies the floor if this optional finish fails to load. */}
+                <image
+                  href={transformImageUrl(texture)}
+                  width={32}
+                  height={24}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              </pattern>
               <clipPath id={`${id}-${style.room}-floor`}>
                 {surfaces.map((polygon, index) => (
                   <polygon
@@ -92,14 +107,10 @@ export const HomePropertyBackdrop = ({
                 ))}
               </clipPath>
             </defs>
-            {/* The complete painting supplies the floor if this optional finish fails to load. */}
-            <image
-              href={transformImageUrl(texture)}
-              x={left}
-              y={top}
-              width={Math.max(...points.map(([x]) => x)) - left}
-              height={Math.max(...points.map(([, y]) => y)) - top}
-              preserveAspectRatio="none"
+            <rect
+              width={100}
+              height={100}
+              fill={`url(#${id}-${style.room}-texture)`}
               clipPath={`url(#${id}-${style.room}-floor)`}
             />
           </svg>
@@ -129,35 +140,77 @@ export const HomePropertyBackdrop = ({
               onError={onError}
             />
           </picture>
+          {/* The foreground restores original artwork, so its wall finish must share this depth. */}
+          {styles.flatMap((style) =>
+            (plan.paint[HOME_ROOM_IDS.indexOf(style.room)] ?? [])
+              .filter((panel) => homeArtBoundsOverlap(panel, polygon))
+              .map((panel, index) => (
+                <HomeWallPaint
+                  key={`${style.room}-${index}`}
+                  roomStyle={style}
+                  polygon={panel}
+                  size={100}
+                  isForeground
+                />
+              )),
+          )}
         </div>
       ))}
-      {styles.flatMap((style) => {
-        const index = HOME_ROOM_IDS.indexOf(style.room);
-        return (plan.paint[index] ?? []).map((polygon, panel) => (
-          <svg
+      {styles.flatMap((style) =>
+        (plan.paint[HOME_ROOM_IDS.indexOf(style.room)] ?? []).map((polygon, panel) => (
+          <HomeWallPaint
             key={`${style.room}-${panel}`}
-            aria-hidden
-            data-home-wall-paint={style.room}
-            className="pointer-events-none absolute"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            style={{
-              ...size,
-              mixBlendMode: "color",
-              opacity: 0.7,
-              zIndex:
-                Math.round((Math.max(...polygon.map(([, y]) => y)) * plan.size) / 10) +
-                1,
-            }}
-          >
-            <polygon
-              points={polygon.map(([x, y]) => `${x},${y}`).join(" ")}
-              fill={HOME_WALL_PAINTS[style.paint]}
-              fillRule="evenodd"
-            />
-          </svg>
-        ));
-      })}
+            roomStyle={style}
+            polygon={polygon}
+            size={plan.size}
+          />
+        )),
+      )}
     </>
   );
 };
+
+/**
+ * Composite paint at each artwork layer's depth so furniture keeps its occlusion.
+ * Size uses world percentages for the base painting and 100% inside a clipped foreground copy.
+ */
+const HomeWallPaint = ({
+  roomStyle,
+  polygon,
+  size,
+  isForeground = false,
+}: {
+  roomStyle: HomeRoomStyle;
+  polygon: HomeArtPolygon;
+  size: number;
+  isForeground?: boolean;
+}) => (
+  <svg
+    aria-hidden
+    data-home-wall-paint={isForeground ? undefined : roomStyle.room}
+    data-home-foreground-paint={isForeground ? roomStyle.room : undefined}
+    className="pointer-events-none absolute"
+    viewBox="0 0 100 100"
+    preserveAspectRatio="none"
+    style={{
+      width: `${size}%`,
+      height: `${size}%`,
+      mixBlendMode: "color",
+      opacity: 0.7,
+      zIndex: 0,
+    }}
+  >
+    <polygon
+      points={polygon.map(([x, y]) => `${x},${y}`).join(" ")}
+      fill={HOME_WALL_PAINTS[roomStyle.paint]}
+      fillRule="evenodd"
+    />
+  </svg>
+);
+
+/** Bounding boxes only cull invisible copies; the foreground's exact clip still defines coverage. */
+const homeArtBoundsOverlap = (a: HomeArtPolygon, b: HomeArtPolygon) =>
+  Math.min(...a.map(([x]) => x)) < Math.max(...b.map(([x]) => x)) &&
+  Math.max(...a.map(([x]) => x)) > Math.min(...b.map(([x]) => x)) &&
+  Math.min(...a.map(([, y]) => y)) < Math.max(...b.map(([, y]) => y)) &&
+  Math.max(...a.map(([, y]) => y)) > Math.min(...b.map(([, y]) => y));

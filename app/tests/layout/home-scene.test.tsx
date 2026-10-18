@@ -140,16 +140,15 @@ describe("Home scene", () => {
     expect(scene.querySelectorAll("[data-home-room-style]")).toHaveLength(material === "original" ? 0 : 1);
     const floor = scene.querySelector('[data-home-room-style="room-1"] image');
     const surfaces = HOME_ART_PLANS.TOWN_HOUSE.floorSurfaces[1]!;
-    const points = surfaces.flat();
-    const left = Math.min(...points.map(([x]) => x));
-    const top = Math.min(...points.map(([, y]) => y));
     if (material === "original") expect(floor).toBeNull();
     else {
       expect(floor?.getAttribute("href")).toBe(transformImageUrl(HOME_FLOOR_TILES[material]));
-      expect(floor?.getAttribute("x")).toBe(`${left}`);
-      expect(floor?.getAttribute("y")).toBe(`${top}`);
-      expect(floor?.getAttribute("width")).toBe(`${Math.max(...points.map(([x]) => x)) - left}`);
-      expect(floor?.getAttribute("height")).toBe(`${Math.max(...points.map(([, y]) => y)) - top}`);
+      const pattern = floor?.closest("pattern");
+      const finish = scene.querySelector('[data-home-room-style="room-1"] rect');
+      expect(finish?.getAttribute("width")).toBe("100");
+      expect(finish?.getAttribute("height")).toBe("100");
+      expect(finish?.getAttribute("fill")).toBe(`url(#${pattern?.id})`);
+      expect(finish?.getAttribute("clip-path")).toBe(`url(#${scene.querySelector('[data-home-room-style="room-1"] clipPath')?.id})`);
       const masks = [...scene.querySelectorAll('[data-home-room-style="room-1"] clipPath polygon')];
       expect(masks.map((mask) => mask.getAttribute("points"))).toEqual(surfaces.map((polygon) => polygon.map(([x, y]) => `${x},${y}`).join(" ")));
       // A finish replaces the source material completely, including its tile or wood pattern.
@@ -163,6 +162,26 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Cancel" }));
     view.rerender(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate />);
     expect(scene.querySelector("[data-home-room-style]")).toBeNull();
+  });
+
+  it.each([...HomeTypes])("anchors every %s room finish to the painting with the texture's physical proportions", (homeType) => {
+    const rooms = getHomeRooms(homeType).filter(({ isYard }) => !isYard);
+    const view = render(<HomeScene {...props} homeType={homeType} styles={rooms.map(({ id }) => ({ room: id, paint: "sage", floor: "slate" }))} />);
+    const patterns = [...view.getByRole("group", { name: "Home scene" }).querySelectorAll("[data-home-room-style] pattern")];
+    expect(patterns).toHaveLength(rooms.length);
+    const aspectRatio = HOME_ART_PLANS[homeType].aspectRatio ?? 4 / 3;
+    patterns.forEach((pattern) => {
+      expect(pattern.getAttribute("patternUnits")).toBe("userSpaceOnUse");
+      expect(pattern.getAttribute("x")).toBe("0");
+      expect(pattern.getAttribute("y")).toBe("0");
+      expect(pattern.getAttribute("width")).toBe("32");
+      expect(pattern.getAttribute("height")).toBe("24");
+      expect(pattern.getAttribute("patternTransform")).toBe(`scale(${1 / aspectRatio} 1)`);
+      const image = pattern.querySelector("image")!;
+      expect(image.getAttribute("width")).toBe(pattern.getAttribute("width"));
+      expect(image.getAttribute("height")).toBe(pattern.getAttribute("height"));
+      expect(image.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
+    });
   });
 
   it.each([...HomeTypes])("places a stored garden in the authored cultivation space for %s", async (homeType) => {
@@ -201,6 +220,31 @@ describe("Home scene", () => {
       });
     });
     expect(scene.querySelector('[data-home-wall-paint="yard"]')).toBeNull();
+  });
+
+  it("retains wall finishes on the foreground while furniture remains above rear walls", () => {
+    const view = render(<HomeScene {...props} homeType="MANSION" styles={[{ room: "room-2", paint: "rose", floor: "original" }]} />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const front = scene.querySelector('[data-home-foreground="70.5"]')!;
+    const finish = front.querySelector('[data-home-foreground-paint="room-2"] polygon')!;
+    expect(finish.getAttribute("fill")).toBe(HOME_WALL_PAINTS.rose);
+    const rear = scene.querySelector<SVGSVGElement>('[data-home-wall-paint="room-2"]')!;
+    expect(Number(rear.style.zIndex)).toBeLessThan(Number(scene.querySelector<HTMLElement>('[aria-label="Bed: Go to sleep"]')!.style.zIndex));
+  });
+
+  it.each(["Bed", "Armory", "Kitchen"])("moves %s to the lawn and saves its room", async (name) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(true);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: new RegExp(`^${name}Placed`) }));
+    fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "yard" } });
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("yard");
+    expect(view.queryByLabelText("Wall paint")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements;
+    expect(saved.find(({ id }) => id === starterFurniture.find((piece) => piece.name === name)!.id)?.room).toBe("yard");
+    expect(homeLayoutPlacementError(saved, starterFurniture, "TOWN_HOUSE")).toBeNull();
   });
 
   it("keeps the original painting and home controls available when an optional floor texture fails", () => {
@@ -1266,7 +1310,7 @@ describe("multi-room home scene", () => {
     expect(onSave.mock.calls[0]![0].styles).toEqual([mainStyle, { room: "room-1", paint: "sage", floor: "slate" }]);
   });
 
-  it("keeps the source room active when furniture cannot move into the yard", async () => {
+  it("keeps the source room active when a drop misses the decorative lawn", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
