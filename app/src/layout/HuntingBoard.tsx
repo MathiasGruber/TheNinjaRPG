@@ -150,7 +150,7 @@ export function HuntingBoard({
                 this session.
               </p>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 [&_button]:h-full [&_button]:min-h-9 [&_button]:w-full [&_button]:whitespace-normal">
               <Link href="/travel">
                 <Button variant="secondary">Travel to sector {session.sector}</Button>
               </Link>
