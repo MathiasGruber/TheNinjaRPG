@@ -6,6 +6,7 @@ import * as train from "@/libs/train";
 import { jutsuRouter } from "@/server/api/routers/jutsu";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 
+/** Exercise resolver guards with deterministic fixture reads and observable attempted writes. */
 const setup = () => {
   const user = { userId: "recipient", role: "USER", federalStatus: "GOLD", staffAccount: false, jutsuLoadout: "active", items: [], titles: [], userSkills: [] };
   const loadouts = [
@@ -40,6 +41,7 @@ const setup = () => {
     execute,
   };
   type Result = { success: boolean; message: string; preview?: { token: string; jutsuIds: string[] } };
+  /** Invoke the actual resolver with this fixture's user and database. */
   const call = (name: "previewJutsuLoadout" | "importJutsuLoadout", input: { loadoutId: string; text: string; previewToken?: string }) => {
     const { resolver } = jutsuRouter._def.procedures[name]._def as unknown as {
       resolver: (options: { ctx: { drizzle: object; userId: string }; input: object }) => Promise<Result>;
@@ -47,6 +49,7 @@ const setup = () => {
     return resolver({ ctx: { drizzle: database, userId: user.userId }, input });
   };
   const input = { loadoutId: "active", text: exportJutsuLoadout(["b", "a"]) };
+  /** Obtain the actual resolver's fingerprint rather than constructing one in the test. */
   const preview = async (request = input) => {
     const result = await call("previewJutsuLoadout", request);
     expect(result.success).toBe(true);

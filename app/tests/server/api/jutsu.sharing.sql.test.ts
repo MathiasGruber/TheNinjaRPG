@@ -31,12 +31,14 @@ describeWithDatabase("jutsu loadout sharing atomic SQL", () => {
     await database.update(userData).set({ jutsuLoadout: "sharing-active" }).where(eq(userData.userId, USER));
   });
 
+  /** Obtain a real server preview for the existing recipient slot. */
   const previewInput = async (loadoutId = "sharing-active", sharedText = text) => {
     const caller = await callerFor(jutsuRouter, USER);
     const result = await caller.previewJutsuLoadout({ loadoutId, text: sharedText });
     if (!result.success) throw new Error(result.message);
     return { loadoutId, text: sharedText, previewToken: result.preview.token };
   };
+  /** Read slots and inventory with stable ordering for before/after comparisons. */
   const snapshot = async () => {
     const database = await getTestDatabase();
     const [loadouts, owned] = await Promise.all([
@@ -122,8 +124,12 @@ describeWithDatabase("jutsu loadout sharing atomic SQL", () => {
   });
 });
 
-/** Interleave an edit after preparation, just before the no-op confirmation reads. */
+/**
+ * Interleave an edit at no-op SELECT execution, after all preparation reads.
+ * The shared statement helper intercepts writes, so it cannot target this read.
+ */
 const beforeLoadoutConfirmation = (client: DrizzleClient, action: () => Promise<void>): DrizzleClient => {
+  /** Preserve fluent builder chaining while deferring the interleaving until execution. */
   const wrap = (builder: object): object => new Proxy(builder, {
     get(target, property, receiver) {
       if (property === "then") {

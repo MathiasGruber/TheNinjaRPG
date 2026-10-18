@@ -14,6 +14,7 @@ const preview = {
   entries: [{ jutsuId: "strike", name: "Swift strike", accepted: true, reason: null, message: "Ready to import" }],
 };
 
+/** Render the real dialog with controlled server outcomes for draft, replacement and focus tests. */
 const setup = (overrides: Partial<Props> = {}) => {
   const props = {
     loadouts: [{ id: "one", name: "My name", jutsuIds: ["old"] }],
@@ -24,6 +25,7 @@ const setup = (overrides: Partial<Props> = {}) => {
     ...overrides,
   };
   const view = render(<JutsuLoadoutSharingDialog {...props} />);
+  /** Reach the preview step without confirming a replacement. */
   const pasteAndPreview = async () => {
     fireEvent.click(view.getByRole("button", { name: "Import" }));
     fireEvent.change(view.getByLabelText("Loadout text"), { target: { value: exportJutsuLoadout(["strike"]) } });

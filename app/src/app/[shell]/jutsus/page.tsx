@@ -205,6 +205,7 @@ export default function MyJutsu() {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
+        // Sharing exports saved IDs, so equipment edits must refresh that query too.
         await Promise.all([
           utils.jutsu.getUserJutsus.invalidate(),
           utils.jutsu.getLoadouts.invalidate(),

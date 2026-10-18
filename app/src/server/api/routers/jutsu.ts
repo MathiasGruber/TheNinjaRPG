@@ -468,6 +468,7 @@ export const jutsuRouter = createTRPCRouter({
         : result;
     }),
 
+  /** Return eligibility and a confirmation fingerprint without editing slots or equipment. */
   previewJutsuLoadout: protectedProcedure
     .input(previewJutsuLoadoutSchema)
     .mutation(async ({ ctx, input }) => {
@@ -480,6 +481,7 @@ export const jutsuRouter = createTRPCRouter({
       };
     }),
 
+  /** Revalidate the preview, preserve the destination name and equip active imports atomically. */
   importJutsuLoadout: protectedProcedure
     .input(importJutsuLoadoutSchema)
     .output(baseServerResponse)
@@ -542,7 +544,8 @@ export const jutsuRouter = createTRPCRouter({
         return { success: true, message: "Loadout already matches" };
       }
 
-      // A single statement keeps the saved order and equipped flags together.
+      // Drizzle's update builder targets one table; joined SQL keeps saved order
+      // and equipped flags together in one statement, without a transaction.
       // Snapshot guards also stop a concurrent selection, rename, allowance change,
       // or edit from being overwritten between revalidation and this write.
       const savedIds = sql`CAST(${JSON.stringify(preview.jutsuIds)} AS JSON)`;
@@ -2589,7 +2592,10 @@ export const getJutsuRelations = async (client: DrizzleClient, jutsuId: string) 
 };
 export type JutsuRelations = Awaited<ReturnType<typeof getJutsuRelations>>;
 
-/** Resolve the same destination and eligibility snapshot for preview and confirmation. */
+/**
+ * Resolve current recipient, destination and eligibility for either sharing endpoint.
+ * Independent reads run in parallel; the fingerprint binds confirmation to their result.
+ */
 const prepareJutsuLoadoutImport = async (
   client: DrizzleClient,
   userId: string,

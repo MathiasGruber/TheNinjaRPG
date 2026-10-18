@@ -28,6 +28,7 @@ import { fedJutsuLoadouts } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { LOADOUT_SHARE_MAX_LENGTH } from "@/validators/loadout";
 
+/** Connect sharing controls to authenticated tRPC and refresh slots/equipment after import. */
 export const JutsuLoadoutSharing = () => {
   const { data: user } = useRequiredUserData();
   const utils = api.useUtils();
@@ -55,6 +56,7 @@ export const JutsuLoadoutSharing = () => {
   );
 };
 
+/** Manage export, editable previews and explicit replacement of one existing loadout. */
 export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
   const [mode, setMode] = useState<"export" | "import" | null>(null);
   const [loadoutId, setLoadoutId] = useState("");
@@ -63,12 +65,14 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
   const [error, setError] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
+  // Block duplicate events immediately, before React renders disabled controls.
   const pendingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const returnFocusRef = useRef<HTMLButtonElement>(null);
   const selected = props.loadouts.find((entry) => entry.id === loadoutId);
   const exportText = selected ? exportJutsuLoadout(selected.jutsuIds) : "";
 
+  /** Start a fresh draft and remember which of the two openers should regain focus. */
   const open = (next: "export" | "import", trigger: HTMLButtonElement) => {
     returnFocusRef.current = trigger;
     setLoadoutId(
@@ -83,6 +87,10 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
     setMode(next);
   };
 
+  /**
+   * Preview the draft or confirm its server fingerprint. Keep dismissal blocked
+   * through cache refresh; a rejected replacement must be previewed again.
+   */
   const runImportAction = async (replace: boolean) => {
     if (pendingRef.current || !selected || (replace && !preview)) return;
     pendingRef.current = true;
@@ -116,6 +124,7 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
     }
   };
 
+  /** Fall back to selecting the intact payload when clipboard access is unavailable. */
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(exportText);
@@ -154,6 +163,7 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
           className={modalViewportClassName}
           closeDisabled={isPending}
           onCloseAutoFocus={(event) => {
+            // External openers share this dialog, so Radix has no single DialogTrigger.
             if (returnFocusRef.current?.isConnected) {
               event.preventDefault();
               returnFocusRef.current.focus();
@@ -274,8 +284,11 @@ export const JutsuLoadoutSharingDialog = (props: SharingProps) => {
   );
 };
 
+/** Server-derived preview plus the fingerprint required to confirm that exact result. */
 type ImportPreview = ReturnType<typeof computeJutsuLoadoutPreview> & { token: string };
+/** Destination ID plus untrusted pasted share text. */
 type ImportInput = { loadoutId: string; text: string };
+/** Preview is read-only; successful replacement is followed by an awaited cache refresh. */
 type SharingProps = {
   loadouts: Pick<JutsuLoadout, "id" | "name" | "jutsuIds">[];
   activeId: string | null;

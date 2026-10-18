@@ -51,12 +51,14 @@ export interface ComputedJutsuLoadout {
   invalidJutsus: string[];
 }
 
+/** Machine-readable rejection categories shown by loadout sharing previews. */
 export type JutsuLoadoutExclusionReason =
   | "not-owned"
   | "unavailable"
   | "requirements"
   | "equip-limit";
 
+/** Pair an excluded ID with its category and the existing selection diagnostic. */
 type JutsuLoadoutExclusion = {
   jutsuId: string;
   reason: JutsuLoadoutExclusionReason;
@@ -290,6 +292,7 @@ type JutsuLoadoutValidationInput = Pick<UserJutsuWithRelations, "jutsuId" | "jut
  * validation to an ordered list of saved jutsu IDs. Keeping the cap pass here
  * ensures every loadout-selection surface, including the combat lobby, uses
  * the same rules as manual equip.
+ * Optional exclusion callbacks expose categories while retaining string diagnostics.
  */
 export const computeJutsuLoadoutCapAssignments = (args: {
   jutsuIds: string[];
@@ -304,6 +307,7 @@ export const computeJutsuLoadoutCapAssignments = (args: {
   const equipIds: string[] = [];
   const invalidJutsus: string[] = [];
   const counts = emptyCapCounts();
+  /** Keep existing selection messages and sharing's structured exclusions in sync. */
   const exclude = (
     jutsuId: string,
     message: string,
@@ -386,6 +390,7 @@ export const computeJutsuLoadoutAssignments = (args: {
     onExcluded: args.onExcluded,
     validateJutsu: ({ jutsu }) => {
       if (jutsu.hidden && !canChangeContent(user.role)) {
+        // Content and ownership reads can straddle an edit; retain the visibility category.
         return { message: `${jutsu.name} is hidden`, reason: "unavailable" };
       }
       if (!canUseJutsu(jutsu, user, false, masteries)) {
@@ -396,7 +401,10 @@ export const computeJutsuLoadoutAssignments = (args: {
   });
 };
 
-/** Ordered sharing preview; names and eligibility always come from server data. */
+/**
+ * Build a deduplicated, ordered preview using the shared equip rules and server names.
+ * Suppress hidden/missing content names and return only accepted IDs for persistence.
+ */
 export const computeJutsuLoadoutPreview = (
   args: Parameters<typeof computeJutsuLoadoutAssignments>[0] & {
     content: Pick<Jutsu, "id" | "name" | "hidden">[];
@@ -412,6 +420,7 @@ export const computeJutsuLoadoutPreview = (
     const unavailable =
       !content || (content.hidden && !canChangeContent(args.user.role));
     const exclusion = exclusions.get(jutsuId);
+    // Selection diagnostics include owned names; the preview renders its name separately.
     const prefix = `${args.userjutsus.find((entry) => entry.jutsuId === jutsuId)?.jutsu.name}: `;
     const message = exclusion?.message.startsWith(prefix)
       ? exclusion.message.slice(prefix.length)
