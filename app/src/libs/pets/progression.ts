@@ -42,7 +42,10 @@ export const getMaxPetRank = (ownerRank: UserRank) => {
   return ranks[ownerRank];
 };
 
-/** Abandoned generation leases expire without releasing ownership. */
+/**
+ * Abandoned generation leases expire without releasing ownership.
+ * A missing start time stays active so incomplete leases cannot be replaced or reset.
+ */
 export const hasActiveGeneration = (
   pet: Pick<UserPet, "generationStatus" | "generationStartedAt">,
   now = new Date(),

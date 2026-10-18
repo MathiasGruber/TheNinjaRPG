@@ -197,6 +197,7 @@ export const adjustSeichiSilverSchema = z.object({
 });
 export type AdjustSeichiSilverSchema = z.infer<typeof adjustSeichiSilverSchema>;
 
+/** Identify the owner's companion and require an auditable reason for restoring attempts. */
 export const resetPetImageGenerationSchema = z.object({
   userId: z.string().min(1),
   petId: z.string().min(1),

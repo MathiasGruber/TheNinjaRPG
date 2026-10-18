@@ -4867,6 +4867,7 @@ export const ResetPetImageGeneration = ({
         utils.pets.getPet.invalidate(),
       ]);
     },
+    // Network errors can bypass global toasts; retain the dialog's inputs for retry.
     onError: (cause) => setError(cause.message),
   });
   const canReset = Boolean(

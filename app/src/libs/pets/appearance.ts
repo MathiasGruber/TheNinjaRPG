@@ -74,7 +74,7 @@ export const generatePetAppearance = async (
   const previousImage = pet.avatar
     ? await downloadPetImage(pet.avatar, signal)
     : undefined;
-  // Every candidate follows the same model, cutout, moderation and visual review path.
+  /** Apply the same cutout, moderation and visual checks to initial and corrective candidates. */
   const generateCandidate = async (candidatePrompt: string, previousImg?: string) => {
     signal.throwIfAborted();
     const [avatar] = await txt2imgNanoBanana({

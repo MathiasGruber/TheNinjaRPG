@@ -44,6 +44,7 @@ afterEach(() => {
   });
 });
 
+/** Render the real staff dialog with a scoped tRPC link and controllable server outcomes. */
 const mount = () => {
   Object.assign(vi.spyOn(client, "api" as never), {
     profile: testApi.profile,

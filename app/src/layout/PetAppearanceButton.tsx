@@ -58,6 +58,7 @@ export function PetAppearanceButton({
             void onGenerate();
             return;
           }
+          // Closing the picker discards its draft; reopening starts from the saved traits.
           setDraft({
             paletteIndex: pet.paletteIndex,
             characteristicIndex: pet.characteristicIndex,
@@ -90,6 +91,7 @@ export function PetAppearanceButton({
           <div className="grid gap-3 sm:grid-cols-3">
             {fields.map(({ field, label, choices, catalogue }) => {
               const current = catalogue[pet[field]];
+              // Saved traits remain selectable after their daily offer has rotated out.
               const available =
                 current && !choices.some(({ index }) => index === current.index)
                   ? [{ ...current, name: `${current.name} (current)` }, ...choices]

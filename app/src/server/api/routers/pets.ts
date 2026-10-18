@@ -344,6 +344,7 @@ export const petsRouter = createTRPCRouter({
       );
       const nextFeedAt = getPetFeedAvailableAt(pet?.lastFedAt ?? null);
       const feedAvailableAt = nextFeedAt && nextFeedAt > now ? nextFeedAt : null;
+      // Buying capacity or releasing a companion cannot replenish exhausted daily offers.
       const acquisitionRestriction = !species.some((entry) => entry.isActive)
         ? "The Bondkeepers are not offering new companions right now. Please check back later."
         : options.species.length === 0
@@ -795,6 +796,7 @@ export const petsRouter = createTRPCRouter({
           [],
           dayKey,
         );
+        // Saved cosmetics remain eligible even after the daily offerings rotate.
         const selected = input.appearance;
         if (
           selected.dayKey !== dayKey ||
@@ -818,6 +820,7 @@ export const petsRouter = createTRPCRouter({
         characteristicIndex: input.appearance.characteristicIndex,
         auraIndex: input.appearance.auraIndex,
       };
+      // Commit cosmetics with the lease so a concurrent retry cannot change its identity.
       const token = nanoid();
       const claim = await retryOnDeadlock(() =>
         ctx.drizzle
