@@ -1,6 +1,6 @@
-/** PIN-bearing inputs must never enter diagnostic messages or error telemetry. */
+/** Authentication proofs and PINs must never enter diagnostics or error telemetry. */
 export const hasSensitiveTrpcInput = (path: string | undefined) =>
-  path?.startsWith("parentalControls.") ?? false;
+  Boolean(path?.startsWith("parentalControls.") || path?.startsWith("nativeAuth."));
 
 /** Redacts the whole sensitive input so future credential fields are also protected. */
 export const diagnosticTrpcInput = (path: string | undefined, input: unknown) =>

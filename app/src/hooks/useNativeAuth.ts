@@ -2,40 +2,37 @@
 
 import { useClerk } from "@clerk/nextjs";
 import type { SignInResource } from "@clerk/shared/types";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNativeAuthHandoff } from "@/hooks/useNativeAuthHandoff";
 import { appEvents, appleAuth, isNative, oauthBrowser } from "@/libs/native";
+import { createAuthProof } from "@/libs/native/authProof";
+import type { NativeAuthProvider } from "@/validators/nativeAuth";
 
 /** Where the provider sends the player back to. Registered in both native projects. */
 const OAUTH_REDIRECT = "tnr://oauth-callback";
-const OAUTH_CALLBACK_GRACE_MS = 1000;
+const OAUTH_CALLBACK_GRACE_MS = 2000;
 
 export type NativeAuthResult =
   | { status: "complete" }
   | { status: "cancelled" }
   | { status: "error"; message: string };
 
-/**
- * Sign-in paths that only exist inside the native shell.
- *
- * Two different problems, two different answers:
- *
- * Apple requires the system sheet on iOS, and guideline 4.8 requires an equivalent login
- * option wherever social login is offered. `appleAuth` returns an identity token, which
- * Clerk exchanges for a session through its `oauth_token_apple` strategy.
- *
- * Google rejects OAuth from embedded user agents with `disallowed_useragent`, and the shell
- * is a WebView, so the redirect flow Clerk normally runs in-page cannot work. RFC 8252 says
- * the same for every provider: use the system browser. `signIn.create` hands back the
- * authorization URL instead of navigating, the system browser takes it from there, and the
- * `tnr://` deep link brings the result back.
- *
- * These use Clerk's resource API rather than the `useSignIn` signal hook because
- * `oauth_token_apple` is only accepted there, and because the OAuth URL has to be obtained
- * without navigating the page.
- */
+/** Apple uses its native sheet. Other providers finish in one browser cookie store,
+ * then return a one-use PKCE handoff to the shell's own Clerk client. */
 export const useNativeAuth = () => {
   const clerk = useClerk();
   const [isPending, setIsPending] = useState(false);
+  const handoff = useNativeAuthHandoff();
+  const alive = useRef(true);
+  const busy = useRef(false);
+  const cancelPending = useRef<(() => void) | undefined>(undefined);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      cancelPending.current?.();
+    };
+  }, []);
 
   const isReady = isNative() && Boolean(clerk.client?.signIn);
 
@@ -46,6 +43,7 @@ export const useNativeAuth = () => {
    */
   const completeOrTransfer = useCallback(
     async (result: SignInResource): Promise<NativeAuthResult> => {
+      if (!alive.current) return { status: "cancelled" };
       if (result.createdSessionId) {
         await clerk.setActive({ session: result.createdSessionId });
         return { status: "complete" };
@@ -54,6 +52,7 @@ export const useNativeAuth = () => {
         const signUp = clerk.client?.signUp;
         if (!signUp) return { status: "error", message: "Sign-up is unavailable" };
         const created = await signUp.create({ transfer: true });
+        if (!alive.current) return { status: "cancelled" };
         if (created.createdSessionId) {
           await clerk.setActive({ session: created.createdSessionId });
           return { status: "complete" };
@@ -77,6 +76,8 @@ export const useNativeAuth = () => {
     if (!isNative() || !signIn) {
       return { status: "error", message: "Authentication is still loading" };
     }
+    if (busy.current) return { status: "cancelled" };
+    busy.current = true;
     setIsPending(true);
     try {
       const credential = await appleAuth.authorize();
@@ -88,6 +89,7 @@ export const useNativeAuth = () => {
     } catch (error) {
       return toResult(error);
     } finally {
+      busy.current = false;
       setIsPending(false);
     }
   }, [clerk, completeOrTransfer]);
@@ -98,35 +100,40 @@ export const useNativeAuth = () => {
       if (!isNative() || !signIn) {
         return { status: "error", message: "Authentication is still loading" };
       }
+      if (!["google", "discord", "facebook"].includes(provider)) {
+        return { status: "error", message: "This provider is unavailable" };
+      }
+      if (busy.current) return { status: "cancelled" };
+      busy.current = true;
       setIsPending(true);
+      const initialSessionId = clerk.session?.id ?? null;
       let stopListening: () => void = () => undefined;
+      let browserOpened = false;
       try {
-        const started = await signIn.create({
-          strategy: `oauth_${provider}`,
-          redirectUrl: OAUTH_REDIRECT,
-          actionCompleteRedirectUrl: OAUTH_REDIRECT,
+        const proof = await createAuthProof();
+        const { flowId } = await handoff.start({
+          provider: provider as NativeAuthProvider,
+          challenge: proof.challenge,
         });
-        const target = started.firstFactorVerification.externalVerificationRedirectURL;
-        if (!target) {
-          return { status: "error", message: "The provider returned no sign-in URL" };
-        }
-
-        // Subscribe before opening: on a fast provider the deep link can arrive before the
-        // browser sheet has finished animating in. Dismissal is raced against the redirect
-        // so a genuine cancellation cannot leave the sign-in pending forever with the
-        // buttons disabled — but the two are not mutually exclusive. A successful return
-        // closes the sheet as well, and nothing orders the two events, so the dismissal
-        // alone says nothing about which happened; that is settled below.
-        let callbackUrl: URL | null = null;
+        if (!alive.current) return { status: "cancelled" };
+        const target = new URL("/native-sign-in", window.location.origin);
+        target.searchParams.set("flow", flowId);
+        let callback: URL | undefined;
         let notifyCallback: () => void = () => undefined;
         const callbackReceived = new Promise<void>((resolve) => {
           notifyCallback = resolve;
         });
         const outcome = await new Promise<"redirected" | "dismissed">((resolve) => {
+          cancelPending.current = () => resolve("dismissed");
           const stopUrl = appEvents.onUrlOpen((url) => {
-            const callback = parseOAuthCallback(url);
-            if (!callback) return;
-            callbackUrl = callback;
+            const parsed = parseOAuthCallback(url);
+            if (
+              !parsed ||
+              parsed.searchParams.get("flow") !== flowId ||
+              !/^[A-Za-z0-9_-]{43}$/.test(parsed.searchParams.get("code") ?? "")
+            )
+              return;
+            callback = parsed;
             notifyCallback();
             resolve("redirected");
           });
@@ -135,77 +142,52 @@ export const useNativeAuth = () => {
             stopUrl();
             stopFinished();
           };
+          browserOpened = true;
           void oauthBrowser.open(target.toString()).catch(() => resolve("dismissed"));
         });
-
-        const reloadSignIn = async () => {
-          // Clerk rotates the native client through the callback nonce. Discarding it
-          // leaves the WebView reading the client from before the browser's sign-in.
-          const nonce =
-            callbackUrl?.searchParams.get("rotating_token_nonce") || undefined;
-          const result = await signIn.reload(
-            nonce ? { rotatingTokenNonce: nonce } : undefined,
-          );
-          const latestNonce =
-            callbackUrl?.searchParams.get("rotating_token_nonce") || undefined;
-          // Dismissal can win the race and start a reload just before the URL arrives.
-          if (latestNonce && latestNonce !== nonce && !result.createdSessionId) {
-            return signIn.reload({ rotatingTokenNonce: latestNonce });
-          }
-          return result;
-        };
-
-        if (outcome === "dismissed") {
-          // The sheet closing is not proof the player backed out: the redirect closes it
-          // too, and if that event lands first this branch runs on a sign-in Clerk has
-          // already advanced. Ask Clerk what happened rather than inferring it from the
-          // dismissal, or a completed sign-in is reported as a cancellation and the player
-          // is left signed out with a session they cannot see.
-          let settled = await reloadSignIn().catch((error) => {
-            if (callbackUrl) throw error;
-            return null;
-          });
-          if (
-            !callbackUrl &&
-            !settled?.createdSessionId &&
-            settled?.firstFactorVerification.status !== "transferable"
-          ) {
-            // The browser and App plugin deliver independent native events. Even a
-            // fast reload can finish before the URL event crosses the bridge.
-            let timeout: ReturnType<typeof setTimeout> | undefined;
-            await Promise.race([
-              callbackReceived,
-              new Promise<void>((resolve) => {
-                timeout = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
-              }),
-            ]);
-            clearTimeout(timeout);
-            if (callbackUrl) settled = await reloadSignIn();
-          }
-          if (
-            settled &&
-            (callbackUrl ||
-              settled.createdSessionId ||
-              settled.firstFactorVerification.status === "transferable")
-          ) {
-            return await completeOrTransfer(settled);
-          }
+        if (!alive.current) return { status: "cancelled" };
+        if (outcome === "dismissed" && !callback) {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          await Promise.race([
+            callbackReceived,
+            new Promise<void>((resolve) => {
+              timer = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
+            }),
+          ]);
+          clearTimeout(timer);
+        }
+        if (!callback || !alive.current) return { status: "cancelled" };
+        const { ticket } = await handoff.exchange({
+          flowId,
+          verifier: proof.verifier,
+          code: callback.searchParams.get("code") ?? "",
+        });
+        if (!alive.current || (clerk.session?.id ?? null) !== initialSessionId) {
           return { status: "cancelled" };
         }
-        await oauthBrowser.close();
-
-        // The sign-in was advanced by the browser, not by this page, so the local copy is
-        // stale until it is refetched.
-        const reloaded = await reloadSignIn();
-        return await completeOrTransfer(reloaded);
+        // This ticket is consumed by the WebView's client, so existing SSR/session
+        // cookies, logout and device isolation retain their normal behavior.
+        const created = await signIn.create({ strategy: "ticket", ticket });
+        const currentSessionId = clerk.session?.id ?? null;
+        if (
+          !alive.current ||
+          (currentSessionId !== initialSessionId &&
+            currentSessionId !== created.createdSessionId)
+        ) {
+          return { status: "cancelled" };
+        }
+        return await completeOrTransfer(created);
       } catch (error) {
         return toResult(error);
       } finally {
         stopListening();
+        if (browserOpened) await oauthBrowser.close();
+        cancelPending.current = undefined;
+        busy.current = false;
         setIsPending(false);
       }
     },
-    [clerk, completeOrTransfer],
+    [clerk, completeOrTransfer, handoff.exchange, handoff.start],
   );
 
   return { isReady, isPending, signInWithApple, signInWithProvider };

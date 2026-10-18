@@ -176,7 +176,9 @@ export const ratelimitMiddleware = t.middleware(
       );
     }
     if (!success) {
-      if (context.userId) {
+      // Authentication retries must never debit an existing character (and a newly
+      // authenticated identity may not have created a character yet).
+      if (context.userId && !path.startsWith("nativeAuth.")) {
         const result = await context.drizzle
           .update(userData)
           .set({
@@ -194,7 +196,9 @@ export const ratelimitMiddleware = t.middleware(
       }
       throw serverError(
         "TOO_MANY_REQUESTS",
-        `You are acting too fast. Incident logged for review on path ${path}. 1% money reduced.`,
+        path.startsWith("nativeAuth.")
+          ? "Too many sign-in attempts. Please wait a minute and try again."
+          : `You are acting too fast. Incident logged for review on path ${path}. 1% money reduced.`,
       );
     }
     return next();
