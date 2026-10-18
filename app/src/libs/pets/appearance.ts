@@ -11,7 +11,8 @@ import {
   classifyPetAppearanceImage,
   validatePetAppearanceQuality,
 } from "@/libs/pets/quality";
-import { txt2imgNanoBanana } from "@/libs/replicate";
+import { txt2imgNanoBanana, uploadFileFromReplicate } from "@/libs/replicate";
+import { servedUfsUrl } from "@/libs/uploadthing";
 
 /** Authored identity and last accepted image needed for initial art or an evolution. */
 type AppearancePet = Pick<
@@ -98,7 +99,7 @@ export const generatePetAppearance = async (
     await checkModeration(image, signal);
     await validateSceneCharacterImage(image);
     const verdict = await reviewVisualQuality(image, previousImage, pet, signal);
-    return { avatar, verdict };
+    return { avatar, image, verdict };
   };
   let candidate = await generateCandidate(prompt, pet.avatar ?? undefined);
   try {
@@ -113,7 +114,29 @@ export const generatePetAppearance = async (
     validatePetAppearanceQuality(candidate.verdict);
   }
   signal.throwIfAborted();
-  return { avatar: candidate.avatar, avatarFacing: candidate.verdict.avatarFacing };
+  let avatar = candidate.avatar;
+  // Keep profiles and evolution references left-facing without another model prediction.
+  // Lossless mirroring preserves the reviewed pixels and transparency.
+  if (candidate.verdict.avatarFacing === "right") {
+    const mirrored = await sharp(candidate.image, {
+      limitInputPixels: MAX_PET_IMAGE_PIXELS,
+    })
+      .flop()
+      .webp({ lossless: true, exact: true })
+      .toBuffer();
+    signal.throwIfAborted();
+    const uploaded = await uploadFileFromReplicate(
+      "pet",
+      new Blob([mirrored as BlobPart], { type: "image/webp" }),
+      "webp",
+      signal,
+    );
+    if (!uploaded.data) throw new Error("Could not upload the normalized pet image");
+    avatar = servedUfsUrl(uploaded.data);
+    await onUpload(avatar);
+  }
+  signal.throwIfAborted();
+  return { avatar, avatarFacing: "left" as const };
 };
 
 /** Review the candidate's species and, for evolution, the accepted prior identity. */

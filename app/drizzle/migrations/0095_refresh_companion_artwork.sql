@@ -13,6 +13,8 @@ SELECT 'SCb3Q_ltFIBJVdU9pr56Y', 'pet-art-0094-SCb3Q_ltFIBJVdU9pr56Y-1', 'https:/
 UNION ALL
 SELECT '5YbKe-vjTXn8CqdoJ1wHg', 'pet-art-0094-5YbKe-vjTXn8CqdoJ1wHg-1', 'https://ui0arpl8sm.ufs.sh/f/content-wN4SsKbxJ1p1c8xWQM-aN.webp'
 UNION ALL
+SELECT '5YbKe-vjTXn8CqdoJ1wHg', 'pet-art-0094-5YbKe-vjTXn8CqdoJ1wHg-2', 'https://ui0arpl8sm.ufs.sh/f/content-yg1Z2pNv62NG4k5zA25ZC.webp'
+UNION ALL
 SELECT 'vobciAWGlIiQ0RQ843kum', 'pet-art-0094-vobciAWGlIiQ0RQ843kum-1', 'https://ui0arpl8sm.ufs.sh/f/content-KBb-b7FgqhxeKBXofzfNU.webp'
 UNION ALL
 SELECT 'vobciAWGlIiQ0RQ843kum', 'pet-art-0094-vobciAWGlIiQ0RQ843kum-2', 'https://ui0arpl8sm.ufs.sh/f/content-CZAT1Wul3N6PD-jaKpLAI.webp'
@@ -42,6 +44,8 @@ UNION ALL
 SELECT 'WFOtZOlQT4t7b_SJ2szxD', 'pet-art-0094-WFOtZOlQT4t7b_SJ2szxD-3', 'https://ui0arpl8sm.ufs.sh/f/content-KRAf_YTL2aVz6-2yyCjOG.webp'
 UNION ALL
 SELECT 'rhPU3ryVelwum0lBBruVu', 'pet-art-0094-rhPU3ryVelwum0lBBruVu-1', 'https://ui0arpl8sm.ufs.sh/f/content-04CzxdkRoh-GcJz48zGSu.webp'
+UNION ALL
+SELECT 'rhPU3ryVelwum0lBBruVu', 'pet-art-0094-rhPU3ryVelwum0lBBruVu-2', 'https://ui0arpl8sm.ufs.sh/f/content-C4aawo4IWf0vDi50s5ZTs.webp'
 UNION ALL
 SELECT 'zeZjO2-DegzGpAiFgszy-', 'pet-art-0094-zeZjO2-DegzGpAiFgszy--1', 'https://ui0arpl8sm.ufs.sh/f/content-2bKGuppbDh1iLLc0Vn3hO.webp'
 UNION ALL
@@ -85,6 +89,8 @@ SELECT 'ft8mDP7ZT6Rgp8tVQgnrr', 'pet-art-0094-ft8mDP7ZT6Rgp8tVQgnrr-1', 'https:/
 UNION ALL
 SELECT 'yp2s41YO1FBf568A5KWgF', 'pet-art-0094-yp2s41YO1FBf568A5KWgF-1', 'https://ui0arpl8sm.ufs.sh/f/content-m8Zclh2myROF1328ZnbmS.webp'
 UNION ALL
+SELECT 'yp2s41YO1FBf568A5KWgF', 'pet-art-0094-yp2s41YO1FBf568A5KWgF-2', 'https://ui0arpl8sm.ufs.sh/f/content-eIFV2ZLZrbuOLEh8gCQe8.webp'
+UNION ALL
 SELECT '8Bduhu7awv7lBzpG9Mn4R', 'pet-art-0094-8Bduhu7awv7lBzpG9Mn4R-1', 'https://ui0arpl8sm.ufs.sh/f/content-U8ksC8BIQjwy22ToOkvO4.webp'
 UNION ALL
 SELECT 'GpoQY3U_UA1CbcYguI3Xr', 'pet-art-0094-GpoQY3U_UA1CbcYguI3Xr-1', 'https://ui0arpl8sm.ufs.sh/f/content-R09dk59y-b8zBChr8cXYK.webp'
@@ -116,6 +122,7 @@ JOIN `UserData` AS owner ON owner.`userId` = p.`userId`
 LEFT JOIN `UserUpload` AS existing ON existing.`id` = asset.`uploadId`
 WHERE existing.`id` IS NULL;
 
+-- Replacement sprites use left-facing source art for display and combat mirroring.
 -- Refresh only unchanged artwork identities; never replace newer art or a live generation.
 -- Keep intervening feeding, training, names, settings, jobs and owner XP intact.
 -- Increment the current revision so application mutations holding an older row retry safely.
@@ -129,7 +136,7 @@ SELECT '-aNSAAxO74C1dN7rGX0vv', 'pet-species-41', 29, 12, 5, 2, 2, 'READY', 'htt
 UNION ALL
 SELECT 'SCb3Q_ltFIBJVdU9pr56Y', 'pet-species-30', 20, 1, 2, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-m9xZWgSUEEVeAE8hLjQQK.webp', 'https://ui0arpl8sm.ufs.sh/f/content-osqgArK0TaRVIfSjHdVlh.webp', 'left'
 UNION ALL
-SELECT '5YbKe-vjTXn8CqdoJ1wHg', 'pet-species-53', 7, 2, 2, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-0jXvVx04FLMI9lLFKJ-fn.webp', 'https://ui0arpl8sm.ufs.sh/f/content-wN4SsKbxJ1p1c8xWQM-aN.webp', 'right'
+SELECT '5YbKe-vjTXn8CqdoJ1wHg', 'pet-species-53', 7, 2, 2, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-0jXvVx04FLMI9lLFKJ-fn.webp', 'https://ui0arpl8sm.ufs.sh/f/content-yg1Z2pNv62NG4k5zA25ZC.webp', 'left'
 UNION ALL
 SELECT 'vobciAWGlIiQ0RQ843kum', 'pet-species-2', 29, 1, 1, 6, 6, 'READY', 'https://ui0arpl8sm.ufs.sh/f/content-97b6HCWPBkLM7AhQ2S3u7.webp', 'https://ui0arpl8sm.ufs.sh/f/content-CZAT1Wul3N6PD-jaKpLAI.webp', 'left'
 UNION ALL
@@ -147,7 +154,7 @@ SELECT 'ikwZ6gsGLRMEDBaifsZID', 'pet-species-15', 5, 11, 6, 1, 0, 'FAILED', NULL
 UNION ALL
 SELECT 'WFOtZOlQT4t7b_SJ2szxD', 'm1-McTWnd1beUT3dDwiOw', 2, 7, 7, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-9dIv5-rlFtX2JbeXVKei8.webp', 'https://ui0arpl8sm.ufs.sh/f/content-KRAf_YTL2aVz6-2yyCjOG.webp', 'left'
 UNION ALL
-SELECT 'rhPU3ryVelwum0lBBruVu', 'pet-species-5', 0, 5, 2, 4, 4, 'READY', 'https://ui0arpl8sm.ufs.sh/f/content-pd-EzR_Io5rxUvptus1yZ.webp', 'https://ui0arpl8sm.ufs.sh/f/content-04CzxdkRoh-GcJz48zGSu.webp', 'right'
+SELECT 'rhPU3ryVelwum0lBBruVu', 'pet-species-5', 0, 5, 2, 4, 4, 'READY', 'https://ui0arpl8sm.ufs.sh/f/content-pd-EzR_Io5rxUvptus1yZ.webp', 'https://ui0arpl8sm.ufs.sh/f/content-C4aawo4IWf0vDi50s5ZTs.webp', 'left'
 UNION ALL
 SELECT 'zeZjO2-DegzGpAiFgszy-', 'pet-species-12', 20, 12, 5, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-z19gIg-b79zUIzBVZaOji.webp', 'https://ui0arpl8sm.ufs.sh/f/content-2bKGuppbDh1iLLc0Vn3hO.webp', 'left'
 UNION ALL
@@ -175,7 +182,7 @@ SELECT '1hG83xIAi3HIv4pH27F1a', 'pet-species-42', 23, 4, 4, 1, 0, 'FAILED', NULL
 UNION ALL
 SELECT 'ft8mDP7ZT6Rgp8tVQgnrr', 'pet-species-39', 10, 2, 0, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-nzauZiuQnwrAAaIIqOAhh.webp', 'https://ui0arpl8sm.ufs.sh/f/content-NQIOGUnn7fjvePEwfsqXC.webp', 'left'
 UNION ALL
-SELECT 'yp2s41YO1FBf568A5KWgF', 'pet-species-12', 2, 11, 5, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-Z1cp6NfJiQsAE0fcUKexM.webp', 'https://ui0arpl8sm.ufs.sh/f/content-m8Zclh2myROF1328ZnbmS.webp', 'right'
+SELECT 'yp2s41YO1FBf568A5KWgF', 'pet-species-12', 2, 11, 5, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-Z1cp6NfJiQsAE0fcUKexM.webp', 'https://ui0arpl8sm.ufs.sh/f/content-eIFV2ZLZrbuOLEh8gCQe8.webp', 'left'
 UNION ALL
 SELECT '8Bduhu7awv7lBzpG9Mn4R', 'pet-species-42', 29, 1, 4, 1, 1, 'READY', 'https://ui0arpl8sm.ufs.sh/f/pet-PR_Stbj6GR6f7WIWW9wpB.webp', 'https://ui0arpl8sm.ufs.sh/f/content-U8ksC8BIQjwy22ToOkvO4.webp', 'left'
 UNION ALL

@@ -12,6 +12,7 @@ import { initialPetSpecies } from "./helpers/species";
 const sourceUrl = "https://example.com/source-pet.webp";
 const avatarUrl = "https://example.com/accepted-pet.webp";
 const correctedUrl = "https://example.com/corrected-pet.webp";
+const normalizedUrl = "https://example.com/normalized-pet.webp";
 const pet = { userId: "pet-owner", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
 const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, avatarFacing: "left" as const, reason: "A valid pet sprite" };
 
@@ -19,13 +20,13 @@ beforeEach(() => vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedVal
 afterEach(() => vi.restoreAllMocks());
 
 describe("companion provider pipeline", () => {
-  it.each(["left", "right"] as const)("accepts a verified %s-facing founder and returns its observed direction", async (avatarFacing) => {
-    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, avatarFacing });
+  it("keeps a verified left-facing founder without another upload", async () => {
+    const upload = vi.spyOn(replicate, "uploadFileFromReplicate");
     const buffer = await cutout();
     const provider = stubFounder(buffer);
     const legacyProvider = vi.spyOn(replicate, "fastTxt2imgReplicate");
     const uploads: string[] = [];
-    expect(await generatePetAppearance(pet, async (url) => { uploads.push(url); })).toEqual({ avatar: avatarUrl, avatarFacing });
+    expect(await generatePetAppearance(pet, async (url) => { uploads.push(url); })).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
     expect(provider).toHaveBeenCalledWith(expect.objectContaining({ previousImg: undefined, removeBg: true, width: 512, height: 512, size: "square", preprompt: expect.stringContaining(PIXEL_ART_STYLE) }));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/webp;base64,/), true, expect.any(AbortSignal));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(1);
@@ -34,6 +35,73 @@ describe("companion provider pipeline", () => {
     expect(provider).toHaveBeenCalledTimes(1);
     expect(legacyProvider).not.toHaveBeenCalled();
     expect(uploads).toEqual([avatarUrl]);
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it("mirrors every accepted right-facing pixel without another model call and tracks the normalized upload", async () => {
+    const buffer = await cutout();
+    const original = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const provider = stubFounder(buffer);
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, avatarFacing: "right" });
+    const upload = vi.spyOn(replicate, "uploadFileFromReplicate").mockResolvedValue({ data: { ufsUrl: normalizedUrl }, error: null } as never);
+    const owned: string[] = [];
+    const controller = new AbortController();
+    expect(await generatePetAppearance(pet, async (url) => { owned.push(url); }, controller.signal)).toEqual({ avatar: normalizedUrl, avatarFacing: "left" });
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(upload).toHaveBeenCalledWith("pet", expect.any(Blob), "webp", controller.signal);
+    const mirrored = Buffer.from(await upload.mock.calls[0]![1].arrayBuffer());
+    expect(await sharp(mirrored).metadata()).toMatchObject({ format: "webp", width: original.info.width, height: original.info.height, hasAlpha: true });
+    const expected = Buffer.alloc(original.data.length);
+    for (let y = 0; y < original.info.height; y++) for (let x = 0; x < original.info.width; x++) {
+      const source = (y * original.info.width + original.info.width - 1 - x) * 4;
+      expected.set(original.data.subarray(source, source + 4), (y * original.info.width + x) * 4);
+    }
+    const pixels = await sharp(mirrored).ensureAlpha().raw().toBuffer();
+    expect(pixels).toEqual(expected);
+    expect(pixels).not.toEqual(original.data);
+    expect(owned).toEqual([avatarUrl, normalizedUrl]);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(quality.classifyPetAppearanceImage).toHaveBeenCalledTimes(1);
+    expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["upload", "tracking"] as const)("does not accept a normalized image after %s fails", async (stage) => {
+    const provider = stubFounder(await cutout());
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, avatarFacing: "right" });
+    const upload = vi.spyOn(replicate, "uploadFileFromReplicate").mockResolvedValue({ data: { ufsUrl: normalizedUrl }, error: null } as never);
+    if (stage === "upload") upload.mockResolvedValue({ data: null, error: { message: "Storage unavailable" } } as never);
+    const owned: string[] = [];
+    await expect(generatePetAppearance(pet, async (url) => {
+      owned.push(url);
+      if (url === normalizedUrl) throw new Error("Upload tracking failed");
+    })).rejects.toThrow(stage === "upload" ? "Could not upload" : "Upload tracking failed");
+    expect(owned).toEqual(stage === "upload" ? [avatarUrl] : [avatarUrl, normalizedUrl]);
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+
+  it("tracks a completed normalization upload before observing a cancellation", async () => {
+    stubFounder(await cutout());
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, avatarFacing: "right" });
+    const controller = new AbortController();
+    vi.spyOn(replicate, "uploadFileFromReplicate").mockImplementation(async () => {
+      controller.abort(new Error("Generation deadline reached"));
+      return { data: { ufsUrl: normalizedUrl }, error: null } as never;
+    });
+    const owned: string[] = [];
+    await expect(generatePetAppearance(pet, async (url) => { owned.push(url); }, controller.signal)).rejects.toThrow("Generation deadline reached");
+    expect(owned).toEqual([avatarUrl, normalizedUrl]);
+  });
+
+  it("does not upload a normalized image after the generation deadline expires during review", async () => {
+    stubFounder(await cutout());
+    const upload = vi.spyOn(replicate, "uploadFileFromReplicate");
+    const controller = new AbortController();
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockImplementation(async () => {
+      controller.abort(new Error("Generation deadline reached"));
+      return { ...acceptedQuality, avatarFacing: "right" };
+    });
+    await expect(generatePetAppearance(pet, async () => {}, controller.signal)).rejects.toThrow("Generation deadline reached");
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it("does not accept or correct a candidate that fails moderation", async () => {
@@ -79,9 +147,10 @@ describe("companion provider pipeline", () => {
     const review = vi.spyOn(quality, "classifyPetAppearanceImage")
       .mockResolvedValueOnce({ ...acceptedQuality, speciesMatches: false, reason: "A baby chick instead of the requested crow" })
       .mockResolvedValueOnce({ ...acceptedQuality, avatarFacing: "right" });
+    vi.spyOn(replicate, "uploadFileFromReplicate").mockResolvedValue({ data: { ufsUrl: normalizedUrl }, error: null } as never);
     const controller = new AbortController();
     const owned: string[] = [];
-    expect(await generatePetAppearance(crow, async (url) => { owned.push(url); }, controller.signal)).toEqual({ avatar: correctedUrl, avatarFacing: "right" });
+    expect(await generatePetAppearance(crow, async (url) => { owned.push(url); }, controller.signal)).toEqual({ avatar: normalizedUrl, avatarFacing: "left" });
     expect(edit).toHaveBeenCalledTimes(2);
     expect(edit.mock.calls[1]![0]).toEqual(expect.objectContaining({
       previousImg: avatarUrl, removeBg: true, signal: controller.signal,
@@ -99,7 +168,7 @@ describe("companion provider pipeline", () => {
     expect(review.mock.calls[1]![0]).toMatchObject({ image: buffer, species: crow.species.name, rank: 1 });
     expect(review.mock.calls[1]![1]).toBe(controller.signal);
     expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(2);
-    expect(owned).toEqual([avatarUrl, correctedUrl]);
+    expect(owned).toEqual([avatarUrl, correctedUrl, normalizedUrl]);
   });
 
   it("rejects a malformed founder after exactly one failed correction and tracks its uploads", async () => {

@@ -1041,11 +1041,11 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const data = await caller.getPet();
     const selected = { dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
       characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index };
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "right" });
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId, appearance: selected })).success).toBe(true);
     const { dayKey: _, ...traits } = selected;
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({ ...traits, speciesId: "pet-species-0" }), expect.any(Function));
-    expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, avatarFacing: "right", generationAttempts: 1 });
+    expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, avatarFacing: "left", generationAttempts: 1 });
     expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, petAcquisitions: 0 });
   });
 
