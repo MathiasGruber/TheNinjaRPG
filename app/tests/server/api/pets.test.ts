@@ -25,6 +25,34 @@ const stats = { offence: 10, defence: 0, strength: 0, speed: 0, intelligence: 0,
 const task = (patch: Partial<PetTask> = {}): PetTask => ({ petId, questId: "hunting-contract",
   questHistoryId: "profession-attempt", startedAt: 1, questVersion: 1, finishesAt: Date.now() + 60000, ...patch });
 
+it("explains exhausted daily offers before collection capacity, even after a companion is released", async () => {
+  const owner = {
+    userId, rank: "GENIN", status: "AWAKE", sector: MAP_WAKE_ISLAND_SECTOR,
+    federalStatus: "NONE", staffAccount: false, petSlots: 1, petAcquisitions: 1,
+    petExperience: 0, activePetId: petId, petDailyClaims: null as null | { dayKey: string; speciesIds: string[] },
+  };
+  let pets = [{ id: petId, rank: 1, generationStatus: "FAILED", generationAttempts: 0, storedExperience: 0 }];
+  const database = { query: {
+    userData: { findFirst: async () => owner },
+    userPet: { findMany: async () => pets },
+    petSpecies: { findMany: async () => initialPetSpecies },
+    jutsu: { findMany: async () => [] },
+    userSkill: { findMany: async () => [] },
+    userItem: { findMany: async () => [] },
+  } } as unknown as DrizzleClient;
+  const caller = callerForDatabase(petsRouter, userId, database);
+  const available = await caller.getPet();
+  expect(available.options.species.length).toBeGreaterThan(0);
+  expect(available.unavailableReason).toContain("Unlock another collection slot");
+  owner.petDailyClaims = { dayKey: available.dayKey, speciesIds: available.options.species.map(({ id }) => id) };
+  const exhausted = await caller.getPet();
+  expect(exhausted).toMatchObject({ options: { species: [] }, canAcquire: false,
+    unavailableReason: "You have adopted all of today's companion species. New choices arrive at midnight UTC." });
+  pets = [];
+  expect(await caller.getPet()).toMatchObject({ options: { species: [] }, canAcquire: false,
+    unavailableReason: exhausted.unavailableReason });
+});
+
 describeWithDatabase("Companion ownership, economy and generation", () => {
   beforeEach(async () => {
     await resetTables(petSpecies, userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);

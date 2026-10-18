@@ -259,7 +259,7 @@ export function PetAcquisition() {
   const isReplacement = data.replacementCost > 0;
   const isCollectionFull = data.pets.length >= data.slots;
   const unavailableReason =
-    isCollectionFull && data.slots >= data.maxSlots
+    isCollectionFull && data.slots >= data.maxSlots && data.options.species.length > 0
       ? "Your collection is full. Release a companion before adopting another."
       : data.unavailableReason;
   const appearanceReady = pet ? isPetAppearanceReady(pet) : false;

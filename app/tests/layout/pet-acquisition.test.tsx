@@ -277,6 +277,27 @@ for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
   });
 }
 
+it.each([1, 6])("preserves exhausted daily-offer guidance and free appearance recovery in a full collection (max slots: %s)", async (maxSlots) => {
+  const message = "You have adopted all of today's companion species. New choices arrive at midnight UTC.";
+  const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus: "FAILED",
+    paletteIndex: options.palettes[0]!.index, characteristicIndex: options.characteristics[0]!.index, auraIndex: options.auras[0]!.index };
+  const { view, queryClient, mutations } = renderAcquisition({
+    pet, pets: [pet], activePetId: pet.id, maxSlots,
+    options: { ...options, species: [] }, canAcquire: false, unavailableReason: message,
+  });
+  try {
+    await view.findByText(message);
+    expect(view.getByRole("link", { name: "Manage my collection" })).toBeDefined();
+    expect(view.queryByText(/Release a companion before adopting/)).toBeNull();
+    expect(view.queryByRole("group", { name: "Species" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Preview today's choices" })).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
+    const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+    expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
+    expect(mutations).not.toHaveBeenCalled();
+  } finally { queryClient.clear(); }
+});
+
 it("checks only the selected adoption currency and preserves the companion draft when changing payment", async () => {
   owner.reputationPoints = 0;
   owner.seichiSilver = 50;

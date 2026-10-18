@@ -345,10 +345,10 @@ export const petsRouter = createTRPCRouter({
       const feedAvailableAt = nextFeedAt && nextFeedAt > now ? nextFeedAt : null;
       const acquisitionRestriction = !species.some((entry) => entry.isActive)
         ? "The Bondkeepers are not offering new companions right now. Please check back later."
-        : capacity.slots <= pets.length
-          ? "Unlock another collection slot or release a companion before adopting another."
-          : options.species.length === 0
-            ? "You have adopted all of today's companion species. New choices arrive at midnight UTC."
+        : options.species.length === 0
+          ? "You have adopted all of today's companion species. New choices arrive at midnight UTC."
+          : capacity.slots <= pets.length
+            ? "Unlock another collection slot or release a companion before adopting another."
             : acquisitionBlockMessage(user);
       const rankUpReason = pet
         ? (petMutationBlockMessage(user, pet) ?? petRankUpBlockMessage(pet, user))
