@@ -90,8 +90,7 @@ export default function CombatPage() {
     : "grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))]";
   const actionAspect = config.useSmallActions ? "aspect-square" : undefined;
   const showActionLabels = !config.useSmallActions;
-  // A finished battle keeps its timer and actions in place, dimmed and inert, until the
-  // player leaves: neither the result nor the status leaving BATTLE after it moves the page.
+  // Keep a finished battle's timer and actions dimmed and inert until the player leaves.
   const isInBattle = userData?.status === "BATTLE" || !!results;
   // After "Go Again" the finished battle is held in state until the next one's data is
   // applied; keep the scene back until then rather than remount the finished battle.
@@ -263,13 +262,13 @@ export default function CombatPage() {
   ]);
 
   const renderBattlefield = useCallback(() => {
-    // Reserve the canvas's height from the moment the battle's grid size is known, which
-    // is also when the actions below first render, so the WebGL scene lands in place.
+    // Reserve the canvas while loading. Settled results use their content height so
+    // rewards and follow-up actions never need a second scrollbar on small screens.
     return (
       <div
         className="relative box-content overflow-hidden rounded-lg border bg-card text-card-foreground shadow-lg"
         style={
-          battle
+          battle && !results
             ? {
                 aspectRatio: `1 / ${getBattlefieldHeightRatio(battle.width, battle.height)}`,
               }

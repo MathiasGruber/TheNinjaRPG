@@ -875,6 +875,7 @@ export const BattleTypes = [
   "RANKED_SPARRING",
   "RAID",
   "OVERWORLD",
+  "HUNTING",
 ] as const;
 export type BattleType = (typeof BattleTypes)[number];
 
@@ -890,6 +891,7 @@ export const PvpBattleTypes: BattleType[] = [
 ];
 
 export const PveBattleTypes: BattleType[] = [
+  "HUNTING",
   "ARENA",
   "QUEST",
   "RANDOM_ENCOUNTER",
@@ -901,6 +903,7 @@ export const PveBattleTypes: BattleType[] = [
 ];
 
 export const QuestBattleTypes: BattleType[] = [
+  "HUNTING",
   "QUEST",
   "RANDOM_ENCOUNTER",
   "RAID",
@@ -1670,6 +1673,8 @@ export const MEDNIN_CHAKRA_REDUCTION_PER_IMPROVEMENT = 0.01; // 0.01 reduction p
 export const MEDNIN_MIN_CHAKRA_FACTOR = 0.05; // Minimum chakra factor
 
 // Hunting config
+/** Staff-editor starting values; each saved contract supplies its own encounter rules. */
+export const HUNTING_CONTRACT_DEFAULTS = { preparationSeconds: 30, hunts: 3, cooldownSeconds: 3600, experience: 100 } as const;
 export const HUNTING_RANKS = [
   "NONE",
   "D RANK",
@@ -2811,6 +2816,9 @@ export const IMG_MANUAL_CRAFTING_RECIPES =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJrZmM8nhuJPmdY8zI2ptZXAoEj1c6BMKvrQOx.webp";
 export const IMG_MANUAL_AI =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJuTQifZCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
+/** Forest tracking and a marked contract representing the hunting habitat editor. */
+export const IMG_MANUAL_HUNTING =
+  "https://uploadthing.b-cdn.net/f/Xbmm9Cwl8aBZNAPw-0j4F.webp";
 /** Illustrated bestiary representing the companion species catalogue. */
 export const IMG_MANUAL_PET_SPECIES =
   "https://ui0arpl8sm.ufs.sh/f/manual-pet-species-17326854-5ec7-4037-a2d0-db475452bd99.webp";
