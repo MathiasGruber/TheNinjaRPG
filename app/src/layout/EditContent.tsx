@@ -1683,6 +1683,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     enabled: Object.keys(shownTag).includes("aiId"),
   });
 
+  const { data: questData } = api.quests.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("questId"),
+  });
+
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
     enabled:
       fields.includes("jutsus") ||
@@ -1898,7 +1902,9 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     .filter((value) => !props.editableFields || props.editableFields.includes(value))
     .filter((value) => {
       return (
-        !["noncombatconsumereward", "noncombatgainskill"].includes(watchType) ||
+        !["noncombatconsumereward", "noncombatgainskill", "noncombatquest"].includes(
+          watchType,
+        ) ||
         ![
           "staticAnimation",
           "staticAssetPath",
@@ -2005,6 +2011,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           values: jutsuData.filter((j) => j.injectableInBattle),
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
+          type: "db_values",
+        };
+      } else if ((value as string) === "questId") {
+        return {
+          id: value,
+          values: (questData ?? []).filter((quest) => quest.questType === "special"),
+          multiple: false,
+          label: "Special quest",
           type: "db_values",
         };
       } else if ((value as string) === "skillId" && skillsData) {

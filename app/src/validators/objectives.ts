@@ -984,7 +984,12 @@ const questSuperRefine = (
   // block the quest forever (or be silently uncapped). Require >= 1 to make intent
   // explicit. retryDelay "none"/omitted preserves the legacy lifetime-cap validation, where 0
   // remains accepted for existing content.
-  if (val.retryDelay && val.retryDelay !== "none" && val.maxCompletes < 1) {
+  if (
+    val.questType !== "special" &&
+    val.retryDelay &&
+    val.retryDelay !== "none" &&
+    val.maxCompletes < 1
+  ) {
     ctx.addIssue({
       code: "custom",
       message: "maxCompletes must be at least 1 when a retry delay is set",

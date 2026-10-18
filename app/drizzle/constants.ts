@@ -1038,6 +1038,7 @@ export const QuestTypes = [
   "raid",
   "overworld",
   "mastery",
+  "special",
 ] as const;
 export type QuestType = (typeof QuestTypes)[number];
 export const NPC_ONLY_QUEST_TYPES = ["overworld"] as const satisfies readonly QuestType[];

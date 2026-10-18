@@ -1,6 +1,6 @@
 
 import { describe, expect, it, vi } from "bun:test";
-import { npcOnlyNewQuestEdgeError } from "../../../src/server/api/routers/quests";
+import { restrictedNewQuestEdgeError } from "../../../src/server/api/routers/quests";
 
 const newQuestObjective = (id: string, newQuestIds: string[]) => ({
   id,
@@ -16,13 +16,22 @@ const makeClient = (...results: { id: string; name: string }[][]) => {
   return { client: { query: { quest: { findMany } } } as never, findMany };
 };
 
-describe("npcOnlyNewQuestEdgeError", () => {
+describe("restrictedNewQuestEdgeError", () => {
+  it("blocks retyping a linked quest to Special", async () => {
+    const { client } = makeClient([{ id: "quest-a", name: "Quest A" }]);
+    expect(await restrictedNewQuestEdgeError(client, { questId: "quest-b", questName: "Quest B", currentType: "mission", nextType: "special", objectives: [] })).toContain("Cannot change this quest to special");
+  });
+
+  it("blocks a new_quest edge targeting a Special quest", async () => {
+    const { client } = makeClient([{ id: "special", name: "Special Quest" }]);
+    expect(await restrictedNewQuestEdgeError(client, { questId: "quest-a", questName: "Quest A", currentType: "mission", nextType: "mission", objectives: [newQuestObjective("objective", ["special"])] as never })).toContain("item-only quests cannot be started");
+  });
   it("blocks retyping a quest to overworld while another quest still starts it", async () => {
     // Quest A already starts Quest B; the only DB read is the inbound lookup, because Quest B's
     // own objectives declare no new_quest targets.
     const { client } = makeClient([{ id: "quest-a", name: "Quest A" }]);
 
-    const error = await npcOnlyNewQuestEdgeError(client, {
+    const error = await restrictedNewQuestEdgeError(client, {
       questId: "quest-b",
       questName: "Quest B",
       currentType: "mission",
@@ -39,7 +48,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     const { client } = makeClient([]);
 
     await expect(
-      npcOnlyNewQuestEdgeError(client, {
+      restrictedNewQuestEdgeError(client, {
         questId: "quest-b",
         questName: "Quest B",
         currentType: "mission",
@@ -54,7 +63,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     // then the inbound lookup, which cannot see the not-yet-saved objective.
     const { client } = makeClient([], []);
 
-    const error = await npcOnlyNewQuestEdgeError(client, {
+    const error = await restrictedNewQuestEdgeError(client, {
       questId: "quest-b",
       questName: "Quest B",
       currentType: "mission",
@@ -73,7 +82,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     const { client } = makeClient([{ id: "quest-b", name: "Quest B" }]);
 
     await expect(
-      npcOnlyNewQuestEdgeError(client, {
+      restrictedNewQuestEdgeError(client, {
         questId: "quest-b",
         questName: "Quest B",
         currentType: "overworld",
@@ -89,7 +98,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     const { client } = makeClient([{ id: "quest-b", name: "Quest B" }]);
 
     await expect(
-      npcOnlyNewQuestEdgeError(client, {
+      restrictedNewQuestEdgeError(client, {
         questId: "quest-b",
         questName: "Quest B",
         currentType: "mission",
@@ -102,7 +111,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
   it("still blocks the outbound direction: an objective starting an NPC-only quest", async () => {
     const { client } = makeClient([{ id: "quest-b", name: "Quest B" }]);
 
-    const error = await npcOnlyNewQuestEdgeError(client, {
+    const error = await restrictedNewQuestEdgeError(client, {
       questId: "quest-a",
       questName: "Quest A",
       currentType: "mission",
@@ -111,7 +120,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     });
 
     expect(error).toBe(
-      "NPC-only quests cannot be started by a new_quest objective: Quest B",
+      "NPC-only and item-only quests cannot be started by a new_quest objective: Quest B",
     );
   });
 
@@ -119,7 +128,7 @@ describe("npcOnlyNewQuestEdgeError", () => {
     const { client, findMany } = makeClient();
 
     await expect(
-      npcOnlyNewQuestEdgeError(client, {
+      restrictedNewQuestEdgeError(client, {
         questId: "quest-b",
         questName: "Quest B",
         currentType: "mission",

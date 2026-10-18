@@ -2340,12 +2340,14 @@ export const isAvailableUserQuests = (
     questAndUserQuestInfo.previousAttempts < maxAttempts;
 
   // Per-period completion cap (only meaningful when retryDelay != none).
-  const periodCapCheck = !periodCapReached({
-    retryDelay: questAndUserQuestInfo.retryDelay,
-    maxCompletes,
-    periodCompletes: questAndUserQuestInfo.periodCompletes,
-    periodStartAt: questAndUserQuestInfo.periodStartAt,
-  });
+  const periodCapCheck =
+    questAndUserQuestInfo.questType === "special" ||
+    !periodCapReached({
+      retryDelay: questAndUserQuestInfo.retryDelay,
+      maxCompletes,
+      periodCompletes: questAndUserQuestInfo.periodCompletes,
+      periodStartAt: questAndUserQuestInfo.periodStartAt,
+    });
 
   // Check if prerequisite quest is completed
   const prerequisiteCheck =

@@ -1,0 +1,2 @@
+ALTER TABLE `Quest` MODIFY COLUMN `questType` enum('starter','tier','daily','mission','village_mission','errand','crime','exam','event','story','anbu','medical','hunting','gathering','battlepyramid','pvp','achievement','war','raid','overworld','mastery','special') NOT NULL;
+ALTER TABLE `QuestHistory` MODIFY COLUMN `questType` enum('starter','tier','daily','mission','village_mission','errand','crime','exam','event','story','anbu','medical','hunting','gathering','battlepyramid','pvp','achievement','war','raid','overworld','mastery','special') NOT NULL;

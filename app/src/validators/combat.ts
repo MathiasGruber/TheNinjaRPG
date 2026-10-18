@@ -1035,6 +1035,13 @@ export const NonCombatGainSkill = z.object({
   skillId: z.string().prefault(""),
 });
 
+export const NonCombatQuestTag = z.object({
+  ...BaseAttributes,
+  type: z.literal("noncombatquest").prefault("noncombatquest"),
+  description: msg("Starts a Special quest when the item is consumed"),
+  questId: z.string().trim().min(1, "Select a Special quest").default(""),
+});
+
 export const UnlockItemVariantTag = z.object({
   ...BaseAttributes,
   type: z.literal("unlockitemvariant").prefault("unlockitemvariant"),
@@ -1101,6 +1108,7 @@ export const AllTags = z.union([
   MoveTag.prefault({}),
   NonCombatConsumeRewardTag.prefault({}),
   NonCombatGainSkill.prefault({}),
+  NonCombatQuestTag.prefault({}),
   RepairTag.prefault({}),
   OneHitKillPreventTag.prefault({}),
   OneHitKillTag.prefault({}),
@@ -1523,6 +1531,22 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   if (petRewardCount > 0 && !data.preventBattleUsage)
     addIssue(ctx, "Companion rewards must prevent battle usage.");
   const hasUnlockItemVariant = data.effects.find((e) => e.type === "unlockitemvariant");
+  const questGrants = data.effects.filter((effect) => effect.type === "noncombatquest");
+  if (questGrants.some((effect) => !effect.questId.trim()))
+    addIssue(ctx, "Select a Special quest for the item to grant.");
+  if (questGrants.length > 1)
+    addIssue(ctx, "An item may start only one Special quest.");
+  if (
+    questGrants.length > 0 &&
+    (data.itemType !== "CONSUMABLE" ||
+      !data.preventBattleUsage ||
+      data.target !== "SELF" ||
+      data.method !== "SINGLE")
+  )
+    addIssue(
+      ctx,
+      "Quest items must be consumable, target self, use single method and prevent battle usage.",
+    );
   const hasSageModeActivation = data.effects.find((e) => e.type === "activatesagemode");
 
   if (NonActionItemTypes.includes(data.itemType)) {
