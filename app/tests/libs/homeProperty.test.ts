@@ -1,7 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { ShapeUtils, Vector2 } from "three";
 import { HOME_FURNITURE_MAX_PLACEMENTS, HomeTypes } from "@/drizzle/constants";
-import { clampHomeFurniturePlacement, getHomeFurnitureGeometry, homeLayoutPlacementError, isPointInHomePolygon, recoverHomeLayout, type HomeFurniture } from "@/libs/home";
+import { clampHomeFurniturePlacement, getHomeFurnitureGeometry, homeLayoutPlacementError, recoverHomeLayout, type HomeFurniture } from "@/libs/home";
 import { boundHomeCamera, getHomeOverviewCamera, getHomeRoomCamera, getHomeRooms, homeRoomLayoutError, zoomHomeCamera } from "@/libs/homeProperty";
 import { HOME_ART_PLANS } from "@/libs/homeRoomGeometry";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
@@ -56,13 +55,10 @@ describe("painted home properties", () => {
   ] as const)("keeps $homeType room $room finishes off measured walls and fixtures", (sample) => {
     const { homeType, room, wall, floor } = sample;
     const normalized = "normalized" in sample;
-    // Finish contours can be concave; triangulate them before using the convex placement helper.
-    const triangles = HOME_ART_PLANS[homeType].floorSurfaces[room]!.flatMap((polygon) => {
-      const contour = polygon.map(([x, y]) => new Vector2(x * (normalized ? 1 : 1448 / 100), y * (normalized ? 1 : 1086 / 100)));
-      return ShapeUtils.triangulateShape(contour, []).map((indices) => indices.map((index) => contour[index]!));
-    });
     for (const [point, expected] of [[wall, false], [floor, true]] as const) {
-      expect(triangles.some((triangle) => isPointInHomePolygon({ x: point[0], y: point[1] }, triangle))).toBe(expected);
+      const x = normalized ? point[0] : point[0] * 100 / 1448;
+      const y = normalized ? point[1] : point[1] * 100 / 1086;
+      expect(HOME_ART_PLANS[homeType].floorSurfaces[room]!.some((polygon) => containsArtPoint(polygon, x, y))).toBe(expected);
     }
   });
 
@@ -126,7 +122,7 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", point: { x: 26, y: 28.75 } },
   ] as const)("keeps $homeType window and timber landmarks out of wall paint", ({ homeType, point }) => {
     const masks = HOME_ART_PLANS[homeType].paint.flat();
-    expect(masks.some((polygon) => containsPaintPoint(polygon, point.x, point.y))).toBe(false);
+    expect(masks.some((polygon) => containsArtPoint(polygon, point.x, point.y))).toBe(false);
   });
 
   it.each([
@@ -144,7 +140,7 @@ describe("painted home properties", () => {
     const [width, height] = HOME_ART_PLANS[homeType].aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
     for (const [landmarks, expected] of [[walls, true], [fixtures, false]] as const) {
       for (const [x, y] of landmarks) {
-        expect(HOME_ART_PLANS[homeType].paint[room]!.some((polygon) => containsPaintPoint(polygon, x * 100 / width, y * 100 / height))).toBe(expected);
+        expect(HOME_ART_PLANS[homeType].paint[room]!.some((polygon) => containsArtPoint(polygon, x * 100 / width, y * 100 / height))).toBe(expected);
       }
     }
   });
@@ -154,7 +150,7 @@ describe("painted home properties", () => {
     { homeType: "PALACE", point: [39, 38.5], room: 5 },
     { homeType: "MARSHMALLOWOPOLIS", point: [60, 38.5], room: 9 },
   ] as const)("assigns shared $homeType wall faces to only room $room", ({ homeType, point, room }) => {
-    const paintedRooms = HOME_ART_PLANS[homeType].paint.flatMap((panels, index) => panels.some((polygon) => containsPaintPoint(polygon, point[0], point[1])) ? [index] : []);
+    const paintedRooms = HOME_ART_PLANS[homeType].paint.flatMap((panels, index) => panels.some((polygon) => containsArtPoint(polygon, point[0], point[1])) ? [index] : []);
     expect(paintedRooms).toEqual([room]);
   });
 
@@ -234,15 +230,11 @@ describe("painted home properties", () => {
 
 /** Check a 1536x1024 artwork pixel against percentage contours, including concave masks. */
 const containsSourceLandmark = (polygons: readonly (readonly (readonly [number, number])[])[], [x, y]: readonly [number, number]) => {
-  const point = { x: x * 100 / 1536, y: y * 100 / 1024 };
-  return polygons.some((polygon) => {
-    const contour = polygon.map(([x, y]) => new Vector2(x, y));
-    return ShapeUtils.triangulateShape(contour, []).some((indices) => isPointInHomePolygon(point, indices.map((index) => contour[index]!)));
-  });
+  return polygons.some((polygon) => containsArtPoint(polygon, x * 100 / 1536, y * 100 / 1024));
 };
 
-/** Match SVG's even-odd fill, including concave faces with connected lamp cutouts. */
-const containsPaintPoint = (polygon: readonly (readonly [number, number])[], x: number, y: number) => {
+/** Ray casting supports concave artwork masks and paint's connected lamp cutouts. */
+const containsArtPoint = (polygon: readonly (readonly [number, number])[], x: number, y: number) => {
   let inside = false;
   for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
     const [ax, ay] = polygon[index]!;
