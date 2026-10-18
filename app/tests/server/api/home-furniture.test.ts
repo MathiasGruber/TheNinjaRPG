@@ -559,6 +559,16 @@ describeWithDatabase("owned furniture persistence", () => {
     ] })).success).toBe(true);
   });
 
+  it.each(["bed-row", "storage-row", "kitchen-row"])("persists %s on the decorative lawn", async (id) => {
+    const api = await callerFor(homeRouter, userId);
+    const home = (await api.getUserHome())!;
+    const furniture = home.furniture.find((piece) => piece.id === id)!;
+    const outdoor = clampHomeFurniturePlacement({ id, room: "yard", x: 50, y: 50, rotation: 0 }, furniture, "NONE");
+    expect(outdoor).not.toBeNull();
+    expect((await api.saveFurnitureLayout({ homeType: "NONE", revision: home.furnitureRevision, placements: [outdoor!] })).success).toBe(true);
+    expectLayout((await api.getUserHome())?.layout, [outdoor!]);
+  });
+
   it("requires the entire farm artwork to fit in outdoor ground using the joined content metadata", async () => {
     const database = await getTestDatabase();
     const geometry = {

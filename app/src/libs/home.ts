@@ -343,7 +343,6 @@ const getHomeAnchorPolygon = (
   );
   const isYard = room?.isYard;
   // Decorative lawn and cultivation ground remain separate within the garden.
-  if (isYard && furniture.action && furniture.action !== "farm") return [];
   if (!room || (!isYard && furniture.action === "farm")) return [];
   const region = furniture.action === "farm" ? room.outdoor : room.interior;
   if (region.length < 3) return [];

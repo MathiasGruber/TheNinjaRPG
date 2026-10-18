@@ -97,6 +97,28 @@ describe("painted home properties", () => {
   });
 
   it.each([
+    { homeType: "MANSION", room: 5, points: [[920, 520], [920, 580]] },
+    { homeType: "MANSION", room: 6, points: [[1045, 380], [1200, 478]] },
+    { homeType: "PALACE", room: 5, points: [[580, 330], [620, 360]] },
+    { homeType: "PALACE", room: 6, points: [[950, 330], [900, 480]] },
+    { homeType: "PALACE", room: 3, points: [[380, 470], [380, 520]] },
+    { homeType: "PALACE", room: 7, points: [[1156, 470], [1156, 520]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 9, points: [[950, 330], [900, 480]] },
+  ] as const)("finishes the $homeType room $room corridors and wall joins", ({ homeType, room, points }) => {
+    const plan = HOME_ART_PLANS[homeType];
+    for (const point of points) {
+      expect(containsSourceLandmark(plan.floorSurfaces[room]!, point)).toBe(true);
+      expect(containsSourceLandmark(plan.foreground.map(({ polygon }) => polygon), point)).toBe(false);
+    }
+  });
+
+  it("keeps neighboring Mansion floors separate beside the open door", () => {
+    const point = [481, 595] as const;
+    const covered = HOME_ART_PLANS.MANSION.floorSurfaces.flatMap((surfaces, room) => containsSourceLandmark(surfaces, point) ? [room] : []);
+    expect(covered).toEqual([2]);
+  });
+
+  it.each([
     { homeType: "MANSION", point: { x: 44.75, y: 32.25 } },
     { homeType: "MANSION", point: { x: 75, y: 66 } },
     { homeType: "PALACE", point: { x: 44.5, y: 25.25 } },
@@ -104,7 +126,46 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", point: { x: 26, y: 28.75 } },
   ] as const)("keeps $homeType window and timber landmarks out of wall paint", ({ homeType, point }) => {
     const masks = HOME_ART_PLANS[homeType].paint.flat();
-    expect(masks.some((polygon) => isPointInHomePolygon(point, polygon.map(([x, y]) => ({ x, y }))))).toBe(false);
+    expect(masks.some((polygon) => containsPaintPoint(polygon, point.x, point.y))).toBe(false);
+  });
+
+  it.each([
+    { homeType: "NONE", room: 0, walls: [[500, 110], [445, 260], [500, 535]], fixtures: [[580, 123], [480, 140], [995, 355]] },
+    { homeType: "STUDIO_APARTMENT", room: 0, walls: [[350, 150], [275, 250], [400, 580]], fixtures: [[575, 155], [310, 160], [823, 155]] },
+    { homeType: "ONE_BED_APARTMENT", room: 2, walls: [[1000, 405], [1248, 416], [1000, 620]], fixtures: [[1215, 418], [1250, 475]] },
+    { homeType: "TWO_BED_HOUSE", room: 0, walls: [[680, 390], [235, 530], [400, 625]], fixtures: [[273, 402], [595, 640]] },
+    { homeType: "TOWN_HOUSE", room: 2, walls: [[350, 448], [230, 535], [400, 660]], fixtures: [[244, 455], [190, 630]] },
+    { homeType: "TOWN_HOUSE", room: 3, walls: [[980, 200], [1210, 280]], fixtures: [[1195, 203]] },
+    { homeType: "MANSION", room: 1, walls: [[430, 330], [246, 380], [240, 475]], fixtures: [[340, 330], [265, 340]] },
+    { homeType: "MANSION", room: 2, walls: [[350, 535], [235, 575], [270, 695]], fixtures: [[255, 540], [350, 695]] },
+    { homeType: "PALACE", room: 3, walls: [[255, 350], [224, 380], [223, 505]], fixtures: [[295, 350], [218, 465]] },
+    { homeType: "MARSHMALLOWOPOLIS", room: 8, walls: [[1000, 455], [980, 595], [1090, 595]], fixtures: [[1030, 595], [935, 555]] },
+  ] as const)("covers $homeType room $room wall faces while preserving windows and lamps", ({ homeType, room, walls, fixtures }) => {
+    const [width, height] = HOME_ART_PLANS[homeType].aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
+    for (const [landmarks, expected] of [[walls, true], [fixtures, false]] as const) {
+      for (const [x, y] of landmarks) {
+        expect(HOME_ART_PLANS[homeType].paint[room]!.some((polygon) => containsPaintPoint(polygon, x * 100 / width, y * 100 / height))).toBe(expected);
+      }
+    }
+  });
+
+  it.each([
+    { homeType: "MANSION", point: [37, 64], room: 4 },
+    { homeType: "PALACE", point: [39, 38.5], room: 5 },
+    { homeType: "MARSHMALLOWOPOLIS", point: [60, 38.5], room: 9 },
+  ] as const)("assigns shared $homeType wall faces to only room $room", ({ homeType, point, room }) => {
+    const paintedRooms = HOME_ART_PLANS[homeType].paint.flatMap((panels, index) => panels.some((polygon) => containsPaintPoint(polygon, point[0], point[1])) ? [index] : []);
+    expect(paintedRooms).toEqual([room]);
+  });
+
+  it.each([...HomeTypes])("allows indoor action furniture on the %s lawn while keeping the cultivation plot separate", (homeType) => {
+    for (const action of ["sleep", "storage", "kitchen"] as const) {
+      const furniture = { ...piece, action };
+      const lawn = clampHomeFurniturePlacement({ ...placement, room: "yard" }, furniture, homeType);
+      expect(lawn).not.toBeNull();
+      expect(homeLayoutPlacementError([lawn!], [furniture], homeType)).toBeNull();
+      expect(homeLayoutPlacementError([lawn!], [{ ...furniture, action: "farm" }], homeType)).toContain("outside");
+    }
   });
 
   it("preserves furniture proportions across differently sized authored rooms", () => {
@@ -178,4 +239,15 @@ const containsSourceLandmark = (polygons: readonly (readonly (readonly [number, 
     const contour = polygon.map(([x, y]) => new Vector2(x, y));
     return ShapeUtils.triangulateShape(contour, []).some((indices) => isPointInHomePolygon(point, indices.map((index) => contour[index]!)));
   });
+};
+
+/** Match SVG's even-odd fill, including concave faces with connected lamp cutouts. */
+const containsPaintPoint = (polygon: readonly (readonly [number, number])[], x: number, y: number) => {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+    const [ax, ay] = polygon[index]!;
+    const [bx, by] = polygon[previous]!;
+    if ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax) inside = !inside;
+  }
+  return inside;
 };

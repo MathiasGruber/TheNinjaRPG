@@ -203,6 +203,31 @@ describe("Home scene", () => {
     expect(scene.querySelector('[data-home-wall-paint="yard"]')).toBeNull();
   });
 
+  it("retains wall finishes on the foreground while furniture remains above rear walls", () => {
+    const view = render(<HomeScene {...props} homeType="MANSION" styles={[{ room: "room-2", paint: "rose", floor: "original" }]} />);
+    const scene = view.getByRole("group", { name: "Home scene" });
+    const front = scene.querySelector('[data-home-foreground="70.5"]')!;
+    const finish = front.querySelector('[data-home-foreground-paint="room-2"] polygon')!;
+    expect(finish.getAttribute("fill")).toBe(HOME_WALL_PAINTS.rose);
+    const rear = scene.querySelector<SVGSVGElement>('[data-home-wall-paint="room-2"]')!;
+    expect(Number(rear.style.zIndex)).toBeLessThan(Number(scene.querySelector<HTMLElement>('[aria-label="Bed: Go to sleep"]')!.style.zIndex));
+  });
+
+  it.each(["Bed", "Armory", "Kitchen"])("moves %s to the lawn and saves its room", async (name) => {
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(true);
+    const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: new RegExp(`^${name}Placed`) }));
+    fireEvent.change(view.getByLabelText("Furniture room"), { target: { value: "yard" } });
+    expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("yard");
+    expect(view.queryByLabelText("Wall paint")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements;
+    expect(saved.find(({ id }) => id === starterFurniture.find((piece) => piece.name === name)!.id)?.room).toBe("yard");
+    expect(homeLayoutPlacementError(saved, starterFurniture, "TOWN_HOUSE")).toBeNull();
+  });
+
   it("keeps the original painting and home controls available when an optional floor texture fails", () => {
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate styles={[
       { room: "room-1", paint: "sage", floor: "terracotta" },
@@ -1266,7 +1291,7 @@ describe("multi-room home scene", () => {
     expect(onSave.mock.calls[0]![0].styles).toEqual([mainStyle, { room: "room-1", paint: "sage", floor: "slate" }]);
   });
 
-  it("keeps the source room active when furniture cannot move into the yard", async () => {
+  it("keeps the source room active when a drop misses the decorative lawn", async () => {
     const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
     const view = render(<HomeScene {...props} homeType="TOWN_HOUSE" canDecorate onSave={onSave} />);
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
