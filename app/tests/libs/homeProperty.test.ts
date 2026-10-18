@@ -79,7 +79,7 @@ describe("painted home properties", () => {
   it.each([
     { homeType: "MANSION", room: 2, floor: [[255, 565], [350, 562], [486, 620], [490, 650]], architecture: [[350, 543], [256, 541], [480, 575], [510, 614], [350, 664]] },
     { homeType: "MANSION", room: 4, floor: [[490, 500], [530, 540], [530, 580], [490, 505], [500, 505], [525, 505], [527, 530], [526, 560], [525, 585], [525, 610]], architecture: [[490, 550], [490, 570], [503, 530], [508, 520], [480, 585], [490, 510], [500, 510], [510, 505], [516, 530], [520, 515], [521, 560], [520, 600], [518, 620]] },
-    { homeType: "MANSION", room: 5, floor: [[920, 430], [950, 450], [1000, 440], [1005, 410], [1007, 430], [1008, 440], [1010, 450], [1010, 460]], architecture: [[920, 470], [930, 475], [912, 490], [940, 450], [1030, 440], [1025, 420], [1030, 460], [1010, 410], [1016, 430], [1015, 450], [1014, 460]] },
+    { homeType: "MANSION", room: 5, floor: [[920, 430], [950, 450], [1000, 440], [1005, 410], [1007, 430], [1008, 440], [1010, 450], [1010, 460], [1045, 550], [1047, 580], [1048, 600], [1050, 620]], architecture: [[920, 470], [930, 475], [912, 490], [940, 450], [1030, 440], [1025, 420], [1030, 460], [1010, 410], [1016, 430], [1015, 450], [1014, 460], [1055, 550], [1058, 580], [1060, 590], [1070, 604], [1070, 615], [1070, 625], [1080, 620], [1058, 625]] },
     { homeType: "MANSION", room: 6, floor: [[1054, 467], [1059, 472], [1065, 478]], architecture: [[1047, 467], [1046, 477], [1059, 485], [1030, 472]] },
     { homeType: "MANSION", room: 7, floor: [[1085, 612], [1100, 605], [1110, 532], [1250, 620], [1082, 530], [1091, 540], [1100, 550], [1098, 570], [1096, 590], [1100, 594], [1083, 593], [1090, 600]], architecture: [[1085, 563], [1070, 604], [1090, 640], [1248, 515], [1076, 530], [1085, 540], [1094, 552], [1092, 575], [1083, 589], [1088, 595], [1090, 596], [1078, 615]] },
     { homeType: "PALACE", room: 0, floor: [[735, 398], [800, 398], [710, 390], [824, 390]], architecture: [[710, 398], [824, 398]] },
@@ -204,8 +204,9 @@ describe("painted home properties", () => {
     { homeType: "TOWN_HOUSE", room: 4, walls: [[1228, 625], [1100, 670]], fixtures: [[1230, 616], [1100, 643]] },
     { homeType: "MANSION", room: 1, walls: [[236, 480]], fixtures: [[240, 463]] },
     { homeType: "MANSION", room: 2, walls: [[220, 648]], fixtures: [[224, 642]] },
+    { homeType: "MANSION", room: 5, walls: [[985, 680], [1000, 680], [1067, 680], [985, 700], [1000, 700], [1050, 702], [1067, 708]], fixtures: [[975, 685], [976, 705], [1000, 672], [1000, 718], [1077, 700]] },
     { homeType: "MANSION", room: 6, walls: [[1263, 470]], fixtures: [[1252, 465], [1260, 490]] },
-    { homeType: "MANSION", room: 7, walls: [[1270, 627]], fixtures: [[1278, 623]] },
+    { homeType: "MANSION", room: 7, walls: [[1270, 627], [1120, 660], [1250, 660], [1120, 670], [1250, 670], [1120, 687], [1250, 687], [1112, 680], [1235, 680], [1270, 680]], fixtures: [[1278, 623], [1100, 687], [1107, 672], [1150, 660], [1170, 665], [1205, 687], [1220, 680], [1250, 651], [1250, 698], [1283, 688]] },
     { homeType: "PALACE", room: 0, walls: [[622, 541], [666, 394], [667, 405], [680, 400], [680, 415], [690, 419], [695, 423]], fixtures: [[630, 550], [662, 400], [680, 394], [680, 418], [690, 423], [697, 404]] },
     { homeType: "PALACE", room: 1, walls: [[717, 560], [819, 560]], fixtures: [[728, 560], [806, 560], [722, 560], [813, 560], [730, 568], [805, 568]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 1, walls: [[717, 560], [819, 560]], fixtures: [[728, 560], [806, 560], [722, 560], [813, 560], [730, 568], [805, 568]] },
@@ -219,10 +220,12 @@ describe("painted home properties", () => {
     { homeType: "MARSHMALLOWOPOLIS", room: 7, walls: [[1199, 350], [1214, 515], [1270, 350], [1270, 355], [1270, 363]], fixtures: [[1194, 358], [1310, 380], [1205, 514], [1270, 344], [1280, 350], [1285, 350], [1280, 362], [1285, 365]] },
     { homeType: "MARSHMALLOWOPOLIS", room: 8, walls: [[1000, 455], [980, 595], [1090, 595]], fixtures: [[1030, 595], [935, 555]] },
   ] as const)("covers $homeType room $room wall faces while preserving windows and lamps", ({ homeType, room, walls, fixtures }) => {
-    const [width, height] = HOME_ART_PLANS[homeType].aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
+    const plan = HOME_ART_PLANS[homeType];
+    const [width, height] = plan.aspectRatio === 3 / 2 ? [1536, 1024] : [1448, 1086];
     for (const [landmarks, expected] of [[walls, true], [fixtures, false]] as const) {
+      const panels = expected ? plan.paint[room]! : plan.paint.flat();
       for (const [x, y] of landmarks) {
-        expect(HOME_ART_PLANS[homeType].paint[room]!.some((polygon) => containsArtPoint(polygon, x * 100 / width, y * 100 / height))).toBe(expected);
+        expect(panels.some((polygon) => containsArtPoint(polygon, x * 100 / width, y * 100 / height))).toBe(expected);
       }
     }
   });
