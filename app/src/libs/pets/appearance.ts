@@ -51,8 +51,12 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
   const rank = getPetRank(pet.rank);
   const identity = `${species.description}. Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
   const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Show power through stature, stance, markings and aura, not baby-to-adult anatomy. Natural adult species proportions override words such as young or small in the species description. Higher ranks must look visibly stronger and more majestic, while retaining the original species, face, colour layout and distinctive identity. Keep all limbs inside the frame.`;
+  const edit =
+    pet.artRank < pet.rank
+      ? "Edit the supplied image into the next evolution of the SAME individual animal."
+      : "Redraw the supplied image as the SAME individual animal in the requested pixel style at its CURRENT rank, power and maturity. Do not evolve it, rank it up or age it. Use the supplied image only as an ANIMAL identity reference. Redraw its preserved colours and markings with crisp hard pixel edges. Do not copy source pixels. Remove the prior background and all ground patches, cast/contact shadows and image artifacts.";
   return pet.avatar
-    ? `Edit the supplied image into the next evolution of the SAME individual animal. Preserve its exact species, face, eye colours, primary colour placement, distinctive markings, accessories and basic left-facing pose. Do not replace or redesign the animal. ${identity} ${maturity} ${PET_ART_STYLE}`
+    ? `${edit} Preserve its exact species, face, eye colours, primary colour placement, distinctive markings, accessories and basic left-facing pose. Do not replace or redesign the animal. ${identity} ${maturity} ${PET_ART_STYLE}`
     : `Full-body ${species.name} companion with recognizable species anatomy and natural adult proportions. ${identity} ${maturity} ${PET_ART_STYLE}`;
 };
 
@@ -60,7 +64,7 @@ export const getPetAppearancePrompt = (pet: AppearancePet) => {
  * Produce a moderated, complete cutout and verify an evolution's visual identity.
  * Await onUpload for each stored intermediate/final URL before further review so
  * the caller can track and clean up uploads even when a later check fails.
- * Returning a URL does not persist readiness; the caller owns that guarded write.
+ * The caller persists the accepted image and its facing together in a guarded write.
  */
 export const generatePetAppearance = async (
   pet: AppearancePet,
@@ -109,7 +113,7 @@ export const generatePetAppearance = async (
     validatePetAppearanceQuality(candidate.verdict);
   }
   signal.throwIfAborted();
-  return candidate.avatar;
+  return { avatar: candidate.avatar, avatarFacing: candidate.verdict.avatarFacing };
 };
 
 /** Review the candidate's species and, for evolution, the accepted prior identity. */

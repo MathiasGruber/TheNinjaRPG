@@ -2,6 +2,7 @@
 import { z } from "zod";
 import {
   AI_PROFILE_MAX_RULES,
+  AvatarFacings,
   PET_MAX_ABILITY_SLOTS,
   PetPaymentCurrencies,
   PetSpawnPositions,
@@ -100,6 +101,7 @@ export const petAppearanceQualitySchema = z.object({
   completeBody: z.boolean(),
   noGroundOrScene: z.boolean(),
   identityPreserved: z.boolean(),
+  avatarFacing: z.enum(AvatarFacings),
   reason: z.string().min(1).max(600),
 });
 

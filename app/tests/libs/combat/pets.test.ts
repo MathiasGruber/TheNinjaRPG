@@ -65,6 +65,12 @@ describe("owned pets in combat", () => {
     PET_BATTLE_CONFIG.enabled = previousBattleEnabled;
   });
 
+  it.each(["left", "right"] as const)("preloads %s-facing source art for the shared AI combat renderer", (avatarFacing) => {
+    const battle = scenario();
+    add(battle, [petFixture({ avatarFacing })]);
+    expect(battle.usersState.find((user) => user.petId === "pet-1")?.avatarFacing).toBe(avatarFacing);
+  });
+
   it.each([...BattleTypes])("excludes pets, abilities and settlement identities from %s while companion battles are disabled", (battleType) => {
     PET_BATTLE_CONFIG.enabled = false;
     const battle = scenario();

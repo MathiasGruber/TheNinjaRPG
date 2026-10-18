@@ -853,7 +853,7 @@ export const petsRouter = createTRPCRouter({
       );
       if (claim.rowsAffected !== 1) return changedResponse();
       try {
-        const avatar = await generatePetAppearance(
+        const { avatar, avatarFacing } = await generatePetAppearance(
           { ...pet, ...appearance },
           async (imageUrl) => {
             await ctx.drizzle
@@ -866,7 +866,7 @@ export const petsRouter = createTRPCRouter({
             .update(userPet)
             .set({
               avatar,
-              avatarFacing: "left",
+              avatarFacing,
               artRank: pet.rank,
               generationStatus: "READY",
               generationToken: null,

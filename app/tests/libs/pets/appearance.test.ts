@@ -13,18 +13,19 @@ const sourceUrl = "https://example.com/source-pet.webp";
 const avatarUrl = "https://example.com/accepted-pet.webp";
 const correctedUrl = "https://example.com/corrected-pet.webp";
 const pet = { userId: "pet-owner", speciesId: "pet-species-0", species: initialPetSpecies[0]!, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
-const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, reason: "A valid pet sprite" };
+const acceptedQuality = { singleAnimal: true, anatomyCorrect: true, speciesMatches: true, completeBody: true, noGroundOrScene: true, identityPreserved: true, avatarFacing: "left" as const, reason: "A valid pet sprite" };
 
 beforeEach(() => vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue(acceptedQuality));
 afterEach(() => vi.restoreAllMocks());
 
 describe("companion provider pipeline", () => {
-  it("generates a founder through Nano Banana and verifies its cutout before accepting it", async () => {
+  it.each(["left", "right"] as const)("accepts a verified %s-facing founder and returns its observed direction", async (avatarFacing) => {
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, avatarFacing });
     const buffer = await cutout();
     const provider = stubFounder(buffer);
     const legacyProvider = vi.spyOn(replicate, "fastTxt2imgReplicate");
     const uploads: string[] = [];
-    expect(await generatePetAppearance(pet, async (url) => { uploads.push(url); })).toBe(avatarUrl);
+    expect(await generatePetAppearance(pet, async (url) => { uploads.push(url); })).toEqual({ avatar: avatarUrl, avatarFacing });
     expect(provider).toHaveBeenCalledWith(expect.objectContaining({ previousImg: undefined, removeBg: true, width: 512, height: 512, size: "square", preprompt: expect.stringContaining(PIXEL_ART_STYLE) }));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/webp;base64,/), true, expect.any(AbortSignal));
     expect(moderator.classifyNsfwImage).toHaveBeenCalledTimes(1);
@@ -59,7 +60,7 @@ describe("companion provider pipeline", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response(new Blob([buffer as BlobPart])));
     const edit = vi.spyOn(replicate, "txt2imgNanoBanana").mockResolvedValue([avatarUrl]);
     const founder = vi.spyOn(replicate, "fastTxt2imgReplicate");
-    expect(await generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async () => {})).toBe(avatarUrl);
+    expect(await generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async () => {})).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
     expect(edit).toHaveBeenCalledWith(expect.objectContaining({ previousImg: sourceUrl, removeBg: true, prompt: expect.stringContaining("SAME individual animal") }));
     expect(founder).not.toHaveBeenCalled();
     expect(moderator.classifyNsfwImage).toHaveBeenCalledWith(expect.stringMatching(/^data:image\/webp;base64,/), true, expect.any(AbortSignal));
@@ -76,10 +77,11 @@ describe("companion provider pipeline", () => {
     const buffer = await cutout();
     const edit = stubFounder(buffer).mockResolvedValueOnce([avatarUrl]).mockResolvedValueOnce([correctedUrl]);
     const review = vi.spyOn(quality, "classifyPetAppearanceImage")
-      .mockResolvedValueOnce({ ...acceptedQuality, speciesMatches: false, reason: "A baby chick instead of the requested crow" });
+      .mockResolvedValueOnce({ ...acceptedQuality, speciesMatches: false, reason: "A baby chick instead of the requested crow" })
+      .mockResolvedValueOnce({ ...acceptedQuality, avatarFacing: "right" });
     const controller = new AbortController();
     const owned: string[] = [];
-    expect(await generatePetAppearance(crow, async (url) => { owned.push(url); }, controller.signal)).toBe(correctedUrl);
+    expect(await generatePetAppearance(crow, async (url) => { owned.push(url); }, controller.signal)).toEqual({ avatar: correctedUrl, avatarFacing: "right" });
     expect(edit).toHaveBeenCalledTimes(2);
     expect(edit.mock.calls[1]![0]).toEqual(expect.objectContaining({
       previousImg: avatarUrl, removeBg: true, signal: controller.signal,
@@ -168,7 +170,7 @@ describe("companion provider pipeline", () => {
     const buffer = await cutout();
     stubFounder(buffer, false);
     const transport = vi.spyOn(Moderations.prototype, "create").mockImplementation(() => Promise.resolve({ results: [{ categories: {}, category_scores: {} }] }) as never);
-    expect(await generatePetAppearance(pet, async () => {})).toBe(avatarUrl);
+    expect(await generatePetAppearance(pet, async () => {})).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
     expect(transport).toHaveBeenCalledTimes(1);
     const request = transport.mock.calls[0]![0];
     const input = Array.isArray(request.input) ? request.input[0] : null;

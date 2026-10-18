@@ -666,6 +666,13 @@
       "when": 1792333601638,
       "tag": "0094_pet_daily_claims",
       "breakpoints": false
+    },
+    {
+      "idx": 95,
+      "version": "5",
+      "when": 1792333690925,
+      "tag": "0095_refresh_companion_artwork",
+      "breakpoints": false
     }
   ]
 }

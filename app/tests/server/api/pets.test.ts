@@ -219,7 +219,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const view = await caller.getPet();
     expect(view.options.species).toEqual([]);
     expect(view.pet?.species).toMatchObject({ ...species, isActive: false });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId: pet.id })).success).toBe(true);
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({ species: expect.objectContaining({ id: species.id, description: species.description, isActive: false }) }), expect.any(Function));
   });
@@ -288,7 +288,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await readyPet(database);
     await database.update(userData).set({ petSlots: 2, petAcquisitions: 1, petExperience: 75, seichiSilver: PET_SEICHI_SILVER_COST }).where(eq(userData.userId, userId));
     const input = await adoptionInput(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.acquirePet({ ...input, currency: "REPUTATION" }), caller.acquirePet({ ...input, currency: "SEICHI_SILVER" })]);
     const acquired = results.find((result) => result.success)!;
@@ -537,7 +537,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await parkedPet(database, { id: "foreign", userId: "other-owner", generationStatus: "PENDING", artRank: 0, avatar: null, generationToken: "private" });
     await mealStack();
     const before = await readOwner(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     const selection = { petId: "foreign" };
     const results = await Promise.all([
@@ -774,7 +774,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await mealStack();
     await database.update(userData).set({ rank: "ELDER", petExperience: 100, petTask: task() }).where(eq(userData.userId, userId));
     const beforeOwner = await readOwner(database); const beforePet = await readPet(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     const results = await Promise.all([
       caller.activatePet({ petId }), caller.releasePet({ petId }), caller.rankUp({ petId }),
@@ -1041,11 +1041,11 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const data = await caller.getPet();
     const selected = { dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
       characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index };
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "right" });
     expect((await caller.generateAppearance({ petId, appearance: selected })).success).toBe(true);
     const { dayKey: _, ...traits } = selected;
     expect(generate).toHaveBeenCalledWith(expect.objectContaining({ ...traits, speciesId: "pet-species-0" }), expect.any(Function));
-    expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, generationAttempts: 1 });
+    expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, avatarFacing: "right", generationAttempts: 1 });
     expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, petAcquisitions: 0 });
   });
 
@@ -1061,7 +1061,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
       const offered = field === "paletteIndex" ? data.options.palettes : field === "characteristicIndex" ? data.options.characteristics : data.options.auras;
       appearanceInput[field] = all.find((option) => option.index !== 0 && !offered.some((entry) => entry.index === option.index))!.index;
     }
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId, appearance: appearanceInput })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();
     expect(await readPet(database)).toEqual(before);
@@ -1074,7 +1074,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const data = await caller.getPet();
     const paletteIndex = PET_PALETTES.find((entry) => !data.options.palettes.some((option) => option.index === entry.index))!.index;
     await database.update(userPet).set({ paletteIndex }).where(eq(userPet.id, petId));
-    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId, appearance: { dayKey: data.dayKey, paletteIndex, characteristicIndex: 0, auraIndex: 0 } })).success).toBe(true);
     expect((await readPet(database))?.paletteIndex).toBe(paletteIndex);
   });
@@ -1083,7 +1083,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const database = await getTestDatabase();
     await readyPet(database, { rank: 2, artRank: 1, generationStatus: "PENDING" });
     const caller = callerForDatabase(petsRouter, userId, database); const before = await readPet(database);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId, appearance: { dayKey: getPetDayKey(), paletteIndex: 0, characteristicIndex: 0, auraIndex: 0 } })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();
     expect(await readPet(database)).toEqual(before);
@@ -1095,7 +1095,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await database.update(userData).set({ federalStatus: "GOLD" }).where(eq(userData.userId, userId));
     const data = await callerForDatabase(petsRouter, userId, database).getPet(); const before = await readPet(database);
     const hooked = beforeStatements(database, userPet, [() => database.update(userData).set({ federalStatus: "NONE" }).where(eq(userData.userId, userId))]);
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await callerForDatabase(petsRouter, userId, hooked).generateAppearance({ petId, appearance: {
       dayKey: data.dayKey, paletteIndex: data.options.palettes.at(-1)!.index,
       characteristicIndex: data.options.characteristics.at(-1)!.index, auraIndex: data.options.auras.at(-1)!.index,
@@ -1118,7 +1118,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.petAcquisitions).toBe(1);
     expect((await readOwner(database))?.reputationPoints).toBe(200);
     await database.update(userPet).set({ generationStartedAt: new Date(Date.now() - PET_GENERATION_RETRY_MS - 1000) }).where(eq(userPet.userId, userId));
-    generate.mockImplementation(async (_pet, onUpload) => { await onUpload(avatar); return avatar; });
+    generate.mockImplementation(async (_pet, onUpload) => { await onUpload(avatar); return { avatar, avatarFacing: "left" }; });
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationStatus).toBe("READY");
     expect((await readPet(database))?.generationAttempts).toBe(2);
@@ -1131,7 +1131,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("lets only one generation claim reach the provider", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
     const results = await Promise.all([caller.generateAppearance({ petId }), caller.generateAppearance({ petId })]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
@@ -1142,7 +1142,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("respects daily attempts and resets their count on the next UTC day", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "FAILED", artRank: 0, avatar: null, generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.generateAppearance({ petId })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();
@@ -1154,7 +1154,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("recovers a stale lease without accepting the old token's completion", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "GENERATING", artRank: 0, avatar: null, generationToken: "abandoned-token", generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1000), generationAttempts: 1, generationDay: getPetDayKey() });
-    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationToken).toBeNull();
@@ -1166,12 +1166,13 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", artRank: 0, avatar: null });
     vi.spyOn(appearance, "generatePetAppearance").mockImplementation(async () => {
-      await database.update(userPet).set({ generationToken: "newer-token", avatar: "/newer.webp", revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
-      return avatar;
+      await database.update(userPet).set({ generationToken: "newer-token", avatar: "/newer.webp", avatarFacing: "right", revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId));
+      return { avatar, avatarFacing: "left" };
     });
     const result = await callerForDatabase(petsRouter, userId, database).generateAppearance({ petId });
     expect(result.success).toBe(false);
     expect((await readPet(database))?.avatar).toBe("/newer.webp");
+    expect((await readPet(database))?.avatarFacing).toBe("right");
     expect((await readPet(database))?.generationToken).toBe("newer-token");
   });
 
@@ -1200,7 +1201,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("rejects generation if its pet snapshot changes before the provider claim", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "PENDING", artRank: 0, avatar: null });
-    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue(avatar);
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const hooked = beforeStatements(database, userPet, [() => database.update(userPet).set({ revision: sql`${userPet.revision} + 1` }).where(eq(userPet.id, petId))]);
     expect((await callerForDatabase(petsRouter, userId, hooked).generateAppearance({ petId })).success).toBe(false);
     expect(generate).not.toHaveBeenCalled();

@@ -102,8 +102,18 @@ describe("companion image safety and AI controls", () => {
     expect(founder).not.toContain("small young companion");
     expect(getPetAppearancePrompt({ ...base, rank: 10, artRank: 9, avatar: "/previous.webp" })).toContain("celestial legendary beast");
     const evolution = getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" });
+    expect(evolution).toContain("next evolution");
     expect(evolution).toContain("Preserve its exact species");
     expect(evolution).not.toContain("adolescent");
+    const restyle = getPetAppearancePrompt({ ...base, rank: 2, artRank: 2, avatar: "/previous.webp" });
+    expect(restyle).toContain("SAME individual animal in the requested pixel style at its CURRENT rank, power and maturity");
+    expect(restyle).toContain("Do not evolve it, rank it up or age it");
+    expect(restyle).toContain("Use the supplied image only as an ANIMAL identity reference");
+    expect(restyle).toContain("Do not copy source pixels");
+    expect(restyle).toContain("Remove the prior background and all ground patches, cast/contact shadows and image artifacts");
+    expect(restyle).toContain("Preserve its exact species");
+    expect(restyle).toContain("Evolution rank 2 of 10");
+    expect(restyle).not.toContain("next evolution");
     expect(() => getPetAppearancePrompt({ ...base, species: null })).toThrow("Invalid pet appearance");
     const retiredSpecies = { ...initialPetSpecies[0]!, name: "Spirit fox", description: "A fox with translucent ears", isActive: false };
     expect(getPetAppearancePrompt({ ...base, species: retiredSpecies })).toContain(retiredSpecies.description);
