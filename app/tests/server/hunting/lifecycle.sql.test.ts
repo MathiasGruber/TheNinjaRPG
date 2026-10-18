@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingSession, item, sectorMap, userData } from "@/drizzle/schema";
+import { actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingSession, item, sectorMap, userData, userItem } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { huntingRouter } from "@/routers/hunting";
 import { insertItems, insertUsers } from "../../setup/factories";
@@ -10,7 +10,7 @@ import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, re
 describeWithDatabase("Hunting lifecycle", () => {
   beforeEach(async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async () => Response.json([{ result: [59, 60] }]));
-    await resetTables(actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingSession, item, sectorMap, userData);
+    await resetTables(actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingSession, item, sectorMap, userData, userItem);
     await insertUsers([{ userId: "hunter", occupation: "HUNTER", status: "AWAKE", huntingExperience: 123, sector: 1 }, { userId: "staff", role: "CODING-ADMIN" }, { userId: "enemy", isAi: true }]);
     await insertItems([{ id: "hide", canBeHunted: true }, { id: "tusk", canBeHunted: true }]);
     const db = await getTestDatabase();
