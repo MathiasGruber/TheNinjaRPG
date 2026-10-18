@@ -142,7 +142,6 @@ import {
   getEffectStage,
   getItem,
   isEffectActive,
-  isValidMove,
   recordUsedTag,
   refreshMasteries,
   resetMasteriesToBase,
@@ -358,18 +357,12 @@ export const applyEffects = (
       const origin = grid.getHex({ col: e.longitude, row: e.latitude });
       if (!creator || !origin) return;
       // Resolve against earlier spawns in this pass, using normal empty-ground rules.
-      const barriers = groundEffects.filter((effect) => effect.type === "barrier");
       const destination = grid
         .toArray()
-        .filter((target) =>
-          isValidMove({
-            action: { target: "EMPTY_GROUND", effects: [e] },
-            target,
-            clicked: target,
-            user: creator,
-            users: newUsersState,
-            barriers,
-          }),
+        .filter(
+          (target) =>
+            !findUser(newUsersState, target.col, target.row) &&
+            !findBarrier(groundEffects, target.col, target.row),
         )
         .sort((a, b) => grid.distance(a, origin) - grid.distance(b, origin))[0];
       if (!destination) return;
