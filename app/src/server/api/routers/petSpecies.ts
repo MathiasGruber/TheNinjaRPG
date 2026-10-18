@@ -57,7 +57,9 @@ export const petSpeciesRouter = createTRPCRouter({
       if (existing) return errorResponse("Companion species name already exists");
       if (
         defaults.length !== input.defaultJutsuIds.length ||
-        defaults.some((entry) => !isPetJutsuAllowed(entry))
+        defaults.some(
+          (entry) => !isPetJutsuAllowed(entry) || !!entry.requiredPetSpeciesId,
+        )
       )
         return errorResponse(
           "Choose published, compatible PETS jutsu for the default loadout.",
@@ -111,7 +113,11 @@ export const petSpeciesRouter = createTRPCRouter({
         return errorResponse("Companion species name already exists");
       if (
         defaults.length !== input.data.defaultJutsuIds.length ||
-        defaults.some((entry) => !isPetJutsuAllowed(entry))
+        defaults.some(
+          (entry) =>
+            !isPetJutsuAllowed(entry) ||
+            (!!entry.requiredPetSpeciesId && entry.requiredPetSpeciesId !== input.id),
+        )
       )
         return errorResponse(
           "Choose published, compatible PETS jutsu for the default loadout.",

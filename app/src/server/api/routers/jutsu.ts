@@ -44,6 +44,7 @@ import {
   jutsu,
   jutsuLoadout,
   jutsuReskin,
+  petSpecies,
   quest,
   skillTree,
   userData,
@@ -1042,6 +1043,7 @@ export const jutsuRouter = createTRPCRouter({
         requiredItem,
         reskinParent,
         reskinGroup,
+        requiredSpecies,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchJutsu(ctx.drizzle, input.id),
@@ -1083,6 +1085,12 @@ export const jutsuRouter = createTRPCRouter({
         input.data.bloodlineReskinId
           ? ctx.drizzle.query.bloodlineReskin.findFirst({
               where: eq(bloodlineReskin.id, input.data.bloodlineReskinId),
+            })
+          : Promise.resolve(null),
+        input.data.requiredPetSpeciesId
+          ? ctx.drizzle.query.petSpecies.findFirst({
+              where: eq(petSpecies.id, input.data.requiredPetSpeciesId),
+              columns: { id: true },
             })
           : Promise.resolve(null),
       ]);
@@ -1128,6 +1136,11 @@ export const jutsuRouter = createTRPCRouter({
       ) {
         return errorResponse("Select a valid SkillTree skill entry");
       }
+      if (
+        input.data.requiredPetSpeciesId &&
+        (input.data.jutsuType !== "PETS" || !requiredSpecies)
+      )
+        return errorResponse("Select a valid companion species for a PETS jutsu");
       // Guard
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");

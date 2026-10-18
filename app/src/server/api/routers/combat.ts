@@ -4210,7 +4210,12 @@ export const processUsersForBattle = async (
     }));
   }
   // Collect user effects here
-  const allSummons: string[] = [];
+  // Companion skills share the summon preload pipeline with character abilities.
+  const allSummons: string[] = (info.petPreload?.pets ?? []).flatMap((pet) =>
+    (pet.species?.effects ?? []).flatMap((effect) =>
+      effect.type === "summon" ? [effect.aiId] : [],
+    ),
+  );
   const userEffects: UserEffect[] = [];
   const enemySkills: NonNullable<ExtraState["enemySkills"]> = {};
   const pendingSkillEffects: {

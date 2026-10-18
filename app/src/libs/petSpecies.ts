@@ -67,7 +67,13 @@ export const usePetSpeciesEditForm = (
     { getNextPageParam: (page) => page.nextCursor },
   );
   const availableJutsus =
-    catalogue.data?.pages.flatMap((page) => page.data).filter(isPetJutsuAllowed) ?? [];
+    catalogue.data?.pages
+      .flatMap((page) => page.data)
+      .filter(
+        (entry) =>
+          isPetJutsuAllowed(entry) &&
+          (!entry.requiredPetSpeciesId || entry.requiredPetSpeciesId === species?.id),
+      ) ?? [];
   const mutationOptions = {
     onSuccess: async (result: { success: boolean; message: string }) => {
       showMutationToast({

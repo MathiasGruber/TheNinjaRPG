@@ -13,10 +13,7 @@ import type {
   UserEffect,
 } from "@/libs/combat/types";
 import { rollInitiative } from "@/libs/combat/util";
-import {
-  isPetPassiveEffectAllowed,
-  selectPetBattleAbilities,
-} from "@/libs/pets/abilities";
+import { selectPetBattleAbilities } from "@/libs/pets/abilities";
 import {
   canUsePet,
   getPetLevel,
@@ -120,31 +117,29 @@ export const addPetsToBattle = (info: {
     }
     // Innate bonuses belong to the participating bond, never to an absent pet or the whole team.
     const speciesEffects = pet.species.effects;
-    if (speciesEffects.every(isPetPassiveEffectAllowed)) {
-      const sourceId = `pet:${pet.id}:species`;
-      if (pet.species.skillTarget === "ENEMIES" && speciesEffects.length) {
-        extraState.enemySkills ??= {};
-        extraState.enemySkills[sourceId] = structuredClone(speciesEffects);
-        for (const target of [owner, actor]) {
-          target.enemySkillIds ??= [];
-          target.enemySkillIds.push(sourceId);
-        }
-      } else if (pet.species.skillTarget === "SELF" && info.usersEffects) {
-        for (const target of [owner, actor]) {
-          for (const effect of speciesEffects) {
-            const realized = realizeTag({
-              tag: structuredClone(effect) as UserEffect,
-              user: target,
-              target,
-              actionId: sourceId,
-              level: target.level,
-            });
-            realized.isNew = false;
-            realized.castThisRound = false;
-            realized.targetId = target.userId;
-            realized.fromType = "skill";
-            info.usersEffects.push(realized);
-          }
+    const sourceId = `pet:${pet.id}:species`;
+    if (pet.species.skillTarget === "ENEMIES" && speciesEffects.length) {
+      extraState.enemySkills ??= {};
+      extraState.enemySkills[sourceId] = structuredClone(speciesEffects);
+      for (const target of [owner, actor]) {
+        target.enemySkillIds ??= [];
+        target.enemySkillIds.push(sourceId);
+      }
+    } else if (pet.species.skillTarget === "SELF" && info.usersEffects) {
+      for (const target of [owner, actor]) {
+        for (const effect of speciesEffects) {
+          const realized = realizeTag({
+            tag: structuredClone(effect) as UserEffect,
+            user: target,
+            target,
+            actionId: sourceId,
+            level: target.level,
+          });
+          realized.isNew = false;
+          realized.castThisRound = false;
+          realized.targetId = target.userId;
+          realized.fromType = "skill";
+          info.usersEffects.push(realized);
         }
       }
     }

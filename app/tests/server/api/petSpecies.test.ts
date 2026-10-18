@@ -131,6 +131,18 @@ describeWithDatabase("Manual companion species", () => {
     expect(await database.query.actionLog.findMany()).toHaveLength(2);
   });
 
+  it("allows species-locked defaults only on their matching companion", async () => {
+    const database = await getTestDatabase();
+    await database.insert(petSpecies).values({ id: "original", ...species });
+    await database.insert(jutsu).values(petJutsuFixture({ requiredPetSpeciesId: "original" }));
+    const caller = callerForDatabase(petSpeciesRouter, staffId, database);
+    const data = { ...species, defaultJutsuIds: ["pet-strike"] };
+    expect((await caller.create({ ...data, name: "Another species" })).success).toBe(false);
+    expect((await caller.update({ id: "original", data })).success).toBe(true);
+    await database.update(jutsu).set({ requiredPetSpeciesId: "other-species" });
+    expect((await caller.update({ id: "original", data })).success).toBe(false);
+  });
+
   it.each(["missing", "hidden", "normal", "dependent"] as const)("rejects %s default jutsu on both create and update without content writes", async (state) => {
     const database = await getTestDatabase();
     await database.insert(petSpecies).values({ id: "original", ...species });

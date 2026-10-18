@@ -673,6 +673,13 @@
       "when": 1792333690925,
       "tag": "0095_refresh_companion_artwork",
       "breakpoints": false
+    },
+    {
+      "idx": 96,
+      "version": "5",
+      "when": 1792340539152,
+      "tag": "0096_overrated_mongu",
+      "breakpoints": false
     }
   ]
 }

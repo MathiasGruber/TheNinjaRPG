@@ -6,7 +6,6 @@ import {
   PetRoles,
   PetSkillTargets,
 } from "@/drizzle/constants";
-import { isPetPassiveEffectAllowed } from "@/libs/pets/abilities";
 import {
   AllTags,
   SuperRefineEffects,
@@ -37,15 +36,6 @@ export const PetSpeciesValidator = z
     skillTarget: z.enum(PetSkillTargets).default("SELF"),
   })
   .superRefine((species, ctx) => {
-    species.effects.forEach((effect, index) => {
-      if (!isPetPassiveEffectAllowed(effect))
-        ctx.addIssue({
-          code: "custom",
-          path: ["effects", index],
-          message:
-            "Choose a supported companion passive effect without external content dependencies.",
-        });
-    });
     if (new Set(species.defaultJutsuIds).size !== species.defaultJutsuIds.length) {
       ctx.addIssue({
         code: "custom",

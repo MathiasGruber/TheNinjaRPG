@@ -1742,6 +1742,11 @@ export const JutsuValidatorRawSchema = z.object({
   extraBaseCost: z.coerce.number().min(0).max(65_535),
   jutsuWeapon: z.enum(WeaponTypes),
   jutsuType: z.enum(JutsuTypes),
+  requiredPetSpeciesId: z
+    .string()
+    .max(191)
+    .nullish()
+    .transform((value) => value || null),
   jutsuRank: z.enum(LetterRanks),
   requiredRank: z.enum(UserRanks),
   requiredLevel: z.coerce.number().min(1).max(100),

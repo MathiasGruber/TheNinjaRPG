@@ -58,6 +58,10 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   const { data: jutsus, isPending: l4 } = api.jutsu.getAllNames.useQuery(undefined);
   const { data: reskinParents, isPending: l6 } = api.jutsu.getReskinParents.useQuery();
 
+  const { data: companionSpecies, isPending: loadingSpecies } =
+    api.petSpecies.getAll.useQuery();
+  const jutsuType = useWatch({ control: form.control, name: "jutsuType" });
+
   const reskinParentId = useWatch({
     control: form.control,
     name: "reskinParentJutsuId",
@@ -133,7 +137,12 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   // Form submission
   const handleJutsuSubmit = form.handleSubmit(
     (data: ZodJutsuType) => {
-      const newJutsu = { ...jutsu, ...data };
+      const newJutsu = {
+        ...jutsu,
+        ...data,
+        requiredPetSpeciesId:
+          data.jutsuType === "PETS" ? data.requiredPetSpeciesId : null,
+      };
       const diff = calculateContentDiff(jutsu, newJutsu);
       if (diff.length > 0) {
         updateJutsu({ id: jutsu.id, data: newJutsu });
@@ -154,7 +163,7 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
   };
 
   // Are we loading data
-  const loading = l1 || l2 || l3 || l4 || l5 || l6;
+  const loading = l1 || l2 || l3 || l4 || l5 || l6 || loadingSpecies;
 
   // Watch for changes to avatar
   const imageUrl = useWatch({
@@ -202,6 +211,18 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
       values: bloodlineReskins,
       resetButton: true,
     },
+    ...(jutsuType === "PETS"
+      ? [
+          {
+            id: "requiredPetSpeciesId" as const,
+            label: "Required Companion Species (blank allows any)",
+            type: "db_values" as const,
+            values: companionSpecies,
+            searchable: true,
+            resetButton: true,
+          },
+        ]
+      : []),
     { id: "image", type: "avatar", href: imageUrl },
     { id: "name", type: "text" },
     { id: "actionCostPerc", label: "AP Cost [%]", type: "number" },

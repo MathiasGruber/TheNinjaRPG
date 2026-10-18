@@ -30,6 +30,17 @@ describe("pet ability eligibility and shared power budget", () => {
     expect(validate({ species: null })).toContain("species is unavailable");
   });
 
+  it("restricts jutsus to their authored companion species including frozen battle loadouts", () => {
+    const matching = petJutsuFixture({ requiredPetSpeciesId: pet().species!.id });
+    const foreign = petJutsuFixture({ requiredPetSpeciesId: "different-species" });
+    expect(validate({}, [matching])).toBeNull();
+    expect(validate({}, [foreign])).toContain("different companion species");
+    expect(validate({}, [petJutsuFixture()])).toBeNull();
+    const selected = selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELDER" }, jutsus: [foreign], skills: [ownedPetSkill()] });
+    expect(selected.jutsus).toEqual([]);
+    expect(selected.skills).toHaveLength(1);
+  });
+
   it("shares the rarity/tier budget between jutsus and skills", () => {
     expect(getPetJutsuCost({ jutsuRank: "S" })).toBe(5);
     expect(getPetJutsuCost({ jutsuRank: "H" })).toBe(Number.POSITIVE_INFINITY);
