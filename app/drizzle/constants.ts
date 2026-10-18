@@ -3239,18 +3239,18 @@ export const IMG_HOME_PROPERTIES = {
   },
   MANSION: {
     ground: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJHezDBLQvYURJhgs76VZtf9wxpMa13Cq0iOnr",
-    dessert: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJHezDBLQvYURJhgs76VZtf9wxpMa13Cq0iOnr",
-    snow: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJHezDBLQvYURJhgs76VZtf9wxpMa13Cq0iOnr",
+    dessert: "https://uploadthing.b-cdn.net/f/N15VuvdnfDnk6D-Y7XQ6F.webp",
+    snow: "https://uploadthing.b-cdn.net/f/PGX8lUT9xCDqtVNfkvrYx.webp",
   },
   PALACE: {
     ground: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
-    dessert: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
-    snow: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
+    dessert: "https://uploadthing.b-cdn.net/f/1G2_ZRwT_Ga0hEz-WEATu.webp",
+    snow: "https://uploadthing.b-cdn.net/f/obq3x6kpj32siJee-a76a.webp",
   },
   MARSHMALLOWOPOLIS: {
     ground: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
-    dessert: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
-    snow: "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVlImyxF2veAXohUuE59nTQHRJIYjtiG18aF4",
+    dessert: "https://uploadthing.b-cdn.net/f/1G2_ZRwT_Ga0hEz-WEATu.webp",
+    snow: "https://uploadthing.b-cdn.net/f/obq3x6kpj32siJee-a76a.webp",
   },
 } as const satisfies Record<HomeType, Record<"ground" | "dessert" | "snow", string>>;
 /** Original retains the authored floor; other finishes use measured room surface masks. */
