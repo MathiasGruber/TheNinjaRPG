@@ -2,7 +2,6 @@ import { format } from "date-fns";
 import type { RetryQuestDelay, TimeUnit } from "@/drizzle/constants";
 import {
   BANK_INTEREST_CLAIM_DAYS,
-  PET_BATTLE_CONFIG,
   PET_FEED_COOLDOWN_HOURS,
   REGEN_SECONDS,
 } from "@/drizzle/constants";
@@ -365,13 +364,12 @@ export const getDateKey = (date: Date): string => {
 /** Zero-padded UTC day for persisted pet quotas and deterministic menus; getDateKey is unpadded. */
 export const getPetDayKey = (now = new Date()) => now.toISOString().slice(0, 10);
 
-/** Feed every cooldown while combat is disabled, otherwise once per UTC date. */
+/**
+ * Return the next meal time, or null if this companion has never been fed.
+ * The rolling cooldown is independent of battles and UTC day boundaries.
+ */
 export const getPetFeedAvailableAt = (lastFedAt: Date | null) =>
-  lastFedAt
-    ? PET_BATTLE_CONFIG.enabled
-      ? nextUtcDayAt(lastFedAt)
-      : secondsFromDate(PET_FEED_COOLDOWN_HOURS * HOUR_S, lastFedAt)
-    : null;
+  lastFedAt ? secondsFromDate(PET_FEED_COOLDOWN_HOURS * HOUR_S, lastFedAt) : null;
 
 /**
  * Format a duration in seconds to a human-readable string (e.g., "5m 30s", "2m", "45s")

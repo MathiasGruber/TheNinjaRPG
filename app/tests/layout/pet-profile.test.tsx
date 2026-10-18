@@ -529,7 +529,7 @@ it.each([false, true])("shows the feeding cadence with combat enabled %s and fee
   const view = mount();
   await view.findAllByRole("button", { name: "Feed one meal" });
   await confirmMeal(view);
-  expect(view.getByText(enabled ? "Share a meal once each UTC day" : `Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`)).toBeTruthy();
+  expect(view.getByText(`Share a meal every ${PET_FEED_COOLDOWN_HOURS} hours`)).toBeTruthy();
   await waitFor(() => expect(feed).toHaveBeenCalledWith({ petId: "companion", userItemId: "meal", expectedQuantity: 2 }));
   expect(view.getByRole("tabpanel", { name: /^Care$/ }).textContent).not.toContain("training points");
   selectTab(view, "Training");

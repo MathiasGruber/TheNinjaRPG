@@ -655,7 +655,7 @@ export const PET_JUTSU_POWER_COST_BY_RANK = {
 export const PET_FEED_EXPERIENCE_BY_RARITY: Record<ItemRarity, number> = {
   COMMON: 500, RARE: 750, EPIC: 1000, LEGENDARY: 1200,
 };
-/** Rolling feeding cooldown while companion battles are unavailable. */
+/** Rolling cooldown between companion meals. */
 export const PET_FEED_COOLDOWN_HOURS = 3;
 export const PetRarities = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY"] as const;
 export type PetRarity = (typeof PetRarities)[number];
