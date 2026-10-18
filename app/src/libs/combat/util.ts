@@ -3230,7 +3230,7 @@ export const rollInitiative = (
  * @returns
  */
 export const isValidMove = (info: {
-  action: CombatAction;
+  action: Pick<CombatAction, "target" | "effects">;
   target: TerrainHex;
   user: ReturnedUserState;
   users: ReturnedUserState[];

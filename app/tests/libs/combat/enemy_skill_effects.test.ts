@@ -98,7 +98,7 @@ describe("enemy-targeted skill and bloodright effects", () => {
     expect(procs()).toHaveLength(0);
   });
 
-  it.each([MoveTag.parse({}), SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), BarrierTag.parse({ staticAssetPath: "barrier" }), VisualTag.parse({})])("routes enemy $type tags to battlefield processing while preserving user passives", (tag) => {
+  it.each([SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), BarrierTag.parse({ staticAssetPath: "barrier" }), VisualTag.parse({})])("routes enemy $type tags to battlefield processing while preserving user passives", (tag) => {
     const { battle, cast, procs } = setup();
     battle.extraState.enemySkills!.skill = [tag];
     expect(cast()).toBe(true);
@@ -108,10 +108,15 @@ describe("enemy-targeted skill and bloodright effects", () => {
     }]);
     expect(procs().map((effect) => effect.type)).toEqual(["poison"]);
     expect(battle.extraState.enemySkills!.skill).toEqual([tag]);
-    if (tag.type === "move") {
-      const moved = applyEffects(battle, "actor").newBattle.usersState.find((user) => user.userId === "actor");
-      expect(moved).toMatchObject({ longitude: 1, latitude: 0 });
-    }
+  });
+
+  it("ignores enemy movement passives without suppressing other sources", () => {
+    const { battle, cast, procs } = setup();
+    battle.extraState.enemySkills!.skill = [MoveTag.parse({})];
+    expect(cast()).toBe(true);
+    expect(battle.groundEffects).toEqual([]);
+    expect(procs().map((effect) => effect.type)).toEqual(["poison"]);
+    expect(applyEffects(battle, "actor").newBattle.usersState[0]).toMatchObject({ longitude: 0, latitude: 0 });
   });
 
   it("does not trigger on self heals or movement", () => {

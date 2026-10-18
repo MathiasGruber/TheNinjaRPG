@@ -7,14 +7,14 @@ import { performAIaction } from "@/libs/combat/ai_v2";
 import { addPetsToBattle, getPetSpawnLocation, petsAllowedInBattle } from "@/libs/combat/pets";
 import { applyEffects } from "@/libs/combat/process";
 import type { CombatAction, CombatQueryUser, ReturnedBattle } from "@/libs/combat/types";
-import { hasLiveSummon, spliceOrphanedSummons } from "@/libs/combat/summon";
+import { hasLiveSummon, isClone, spliceOrphanedSummons } from "@/libs/combat/summon";
 import { applyPoolAdjustmentsToBase, getBattleGrid, getTurnControl, resolveDamageCreditUser } from "@/libs/combat/util";
 import { TerrainHex } from "@/libs/hexgrid";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeBattleUser, makeBattleUserItem, makeCompleteBattle, makeEffect } from "./helpers/battleScenario";
 import { AiRule } from "@/validators/ai";
-import { CloneTag, DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, MoveTag, ShieldTag, SummonTag, VisualTag } from "@/validators/combat";
+import { BarrierTag, CloneTag, DamageTag, IncreaseMaxPoolsTag, InjectJutsusTag, MoveTag, PoisonTag, ShieldTag, SummonTag, VisualTag } from "@/validators/combat";
 import { updatePetAiSchema } from "@/validators/pets";
 import { ownedPetSkill, petJutsuFixture, petSkillFixture } from "../pets/helpers/abilities";
 import { petSpeciesFixture } from "../pets/helpers/species";
@@ -470,6 +470,100 @@ describe("owned pets in combat", () => {
     expect(spawned(resolved)).toHaveLength(2);
     expect(spawned(resolved).every((user) => user.curHealth === 500 && user.direction === "left")).toBe(true);
     expect(spawned(applyEffects(resolved, "owner").newBattle)).toHaveLength(2);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("places %s innate clones and summons on distinct empty cells", (skillTarget) => {
+    for (const tag of [CloneTag.parse({ power: 100 }), SummonTag.parse({ aiId: "summoned-ai", power: 100 })]) {
+      const battle = scenario();
+      battle.usersState[1]!.longitude = 4;
+      battle.usersState.push(makeBattleUser("template", {
+        isAi: true, isSummon: true, isSummonTemplate: true, controllerId: "summoned-ai", curHealth: 0, effects: [],
+      }));
+      battle.groundEffects.push({ ...makeEffect("barrier", BarrierTag.parse({ staticAssetPath: "barrier" }), {
+        creatorId: "enemy", longitude: 3, latitude: 2, rounds: 3,
+      }) });
+      add(battle, [petFixture({ species: petSpeciesFixture({ skillTarget, effects: [tag, tag] }) })]);
+      const pet = battle.usersState.find((user) => user.petId)!;
+      if (skillTarget === "ENEMIES") {
+        for (const actorId of ["owner", pet.userId]) {
+          const action = availableUserActions(battle, actorId).find((action) => action.id === "basicAttack")!;
+          action.range = 5;
+          expect(insertAction({ battle, grid: getBattleGrid(20, battle), action, actorId, longitude: 4, latitude: 3 })).toBe(true);
+        }
+      }
+      const resolved = applyEffects(battle, "owner").newBattle;
+      const spawned = resolved.usersState.filter((user) => isClone(user) || user.summonSourceId === "summoned-ai");
+      expect(spawned).toHaveLength(tag.type === "clone" ? 4 : 2);
+      const living = resolved.usersState.filter((user) => user.curHealth > 0);
+      expect(new Set(living.map((user) => `${user.longitude},${user.latitude}`)).size).toBe(living.length);
+      expect(spawned.some((user) => user.longitude === 3 && user.latitude === 2)).toBe(false);
+      expect(resolved.usersState.find((user) => user.userId === "owner")).toMatchObject({ longitude: 3, latitude: 3 });
+      expect(resolved.usersState.find((user) => user.petId)).toMatchObject({ longitude: 2, latitude: 3 });
+      const attack = availableUserActions(resolved, "enemy").find((action) => action.id === "basicAttack")!;
+      Object.assign(attack, { target: "OPPONENT", range: 20, actionCostPerc: 1 });
+      for (const target of living.filter((user) => user.direction === "left")) {
+        expect(insertAction({ battle: resolved, grid: getBattleGrid(20, resolved), action: attack, actorId: "enemy", longitude: target.longitude, latitude: target.latitude })).toBe(true);
+      }
+    }
+  });
+
+  it("omits innate spawns when every battlefield cell is occupied", () => {
+    const battle = scenario();
+    battle.width = 3; battle.height = 1;
+    Object.assign(battle.usersState[0]!, { longitude: 0, latitude: 0 });
+    Object.assign(battle.usersState[1]!, { longitude: 2, latitude: 0 });
+    add(battle, [petFixture({ species: petSpeciesFixture({ effects: [CloneTag.parse({})] }) })]);
+    expect(battle.usersState).toHaveLength(3);
+    const resolved = applyEffects(battle, "owner").newBattle;
+    expect(resolved.usersState).toHaveLength(3);
+    expect(resolved.groundEffects.some((effect) => effect.type === "clone")).toBe(false);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("keeps enemies targetable when a saved %s innate skill contains movement", (skillTarget) => {
+    const battle = scenario();
+    battle.usersState[1]!.longitude = 4;
+    add(battle, [petFixture({ species: petSpeciesFixture({ skillTarget, effects: [MoveTag.parse({})] }) })]);
+    battle.usersState[0]!.latitude = 4;
+    const action = availableUserActions(battle, "owner").find((action) => action.id === "basicAttack")!;
+    action.actionCostPerc = 10;
+    action.range = 5;
+    const cast = (state: typeof battle) => insertAction({ battle: state, grid: getBattleGrid(20, state), action, actorId: "owner", longitude: 4, latitude: 3 });
+    expect(cast(battle)).toBe(true);
+    const resolved = applyEffects(battle, "owner").newBattle;
+    expect(resolved.usersState.find((user) => user.userId === "owner")).toMatchObject({ longitude: 3, latitude: 4 });
+    expect(cast(resolved)).toBe(true);
+  });
+
+  it.each([null, "pet-species-0", "other-species"])("checks species restrictions on injected pet jutsu requiring %s", (requiredPetSpeciesId) => {
+    const battle = scenario();
+    battle.usersState[1]!.longitude = 4;
+    const jutsu = petJutsuFixture({ requiredPetSpeciesId, injectableInBattle: true });
+    battle.extraState.jutsus[jutsu.id] = jutsu;
+    add(battle, [petFixture({ species: petSpeciesFixture({ effects: [InjectJutsusTag.parse({ jutsuIds: [jutsu.id] })] }) })]);
+    const actor = battle.usersState.find((user) => user.petId)!;
+    const action = availableUserActions(battle, actor.userId).find((action) => action.id === jutsu.id);
+    expect(actor.jutsus).toMatchObject([{ jutsuId: jutsu.id, origin: "injected" }]);
+    expect(Boolean(action)).toBe(requiredPetSpeciesId !== "other-species");
+    if (action) expect(insertAction({ battle, grid: getBattleGrid(20, battle), action, actorId: actor.userId, longitude: 4, latitude: 3 })).toBe(true);
+  });
+
+  it("keeps clones from recursively triggering innate clone tags while preserving their other passives", () => {
+    const battle = scenario();
+    battle.usersState[1]!.longitude = 4;
+    battle.extraState.aiProfiles.Default = { id: "Default", userId: "owner", includeDefaultRules: false,
+      rules: [AiRule.parse({ conditions: [], action: { type: "use_highest_power_action", effect: "damage", target: "CLOSEST_OPPONENT" } })] };
+    add(battle, [petFixture({ species: petSpeciesFixture({ skillTarget: "ENEMIES", effects: [CloneTag.parse({ power: 100 }), PoisonTag.parse({ power: 1, rounds: 3 })] }) })]);
+    const action = availableUserActions(battle, "owner").find((action) => action.id === "basicAttack")!;
+    expect(insertAction({ battle, grid: getBattleGrid(20, battle), action, actorId: "owner", longitude: 4, latitude: 3 })).toBe(true);
+    const resolved = applyEffects(battle, "owner").newBattle;
+    const clone = resolved.usersState.find(isClone)!;
+    expect(clone).toBeDefined();
+    // Keep the clone in attack range independently of its spawn position.
+    Object.assign(clone, { longitude: 4, latitude: 2, actionPoints: 100 });
+    const result = performAIaction(resolved, getBattleGrid(20, resolved), clone.userId);
+    expect(result.nextActionId).toBe("basicAttack");
+    expect(result.nextBattle.usersState.filter(isClone)).toHaveLength(1);
+    expect(result.nextBattle.usersEffects.some((effect) => effect.type === "poison" && effect.creatorId === clone.userId)).toBe(true);
   });
 
   it.each(["SELF", "ENEMIES"] as const)("preloads species summons and returns %s effects from battle initiation", async (skillTarget) => {

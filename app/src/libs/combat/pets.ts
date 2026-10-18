@@ -228,6 +228,7 @@ const createPetBattleUser = (
     userId: nanoid(),
     controllerId: owner.userId,
     petId: pet.id,
+    petSpeciesId: pet.speciesId,
     username: pet.name,
     avatar: pet.avatar,
     avatarLight: pet.avatar,

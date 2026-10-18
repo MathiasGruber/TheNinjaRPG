@@ -39,6 +39,7 @@ import { recordMasteryUsage } from "@/libs/combat/mastery";
 import { areBattleAllies } from "@/libs/combat/participants";
 import { resolvePotencyTags } from "@/libs/combat/potency";
 import { applyEffects, checkFriendlyFire } from "@/libs/combat/process";
+import { isClone } from "@/libs/combat/summon";
 import { getPower, realizeTag, updateStatUsage } from "@/libs/combat/tags";
 import type {
   BasicActions,
@@ -177,6 +178,11 @@ export const availableUserActions = (
             // Separate companion balance from every player, AI and summon loadout,
             // including injected actions and snapshots saved before content edits.
             if ((jutsu.jutsuType === "PETS") !== Boolean(user.petId)) return false;
+            if (
+              jutsu.requiredPetSpeciesId &&
+              jutsu.requiredPetSpeciesId !== user.petSpeciesId
+            )
+              return false;
 
             // If quest battle, exclude PVP-only jutsus
             if (isQuestBattle && jutsu.battleUsageType === "PVP") {
@@ -1178,6 +1184,8 @@ export const insertAction = (info: {
     for (const target of enemyRecipients.values()) {
       for (const skillId of user.enemySkillIds ?? []) {
         for (const tag of battle.extraState.enemySkills?.[skillId] ?? []) {
+          // Passives have no empty-ground movement destination; clones cannot clone again.
+          if (tag.type === "move" || (tag.type === "clone" && isClone(user))) continue;
           const effect = realizeTag({
             tag: structuredClone(tag) as UserEffect,
             user,

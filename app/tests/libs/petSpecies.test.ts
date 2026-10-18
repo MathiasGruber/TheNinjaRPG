@@ -33,23 +33,23 @@ describe("authored companion species contracts", () => {
     const standardEffects = z.array(AllTags).superRefine(SuperRefineEffects).superRefine(SuperRefinePassiveEffects);
     for (const schema of AllTags.options) {
       const effect = schema.parse({});
-      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(standardEffects.safeParse([effect]).success);
+      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(effect.type !== "move" && standardEffects.safeParse([effect]).success);
     }
-    for (const effect of [MoveTag.parse({}), SummonTag.parse({ aiId: "external-ai" }), IncreaseStatTag.parse({ elements: ["Fire"], power: 150 })]) {
+    for (const effect of [SummonTag.parse({ aiId: "external-ai" }), IncreaseStatTag.parse({ elements: ["Fire"], power: 150 })]) {
       expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(true);
     }
     expect(PetSpeciesValidator.safeParse({ ...species, effects: [IncreaseStatTag.parse({ target: "COORDINATES" })] }).success).toBe(false);
     expect(PetSpeciesValidator.safeParse({ ...species, skillTarget: "ALLIES" }).success).toBe(false);
   });
 
-  it.each(["SELF", "ENEMIES"] as const)("rejects barriers that cannot target empty ground in %s species skills", (skillTarget) => {
-    const parsed = PetSpeciesValidator.safeParse({ ...species, skillTarget,
-      effects: [BarrierTag.parse({ staticAssetPath: "barrier" })],
-    });
-    expect(parsed.success).toBe(false);
-    if (!parsed.success) expect(parsed.error.issues).toContainEqual(expect.objectContaining({
-      path: ["effects", 0, "type"],
-      message: "Barrier tags require an empty-ground combat action.",
-    }));
+  it.each(["SELF", "ENEMIES"] as const)("rejects barriers and movement without an empty-ground destination in %s species skills", (skillTarget) => {
+    for (const effect of [BarrierTag.parse({ staticAssetPath: "barrier" }), MoveTag.parse({})]) {
+      const parsed = PetSpeciesValidator.safeParse({ ...species, skillTarget, effects: [effect] });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) expect(parsed.error.issues).toContainEqual(expect.objectContaining({
+        path: ["effects", 0, "type"],
+        message: `${effect.type === "barrier" ? "Barrier" : "Move"} tags require an empty-ground combat action.`,
+      }));
+    }
   });
 });

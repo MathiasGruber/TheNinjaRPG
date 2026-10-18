@@ -33,13 +33,13 @@ export const PetSpeciesValidator = z
       .superRefine(SuperRefineEffects)
       .superRefine(SuperRefinePassiveEffects)
       .superRefine((effects, ctx) => {
-        // Innate skills have no empty battlefield cell to target with a barrier.
+        // Innate skills have no selected empty-ground destination.
         effects.forEach((effect, index) => {
-          if (effect.type === "barrier") {
+          if (effect.type === "barrier" || effect.type === "move") {
             ctx.addIssue({
               code: "custom",
               path: [index, "type"],
-              message: "Barrier tags require an empty-ground combat action.",
+              message: `${effect.type === "barrier" ? "Barrier" : "Move"} tags require an empty-ground combat action.`,
             });
           }
         });
