@@ -1,0 +1,1654 @@
+"use client";
+
+import * as Sentry from "@sentry/nextjs";
+import { ArrowRight, Loader2, Settings2, Sparkles, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import { api } from "@/app/_trpc/client";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import type { SortableItem } from "@/components/ui/sortable-list";
+import { SortableList } from "@/components/ui/sortable-list";
+import type { QuestType } from "@/drizzle/constants";
+import {
+  IMG_URL_HANDPOINTER,
+  OrderedQuestTypesInTutorial,
+  TUTORIAL_STEPS_COUNT,
+} from "@/drizzle/constants";
+import type { UserQuest } from "@/drizzle/schema";
+import { useLocalStorage } from "@/hooks/localstorage";
+import type { TutorialStepConfig } from "@/hooks/tutorial";
+import {
+  TUTORIAL_HOSPITALIZED_STEP,
+  TUTORIAL_STEPS,
+  useTutorialStep,
+} from "@/hooks/tutorial";
+import { useAbVariant } from "@/hooks/useAbVariant";
+import Image from "@/layout/Image";
+import { useCheckRewards } from "@/layout/Logbook";
+import { Objective } from "@/layout/Objective";
+import { getLemuImage, LEMU_EXPERIMENT } from "@/libs/lemuExperiment";
+import {
+  getActiveObjective,
+  isQuestComplete,
+  isQuestObjectiveAvailable,
+} from "@/libs/objectives";
+import { cn } from "@/libs/shadui";
+import {
+  isTutorialCaptureStep,
+  isTutorialPageMatch,
+  isUsableHighlightRect,
+} from "@/libs/tutorial";
+import { getMobileOperatingSystem } from "@/utils/hardware";
+import { parseHtml } from "@/utils/parse";
+import { usePublicPathname } from "@/utils/routing";
+import { capitalizeFirstLetter } from "@/utils/string";
+import { useUserData } from "@/utils/UserContext";
+import type { QuestTrackerType } from "@/validators/objectives";
+
+/** Marks the assistant panel so the highlight logic can measure what it covers. */
+const TUTORIAL_ASSISTANT_PANEL_ID = "tutorial-assistant-panel";
+
+/**
+ * The area of the screen the assistant panel takes clicks in. The panel is fixed
+ * to a corner, so a highlighted element can sit perfectly inside the viewport and
+ * still be impossible to press underneath it. The nameplate hangs outside the
+ * panel's own box so descendants are unioned in, but only ones that actually
+ * intercept pointer events -- the character portrait is decorative and lets
+ * clicks straight through, and counting it would push highlights further up the
+ * page than they need to go.
+ */
+const getAssistantPanelRect = (): DOMRect | null => {
+  const panel = document.getElementById(TUTORIAL_ASSISTANT_PANEL_ID);
+  if (!panel) return null;
+  const rect = panel.getBoundingClientRect();
+  let { top, left, right, bottom } = rect;
+  for (const child of panel.querySelectorAll("*")) {
+    if (getComputedStyle(child).pointerEvents === "none") continue;
+    const r = child.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    top = Math.min(top, r.top);
+    left = Math.min(left, r.left);
+    right = Math.max(right, r.right);
+    bottom = Math.max(bottom, r.bottom);
+  }
+  return new DOMRect(left, top, right - left, bottom - top);
+};
+
+const rectsOverlap = (a: DOMRect, b: DOMRect) =>
+  !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+
+/**
+ * Where a highlight of this height should end up vertically. The window's own
+ * middle is not safe: the assistant panel is fixed over the foot of the screen,
+ * so on a short viewport the middle is underneath it.
+ */
+const getPreferredHighlightCentre = (targetHeight: number) => {
+  const safeTop = 80;
+  const panel = getAssistantPanelRect();
+  const safeBottom =
+    panel && panel.top > safeTop + targetHeight ? panel.top : window.innerHeight;
+  return (safeTop + safeBottom) / 2;
+};
+
+/**
+ * Reusable assistant portrait with correct styling
+ * @param characterImage - Optional custom character image to display instead of default assistant
+ * @returns
+ */
+const AssistantPortrait: React.FC<{ characterImage?: string }> = ({
+  characterImage,
+}) => {
+  const { variant } = useAbVariant(LEMU_EXPERIMENT);
+  const defaultImage = getLemuImage(variant);
+  const className = cn(
+    "pointer-events-none absolute right-0 z-0 w-auto select-none object-contain drop-shadow-2xl",
+    "-top-[10rem] h-[14rem] scale-x-[-1] md:-top-70 md:h-96",
+  );
+  return (
+    <Image
+      src={characterImage || defaultImage}
+      width={512}
+      height={768}
+      alt="Assistant"
+      className={className}
+    />
+  );
+};
+
+/**
+ * Reusable assistant dialog (uses the latter, correct styling)
+ * @param title - The title of the dialog
+ * @param children - The content of the dialog
+ * @param onOpenDisableModal - Optional callback when close button is clicked
+ * @param characterImage - Optional custom character image for the portrait
+ * @param onOpenOrderingDialog - Optional callback to open quest type ordering dialog
+ * @param showOrderingButton - Whether to show the ordering button
+ * @returns
+ */
+const AssistantDialog: React.FC<{
+  title: string;
+  children: React.ReactNode;
+  onOpenDisableModal?: () => void;
+  characterImage?: string;
+  onOpenOrderingDialog?: () => void;
+  showOrderingButton?: boolean;
+  /** Anchor to the top instead, to uncover a highlight it would otherwise sit on. */
+  dodgeHighlight?: boolean;
+  isBusy?: boolean;
+  errorMessage?: string;
+}> = ({
+  title,
+  children,
+  onOpenDisableModal,
+  characterImage,
+  onOpenOrderingDialog,
+  showOrderingButton,
+  dodgeHighlight,
+  isBusy = false,
+  errorMessage,
+}) => (
+  <div
+    id={TUTORIAL_ASSISTANT_PANEL_ID}
+    className={cn(
+      "pointer-events-auto fixed right-4 z-[60] md:right-4",
+      // The portrait hangs a long way above the panel, so the dodged position
+      // needs room for it rather than sitting flush at the top.
+      dodgeHighlight ? "top-44 md:top-52" : "bottom-24 md:bottom-4",
+    )}
+  >
+    <div className="relative">
+      {/* Assistant portrait positioned behind and above the dialog (top-right) */}
+      <AssistantPortrait characterImage={characterImage} />
+      {/* Foreground content */}
+      <div className="relative z-10">
+        {/* Nameplate */}
+        <div className="absolute -top-6 left-8 rounded-md bg-primary px-4 py-1 text-primary-foreground text-xs uppercase tracking-wider shadow-lg md:text-sm">
+          {title}
+        </div>
+        {/* Speech panel */}
+        <div
+          className="w-[80vw] rounded-xl border-2 border-primary bg-card p-4 text-foreground shadow-2xl md:w-[560px] md:p-5"
+          aria-busy={isBusy}
+        >
+          {onOpenDisableModal && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onOpenDisableModal();
+              }}
+              disabled={isBusy}
+              className="absolute top-2 right-2 h-6 w-6 p-0 opacity-50 hover:opacity-100"
+              title={isBusy ? "Disabling" : "Disable tutorial"}
+              aria-label={isBusy ? "Disabling" : "Disable tutorial"}
+            >
+              {isBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <X className="h-4 w-4" aria-hidden="true" />
+              )}
+            </Button>
+          )}
+          {isBusy && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="mb-3 flex items-center gap-2 font-medium text-muted-foreground text-sm"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Disabling
+            </div>
+          )}
+          {errorMessage && !isBusy && (
+            <p role="alert" className="mb-3 text-destructive text-sm">
+              {errorMessage}
+            </p>
+          )}
+          <fieldset disabled={isBusy} className="contents">
+            {children}
+            {showOrderingButton && onOpenOrderingDialog && (
+              <div className="mt-3 flex justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenOrderingDialog();
+                  }}
+                  className="opacity-50 hover:opacity-100"
+                  title="Sort quest priorities"
+                >
+                  <Settings2 className="mr-1 h-4 w-4" />
+                  <span className="text-xs">Priority</span>
+                </Button>
+              </div>
+            )}
+          </fieldset>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+/**
+ * Confirmation dialog for cancelling the tutorial
+ * Shows the assistant character and warns the user
+ */
+const CancelTutorialConfirmDialog: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+  isPending: boolean;
+  errorMessage?: string;
+}> = ({ open, onOpenChange, onConfirm, isPending, errorMessage }) => {
+  const { variant } = useAbVariant(LEMU_EXPERIMENT);
+  const assistantImage = getLemuImage(variant);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!isPending) onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent
+        className="z-[70] overflow-hidden pb-0 sm:max-w-md"
+        closeDisabled={isPending}
+        aria-busy={isPending}
+        onEscapeKeyDown={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (isPending) event.preventDefault();
+        }}
+      >
+        <div className="flex gap-4">
+          <div className="flex-1">
+            <DialogHeader>
+              <DialogTitle>Skip Tutorial?</DialogTitle>
+              <DialogDescription className="pt-2">
+                For new players, we <strong>highly recommend</strong> following the
+                tutorial to learn how the game works. Are you sure you want to skip it?
+                <br />
+                <br />
+                Remember, if you get stuck, click the support button and then you can
+                re-enable the tutorial.
+              </DialogDescription>
+            </DialogHeader>
+            {errorMessage && !isPending && (
+              <p role="alert" className="mt-3 text-destructive text-sm">
+                {errorMessage}
+              </p>
+            )}
+            <div className="mt-4 flex justify-start gap-2 pb-4">
+              <Button
+                variant="outline"
+                disabled={isPending}
+                onClick={() => onOpenChange(false)}
+              >
+                Keep Tutorial
+              </Button>
+              <Button variant="destructive" disabled={isPending} onClick={onConfirm}>
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <span role="status" aria-live="polite">
+                      Disabling
+                    </span>
+                  </>
+                ) : (
+                  "Skip Tutorial"
+                )}
+              </Button>
+            </div>
+          </div>
+          <div className="flex-shrink-0 self-end">
+            <Image
+              src={assistantImage}
+              width={100}
+              height={100}
+              alt="Assistant"
+              className="scale-x-[-1] object-contain drop-shadow-lg"
+            />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/**
+ * Tutorial assistant component props
+ * @param rightSideBarOpen - Whether the right side bar is open
+ * @param setRightSideBarOpen - Function to set the right side bar open
+ * @param rightSideBarRef - Reference to the right side bar
+ * @returns
+ */
+interface TutorialAssistantProps {
+  rightSideBarOpen: boolean;
+  setRightSideBarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  rightSideBarRef: React.RefObject<HTMLDivElement | null>;
+}
+
+/**
+ * Tutorial assistant component
+ * @param rightSideBarOpen - Whether the right side bar is open
+ * @param setRightSideBarOpen - Function to set the right side bar open
+ * @param rightSideBarRef - Reference to the right side bar
+ * @returns
+ */
+const TutorialAssistant: React.FC<TutorialAssistantProps> = (props) => {
+  const { data: userData } = useUserData();
+  // The game shell also wraps public pages. Reward hooks require a player and redirect
+  // anonymous visitors, so keep them unmounted until the profile is available.
+  if (!userData) return null;
+  return <PlayerTutorialAssistant {...props} />;
+};
+
+const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
+  rightSideBarOpen,
+  setRightSideBarOpen,
+  rightSideBarRef,
+}) => {
+  // State
+  const { data: userData, userAgent, updateUser } = useUserData();
+  const pathname = usePublicPathname();
+  const router = useRouter();
+
+  // Mutation to disable tutorial
+  const { mutateAsync: disableTutorial } = api.profile.updatePreferences.useMutation();
+  const disableTutorialLockRef = React.useRef(false);
+  const disableTutorialRequestRef = React.useRef<
+    | {
+        requestId: string;
+        userId: string;
+        tutorialStep: number;
+        expectedTutorialOn: true;
+      }
+    | undefined
+  >(undefined);
+  const tutorialIdentityRef = React.useRef({
+    userId: userData?.userId,
+    tutorialStep: userData?.tutorialStep,
+  });
+  tutorialIdentityRef.current = {
+    userId: userData?.userId,
+    tutorialStep: userData?.tutorialStep,
+  };
+  const [isDisablingTutorial, setIsDisablingTutorial] = useState(false);
+  const [disableTutorialError, setDisableTutorialError] = useState<string>();
+  const [showCancelConfirmDialog, setShowCancelConfirmDialog] = useState(false);
+
+  const handleDisableTutorial = async () => {
+    if (disableTutorialLockRef.current) return;
+    if (!userData?.userId || userData.tutorialOn !== true) return;
+
+    const existingRequest = disableTutorialRequestRef.current;
+    const request =
+      existingRequest?.userId === userData.userId &&
+      existingRequest.tutorialStep === userData.tutorialStep
+        ? existingRequest
+        : {
+            requestId: crypto.randomUUID(),
+            userId: userData.userId,
+            tutorialStep: userData.tutorialStep,
+            expectedTutorialOn: true as const,
+          };
+    disableTutorialRequestRef.current = request;
+    disableTutorialLockRef.current = true;
+    setDisableTutorialError(undefined);
+    setIsDisablingTutorial(true);
+
+    try {
+      const result = await disableTutorial({
+        tutorialOn: false,
+      });
+      const identity = tutorialIdentityRef.current;
+      const isCurrentTutorial =
+        identity.userId === request.userId &&
+        identity.tutorialStep === request.tutorialStep;
+      if (!isCurrentTutorial) return;
+      if (!result.success) {
+        setDisableTutorialError(result.message);
+        return;
+      }
+
+      await updateUser((current) =>
+        current.userId === request.userId ? { tutorialOn: false } : undefined,
+      );
+      if (tutorialIdentityRef.current.userId !== request.userId) {
+        return;
+      }
+      disableTutorialRequestRef.current = undefined;
+      setShowCancelConfirmDialog(false);
+    } catch {
+      const identity = tutorialIdentityRef.current;
+      if (
+        identity.userId === request.userId &&
+        identity.tutorialStep === request.tutorialStep
+      ) {
+        setDisableTutorialError(
+          "We couldn't turn off the tutorial. Your progress is unchanged; please try again.",
+        );
+      }
+    } finally {
+      disableTutorialLockRef.current = false;
+      setIsDisablingTutorial(false);
+    }
+  };
+
+  const [highlight, setHighlight] = useState<{
+    isPrimaryElement: boolean;
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [gameMenuHighlight, setGameMenuHighlight] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  // Removed missing-element dialog functionality
+
+  // Check if we're on mobile
+  const hardwarePlatform = getMobileOperatingSystem(userAgent);
+  const [isMobile, setIsMobile] = useState<boolean>(
+    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+  );
+
+  // Handle window resize to update isMobile state
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // State to track if we should show the special game menu tutorial
+  const [showGameMenuTutorial, setShowGameMenuTutorial] = useState<boolean>(false);
+
+  // Placement of the current highlight, keyed by step and element. One owner:
+  // this replaced two independent scrollers that each had their own idea of
+  // where a highlight belonged, so whichever ran last won.
+  const placementRef = React.useRef<{
+    key: string;
+    attempts: number;
+    settled: boolean;
+  }>({ key: "", attempts: 0, settled: false });
+  // Set while the panel would otherwise be sitting on top of the highlight, so
+  // it can step aside. Latched per target: recomputing it from the moved panel
+  // would say "no longer covered" and send it straight back.
+  const [panelDodgesHighlight, setPanelDodgesHighlight] = useState(false);
+
+  // Tutorial management hook
+  const {
+    currentStep,
+    updateTutorialStep,
+    handleNextStep,
+    handleNextStepAsync,
+    currentStepNumber,
+    isAssistantVisible,
+    setIsAssistantVisible,
+  } = useTutorialStep();
+
+  // Rewards check hook for dialog options
+  const { checkRewards, isCheckingRewards } = useCheckRewards();
+
+  // Initialize tutorial visibility
+  useEffect(() => {
+    if (userData) {
+      // Early exit if tutorial is disabled
+      if (userData?.tutorialOn === false) return;
+
+      // Handle the tutorial step
+      let tutorialStep = userData.tutorialStep;
+
+      // Set to 0 if undefined (first time user)
+      if (tutorialStep === undefined) {
+        tutorialStep = 0;
+        updateTutorialStep({ step: 0 });
+      }
+
+      // Get current step config
+      const isHospitalized = userData.status === "HOSPITALIZED";
+      const currentStepConfig = isHospitalized
+        ? TUTORIAL_HOSPITALIZED_STEP
+        : TUTORIAL_STEPS[tutorialStep];
+      const inBattle = userData.status === "BATTLE";
+      const onBattlePage = pathname === "/combat";
+      const toBattlePage = currentStepConfig?.page === "/combat";
+
+      // Abandoned tutorial fights leave the user in BATTLE; pull them back
+      // before trying to render a later step on the wrong page. Only for a
+      // step that is actually about the fight - players past the tutorial (or
+      // on an unrelated step) stay free to browse while a battle runs, and a
+      // stale BATTLE status with no battle row must not pin them to /combat.
+      const isBattleStep =
+        toBattlePage ||
+        Boolean(currentStepConfig?.onCombatWin) ||
+        Boolean(currentStepConfig?.onCombatLoss);
+      if (
+        inBattle &&
+        !onBattlePage &&
+        userData.battleId &&
+        tutorialStep < TUTORIAL_STEPS.length &&
+        isBattleStep
+      ) {
+        router.replace("/combat");
+        return;
+      }
+
+      // Check if we need to show the special Game Menu tutorial
+      // Show it when on mobile, sidebar is closed, and we're at a step that requires the game menu
+      const shouldShowGameMenuTutorial =
+        isMobile &&
+        !rightSideBarOpen &&
+        tutorialStep < TUTORIAL_STEPS.length &&
+        currentStepConfig?.requiresGameMenu === true;
+
+      setShowGameMenuTutorial(shouldShowGameMenuTutorial);
+
+      // Scroll to top when requiresGameMenu is true and menu is not open
+      if (shouldShowGameMenuTutorial) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+
+      // Handle regular tutorial steps
+      if (!shouldShowGameMenuTutorial) {
+        // Show tutorial if we have a valid step and we're on the right page
+        const onCorrectPage = isTutorialPageMatch(currentStepConfig?.page, pathname);
+        const hasRequiredGameMenu =
+          currentStepConfig?.requiresGameMenu && isMobile ? rightSideBarOpen : true;
+
+        // Only show if on correct page and game menu requirements are met
+        const shouldShowRegularTutorial =
+          tutorialStep < TUTORIAL_STEPS.length && onCorrectPage && hasRequiredGameMenu;
+        setIsAssistantVisible(Boolean(shouldShowRegularTutorial));
+
+        // If we're at a valid step but not on the correct page, redirect
+        if (
+          tutorialStep < TUTORIAL_STEPS.length &&
+          !onCorrectPage &&
+          currentStepConfig
+        ) {
+          if (!currentStepConfig?.requiresGameMenu) {
+            setRightSideBarOpen(false);
+          }
+          const battleCheck =
+            (!onBattlePage && !toBattlePage) || // Unrelated to battle
+            (inBattle && toBattlePage); // In battle and going to battle page
+          if (battleCheck) {
+            router.push(currentStepConfig.page);
+          }
+        }
+      } else {
+        // If showing game menu tutorial, don't show regular tutorial
+        setIsAssistantVisible(false);
+      }
+    }
+  }, [userData, pathname, router, updateTutorialStep, rightSideBarOpen, isMobile]);
+
+  // Start Sentry replay on the first tutorial step
+  useEffect(() => {
+    // Do not handle replays on done tutorial
+    if (currentStepNumber >= TUTORIAL_STEPS.length) return;
+    if (!userData) return;
+    if (userData.level > 1) return;
+    if (userData?.tutorialOn === false) return;
+    // Start replay if we're on step 0 (first step)
+    const replay = Sentry.getReplay();
+    if (replay && currentStepNumber === 0) {
+      replay.start();
+    }
+  }, [currentStepNumber, userData]);
+
+  // No tooltip positioning logic needed anymore
+
+  // Helper function to update the highlight position
+  const updateHighlightPosition = (currentStepConfig: TutorialStepConfig) => {
+    // Use our helper function to find the element
+    const highlightInfo = findElementToHighlight(
+      {
+        ...currentStepConfig,
+        elementIds: currentStepConfig.elementIds,
+      },
+      rightSideBarRef,
+      rightSideBarOpen,
+    );
+
+    if (highlightInfo) {
+      // Put the highlight where the player can actually see and press it. Three
+      // things can be wrong with where it is: off screen, underneath the fixed
+      // assistant panel, or just awkwardly far from where the eye expects it.
+      // All three are the same correction, so one pass owns the scrolling.
+      //
+      // It keeps correcting until the placement is good rather than firing once:
+      // a page still fetching its data lays out short, and content landing
+      // underneath the target afterwards would otherwise strand it. Once the
+      // placement is good it latches, so a player who then scrolls the highlight
+      // away is never fought. The attempt cap stops a target that can never be
+      // placed well from scrolling on every tick.
+      const targetKey = `${currentStepConfig.id}:${highlightInfo.element.id}`;
+      if (placementRef.current.key !== targetKey) {
+        placementRef.current = { key: targetKey, attempts: 0, settled: false };
+        setPanelDodgesHighlight(false);
+      }
+      const placement = placementRef.current;
+      const before = highlightInfo.element.getBoundingClientRect();
+      const isCompactTarget = before.height < window.innerHeight * 0.55;
+      if (!placement.settled && placement.attempts < 5 && isCompactTarget) {
+        const panel = getAssistantPanelRect();
+        const preferredCentre = getPreferredHighlightCentre(before.height);
+        const centre = before.top + before.height / 2;
+        const isOffscreen =
+          before.bottom < 80 ||
+          before.top > window.innerHeight - 80 ||
+          before.right < 0 ||
+          before.left > window.innerWidth;
+        const isCovered = !!panel && rectsOverlap(before, panel);
+        const isMisplaced =
+          isOffscreen || isCovered || Math.abs(centre - preferredCentre) > 100;
+        if (!isMisplaced) {
+          placement.settled = true;
+        } else {
+          placement.attempts += 1;
+          const scroller = highlightInfo.element.ownerDocument.scrollingElement;
+          scroller?.scrollBy({ top: centre - preferredCentre, behavior: "auto" });
+          // Scrolling cannot always win: on a short page the document may already
+          // be as far down as it goes, leaving the target stuck under the panel
+          // with nothing left to scroll. Rather than stretch the page to make
+          // room, the panel gives way -- a step whose only advance action is
+          // pressing the highlight has to be pressable.
+          if (isCovered) {
+            const after = highlightInfo.element.getBoundingClientRect();
+            const stillCovered = getAssistantPanelRect()
+              ? rectsOverlap(after, getAssistantPanelRect() as DOMRect)
+              : false;
+            if (stillCovered) setPanelDodgesHighlight(true);
+          }
+        }
+      }
+      const rect = highlightInfo.element.getBoundingClientRect();
+      const next = {
+        isPrimaryElement: highlightInfo.isPrimaryElement,
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      };
+      setHighlight((prev) =>
+        prev && prev.isPrimaryElement === next.isPrimaryElement && isSameBox(prev, next)
+          ? prev
+          : next,
+      );
+      // no-op
+    } else {
+      setHighlight(null);
+      setPanelDodgesHighlight(false);
+    }
+  };
+
+  // Handle certain syncronization situations
+  useEffect(() => {
+    // Assign stats but no stats available
+    if (
+      userData &&
+      currentStep?.title === "Assigning Stats" &&
+      userData?.earnedExperience === 0 &&
+      userData?.tutorialOn === true
+    ) {
+      console.log("Assigning stats but no stats available, proceeding to next step");
+      void handleNextStepAsync();
+    }
+  }, [currentStep, userData]);
+
+  // Update highlight position based on current step and element
+  useEffect(() => {
+    // Early exit if tutorial is disabled
+    if (userData && userData?.tutorialOn === false) return;
+    if (!isAssistantVisible) return;
+
+    // Determine which step to use - hospitalized overrides everything
+    const isHospitalized = userData?.status === "HOSPITALIZED";
+    const step = isHospitalized ? TUTORIAL_HOSPITALIZED_STEP : currentStep;
+
+    // Guard against undefined step
+    if (!step) {
+      setHighlight(null);
+      return;
+    }
+
+    // If we're not on the correct page for this step, don't try to highlight
+    if (!isTutorialPageMatch(step.page, pathname)) {
+      return;
+    }
+
+    // Initial position calculation
+    updateHighlightPosition(step);
+
+    // Set up a more frequent interval for smoother updates (100ms)
+    const intervalId = setInterval(() => {
+      updateHighlightPosition(step);
+    }, 250);
+
+    // Add scroll event listener to update position when scrolling
+    const handleScroll = () => {
+      // Need to request animation frame to ensure we get the latest positions after scroll
+      requestAnimationFrame(() => {
+        updateHighlightPosition(step);
+      });
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Add resize event listener to update position when window is resized
+    const handleResize = () => {
+      // Need to request animation frame to ensure we get the latest positions after resize
+      requestAnimationFrame(() => {
+        updateHighlightPosition(step);
+      });
+    };
+
+    window.addEventListener("resize", handleResize, { passive: true });
+
+    // Add a mutation observer to detect DOM changes that might affect positioning
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(() => {
+        updateHighlightPosition(step);
+      });
+    });
+
+    // Start observing the document for DOM changes
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: false,
+    });
+
+    // Clean up interval and event listeners on unmount or when dependencies change
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
+  }, [currentStep, isAssistantVisible, pathname, userData?.status]);
+
+  // Update game menu highlight position when showing game menu tutorial
+  useEffect(() => {
+    // Early exit if tutorial is disabled
+    if (userData?.tutorialOn === false) return;
+    if (!showGameMenuTutorial) {
+      setGameMenuHighlight(null);
+      return;
+    }
+
+    const updateGameMenuHighlight = () => {
+      const highlightInfo = findElementToHighlight(
+        {
+          id: "MOrKKgxeHiwZvkA9JYW0i",
+          elementIds: ["tutorial-gameBtn"],
+          title: "Game Menu",
+          description:
+            "Click this button to open the game menu and continue the tutorial.",
+          page: pathname,
+        },
+        rightSideBarRef,
+        rightSideBarOpen,
+      );
+
+      if (highlightInfo) {
+        const next = {
+          top: highlightInfo.top,
+          left: highlightInfo.left,
+          width: highlightInfo.width,
+          height: highlightInfo.height,
+        };
+        setGameMenuHighlight((prev) => (prev && isSameBox(prev, next) ? prev : next));
+      } else {
+        setGameMenuHighlight(null);
+      }
+    };
+
+    // Initial position calculation
+    updateGameMenuHighlight();
+
+    // Set up interval for smoother updates
+    const intervalId = setInterval(() => {
+      updateGameMenuHighlight();
+    }, 250);
+
+    // Add scroll event listener
+    const handleScroll = () => {
+      requestAnimationFrame(() => {
+        updateGameMenuHighlight();
+      });
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Add resize event listener
+    const handleResize = () => {
+      requestAnimationFrame(() => {
+        updateGameMenuHighlight();
+      });
+    };
+    window.addEventListener("resize", handleResize, { passive: true });
+
+    // Add mutation observer
+    const observer = new MutationObserver(() => {
+      requestAnimationFrame(() => {
+        updateGameMenuHighlight();
+      });
+    });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      characterData: false,
+    });
+
+    // Clean up
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+      observer.disconnect();
+    };
+  }, [
+    showGameMenuTutorial,
+    pathname,
+    rightSideBarRef,
+    rightSideBarOpen,
+    userData?.tutorialOn,
+  ]);
+
+  // Add keyboard event listener for Enter and ArrowLeft keys to forward tutorial
+  useEffect(() => {
+    // Early exit if tutorial is disabled
+    if (userData?.tutorialOn === false) return;
+    // Only add keyboard listener when tutorial is visible (either regular or game menu)
+    if (!isAssistantVisible && !showGameMenuTutorial) return;
+
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Let the confirmation dialog own its keyboard interactions. In particular,
+      // Enter on its focused action must not also advance the obscured tutorial.
+      if (showCancelConfirmDialog) return;
+      // Check for Enter key or ArrowLeft key
+      if (event.key === "Enter" || event.key === "ArrowRight") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isDisablingTutorial) return;
+
+        if (showGameMenuTutorial) {
+          // If showing game menu tutorial, open the sidebar
+          setRightSideBarOpen(true);
+        } else if (
+          currentStep?.showNextButton ||
+          currentStep?.proceedOnHighlightClick
+        ) {
+          handleNextStep();
+        }
+      }
+    };
+
+    // Use capture phase to ensure we get the event before other handlers
+    window.addEventListener("keydown", handleKeyPress, true);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress, true);
+    };
+  }, [
+    isAssistantVisible,
+    showGameMenuTutorial,
+    pathname,
+    userData?.status,
+    userData?.tutorialOn,
+    handleNextStep,
+    setRightSideBarOpen,
+    router,
+    currentStep?.showNextButton,
+    currentStep?.proceedOnHighlightClick,
+    isDisablingTutorial,
+    showCancelConfirmDialog,
+  ]);
+
+  // Post tutorial state - quest data from userData
+  const [postTutorialQuest, setPostTutorialQuest] = useState<{
+    userQuest: UserQuest;
+    tracker: QuestTrackerType;
+  } | null>(null);
+
+  // Post tutorial state - whether to show the quest
+  const [showPostTutorialQuest, setShowPostTutorialQuest] = useState(false);
+
+  // Quest type priority ordering (persisted in localStorage)
+  const [questTypePriority, setQuestTypePriority] = useLocalStorage<QuestType[]>(
+    "tutorial-quest-type-priority",
+    [...OrderedQuestTypesInTutorial],
+  );
+
+  // Dialog state for quest type ordering
+  const [showOrderingDialog, setShowOrderingDialog] = useState(false);
+
+  // Post-tutorial quest guidance: Find quest based on priority ordering
+  useEffect(() => {
+    if (userData?.tutorialOn !== false && currentStepNumber >= TUTORIAL_STEPS.length) {
+      // Find the first quest based on priority ordering
+      const activeUserQuests = userData?.userQuests?.filter(
+        (uq) => OrderedQuestTypesInTutorial.includes(uq.quest.questType) && !uq.endAt,
+      );
+
+      if (activeUserQuests && activeUserQuests.length > 0) {
+        // Sort by priority order (lower index = higher priority)
+        const sortedQuests = [...activeUserQuests].sort((a, b) => {
+          const aPriority = questTypePriority.indexOf(a.quest.questType);
+          const bPriority = questTypePriority.indexOf(b.quest.questType);
+          // If not found in priority list, put at end
+          const aIdx = aPriority === -1 ? questTypePriority.length : aPriority;
+          const bIdx = bPriority === -1 ? questTypePriority.length : bPriority;
+          return aIdx - bIdx;
+        });
+
+        const quest = sortedQuests[0];
+        if (quest) {
+          // Get the tracker for this quest
+          const tracker = userData?.questData?.find((q) => q.id === quest.questId);
+
+          // Set quest if tracker exists
+          if (tracker) {
+            setPostTutorialQuest({ userQuest: quest, tracker });
+          } else {
+            setPostTutorialQuest(null);
+          }
+        } else {
+          setPostTutorialQuest(null);
+        }
+      } else {
+        setPostTutorialQuest(null);
+      }
+    } else {
+      setPostTutorialQuest(null);
+    }
+  }, [userData, currentStepNumber, questTypePriority]);
+
+  // Check if logbook entry exists on the page to determine whether to show the quest
+  useEffect(() => {
+    if (!postTutorialQuest) {
+      setShowPostTutorialQuest(false);
+      return;
+    }
+
+    const checkLogbookEntry = () => {
+      const logbookEntryExists = document.getElementById(
+        `logbook-entry-${postTutorialQuest.userQuest.questId}`,
+      );
+      setShowPostTutorialQuest(!logbookEntryExists);
+    };
+
+    // Initial check
+    checkLogbookEntry();
+
+    // Set up interval to keep checking
+    const interval = setInterval(checkLogbookEntry, 1000);
+
+    return () => clearInterval(interval);
+  }, [postTutorialQuest]);
+
+  // Determine which step to show - hospitalized overrides everything
+  const isHospitalized = userData?.status === "HOSPITALIZED";
+
+  // Create a dynamic tutorial step for post-tutorial quest guidance
+  let dynamicQuestStep: TutorialStepConfig | null = null;
+  if (showPostTutorialQuest && postTutorialQuest) {
+    const { userQuest, tracker } = postTutorialQuest;
+    const quest = userQuest.quest;
+    const activeObjective = getActiveObjective(quest, tracker);
+
+    // Determine the text to show
+    let description = quest.description;
+    if (quest.consecutiveObjectives && activeObjective?.description) {
+      description = activeObjective.description;
+    }
+
+    dynamicQuestStep = {
+      id: `quest-${quest.id}`,
+      title: quest.name,
+      description: description,
+      page: pathname,
+      relatedValue: quest.id,
+      showNextButton: false,
+    };
+  }
+
+  const currentTutorialStep =
+    dynamicQuestStep || (isHospitalized ? TUTORIAL_HOSPITALIZED_STEP : currentStep);
+
+  // Find dialog options if the current step relates to a quest with a dialog task
+  let dialogOptions = null;
+  if (
+    userData?.tutorialOn !== false &&
+    currentTutorialStep?.relatedValue &&
+    userData?.userQuests
+  ) {
+    // Find the matching user quest
+    const matchingQuest = userData.userQuests.find(
+      (uq) => uq.questId === currentTutorialStep.relatedValue,
+    );
+
+    if (matchingQuest) {
+      // Get the tracker for this quest
+      const tracker = userData.questData?.find((q) => q.id === matchingQuest.questId);
+
+      if (tracker) {
+        // Get the active objective
+        const activeObjective = getActiveObjective(matchingQuest.quest, tracker);
+
+        // Check if it's a dialog task
+        if (activeObjective?.task === "dialog") {
+          dialogOptions = {
+            questId: matchingQuest.questId,
+            options: activeObjective.nextObjectiveId,
+          };
+        }
+      }
+    }
+  }
+
+  // The capture step tells the player to approach a marker in the sector, but
+  // that marker does not exist until the quest's opening dialog is answered --
+  // the objective it belongs to is not active before then, so the sector draws
+  // nothing and a new player reads the instruction, finds empty ground and
+  // concludes the game is broken. Answering the single option for them keeps the
+  // step's text true from the moment it appears. Tutorial only: everywhere else
+  // the dialog is the player's to read and choose from.
+  const autoAnsweredDialogRef = React.useRef<string>("");
+  const soleDialogOption =
+    dialogOptions?.options.length === 1 ? dialogOptions.options[0] : undefined;
+  const soleDialogQuestId = dialogOptions?.questId;
+  useEffect(() => {
+    // currentStep, not currentTutorialStep: once a quest supplies a dynamic step
+    // the latter carries a synthesized `quest-<id>`, so matching on the tutorial
+    // step id there succeeds only while that overlay happens to be absent.
+    if (!isTutorialCaptureStep(currentStep)) return;
+    if (!soleDialogQuestId || !soleDialogOption?.nextObjectiveId) return;
+    const key = `${soleDialogQuestId}:${soleDialogOption.nextObjectiveId}`;
+    if (autoAnsweredDialogRef.current === key) return;
+    autoAnsweredDialogRef.current = key;
+    checkRewards({
+      questId: soleDialogQuestId,
+      nextObjectiveId: soleDialogOption.nextObjectiveId,
+    });
+  }, [currentStep, soleDialogQuestId, soleDialogOption, checkRewards]);
+
+  // Get character images for post-tutorial quest (no background)
+  // For starter quests, skip fetching scene characters - we'll use the A/B tested assistant image instead
+  const postTutorialCharacterIds: string[] = [];
+  if (showPostTutorialQuest && postTutorialQuest) {
+    const { userQuest, tracker } = postTutorialQuest;
+    const quest = userQuest.quest;
+    const isStarterQuest = quest.questType === "starter";
+
+    // Skip fetching scene characters for starter quests - AssistantPortrait will use A/B tested default
+    if (!isStarterQuest) {
+      // If consecutive objectives, use active objective's characters or fall back to quest characters
+      if (quest.consecutiveObjectives) {
+        const activeObjective = getActiveObjective(quest, tracker);
+        if (
+          activeObjective?.sceneCharacters &&
+          activeObjective.sceneCharacters.length > 0
+        ) {
+          postTutorialCharacterIds.push(...activeObjective.sceneCharacters);
+        } else {
+          postTutorialCharacterIds.push(...(quest.content.sceneCharacters || []));
+        }
+      } else {
+        // Not consecutive, use quest's characters
+        postTutorialCharacterIds.push(...(quest.content.sceneCharacters || []));
+      }
+    }
+  }
+
+  // Query to fetch character assets for post-tutorial quest
+  const { data: postTutorialCharacterAssets } = api.gameAsset.getSceneAssets.useQuery(
+    { assetIds: postTutorialCharacterIds },
+    { enabled: postTutorialCharacterIds.length > 0 },
+  );
+
+  // Render Game Menu tutorial (with bottom-right assistant)
+  const renderGameMenuTutorial = () => {
+    if (gameMenuHighlight) {
+      return (
+        <div className="fixed inset-0 z-[60]">
+          {/* Dim background */}
+          <div className="absolute inset-0 bg-black/30" />
+
+          {/* Hole highlight over the game button */}
+          <div
+            className="absolute bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]"
+            style={highlightHoleStyle(gameMenuHighlight)}
+          >
+            <div className="absolute inset-0 z-[1] animate-pulse rounded-md border-[3px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]">
+              {/* Allow clicking to open the menu */}
+              <button
+                type="button"
+                className="pointer-events-auto absolute inset-0 z-[2] cursor-pointer disabled:cursor-wait"
+                disabled={isDisablingTutorial}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (isDisablingTutorial) return;
+                  setRightSideBarOpen(true);
+                }}
+                aria-label="Open game menu"
+              />
+            </div>
+          </div>
+
+          {/* Hand pointer near the highlighted button */}
+          <Image
+            src={IMG_URL_HANDPOINTER}
+            alt="Tap here"
+            className="absolute h-[4.5rem] w-[4.5rem] animate-bounce"
+            width={80}
+            height={80}
+            style={{
+              top: Math.max(0, gameMenuHighlight.top + gameMenuHighlight.height + 12),
+              left: Math.min(
+                window.innerWidth - 40,
+                gameMenuHighlight.left + gameMenuHighlight.width / 2 - 20,
+              ),
+            }}
+          />
+
+          {/* Assistant panel bottom-right - large, game-like dialog */}
+          <AssistantDialog
+            title="Game Menu"
+            isBusy={isDisablingTutorial}
+            errorMessage={disableTutorialError}
+            onOpenDisableModal={() => {
+              if (currentStepNumber >= TUTORIAL_STEPS_COUNT) {
+                handleDisableTutorial();
+              } else {
+                setShowCancelConfirmDialog(true);
+              }
+            }}
+          >
+            <p className="text-sm leading-relaxed md:text-base">
+              Click the highlighted button to open the game menu and continue the
+              tutorial.
+            </p>
+            <div className="mt-3 flex justify-end gap-2 md:mt-4">
+              <Button size="lg" onClick={() => setRightSideBarOpen(true)}>
+                Open Menu <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
+              </Button>
+            </div>
+          </AssistantDialog>
+        </div>
+      );
+    }
+
+    // Fallback dialog if button not found
+    return (
+      <Dialog open={true}>
+        <DialogContent className="z-[60] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Continue the Tutorial</DialogTitle>
+            <DialogDescription>
+              Please click on the circular button in the top right corner to open the
+              game menu and continue the tutorial.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 flex justify-between">
+            <Button onClick={() => setRightSideBarOpen(true)}>Open Menu</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  // Early return if tutorial is disabled
+  if (userData?.tutorialOn === false) {
+    return null;
+  }
+
+  // Get character image for post-tutorial quest
+  const characterImage =
+    showPostTutorialQuest && postTutorialQuest
+      ? postTutorialCharacterAssets
+          ?.filter((asset) => asset.type === "SCENE_CHARACTER")
+          .map((asset) => asset.image)?.[0]
+      : undefined;
+
+  // Derived
+  const pointerEvents =
+    !isDisablingTutorial &&
+    currentTutorialStep?.proceedOnHighlightClick &&
+    highlight?.isPrimaryElement
+      ? "pointer-events-auto"
+      : "pointer-events-none";
+
+  // If showing the special Game Menu tutorial
+  if (showGameMenuTutorial) {
+    return (
+      <>
+        {!showCancelConfirmDialog && renderGameMenuTutorial()}
+        <CancelTutorialConfirmDialog
+          open={showCancelConfirmDialog}
+          onOpenChange={setShowCancelConfirmDialog}
+          onConfirm={() => void handleDisableTutorial()}
+          isPending={isDisablingTutorial}
+          errorMessage={disableTutorialError}
+        />
+      </>
+    );
+  }
+
+  // If the regular tutorial is not visible and there's no post-tutorial quest to show, don't render anything
+  if (!isAssistantVisible && !showPostTutorialQuest) return null;
+
+  // Guard against undefined currentTutorialStep
+  if (!currentTutorialStep) return null;
+
+  // Render the tutorial overlay with highlight and assistant panel
+  return (
+    <>
+      {highlight && !showCancelConfirmDialog && (
+        <div className={cn("fixed inset-0 z-[60]", pointerEvents)}>
+          <div className="absolute inset-0 min-h-[2000px] bg-black/30" />
+
+          <div
+            className={cn(
+              "absolute bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]",
+              pointerEvents,
+            )}
+            style={highlightHoleStyle(highlight)}
+          >
+            <div className="absolute inset-0 z-[1] animate-pulse rounded-md border-[3px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]">
+              <button
+                type="button"
+                className={cn("absolute inset-0 z-[2] cursor-pointer", pointerEvents)}
+                aria-label="Continue tutorial"
+                disabled={isDisablingTutorial}
+                onPointerDown={(e) => {
+                  if (
+                    !isDisablingTutorial &&
+                    currentTutorialStep.proceedOnHighlightClick
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNextStep();
+                  }
+                }}
+                onClick={(e) => {
+                  if (currentTutorialStep.proceedOnHighlightClick) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }
+                }}
+                onTouchStart={(e) => {
+                  if (
+                    !isDisablingTutorial &&
+                    currentTutorialStep.proceedOnHighlightClick
+                  ) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNextStep();
+                  }
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Hand pointer if this step highlights a clickable element */}
+          <Image
+            src={IMG_URL_HANDPOINTER}
+            alt="Tap here"
+            className="absolute h-18 w-18 animate-bounce"
+            width={80}
+            height={80}
+            style={{
+              top: Math.max(0, highlight.top + highlight.height + 12),
+              left: Math.min(
+                window.innerWidth - 40,
+                highlight.left + highlight.width / 2 - 20,
+              ),
+            }}
+          />
+        </div>
+      )}
+
+      {/* Assistant panel bottom-right - large, game-like dialog */}
+      {!currentTutorialStep.hideDialog &&
+        !showOrderingDialog &&
+        !showCancelConfirmDialog && (
+          <AssistantDialog
+            title={currentTutorialStep.title}
+            isBusy={isDisablingTutorial}
+            errorMessage={disableTutorialError}
+            onOpenDisableModal={() => {
+              if (currentStepNumber >= TUTORIAL_STEPS_COUNT) {
+                handleDisableTutorial();
+              } else {
+                setShowCancelConfirmDialog(true);
+              }
+            }}
+            characterImage={characterImage}
+            dodgeHighlight={panelDodgesHighlight}
+            onOpenOrderingDialog={() => setShowOrderingDialog(true)}
+            showOrderingButton={showPostTutorialQuest}
+          >
+            {typeof currentTutorialStep.description === "string" ? (
+              <p className="text-sm leading-relaxed md:text-base">
+                {parseHtml(currentTutorialStep.description)}
+              </p>
+            ) : (
+              <div className="text-sm leading-relaxed md:text-base">
+                {currentTutorialStep.description}
+              </div>
+            )}
+            {currentTutorialStep.externalLink && (
+              <div className="mt-3">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    window.open(currentTutorialStep.externalLink, "_blank")
+                  }
+                >
+                  Read Getting Started Guide
+                </Button>
+              </div>
+            )}
+            {dialogOptions && (
+              <div className="mt-3 md:mt-4">
+                <h3 className="mb-2 flex items-center font-semibold text-sm">
+                  Dialog Options
+                  {isCheckingRewards && (
+                    <Loader2
+                      className="ml-2 inline h-4 w-4 shrink-0 animate-spin"
+                      aria-label="Loading"
+                    />
+                  )}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {!isCheckingRewards &&
+                    dialogOptions.options.map((entry) => (
+                      <Button
+                        key={entry.nextObjectiveId}
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          checkRewards({
+                            questId: dialogOptions.questId,
+                            nextObjectiveId: entry.nextObjectiveId,
+                          });
+                        }}
+                        className="min-w-[120px] flex-1"
+                      >
+                        {entry.text}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+            {postTutorialQuest?.userQuest.quest.content.objectives &&
+              postTutorialQuest && (
+                <>
+                  <div
+                    className={cn("mt-3 grid grid-cols-1 grid-cols-2 gap-4 md:mt-4")}
+                  >
+                    {postTutorialQuest.userQuest.quest.content.objectives.map(
+                      (objective, objectiveIndex) => {
+                        if (!postTutorialQuest) return null;
+                        const quest = postTutorialQuest.userQuest.quest;
+                        const tracker = postTutorialQuest.tracker;
+                        const allDone = isQuestComplete(quest, tracker);
+                        const activeObjective = getActiveObjective(quest, tracker);
+                        const status = tracker.goals.find((g) => g.id === objective.id);
+                        const hideIfNoRewards =
+                          objective.task === "dialog" ||
+                          (activeObjective && objective.id !== activeObjective?.id) ||
+                          (allDone && !status?.done);
+                        return (
+                          <Objective
+                            objective={objective}
+                            tracker={tracker}
+                            checkRewards={() => checkRewards({ questId: quest.id })}
+                            key={objective.id}
+                            titlePrefix={
+                              quest.consecutiveObjectives
+                                ? "Objective: "
+                                : `${objectiveIndex + 1}. `
+                            }
+                            grayedOut={
+                              !isQuestObjectiveAvailable(quest, tracker, objectiveIndex)
+                            }
+                            hideIfNoRewards={hideIfNoRewards}
+                          />
+                        );
+                      },
+                    )}
+                  </div>
+                  {isQuestComplete(
+                    postTutorialQuest.userQuest.quest,
+                    postTutorialQuest.tracker,
+                  ) &&
+                    !postTutorialQuest.userQuest.completed &&
+                    userData?.status === "AWAKE" && (
+                      <div className="mt-3 md:mt-4">
+                        <Button
+                          onClick={() => {
+                            if (!postTutorialQuest) return;
+                            checkRewards({
+                              questId: postTutorialQuest.userQuest.quest.id,
+                            });
+                          }}
+                          className="w-full"
+                        >
+                          <Sparkles className="mr-2 h-5 w-5" />
+                          Collect Reward
+                        </Button>
+                      </div>
+                    )}
+                </>
+              )}
+            {currentTutorialStep?.showNextButton && (
+              <div className="mt-3 flex justify-end gap-2 md:mt-4">
+                <Button
+                  size="lg"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (hardwarePlatform !== "mobile") {
+                      handleNextStep();
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (hardwarePlatform === "mobile") {
+                      handleNextStep();
+                    }
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                >
+                  {currentStepNumber === TUTORIAL_STEPS.length - 1 ? "Finish" : "Next"}
+                  <ArrowRight className="ml-2 h-4 w-4 md:h-5 md:w-5" />
+                </Button>
+              </div>
+            )}
+          </AssistantDialog>
+        )}
+
+      {/* Quest Type Ordering Dialog */}
+      <Dialog open={showOrderingDialog} onOpenChange={setShowOrderingDialog}>
+        <DialogContent className="z-[70] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Quest Priority Order</DialogTitle>
+            <DialogDescription>
+              Drag to reorder which quest types should be shown first in the assistant.
+            </DialogDescription>
+          </DialogHeader>
+          <SortableList
+            items={questTypePriority.map((type) => ({
+              id: type,
+              label: capitalizeFirstLetter(type),
+            }))}
+            onReorder={(items: SortableItem[]) => {
+              setQuestTypePriority(items.map((item) => item.id as QuestType));
+            }}
+            className="max-h-[60vh] overflow-y-auto"
+          />
+          <div className="mt-4 flex justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQuestTypePriority([...OrderedQuestTypesInTutorial]);
+              }}
+            >
+              Reset to Default
+            </Button>
+            <Button onClick={() => setShowOrderingDialog(false)}>Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Tutorial Confirmation Dialog */}
+      <CancelTutorialConfirmDialog
+        open={showCancelConfirmDialog}
+        onOpenChange={setShowCancelConfirmDialog}
+        onConfirm={() => void handleDisableTutorial()}
+        isPending={isDisablingTutorial}
+        errorMessage={disableTutorialError}
+      />
+    </>
+  );
+};
+
+export default TutorialAssistant;
+
+/**
+ * The highlight is re-measured four times a second so it follows an element that moves. Almost
+ * none of those measurements differ, and storing an equal box would re-render the whole assistant
+ * overlay for nothing, so the position setters keep the previous object when it has not moved.
+ */
+const isSameBox = (
+  a: { top: number; left: number; width: number; height: number },
+  b: { top: number; left: number; width: number; height: number },
+) =>
+  a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+
+/**
+ * Style for the hole cut around a highlighted element, padded by 10px. The hole follows its
+ * element as the page scrolls; placed with top/left, every step of that is a layout shift of
+ * a viewport-sized box, while a transform moves it without one.
+ */
+const highlightHoleStyle = (box: {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}): React.CSSProperties => ({
+  top: 0,
+  left: 0,
+  width: box.width + 20,
+  height: box.height + 20,
+  transform: `translate(${box.left - 10}px, ${box.top - 10}px)`,
+});
+
+// Helper function to find element to highlight based on current tutorial step
+const getUsableHighlightElement = (id: string | undefined) => {
+  if (!id) return null;
+  const nodes = document.querySelectorAll<HTMLElement>(`[id="${CSS.escape(id)}"]`);
+  for (const element of Array.from(nodes)) {
+    const style = window.getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") continue;
+    const rect = element.getBoundingClientRect();
+    if (!isUsableHighlightRect(rect)) continue;
+    return element;
+  }
+  return null;
+};
+
+const findElementToHighlight = (
+  step: TutorialStepConfig,
+  rightSideBarRef: React.RefObject<HTMLDivElement | null>,
+  rightSideBarOpen: boolean,
+) => {
+  if (!step?.elementIds || step.elementIds.length === 0) return null;
+
+  let element: HTMLElement | null =
+    step.elementIds?.map((id) => getUsableHighlightElement(id)).find(Boolean) || null;
+  const primaryElement = getUsableHighlightElement(step.elementIds?.[0]);
+  const isPrimaryElement = Boolean(
+    element && primaryElement && element === primaryElement,
+  );
+
+  // Check within the rightSideBarRef if available and open
+  const sidebarElement = rightSideBarRef.current;
+  if (
+    sidebarElement &&
+    rightSideBarOpen &&
+    step.requiresGameMenu &&
+    Array.isArray(step.elementIds)
+  ) {
+    // Try exact match first, then partial match if needed
+    const foundElement =
+      step.elementIds
+        ?.map((id) => id && sidebarElement.querySelector<HTMLElement>(`#${id}`))
+        .find((el) => el && isUsableHighlightRect(el.getBoundingClientRect())) ||
+      Array.from(sidebarElement.querySelectorAll<HTMLElement>("[id]")).find(
+        (el) =>
+          isUsableHighlightRect(el.getBoundingClientRect()) &&
+          step.elementIds?.some(
+            (id) => id && el.id?.includes(id.replace("tutorial-", "")),
+          ),
+      );
+
+    if (foundElement) {
+      element = foundElement;
+    }
+  }
+
+  if (!element) return null;
+
+  const rect = element.getBoundingClientRect();
+  if (!isUsableHighlightRect(rect)) {
+    return null;
+  }
+
+  // Return the element reference along with its dimensions
+  return {
+    element,
+    isPrimaryElement,
+    top: rect.top,
+    left: rect.left,
+    width: rect.width,
+    height: rect.height,
+  };
+};
