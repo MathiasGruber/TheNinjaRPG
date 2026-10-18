@@ -1,10 +1,10 @@
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import AiProfileEdit from "@/layout/AiProfileEdit";
-import { ActionMoveTowardsOpponent, ActionEndTurn, getBackupRules, type AiRuleType } from "@/validators/ai";
+import { ActionMoveTowardsOpponent, ActionEndTurn, ActionUseSpecificJutsu, getBackupRules, type AiRuleType } from "@/validators/ai";
 
 const mocks = {
   profile: { id: "custom", includeDefaultRules: true, rules: [] as AiRuleType[] },
@@ -176,5 +176,75 @@ describe("AI coordinate editor", () => {
     expect(mocks.save).not.toHaveBeenCalled();
     changeCoordinate(view, "X (column)", "2");
     expect(save(view).rules[0]!.action).toMatchObject({ coordinates: { longitude: 2, latitude: 4 } });
+  });
+});
+
+describe("AI specific jutsu picker", () => {
+  const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
+  const browserDescriptors = browserGlobals.map((key) => Object.getOwnPropertyDescriptor(globalThis, key));
+  let scrollDescriptor: PropertyDescriptor | undefined;
+  beforeEach(() => {
+    Object.defineProperties(globalThis, {
+      Event: { configurable: true, value: window.Event },
+      CustomEvent: { configurable: true, value: window.CustomEvent },
+      ResizeObserver: { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } },
+    });
+    scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => undefined });
+    mocks.profile.rules[0]!.action = ActionUseSpecificJutsu.parse({ jutsuId: "fire" });
+  });
+  afterEach(() => {
+    cleanup();
+    browserGlobals.forEach((key, index) => {
+      const descriptor = browserDescriptors[index];
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+      else Reflect.deleteProperty(globalThis, key);
+    });
+    if (scrollDescriptor) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", scrollDescriptor);
+    else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  });
+  const jutsus = [
+    { jutsuId: "fire", jutsu: { name: "Fire Ball" } },
+    { jutsuId: "water", jutsu: { name: "Water Wall" } },
+  ];
+  const picker = (options = jutsus) => {
+    const view = render(<AiProfileEdit userData={{ aiProfileId: "custom", userId: "editor", jutsus: options, items: [] }} />);
+    fireEvent.click(headers(view)[0]!);
+    return view;
+  };
+  it("searches names case-insensitively, selects a result and saves its ID", async () => {
+    const view = picker();
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "WATER" } });
+    await waitFor(() => expect(view.queryByRole("option", { name: "Fire Ball" })).toBeNull());
+    fireEvent.click(view.getByRole("option", { name: "Water Wall" }));
+    expect(view.queryByPlaceholderText("Search jutsu...")).toBeNull();
+    expect(view.getByRole("combobox", { name: "Specific jutsu" }).textContent).toContain("Water Wall");
+    expect(save(view).rules[0]?.action).toMatchObject({ jutsuId: "water" });
+  });
+  it("shows an empty search and recovers when the query is cleared", async () => {
+    const view = picker();
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "missing" } });
+    await waitFor(() => expect(view.getByText("No jutsu found.")).toBeTruthy());
+    fireEvent.change(view.getByPlaceholderText("Search jutsu..."), { target: { value: "" } });
+    await waitFor(() => expect(view.getAllByRole("option")).toHaveLength(2));
+  });
+  it("keeps unavailable saved IDs without adding them to the options", () => {
+    const view = picker([jutsus[1]!]);
+    expect(view.getByRole("combobox", { name: "Specific jutsu" }).textContent).toContain("Selected jutsu unavailable");
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(view.getAllByRole("option")).toHaveLength(1);
+    expect(view.queryByRole("option", { name: "Fire Ball" })).toBeNull();
+    expect(save(view).rules[0]?.action).toMatchObject({ jutsuId: "fire" });
+  });
+  it("deduplicates owned copies and handles an empty loadout", () => {
+    const view = picker([jutsus[0]!, jutsus[0]!]);
+    fireEvent.click(view.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(view.getAllByRole("option")).toHaveLength(1);
+    cleanup();
+    const empty = picker([]);
+    fireEvent.click(empty.getByRole("combobox", { name: "Specific jutsu" }));
+    expect(empty.getByText("No jutsu found.")).toBeTruthy();
   });
 });

@@ -1,4 +1,12 @@
-import { FilePlus, Save, SquareArrowDown, SquareArrowUp, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  FilePlus,
+  Save,
+  SquareArrowDown,
+  SquareArrowUp,
+  Trash2,
+} from "lucide-react";
 import { nanoid } from "nanoid";
 import type React from "react";
 import { Fragment, useEffect, useState } from "react";
@@ -6,10 +14,19 @@ import { api } from "@/app/_trpc/client";
 import Toggle from "@/components/control/Toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { NumberInput } from "@/components/ui/number-input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -121,6 +138,8 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
   const isSaving = props.configuration?.isSaving ?? isUpdatingProfile;
   const canEdit =
     !isSaving && !props.configuration?.disabled && (isStaff || !isDefault);
+  const jutsus = getUnique(props.userData.jutsus, "jutsuId");
+  const items = getUnique(props.userData.items, "itemId");
 
   // Get backup rules
   const backupRules = getBackupRules();
@@ -238,6 +257,7 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
     >
       {rules.map((rule, ruleIndex) => {
         const currentActionType = rule.action.type;
+        const itemId = "itemId" in rule.action ? rule.action.itemId : undefined;
         const coordinates =
           "target" in rule.action ? rule.action.coordinates : undefined;
         const isLastTwo = ruleIndex >= rules.length - backupRules.length;
@@ -650,31 +670,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                         <i>{rule.action.description}</i>
                       </div>
                       {"jutsuId" in rule.action && (
-                        <Select
+                        <JutsuSelect
                           disabled={!canEdit}
-                          defaultValue={rule.action.jutsuId}
                           value={rule.action.jutsuId}
-                          onValueChange={(e) =>
+                          jutsus={jutsus}
+                          onChange={(e) =>
                             updateAction(ruleIndex, (action) => ({
                               ...action,
                               jutsuId: e,
                             }))
                           }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
-                          </SelectTrigger>
-                          <SelectContent id="available_action">
-                            {props.userData?.jutsus?.map((userjutsu) => (
-                              <SelectItem
-                                key={userjutsu.jutsuId}
-                                value={userjutsu.jutsuId}
-                              >
-                                {userjutsu.jutsu.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       )}
                       {"itemId" in rule.action && (
                         <Select
@@ -688,11 +694,17 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                             }))
                           }
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder={`None`} />
+                          <SelectTrigger aria-label="Specific item">
+                            <SelectValue placeholder="Select item">
+                              {items.find((entry) => entry.itemId === itemId)?.item
+                                .name ||
+                                (rule.action.itemId
+                                  ? "Selected item unavailable"
+                                  : "Select item")}
+                            </SelectValue>
                           </SelectTrigger>
                           <SelectContent id="available_action">
-                            {props.userData?.items?.map((useritem) => (
+                            {items.map((useritem) => (
                               <SelectItem key={useritem.itemId} value={useritem.itemId}>
                                 {useritem.item.name}
                               </SelectItem>
@@ -705,14 +717,14 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                           disabled={!canEdit}
                           selected={rule.action.comboIds}
                           options={[
-                            ...(props.userData?.items?.map((ui) => ({
+                            ...items.map((ui) => ({
                               value: ui.itemId,
                               label: ui.item.name,
-                            })) ?? []),
-                            ...(props.userData?.jutsus?.map((uj) => ({
+                            })),
+                            ...jutsus.map((uj) => ({
                               value: uj.jutsuId,
                               label: uj.jutsu.name,
-                            })) ?? []),
+                            })),
                           ]}
                           onChange={(e) =>
                             updateAction(ruleIndex, (action) => ({
@@ -918,3 +930,64 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
 };
 
 export default AiProfileEdit;
+
+const JutsuSelect = ({
+  value,
+  onChange,
+  jutsus,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  jutsus: AiProfileEditProps["userData"]["jutsus"];
+  disabled: boolean;
+}) => {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+  return (
+    <Popover open={!disabled && open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-label="Specific jutsu"
+          aria-expanded={!disabled && open}
+          disabled={disabled}
+          className="w-full justify-between"
+        >
+          <span className="truncate">
+            {jutsus.find((entry) => entry.jutsuId === value)?.jutsu.name ||
+              (value ? "Selected jutsu unavailable" : "Select jutsu")}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <Command>
+          <CommandInput placeholder="Search jutsu..." />
+          <CommandList>
+            <CommandEmpty>No jutsu found.</CommandEmpty>
+            <CommandGroup>
+              {jutsus.map((entry) => (
+                <CommandItem
+                  key={entry.jutsuId}
+                  value={entry.jutsuId}
+                  keywords={[entry.jutsu.name]}
+                  onSelect={() => {
+                    onChange(entry.jutsuId);
+                    setOpen(false);
+                  }}
+                >
+                  {entry.jutsu.name}
+                  {entry.jutsuId === value && <Check className="ml-auto h-4 w-4" />}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+};
