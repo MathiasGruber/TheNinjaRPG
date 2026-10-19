@@ -1,5 +1,5 @@
 import { QuestReward } from "@/validators/rewardPackages";
-import { beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { mapAsset, quest } from "@/drizzle/schema";
 import { questsRouter } from "@/routers/quests";
@@ -12,6 +12,18 @@ const objective = MoveToObjective.parse({ id: "tower", task: "move_to_location",
 
 describeWithDatabase("public quest map locations", () => {
   beforeEach(async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) {
+        throw new Error("Unexpected HTTP request in quest map location tests");
+      }
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(Array.isArray(commands[0])
+        ? commands.map((command) => resultFor(command as unknown[]))
+        : resultFor(commands));
+    });
     await resetTables(quest, mapAsset);
     invalidatePublicQuestLocations();
     await insertQuests([
@@ -20,6 +32,7 @@ describeWithDatabase("public quest map locations", () => {
       { id: "hidden", publicLocations: true, hidden: true, content: { objectives: [objective], reward: QuestReward.parse({}), sceneBackground: "", sceneCharacters: [] } },
     ]);
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it("lists only public neutral presentation without fetching player history", async () => {
     const caller = await callerFor(questsRouter, "visitor-with-no-history");

@@ -2429,11 +2429,6 @@ const Sector: React.FC<SectorProps> = (props) => {
           false,
         )[0];
         const locationId = locationHit?.object.userData.locationId;
-        if (typeof locationId === "string") {
-          hoveredLocationIdRef.current = locationId;
-          setHoveredLocationId(locationId);
-          return;
-        }
         // Sticky-select a structure under the pointer so touch / click can
         // open the "Go to" card the same way desktop hover does.
         const structureHit = raycaster.intersectObjects(
@@ -2455,7 +2450,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           group_users,
           group_quest,
         ]);
-        intersects
+        const canSelectLocation = intersects
           .filter((i) => isObjectChainVisible(i.object))
           .every((i) => {
             const questMarker = i.object.parent?.userData;
@@ -2477,6 +2472,9 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             }
             if (i.object.userData.type === "tile") {
+              // Landmark artwork overlaps NPC bodies and player actions. Let
+              // those interactions handle the click before selecting scenery.
+              if (typeof locationId === "string") return true;
               const target = i.object.userData.tile as TerrainHex;
               const clickedSector = i.object.userData.sector as number;
               if (target.blocked) {
@@ -2607,6 +2605,10 @@ const Sector: React.FC<SectorProps> = (props) => {
             }
             return true;
           });
+        if (canSelectLocation && typeof locationId === "string") {
+          hoveredLocationIdRef.current = locationId;
+          setHoveredLocationId(locationId);
+        }
       };
       const rendererElement = renderer.domElement;
       rendererElement.addEventListener("click", onClick, true);
