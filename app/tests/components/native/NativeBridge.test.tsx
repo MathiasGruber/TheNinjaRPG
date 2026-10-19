@@ -72,3 +72,32 @@ describe("native Back navigation", () => {
     },
   );
 });
+
+describe("native viewport lifecycle", () => {
+  it("fits Android on mount and foreground only, and releases its state listener", () => {
+    let onState: undefined | ((active: boolean) => void);
+    const remove = vi.fn();
+    const fit = vi.spyOn(native.viewport, "fitContent").mockResolvedValue(undefined);
+    vi.spyOn(native, "platform").mockReturnValue("android");
+    vi.spyOn(native.appEvents, "onStateChange").mockImplementation((callback) => {
+      onState = callback;
+      return remove;
+    });
+    const view = render(<NativeBridge />);
+    expect(fit).toHaveBeenCalledTimes(1);
+    onState?.(false);
+    expect(fit).toHaveBeenCalledTimes(1);
+    onState?.(true);
+    expect(fit).toHaveBeenCalledTimes(2);
+    view.rerender(<NativeBridge />);
+    expect(fit).toHaveBeenCalledTimes(2);
+    view.unmount();
+    expect(remove).toHaveBeenCalledTimes(1);
+  });
+  it.each(["ios", "web"] as const)("does not configure %s viewport", (platform) => {
+    vi.spyOn(native, "platform").mockReturnValue(platform);
+    const fit = vi.spyOn(native.viewport, "fitContent").mockResolvedValue(undefined);
+    render(<NativeBridge />);
+    expect(fit).not.toHaveBeenCalled();
+  });
+});
