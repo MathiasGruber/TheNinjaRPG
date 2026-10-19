@@ -55,7 +55,8 @@ action. Preparation does not start a server or run migrations/seeds.
 Visitors and players choose Classic, Pixel, Eclipse Observatory, Obsidian Council or Sakura
 Courtyard from one layout selector in Settings → Display. Selection is saved on the
 device and applies to both the welcome page and the game. The themed welcome pages also
-provide the selector in their site menu; `/layouts` shows the designs. The themed identifiers are
+provide the shared sound and display settings in the upper-right corner; `/layouts`
+shows the designs. The themed identifiers are
 `20-eclipse-observatory`, `17-obsidian-council` and `3-sakura-courtyard`.
 
 Visitors without a saved choice receive the existing welcome design. To set a different

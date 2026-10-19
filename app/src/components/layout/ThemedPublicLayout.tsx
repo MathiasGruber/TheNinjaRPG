@@ -1,23 +1,10 @@
 "use client";
 
-import { Menu } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { type ReactNode, useEffect } from "react";
 import { IMG_LOGO_SHORT } from "@/drizzle/constants";
-import {
-  applyGameLayoutTheme,
-  useGameLayoutTheme,
-  useSelectGameLayout,
-} from "@/hooks/useGameLayoutTheme";
+import { applyGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
 import Footer from "@/layout/Footer";
-import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
-import { GlobalAudioProvider } from "@/layout/GameSettings";
+import { GameSettingsPopover, GlobalAudioProvider } from "@/layout/GameSettings";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import {
@@ -25,7 +12,6 @@ import {
   GAME_LAYOUT_ART_STYLES,
   getWelcomeLayoutTheme,
 } from "@/libs/layoutThemes";
-import { useActiveLayout } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
 
 export function ThemedPublicLayout({ children }: { children: ReactNode }) {
@@ -42,15 +28,13 @@ export function ThemedPublicLayout({ children }: { children: ReactNode }) {
 
 export function ThemedPublicFrame({ children }: { children: ReactNode }) {
   const pathname = usePublicPathname();
-  const activeLayout = useActiveLayout();
-  const selectLayout = useSelectGameLayout();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isWelcome = pathname === "/";
   const home = "/";
   const links = [
     { name: "World", href: `${home}#world` },
     { name: "Gameplay", href: `${home}#gameplay` },
     { name: "Community", href: `${home}#community` },
+    { name: "Guide", href: "/guide" },
   ];
   return (
     <div
@@ -74,9 +58,9 @@ export function ThemedPublicFrame({ children }: { children: ReactNode }) {
         </Link>
         <nav className="theme-public-nav" aria-label="Explore The Ninja RPG">
           {links.map((link) => (
-            <a key={link.name} href={link.href}>
+            <Link key={link.name} href={link.href}>
               {link.name}
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="theme-public-account">
@@ -86,42 +70,11 @@ export function ThemedPublicFrame({ children }: { children: ReactNode }) {
           <Link href="/signup" className="welcome-register">
             Start playing
           </Link>
-          <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger
-              className="theme-public-menu-button"
-              aria-label="Open site menu"
-            >
-              <Menu aria-hidden="true" />
-            </SheetTrigger>
-            <SheetContent className="theme-drawer">
-              <SheetHeader>
-                <SheetTitle>Explore Seichi</SheetTitle>
-              </SheetHeader>
-              <nav
-                className="theme-public-drawer-nav"
-                aria-label="Welcome page navigation"
-              >
-                {links.map((link) => (
-                  <a
-                    key={link.name}
-                    href={link.href}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {link.name}
-                  </a>
-                ))}
-                <Link href="/guide">Game guide</Link>
-              </nav>
-              <div className="mt-6 space-y-2">
-                <p className="font-semibold text-sm">Game layout</p>
-                <GameLayoutPicker
-                  layout={activeLayout}
-                  onLayoutChange={selectLayout}
-                  defaultTheme={getWelcomeLayoutTheme()}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
+          <GameSettingsPopover
+            trigger="settings"
+            triggerClassName="theme-public-settings-button"
+            defaultLayoutTheme={getWelcomeLayoutTheme()}
+          />
         </div>
       </header>
       <main

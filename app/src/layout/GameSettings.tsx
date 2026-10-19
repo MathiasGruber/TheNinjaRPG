@@ -30,6 +30,7 @@ import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
+import type { GameLayoutThemeId } from "@/libs/layoutThemes";
 import { getBackgroundMusicSrc } from "@/libs/music";
 import { audioSession, platform } from "@/libs/native";
 import { showMutationToast } from "@/libs/toast";
@@ -43,6 +44,7 @@ interface GameSettingsProps {
   updateUser?: (data: Partial<UserWithRelations>) => Promise<void>;
   trigger?: "audio" | "settings";
   triggerClassName?: string;
+  defaultLayoutTheme?: GameLayoutThemeId;
 }
 
 /**
@@ -463,6 +465,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
   updateUser,
   variant = "panel",
   onNavigate,
+  defaultLayoutTheme,
 }) => {
   const {
     audioEnabled,
@@ -674,7 +677,11 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
               <p className={textClass}>Game Layout</p>
             </div>
           </div>
-          <GameLayoutPicker layout={activeLayout} onLayoutChange={handleLayoutChange} />
+          <GameLayoutPicker
+            layout={activeLayout}
+            onLayoutChange={handleLayoutChange}
+            defaultTheme={defaultLayoutTheme}
+          />
           <Link
             href="/layouts"
             className="inline-flex min-h-11 items-center text-primary text-sm underline"
@@ -755,6 +762,7 @@ export const GameSettingsPanel: React.FC<GameSettingsProps> = ({
   onNavigate,
   userData,
   updateUser,
+  defaultLayoutTheme,
 }) => {
   return (
     <div className="p-4">
@@ -762,6 +770,7 @@ export const GameSettingsPanel: React.FC<GameSettingsProps> = ({
         userData={userData}
         updateUser={updateUser}
         variant="panel"
+        defaultLayoutTheme={defaultLayoutTheme}
         onNavigate={onNavigate}
       />
     </div>
@@ -776,6 +785,7 @@ export const GameSettingsPopover: React.FC<GameSettingsProps> = ({
   updateUser,
   trigger = "audio",
   triggerClassName,
+  defaultLayoutTheme,
 }) => {
   const { audioEnabled } = useGameSettings(userData);
   const isSettingsTrigger = trigger === "settings";
@@ -817,6 +827,7 @@ export const GameSettingsPopover: React.FC<GameSettingsProps> = ({
           userData={userData}
           updateUser={updateUser}
           variant="popover"
+          defaultLayoutTheme={defaultLayoutTheme}
           onNavigate={() => setOpen(false)}
         />
       </PopoverContent>

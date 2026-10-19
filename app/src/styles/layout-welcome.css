@@ -1,4 +1,5 @@
 .theme-public-page {
+  --theme-public-width: min(100% - 5rem, 1440px);
   min-height: 100svh;
   background: var(--theme-bg);
   color: var(--theme-text);
@@ -12,7 +13,7 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 2rem;
-  width: min(100% - 5rem, 1440px);
+  width: var(--theme-public-width);
   min-height: 7rem;
   margin-inline: auto;
 }
@@ -64,7 +65,7 @@
   color: var(--theme-bg);
   font-weight: 700;
 }
-.theme-public-menu-button {
+.theme-public-settings-button {
   display: inline-flex;
   width: 48px;
   height: 48px;
@@ -76,35 +77,21 @@
   background: var(--theme-surface);
   color: var(--theme-text);
 }
-.theme-public-menu-button svg {
+.theme-public-settings-button svg {
   width: 1.4rem;
   height: 1.4rem;
 }
-.theme-public-drawer-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding-top: 1.5rem;
-}
-.theme-public-drawer-nav a {
-  display: flex;
-  min-height: 48px;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-bottom: 1px solid var(--theme-line);
-}
-.theme-public-drawer-nav svg {
-  width: 1.2rem;
-  height: 1.2rem;
-}
 .theme-public-content {
-  width: min(100% - 2rem, 1120px);
+  width: var(--theme-public-width);
   min-height: 70svh;
   margin: 3rem auto;
 }
+.theme-public-content [data-content-box] {
+  max-width: none;
+  padding-inline: 0;
+}
 .theme-public-footer {
-  width: min(100% - 3rem, 1280px);
+  width: var(--theme-public-width);
   margin: 5rem auto 0;
   padding: 2rem 0 3rem;
   border-top: 1px solid var(--theme-line);
@@ -489,20 +476,28 @@ html[data-game-layout="20-eclipse-observatory"] .theme-welcome-community {
 }
 
 @media (width < 1000px) {
+  .theme-public-page {
+    --theme-public-width: calc(100% - 2rem);
+  }
   .theme-public-header {
-    width: calc(100% - 2rem);
-    grid-template-columns: auto 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     min-height: 6rem;
-    gap: 1rem;
+    gap: 0 1rem;
+    padding-block: 0.5rem;
   }
   .theme-public-logo {
     width: min(16rem, 36vw);
     max-width: none;
   }
   .theme-public-nav {
-    display: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex-wrap: wrap;
+    gap: 0 1.5rem;
   }
   .theme-public-account {
+    grid-column: 2;
+    grid-row: 1;
     gap: 0.6rem;
   }
   .welcome-register {
@@ -542,14 +537,16 @@ html[data-game-layout="20-eclipse-observatory"] .theme-welcome-community {
   }
 }
 @media (width < 700px) {
+  .theme-public-page {
+    --theme-public-width: calc(100% - 1.5rem);
+  }
   .theme-public-header {
-    width: calc(100% - 1.5rem);
-    gap: 0.5rem;
+    gap: 0 0.5rem;
   }
   .theme-public-account {
     gap: 0.4rem;
   }
-  .theme-public-menu-button {
+  .theme-public-settings-button {
     width: 44px;
     height: 44px;
   }
