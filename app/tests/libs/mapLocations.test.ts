@@ -136,6 +136,18 @@ describe("personal structure lifecycle", () => {
       npcPlacementId: "npc", longitude: 8, latitude: 9, active: true,
     });
   });
+  it("uses live NPC visibility without revealing masked neighboring targets or concealing local targets", () => {
+    for (const role of ["USER", "CONTENT"]) {
+      for (const sector of [724, 725]) {
+        const actor = structuredClone(user([arrival], { role, sector }));
+        actor.userQuests[0]!.quest.content.objectives[0] = { ...move, sector: 0, longitude: 0, latitude: 0, hideLocation: true, overworldPlacementId: "npc" };
+        const projected = getPublicQuestUser(actor);
+        const placements = [{ npcPlacementId: "npc", sector: 724, longitude: 8, latitude: 9 }];
+        expect(getQuestMapLocations(actor, [], placements)).toHaveLength(sector === 724 || role === "CONTENT" ? 1 : 0);
+        expect(getQuestMapLocations(projected, [], placements)).toHaveLength(sector === 724 || role === "CONTENT" ? 1 : 0);
+      }
+    }
+  });
 });
 
 describe("location chains reloaded from authored quests", () => {
@@ -181,6 +193,20 @@ describe("location chains reloaded from authored quests", () => {
     expect(await renderThenMove(snapshot, new Group(), placements)).toMatchObject([
       { assetId: "shrine", objectiveId: "detail", sector: 724, longitude: 4, latitude: 5, name: "Tower shrine" },
     ]);
+  });
+
+  it("keeps inherited concealed NPC coordinates private outside their live sector", () => {
+    const actor = structuredClone(user([
+      { ...arrival, done: true, selectedNextObjectiveId: "dialog" },
+      { id: "dialog", done: false },
+    ], { sector: 725, role: "USER" }));
+    actor.userQuests[0]!.quest.content.objectives[0] = { ...move, hideLocation: true, overworldPlacementId: "keeper" };
+    actor.userQuests[0]!.quest.content.objectives[1] = { ...dialog, structureAssetId: "shrine" };
+    const placements = [{ npcPlacementId: "keeper", sector: 724, longitude: 4, latitude: 5 }];
+    expect(getQuestMapLocations(actor, [], placements)).toEqual([]);
+    expect(getQuestMapLocations(getPublicQuestUser(actor), [], placements)).toEqual([]);
+    actor.sector = 724;
+    expect(getQuestMapLocations(getPublicQuestUser(actor), [], placements)).toMatchObject([{ objectiveId: "dialog", assetId: "shrine", sector: 724, longitude: 4, latitude: 5 }]);
   });
 
   for (const longitude of [4, 8]) {

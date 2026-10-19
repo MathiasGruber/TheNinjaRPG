@@ -534,7 +534,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const questLocations = useMemo<MapLocation[]>(
     () => [
       ...(userData
-        ? getQuestMapLocations(userData, publicLocations, data?.overworldAis ?? [])
+        ? getQuestMapLocations(userData, publicLocations, data?.questPlacements ?? [])
         : []),
       ...(sectorDungeons ?? [])
         .filter((d) => d.content.structureAssetId)
@@ -549,7 +549,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           scale: d.content.structureScale ?? 1,
         })),
     ],
-    [userData, publicLocations, sectorDungeons, data?.overworldAis],
+    [userData, publicLocations, sectorDungeons, data?.questPlacements],
   );
   const questLocationsRef = useRef(questLocations);
   questLocationsRef.current = questLocations;

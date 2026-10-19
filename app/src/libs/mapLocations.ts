@@ -1,9 +1,9 @@
 import { SECTOR_MAP_MAX_DIMENSION } from "@/drizzle/constants";
-import type { Quest } from "@/drizzle/schema";
+import type { Quest, UserData, UserQuest } from "@/drizzle/schema";
 import { findCompletedPredecessor, isQuestObjectiveAvailable } from "@/libs/objectives";
 import { isValidSectorId } from "@/libs/sector-map/sector-ids";
-import type { UserWithRelations } from "@/routers/profile";
 import { calculateContentDiff } from "@/utils/diff";
+import { canChangeContent } from "@/utils/permissions";
 import type { MapLocation } from "@/validators/mapLocation";
 import { mapLocationFields } from "@/validators/mapLocation";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
@@ -124,9 +124,11 @@ const resolveObjectiveCoordinates = (
   objectives: AllObjectivesType[],
   tracker: QuestTrackerType,
   placements: MapPlacement[],
+  viewer: Pick<UserData, "sector" | "role">,
 ) => {
   const coordinates: Pick<AllObjectivesType, "sector" | "longitude" | "latitude"> = {};
   let current = objective;
+  let hasConcealedLocation = false;
   const visited = new Set<string>();
   while (!visited.has(current.id)) {
     visited.add(current.id);
@@ -135,6 +137,7 @@ const resolveObjectiveCoordinates = (
       ? placements.find((p) => p.npcPlacementId === current.overworldPlacementId)
       : undefined;
     if (current.overworldPlacementId && !placement) return null;
+    hasConcealedLocation ||= "hideLocation" in current && current.hideLocation;
     coordinates.sector ??= placement?.sector ?? goal?.sector ?? current.sector;
     coordinates.longitude ??=
       placement?.longitude ?? goal?.longitude ?? current.longitude;
@@ -150,12 +153,21 @@ const resolveObjectiveCoordinates = (
     if (!previous) break;
     current = previous;
   }
+  // Live NPC positions and inherited dialog locations obey the authored concealment rule.
+  if (
+    hasConcealedLocation &&
+    coordinates.sector !== viewer.sector &&
+    !canChangeContent(viewer.role)
+  )
+    return null;
   return coordinates;
 };
 
 /** Public scenery survives completion; private scenery follows the selected same-location chain. */
 export const getQuestMapLocations = (
-  user: NonNullable<UserWithRelations>,
+  user: Pick<UserData, "questData" | "sector" | "role"> & {
+    userQuests: Pick<UserQuest, "completed" | "endAt" | "quest">[];
+  },
   publicLocations: MapLocation[],
   placements: MapPlacement[] = [],
 ): MapLocation[] => {
@@ -174,6 +186,7 @@ export const getQuestMapLocations = (
         quest.content.objectives,
         tracker,
         placements,
+        user,
       );
       if (!coordinates) return;
       const resolved = { ...objective, ...coordinates };
@@ -192,6 +205,7 @@ export const getQuestMapLocations = (
           quest.content.objectives,
           tracker,
           placements,
+          user,
         );
         if (
           !previousLocation ||

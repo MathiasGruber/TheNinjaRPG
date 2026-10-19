@@ -36,7 +36,13 @@ import {
   WAR_MISSION_REQUIRED_RANK,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
-import type { GameSetting, Quest, UserData, UserItem } from "@/drizzle/schema";
+import type {
+  GameSetting,
+  Quest,
+  UserData,
+  UserItem,
+  UserQuest,
+} from "@/drizzle/schema";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
 import { getFarmingLevel } from "@/libs/farming";
 import { getGatheringRank } from "@/libs/gathering";
@@ -112,7 +118,12 @@ import { getQuestCounterFieldName } from "@/validators/user";
  * Get currently active quests for a user
  */
 /** Select playable definitions; raw history remains available for isolation and recovery controls. */
-export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
+export const getUserQuests = (
+  user: UserData & {
+    userQuests: UserQuest[];
+    completedQuests: { id: string; questId: string; completed?: number }[];
+  },
+) => {
   const userQuests =
     user?.userQuests
       .filter((uq) => !!uq.quest && !hasQuestContentChanged(uq))
