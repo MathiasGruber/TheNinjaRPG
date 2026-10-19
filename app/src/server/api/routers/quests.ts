@@ -725,6 +725,7 @@ export const questsRouter = createTRPCRouter({
           "war",
           "overworld",
           "mastery",
+          "special",
         ].includes(current.questType)
       ) {
         return errorResponse(`Cannot abandon ${current.questType} quest type.`);
