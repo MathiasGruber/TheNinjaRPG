@@ -229,7 +229,7 @@ export const petsRouter = createTRPCRouter({
           `Feed this companion once every ${PET_FEED_COOLDOWN_HOURS} hours. Wait until its next feeding is available.`,
         );
       if (
-        meal?.item.itemType !== "MEAL" ||
+        meal?.item?.itemType !== "MEAL" ||
         meal.storedAtHome ||
         meal.isInAuction ||
         meal.equipped !== "NONE" ||
@@ -374,7 +374,7 @@ export const petsRouter = createTRPCRouter({
         },
         abilityCapacity: pet ? getPetAbilityCapacity(pet) : null,
         feedMeals: meals
-          .filter((meal) => meal.item.itemType === "MEAL")
+          .filter((meal) => meal.item?.itemType === "MEAL")
           .map((meal) => ({
             id: meal.id,
             quantity: meal.quantity,
