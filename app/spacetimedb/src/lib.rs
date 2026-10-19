@@ -548,11 +548,11 @@ fn is_session_owner(ctx: &ReducerContext, session: &GameSession) -> bool {
 /// Loads a session for a mutating reducer, rejecting callers that do not own it.
 fn find_owned_session(ctx: &ReducerContext, session_id: u64) -> Option<GameSession> {
     let Some(session) = ctx.db.game_session().id().find(session_id) else {
-        log::error!("Session not found: {}", session_id);
+        log::warn!("Session not found");
         return None;
     };
     if !is_session_owner(ctx, &session) {
-        log::warn!("Rejected reducer call for session {} from a non-owner identity", session_id);
+        log::warn!("Rejected reducer call from a non-owner identity");
         return None;
     }
     Some(session)
