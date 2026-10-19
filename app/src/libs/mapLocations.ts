@@ -52,7 +52,7 @@ export const publicQuestLocations = (
     if (
       quest.hidden ||
       (quest.startsAt && quest.startsAt > today) ||
-      (quest.endsAt && quest.endsAt < today)
+      (quest.endsAt && quest.endsAt <= today)
     )
       return [];
     return quest.content.objectives.flatMap((objective) => {

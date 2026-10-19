@@ -43,6 +43,20 @@ describe("public quest landmarks", () => {
       expect(publicQuestLocations([{ ...quest, content: { objectives: [{ ...move, ...override } as typeof move] } }])).toEqual([]);
     }
   });
+  it.each([
+    ["2026-10-18T23:59:59.999Z", 1],
+    ["2026-10-19T00:00:00.000Z", 0],
+    ["2026-10-19T17:17:00.000Z", 0],
+  ])("expires public landmarks at midnight UTC of endsAt (%s)", (now, count) => {
+    expect(publicQuestLocations([{ ...quest, endsAt: "2026-10-19" }], new Date(now))).toHaveLength(count);
+  });
+  it.each([
+    ["2026-10-18T23:59:59.999Z", 0],
+    ["2026-10-19T00:00:00.000Z", 1],
+    ["2026-10-19T17:17:00.000Z", 1],
+  ])("shows public landmarks from midnight UTC of startsAt (%s)", (now, count) => {
+    expect(publicQuestLocations([{ ...quest, startsAt: "2026-10-19" }], new Date(now))).toHaveLength(count);
+  });
   it("keeps real sector 1337 and tile zero valid", () => {
     expect(publicQuestLocations([{ ...quest, content: { objectives: [{ ...move, sector: 1337, latitude: 0, longitude: 0 }] } }])[0]).toMatchObject({ sector: 1337, longitude: 0, latitude: 0 });
   });
