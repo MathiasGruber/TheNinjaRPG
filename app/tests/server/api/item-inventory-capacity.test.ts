@@ -10,6 +10,7 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 const userId = "inventory-player";
 const villageId = "inventory-village";
 
+/** Fill to the user's actual bucket limit, reserving one slot for an unfinished craft. */
 const fillBackpack = async (bucket: InventoryBucket, emptySlots = 0) => {
   const db = await getTestDatabase();
   const user = await db.query.userData.findFirst({ where: eq(userData.userId, userId) });

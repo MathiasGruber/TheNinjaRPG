@@ -169,7 +169,10 @@ type BucketItemFields = {
   isEventItem?: boolean | null;
 };
 
-/** Equipped stacks and home storage do not consume backpack capacity. */
+/**
+ * Whether a stack uses one backpack slot; equipped and home-stored stacks do not.
+ * Availability is separate: unfinished crafts still reserve storage.
+ */
 export const countsTowardInventoryStorage = (userItem: {
   storedAtHome: boolean;
   equipped: ItemSlot;

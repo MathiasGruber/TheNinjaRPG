@@ -3326,6 +3326,8 @@ export const itemRouter = createTRPCRouter({
           }
         });
       }
+      // Resolve auto-equip first: a purchase placed directly into an equipment
+      // slot can succeed even when the backpack is full.
       if (!isFurniture && equipped === "NONE") {
         const purchaseBucket = getInventoryBucket(info);
         const bucketCount = useritems.filter(
