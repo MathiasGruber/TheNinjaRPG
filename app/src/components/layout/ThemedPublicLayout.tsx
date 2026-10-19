@@ -68,7 +68,7 @@ export function ThemedPublicFrame({ children }: { children: ReactNode }) {
             Log in
           </Link>
           <Link href="/signup" className="welcome-register">
-            Start playing
+            Register
           </Link>
           <GameSettingsPopover
             trigger="settings"
