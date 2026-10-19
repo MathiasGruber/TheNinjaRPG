@@ -7,6 +7,7 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
+import { reloadIfOutdated } from "@/libs/buildVersion";
 import { cn } from "@/libs/shadui";
 
 interface ErrorBoundaryProps {
@@ -19,7 +20,9 @@ const ErrorBoundary: React.FC<ErrorBoundaryProps> = ({ error, reset }) => {
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
-    // Log the error to Sentry
+    // An outdated bundle rendering data from a newer deploy reloads onto that deploy
+    // instead (once per deploy and tab); otherwise the error is reported and shown.
+    if (reloadIfOutdated()) return;
     Sentry.captureException(error);
   }, [error]);
 

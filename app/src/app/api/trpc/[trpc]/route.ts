@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import type { NextRequest } from "next/server";
 import { appRouter } from "@/api/root";
 import { BOTID_CHALLENGE_HEADER } from "@/libs/botid";
+import { BUILD_ID, BUILD_ID_HEADER } from "@/libs/buildVersion";
 import { createAppTRPCContext } from "@/server/api/trpc";
 import { withRequestScope } from "@/server/requestScope";
 import {
@@ -49,6 +50,8 @@ const handler = async (req: NextRequest) => {
         createContext() {
           return createAppTRPCContext({ req, readHeaders, readCookies });
         },
+        // Lets a tab running an older bundle notice the deploy and reload onto it.
+        responseMeta: () => ({ headers: { [BUILD_ID_HEADER]: BUILD_ID } }),
         onError: ({ error, path, input, ctx }) => {
           const diagnosticInput = diagnosticTrpcInput(path, input);
           if (
