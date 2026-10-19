@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { QueryClient } from "@tanstack/react-query";
 import { Group, Texture } from "three";
 import { getQuestMapLocations, groupMapLocations, publicQuestLocations } from "@/libs/mapLocations";
-import { getNewTrackers, getPublicQuestUser, verifyQuestContentForSave } from "@/libs/quest";
+import { findActionableBoundObjective, validateFriendlyPlacementBindings } from "@/libs/overworldAi";
+import { getBoundObjectiveCandidates, getNewTrackers, getPublicQuestUser, verifyQuestContentForSave } from "@/libs/quest";
 import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
 import { drawQuest } from "@/libs/threejs/sector";
 import type { UserWithRelations } from "@/routers/profile";
@@ -138,6 +139,68 @@ describe("personal structure lifecycle", () => {
 });
 
 describe("location chains reloaded from authored quests", () => {
+  for (const tile of [{ longitude: 4, latitude: 5 }, { longitude: 0, latitude: 0 }]) {
+    it(`retains art and Inspect text across dialogs bound to the same fixed NPC at ${tile.longitude},${tile.latitude}`, async () => {
+      const placements = [{ npcPlacementId: "keeper", sector: 724, ...tile }];
+      const { actor, read } = locationChain("dialog", [
+        { id: "detail", task: "dialog", overworldPlacementId: "keeper", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail2" }] },
+        { id: "detail2", task: "dialog", overworldPlacementId: "keeper", structureAssetId: "shrine", locationName: "Tower shrine", locationDescription: "A small shrine inside the tower.", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
+        { id: "end", task: "win_quest" },
+      ], { overworldPlacementId: "keeper", sector: undefined, longitude: undefined, latitude: undefined });
+      const group = new Group();
+      Object.assign(actor, tile);
+      for (const id of ["STARTING", "detail", "detail2"]) {
+        const snapshot = read(id === "STARTING" ? undefined : id, placements);
+        expect(validateFriendlyPlacementBindings(snapshot.userQuests[0]!.quest.content.objectives, new Map([["keeper", { interactionType: "FRIENDLY" }]])).check).toBe(true);
+        expect(findActionableBoundObjective({ activeQuests: getBoundObjectiveCandidates(actor), ownedItemIds: [], placementId: "keeper" })?.objective.id).toBe(id);
+        expect(actor.questData![0]!.goals.find((goal) => goal.id === id)).not.toHaveProperty("sector");
+        expect(getQuestMapLocations(snapshot, [])).toEqual([]);
+        expect(await renderThenMove(snapshot, group, placements)).toMatchObject([{
+          id: `quest:q1:${id === "detail2" ? "detail2" : "STARTING"}`, objectiveId: id,
+          npcPlacementId: "keeper", sector: 724, ...tile, active: true,
+          assetId: id === "detail2" ? "shrine" : "tower",
+          name: id === "detail2" ? "Tower shrine" : move.locationName,
+          description: id === "detail2" ? "A small shrine inside the tower." : move.locationDescription,
+        }]);
+      }
+      expect(await renderThenMove(read("end", placements), group, placements)).toEqual([]);
+      expect(group.children).toHaveLength(0);
+    });
+  }
+
+  it("inherits live NPC coordinates for an unbound implicit dialog with its own art", async () => {
+    const placements = [{ npcPlacementId: "keeper", sector: 724, longitude: 4, latitude: 5 }];
+    const { actor, read } = locationChain("dialog", [
+      { id: "detail", task: "dialog", structureAssetId: "shrine", locationName: "Tower shrine", locationDescription: "A small shrine inside the tower.", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
+      { id: "end", task: "win_quest" },
+    ], { overworldPlacementId: "keeper", sector: undefined, longitude: undefined, latitude: undefined });
+    Object.assign(actor, { longitude: 4, latitude: 5 });
+    read(undefined, placements);
+    const snapshot = read("detail", placements);
+    expect(getQuestMapLocations(snapshot, [])).toEqual([]);
+    expect(await renderThenMove(snapshot, new Group(), placements)).toMatchObject([
+      { assetId: "shrine", objectiveId: "detail", sector: 724, longitude: 4, latitude: 5, name: "Tower shrine" },
+    ]);
+  });
+
+  for (const longitude of [4, 8]) {
+    it(`compares live locations when the next dialog binds a different NPC at ${longitude},5`, async () => {
+      const placements = [
+        { npcPlacementId: "keeper", sector: 724, longitude: 4, latitude: 5 },
+        { npcPlacementId: "guide", sector: 724, longitude, latitude: 5 },
+      ];
+      const { actor, read } = locationChain("dialog", [
+        { id: "detail", task: "dialog", overworldPlacementId: "guide", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
+        { id: "end", task: "win_quest" },
+      ], { overworldPlacementId: "keeper", sector: undefined, longitude: undefined, latitude: undefined });
+      Object.assign(actor, { longitude: 4, latitude: 5 });
+      read(undefined, placements);
+      const locations = await renderThenMove(read("detail", placements), new Group(), placements);
+      expect(locations).toHaveLength(longitude === 4 ? 1 : 0);
+      if (longitude === 4) expect(locations[0]).toMatchObject({ assetId: "tower", objectiveId: "detail", npcPlacementId: "guide" });
+    });
+  }
+
   for (const start of ["dialog", "specific", "random", "zero"] as const) {
     it(`retains ${start} structure art through two implicit dialogs and removes it on completion`, async () => {
       const { actor, read } = locationChain(start);
@@ -229,6 +292,7 @@ const locationChain = (
     content: { objectives: [starting, ...objectives], reward: {}, sceneCharacters: ["guide"] },
   });
   expect(verifyQuestContentForSave(definition.content.objectives, true).check).toBe(true);
+  const savedDefinition = JSON.parse(JSON.stringify(definition)) as typeof definition;
   const actor = user([], {
     userId: "u1", status: "AWAKE", level: 50, rank: "JONIN", role: "USER",
     villageId: "v1", isOutlaw: false, bloodlineId: null, longitude: 2, latitude: 2,
@@ -236,18 +300,20 @@ const locationChain = (
   });
   return {
     actor,
-    read: (nextObjectiveId?: string) => {
+    read: (nextObjectiveId?: string, placements: NonNullable<Parameters<typeof getQuestMapLocations>[2]> = []) => {
       // Each profile read starts with stored authored JSON, never a rendered projection.
-      actor.userQuests = [{ id: "uq-q1", questId: "q1", completed: 0, endAt: null, previousAttempts: 0, previousCompletes: 0, quest: { ...structuredClone(definition), id: "q1" } }] as typeof actor.userQuests;
-      actor.questData = getNewTrackers(actor, nextObjectiveId ? [{ task: "dialog", contentId: nextObjectiveId }] : [{ task: "any" }]).trackers;
+      actor.userQuests = [{ id: "uq-q1", questId: "q1", completed: 0, endAt: null, previousAttempts: 0, previousCompletes: 0, quest: { ...structuredClone(savedDefinition), id: "q1" } }] as typeof actor.userQuests;
+      const placementIds = placements.flatMap((placement) => placement.npcPlacementId ? [placement.npcPlacementId] : []);
+      const atPlacementIds = placements.flatMap((placement) => placement.npcPlacementId && placement.sector === actor.sector && placement.longitude === actor.longitude && placement.latitude === actor.latitude ? [placement.npcPlacementId] : []);
+      actor.questData = getNewTrackers(actor, nextObjectiveId ? [{ task: "dialog", contentId: nextObjectiveId }] : [{ task: "any" }], undefined, new Map(placementIds.map((id) => [id, true])), new Set(atPlacementIds)).trackers;
       return getPublicQuestUser(actor);
     },
   };
 };
 
-const renderThenMove = async (actor: NonNullable<UserWithRelations>, group = new Group()) => {
+const renderThenMove = async (actor: NonNullable<UserWithRelations>, group = new Group(), placements: NonNullable<Parameters<typeof getQuestMapLocations>[2]> = []) => {
   const original = structuredClone(actor);
-  const locations = getQuestMapLocations(actor, []);
+  const locations = getQuestMapLocations(actor, [], placements);
   const grid = { getHex: () => ({ x: 0, y: 0, width: 20, height: 20 }) } as never;
   const assets = [{ id: "tower", imageUrl: "tower.png", renderScale: 2.4 }, { id: "shrine", imageUrl: "shrine.png", renderScale: 2.4 }];
   const textureForPath = () => new Texture();
@@ -264,7 +330,7 @@ const renderThenMove = async (actor: NonNullable<UserWithRelations>, group = new
     // Sector's runJourneySegment applies this patch after ordinary same-sector walking.
     await updateUserCache(client, key, { location: "Tower trail", updatedAt: new Date(), longitude: 1, latitude: 1 });
     const moved = client.getQueryData<{ userData: typeof actor }>(key)!.userData;
-    const refreshed = getQuestMapLocations(moved, []);
+    const refreshed = getQuestMapLocations(moved, [], placements);
     syncMapLocationSprites(group, grid, refreshed, assets, textureForPath);
     expect(moved).not.toBe(actor);
     expect(moved.userQuests).toBe(actor.userQuests);

@@ -108,34 +108,36 @@ const objectiveMapLocation = (
   };
 };
 
-/** Implicit dialogs inherit coordinates even when reloaded authored predecessors omit them. */
+/** Implicit dialogs inherit resolved coordinates, including live fixed NPC positions. */
 const resolveObjectiveCoordinates = (
   objective: AllObjectivesType,
   objectives: AllObjectivesType[],
   tracker: QuestTrackerType,
+  placements: MapPlacement[],
 ) => {
-  const goal = tracker.goals.find((g) => g.id === objective.id);
-  const coordinates = {
-    sector: goal?.sector ?? objective.sector,
-    longitude: goal?.longitude ?? objective.longitude,
-    latitude: goal?.latitude ?? objective.latitude,
-  };
+  const coordinates: Pick<AllObjectivesType, "sector" | "longitude" | "latitude"> = {};
   let current = objective;
   const visited = new Set<string>();
-  while (
-    current.task === "dialog" &&
-    (coordinates.sector === undefined ||
-      coordinates.longitude === undefined ||
-      coordinates.latitude === undefined) &&
-    !visited.has(current.id)
-  ) {
+  while (!visited.has(current.id)) {
     visited.add(current.id);
+    const goal = tracker.goals.find((g) => g.id === current.id);
+    const placement = current.overworldPlacementId
+      ? placements.find((p) => p.npcPlacementId === current.overworldPlacementId)
+      : undefined;
+    if (current.overworldPlacementId && !placement) return null;
+    coordinates.sector ??= placement?.sector ?? goal?.sector ?? current.sector;
+    coordinates.longitude ??=
+      placement?.longitude ?? goal?.longitude ?? current.longitude;
+    coordinates.latitude ??= placement?.latitude ?? goal?.latitude ?? current.latitude;
+    if (
+      current.task !== "dialog" ||
+      (coordinates.sector !== undefined &&
+        coordinates.longitude !== undefined &&
+        coordinates.latitude !== undefined)
+    )
+      break;
     const previous = findCompletedPredecessor(objectives, current.id, tracker);
     if (!previous) break;
-    const previousGoal = tracker.goals.find((g) => g.id === previous.id);
-    coordinates.sector ??= previousGoal?.sector ?? previous.sector;
-    coordinates.longitude ??= previousGoal?.longitude ?? previous.longitude;
-    coordinates.latitude ??= previousGoal?.latitude ?? previous.latitude;
     current = previous;
   }
   return coordinates;
@@ -145,12 +147,7 @@ const resolveObjectiveCoordinates = (
 export const getQuestMapLocations = (
   user: NonNullable<UserWithRelations>,
   publicLocations: MapLocation[],
-  placements: {
-    npcPlacementId?: string | null;
-    sector: number;
-    longitude: number;
-    latitude: number;
-  }[] = [],
+  placements: MapPlacement[] = [],
 ): MapLocation[] => {
   const locations = new Map(publicLocations.map((location) => [location.id, location]));
   for (const entry of user.userQuests) {
@@ -162,21 +159,14 @@ export const getQuestMapLocations = (
       const goal = tracker.goals.find((g) => g.id === objective.id);
       if (!goal || goal.done || !isQuestObjectiveAvailable(quest, tracker, index))
         return;
-      const resolved = {
-        ...objective,
-        ...resolveObjectiveCoordinates(objective, quest.content.objectives, tracker),
-      };
-      if (objective.overworldPlacementId) {
-        const placement = placements.find(
-          (p) => p.npcPlacementId === objective.overworldPlacementId,
-        );
-        if (!placement) return;
-        Object.assign(resolved, {
-          sector: placement.sector,
-          longitude: placement.longitude,
-          latitude: placement.latitude,
-        });
-      }
+      const coordinates = resolveObjectiveCoordinates(
+        objective,
+        quest.content.objectives,
+        tracker,
+        placements,
+      );
+      if (!coordinates) return;
+      const resolved = { ...objective, ...coordinates };
       let presentation = objective;
       const visited = new Set<string>();
       while (!presentation.structureAssetId && !visited.has(presentation.id)) {
@@ -191,8 +181,10 @@ export const getQuestMapLocations = (
           previous,
           quest.content.objectives,
           tracker,
+          placements,
         );
         if (
+          !previousLocation ||
           previousLocation.sector !== resolved.sector ||
           previousLocation.longitude !== resolved.longitude ||
           previousLocation.latitude !== resolved.latitude
@@ -222,4 +214,11 @@ export const groupMapLocations = (locations: MapLocation[]) => {
       (a, b) => Number(!!b.active) - Number(!!a.active) || a.id.localeCompare(b.id),
     ),
   );
+};
+
+type MapPlacement = {
+  npcPlacementId?: string | null;
+  sector: number;
+  longitude: number;
+  latitude: number;
 };
