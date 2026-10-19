@@ -267,6 +267,7 @@ import {
 } from "@/server/utils/masteryProgression";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
+import { notifyBattleDefenders } from "@/server/utils/push/combat";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
   commitQuestEntryBattle,
@@ -4115,6 +4116,12 @@ export const initiateBattle = async (
   }
 
   // Push websockets message to target
+  notifyBattleDefenders(client, {
+    battleId,
+    battleType,
+    initiatorIds: info.userIds,
+    users,
+  });
   const pusher = getServerPusher();
 
   // Keep human fighters on the sector map as combat markers so nearby players

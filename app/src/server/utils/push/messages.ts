@@ -73,11 +73,36 @@ export const deliveryTest = (): PushMessage => ({
   suppressFailureReport: true,
 });
 
+/** Do not put private conversation text, titles or participant names on the lock screen. */
+export const conversationMention = (conversationId: string): PushMessage => ({
+  title: "You were mentioned in a conversation",
+  body: "Open the game to view the conversation.",
+  category: "social",
+  url: `/inbox?conversationId=${encodeURIComponent(conversationId)}`,
+  collapseId: `mention-${conversationId}`,
+});
+
+export const combatStarted = (battleId: string): PushMessage => ({
+  title: "A battle has started",
+  body: "Your ninja is in combat. Open the game to take your turn.",
+  category: "combat",
+  url: "/combat",
+  collapseId: `combat-${battleId}`,
+});
+
+export const membershipUpdate = (group: "clan" | "anbu"): PushMessage => ({
+  title: group === "anbu" ? "ANBU request update" : "Clan request update",
+  body: "Open the game to view your membership requests.",
+  category: "clan",
+  url: group === "anbu" ? "/anbu" : "/clanhall",
+  collapseId: `${group}-requests`,
+});
+
 /** Keep private conversation content and participant names off the Lock Screen. */
 export const privateMessage = (conversationId: string): PushMessage => ({
   title: "New private message",
   body: "Open your inbox to read it.",
   category: "social",
-  url: "/inbox",
+  url: `/inbox?conversationId=${encodeURIComponent(conversationId)}`,
   collapseId: `inbox-${conversationId}`,
 });

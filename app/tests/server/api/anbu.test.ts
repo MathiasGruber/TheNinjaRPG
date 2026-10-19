@@ -2,6 +2,8 @@
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { anbuSquad, userData, userRequest } from "@/drizzle/schema";
+import * as nativePush from "@/server/utils/push/defer";
+import { membershipUpdate } from "@/server/utils/push/messages";
 
 type AnbuTestMocks = {
   fetchActor: ReturnType<typeof vi.fn>;
@@ -335,8 +337,11 @@ function makeDrizzleMock(
 }
 
 describe("ANBU router request permissions and concurrency", () => {
-  afterEach(resetServerModuleStubs);
+  const queuePush = vi.fn();
+  afterEach(() => { resetServerModuleStubs(); vi.restoreAllMocks(); });
   beforeEach(() => {
+    queuePush.mockReset();
+    vi.spyOn(nativePush, "deferPushToUsers").mockImplementation(queuePush);
     stubProfile("fetchUser", (...args: never[]) =>
       (getAnbuTestMocks().fetchUser as unknown as (...a: never[]) => unknown)(...args),
     );
@@ -345,6 +350,41 @@ describe("ANBU router request permissions and concurrency", () => {
       stubSparring(name, getAnbuTestMocks()[name]);
     }
     vi.clearAllMocks();
+  });
+
+  it("queues a request alert only after insertion succeeds", async () => {
+    const { client } = makeDrizzleMock(makeSquad(), []);
+    fetchActorMock.mockResolvedValue({ user: makeUser() } as never);
+    fetchPendingRequestMock.mockResolvedValue(null as never);
+    let completeInsertion: () => void = () => {};
+    insertRequestMock.mockImplementationOnce(() => new Promise<void>((resolve) => {
+      completeInsertion = resolve;
+    }));
+    const creating = createAnbuRequest({
+      ctx: { drizzle: client, userId: "actor" }, input: { squadId: "squad-1" },
+    } as never);
+    // Let the actor/duplicate reads and expired-request write finish first.
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(insertRequestMock).toHaveBeenCalledTimes(1);
+    expect(queuePush).not.toHaveBeenCalled();
+    completeInsertion();
+    expect(await creating).toMatchObject({ success: true });
+    expect(queuePush).toHaveBeenCalledWith(client, ["leader"], membershipUpdate("anbu"));
+  });
+
+  it.each([0, 1])("queues rejection only for a successful request CAS (%i)", async (rowsAffected) => {
+    const { client } = makeDrizzleMock(makeSquad({ leaderId: "actor" }), [
+      [userRequest, [{ rowsAffected }]],
+    ]);
+    fetchActorMock.mockResolvedValue({ user: makeUser({ anbuId: "squad-1" }) } as never);
+    fetchRequestMock.mockResolvedValue({ id: "request-1", senderId: "requester",
+      receiverId: "actor", relatedId: "squad-1", status: "PENDING" } as never);
+    const result = await rejectAnbuRequest({
+      ctx: { drizzle: client, userId: "actor" }, input: { id: "request-1" },
+    } as never);
+    expect(result.success).toBe(rowsAffected === 1);
+    expect(queuePush).toHaveBeenCalledTimes(rowsAffected);
+    if (rowsAffected) expect(queuePush).toHaveBeenCalledWith(client, ["requester"], membershipUpdate("anbu"));
   });
 
   it("returns durable squad requests to leaders and only scoped own requests to applicants", async () => {
@@ -449,6 +489,7 @@ describe("ANBU router request permissions and concurrency", () => {
       message: "You already have a pending ANBU request",
     });
     expect(insertRequestMock).not.toHaveBeenCalled();
+    expect(queuePush).not.toHaveBeenCalled();
   });
 
   it("rejects a kage from a different village before any write", async () => {
@@ -536,6 +577,7 @@ describe("ANBU router request permissions and concurrency", () => {
     ).resolves.toEqual({ success: false, message: "Squad not found" });
     expect(update).not.toHaveBeenCalled();
     expect(notifyMock).not.toHaveBeenCalled();
+    expect(queuePush).not.toHaveBeenCalled();
   });
 
   for (const [label, actor] of [
@@ -648,6 +690,7 @@ describe("ANBU router request permissions and concurrency", () => {
     );
     expect(updates.filter((entry) => entry.table === userData)).toHaveLength(1);
     expect(notifyMock).not.toHaveBeenCalled();
+    expect(queuePush).not.toHaveBeenCalled();
   });
 
   it("does not reassign leaderless requests when another leader claim wins", async () => {
@@ -682,6 +725,7 @@ describe("ANBU router request permissions and concurrency", () => {
     expect(updates.filter((entry) => entry.table === userRequest)).toHaveLength(
       1,
     );
+    expect(queuePush).toHaveBeenCalledWith(client, ["requester"], membershipUpdate("anbu"));
   });
 });
 

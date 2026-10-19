@@ -83,6 +83,8 @@ import type { DrizzleClient } from "@/server/db";
 import { clearClanCombat, deleteClanBattle } from "@/server/utils/clanBattle";
 import { syncStrongholdMembership } from "@/server/utils/faction";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { deferPushToUsers } from "@/server/utils/push/defer";
+import { membershipUpdate } from "@/server/utils/push/messages";
 import { canEditClans } from "@/utils/permissions";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromDate } from "@/utils/time";
@@ -468,6 +470,7 @@ export const clanRouter = createTRPCRouter({
       }
       // Mutate
       await insertRequest(ctx.drizzle, user.userId, fetchedClan.leaderId, "CLAN");
+      deferPushToUsers(ctx.drizzle, [fetchedClan.leaderId], membershipUpdate("clan"));
       void pusher.trigger(fetchedClan.id, "event", {
         type: "userMessage",
         message: `${user.username} requested to join your ${user.isOutlaw ? "faction" : "clan"}`,
@@ -506,8 +509,18 @@ export const clanRouter = createTRPCRouter({
       if (request.status !== "PENDING") {
         return errorResponse("You can only reject pending requests");
       }
+      const result = await updateRequestState(
+        ctx.drizzle,
+        input.id,
+        "REJECTED",
+        "CLAN",
+        undefined,
+        "PENDING",
+      );
+      if (!result.success) return result;
       void pusher.trigger(request.senderId, "event", { type: "clan" });
-      return await updateRequestState(ctx.drizzle, input.id, "REJECTED", "CLAN");
+      deferPushToUsers(ctx.drizzle, [request.senderId], membershipUpdate("clan"));
+      return result;
     }),
   cancelRequest: protectedProcedure
     .meta({ mcp: { description: "Cancel your clan join request" } })
@@ -581,6 +594,7 @@ export const clanRouter = createTRPCRouter({
       ]);
       if (fetchedClan.hasHideout)
         await syncStrongholdMembership(ctx.drizzle, fetchedClan.villageId);
+      deferPushToUsers(ctx.drizzle, [request.senderId], membershipUpdate("clan"));
       void pusher.trigger(request.senderId, "event", {
         type: "userMessage",
         message: `You have been accepted to ${groupLabel}`,

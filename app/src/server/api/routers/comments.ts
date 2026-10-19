@@ -43,7 +43,10 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { fetchCommunicationPolicies } from "@/server/utils/parentalControls";
-import { notifyPrivateConversation } from "@/server/utils/push/social";
+import {
+  notifyConversationMentions,
+  notifyPrivateConversation,
+} from "@/server/utils/push/social";
 import { displayTitleSql } from "@/server/utils/titleDisplay";
 import { getNewReactions, processMentions } from "@/utils/chat";
 import {
@@ -867,6 +870,15 @@ export const commentsRouter = createTRPCRouter({
         senderId: effectiveUserId,
         authorId: ctx.userId,
         recipientIds: usersIdsInConvo,
+      });
+      notifyConversationMentions(ctx.drizzle, {
+        conversationId: convo.id,
+        isPublic: convo.isPublic,
+        senderId: effectiveUserId,
+        authorId: ctx.userId,
+        recipientIds: notifiedUserIds
+          .filter(({ type }) => type === "mentioned")
+          .map(({ userId }) => userId),
       });
       void Promise.all([
         // Ping users (both mentioned and quoted, only those not in a blacklist relationship)

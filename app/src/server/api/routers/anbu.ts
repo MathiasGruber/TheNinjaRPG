@@ -41,6 +41,8 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { isMysqlDuplicateKeyError } from "@/server/utils/mysqlErrors";
+import { deferPushToUsers } from "@/server/utils/push/defer";
+import { membershipUpdate } from "@/server/utils/push/messages";
 import { canEditClans } from "@/utils/permissions";
 import { checkForBadWords } from "@/utils/profanity";
 import { secondsFromDate, secondsFromNow } from "@/utils/time";
@@ -795,6 +797,7 @@ export async function createAnbuRequest(args: {
     throw error;
   }
   void pusher.trigger(receiverId, "event", { type: "anbu" });
+  deferPushToUsers(ctx.drizzle, [receiverId], membershipUpdate("anbu"));
   return { success: true, message: "Request to join squad sent" };
 }
 
@@ -885,6 +888,7 @@ export async function acceptAnbuRequest(args: {
     }
   }
   void pusher.trigger(request.senderId, "event", { type: "anbu" });
+  deferPushToUsers(ctx.drizzle, [request.senderId], membershipUpdate("anbu"));
   return { success: true, message: "Request accepted" };
 }
 
@@ -928,6 +932,7 @@ export async function rejectAnbuRequest(args: {
     return errorResponse("You can only reject pending requests");
   }
   void pusher.trigger(request.senderId, "event", { type: "anbu" });
+  deferPushToUsers(ctx.drizzle, [request.senderId], membershipUpdate("anbu"));
   return { success: true, message: "Request rejected" };
 }
 
