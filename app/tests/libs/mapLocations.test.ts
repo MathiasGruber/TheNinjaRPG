@@ -8,7 +8,7 @@ import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
 import { drawQuest } from "@/libs/threejs/sector";
 import type { UserWithRelations } from "@/routers/profile";
 import { updateUserCache } from "@/utils/userCache";
-import { type AllObjectivesType, DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
+import { type AllObjectivesType, DefeatOpponents, DeliverItem, DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
 
 const move = MoveToObjective.parse({
   id: "arrival", task: "move_to_location", sector: 724, longitude: 4, latitude: 5,
@@ -195,6 +195,52 @@ describe("location chains reloaded from authored quests", () => {
     ]);
   });
 
+  for (const task of ["deliver_item", "defeat_opponents"] as const) {
+    for (const destination of ["inherited", "own-art", "explicit-zero"] as const) {
+      it(`retains ${destination} dialog scenery after completing a bound ${task}`, async () => {
+        const placements = [{ npcPlacementId: "keeper", sector: 17, longitude: 4, latitude: 5 }];
+        const starting = (task === "deliver_item" ? DeliverItem : DefeatOpponents).parse({
+          ...move, id: "STARTING", task, overworldPlacementId: "keeper", sector: undefined, longitude: undefined, latitude: undefined,
+          deliverItemIds: ["scroll"], opponentAIs: [{ ids: ["guard"], number: 1 }], nextObjectiveId: "detail",
+        });
+        const { actor, read } = locationChain(starting, [
+          { id: "detail", task: "dialog", ...(destination !== "inherited" ? { structureAssetId: "shrine", locationName: "Tower shrine", locationDescription: "A small shrine inside the tower." } : {}), ...(destination === "explicit-zero" ? { sector: 0, longitude: 0, latitude: 0 } : {}), nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
+          { id: "end", task: "win_quest" },
+        ]);
+        Object.assign(actor, { useritems: [{ itemId: "scroll" }] });
+        read(undefined, placements);
+        expect(actor.questData![0]!.goals[0]).toMatchObject({ sector: 0, longitude: 0, latitude: 0, done: false });
+        Object.assign(actor, placements[0]);
+        const snapshot = read(undefined, placements, task === "defeat_opponents" ? [{ task, contentId: "guard", text: "Won" }] : [{ task: "any" }]);
+        expect(actor.questData![0]!.goals[0]?.done).toBe(true);
+        expect(await renderThenMove(snapshot, new Group(), placements)).toMatchObject([{
+          assetId: destination === "inherited" ? "tower" : "shrine", objectiveId: "detail",
+          ...(destination === "explicit-zero" ? { sector: 0, longitude: 0, latitude: 0 } : { sector: 17, longitude: 4, latitude: 5 }),
+        }]);
+      });
+    }
+  }
+
+  it.each([{ sector: 17, longitude: 4, latitude: 5 }, { sector: 0, longitude: 0, latitude: 0 }])("repairs inherited default coordinates across persisted implicit NPC dialogs at %j", async (tile) => {
+    const placements = [{ npcPlacementId: "keeper", ...tile }];
+    const { actor, read } = locationChain(DeliverItem.parse({
+      ...move, id: "STARTING", task: "deliver_item", overworldPlacementId: "keeper", sector: undefined, longitude: undefined, latitude: undefined,
+      deliverItemIds: ["scroll"], nextObjectiveId: "detail",
+    }));
+    Object.assign(actor, { useritems: [{ itemId: "scroll" }] });
+    read(undefined, placements);
+    Object.assign(actor, placements[0]);
+    read(undefined, placements);
+    read("detail2", placements);
+    for (const goal of actor.questData![0]!.goals.filter((goal) => goal.id === "detail" || goal.id === "detail2")) {
+      Object.assign(goal, { sector: 0, longitude: 0, latitude: 0, locationChecked: true });
+    }
+    const snapshot = read(undefined, placements);
+    expect(await renderThenMove(snapshot, new Group(), placements)).toMatchObject([
+      { assetId: "tower", objectiveId: "detail2", ...tile },
+    ]);
+  });
+
   it("keeps inherited concealed NPC coordinates private outside their live sector", () => {
     const actor = structuredClone(user([
       { ...arrival, done: true, selectedNextObjectiveId: "dialog" },
@@ -301,7 +347,7 @@ describe("location chains reloaded from authored quests", () => {
 });
 
 const locationChain = (
-  start: "dialog" | "specific" | "random" | "zero",
+  start: "dialog" | "specific" | "random" | "zero" | AllObjectivesType,
   objectives: unknown[] = [
     { id: "detail", task: "dialog", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail2" }] },
     { id: "detail2", task: "dialog", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
@@ -309,7 +355,7 @@ const locationChain = (
   ],
   overrides: Partial<AllObjectivesType> = {},
 ) => {
-  const starting = start === "dialog"
+  const starting = typeof start === "object" ? start : start === "dialog"
     ? DialogObjective.parse({ ...move, id: "STARTING", task: "dialog", ...overrides, nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail" }] })
     : MoveToObjective.parse({ ...move, id: "STARTING", sectorType: start === "random" ? "random" : "specific", locationType: start === "random" ? "random" : "specific", ...(start === "zero" ? { longitude: 0, latitude: 0 } : {}), ...overrides, nextObjectiveId: "detail" });
   const definition = QuestValidator.parse({
@@ -326,12 +372,12 @@ const locationChain = (
   });
   return {
     actor,
-    read: (nextObjectiveId?: string, placements: NonNullable<Parameters<typeof getQuestMapLocations>[2]> = []) => {
+    read: (nextObjectiveId?: string, placements: NonNullable<Parameters<typeof getQuestMapLocations>[2]> = [], tasks: Parameters<typeof getNewTrackers>[1] = nextObjectiveId ? [{ task: "dialog", contentId: nextObjectiveId }] : [{ task: "any" }]) => {
       // Each profile read starts with stored authored JSON, never a rendered projection.
       actor.userQuests = [{ id: "uq-q1", questId: "q1", completed: 0, endAt: null, previousAttempts: 0, previousCompletes: 0, quest: { ...structuredClone(savedDefinition), id: "q1" } }] as typeof actor.userQuests;
       const placementIds = placements.flatMap((placement) => placement.npcPlacementId ? [placement.npcPlacementId] : []);
       const atPlacementIds = placements.flatMap((placement) => placement.npcPlacementId && placement.sector === actor.sector && placement.longitude === actor.longitude && placement.latitude === actor.latitude ? [placement.npcPlacementId] : []);
-      actor.questData = getNewTrackers(actor, nextObjectiveId ? [{ task: "dialog", contentId: nextObjectiveId }] : [{ task: "any" }], undefined, new Map(placementIds.map((id) => [id, true])), new Set(atPlacementIds)).trackers;
+      actor.questData = getNewTrackers(actor, tasks, undefined, new Map(placementIds.map((id) => [id, true])), new Set(atPlacementIds)).trackers;
       return getPublicQuestUser(actor);
     },
   };

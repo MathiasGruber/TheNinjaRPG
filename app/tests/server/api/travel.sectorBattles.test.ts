@@ -3,10 +3,11 @@ import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { battle, overworldAiPlacement, quest, questHistory, sector, userData, village, war } from "@/drizzle/schema";
 import { getQuestMapLocations } from "@/libs/mapLocations";
+import { getNewTrackers } from "@/libs/quest";
 import { SECTOR_BATTLE_STALE_SECONDS } from "@/libs/travel";
 import { travelRouter } from "@/server/api/routers/travel";
 import { buildSectorWindowLayout } from "@/server/utils/sectorMap";
-import { DialogObjective, InstantWinLoseObjective, MoveToObjective, ObjectiveTracker, QuestTracker } from "@/validators/objectives";
+import { DeliverItem, DialogObjective, InstantWinLoseObjective, MoveToObjective, ObjectiveTracker, QuestTracker } from "@/validators/objectives";
 import { QuestReward } from "@/validators/rewardPackages";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -106,6 +107,27 @@ describeWithDatabase("travel.getSectorData quest landmark placements", () => {
     await (await getTestDatabase()).update(userData).set({ questData: [completedTracker] }).where(eq(userData.userId, VIEWER));
     const result = await (await callerFor(travelRouter, VIEWER)).getSectorData({ sector: SECTOR });
     expect(result.questPlacements).toEqual([{ npcPlacementId: "remote", sector: neighbor, longitude: 4, latitude: 5 }]);
+    expect(await readLandmarks(result.questPlacements)).toMatchObject([{ objectiveId: "detail", assetId: "shrine", sector: neighbor, longitude: 4, latitude: 5 }]);
+  });
+
+  it("retains remote NPC coordinates after a bound delivery advances into an implicit dialog", async () => {
+    const db = await getTestDatabase();
+    const delivery = DeliverItem.parse({ ...objective, task: "deliver_item", deliverItemIds: ["scroll"] });
+    await db.update(quest).set({ content: { objectives: [delivery, detail, InstantWinLoseObjective.parse({ id: "end", task: "win_quest" })], reward: QuestReward.parse({}), sceneBackground: "", sceneCharacters: [] } }).where(eq(quest.id, "bound-quest"));
+    const [viewer, userQuests] = await Promise.all([
+      db.query.userData.findFirst({ where: eq(userData.userId, VIEWER) }),
+      db.query.questHistory.findMany({ where: eq(questHistory.userId, VIEWER), with: { quest: true } }),
+    ]);
+    const actor = { ...viewer, userQuests, completedQuests: [], useritems: [{ itemId: "scroll" }] } as unknown as Parameters<typeof getNewTrackers>[0];
+    const placementStatus = new Map([["remote", true]]);
+    actor.questData = getNewTrackers(actor, [{ task: "any" }], undefined, placementStatus, new Set()).trackers;
+    Object.assign(actor, { sector: neighbor, longitude: 4, latitude: 5 });
+    actor.questData = getNewTrackers(actor, [{ task: "any" }], undefined, placementStatus, new Set(["remote"])).trackers;
+    expect(actor.questData[0]?.goals[0]?.done).toBe(true);
+    await db.update(userData).set({ questData: actor.questData }).where(eq(userData.userId, VIEWER));
+    const result = await (await callerFor(travelRouter, VIEWER)).getSectorData({ sector: SECTOR });
+    expect(result.questPlacements).toEqual([{ npcPlacementId: "remote", sector: neighbor, longitude: 4, latitude: 5 }]);
+    expect(result.overworldAis?.map((npc) => npc.npcPlacementId)).toEqual(["local"]);
     expect(await readLandmarks(result.questPlacements)).toMatchObject([{ objectiveId: "detail", assetId: "shrine", sector: neighbor, longitude: 4, latitude: 5 }]);
   });
 

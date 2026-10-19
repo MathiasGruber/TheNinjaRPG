@@ -1192,7 +1192,40 @@ export const getNewTrackers = (
             questTracker,
           );
 
-          if (previousObjective) {
+          // Implicit dialogs follow live NPC positions, never a bound objective's fallback coordinates.
+          let locationPredecessor = previousObjective;
+          const visited = new Set([objective.id]);
+          while (
+            locationPredecessor?.task === "dialog" &&
+            !locationPredecessor.overworldPlacementId &&
+            locationPredecessor.sector === undefined &&
+            locationPredecessor.longitude === undefined &&
+            locationPredecessor.latitude === undefined &&
+            !visited.has(locationPredecessor.id)
+          ) {
+            visited.add(locationPredecessor.id);
+            locationPredecessor = findCompletedPredecessor(
+              quest.content.objectives,
+              locationPredecessor.id,
+              questTracker,
+            );
+          }
+          const hasBoundLocation =
+            objective.task === "dialog" &&
+            !objective.overworldPlacementId &&
+            !!locationPredecessor?.overworldPlacementId &&
+            isSupportedOverworldBindingTask(locationPredecessor.task);
+          if (hasBoundLocation) {
+            for (const field of ["sector", "longitude", "latitude"] as const) {
+              if (objective[field] === undefined && status[field] !== undefined) {
+                delete status[field];
+                delete status.locationChecked;
+                consequences.push({ type: "update_user", ids: ["location_update"] });
+              }
+            }
+          }
+
+          if (previousObjective && !hasBoundLocation) {
             if (status.sector === undefined && "sector" in previousObjective) {
               status.sector = previousObjective.sector;
               consequences.push({ type: "update_user", ids: [`sector_update`] });
