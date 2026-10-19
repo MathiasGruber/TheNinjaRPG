@@ -2,6 +2,7 @@
 
 import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
+import { reloadIfOutdated } from "@/libs/buildVersion";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -15,6 +16,8 @@ interface GlobalErrorProps {
  */
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
+    // See the [shell] error boundary: a bundle behind the server reloads instead.
+    if (reloadIfOutdated()) return;
     Sentry.captureException(error);
   }, [error]);
 

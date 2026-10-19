@@ -18,6 +18,13 @@ const CDN_ORIGIN = cdnOrigin({
   vercelEnv: process.env.VERCEL_ENV,
 });
 
+/**
+ * The commit this bundle was built from. It names Next's build and is inlined as
+ * `NEXT_PUBLIC_BUILD_ID` so a long-lived tab can tell that the server has moved on to a
+ * newer deploy (see `src/libs/buildVersion.ts`).
+ */
+const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA || "unknown";
+
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
@@ -35,7 +42,8 @@ const config = {
   turbopack: {
     resolveExtensions: [".tsx", ".ts", ".jsx", ".js"],
   },
-  generateBuildId: () => process.env.VERCEL_GIT_COMMIT_SHA || "unknown",
+  generateBuildId: () => BUILD_ID,
+  env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
   assetPrefix: CDN_ORIGIN,
   reactStrictMode: false,
   productionBrowserSourceMaps: true,

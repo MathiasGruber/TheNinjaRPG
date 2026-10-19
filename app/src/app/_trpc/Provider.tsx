@@ -20,6 +20,7 @@ import superjson from "superjson";
 import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/components/ui/use-toast";
 import { BOTID_BLOCKED_MESSAGE, BOTID_RELOAD_REQUIRED_MESSAGE } from "@/libs/botid";
+import { BUILD_ID_HEADER, noteServerBuild } from "@/libs/buildVersion";
 import { showMutationToast } from "@/libs/toast";
 import {
   createTrpcSessionHeaders,
@@ -130,6 +131,12 @@ const TrpcClientProvider = (props: {
             transformer: superjson,
             // Cookies are shared by tabs; the token belongs to this tab's active session.
             headers: createTrpcSessionHeaders(clerk),
+            // Only uncached responses name the current deploy; a CDN copy can predate it.
+            fetch: async (input, init) => {
+              const response = await fetch(input, init);
+              noteServerBuild(response.headers.get(BUILD_ID_HEADER));
+              return response;
+            },
           }),
         }),
       ],
