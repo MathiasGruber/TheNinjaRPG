@@ -14,6 +14,7 @@ import { env } from "@/env/server.mjs";
  */
 export const dynamic = "force-dynamic";
 
+/** Publish link exclusions before the app wildcard so OAuth stays in its browser. */
 export function GET() {
   const appId = iosAppId();
   if (!appId) return new Response("Not found", { status: 404 });
