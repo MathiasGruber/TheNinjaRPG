@@ -16,15 +16,18 @@ export const STRUCTURE_OBJECTIVE_TASKS = [
   "dialog",
 ] as const;
 
+/** Only objectives with a location interaction can author structure presentation. */
 export const supportsMapStructure = (task: string) =>
   (STRUCTURE_OBJECTIVE_TASKS as readonly string[]).includes(task);
 
 /** Shared refresh cadence for independently cached artwork and public landmarks. */
 export const MAP_LOCATION_REFRESH_MS = 10_000;
+/** Notification revision requests data newer than a worker's cached public presentation. */
 export const publicMapLocationsSchema = z
   .object({ revision: z.number().int().nonnegative().optional() })
   .optional();
 
+/** Neutral presentation shared by player and editor rendering, without quest mechanics or progress. */
 export interface MapLocation {
   id: string;
   questId?: string;
@@ -37,5 +40,6 @@ export interface MapLocation {
   description: string;
   assetId: string;
   scale: number;
+  /** Derived from the viewer's available objective; never granted by the public projection. */
   active?: boolean;
 }

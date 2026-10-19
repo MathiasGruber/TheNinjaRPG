@@ -252,6 +252,7 @@ import type { UserDelta } from "@/validators/userCache";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 
 export const questsRouter = createTRPCRouter({
+  /** Public scenery exposes neutral presentation, never quest steps or player progress. */
   getPublicLocations: publicProcedure
     .input(publicMapLocationsSchema)
     .query(({ ctx, input }) =>
@@ -1024,7 +1025,8 @@ export const questsRouter = createTRPCRouter({
         const updatedAt = new Date(Math.max(Date.now(), entry.updatedAt.getTime() + 1));
         // Publish presentation and accepted run versions together so another quest's
         // tracker persistence cannot discard a checkpoint during a split revision.
-        // Drizzle cannot express a multi-table UPDATE; authored edits use its builder.
+        // One guarded statement avoids a transaction; Drizzle has no multi-table UPDATE builder.
+        // Gameplay edits use the ordinary builder and retain quest revision checks.
         const definitionWrite = isPresentationOnlyChange
           ? await retryOnDeadlock(() =>
               ctx.drizzle.execute(sql`

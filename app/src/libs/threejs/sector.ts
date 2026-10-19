@@ -296,6 +296,7 @@ export const drawQuest = (info: {
   group_quest: Group;
   grid: Grid<TerrainHex>;
   user: NonNullable<UserWithRelations>;
+  /** Tile-anchored scenery replaces the legacy portrait marker for these objectives. */
   structureObjectiveIds?: ReadonlySet<string | undefined>;
 }) => {
   const endMark = profiler.mark("drawQuest");

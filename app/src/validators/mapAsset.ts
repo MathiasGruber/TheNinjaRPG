@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** Omission preserves decoration defaults; structure creation uses building-sized artwork. */
 export const createMapAssetSchema = z
   .object({ category: z.enum(["prop", "structure"]) })
   .optional();

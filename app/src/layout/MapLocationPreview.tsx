@@ -9,7 +9,10 @@ import { isValidSectorId } from "@/libs/sector-map/sector-ids";
 import { mergeTerrainSpecs } from "@/libs/sector-map/terrains";
 import type { MapLocation } from "@/validators/mapLocation";
 
-/** Uses the player renderer against the published map, without publishing the editor draft. */
+/**
+ * Preview draft artwork with the player renderer and published village/map context.
+ * Dynamic targets show artwork alone because their eventual entrance is resolved per run.
+ */
 export const MapLocationPreview = ({
   location,
   isDynamic = false,

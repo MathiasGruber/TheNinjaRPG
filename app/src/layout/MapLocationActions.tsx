@@ -3,7 +3,10 @@
 import { Button } from "@/components/ui/button";
 import type { MapLocation } from "@/validators/mapLocation";
 
-/** Arrival actions and another selected destination remain independently accessible. */
+/**
+ * Keep arrival actions accessible while another destination is selected.
+ * Public visitors can Inspect; only an available personal objective offers quest continuation.
+ */
 export const MapLocationActions = ({
   arrived,
   hovered,

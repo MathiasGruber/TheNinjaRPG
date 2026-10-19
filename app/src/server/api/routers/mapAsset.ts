@@ -24,7 +24,7 @@ import { createMapAssetSchema, mapAssetValidator } from "@/validators/mapAsset";
 import { idSchema } from "@/validators/misc";
 
 export const mapAssetRouter = createTRPCRouter({
-  /** The whole decoration sprite library (public; the travel page session-caches it) */
+  /** Shared decoration and structure sprites; travel refreshes artwork after content edits. */
   getAll: publicProcedure
     .meta({
       mcp: {
@@ -113,7 +113,7 @@ export const mapAssetRouter = createTRPCRouter({
         createdByUserId: entry.createdByUserId,
         ...input.data,
       });
-      // Mutation: update + audit log in parallel (no transaction on PlanetScale)
+      // Mutation: asset update and audit log are independent writes, issued in parallel.
       await Promise.all([
         ctx.drizzle
           .update(mapAsset)
@@ -137,14 +137,14 @@ export const mapAssetRouter = createTRPCRouter({
       return { success: true, message: `Data updated: ${diff.join(". ")}` };
     }),
   /**
-   * Hard-delete an asset (no soft delete); maps still referencing its key are
-   * skipped at render time. Audit-logged to actionLog.
+   * Reject saved quest/dungeon references before hard deletion; decoration references
+   * are skipped at render time. Audit-logged to actionLog.
    */
   delete: protectedProcedure
     .input(idSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      // Queries (parallel: editor + target row)
+      // Queries (parallel: editor, target row and saved structure references)
       const [user, entry, inUse] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchMapAsset(ctx.drizzle, input.id),
@@ -156,6 +156,8 @@ export const mapAssetRouter = createTRPCRouter({
       if (!canChangeContent(user.role)) {
         return errorResponse("Not allowed to delete map assets");
       }
+      // A concurrent author save can race this preflight. Missing art retains the arrival
+      // pin and Inspect action, and staff can repair it by choosing replacement artwork.
       if (inUse)
         return errorResponse(
           "This asset is used by a quest structure or dungeon entrance. Replace those references first.",

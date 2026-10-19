@@ -36,6 +36,7 @@ export const isQuestPresentationOnlyChange = <
   return calculateContentDiff(comparable(before), comparable(after)).length === 0;
 };
 
+/** Stable artwork identity lets an active quest enrich public scenery without duplicating it. */
 export const questLocationId = (questId: string, objectiveId: string) =>
   `quest:${questId}:${objectiveId}`;
 
@@ -71,6 +72,10 @@ export const publicQuestLocations = (
   });
 };
 
+/**
+ * Pair the active target with its artwork provider, which can be a completed predecessor.
+ * Missing or concealed coordinates never produce a landmark.
+ */
 const objectiveMapLocation = (
   questId: string,
   objective: {
@@ -110,7 +115,10 @@ const objectiveMapLocation = (
   };
 };
 
-/** Implicit dialogs inherit resolved coordinates, including live fixed NPC positions. */
+/**
+ * Fill missing dialog coordinates from completed predecessors, using live fixed NPC positions.
+ * Preserve tracker values, including zero and concealment sentinels, over authored defaults.
+ */
 const resolveObjectiveCoordinates = (
   objective: AllObjectivesType,
   objectives: AllObjectivesType[],
@@ -194,7 +202,6 @@ export const getQuestMapLocations = (
           break;
         presentation = previous;
       }
-      // Fixed NPC bindings retain their authored position and still require the NPC interaction.
       const location = objectiveMapLocation(quest.id, resolved, presentation);
       if (location) locations.set(location.id, { ...location, active: true });
     });
@@ -202,7 +209,7 @@ export const getQuestMapLocations = (
   return [...locations.values()];
 };
 
-/** Shared artwork at a shared tile is one landmark; retain every active quest action. */
+/** One sprite per tile, preferring active quests while retaining every location's actions. */
 export const groupMapLocations = (locations: MapLocation[]) => {
   const groups = new Map<string, MapLocation[]>();
   for (const location of locations) {

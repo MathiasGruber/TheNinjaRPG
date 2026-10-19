@@ -16,11 +16,16 @@ const publicLocationCache = new WeakMap<
   { quests: PublicQuest[]; at: number; generation: number }
 >();
 let publicLocationGeneration = 0;
+/** Invalidate client-local entries and prevent in-flight reads from refilling them. */
 export const invalidatePublicQuestLocations = () => {
   publicLocationGeneration += 1;
 };
 
-/** One indexed query, independent of player history, with a presentation-only response. */
+/**
+ * Load neutral scenery with one indexed query, independent of player history.
+ * Publication guards bypass the cache with `fresh` and include future events with `includeScheduled`.
+ * A notification's `revision` bypasses older caches on other workers; dates are checked per read.
+ */
 export const fetchPublicQuestLocations = async (
   client: DrizzleClient,
   {
@@ -47,6 +52,7 @@ export const fetchPublicQuestLocations = async (
     columns: { id: true, content: true, hidden: true, startsAt: true, endsAt: true },
     where: and(eq(quest.publicLocations, true), eq(quest.hidden, false)),
   });
+  // A query started before an edit must not repopulate the invalidated cache.
   if (generation === publicLocationGeneration)
     publicLocationCache.set(client, { quests, at: Date.now(), generation });
   return publicQuestLocations(
@@ -66,6 +72,7 @@ export const notifyMapLocationsChanged = async () => {
   }
 };
 
+/** Require the authored entrance itself to be reachable; never silently relocate public scenery. */
 export const validateMapLocationTiles = (
   locations: MapLocation[],
   maps: ReadonlyMap<
@@ -91,7 +98,10 @@ export const validateMapLocationTiles = (
   return null;
 };
 
-/** Assets and published maps are fetched in batches, never once per objective. */
+/**
+ * Return an author-facing error or null, batching asset, NPC and published-map checks.
+ * Only public targets require an authored reachable tile; private targets resolve for each run.
+ */
 export const validateQuestStructures = async (
   client: DrizzleClient,
   data: {
@@ -140,7 +150,7 @@ export const validateQuestStructures = async (
   return validateMapLocationTiles(locations, maps);
 };
 
-/** A referenced sprite cannot silently disappear from authored quest/dungeon content. */
+/** Preflight saved quest and dungeon references before deleting shared artwork. */
 export const isStructureAssetUsed = async (client: DrizzleClient, assetId: string) => {
   const [questReference, dungeonReference] = await Promise.all([
     client.query.quest.findFirst({

@@ -36,6 +36,7 @@ export const dungeonContentSchema = z
   .object({
     name: z.string().trim().min(1, "Enter a dungeon name.").max(100),
     description: z.string().max(2000).prefault(""),
+    // Empty artwork retains the biome entrance; encounter portraits remain independent.
     structureAssetId: mapLocationFields.structureAssetId,
     structureScale: mapLocationFields.structureScale,
     sector: z.number().int().min(MAP_SECTOR_ID_MIN).max(MAP_SECTOR_ID_MAX),

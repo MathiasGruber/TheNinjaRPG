@@ -502,6 +502,7 @@ const Sector: React.FC<SectorProps> = (props) => {
     { enabled: dialogSceneAssetIds.length > 0 },
   );
 
+  // Carry the edit timestamp to bypass stale public caches on other server workers.
   const [publicLocationRevision, setPublicLocationRevision] = useState(0);
   const { data: publicLocations = [] } = api.quests.getPublicLocations.useQuery(
     { revision: publicLocationRevision },

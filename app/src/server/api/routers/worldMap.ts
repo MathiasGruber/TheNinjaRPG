@@ -259,9 +259,8 @@ export const worldMapRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Queries (parallel: user + terrain registry + the next version, which
-      // depends only on input.sector — folded in here to avoid a third serial
-      // round-trip before the insert)
+      // Fetch independent publication inputs together, including scheduled public
+      // entrances so a new map cannot block landmarks when their event starts.
       const [user, terrainRegistry, version, locations] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchTerrainRegistry(ctx.drizzle),
@@ -372,8 +371,8 @@ export const worldMapRouter = createTRPCRouter({
   publishSectorMap: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
-      // Queries (parallel: user, the candidate row incl. its raw Tiled JSON for
-      // re-normalization, and the terrain registry the importer needs)
+      // Fetch the candidate, terrain registry and all public entrances together;
+      // future event entrances must remain reachable on the promoted map too.
       const [user, candidate, terrainRegistry, locations] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.sectorMap.findFirst({
@@ -409,8 +408,8 @@ export const worldMapRouter = createTRPCRouter({
       if (locationError) return errorResponse(locationError);
       const now = new Date();
       // Mutation: promote this map to a NEW highest version FIRST, then archive strictly-
-      // older published rows (PlanetScale has no transactions). Bumping to the
-      // top version makes this compose with saveTiledSectorMap (which also
+      // older published rows. Bumping to the top version makes this compose
+      // with saveTiledSectorMap (which also
       // archives version < its own new version): the globally-highest published
       // row is never archived by anyone, so concurrent publishes can never leave
       // the sector with zero published maps. Re-publishing an older version still

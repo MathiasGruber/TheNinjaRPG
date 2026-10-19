@@ -40,6 +40,7 @@ export const syncMapLocationSprites = (
     .filter((child) => child.userData.type === "questStructure")
     .forEach((child) => {
       group.remove(child);
+      // Materials belong to these sprites; cached textures are shared with other sectors and previews.
       (child as Sprite).material.dispose();
     });
   for (const entries of groupMapLocations(locations)) {
