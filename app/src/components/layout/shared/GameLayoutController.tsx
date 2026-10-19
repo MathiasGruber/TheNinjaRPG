@@ -18,6 +18,7 @@ import { FONT_SCALE_STORAGE_KEY } from "@/hooks/useFontScale";
 import { usePageActive } from "@/hooks/usePageActive";
 import { GlobalAudioProvider } from "@/layout/GameSettings";
 import TutorialAssistant from "@/layout/TutorialAssistant";
+import { getGameLayout } from "@/libs/gameLayouts";
 import {
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
@@ -60,6 +61,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
     data: userData,
     notifications,
     isClerkLoaded,
+    isSignedIn,
     status: userStatus,
     userId,
     updateUser,
@@ -142,9 +144,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   }, []);
 
   useEffect(() => {
-    if (variant === "pixel") {
-      document.documentElement.classList.add("dark");
-    } else {
+    if (getGameLayout(variant).supportsColorMode) {
       const savedTheme = safeLocalStorageGetItem("theme");
       if (savedTheme === "dark" || savedTheme === "light") {
         setTheme(savedTheme);
@@ -170,7 +170,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   }, [variant]);
 
   useEffect(() => {
-    if (variant !== "beta" || !isMounted) return;
+    if (!getGameLayout(variant).supportsColorMode || !isMounted) return;
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
@@ -217,8 +217,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   }, [notifications, pathname, rankedQueueCount, userId]);
   const navbarMenuItemsLeft = navbarMenuItems.slice(0, 3);
   const navbarMenuItemsRight = navbarMenuItems.slice(3);
-  const isSignedInLayout =
-    !!userData || !!userId || (!isClerkLoaded && initialIsSignedIn);
+  const isSignedInLayout = isClerkLoaded ? isSignedIn : initialIsSignedIn;
   const isAnonymousLayout = !isSignedInLayout;
   let accountState: AccountMenuState = null;
   if (isSignedInLayout && !userData) {
@@ -240,7 +239,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   const signedInIcons = (
     <SignedInIcons
       variant={variant}
-      isSignedIn={!!userId}
+      isSignedIn={isClerkLoaded && isSignedIn}
       userData={userData}
       updateUser={updateUser}
       onEventClick={() => setLeftSideBarOpen(false)}
@@ -320,6 +319,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   return (
     <GlobalAudioProvider userData={userData}>
       <TutorialAssistant
+        sidebarBreakpoint={getGameLayout(variant).sidebarBreakpoint}
         rightSideBarOpen={rightSideBarOpen}
         setRightSideBarOpen={setRightSideBarOpen}
         rightSideBarRef={rightSideBarRef}

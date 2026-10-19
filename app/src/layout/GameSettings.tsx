@@ -15,7 +15,6 @@ import { api } from "@/app/_trpc/client";
 import { NativeSettingsEntry } from "@/components/native/NativeSettingsEntry";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { BUTTON_CLICK_SFX_URLS, CONFETTI_SFX_URL } from "@/drizzle/constants";
 import { useDayNightMapOverlays } from "@/hooks/day-night-overlay";
@@ -25,14 +24,12 @@ import {
   useLocalStorage,
 } from "@/hooks/localstorage";
 import { useAudio } from "@/hooks/useAudio";
+import { useSelectGameLayout } from "@/hooks/useGameLayout";
 import { useIframeMute } from "@/hooks/useIframeMute";
+import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
+import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
-import {
-  type EffectiveLayout,
-  LAYOUT_PREFERENCE_COOKIE,
-  LIGHT_LAYOUT_STORAGE_KEY,
-  persistLayoutPreferenceCookie,
-} from "@/libs/layoutPreference";
+import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
 import { getBackgroundMusicSrc } from "@/libs/music";
 import { audioSession, platform } from "@/libs/native";
 import { showMutationToast } from "@/libs/toast";
@@ -409,14 +406,6 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
   const { showDayNightMapOverlays, setShowDayNightMapOverlays } =
     useDayNightMapOverlays();
 
-  // Full layout preference state
-  const activeLayout = useActiveLayout();
-  const [anonymousLayout, setAnonymousLayout] = useLocalStorage<EffectiveLayout>(
-    LAYOUT_PREFERENCE_COOKIE,
-    activeLayout,
-  );
-  const layoutPreference: EffectiveLayout = anonymousLayout || activeLayout;
-
   // Embedded iframe mute state
   const { isIframesMuted, setIframesMuted } = useIframeMute();
 
@@ -455,8 +444,6 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
     setLightLayout,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
-    layoutPreference,
-    setAnonymousLayout,
     isIframesMuted,
     setIframesMuted,
     requiresInteraction,
@@ -490,8 +477,6 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     setLightLayout,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
-    layoutPreference,
-    setAnonymousLayout,
     isIframesMuted,
     setIframesMuted,
     requiresInteraction,
@@ -501,15 +486,14 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
   // Track initial lightLayout value to detect changes
   const [initialLightLayout] = useState<boolean>(lightLayout);
   const [lightLayoutChanged, setLightLayoutChanged] = useState(false);
-  // Display controls follow the shell actually rendered: a signed-out visitor's stored
-  // pixel preference is ignored by the shell, so it must not hide the light layout toggle.
+  // Decorative chrome controls follow the rendered shell, including for signed-out visitors.
   const activeLayout = useActiveLayout();
-  const isPixelLayout = activeLayout === "pixel";
+  const isClassicLayout = activeLayout === "default";
 
   // Update tracking when lightLayout changes
   useEffect(() => {
-    setLightLayoutChanged(!isPixelLayout && lightLayout !== initialLightLayout);
-  }, [lightLayout, initialLightLayout, isPixelLayout]);
+    setLightLayoutChanged(isClassicLayout && lightLayout !== initialLightLayout);
+  }, [lightLayout, initialLightLayout, isClassicLayout]);
 
   const handleRefreshPage = () => {
     if (typeof window !== "undefined") {
@@ -578,16 +562,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     safeLocalStorageSetItem("sfxVolume", JSON.stringify(newVolume));
   };
 
-  const handleLayoutChange = (value: string) => {
-    const nextLayout = value === "pixel" ? "pixel" : "default";
-    if (nextLayout === layoutPreference) return;
-    safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify(nextLayout));
-    persistLayoutPreferenceCookie(nextLayout);
-    setAnonymousLayout(nextLayout);
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
-  };
+  const handleLayoutChange = useSelectGameLayout();
 
   const isPanel = variant === "panel";
   const sectionClass = isPanel ? "space-y-4" : "space-y-3";
@@ -692,39 +667,22 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
 
       <div>
         <p className={headerClass}>Display</p>
-        {/* The pixel layout is an opt-in for signed-in players; the shell ignores the
-            preference for signed-out visitors. */}
-        {userData && (
-          <div className="mb-4 space-y-2">
-            <div className="flex items-start gap-2">
-              <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div>
-                <p className={textClass}>Game Layout</p>
-              </div>
+        <div className="mb-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className={textClass}>Game Layout</p>
             </div>
-            <RadioGroup
-              value={layoutPreference}
-              onValueChange={handleLayoutChange}
-              className="grid grid-cols-2 gap-2"
-            >
-              <label
-                htmlFor="layout-default"
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
-              >
-                <RadioGroupItem id="layout-default" value="default" />
-                Classic
-              </label>
-              <label
-                htmlFor="layout-pixel"
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
-              >
-                <RadioGroupItem id="layout-pixel" value="pixel" />
-                Pixel
-              </label>
-            </RadioGroup>
           </div>
-        )}
-        {!isPixelLayout && (
+          <GameLayoutPicker layout={activeLayout} onLayoutChange={handleLayoutChange} />
+          <Link
+            href="/layouts"
+            className="inline-flex min-h-11 items-center text-primary text-sm underline"
+          >
+            Explore game layouts
+          </Link>
+        </div>
+        {isClassicLayout && (
           <div className="flex items-center justify-between">
             <div>
               <p className={textClass}>Lighter Layout</p>
@@ -742,7 +700,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
           </div>
         )}
         <div
-          className={`flex items-center justify-between ${!isPixelLayout ? "mt-3" : ""}`}
+          className={`flex items-center justify-between ${isClassicLayout ? "mt-3" : ""}`}
         >
           <div>
             <p className={textClass}>Day/night map overlays</p>
@@ -831,16 +789,24 @@ export const GameSettingsPopover: React.FC<GameSettingsProps> = ({
           aria-label={isSettingsTrigger ? "Game settings" : "Audio settings"}
           className={
             triggerClassName ??
-            "mx-1 rounded-full bg-blue-100 bg-opacity-80 text-slate-700 hover:bg-blue-300 hover:text-black"
+            "group/audio mx-1 inline-flex items-center justify-center rounded-full text-slate-700"
           }
         >
-          {isSettingsTrigger ? (
-            <Settings className="h-4 w-4" suppressHydrationWarning />
-          ) : audioEnabled ? (
-            <Volume2 className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
-          ) : (
-            <VolumeX className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
-          )}
+          <span
+            className={
+              triggerClassName
+                ? undefined
+                : "inline-flex rounded-full bg-blue-100 bg-opacity-80 group-hover/audio:bg-blue-300 group-hover/audio:text-black"
+            }
+          >
+            {isSettingsTrigger ? (
+              <Settings className="h-4 w-4" suppressHydrationWarning />
+            ) : audioEnabled ? (
+              <Volume2 className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
+            ) : (
+              <VolumeX className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
+            )}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent

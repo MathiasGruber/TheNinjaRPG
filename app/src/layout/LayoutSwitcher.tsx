@@ -1,12 +1,14 @@
 "use client";
 
 import type React from "react";
-import { useEffect } from "react";
-import LayoutCore4Beta from "@/components/layout/core4_beta";
-import LayoutCore4Landing from "@/components/layout/core4_landing";
-import LayoutCore4Pixel from "@/components/layout/core4_pixel";
+import { useEffect, useState } from "react";
+import { GameLayout } from "@/components/layout/GameLayout";
+import { PanelPublicLayout } from "@/components/layout/PanelPublicLayout";
+import PixelPublicLayout from "@/components/layout/PixelPublicLayout";
 import ParticleProvider from "@/components/ui/particles";
 import { safeLocalStorageGetItem } from "@/hooks/localstorage";
+import { applyGameLayout } from "@/hooks/useGameLayout";
+import { getGameLayout } from "@/libs/gameLayouts";
 import {
   applyFontScaleCookie,
   type EffectiveLayout,
@@ -28,8 +30,8 @@ interface LayoutSwitcherProps {
 
 /**
  * LayoutSwitcher renders the shell for the layout the proxy chose
- * - Signed-out visitors always get the default layout
- * - Signed-in players can opt into the pixel layout from the settings dialog
+ * - Layout choices apply both in game and on the welcome page
+ * - Authentication determines the frame, independently of the selected design
  */
 const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   children,
@@ -38,7 +40,10 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   wallpaper,
 }) => {
   const pathname = usePublicPathname();
-  const { data: userData, isClerkLoaded, userId } = useUserData();
+  const { isClerkLoaded, isSignedIn } = useUserData();
+  // Explicit choices replace only the presentation; remounting the root shell would
+  // also restart Clerk and could activate another saved account after sign-out.
+  const [displayedLayout, setDisplayedLayout] = useState(initialLayout);
 
   // The server picks the layout from the cookie; localStorage is only a recovery source
   // for when that cookie is lost (Safari caps JS-set cookies at 7 days, so it expires
@@ -50,34 +55,42 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
     const stored = storedValueToLayout(
       safeLocalStorageGetItem(LAYOUT_PREFERENCE_COOKIE),
     );
-    persistLayoutPreferenceCookie(stored ?? initialLayout);
-  }, [initialLayout]);
+    // A public welcome rollout must not become the visitor's game preference.
+    if (stored || initialIsSignedIn) {
+      persistLayoutPreferenceCookie(stored ?? initialLayout);
+    }
+  }, [initialLayout, initialIsSignedIn]);
 
-  const displayedLayout = initialLayout;
+  const isKnownAnonymous = isClerkLoaded ? !isSignedIn : !initialIsSignedIn;
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", displayedLayout === "pixel");
+    applyGameLayout(displayedLayout);
     // A change of shell variant mid-session remounts everything under <html>, and React
     // strips what the head script set on it; put the font scale back.
     applyFontScaleCookie();
   }, [displayedLayout]);
 
-  const isKnownAnonymous = isClerkLoaded ? !userId : !initialIsSignedIn;
+  const definition = getGameLayout(displayedLayout);
   const isPixelLanding =
-    displayedLayout === "pixel" && pathname === "/" && isKnownAnonymous && !userData;
-  const content = isPixelLanding ? (
-    <LayoutCore4Landing>{children}</LayoutCore4Landing>
-  ) : displayedLayout === "pixel" ? (
-    <LayoutCore4Pixel initialIsSignedIn={initialIsSignedIn}>
-      {children}
-    </LayoutCore4Pixel>
-  ) : (
-    <LayoutCore4Beta initialIsSignedIn={initialIsSignedIn}>{children}</LayoutCore4Beta>
-  );
+    definition.publicFrame === "landing" && pathname === "/" && isKnownAnonymous;
+  const publicFrames = { landing: PixelPublicLayout, page: PanelPublicLayout };
+  const PublicFrame =
+    definition.publicFrame === "game"
+      ? undefined
+      : publicFrames[definition.publicFrame];
+  const content =
+    isKnownAnonymous &&
+    PublicFrame &&
+    (isPixelLanding || definition.publicFrame === "page") ? (
+      <PublicFrame>{children}</PublicFrame>
+    ) : (
+      <GameLayout initialIsSignedIn={initialIsSignedIn}>{children}</GameLayout>
+    );
 
   return (
     <LayoutContextProvider
       isPixelLanding={isPixelLanding}
       value={displayedLayout}
+      onLayoutChange={setDisplayedLayout}
       wallpaper={wallpaper}
     >
       {content}

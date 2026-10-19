@@ -141,9 +141,9 @@ export default function CombatPage() {
       setBattleAtom(data.battle);
       setBattleState({ battle: data?.battle, result: res, isPending: false });
       if (res) {
-        if (currentStep?.onCombatWin && results?.outcome === "Won") {
+        if (currentStep?.onCombatWin && res.outcome === "Won") {
           handleNextStep(currentStep.onCombatWin);
-        } else if (currentStep?.onCombatLoss && results?.outcome !== "Won") {
+        } else if (currentStep?.onCombatLoss && res.outcome !== "Won") {
           handleNextStep(currentStep.onCombatLoss);
         }
       }

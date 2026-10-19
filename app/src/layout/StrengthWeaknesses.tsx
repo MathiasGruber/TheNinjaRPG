@@ -111,9 +111,10 @@ const StrengthWeaknesses: React.FC = () => {
       subtitle="Strengths & Weaknesses"
       topRightCorntentBreakpoint="sm"
       topRightContent={
-        <div className="my-2 flex items-center gap-3">
+        <div className="my-2 flex flex-wrap items-center gap-3">
           <NavTabs
             id="strength-weaknesses-tabs"
+            listClassName="flex-wrap"
             current={currentTab}
             options={tabOptions}
             setValue={setCurrentTab}

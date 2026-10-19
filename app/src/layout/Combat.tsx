@@ -4,6 +4,7 @@ import alea from "alea";
 import type { Grid } from "honeycomb-grid";
 import { useSetAtom } from "jotai";
 import { Check, HelpCircle, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Clock, Group, OrthographicCamera, Vector2 } from "three";
@@ -22,7 +23,7 @@ import {
 } from "@/hooks/combat";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { usePerformanceMonitor } from "@/hooks/performance-monitor";
-import { useTutorialStep } from "@/hooks/tutorial";
+import { TUTORIAL_STEPS, useTutorialStep } from "@/hooks/tutorial";
 import { usePageActive } from "@/hooks/usePageActive";
 import { CombatAggro } from "@/layout/CombatAggro";
 import { CombatResourceBars } from "@/layout/CombatResourceBars";
@@ -85,6 +86,7 @@ import {
   smoothCameraFollow,
 } from "@/libs/threejs/util";
 import { showMutationToast } from "@/libs/toast";
+import { getTutorialBattleReturnPage } from "@/libs/tutorial";
 import { preloadAudioBuffers, savedSfxVolume } from "@/utils/audio";
 import { secondsFromNow } from "@/utils/time";
 import {
@@ -107,11 +109,14 @@ const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
   const { battleState, setBattleState, config } = props;
   const queryClient = useQueryClient();
+  const router = useRouter();
   const result = battleState.result;
   const utils = api.useUtils();
 
   // State
   const [isInLobby, setIsInLobby] = useState<boolean>(true);
+  const [isReturningFromTutorial, setIsReturningFromTutorial] = useState(false);
+  const tutorialReturnLockRef = useRef(false);
   const [logbookModalOpen, setLogbookModalOpen] = useState<boolean>(false);
   const [logbookModalQuestId, setLogbookModalQuestId] = useState<string | null>(null);
   const [readySettledBattleId, setReadySettledBattleId] = useState<string | null>(null);
@@ -1530,6 +1535,38 @@ const Combat: React.FC<CombatProps> = (props) => {
     result.curHealth <= 0 &&
     !["SPARRING", "RANKED_PVP"].includes(battleType);
 
+  const handleTutorialBattleReturn = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    destination: string,
+  ) => {
+    if (!currentStep || !userData?.tutorialOn || getIsolatedPyramid(userData)) return;
+    event.preventDefault();
+    if (tutorialReturnLockRef.current) return;
+    tutorialReturnLockRef.current = true;
+    setIsReturningFromTutorial(true);
+    try {
+      // Navigation must wait for the confirmed profile: a cached BATTLE status
+      // otherwise makes the tutorial redirect back to the fight that just ended.
+      const profile = await utils.profile.getUser.fetch(undefined, { staleTime: 0 });
+      router.push(
+        getTutorialBattleReturnPage(
+          TUTORIAL_STEPS,
+          profile.userData,
+          result?.outcome,
+          destination,
+        ),
+      );
+    } catch {
+      showMutationToast({
+        success: false,
+        message: "Could not load your updated character. Please try returning again.",
+      });
+    } finally {
+      tutorialReturnLockRef.current = false;
+      setIsReturningFromTutorial(false);
+    }
+  };
+
   return (
     <>
       <div id="tutorial-combat-field" ref={mountRef} hidden={!!result}></div>
@@ -1708,17 +1745,29 @@ const Combat: React.FC<CombatProps> = (props) => {
                       : "/profile"
                 }
                 className="w-full"
+                onClick={(event) => {
+                  void handleTutorialBattleReturn(
+                    event,
+                    toHospital ? "/hospital" : "/profile",
+                  );
+                }}
               >
                 <Button
                   id="return"
                   className="w-full"
+                  disabled={isReturningFromTutorial}
+                  aria-busy={isReturningFromTutorial}
                   onClick={() => {
                     if (getIsolatedPyramid(userData)) setBattleState(undefined);
                   }}
                 >
-                  {getIsolatedPyramid(userData)
-                    ? "Continue Pyramid"
-                    : `Return to ${toHospital ? "Hospital" : "Profile"}`}
+                  {isReturningFromTutorial
+                    ? "Returning..."
+                    : getIsolatedPyramid(userData)
+                      ? "Continue Pyramid"
+                      : currentStep && userData?.tutorialOn
+                        ? "Continue tutorial"
+                        : `Return to ${toHospital ? "Hospital" : "Profile"}`}
                 </Button>
               </Link>
               {showShrineAgain && (
@@ -1794,9 +1843,20 @@ const Combat: React.FC<CombatProps> = (props) => {
                 </Link>
               )}
               {showTravelBtn && (
-                <Link href="/travel" className="w-full">
-                  <Button id="toTravel" className="w-full">
-                    To Map
+                <Link
+                  href="/travel"
+                  className="w-full"
+                  onClick={(event) => {
+                    void handleTutorialBattleReturn(event, "/travel");
+                  }}
+                >
+                  <Button
+                    id="toTravel"
+                    className="w-full"
+                    disabled={isReturningFromTutorial}
+                    aria-busy={isReturningFromTutorial}
+                  >
+                    {isReturningFromTutorial ? "Returning..." : "To Map"}
                   </Button>
                 </Link>
               )}

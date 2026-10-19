@@ -1,0 +1,108 @@
+html[data-game-layout="3-sakura-courtyard"] {
+  --theme-bg: #eeeef5;
+  --theme-surface: #ffffff;
+  --theme-text: #332b49;
+  --theme-muted: #6c607d;
+  --theme-accent: #83516d;
+  --theme-line: #dad4e3;
+  --theme-heading-font: "Newsreader", Georgia, serif;
+  --theme-body-font: "Manrope", system-ui, sans-serif;
+}
+html[data-game-layout="3-sakura-courtyard"]:not([data-reading-palette]) {
+  --background: 240 25.9% 94.7%;
+  --foreground: 256 25.9% 22.7%;
+  --card: 0 0.0% 100.0%;
+  --card-foreground: 256 25.9% 22.7%;
+  --popover: 0 0.0% 100.0%;
+  --popover-foreground: 256 25.9% 22.7%;
+  --poppopover: 240 25.9% 94.7%;
+  --poppopover-foreground: 256 25.9% 22.7%;
+  --primary: 326.4 23.6% 41.6%;
+  --primary-foreground: 240 25.9% 94.7%;
+  --secondary: 240 25.9% 94.7%;
+  --secondary-foreground: 256 25.9% 22.7%;
+  --muted: 240 25.9% 94.7%;
+  --muted-foreground: 264.8 13.1% 43.3%;
+  --accent: 240 25.9% 94.7%;
+  --accent-foreground: 256 25.9% 22.7%;
+  --border: 264 21.1% 86.1%;
+  --input: 264 21.1% 86.1%;
+  --ring: 326.4 23.6% 41.6%;
+  color-scheme: light;
+}
+html[data-game-layout="3-sakura-courtyard"]
+  .theme-welcome-copy[data-theme-id="3-sakura-courtyard"] {
+  display: block;
+}
+html[data-game-layout="17-obsidian-council"] {
+  --theme-bg: #242932;
+  --theme-surface: #303844;
+  --theme-text: #f5f2e9;
+  --theme-muted: #b8bdc7;
+  --theme-accent: #d9c08b;
+  --theme-line: #4b5667;
+  --theme-heading-font: "Marcellus", Georgia, serif;
+  --theme-body-font: "Manrope", system-ui, sans-serif;
+}
+html[data-game-layout="17-obsidian-council"]:not([data-reading-palette]) {
+  --background: 218.6 16.3% 16.9%;
+  --foreground: 45 37.5% 93.7%;
+  --card: 216 17.2% 22.7%;
+  --card-foreground: 45 37.5% 93.7%;
+  --popover: 216 17.2% 22.7%;
+  --popover-foreground: 45 37.5% 93.7%;
+  --poppopover: 218.6 16.3% 16.9%;
+  --poppopover-foreground: 45 37.5% 93.7%;
+  --primary: 40.8 50.6% 69.8%;
+  --primary-foreground: 218.6 16.3% 16.9%;
+  --secondary: 218.6 16.3% 16.9%;
+  --secondary-foreground: 45 37.5% 93.7%;
+  --muted: 218.6 16.3% 16.9%;
+  --muted-foreground: 220 11.8% 75.1%;
+  --accent: 218.6 16.3% 16.9%;
+  --accent-foreground: 45 37.5% 93.7%;
+  --border: 216.4 15.7% 34.9%;
+  --input: 216.4 15.7% 34.9%;
+  --ring: 40.8 50.6% 69.8%;
+  color-scheme: dark;
+}
+html[data-game-layout="17-obsidian-council"]
+  .theme-welcome-copy[data-theme-id="17-obsidian-council"] {
+  display: block;
+}
+html[data-game-layout="20-eclipse-observatory"] {
+  --theme-bg: #202039;
+  --theme-surface: #2c2c49;
+  --theme-text: #f4f1ff;
+  --theme-muted: #bbb5d9;
+  --theme-accent: #d0baef;
+  --theme-line: #48466b;
+  --theme-heading-font: "Sora", system-ui, sans-serif;
+  --theme-body-font: "Manrope", system-ui, sans-serif;
+}
+html[data-game-layout="20-eclipse-observatory"]:not([data-reading-palette]) {
+  --background: 240 28.1% 17.5%;
+  --foreground: 252.9 100.0% 97.3%;
+  --card: 240 24.8% 22.9%;
+  --card-foreground: 252.9 100.0% 97.3%;
+  --popover: 240 24.8% 22.9%;
+  --popover-foreground: 252.9 100.0% 97.3%;
+  --poppopover: 240 28.1% 17.5%;
+  --poppopover-foreground: 252.9 100.0% 97.3%;
+  --primary: 264.9 62.4% 83.3%;
+  --primary-foreground: 240 28.1% 17.5%;
+  --secondary: 240 28.1% 17.5%;
+  --secondary-foreground: 252.9 100.0% 97.3%;
+  --muted: 240 28.1% 17.5%;
+  --muted-foreground: 250 32.1% 78.0%;
+  --accent: 240 28.1% 17.5%;
+  --accent-foreground: 252.9 100.0% 97.3%;
+  --border: 243.2 20.9% 34.7%;
+  --input: 243.2 20.9% 34.7%;
+  --ring: 264.9 62.4% 83.3%;
+  color-scheme: dark;
+}
+html[data-game-layout="20-eclipse-observatory"]
+  .theme-welcome-copy[data-theme-id="20-eclipse-observatory"] {
+  display: block;
+}

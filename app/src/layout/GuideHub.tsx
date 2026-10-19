@@ -150,6 +150,7 @@ export const GuideHub: React.FC<GuideHubProps> = ({ articles }) => {
           </div>
           <NavTabs
             id="guide-category"
+            listClassName="flex-wrap justify-center"
             current={category}
             options={tabs}
             onChange={setCategory}

@@ -55,6 +55,31 @@ export const isTutorialPageMatch = (stepPage: string | undefined, pathname: stri
   return stepPath !== "" && stepPath === pathname;
 };
 
+/** Return directly to the next lesson, including when its progress write is still settling. */
+export const getTutorialBattleReturnPage = (
+  steps: readonly {
+    id: string;
+    page: string;
+    onCombatWin?: string;
+    onCombatLoss?: string;
+  }[],
+  user:
+    | { tutorialOn?: boolean | null; tutorialStep?: number | null; status?: string }
+    | null
+    | undefined,
+  outcome: string | undefined,
+  fallback: string,
+) => {
+  if (!isTutorialActive(user)) return fallback;
+  if (user?.status === "HOSPITALIZED") return "/hospital";
+  const step = steps[user?.tutorialStep ?? 0];
+  if (!step) return fallback;
+  const outcomeStepId =
+    outcome === "Won" ? step.onCombatWin : outcome ? step.onCombatLoss : undefined;
+  const next = steps.find((candidate) => candidate.id === outcomeStepId) ?? step;
+  return getTutorialStepPath(next.page) === "/combat" ? fallback : next.page;
+};
+
 export const isTutorialJutsuPickStep = (step?: { id?: string } | null) =>
   step?.id === TUTORIAL_JUTSU_PICK_STEP_ID;
 
@@ -91,3 +116,12 @@ const MIN_HIGHLIGHT_PX = 4;
 /** True when a DOM rect is large enough to draw a tutorial highlight. */
 export const isUsableHighlightRect = (rect: { width: number; height: number }) =>
   rect.width > MIN_HIGHLIGHT_PX && rect.height > MIN_HIGHLIGHT_PX;
+
+/** Reposition compact controls and maps that fit above Lemu; leave oversized maps scrollable. */
+export const canPositionTutorialHighlight = (
+  targetHeight: number,
+  viewportHeight: number,
+  assistantTop?: number,
+) =>
+  targetHeight < viewportHeight * 0.55 ||
+  targetHeight + 80 < (assistantTop ?? viewportHeight);

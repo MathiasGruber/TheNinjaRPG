@@ -24,6 +24,7 @@ import { PyramidRunBoundary } from "@/layout/PyramidRunBoundary";
 import { RewardChoiceModal } from "@/layout/RewardChoice";
 import StructuredData from "@/layout/StructuredData";
 import { WebAnalytics } from "@/layout/WebAnalytics";
+import { getGameLayout, getGameLayoutScript } from "@/libs/gameLayouts";
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_COOKIE,
@@ -49,6 +50,9 @@ import { parseShellParam, SHELL_PARAMS } from "@/libs/shell";
 import { UserContextProvider } from "@/utils/UserContext";
 
 import "../../styles/globals.css";
+import "../../styles/layout-themes.css";
+import "../../styles/layout-directions.css";
+import "../../styles/layout-welcome.css";
 import "sonner/dist/styles.css";
 
 /**
@@ -97,10 +101,16 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={initialLayout === "pixel" ? "dark" : undefined}
+      className={getGameLayout(initialLayout).tone === "dark" ? "dark" : undefined}
+      data-game-layout={initialLayout}
+      data-game-frame={getGameLayout(initialLayout).frame}
       suppressHydrationWarning
     >
       <head>
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: configuration comes from the validated layout registry.
+          dangerouslySetInnerHTML={{ __html: getGameLayoutScript(initialLayout) }}
+        />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from three other constants, with no input from anywhere. */}
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}
@@ -120,6 +130,8 @@ export default async function RootLayout({
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
         <ClerkProvider
+          afterSignOutUrl="/"
+          afterMultiSessionSingleSignOutUrl="/"
           proxyUrl={
             isNativeShell && env.NATIVE_CLERK_PROXY_ENABLED === "true"
               ? "/__clerk"

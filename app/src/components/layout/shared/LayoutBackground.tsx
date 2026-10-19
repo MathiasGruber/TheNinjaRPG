@@ -126,7 +126,7 @@ export const LayoutBackground: React.FC<LayoutBackgroundProps> = ({
 
   // All three layers are decorative backdrops rather than content, so they carry an
   // empty alt and are hidden from assistive technology.
-  if (variant === "beta") {
+  if (variant === "default") {
     // Below md this is a banner across the top rather than a full-viewport backdrop, so
     // on a phone it is usually a game page's largest contentful paint. The shell preloads
     // the seasonal image, and once getUser resolves a village's wallpaperOverwrite takes

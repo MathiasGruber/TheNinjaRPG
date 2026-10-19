@@ -1,3 +1,4 @@
+import { GAME_LAYOUTS } from "@/libs/gameLayouts";
 import { getLemuImage, LEMU_EXPERIMENT } from "@/libs/lemuExperiment";
 import { WALLPAPER_EXPERIMENT, WALLPAPER_VARIANTS } from "@/libs/wallpaperExperiment";
 import { describe, expect, it } from "bun:test";
@@ -14,7 +15,7 @@ import {
 describe("shell variants", () => {
   it("round-trips every variant through its URL segment", () => {
     for (const client of ["web", "ios", "android"] as const) {
-      for (const layout of ["default", "pixel"] as const) {
+      for (const { id: layout } of GAME_LAYOUTS) {
         for (const signedIn of [false, true]) {
           const variant = { client, layout, signedIn };
           expect(parseShellParam(shellParam(variant))).toEqual(variant);
@@ -31,10 +32,11 @@ describe("shell variants", () => {
   );
 
   it("builds every variant once", () => {
-    expect(SHELL_PARAMS).toHaveLength(12 + WALLPAPER_VARIANTS.length);
-    expect(new Set(SHELL_PARAMS).size).toBe(12 + WALLPAPER_VARIANTS.length);
+    expect(SHELL_PARAMS).toHaveLength(30 + WALLPAPER_VARIANTS.length);
+    expect(new Set(SHELL_PARAMS).size).toBe(30 + WALLPAPER_VARIANTS.length);
     expect(SHELL_PARAMS).toContain("web-default-out");
     expect(SHELL_PARAMS).toContain("android-pixel-in");
+    expect(SHELL_PARAMS).toContain("ios-20-eclipse-observatory-in");
   });
 });
 
@@ -123,15 +125,45 @@ describe("chooseShell", () => {
     expect(chooseShell(request({ pathname: "/", cookies: { [LEMU_EXPERIMENT]: "treatment", [WALLPAPER_EXPERIMENT]: "spring" } })).assigned).toEqual({ [LEMU_EXPERIMENT]: "treatment_1" });
   });
 
-  it("ignores a pixel preference until the visitor is signed in", () => {
+  it("preserves a pixel preference on both public and signed-in pages", () => {
     const signedOut = chooseShell(
       request({ pathname: "/", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }),
     );
-    expect(signedOut.variant.layout).toBe("default");
+    expect(signedOut.variant.layout).toBe("pixel");
     const signedIn = chooseShell(
       request({ userId: "user_1", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }),
     );
     expect(signedIn.variant.layout).toBe("pixel");
+  });
+
+  it.each([...GAME_LAYOUTS])("preserves $name on public and signed-in pages", ({ id }) => {
+    const cookies = { [LAYOUT_PREFERENCE_COOKIE]: id };
+    expect(chooseShell(request({ cookies }), "").variant.layout).toBe(id);
+    expect(chooseShell(request({ cookies, userId: "user_1" })).variant.layout).toBe(id);
+    expect(publicPathForShellPath(`/web-${id}-in/layouts`)).toBe("/layouts");
+  });
+
+  it("keeps an opted-in welcome page outside default-layout experiments", () => {
+    const choice = chooseShell(request({ pathname: "/", cookies: {
+      [LAYOUT_PREFERENCE_COOKIE]: "17-obsidian-council",
+      [WALLPAPER_EXPERIMENT]: "winter",
+    } }), "17-obsidian-council");
+    expect(choice.variant).toEqual({ client: "web", layout: "17-obsidian-council", signedIn: false });
+    expect(choice.assigned).toEqual({});
+    expect(parseShellParam(shellParam(choice.variant))).toEqual(choice.variant);
+  });
+
+  it.each(["", "not-a-theme", "1-horizon-watch"])("preserves an explicit layout on public pages when welcome setting is %j", (setting) => {
+    const choice = chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "17-obsidian-council" } }), setting);
+    expect(choice.variant.layout).toBe("17-obsidian-council");
+  });
+
+  it.each(GAME_LAYOUTS.map((layout) => layout.id))("can roll out %s publicly without overriding game preferences", (setting) => {
+    expect(chooseShell(request({}), setting).variant.layout).toBe(setting);
+    expect(chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "default" } }), setting).variant.layout).toBe("default");
+    expect(chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }), setting).variant.layout).toBe("pixel");
+    expect(chooseShell(request({ userId: "player" }), setting).variant.layout).toBe("default");
+    expect(chooseShell(request({ userId: "player", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }), setting).variant.layout).toBe("pixel");
   });
 
   it("gives a signed-in player without a preference the default layout", () => {

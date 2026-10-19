@@ -2901,6 +2901,8 @@ export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti.webp";
 export const IMG_LAYOUT_WELCOME_IMG =
   "https://tnr-storage-cdn.b-cdn.net/welcomeimage_compressed.webp";
+export const IMG_LAYOUT_CLASSIC_PREVIEW =
+  "https://ui0arpl8sm.ufs.sh/f/_03vrgYNKcvpN0czPTPcI.webp";
 export const IMG_PIXEL_HERO_POSTER =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJW2NIKTvszvj71yaSYC0MDOmbko5q9JAGuLHf.jpg";
 // "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJqbkFzRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn.webp";
@@ -3915,3 +3917,10 @@ export const KAGE_CHALLENGER_DAILY_LIMIT = 1;
 export const KAGE_CHALLENGER_WEEKLY_LIMIT = 3;
 export const KAGE_REMOVAL_COOLDOWN_DAYS = 7;
 export const KAGE_MATCH_STATUSES = ["QUEUED", "SCHEDULED", "STARTING", "BATTLE", "COMPLETED", "CANCELLED", "FORFEITED"] as const;
+
+/** Compressed environment paintings for the selectable game layouts. */
+export const IMG_LAYOUT_THEME_ART = {
+  "3-sakura-courtyard": "https://ui0arpl8sm.ufs.sh/f/Y0Q-1HeBSKsPlYBadbMF8.webp",
+  "17-obsidian-council": "https://ui0arpl8sm.ufs.sh/f/Y2FQDnymspxiAsgd1Sz9F.webp",
+  "20-eclipse-observatory": "https://ui0arpl8sm.ufs.sh/f/DChv6QwC43mEy6HAEWuq_.webp",
+} as const;

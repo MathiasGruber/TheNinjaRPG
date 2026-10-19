@@ -22,9 +22,11 @@ import {
 } from "@/drizzle/constants";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
 import { useCookieConsent } from "@/hooks/useCookieConsent";
+import { IllustratedWelcome } from "@/layout/IllustratedWelcome";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import { readCampaignSource, storeCampaignSource } from "@/libs/campaignSource";
+import { getGameLayout } from "@/libs/gameLayouts";
 import { LEGAL_LINKS } from "@/libs/legalLinks";
 import { cn } from "@/libs/shadui";
 import { bunnyImageUrl } from "@/utils/image";
@@ -62,6 +64,17 @@ const Welcome: React.FC = () => {
     return (
       <>
         <PixelWelcome />
+        <Suspense>
+          <SetReferal />
+        </Suspense>
+      </>
+    );
+  }
+
+  if (getGameLayout(activeLayout).welcome === "illustrated") {
+    return (
+      <>
+        <IllustratedWelcome />
         <Suspense>
           <SetReferal />
         </Suspense>

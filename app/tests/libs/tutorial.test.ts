@@ -5,6 +5,8 @@ import { describe, expect, it } from "bun:test";
 import { TUTORIAL_STEPS_COUNT } from "@/drizzle/constants";
 import { WORLD_LANDMARKS } from "@/libs/sector-map/landmarks";
 import {
+  canPositionTutorialHighlight,
+  getTutorialBattleReturnPage,
   getTutorialHighlightedQuestId,
   getTutorialStepPath,
   getTutorialTakeQuestId,
@@ -68,6 +70,39 @@ describe("isTutorialPageMatch", () => {
 
   it("matches hashed tab steps against the base route", () => {
     expect(isTutorialPageMatch("/blackmarket#Ryo", "/blackmarket")).toBe(true);
+  });
+});
+
+describe("getTutorialBattleReturnPage", () => {
+  const steps = [
+    { id: "fight", page: "/combat", onCombatWin: "training", onCombatLoss: "arena" },
+    { id: "training", page: "/village" },
+    { id: "arena", page: "/battlearena" },
+    { id: "puppy", page: "/travel", onCombatWin: "home" },
+    { id: "home", page: "/travel" },
+  ];
+  const active = { tutorialOn: true, tutorialStep: 0, status: "AWAKE" };
+
+  it("returns a first polled win directly to training before its step write settles", () => {
+    expect(getTutorialBattleReturnPage(steps, active, "Won", "/profile")).toBe("/village");
+  });
+
+  it("uses the confirmed lesson when progress has already advanced", () => {
+    expect(getTutorialBattleReturnPage(steps, { ...active, tutorialStep: 1 }, "Won", "/profile")).toBe("/village");
+  });
+
+  it("keeps the puppy victory on travel and a hospitalized player on healing", () => {
+    expect(getTutorialBattleReturnPage(steps, { ...active, tutorialStep: 3 }, "Won", "/profile")).toBe("/travel");
+    expect(getTutorialBattleReturnPage(steps, { ...active, status: "HOSPITALIZED" }, "Lost", "/profile")).toBe("/hospital");
+  });
+
+  it("preserves the chosen destination after the tutorial is disabled or finished", () => {
+    expect(getTutorialBattleReturnPage(steps, { ...active, tutorialOn: false }, "Won", "/profile")).toBe("/profile");
+    expect(getTutorialBattleReturnPage(steps, { ...active, tutorialStep: TUTORIAL_STEPS_COUNT }, "Won", "/profile")).toBe("/profile");
+  });
+
+  it("does not send an unresolved battle return back to combat", () => {
+    expect(getTutorialBattleReturnPage(steps, active, undefined, "/profile")).toBe("/profile");
   });
 });
 
@@ -144,6 +179,20 @@ describe("isUsableHighlightRect", () => {
   it("rejects unusable highlight rects", () => {
     expect(isUsableHighlightRect({ width: 0, height: 20 })).toBe(false);
     expect(isUsableHighlightRect({ width: 40, height: 20 })).toBe(true);
+  });
+});
+
+describe("tutorial highlight placement", () => {
+  it("brings a desktop battlefield back into view after an action below it is selected", () => {
+    expect(canPositionTutorialHighlight(608, 1000, 900)).toBe(true);
+  });
+
+  it("keeps the complete mobile sector map above the assistant when there is room", () => {
+    expect(canPositionTutorialHighlight(500, 844, 635)).toBe(true);
+  });
+
+  it("leaves a map taller than the available area under the player's scroll control", () => {
+    expect(canPositionTutorialHighlight(900, 1000, 800)).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import { type GameLayoutId, toGameLayoutId } from "@/libs/gameLayouts";
 import { LEMU_EXPERIMENT, normalizeLemuVariant } from "@/libs/lemuExperiment";
 import {
   parseWallpaperVariant,
@@ -40,7 +41,7 @@ export const toFontScale = (value?: unknown): FontScaleValue | undefined => {
   return FONT_SCALE_VALUES.find((scale) => scale === parsed);
 };
 
-export type EffectiveLayout = "default" | "pixel";
+export type EffectiveLayout = GameLayoutId;
 
 export interface LayoutExperimentAssignment {
   experiment: string;
@@ -52,7 +53,7 @@ export const cookieValueToLayout = (
 ): EffectiveLayout | undefined => {
   if (value === "pixel" || value === "PIXEL") return "pixel";
   if (value === "default" || value === "DEFAULT") return "default";
-  return undefined;
+  return toGameLayoutId(value);
 };
 
 export const getLayoutExperimentAssignments = (variants: {
