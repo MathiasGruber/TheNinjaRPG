@@ -1,5 +1,6 @@
 "use client";
 
+import { useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -9,11 +10,12 @@ import {
 } from "@/hooks/localstorage";
 import { HuntingBoard } from "@/layout/HuntingBoard";
 import Modal from "@/layout/Modal";
-import { useRequiredUserData } from "@/utils/UserContext";
+import { blockingPopupOpenAtom, useRequiredUserData } from "@/utils/UserContext";
 
 /** Open the personal encounter once per arrival; keep a way to reopen it after dismissal. */
 export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const { data: user } = useRequiredUserData();
+  const isBlockingPopupOpen = useAtomValue(blockingPopupOpenAtom);
   const openButton = useRef<HTMLButtonElement>(null);
   const storageKey = `huntingArrival:${user?.userId}`;
   const [dismissed, setDismissed] = useState<string | null>(() =>
@@ -68,7 +70,11 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
         title="Hunting encounter"
         returnFocusRef={openButton}
         className="sm:max-w-2xl"
-        isOpen={!blocked && dismissed !== `${user.sector}:${session.id}`}
+        isOpen={
+          !blocked &&
+          !isBlockingPopupOpen &&
+          dismissed !== `${user.sector}:${session.id}`
+        }
         setIsOpen={(open) => {
           if (!open) dismiss(session.id);
         }}
