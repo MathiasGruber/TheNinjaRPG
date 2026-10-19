@@ -22,7 +22,7 @@ beforeEach(() => {
   localStorage.setItem(inputPreferenceKey, "true");
   vi.spyOn(tutorial, "useTutorialStep").mockReturnValue({
     currentStep: null,
-    handleNextStep: vi.fn(),
+    handleNextStepAsync: vi.fn(async () => {}),
   } as unknown as ReturnType<typeof tutorial.useTutorialStep>);
 });
 
@@ -70,6 +70,45 @@ const form = (onAccept: Accept, userData = trainee) => (
 );
 
 describe("advanced experience assignment drafts", () => {
+  it("waits for an accepted allocation before advancing the tutorial", async () => {
+    let resolveAssignment: (accepted: boolean) => void = () => {};
+    const assignment = new Promise<boolean>((resolve) => {
+      resolveAssignment = resolve;
+    });
+    const accept = vi.fn(() => assignment);
+    const next = vi.fn(async () => {});
+    vi.spyOn(tutorial, "useTutorialStep").mockReturnValue({
+      currentStep: { title: "Assigning Stats" },
+      handleNextStepAsync: next,
+    } as unknown as ReturnType<typeof tutorial.useTutorialStep>);
+    const view = render(form(accept));
+    fireEvent.input(view.getByRole("spinbutton", { name: /^Offence/ }), {
+      target: { value: String(trainee.earnedExperience) },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Assign points" }));
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+    expect(next).not.toHaveBeenCalled();
+    await act(async () => resolveAssignment(true));
+    await waitFor(() => expect(next).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([false, undefined])("does not advance the tutorial after an unaccepted allocation (%s)", async (accepted) => {
+    const next = vi.fn(async () => {});
+    vi.spyOn(tutorial, "useTutorialStep").mockReturnValue({
+      currentStep: { title: "Assigning Stats" },
+      handleNextStepAsync: next,
+    } as unknown as ReturnType<typeof tutorial.useTutorialStep>);
+    const accept = vi.fn(async () => accepted);
+    const view = render(form(accept));
+    fireEvent.input(view.getByRole("spinbutton", { name: /^Offence/ }), {
+      target: { value: String(trainee.earnedExperience) },
+    });
+    fireEvent.click(view.getByRole("button", { name: "Assign points" }));
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(1));
+    expect(next).not.toHaveBeenCalled();
+    expect((view.getByRole("spinbutton", { name: /^Offence/ }) as HTMLInputElement).value).toBe(String(trainee.earnedExperience));
+  });
+
   it.each([false, true])("explains an over-budget allocation and allows correction with masteries=%s", async (includeMasteries) => {
     const accept = vi.fn();
     const view = render(

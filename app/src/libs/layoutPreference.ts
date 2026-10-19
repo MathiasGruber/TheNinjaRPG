@@ -40,7 +40,7 @@ export const toFontScale = (value?: unknown): FontScaleValue | undefined => {
   return FONT_SCALE_VALUES.find((scale) => scale === parsed);
 };
 
-export type EffectiveLayout = "default" | "pixel";
+export type EffectiveLayout = "default" | "pixel" | "themed";
 
 export interface LayoutExperimentAssignment {
   experiment: string;
@@ -52,6 +52,7 @@ export const cookieValueToLayout = (
 ): EffectiveLayout | undefined => {
   if (value === "pixel" || value === "PIXEL") return "pixel";
   if (value === "default" || value === "DEFAULT") return "default";
+  if (value === "themed") return "themed";
   return undefined;
 };
 

@@ -370,6 +370,11 @@ export const drawQuest = (info: {
         meshCache.set(objective.id, mesh);
       }
       mesh.visible = true;
+      // The pin artwork extends above its tile. Its whole sprite stack must
+      // navigate to the objective, rather than the ground behind the artwork.
+      mesh.userData.type = "questMarker";
+      mesh.userData.longitude = x;
+      mesh.userData.latitude = y;
       mesh.position.set(-hex.center.x, -hex.center.y, 0);
       drawnIds.add(objective.id);
     });

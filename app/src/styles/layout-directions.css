@@ -1,0 +1,221 @@
+@font-face {
+  font-family: "Sora";
+  src: url("/fonts/layouts/sora.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Marcellus";
+  src: url("/fonts/layouts/marcellus.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+html[data-game-layout="17-obsidian-council"] {
+  --theme-heading-font: "Marcellus", serif;
+}
+html[data-game-layout="20-eclipse-observatory"] {
+  --theme-heading-font: "Sora", sans-serif;
+}
+
+.theme-main {
+  position: relative;
+}
+.theme-side-panel > div > p:first-child {
+  margin-bottom: 0.5rem;
+}
+.theme-art {
+  box-shadow: none;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-art {
+  border-radius: 100px 100px 5px 5px;
+  border: 6px solid #fff;
+  outline: 1px solid #d0bfd4;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-art-caption {
+  padding-top: 4rem;
+  background: linear-gradient(transparent, rgb(46 33 55 / 0.8));
+  inset-inline: 0;
+  padding-inline: 1.2rem;
+  bottom: 0;
+  padding-bottom: 1.7rem;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-main {
+  border: 0;
+  background: transparent;
+  padding-top: 0;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-main [data-content-box-inner] {
+  padding: 1.5rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 4px 14px rgb(85 66 101 / 0.07);
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-side-panel {
+  border: 0;
+  border-radius: 0;
+  border-top: 2px solid #b99fc4;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-menu-button {
+  border: 0;
+  border-bottom: 1px solid #dcd0e2;
+  border-radius: 0;
+  background: #fff;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-primary-nav {
+  border-top: 0;
+  border-bottom: 1px solid #b99fc4;
+}
+html[data-game-layout="3-sakura-courtyard"] .theme-main [data-content-box] h1 {
+  font-size: 2.6rem;
+  font-weight: 500;
+}
+html[data-game-layout="17-obsidian-council"] .tnr-theme-game {
+  background: #1e252e;
+}
+html[data-game-layout="17-obsidian-council"] :is(.theme-main, .theme-side-panel) {
+  border: 1px solid #b49a62;
+  border-radius: 0;
+  background: #252e39;
+  box-shadow:
+    inset 0 0 0 4px #1e252e,
+    inset 0 0 0 5px #6d624c;
+}
+html[data-game-layout="17-obsidian-council"] .theme-main {
+  padding: 1.7rem;
+}
+html[data-game-layout="17-obsidian-council"] .theme-main [data-content-box-inner] {
+  border: 1px solid #766b53;
+  border-radius: 0;
+  background: #2f3843;
+}
+html[data-game-layout="17-obsidian-council"] .theme-menu-button {
+  border: 1px solid #8a7955;
+  border-radius: 1px;
+  background: #1f2933;
+  font-family: "Marcellus", serif;
+  font-size: 0.9rem;
+}
+html[data-game-layout="17-obsidian-council"] .theme-primary-nav {
+  border-block: 1px solid #b49a62;
+}
+html[data-game-layout="17-obsidian-council"] .theme-art {
+  border: 1px solid #b49a62;
+  border-radius: 0;
+  outline: 1px solid #b49a62;
+  outline-offset: -7px;
+}
+html[data-game-layout="17-obsidian-council"] .theme-identity {
+  font-weight: 400;
+}
+html[data-game-layout="17-obsidian-council"] .theme-main [data-content-box] h1 {
+  font-weight: 400;
+  font-size: 2.3rem;
+}
+html[data-game-layout="20-eclipse-observatory"] .tnr-theme-game {
+  background-image: radial-gradient(
+    circle at 12px 12px,
+    #b7a3dc35 1px,
+    transparent 1.5px
+  );
+  background-size: 36px 36px;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-art {
+  border: 1px solid #a994d2;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 5px #202039,
+    0 0 0 6px #70618e;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-main {
+  border: 1px solid #8e7db2;
+  border-radius: 28px 3px 28px 3px;
+  background: #252440;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-main [data-content-box-inner] {
+  border: 1px solid #625784;
+  border-radius: 14px 2px 14px 2px;
+  background: #302c4e;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-side-panel {
+  border: 1px solid #8e7db2;
+  border-top: 3px double #c5afe9;
+  border-radius: 30px 30px 3px 3px;
+  background: #252440;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
+  border: 1px solid #8e7db2;
+  border-radius: 999px;
+  background: #302c4e;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
+  border-block: 3px double #8e7db2;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-identity {
+  font-size: 1.9rem;
+}
+
+@media (width >= 1250px) {
+  html[data-game-layout="20-eclipse-observatory"] .theme-frame {
+    grid-template-columns: 220px minmax(0, 1fr) 240px;
+    grid-template-areas: "brand brand brand" "art nav world" "player main world" "footer footer footer";
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art {
+    min-height: 16rem;
+    align-self: center;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
+    min-height: 16rem;
+    align-content: center;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art-caption {
+    inset-inline: 1rem;
+    text-align: center;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art-change {
+    right: 2.5rem;
+    top: 1.6rem;
+  }
+}
+@media (width < 1100px) {
+  html[data-game-layout="3-sakura-courtyard"] .theme-art {
+    border-radius: 60px 4px 60px 4px;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art {
+    width: min(16rem, 100%);
+    min-height: 0;
+    aspect-ratio: 1;
+    margin: 0.7rem auto;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art-caption {
+    inset-inline: 1rem;
+    bottom: 3rem;
+    text-align: center;
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-art-change {
+    right: 2.5rem;
+    top: 1.8rem;
+  }
+}
+html[data-game-layout] :is(button, a).bg-primary:not(.theme-menu-button):hover {
+  background-color: color-mix(in srgb, hsl(var(--primary)), #000 8%);
+}
+html[data-game-layout][data-reading-palette] .tnr-theme-game [data-content-box-inner] {
+  background: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+html[data-game-layout][data-reading-palette]
+  .tnr-theme-game
+  [data-reading-surface]
+  :is([data-reading-heading], h1, h2, h3) {
+  color: hsl(var(--foreground)) !important;
+}
+@media (width < 1100px) {
+  html[data-game-layout][data-reading-line-height] .theme-art-caption {
+    position: relative;
+    inset: auto;
+    padding: 4rem 1.25rem 1.5rem;
+    background: none;
+    overflow-wrap: anywhere;
+  }
+}

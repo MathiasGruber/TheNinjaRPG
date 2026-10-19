@@ -14,7 +14,7 @@ import {
 describe("shell variants", () => {
   it("round-trips every variant through its URL segment", () => {
     for (const client of ["web", "ios", "android"] as const) {
-      for (const layout of ["default", "pixel"] as const) {
+      for (const layout of ["default", "pixel", "themed"] as const) {
         for (const signedIn of [false, true]) {
           const variant = { client, layout, signedIn };
           expect(parseShellParam(shellParam(variant))).toEqual(variant);
@@ -31,10 +31,11 @@ describe("shell variants", () => {
   );
 
   it("builds every variant once", () => {
-    expect(SHELL_PARAMS).toHaveLength(12 + WALLPAPER_VARIANTS.length);
-    expect(new Set(SHELL_PARAMS).size).toBe(12 + WALLPAPER_VARIANTS.length);
+    expect(SHELL_PARAMS).toHaveLength(18 + WALLPAPER_VARIANTS.length);
+    expect(new Set(SHELL_PARAMS).size).toBe(18 + WALLPAPER_VARIANTS.length);
     expect(SHELL_PARAMS).toContain("web-default-out");
     expect(SHELL_PARAMS).toContain("android-pixel-in");
+    expect(SHELL_PARAMS).toContain("ios-themed-in");
   });
 });
 
@@ -132,6 +133,34 @@ describe("chooseShell", () => {
       request({ userId: "user_1", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }),
     );
     expect(signedIn.variant.layout).toBe("pixel");
+  });
+
+  it("serves every collection theme through one cacheable shell family", () => {
+    const cookies = { [LAYOUT_PREFERENCE_COOKIE]: "themed" };
+    expect(chooseShell(request({ cookies }), "").variant.layout).toBe("default");
+    expect(chooseShell(request({ cookies, userId: "user_1" })).variant.layout).toBe("themed");
+    expect(publicPathForShellPath("/web-themed-in/layouts")).toBe("/layouts");
+  });
+
+  it("keeps an opted-in welcome page outside default-layout experiments", () => {
+    const choice = chooseShell(request({ pathname: "/", cookies: {
+      [LAYOUT_PREFERENCE_COOKIE]: "themed",
+      [WALLPAPER_EXPERIMENT]: "winter",
+    } }), "17-obsidian-council");
+    expect(choice.variant).toEqual({ client: "web", layout: "themed", signedIn: false });
+    expect(choice.assigned).toEqual({});
+    expect(parseShellParam(shellParam(choice.variant))).toEqual(choice.variant);
+  });
+
+  it.each(["", "not-a-theme", "1-horizon-watch"])("ignores a game preference on public pages when welcome setting is %j", (setting) => {
+    const choice = chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "themed" } }), setting);
+    expect(choice.variant.layout).toBe("default");
+  });
+
+  it.each(["20-eclipse-observatory", "17-obsidian-council", "3-sakura-courtyard"])("can roll out %s publicly without overriding game preferences", (setting) => {
+    expect(chooseShell(request({}), setting).variant.layout).toBe("themed");
+    expect(chooseShell(request({ userId: "player" }), setting).variant.layout).toBe("default");
+    expect(chooseShell(request({ userId: "player", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }), setting).variant.layout).toBe("pixel");
   });
 
   it("gives a signed-in player without a preference the default layout", () => {

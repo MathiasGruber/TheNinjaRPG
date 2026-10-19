@@ -3,6 +3,7 @@ import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dialogComponents from "@/components/ui/dialog";
+import type { TutorialStepConfig } from "@/hooks/tutorial";
 import TutorialAssistant from "@/layout/TutorialAssistant";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import { type UserPatch, updateUserCache } from "@/utils/userCache";
@@ -18,12 +19,16 @@ function testMocks() {
     disable: ReturnType<typeof vi.fn<() => Promise<{ success: boolean; message: string }>>>;
     updateUser: ReturnType<typeof vi.fn<(patch: UserPatch) => Promise<void>>>;
     rewardHook: ReturnType<typeof vi.fn>;
+    step: TutorialStepConfig;
+    next: ReturnType<typeof vi.fn>;
   } };
   globals.__tutorialAssistantMocks ??= {
     client: new QueryClient(),
     disable: vi.fn(async () => ({ success: true, message: "Saved" })),
     updateUser: vi.fn(async (patch: UserPatch) => { await updateUserCache(testMocks().client, key, patch); }),
     rewardHook: vi.fn(),
+    step: { id: "welcome", title: "Welcome", description: "Welcome", page: "/profile" },
+    next: vi.fn(),
   };
   return globals.__tutorialAssistantMocks;
 }
@@ -43,7 +48,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: 
 vi.mock("@/utils/routing", () => ({ usePublicPathname: () => "/profile" }));
 vi.mock("@/hooks/tutorial", () => {
   const step = { id: "welcome", title: "Welcome", description: "Welcome", page: "/profile" };
-  return { TUTORIAL_STEPS: [step], TUTORIAL_HOSPITALIZED_STEP: step, useTutorialStep: () => ({ currentStep: step, currentStepNumber: 0, isAssistantVisible: true, setIsAssistantVisible: vi.fn(), updateTutorialStep: vi.fn() }) };
+  return { TUTORIAL_STEPS: [step], TUTORIAL_HOSPITALIZED_STEP: step, useTutorialStep: () => ({ currentStep: testMocks().step, currentStepNumber: 0, isAssistantVisible: true, setIsAssistantVisible: vi.fn(), updateTutorialStep: vi.fn(), handleNextStep: testMocks().next }) };
 });
 vi.mock("@/hooks/useAbVariant", () => ({ useAbVariant: () => ({ variant: "A" }) }));
 vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => {
@@ -68,7 +73,40 @@ beforeEach(() => {
   mocks.client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.client.setQueryData(key, profile());
   mocks.disable.mockResolvedValue({ success: true, message: "Saved" });
+  mocks.step = { id: "welcome", title: "Welcome", description: "Welcome", page: "/profile" };
   Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: () => 0 });
+});
+
+describe("TutorialAssistant highlight activation", () => {
+  const highlightedAssistant = () => (
+    <>
+      <div id="lesson-control" ref={(element) => {
+        if (element) element.getBoundingClientRect = () => new DOMRect(20, 120, 160, 48);
+      }} />
+      <TutorialAssistant rightSideBarOpen={false} setRightSideBarOpen={() => {}} rightSideBarRef={{ current: null }} />
+    </>
+  );
+
+  it("advances on the completed click so a press cannot activate the next page", () => {
+    mocks.step = { ...mocks.step, elementIds: ["lesson-control"], proceedOnHighlightClick: true };
+    const view = render(highlightedAssistant());
+    const control = view.getByRole("button", { name: "Continue tutorial" });
+    fireEvent.pointerDown(control);
+    fireEvent.touchStart(control);
+    expect(mocks.next).not.toHaveBeenCalled();
+    fireEvent.click(control);
+    expect(mocks.next).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the next lesson tappable when it highlights the same control", () => {
+    mocks.step = { ...mocks.step, elementIds: ["lesson-control"], proceedOnHighlightClick: true };
+    const view = render(highlightedAssistant());
+    mocks.step = { ...mocks.step, id: "next-lesson", title: "Next lesson" };
+    view.rerender(highlightedAssistant());
+    expect(view.getByRole("region", { name: "Tutorial: Next lesson" })).toBeTruthy();
+    fireEvent.click(view.getByRole("button", { name: "Continue tutorial" }));
+    expect(mocks.next).toHaveBeenCalledTimes(1);
+  });
 });
 afterEach(() => {
   cleanup();

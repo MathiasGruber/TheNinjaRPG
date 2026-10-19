@@ -80,6 +80,7 @@ export default function BlackMarket() {
         title="Black Market"
         subtitle="Special Abilities and Items"
         defaultBackHref="/village"
+        topRightCorntentBreakpoint="sm"
         topRightContent={
           <NavTabs
             id="blackmarket-page"
@@ -515,6 +516,7 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
       subtitle="Trade for reputation points"
       initialBreak={true}
       padding={false}
+      topRightCorntentBreakpoint="sm"
       topRightContent={
         <div className="flex flex-row items-center">
           <NavTabs

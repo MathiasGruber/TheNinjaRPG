@@ -3,6 +3,7 @@ import {
   type EffectiveLayout,
   LAYOUT_PREFERENCE_COOKIE,
 } from "@/libs/layoutPreference";
+import { getWelcomeLayoutTheme } from "@/libs/layoutThemes";
 import {
   isLemuExperimentEnabled,
   LEMU_EXPERIMENT,
@@ -40,6 +41,7 @@ export const SHELL_CLIENTS = ["web", "ios", "android"] as const;
 export const SHELL_LAYOUTS = [
   "default",
   "pixel",
+  "themed",
 ] as const satisfies readonly EffectiveLayout[];
 
 /** The URL segment a variant renders under, e.g. "web-pixel-in". */
@@ -146,23 +148,36 @@ const clientHasSession = (cookies: ReadonlyMap<string, string>) => {
 /**
  * The variant a request is served, and any experiment assignment drawn for it.
  *
- * Signed-out visitors, crawlers included, always get the default layout; the pixel
- * layout is an opt-in for signed-in players, read from their stored preference. A person
+ * Game layout preferences apply only while signed in. Public layouts are controlled
+ * separately by the site's welcome-theme setting, which defaults to the existing shell.
+ * Crawlers always receive the default. A person
  * whose browser string happens to match the crawler pattern is told apart by their
  * session cookies. A signed-out visitor arriving on the landing page without an
  * assignments for the tutorial and wallpaper experiments is given them here so the document and the
  * cookie agree.
  */
-export const chooseShell = (request: ShellRequest): ShellChoice => {
+export const chooseShell = (
+  request: ShellRequest,
+  welcomeTheme: unknown = process.env.NEXT_PUBLIC_WELCOME_LAYOUT_THEME,
+): ShellChoice => {
   const native = parseNativeUserAgent(request.userAgent);
   const client: ShellVariant["client"] = native ? native.platform : "web";
   const hasSession = request.userId !== null || clientHasSession(request.cookies);
   if (!hasSession && request.userAgent && CRAWLER_USER_AGENT.test(request.userAgent)) {
     return { variant: { client, layout: "default", signedIn: false }, assigned: {} };
   }
+  const preference = cookieValueToLayout(request.cookies.get(LAYOUT_PREFERENCE_COOKIE));
+  const layout = hasSession
+    ? (preference ?? "default")
+    : getWelcomeLayoutTheme(welcomeTheme)
+      ? "themed"
+      : "default";
   const assigned: ShellChoice["assigned"] = {};
   const isLandingVisit =
-    !hasSession && request.pathname === "/" && request.isDocument !== false;
+    !hasSession &&
+    layout === "default" &&
+    request.pathname === "/" &&
+    request.isDocument !== false;
   if (
     isLandingVisit &&
     isLemuExperimentEnabled &&
@@ -177,15 +192,14 @@ export const chooseShell = (request: ShellRequest): ShellChoice => {
       WALLPAPER_VARIANTS[Math.floor(Math.random() * WALLPAPER_VARIANTS.length)];
     if (wallpaper) assigned[WALLPAPER_EXPERIMENT] = wallpaper;
   }
-  const layout = hasSession
-    ? (cookieValueToLayout(request.cookies.get(LAYOUT_PREFERENCE_COOKIE)) ?? "default")
-    : "default";
   return {
     variant: {
       client,
       layout,
       signedIn: hasSession,
-      ...(!hasSession && client === "web" && wallpaper ? { wallpaper } : {}),
+      ...(!hasSession && layout === "default" && client === "web" && wallpaper
+        ? { wallpaper }
+        : {}),
     },
     assigned,
   };

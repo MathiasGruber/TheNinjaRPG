@@ -50,6 +50,19 @@ In [Codex local environments](https://developers.openai.com/codex/app/local-envi
 configure `make dev-prepare` as the worktree setup script and `make start` as the Run
 action. Preparation does not start a server or run migrations/seeds.
 
+## Game and welcome layouts
+
+Signed-in players choose Classic, Pixel or the Shinobi collection in Settings → Display.
+The collection contains Eclipse Observatory (`20-eclipse-observatory`), Obsidian Council
+(`17-obsidian-council`) and Sakura Courtyard (`3-sakura-courtyard`). Selection is saved on
+the device; `/layouts` shows the available designs.
+
+The public welcome page keeps its existing design regardless of the player's preference.
+To roll out a collection design publicly, set `NEXT_PUBLIC_WELCOME_LAYOUT_THEME` to one
+of those three identifiers and restart the dev server or rebuild the deployment. Unset
+or unrecognized values preserve the existing welcome page. This setting does not change
+players' game layouts. Search crawlers continue to receive the default public shell.
+
 # :books: Learning Guide
 
 The following videos on youtube are recommended to get a quick introduction to the project and the components of the tech stack:

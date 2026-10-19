@@ -41,6 +41,7 @@ import {
 } from "@/libs/objectives";
 import { cn } from "@/libs/shadui";
 import {
+  canPositionTutorialHighlight,
   isTutorialCaptureStep,
   isTutorialPageMatch,
   isUsableHighlightRect,
@@ -134,6 +135,7 @@ const AssistantPortrait: React.FC<{ characterImage?: string }> = ({
  */
 const AssistantDialog: React.FC<{
   title: string;
+  stepId?: string;
   children: React.ReactNode;
   onOpenDisableModal?: () => void;
   characterImage?: string;
@@ -145,6 +147,7 @@ const AssistantDialog: React.FC<{
   errorMessage?: string;
 }> = ({
   title,
+  stepId,
   children,
   onOpenDisableModal,
   characterImage,
@@ -154,8 +157,10 @@ const AssistantDialog: React.FC<{
   isBusy = false,
   errorMessage,
 }) => (
-  <div
+  <section
     id={TUTORIAL_ASSISTANT_PANEL_ID}
+    data-tutorial-step={stepId}
+    aria-label={`Tutorial: ${title}`}
     className={cn(
       "pointer-events-auto fixed right-4 z-[60] md:right-4",
       // The portrait hangs a long way above the panel, so the dodged position
@@ -237,7 +242,7 @@ const AssistantDialog: React.FC<{
         </div>
       </div>
     </div>
-  </div>
+  </section>
 );
 
 /**
@@ -335,6 +340,8 @@ const CancelTutorialConfirmDialog: React.FC<{
  * @returns
  */
 interface TutorialAssistantProps {
+  /** Viewport width below which the shell moves its game menu into a drawer. */
+  sidebarBreakpoint?: number;
   rightSideBarOpen: boolean;
   setRightSideBarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rightSideBarRef: React.RefObject<HTMLDivElement | null>;
@@ -359,6 +366,7 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
   rightSideBarOpen,
   setRightSideBarOpen,
   rightSideBarRef,
+  sidebarBreakpoint = 768,
 }) => {
   // State
   const { data: userData, userAgent, updateUser } = useUserData();
@@ -448,6 +456,7 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
   };
 
   const [highlight, setHighlight] = useState<{
+    stepId: string;
     isPrimaryElement: boolean;
     top: number;
     left: number;
@@ -465,18 +474,19 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
   // Check if we're on mobile
   const hardwarePlatform = getMobileOperatingSystem(userAgent);
   const [isMobile, setIsMobile] = useState<boolean>(
-    typeof window !== "undefined" ? window.innerWidth < 768 : false,
+    typeof window !== "undefined" ? window.innerWidth < sidebarBreakpoint : false,
   );
 
   // Handle window resize to update isMobile state
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < sidebarBreakpoint);
     };
 
     window.addEventListener("resize", handleResize);
+    handleResize();
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [sidebarBreakpoint]);
 
   // State to track if we should show the special game menu tutorial
   const [showGameMenuTutorial, setShowGameMenuTutorial] = useState<boolean>(false);
@@ -649,9 +659,12 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
       }
       const placement = placementRef.current;
       const before = highlightInfo.element.getBoundingClientRect();
-      const isCompactTarget = before.height < window.innerHeight * 0.55;
-      if (!placement.settled && placement.attempts < 5 && isCompactTarget) {
-        const panel = getAssistantPanelRect();
+      const panel = getAssistantPanelRect();
+      if (
+        !placement.settled &&
+        placement.attempts < 5 &&
+        canPositionTutorialHighlight(before.height, window.innerHeight, panel?.top)
+      ) {
         const preferredCentre = getPreferredHighlightCentre(before.height);
         const centre = before.top + before.height / 2;
         const isOffscreen =
@@ -684,6 +697,7 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
       }
       const rect = highlightInfo.element.getBoundingClientRect();
       const next = {
+        stepId: currentStepConfig.id,
         isPrimaryElement: highlightInfo.isPrimaryElement,
         top: rect.top,
         left: rect.left,
@@ -691,7 +705,10 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
         height: rect.height,
       };
       setHighlight((prev) =>
-        prev && prev.isPrimaryElement === next.isPrimaryElement && isSameBox(prev, next)
+        prev &&
+        prev.stepId === next.stepId &&
+        prev.isPrimaryElement === next.isPrimaryElement &&
+        isSameBox(prev, next)
           ? prev
           : next,
       );
@@ -1178,6 +1195,7 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
           {/* Assistant panel bottom-right - large, game-like dialog */}
           <AssistantDialog
             title="Game Menu"
+            stepId={currentStep?.id}
             isBusy={isDisablingTutorial}
             errorMessage={disableTutorialError}
             onOpenDisableModal={() => {
@@ -1267,74 +1285,53 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
   // Render the tutorial overlay with highlight and assistant panel
   return (
     <>
-      {highlight && !showCancelConfirmDialog && (
-        <div className={cn("fixed inset-0 z-[60]", pointerEvents)}>
-          <div className="absolute inset-0 min-h-[2000px] bg-black/30" />
+      {highlight &&
+        highlight.stepId === currentTutorialStep.id &&
+        !showCancelConfirmDialog && (
+          <div className={cn("fixed inset-0 z-[60]", pointerEvents)}>
+            <div className="absolute inset-0 min-h-[2000px] bg-black/30" />
 
-          <div
-            className={cn(
-              "absolute bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]",
-              pointerEvents,
-            )}
-            style={highlightHoleStyle(highlight)}
-          >
-            <div className="absolute inset-0 z-[1] animate-pulse rounded-md border-[3px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]">
-              <button
-                type="button"
-                className={cn("absolute inset-0 z-[2] cursor-pointer", pointerEvents)}
-                aria-label="Continue tutorial"
-                disabled={isDisablingTutorial}
-                onPointerDown={(e) => {
-                  if (
-                    !isDisablingTutorial &&
-                    currentTutorialStep.proceedOnHighlightClick
-                  ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleNextStep();
-                  }
-                }}
-                onClick={(e) => {
-                  if (currentTutorialStep.proceedOnHighlightClick) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }
-                }}
-                onTouchStart={(e) => {
-                  if (
-                    !isDisablingTutorial &&
-                    currentTutorialStep.proceedOnHighlightClick
-                  ) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleNextStep();
-                  }
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-              />
+            <div
+              className={cn(
+                "absolute bg-transparent shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]",
+                pointerEvents,
+              )}
+              style={highlightHoleStyle(highlight)}
+            >
+              <div className="absolute inset-0 z-[1] animate-pulse rounded-md border-[3px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.7)]">
+                <button
+                  type="button"
+                  className={cn("absolute inset-0 z-[2] cursor-pointer", pointerEvents)}
+                  aria-label="Continue tutorial"
+                  disabled={isDisablingTutorial}
+                  onClick={(e) => {
+                    if (currentTutorialStep.proceedOnHighlightClick) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!isDisablingTutorial) handleNextStep();
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Hand pointer if this step highlights a clickable element */}
-          <Image
-            src={IMG_URL_HANDPOINTER}
-            alt="Tap here"
-            className="absolute h-18 w-18 animate-bounce"
-            width={80}
-            height={80}
-            style={{
-              top: Math.max(0, highlight.top + highlight.height + 12),
-              left: Math.min(
-                window.innerWidth - 40,
-                highlight.left + highlight.width / 2 - 20,
-              ),
-            }}
-          />
-        </div>
-      )}
+            {/* Hand pointer if this step highlights a clickable element */}
+            <Image
+              src={IMG_URL_HANDPOINTER}
+              alt="Tap here"
+              className="absolute h-18 w-18 animate-bounce"
+              width={80}
+              height={80}
+              style={{
+                top: Math.max(0, highlight.top + highlight.height + 12),
+                left: Math.min(
+                  window.innerWidth - 40,
+                  highlight.left + highlight.width / 2 - 20,
+                ),
+              }}
+            />
+          </div>
+        )}
 
       {/* Assistant panel bottom-right - large, game-like dialog */}
       {!currentTutorialStep.hideDialog &&
@@ -1342,6 +1339,7 @@ const PlayerTutorialAssistant: React.FC<TutorialAssistantProps> = ({
         !showCancelConfirmDialog && (
           <AssistantDialog
             title={currentTutorialStep.title}
+            stepId={currentTutorialStep.id}
             isBusy={isDisablingTutorial}
             errorMessage={disableTutorialError}
             onOpenDisableModal={() => {

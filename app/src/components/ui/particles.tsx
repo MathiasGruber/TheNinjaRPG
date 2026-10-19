@@ -124,7 +124,8 @@ const ParticleProvider = () => {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const [lightLayout] = useLocalStorage<boolean>(LIGHT_LAYOUT_STORAGE_KEY, false);
-  const shouldRender = isDesktop && !lightLayout && !reducedMotion;
+  const shouldRender =
+    activeLayout !== "themed" && isDesktop && !lightLayout && !reducedMotion;
   const pauseWhileScrolling = activeLayout === "pixel";
 
   useEffect(() => {

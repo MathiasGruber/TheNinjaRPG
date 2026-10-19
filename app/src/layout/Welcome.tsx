@@ -24,6 +24,7 @@ import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/locals
 import { useCookieConsent } from "@/hooks/useCookieConsent";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
+import { ThemedWelcome } from "@/layout/ThemedWelcome";
 import { readCampaignSource, storeCampaignSource } from "@/libs/campaignSource";
 import { LEGAL_LINKS } from "@/libs/legalLinks";
 import { cn } from "@/libs/shadui";
@@ -62,6 +63,17 @@ const Welcome: React.FC = () => {
     return (
       <>
         <PixelWelcome />
+        <Suspense>
+          <SetReferal />
+        </Suspense>
+      </>
+    );
+  }
+
+  if (activeLayout === "themed") {
+    return (
+      <>
+        <ThemedWelcome />
         <Suspense>
           <SetReferal />
         </Suspense>

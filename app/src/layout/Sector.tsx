@@ -2326,6 +2326,24 @@ const Sector: React.FC<SectorProps> = (props) => {
         intersects
           .filter((i) => isObjectChainVisible(i.object))
           .every((i) => {
+            const questMarker = i.object.parent?.userData;
+            if (questMarker?.type === "questMarker") {
+              const x = questMarker.longitude as number;
+              const y = questMarker.latitude as number;
+              const target = findHex(gridRef.current, { x, y });
+              if (!target || target.blocked) {
+                showMutationToast({
+                  id: "sector-blocked-terrain",
+                  success: false,
+                  message: "That terrain cannot be walked on",
+                });
+                return false;
+              }
+              pendingCrossRef.current = null;
+              pendingWorldTargetRef.current = null;
+              setTarget({ x, y });
+              return false;
+            }
             if (i.object.userData.type === "tile") {
               const target = i.object.userData.tile as TerrainHex;
               const clickedSector = i.object.userData.sector as number;

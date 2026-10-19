@@ -26,6 +26,8 @@ import {
 } from "@/hooks/localstorage";
 import { useAudio } from "@/hooks/useAudio";
 import { useIframeMute } from "@/hooks/useIframeMute";
+import { LayoutThemePicker } from "@/layout/LayoutThemePicker";
+import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import {
   type EffectiveLayout,
@@ -501,15 +503,14 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
   // Track initial lightLayout value to detect changes
   const [initialLightLayout] = useState<boolean>(lightLayout);
   const [lightLayoutChanged, setLightLayoutChanged] = useState(false);
-  // Display controls follow the shell actually rendered: a signed-out visitor's stored
-  // pixel preference is ignored by the shell, so it must not hide the light layout toggle.
+  // Decorative chrome controls follow the rendered shell, including for signed-out visitors.
   const activeLayout = useActiveLayout();
-  const isPixelLayout = activeLayout === "pixel";
+  const isClassicLayout = activeLayout === "default";
 
   // Update tracking when lightLayout changes
   useEffect(() => {
-    setLightLayoutChanged(!isPixelLayout && lightLayout !== initialLightLayout);
-  }, [lightLayout, initialLightLayout, isPixelLayout]);
+    setLightLayoutChanged(isClassicLayout && lightLayout !== initialLightLayout);
+  }, [lightLayout, initialLightLayout, isClassicLayout]);
 
   const handleRefreshPage = () => {
     if (typeof window !== "undefined") {
@@ -579,7 +580,8 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
   };
 
   const handleLayoutChange = (value: string) => {
-    const nextLayout = value === "pixel" ? "pixel" : "default";
+    const nextLayout =
+      value === "pixel" ? "pixel" : value === "themed" ? "themed" : "default";
     if (nextLayout === layoutPreference) return;
     safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify(nextLayout));
     persistLayoutPreferenceCookie(nextLayout);
@@ -692,8 +694,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
 
       <div>
         <p className={headerClass}>Display</p>
-        {/* The pixel layout is an opt-in for signed-in players; the shell ignores the
-            preference for signed-out visitors. */}
+        {/* Game layout preferences apply only to signed-in play. */}
         {userData && (
           <div className="mb-4 space-y-2">
             <div className="flex items-start gap-2">
@@ -705,7 +706,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
             <RadioGroup
               value={layoutPreference}
               onValueChange={handleLayoutChange}
-              className="grid grid-cols-2 gap-2"
+              className="grid gap-2"
             >
               <label
                 htmlFor="layout-default"
@@ -721,10 +722,24 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
                 <RadioGroupItem id="layout-pixel" value="pixel" />
                 Pixel
               </label>
+              <label
+                htmlFor="layout-themed"
+                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
+              >
+                <RadioGroupItem id="layout-themed" value="themed" />
+                Shinobi collection
+              </label>
             </RadioGroup>
+            {layoutPreference === "themed" && <LayoutThemePicker />}
+            <Link
+              href="/layouts"
+              className="inline-flex min-h-11 items-center text-primary text-sm underline"
+            >
+              Explore game layouts
+            </Link>
           </div>
         )}
-        {!isPixelLayout && (
+        {isClassicLayout && (
           <div className="flex items-center justify-between">
             <div>
               <p className={textClass}>Lighter Layout</p>
@@ -742,7 +757,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
           </div>
         )}
         <div
-          className={`flex items-center justify-between ${!isPixelLayout ? "mt-3" : ""}`}
+          className={`flex items-center justify-between ${isClassicLayout ? "mt-3" : ""}`}
         >
           <div>
             <p className={textClass}>Day/night map overlays</p>

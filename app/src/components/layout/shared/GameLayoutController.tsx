@@ -144,7 +144,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   useEffect(() => {
     if (variant === "pixel") {
       document.documentElement.classList.add("dark");
-    } else {
+    } else if (variant === "beta") {
       const savedTheme = safeLocalStorageGetItem("theme");
       if (savedTheme === "dark" || savedTheme === "light") {
         setTheme(savedTheme);
@@ -320,6 +320,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   return (
     <GlobalAudioProvider userData={userData}>
       <TutorialAssistant
+        sidebarBreakpoint={variant === "themed" ? 1100 : 768}
         rightSideBarOpen={rightSideBarOpen}
         setRightSideBarOpen={setRightSideBarOpen}
         rightSideBarRef={rightSideBarRef}

@@ -31,6 +31,7 @@ import {
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
 } from "@/libs/layoutPreference";
+import { getGameLayoutThemeScript, getWelcomeLayoutTheme } from "@/libs/layoutThemes";
 import {
   READING_ATTRIBUTES,
   READING_OPTIONS,
@@ -49,6 +50,9 @@ import { parseShellParam, SHELL_PARAMS } from "@/libs/shell";
 import { UserContextProvider } from "@/utils/UserContext";
 
 import "../../styles/globals.css";
+import "../../styles/layout-themes.css";
+import "../../styles/layout-directions.css";
+import "../../styles/layout-welcome.css";
 import "sonner/dist/styles.css";
 
 /**
@@ -101,6 +105,16 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {initialLayout === "themed" && (
+          <script
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: script assembled only from validated theme identifiers.
+            dangerouslySetInnerHTML={{
+              __html: getGameLayoutThemeScript(
+                initialIsSignedIn ? undefined : getWelcomeLayoutTheme(),
+              ),
+            }}
+          />
+        )}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from three other constants, with no input from anywhere. */}
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}

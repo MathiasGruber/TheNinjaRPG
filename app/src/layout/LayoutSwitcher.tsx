@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import LayoutCore4Beta from "@/components/layout/core4_beta";
 import LayoutCore4Landing from "@/components/layout/core4_landing";
 import LayoutCore4Pixel from "@/components/layout/core4_pixel";
+import { ThemedGameLayout } from "@/components/layout/ThemedGameLayout";
+import { ThemedPublicLayout } from "@/components/layout/ThemedPublicLayout";
 import ParticleProvider from "@/components/ui/particles";
 import { safeLocalStorageGetItem } from "@/hooks/localstorage";
 import {
@@ -14,6 +16,10 @@ import {
   persistLayoutPreferenceCookie,
   storedValueToLayout,
 } from "@/libs/layoutPreference";
+import {
+  GAME_LAYOUT_THEME_ATTRIBUTE,
+  getWelcomeLayoutTheme,
+} from "@/libs/layoutThemes";
 import type { WallpaperVariant } from "@/libs/wallpaperExperiment";
 import { LayoutContextProvider } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
@@ -28,8 +34,8 @@ interface LayoutSwitcherProps {
 
 /**
  * LayoutSwitcher renders the shell for the layout the proxy chose
- * - Signed-out visitors always get the default layout
- * - Signed-in players can opt into the pixel layout from the settings dialog
+ * - Game preferences and the site's public welcome theme are independent
+ * - Players can choose Classic, Pixel or a collection layout from display settings
  */
 const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   children,
@@ -50,22 +56,38 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
     const stored = storedValueToLayout(
       safeLocalStorageGetItem(LAYOUT_PREFERENCE_COOKIE),
     );
-    persistLayoutPreferenceCookie(stored ?? initialLayout);
-  }, [initialLayout]);
+    // A public welcome rollout must not become the visitor's game preference.
+    if (stored || initialIsSignedIn) {
+      persistLayoutPreferenceCookie(stored ?? initialLayout);
+    }
+  }, [initialLayout, initialIsSignedIn]);
 
-  const displayedLayout = initialLayout;
+  const isKnownAnonymous = isClerkLoaded ? !userId : !initialIsSignedIn;
+  // Sign-out can happen before the next document request selects a public shell.
+  const displayedLayout =
+    initialLayout === "themed" && isKnownAnonymous && !getWelcomeLayoutTheme()
+      ? "default"
+      : initialLayout;
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", displayedLayout === "pixel");
+    if (displayedLayout !== "themed") {
+      document.documentElement.removeAttribute(GAME_LAYOUT_THEME_ATTRIBUTE);
+      document.documentElement.classList.toggle("dark", displayedLayout === "pixel");
+    }
     // A change of shell variant mid-session remounts everything under <html>, and React
     // strips what the head script set on it; put the font scale back.
     applyFontScaleCookie();
   }, [displayedLayout]);
 
-  const isKnownAnonymous = isClerkLoaded ? !userId : !initialIsSignedIn;
   const isPixelLanding =
     displayedLayout === "pixel" && pathname === "/" && isKnownAnonymous && !userData;
   const content = isPixelLanding ? (
     <LayoutCore4Landing>{children}</LayoutCore4Landing>
+  ) : displayedLayout === "themed" && isKnownAnonymous ? (
+    <ThemedPublicLayout>{children}</ThemedPublicLayout>
+  ) : displayedLayout === "themed" ? (
+    <ThemedGameLayout initialIsSignedIn={initialIsSignedIn}>
+      {children}
+    </ThemedGameLayout>
   ) : displayedLayout === "pixel" ? (
     <LayoutCore4Pixel initialIsSignedIn={initialIsSignedIn}>
       {children}

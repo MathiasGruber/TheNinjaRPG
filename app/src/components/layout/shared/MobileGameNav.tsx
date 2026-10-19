@@ -27,7 +27,11 @@ const MobileGameNavButton: React.FC<{
 
   const Icon = getMobileNavIcon(optionId);
   return (
-    <Link href={option.href} className="relative -top-2 flex justify-center">
+    <Link
+      href={option.href}
+      aria-label={option.name}
+      className="relative -top-2 flex justify-center"
+    >
       <Icon className={mobileNavbarButtonClassName} />
     </Link>
   );
@@ -53,13 +57,21 @@ export const MobileGameNav: React.FC<MobileGameNavProps> = ({
         </div>
       ))}
       {location ? (
-        <Link href="/village" className="relative -top-8 flex justify-center">
+        <Link
+          href="/village"
+          aria-label="Village"
+          className="relative -top-8 flex justify-center"
+        >
           <div className="rounded-full bg-linear-to-b from-black/5 to-black/50 p-4">
             <House className={cn(yellowButtonClassName)} />
           </div>
         </Link>
       ) : (
-        <Link href="/travel" className="relative -top-8 flex justify-center">
+        <Link
+          href="/travel"
+          aria-label="Travel"
+          className="relative -top-8 flex justify-center"
+        >
           <div className="rounded-full bg-linear-to-b from-black/5 to-black/50 p-4">
             <Compass className={mobileNavbarButtonClassName} />
           </div>

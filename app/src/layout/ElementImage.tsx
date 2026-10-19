@@ -347,9 +347,9 @@ const ElementImage: React.FC<ElementImageProps> = (props) => {
   }
 
   return (
-    <div key={element} className="relative">
+    <div key={element} className="group/element relative">
       {image}
-      <span className="absolute top-1/2 left-1/2 z-50 -translate-x-1/2 -translate-y-1/2 transform whitespace-nowrap rounded-md bg-gray-800 p-2 font-bold text-gray-100 text-sm opacity-0 transition-opacity hover:opacity-100">
+      <span className="absolute top-1/2 left-1/2 z-50 hidden -translate-x-1/2 -translate-y-1/2 transform whitespace-nowrap rounded-md bg-gray-800 p-2 font-bold text-gray-100 text-sm group-hover/element:block">
         {hoverText || element}
       </span>
     </div>

@@ -14,7 +14,7 @@ import {
 import type { UserWithRelations } from "@/routers/profile";
 import { getCurrentSeason } from "@/utils/time";
 
-export type LayoutVariant = "beta" | "pixel";
+export type LayoutVariant = "beta" | "pixel" | "themed";
 
 export const PIXEL_FALLBACK_WALLPAPER = IMG_PIXEL_HERO_POSTER;
 
@@ -41,6 +41,14 @@ export const PIXEL_SIGNED_IN_SHELL_SURFACE =
   "tnr-pixel-clip border border-sky-200/15 bg-black/50 shadow-2xl shadow-black/30 backdrop-blur-sm";
 
 export const layoutVariantClasses = {
+  themed: {
+    yellowButton: "theme-action-icon",
+    mobileNavbarButton: "theme-mobile-nav-button",
+    mainMenuButton: "w-full theme-menu-button",
+    mainMenuDecoration: "none" as const,
+    rightMenuButton: "relative w-full theme-menu-button",
+    rightMenuDecoration: "none" as const,
+  },
   beta: {
     yellowButton: BETA_YELLOW_BUTTON_STYLE,
     mobileNavbarButton: MOBILE_NAVBAR_BUTTON_STYLE,

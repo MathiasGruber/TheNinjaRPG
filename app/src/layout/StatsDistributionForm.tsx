@@ -100,27 +100,28 @@ const DistributeStatsForm: React.FC<StatDistributionProps> = (props) => {
   );
 
   // Tutorial hook
-  const { currentStep, handleNextStep } = useTutorialStep();
+  const { currentStep, handleNextStepAsync } = useTutorialStep();
 
-  // Wrapper function to handle tutorial logic before calling onAccept
-  const handleAcceptWithTutorial = (data: AssignableUserStats) => {
-    if (advanceTutorial && currentStep?.title === "Assigning Stats") {
+  const handleAcceptWithTutorial = async (data: AssignableUserStats) => {
+    const shouldAdvance = advanceTutorial && currentStep?.title === "Assigning Stats";
+    if (shouldAdvance) {
       const formSum = Object.values(data)
         .map((v) => (Number.isFinite(Number(v)) ? Number(v) : 0))
         .reduce((a, b) => a + b, 0);
 
-      if (formSum === availableStats) {
-        handleNextStep();
-        return onAccept(data);
-      } else {
+      if (formSum !== availableStats) {
         showMutationToast({
           success: false,
           message: "You must assign all points to your stats to continue.",
         });
+        return false;
       }
-    } else {
-      return onAccept(data);
     }
+    // The next step reads the newly assigned XP to decide whether a level is
+    // available. Advance only after the caller has accepted and applied it.
+    const accepted = await onAccept(data);
+    if (shouldAdvance && accepted === true) await handleNextStepAsync();
+    return typeof accepted === "boolean" ? accepted : undefined;
   };
 
   // NavTabs component - hide for redistribution
