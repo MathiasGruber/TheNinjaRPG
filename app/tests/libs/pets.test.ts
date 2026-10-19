@@ -70,7 +70,11 @@ describe("companion progression", () => {
   const ready = { rank: 1, experience: 7500, generationStatus: "READY" as const, generationStartedAt: null, artRank: 1, avatar: "/accepted-pet.webp", battleEnabled: true };
 
   it("enforces the exact owner rank hierarchy and accepted current art", () => {
-    expect(["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELITE JONIN", "ELDER", "NONE"].map((rank) => getMaxPetRank(rank as Parameters<typeof getMaxPetRank>[0]))).toEqual([1, 3, 5, 7, 9, 10, 0]);
+    expect(["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELITE JONIN", "ELDER", "NONE"].map((rank) => getMaxPetRank(rank as Parameters<typeof getMaxPetRank>[0]))).toEqual([1, 3, 5, 7, 10, 7, 0]);
+    expect(PET_RANKS.some((entry) => (entry.minUserRank as string) === "ELDER")).toBe(false);
+    expect(PET_RANKS.at(-1)?.minUserRank).toBe("ELITE JONIN");
+    expect(petRankUpBlockMessage({ ...ready, rank: 7, artRank: 7, experience: 637500 }, { rank: "ELDER" })).toContain("ELITE JONIN");
+    expect(petRankUpBlockMessage({ ...ready, rank: 9, artRank: 9, experience: 1620000 }, { rank: "ELITE JONIN" })).toBeNull();
     expect(canUsePet(ready, { rank: "STUDENT" })).toBe(true);
     expect(canUsePet({ ...ready, rank: 2, artRank: 2 }, { rank: "STUDENT" })).toBe(false);
     expect(canUsePet({ ...ready, generationStatus: "GENERATING" }, { rank: "GENIN" })).toBe(true);

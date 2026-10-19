@@ -703,7 +703,7 @@ export const PET_RANKS = [
   { rank: 7, name: "Sentinel", minUserRank: "JONIN", levelCap: 50, experienceRequired: 410000 },
   { rank: 8, name: "Mythic", minUserRank: "ELITE JONIN", levelCap: 60, experienceRequired: 637500 },
   { rank: 9, name: "Sovereign", minUserRank: "ELITE JONIN", levelCap: 80, experienceRequired: 915000 },
-  { rank: 10, name: "Celestial", minUserRank: "ELDER", levelCap: 100, experienceRequired: 1620000 },
+  { rank: 10, name: "Celestial", minUserRank: "ELITE JONIN", levelCap: 100, experienceRequired: 1620000 },
 ] as const satisfies readonly { rank: number; name: string; minUserRank: UserRank; levelCap: number; experienceRequired: number }[];
 
 

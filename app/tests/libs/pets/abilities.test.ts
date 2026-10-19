@@ -16,7 +16,7 @@ const pet = (patch: Partial<PetAbilityLoadout> = {}): PetAbilityLoadout => ({
 });
 const validate = (patch: Partial<PetAbilityLoadout> = {},
   jutsus = [petJutsuFixture()], skills = [petSkillFixture()]) =>
-  validatePetAbilities({ pet: pet(patch), owner: { rank: "ELDER" }, jutsus, skills });
+  validatePetAbilities({ pet: pet(patch), owner: { rank: "ELITE JONIN" }, jutsus, skills });
 
 describe("pet ability eligibility and shared power budget", () => {
   it("grants every rarity slot immediately while retaining the independent rank power budget", () => {
@@ -36,7 +36,7 @@ describe("pet ability eligibility and shared power budget", () => {
     expect(validate({}, [matching])).toBeNull();
     expect(validate({}, [foreign])).toContain("different companion species");
     expect(validate({}, [petJutsuFixture()])).toBeNull();
-    const selected = selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELDER" }, jutsus: [foreign], skills: [ownedPetSkill()] });
+    const selected = selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELITE JONIN" }, jutsus: [foreign], skills: [ownedPetSkill()] });
     expect(selected.jutsus).toEqual([]);
     expect(selected.skills).toHaveLength(1);
   });
@@ -97,11 +97,11 @@ describe("pet ability eligibility and shared power budget", () => {
   it("drops unavailable choices independently at battle initiation", () => {
     const selected = selectPetBattleAbilities({
       pet: pet({ jutsuIds: ["forgotten", "pet-strike"], skillIds: ["pet-muscle"] }),
-      owner: { rank: "ELDER" }, jutsus: [petJutsuFixture()], skills: [ownedPetSkill()],
+      owner: { rank: "ELITE JONIN" }, jutsus: [petJutsuFixture()], skills: [ownedPetSkill()],
     });
     expect(selected.jutsus.map((entry) => entry.id)).toEqual(["pet-strike"]);
     expect(selected.skills.map((entry) => entry.skillId)).toEqual(["pet-muscle"]);
-    expect(selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELDER" },
+    expect(selectPetBattleAbilities({ pet: pet(), owner: { rank: "ELITE JONIN" },
       jutsus: [], skills: [{ ...ownedPetSkill(), activated: false }] }))
       .toEqual({ jutsus: [], skills: [] });
   });
