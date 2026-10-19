@@ -15,6 +15,8 @@ import ActionTimer from "@/layout/ActionTimer";
 import { ActionSelector } from "@/layout/CombatActions";
 import CombatHistory from "@/layout/CombatHistory";
 import CombatTimeline from "@/layout/CombatTimeline";
+import ContentBox from "@/layout/ContentBox";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { PyramidRun } from "@/layout/PyramidRunBoundary";
 import { UserCombatSettings } from "@/layout/UserCombatSettings";
@@ -48,10 +50,11 @@ export default function CombatPage() {
   const setBattleAtom = useSetAtom(userBattleAtom);
   const utils = api.useUtils();
   const { data: userData } = useRequiredUserData();
-  const { data, isLoading } = api.combat.getBattle.useQuery(
-    { battleId: userData?.battleId },
-    { enabled: !!userData?.battleId },
-  );
+  const { data, isLoading, isSuccess, isError, isFetching, refetch } =
+    api.combat.getBattle.useQuery(
+      { battleId: userData?.battleId },
+      { enabled: !!userData?.battleId },
+    );
 
   // Mutation for handing turns to / taking them back from the user's AI profile
   const { mutate: toggleAutoCombat, isPending: isTogglingAutoCombat } =
@@ -66,6 +69,7 @@ export default function CombatPage() {
   const userId = userData?.userId;
   const results = battleState?.result;
   const battle = battleState?.battle;
+  const isBattleMissing = isSuccess && data.battle === null;
   const versionId = battle?.version;
   // The actor the human controls right now: themselves, or their piloted summon
   // on the summon's turn (control is sequential -> exactly one).
@@ -150,13 +154,21 @@ export default function CombatPage() {
     }
   }, [data]);
 
-  // Another party member may settle the floor while this client is reconnecting.
+  // A different client can settle combat while this profile still holds its ID.
+  // Reconcile from the server without clearing held results or a newer battle.
   useEffect(() => {
-    if (battle?.extraState.dungeon && data && !data.battle && !isLoading && !results) {
-      void utils.profile.getUser.invalidate();
-      router.push("/dungeon");
+    if (isBattleMissing) {
+      if (userData?.battleId) void utils.profile.getUser.invalidate();
+      if (battle?.extraState.dungeon && !results) router.push("/dungeon");
     }
-  }, [battle?.extraState.dungeon, data, isLoading, results, router, utils]);
+  }, [
+    isBattleMissing,
+    userData?.battleId,
+    battle?.extraState.dungeon,
+    results,
+    router,
+    utils,
+  ]);
 
   // Collect all possible actions for the controlled actor (self, or piloted
   // summon on its turn) so the action panel shows the summon's jutsu/pools.
@@ -457,6 +469,26 @@ export default function CombatPage() {
 
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (isBetweenPyramidBattles(userData) && !results) return <PyramidRun />;
+  if (!results && (!userData.battleId || isBattleMissing)) {
+    return (
+      <ContentBox title="Combat">
+        <p>You are not in an active battle.</p>
+        <Button asChild className="mt-3">
+          <Link href="/profile">Return to Profile</Link>
+        </Button>
+      </ContentBox>
+    );
+  }
+  if (!battle && isError) {
+    return (
+      <ContentBox title="Combat">
+        <p role="alert">Unable to load this battle. Please try again.</p>
+        <Button className="mt-3" disabled={isFetching} onClick={() => void refetch()}>
+          Retry
+        </Button>
+      </ContentBox>
+    );
+  }
 
   // Determine which components are tabbed vs standalone
   const tabbedIds: CombatLayoutComponentId[] = ["actions", "timeline", "battlelog"];
