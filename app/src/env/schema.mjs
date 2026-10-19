@@ -58,6 +58,8 @@ export const serverSchema = z.object({
   AI_TEST_USER_BROKER_TOKEN: z.string().optional(),
   // Tower Defense HMAC secret for signing session data
   TOWER_DEFENSE_HMAC_SECRET: z.string().optional(),
+  // Tower Defense reward claims are refused unless this is "true"
+  TOWER_DEFENSE_CLAIMS_ENABLED: z.enum(["true", "false"]).optional(),
   // Key for the IP hashes in visitor analytics; changing it breaks every stored join
   IP_HASH_SECRET: z.string().optional(),
   // Apple Push Notification service. APNS_PRIVATE_KEY holds the contents of the .p8
@@ -132,6 +134,9 @@ export const serverEnv = {
   IP_HASH_SECRET: process.env.IP_HASH_SECRET,
   // Tower Defense HMAC secret for signing session data
   TOWER_DEFENSE_HMAC_SECRET: process.env.TOWER_DEFENSE_HMAC_SECRET,
+  TOWER_DEFENSE_CLAIMS_ENABLED: /** @type {"true" | "false" | undefined} */ (
+    process.env.TOWER_DEFENSE_CLAIMS_ENABLED
+  ),
   // Apple Push Notification service
   APNS_KEY_ID: process.env.APNS_KEY_ID,
   APNS_TEAM_ID: process.env.APNS_TEAM_ID,

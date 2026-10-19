@@ -24,6 +24,11 @@ All game logic runs server-side on SpacetimeDB. Clients connect via WebSocket, s
 - `abandon_session` - Quit the current game
 - `game_loop` - Scheduled reducer running at 20 TPS (50ms)
 
+Every reducer that acts on an existing session only accepts calls from the identity that
+created it (`game_session.spacetimedb_identity`). The web client keeps its SpacetimeDB token
+in `localStorage` so that identity survives reloads. Rewards are claimed through tRPC, which
+reads the result from `completed_run` itself and verifies the session signature.
+
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (for building the module)

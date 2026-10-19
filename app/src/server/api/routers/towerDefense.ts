@@ -16,6 +16,7 @@ import {
 import {
   type TowerDefenseCharacterDb,
   towerDefenseCharacter,
+  towerDefenseClaimReceipt,
   towerDefenseRun,
   towerDefenseUpgrade,
   userData,
@@ -42,6 +43,13 @@ import {
   publicProcedure,
   ratelimitMiddleware,
 } from "@/server/api/trpc";
+import { isMysqlDuplicateKeyError } from "@/server/utils/mysqlErrors";
+import {
+  areTowerDefenseClaimsEnabled,
+  fetchSpacetimeCompletedRun,
+  TOWER_DEFENSE_CLAIMS_PAUSED_MESSAGE,
+  towerDefenseClaimKey,
+} from "@/server/utils/towerDefenseClaims";
 import {
   generateSessionNonce,
   type SessionParams,
@@ -56,11 +64,10 @@ import type {
 } from "@/validators/towerDefense";
 import {
   characterAssetConfigSchema,
-  playerBonusesSchema,
+  claimCompletedRunInputSchema,
   purchaseUpgradeInputSchema,
   signedEnemyDefinitionSchema,
   signedUpgradeDefinitionSchema,
-  towerDefenseAbilitySchema,
   updateTowerDefenseUpgradeSchema,
 } from "@/validators/towerDefense";
 import { insertTowerDefenseCharacterSchema } from "@/validators/towerDefenseCharacter";
@@ -377,67 +384,43 @@ export const towerDefenseRouter = createTRPCRouter({
   /**
    * Claim a completed run from SpacetimeDB
    *
-   * This endpoint verifies the run data using HMAC signatures to prevent cheating.
-   *
-   * Security flow:
-   * 1. Client initiated session via initiateSecureSession, receiving a signature
-   * 2. Client passed signature + params to SpacetimeDB's create_session
-   * 3. SpacetimeDB stored the signature and all original params
-   * 4. Game runs, SpacetimeDB calculates final score/wave/points
-   * 5. When game ends, SpacetimeDB creates CompletedRun with all data
-   * 6. Client calls this endpoint with all the data from CompletedRun
-   * 7. Server verifies:
-   *    - Session signature matches the userId + nonce + all original params
-   *    - Points earned matches the formula (score / 100)
-   * 8. Only if valid, points are awarded
+   * The client names the session; everything that is paid out is read server-side:
+   * 1. Claims are refused while `TOWER_DEFENSE_CLAIMS_ENABLED` is not "true".
+   * 2. The session's completed_run row is read from SpacetimeDB, whose game loop
+   *    computed the final score; it must belong to the caller.
+   * 3. The HMAC session signature must match that row's starting parameters, the
+   *    caller's user ID and the supplied definitions, proving the run started from
+   *    `initiateSecureSession`.
+   * 4. A TowerDefenseClaimReceipt keyed on the signed nonce is inserted before points are
+   *    granted; its unique key makes each signed session claimable once, and receipts
+   *    are kept through the monthly leaderboard reset.
    */
   claimCompletedRun: protectedProcedure
     .meta({ mcp: { description: "Claim completed tower defense run" } })
     .use(ratelimitMiddleware)
-    .input(
-      z.object({
-        spacetimeSessionId: z.string(),
-        // Session signature from SpacetimeDB CompletedRun
-        sessionSignature: z.string().min(1, "Session signature required"),
-        nonce: z.string().min(1, "Session nonce required"),
-        // Definitions JSON for signature verification
-        upgradeDefinitionsJson: z.string().min(1, "Upgrade definitions required"),
-        enemyDefinitionsJson: z.string().min(1, "Enemy definitions required"),
-        // All original session params needed to verify the signature
-        abilityDamage: towerDefenseAbilitySchema.shape.damage,
-        abilityRange: towerDefenseAbilitySchema.shape.range,
-        abilityCooldownMs: towerDefenseAbilitySchema.shape.cooldownMs,
-        abilityCritChance: towerDefenseAbilitySchema.shape.critChance,
-        abilityDamagePerTile: towerDefenseAbilitySchema.shape.damagePerTile,
-        playerMaxHealth: z.int().min(1),
-        ...playerBonusesSchema.shape,
-        scorePerKill: z.int().min(1),
-        scoreToPointsRatio: z.int().min(1),
-        initialGridSize: z.int().min(1),
-        maxGridSize: z.int().min(1),
-        gridExpandFreq: z.int().min(1),
-        rangeVisualFactor: z.number().min(0),
-        // Run results
-        finalWave: z.int().min(0),
-        finalScore: z.int().min(0),
-        pointsEarned: z.int().min(0),
-      }),
-    )
+    .input(claimCompletedRunInputSchema)
     .output(
       baseServerResponse.extend({
+        claimsPaused: z.boolean().optional(),
         pointsEarned: z.number().optional(),
         finalScore: z.number().optional(),
         finalWave: z.number().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Parse and validate definitions from JSON using Zod schemas
+      if (!areTowerDefenseClaimsEnabled()) {
+        return {
+          ...errorResponse(TOWER_DEFENSE_CLAIMS_PAUSED_MESSAGE),
+          claimsPaused: true,
+        };
+      }
+
       const upgradeParseResult = z
         .array(signedUpgradeDefinitionSchema)
-        .safeParse(JSON.parse(input.upgradeDefinitionsJson));
+        .safeParse(parseJsonOrUndefined(input.upgradeDefinitionsJson));
       const enemyParseResult = z
         .array(signedEnemyDefinitionSchema)
-        .safeParse(JSON.parse(input.enemyDefinitionsJson));
+        .safeParse(parseJsonOrUndefined(input.enemyDefinitionsJson));
 
       if (!upgradeParseResult.success) {
         return errorResponse("Invalid upgrade definitions JSON.");
@@ -446,101 +429,111 @@ export const towerDefenseRouter = createTRPCRouter({
         return errorResponse("Invalid enemy definitions JSON.");
       }
 
-      const upgradeDefinitions = upgradeParseResult.data;
-      const enemyDefinitions = enemyParseResult.data;
+      let run: Awaited<ReturnType<typeof fetchSpacetimeCompletedRun>>;
+      try {
+        run = await fetchSpacetimeCompletedRun(input.spacetimeSessionId);
+      } catch (error) {
+        console.error("[towerDefense] Failed to read completed run", error);
+        return errorResponse(
+          "Could not verify this run with the game server. Please try again.",
+        );
+      }
 
-      // Verify the session signature matches the claimed parameters + definitions
-      // This proves the game started with server-calculated stats AND authentic definitions
+      if (!run) {
+        return errorResponse("No completed run was found for this session.");
+      }
+      if (run.ninjarpg_user_id !== ctx.userId) {
+        return errorResponse("This run belongs to another player.");
+      }
+
+      // The signature covers the user, nonce, starting parameters and definitions
       const sessionParams: SessionParams = {
         userId: ctx.userId,
-        nonce: input.nonce,
-        abilityDamage: input.abilityDamage,
-        abilityRange: input.abilityRange,
-        abilityCooldownMs: input.abilityCooldownMs,
-        abilityCritChance: input.abilityCritChance,
-        abilityDamagePerTile: input.abilityDamagePerTile,
-        playerMaxHealth: input.playerMaxHealth,
-        healthRegen: input.healthRegen,
-        defensePercent: input.defensePercent,
-        defenseFlat: input.defenseFlat,
-        lifestealPercent: input.lifestealPercent,
-        knockbackChance: input.knockbackChance,
-        knockbackForce: input.knockbackForce,
-        tokensPerWave: input.tokensPerWave,
-        tokensPerKill: input.tokensPerKill,
-        interestPerWave: input.interestPerWave,
-        skipEnemyChance: input.skipEnemyChance,
-        scorePerKill: input.scorePerKill,
-        scoreToPointsRatio: input.scoreToPointsRatio,
-        initialGridSize: input.initialGridSize,
-        maxGridSize: input.maxGridSize,
-        gridExpandFreq: input.gridExpandFreq,
-        rangeVisualFactor: input.rangeVisualFactor,
-        upgradeDefinitions,
-        enemyDefinitions,
+        nonce: run.nonce,
+        abilityDamage: run.ability_damage,
+        abilityRange: run.ability_range,
+        abilityCooldownMs: run.ability_cooldown_ms,
+        abilityCritChance: run.ability_crit_chance,
+        abilityDamagePerTile: run.ability_damage_per_tile,
+        playerMaxHealth: run.player_max_health,
+        healthRegen: run.health_regen,
+        defensePercent: run.defense_percent,
+        defenseFlat: run.defense_flat,
+        lifestealPercent: run.lifesteal_percent,
+        knockbackChance: run.knockback_chance,
+        knockbackForce: run.knockback_force,
+        tokensPerWave: run.tokens_per_wave,
+        tokensPerKill: run.tokens_per_kill,
+        interestPerWave: run.interest_per_wave,
+        skipEnemyChance: run.skip_enemy_chance,
+        scorePerKill: run.score_per_kill,
+        scoreToPointsRatio: run.score_to_points_ratio,
+        initialGridSize: run.initial_grid_size,
+        maxGridSize: run.max_grid_size,
+        gridExpandFreq: run.grid_expand_freq,
+        rangeVisualFactor: run.range_visual_factor,
+        upgradeDefinitions: upgradeParseResult.data,
+        enemyDefinitions: enemyParseResult.data,
       };
 
-      const expectedSignature = signSessionParams(sessionParams);
-
-      // Timing-safe comparison to prevent timing attacks
-      const expectedBuffer = Buffer.from(expectedSignature, "utf8");
-      const inputBuffer = Buffer.from(input.sessionSignature, "utf8");
-
+      const expectedBuffer = Buffer.from(signSessionParams(sessionParams), "utf8");
+      const runBuffer = Buffer.from(run.session_signature, "utf8");
       if (
-        expectedBuffer.length !== inputBuffer.length ||
-        !timingSafeEqual(expectedBuffer, inputBuffer)
+        expectedBuffer.length !== runBuffer.length ||
+        !timingSafeEqual(expectedBuffer, runBuffer)
       ) {
         return errorResponse(
           "Invalid session signature. The session may have started with tampered data.",
         );
       }
 
-      // Verify points calculation is correct (score / ratio)
-      const expectedPoints = Math.floor(input.finalScore / input.scoreToPointsRatio);
-      if (input.pointsEarned !== expectedPoints) {
-        return errorResponse(
-          `Invalid points calculation. Expected ${expectedPoints}, got ${input.pointsEarned}.`,
-        );
+      const finalScore = run.final_score;
+      const finalWave = run.final_wave;
+      const pointsEarned = Math.floor(finalScore / run.score_to_points_ratio);
+      const claimKey = towerDefenseClaimKey(run.nonce);
+
+      // The receipt is the claim: only the insert that wins the unique key pays out
+      try {
+        await ctx.drizzle.insert(towerDefenseClaimReceipt).values({
+          id: nanoid(),
+          claimKey,
+          userId: ctx.userId,
+          spacetimeSessionId: input.spacetimeSessionId,
+          wave: finalWave,
+          score: finalScore,
+          pointsEarned,
+        });
+      } catch (error) {
+        if (isMysqlDuplicateKeyError(error)) {
+          return errorResponse("This run has already been claimed.");
+        }
+        throw error;
       }
 
-      // Check if this run was already claimed (prevent double-claiming)
-      // We use a combination of spacetimeSessionId and nonce to ensure uniqueness
-      // even if SpacetimeDB session IDs are reused (e.g. after a reset).
-      const claimId = `spacetime-${input.spacetimeSessionId}-${input.nonce}`;
-      const existingRun = await ctx.drizzle.query.towerDefenseRun.findFirst({
-        where: eq(towerDefenseRun.seed, claimId),
-      });
-
-      if (existingRun) {
-        return errorResponse("This run has already been claimed.");
-      }
-
-      // Update database in parallel: create run record and award points
       const [updateResult] = await Promise.all([
-        // Award points if any
-        input.pointsEarned > 0
+        pointsEarned > 0
           ? ctx.drizzle
               .update(userData)
               .set({
-                towerDefensePoints: sql`${userData.towerDefensePoints} + ${input.pointsEarned}`,
+                towerDefensePoints: sql`${userData.towerDefensePoints} + ${pointsEarned}`,
               })
               .where(eq(userData.userId, ctx.userId))
-          : Promise.resolve({ rowsAffected: 1 }), // Mock result for 0 points
-        // Create run record in MySQL for leaderboards
+          : Promise.resolve({ rowsAffected: 1 }),
+        // Leaderboard entry; cleared by the monthly reset, unlike the receipt
         ctx.drizzle.insert(towerDefenseRun).values({
           id: nanoid(),
-          seed: claimId,
+          seed: claimKey,
           userId: ctx.userId,
-          wave: input.finalWave,
-          score: input.finalScore,
-          gridSize: input.initialGridSize,
+          wave: finalWave,
+          score: finalScore,
+          gridSize: run.initial_grid_size,
           status: "COMPLETED",
           state: {
             playerHealth: 0,
             playerPosition: { col: 0, row: 0 },
             inRunCurrency: 0,
             activeUpgrades: {},
-            gridSize: input.initialGridSize,
+            gridSize: run.initial_grid_size,
           },
           endedAt: new Date(),
         }),
@@ -553,12 +546,12 @@ export const towerDefenseRouter = createTRPCRouter({
       return {
         success: true,
         message:
-          input.pointsEarned > 0
-            ? `Run completed! Earned ${input.pointsEarned} points.`
+          pointsEarned > 0
+            ? `Run completed! Earned ${pointsEarned} points.`
             : "Run completed!",
-        pointsEarned: input.pointsEarned,
-        finalScore: input.finalScore,
-        finalWave: input.finalWave,
+        pointsEarned,
+        finalScore,
+        finalWave,
       };
     }),
 
@@ -1200,4 +1193,13 @@ function getCharacterAssetConfigs(characters: TowerDefenseCharacterDb[]) {
       assetConfig: def.assetConfig,
       scaleFactor: def.scaleFactor,
     }));
+}
+
+/** Parses JSON, returning undefined for malformed input so schema validation rejects it. */
+function parseJsonOrUndefined(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
 }

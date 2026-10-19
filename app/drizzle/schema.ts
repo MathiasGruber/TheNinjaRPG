@@ -5938,6 +5938,36 @@ export const towerDefenseRunRelations = relations(towerDefenseRun, ({ one }) => 
   }),
 }));
 
+/**
+ * One row per claimed tower-defense session. The unique claim key makes each signed session
+ * claimable once, and the rows outlive the monthly leaderboard reset that clears
+ * TowerDefenseRun.
+ */
+export const towerDefenseClaimReceipt = mysqlTable(
+  "TowerDefenseClaimReceipt",
+  {
+    id: varchar("id", { length: 191 }).primaryKey().notNull(),
+    claimKey: varchar("claimKey", { length: 191 }).notNull(),
+    userId: varchar("userId", { length: 191 }).notNull(),
+    spacetimeSessionId: varchar("spacetimeSessionId", { length: 191 }).notNull(),
+    wave: int("wave").notNull(),
+    score: int("score").notNull(),
+    pointsEarned: int("pointsEarned").notNull(),
+    createdAt: datetime("createdAt", { mode: "date", fsp: 3 })
+      .default(sql`(CURRENT_TIMESTAMP(3))`)
+      .notNull(),
+  },
+  (table) => {
+    return {
+      claimKeyKey: uniqueIndex("TowerDefenseClaimReceipt_claimKey_key").on(
+        table.claimKey,
+      ),
+      userIdIdx: index("TowerDefenseClaimReceipt_userId_idx").on(table.userId),
+    };
+  },
+);
+export type TowerDefenseClaimReceipt = InferSelectModel<typeof towerDefenseClaimReceipt>;
+
 export const towerDefenseCharacter = mysqlTable(
   "TowerDefenseCharacter",
   {

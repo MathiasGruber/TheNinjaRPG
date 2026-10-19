@@ -32,6 +32,7 @@ import {
   registerPlayerAssetConfig,
 } from "@/libs/threejs/towerDefense";
 import { profiler } from "@/libs/threejs/util";
+import { showMutationToast } from "@/libs/toast";
 import { getDefaultPlayerBonuses } from "@/libs/towerDefense/abilities";
 import { calculateHexDistance } from "@/libs/towerDefense/game";
 import type {
@@ -457,9 +458,13 @@ export const useTowerDefense = (userId?: string) => {
         staticSessionRef.current = session;
       }
 
-      // Lobby mode: check for existing sessions
+      // Lobby mode: check for existing sessions. Only the connection identity that
+      // created a session may act on it, so sessions from other browsers are not offered.
       if (currentModeRef.current === "lobby" && sessionIdRef.current === null) {
-        if (isOurUserSession) {
+        if (
+          isOurUserSession &&
+          session.spacetimedbIdentity === connectionRef.current.getIdentity()
+        ) {
           // We don't have the volatile state yet, but we can show that a session exists
           // It will be fully updated when the session_state_update arrives
           setGameState((prev) => ({
@@ -601,7 +606,9 @@ export const useTowerDefense = (userId?: string) => {
         if (
           isActiveSession &&
           userId &&
-          (session?.ninjarpgUserId === userId || isResuming)
+          ((session?.ninjarpgUserId === userId &&
+            session.spacetimedbIdentity === connectionRef.current.getIdentity()) ||
+            isResuming)
         ) {
           if (
             currentExistingSession?.id === sessionIdStr &&
@@ -1356,45 +1363,20 @@ export const useTowerDefense = (userId?: string) => {
 
     if (shouldClaimRun) {
       try {
-        // COST OPTIMIZATION: CompletedRun now stores definitions_hash instead of full JSON
-        // We pass the original definitions from the session for signature verification
+        // The server reads the result from SpacetimeDB; the definitions are not stored in
+        // completed_run, so the ones this session was created with are sent for the
+        // signature check.
         const claimResult = await claimRunMutation.mutateAsync({
           spacetimeSessionId: runId,
-          sessionSignature: completedRun.sessionSignature,
-          nonce: completedRun.nonce,
-          // Get definitions from original session (not from completedRun which has hash)
           upgradeDefinitionsJson: session.upgradeDefinitionsJson,
           enemyDefinitionsJson: session.enemyDefinitionsJson,
-          // Original session params for signature verification
-          abilityDamage: completedRun.abilityDamage,
-          abilityRange: completedRun.abilityRange,
-          abilityCooldownMs: completedRun.abilityCooldownMs,
-          abilityCritChance: completedRun.abilityCritChance,
-          abilityDamagePerTile: completedRun.abilityDamagePerTile,
-          playerMaxHealth: completedRun.playerMaxHealth,
-          healthRegen: completedRun.healthRegen,
-          defensePercent: completedRun.defensePercent,
-          defenseFlat: completedRun.defenseFlat,
-          lifestealPercent: completedRun.lifestealPercent,
-          knockbackChance: completedRun.knockbackChance,
-          knockbackForce: completedRun.knockbackForce,
-          tokensPerWave: completedRun.tokensPerWave,
-          tokensPerKill: completedRun.tokensPerKill,
-          interestPerWave: completedRun.interestPerWave,
-          skipEnemyChance: completedRun.skipEnemyChance,
-          scorePerKill: completedRun.scorePerKill,
-          scoreToPointsRatio: completedRun.scoreToPointsRatio,
-          initialGridSize: completedRun.initialGridSize,
-          maxGridSize: completedRun.maxGridSize,
-          gridExpandFreq: completedRun.gridExpandFreq,
-          rangeVisualFactor: completedRun.rangeVisualFactor,
-          // Run results
-          finalWave: completedRun.finalWave,
-          finalScore: completedRun.finalScore,
-          pointsEarned: completedRun.pointsEarned,
         });
 
-        if (!claimResult.success) {
+        if (claimResult.claimsPaused) {
+          // Retrying cannot succeed while claims are paused, so the player is told and
+          // returned to the lobby instead of being held on the result screen.
+          showMutationToast({ success: false, message: claimResult.message });
+        } else if (!claimResult.success) {
           throw new Error(claimResult.message);
         }
       } catch (error) {
@@ -1410,7 +1392,7 @@ export const useTowerDefense = (userId?: string) => {
         return;
       }
 
-      // The server has authoritatively recorded the claim. SpacetimeDB cleanup is
+      // The claim was recorded (or claims are paused). SpacetimeDB cleanup is
       // best-effort from here: failing it must never invite a duplicate claim.
       if (sessionIdRef.current) {
         try {
