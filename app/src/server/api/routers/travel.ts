@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  lte,
   or,
   sql,
 } from "drizzle-orm";
@@ -221,27 +222,45 @@ export const travelRouter = createTRPCRouter({
           await breakStealth(ctx.drizzle, ctx.userId, user.stealth, false);
         }
 
-        // Update robber first — if this fails, we bail out before touching anyone else
-        const robberUpdate = await ctx.drizzle
+        // Debit the victim first, re-checking at write time every target condition that a
+        // concurrent request could have changed since the read: immunity, balance, status and
+        // position. Nothing is credited unless this guarded statement wins.
+        const now = new Date();
+        const targetUpdate = await ctx.drizzle
           .update(userData)
           .set({
-            money: sql`${userData.money} + ${stolenAmount}`,
-            villagePrestige: sql`${userData.villagePrestige} + ${prestigeGain}`,
+            money: sql`${userData.money} - ${stolenAmount}`,
+            robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
           })
-          .where(eq(userData.userId, ctx.userId));
-        if (robberUpdate.rowsAffected === 0) {
-          return errorResponse("Failed to update robber's data");
+          .where(
+            and(
+              eq(userData.userId, target.userId),
+              gte(userData.money, stolenAmount),
+              or(
+                isNull(userData.robImmunityUntil),
+                lte(userData.robImmunityUntil, now),
+              ),
+              or(isNull(userData.immunityUntil), lte(userData.immunityUntil, now)),
+              eq(userData.status, "AWAKE"),
+              eq(userData.isBanned, false),
+              eq(userData.sector, input.sector),
+              eq(userData.longitude, input.longitude),
+              eq(userData.latitude, input.latitude),
+            ),
+          );
+        if (targetUpdate.rowsAffected === 0) {
+          return errorResponse("Target can no longer be robbed");
         }
 
-        // Robber update succeeded — now update target and clan in parallel
-        const [targetUpdate] = await Promise.all([
+        // Victim debit succeeded — now credit the robber and clan in parallel
+        const [robberUpdate] = await Promise.all([
           ctx.drizzle
             .update(userData)
             .set({
-              money: sql`${userData.money} - ${stolenAmount}`,
-              robImmunityUntil: secondsFromNow(ROBBING_IMMUNITY_DURATION),
+              money: sql`${userData.money} + ${stolenAmount}`,
+              villagePrestige: sql`${userData.villagePrestige} + ${prestigeGain}`,
             })
-            .where(eq(userData.userId, input.userId)),
+            .where(eq(userData.userId, ctx.userId)),
           ...(user.clanId
             ? [
                 ctx.drizzle
@@ -255,16 +274,13 @@ export const travelRouter = createTRPCRouter({
             : []),
         ]);
 
-        if (targetUpdate && targetUpdate.rowsAffected === 0) {
-          // Rollback robber update since target deduction failed
+        if (robberUpdate.rowsAffected === 0) {
+          // Return the stolen ryo since the robber could not be credited
           await ctx.drizzle
             .update(userData)
-            .set({
-              money: sql`${userData.money} - ${stolenAmount}`,
-              villagePrestige: sql`${userData.villagePrestige} - ${prestigeGain}`,
-            })
-            .where(eq(userData.userId, ctx.userId));
-          return errorResponse("Failed to update target's data");
+            .set({ money: sql`${userData.money} + ${stolenAmount}` })
+            .where(eq(userData.userId, target.userId));
+          return errorResponse("Failed to update robber's data");
         }
 
         // Log the action
