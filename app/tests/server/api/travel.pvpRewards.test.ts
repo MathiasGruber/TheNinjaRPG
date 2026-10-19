@@ -11,6 +11,7 @@ import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, re
 const ROBBER = "pvp-robber";
 const VICTIM = "pvp-victim";
 const location = { sector: MAP_WAR_TORN_BATTLEGROUND_SECTOR, longitude: 10, latitude: 10 };
+const readVictim = async () => (await getTestDatabase()).query.userData.findFirst({ where: eq(userData.userId, VICTIM) });
 const readRobber = async () => (await getTestDatabase()).query.userData.findFirst({ where: eq(userData.userId, ROBBER) });
 
 const stubRateLimitTransport = () => {
@@ -54,14 +55,41 @@ describeWithDatabase("robbery generated prestige PvP boost", () => {
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, VICTIM) })).toMatchObject({ money: 700 });
   });
 
-  it("rolls back the entire boosted prestige award when the target deduction fails", async () => {
+  it("credits nothing when the target deduction fails", async () => {
     const db = await getTestDatabase();
-    const client = beforeStatements(db, userData, [async () => {}, async () => {
+    const client = beforeStatements(db, userData, [async () => {
       await db.delete(userData).where(eq(userData.userId, VICTIM));
     }]);
     const result = await callerForDatabase(travelRouter, ROBBER, client).robPlayer({ userId: VICTIM, ...location });
     expect(result.success).toBe(false);
     expect(await readRobber()).toMatchObject({ money: 500, villagePrestige: 0 });
     expect(await db.query.actionLog.findMany()).toHaveLength(0);
+  });
+
+  it.each([
+    { change: "gains robbery immunity", set: { robImmunityUntil: new Date(Date.now() + 3_600_000) } },
+    { change: "gains general immunity", set: { immunityUntil: new Date(Date.now() + 3_600_000) } },
+    { change: "spends their ryo", set: { money: 100 } },
+    { change: "leaves the tile", set: { longitude: 11 } },
+  ])("credits nothing when the target $change after the read", async ({ set }) => {
+    const db = await getTestDatabase();
+    const client = beforeStatements(db, userData, [async () => {
+      await db.update(userData).set(set).where(eq(userData.userId, VICTIM));
+    }]);
+    const result = await callerForDatabase(travelRouter, ROBBER, client).robPlayer({ userId: VICTIM, ...location });
+    expect(result.success).toBe(false);
+    expect(await readRobber()).toMatchObject({ money: 500, villagePrestige: 0 });
+    expect(await readVictim()).toMatchObject({ money: set.money ?? 1000 });
+    expect(await db.query.actionLog.findMany()).toHaveLength(0);
+  });
+
+  it("robs the target once when concurrent robberies race", async () => {
+    const caller = await callerFor(travelRouter, ROBBER);
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => caller.robPlayer({ userId: VICTIM, ...location })),
+    );
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(await readRobber()).toMatchObject({ money: 800 });
+    expect(await readVictim()).toMatchObject({ money: 700 });
   });
 });

@@ -17,6 +17,7 @@ import {
   protectedProcedure,
   serverError,
 } from "@/server/api/trpc";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { setFederalStatusWithStoreFloor } from "@/server/utils/purchases/grant";
 import {
   calcFedUgradeCost,
@@ -285,15 +286,9 @@ export const paypalRouter = createTRPCRouter({
       if (!cost || cost < 0) return errorResponse("Negative cost?");
       if (buyer.reputationPoints < cost) return errorResponse(`Insufficient funds`);
       if (target.federalStatus !== "NONE") return errorResponse(`Already subscribed`);
-      // Mutate
-      await Promise.all([
-        ctx.drizzle
-          .update(userData)
-          .set({ federalStatus: input.status })
-          .where(
-            and(eq(userData.userId, target.userId), eq(userData.federalStatus, "NONE")),
-          ),
-        ctx.drizzle
+      // Mutate: the debit, the entitlement and the receipt commit together or not at all
+      const outcome = await commitRepsSubscription(ctx.drizzle, async (tx) => {
+        const debit = await tx
           .update(userData)
           .set({ reputationPoints: sql`${userData.reputationPoints} - ${cost}` })
           .where(
@@ -301,16 +296,27 @@ export const paypalRouter = createTRPCRouter({
               eq(userData.userId, buyer.userId),
               gte(userData.reputationPoints, cost),
             ),
-          ),
-        ctx.drizzle.insert(paypalSubscription).values({
+          );
+        if (debit.rowsAffected !== 1) return "Insufficient funds";
+        const granted = await tx
+          .update(userData)
+          .set({ federalStatus: input.status })
+          .where(
+            and(eq(userData.userId, target.userId), eq(userData.federalStatus, "NONE")),
+          );
+        if (granted.rowsAffected !== 1)
+          throw new RepsSubscriptionAbort("Already subscribed");
+        await tx.insert(paypalSubscription).values({
           id: nanoid(),
           createdById: ctx.userId,
           affectedUserId: input.userId,
           federalStatus: input.status,
           subscriptionId: nanoid(),
           status: "ACTIVE",
-        }),
-      ]);
+        });
+        return true;
+      });
+      if (outcome !== true) return errorResponse(outcome);
       return { success: true, message: "OK" };
     }),
   // Upgrade a subscription for a user. Can only be done by the user who created the subscription
@@ -353,21 +359,39 @@ export const paypalRouter = createTRPCRouter({
       if (upgrader.reputationPoints < cost) {
         return errorResponse(`Not enough reputation points`);
       }
-      // Update the database
-      await Promise.all([
-        ctx.drizzle
+      // Update the database: the debit is guarded on balance and on the tier the price was
+      // computed from, and the subscription row only moves together with it
+      const outcome = await commitRepsSubscription(ctx.drizzle, async (tx) => {
+        const debit = await tx
           .update(userData)
           .set({
             federalStatus: input.plan,
             reputationPointsTotal: sql`${userData.reputationPointsTotal} - ${cost}`,
             reputationPoints: sql`${userData.reputationPoints} - ${cost}`,
           })
-          .where(eq(userData.userId, upgrader.userId)),
-        ctx.drizzle
+          .where(
+            and(
+              eq(userData.userId, upgrader.userId),
+              eq(userData.federalStatus, subscription.federalStatus),
+              gte(userData.reputationPoints, cost),
+            ),
+          );
+        if (debit.rowsAffected !== 1) return "Not enough reputation points";
+        const moved = await tx
           .update(paypalSubscription)
           .set({ federalStatus: input.plan, updatedAt: new Date() })
-          .where(eq(paypalSubscription.subscriptionId, subscription.subscriptionId)),
-      ]);
+          .where(
+            and(
+              eq(paypalSubscription.subscriptionId, subscription.subscriptionId),
+              eq(paypalSubscription.federalStatus, subscription.federalStatus),
+            ),
+          );
+        if (moved.rowsAffected === 0) {
+          throw new RepsSubscriptionAbort("Subscription changed, please try again");
+        }
+        return true;
+      });
+      if (outcome !== true) return errorResponse(outcome);
       return { success: true, message: "OK" };
     }),
   // Cancel paypal subscription
@@ -753,4 +777,26 @@ export const getPaypalOrder = async (input: { orderId: string; token: string }) 
       return data;
     });
   return order;
+};
+
+/** Rolls back a reputation-funded subscription transaction with a user-facing message. */
+class RepsSubscriptionAbort extends Error {}
+
+type RepsSubscriptionTx = Parameters<Parameters<DrizzleClient["transaction"]>[0]>[0];
+
+/**
+ * Runs the paired writes of a reputation-funded subscription change in one short transaction.
+ * The callback returns `true` on success or a message when its first guarded write matched
+ * nothing; throwing `RepsSubscriptionAbort` after a write rolls the earlier writes back.
+ */
+const commitRepsSubscription = async (
+  client: DrizzleClient,
+  work: (tx: RepsSubscriptionTx) => Promise<true | string>,
+): Promise<true | string> => {
+  try {
+    return await retryOnDeadlock(() => client.transaction(work));
+  } catch (error) {
+    if (error instanceof RepsSubscriptionAbort) return error.message;
+    throw error;
+  }
 };

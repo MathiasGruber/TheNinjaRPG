@@ -2720,25 +2720,40 @@ export const profileRouter = createTRPCRouter({
         "1234567890abcdefghijklmnopqrstuvwxyzABCDEF",
         8,
       );
-      const result = await ctx.drizzle
-        .update(userVote)
-        .set({
-          claimed: true,
-          totalClaims: sql`${userVote.totalClaims} + 1`,
-          secret: smallNanoid(),
-        })
-        .where(eq(userVote.userId, ctx.userId));
-      if (result.rowsAffected === 0) {
-        return errorResponse("Failed to update user vote record");
+      // Only the request that flips `claimed` from false is credited, and the credit commits
+      // together with that claim
+      const claimed = await retryOnDeadlock(() =>
+        ctx.drizzle.transaction(async (tx) => {
+          const claim = await tx
+            .update(userVote)
+            .set({
+              claimed: true,
+              totalClaims: sql`${userVote.totalClaims} + 1`,
+              secret: smallNanoid(),
+            })
+            .where(
+              and(
+                eq(userVote.userId, ctx.userId),
+                eq(userVote.claimed, false),
+                ...ACTIVE_VOTING_SITES.map((site) => eq(userVote[site], true)),
+              ),
+            );
+          if (claim.rowsAffected !== 1) return false;
+          const credit = await tx
+            .update(userData)
+            .set({
+              reputationPoints: sql`${userData.reputationPoints} + 1`,
+              reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
+            })
+            .where(eq(userData.userId, ctx.userId));
+          if (credit.rowsAffected !== 1)
+            throw new Error("Vote reward recipient not found");
+          return true;
+        }),
+      );
+      if (!claimed) {
+        return errorResponse("Votes already claimed");
       }
-      await ctx.drizzle
-        .update(userData)
-        .set({
-          reputationPoints: sql`${userData.reputationPoints} + 1`,
-          reputationPointsTotal: sql`${userData.reputationPointsTotal} + 1`,
-        })
-        .where(eq(userData.userId, ctx.userId));
-
       return {
         success: true,
         message: "Successfully claimed reputation points for voting",
