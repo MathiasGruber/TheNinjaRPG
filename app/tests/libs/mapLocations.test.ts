@@ -1,7 +1,12 @@
 import { describe, expect, it } from "bun:test";
+import { QueryClient } from "@tanstack/react-query";
+import { Group, Texture } from "three";
 import { getQuestMapLocations, groupMapLocations, publicQuestLocations } from "@/libs/mapLocations";
 import { getNewTrackers, getPublicQuestUser, verifyQuestContentForSave } from "@/libs/quest";
+import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
+import { drawQuest } from "@/libs/threejs/sector";
 import type { UserWithRelations } from "@/routers/profile";
+import { updateUserCache } from "@/utils/userCache";
 import { DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
 
 const move = MoveToObjective.parse({
@@ -57,12 +62,12 @@ describe("personal structure lifecycle", () => {
     expect(getQuestMapLocations(actor, [])[0]?.longitude).toBe(8);
     expect(actor).toEqual(original);
   });
-  it("shows an explicitly located starting dialog through tracker initialization and public projection", () => {
+  it("keeps an explicitly located starting dialog through tracker initialization, rendering and movement", async () => {
     const definition = QuestValidator.parse({
       name: "Tower quest", description: "Visit the tower", successDescription: "Done", questType: "mission",
       hidden: false, publicLocations: false, consecutiveObjectives: true, startsAt: null, endsAt: null, tierLevel: null,
       content: {
-        objectives: [DialogObjective.parse({ ...move, task: "dialog", nextObjectiveId: dialog.nextObjectiveId }), { id: "end", task: "win_quest" }],
+        objectives: [DialogObjective.parse({ ...move, id: "STARTING", task: "dialog", nextObjectiveId: dialog.nextObjectiveId }), { id: "end", task: "win_quest" }],
         reward: {}, sceneCharacters: ["guide"],
       },
     });
@@ -76,29 +81,29 @@ describe("personal structure lifecycle", () => {
     });
     actor.questData = getNewTrackers(actor, [{ task: "any" }]).trackers;
     expect(actor.questData[0]?.goals[0]).not.toHaveProperty("sector");
-    expect(getQuestMapLocations(getPublicQuestUser(actor), [])).toMatchObject([
-      { assetId: "tower", objectiveId: "arrival", sector: 724, longitude: 4, latitude: 5, active: true },
+    expect(await renderThenMove(getPublicQuestUser(actor))).toMatchObject([
+      { assetId: "tower", objectiveId: "STARTING", sector: 724, longitude: 4, latitude: 5, active: true },
     ]);
   });
-  it("keeps resolved random tracker coordinates authoritative, including tile zero", () => {
+  it("keeps resolved random tracker coordinates authoritative, including tile zero", async () => {
     const actor = structuredClone(user([{ ...arrival, sector: 725, longitude: 0, latitude: 0 }]));
     Object.assign(actor.userQuests[0]!.quest.content.objectives[0]!, { sectorType: "random", locationType: "random" });
-    expect(getQuestMapLocations(actor, [])[0]).toMatchObject({ sector: 725, longitude: 0, latitude: 0 });
+    expect((await renderThenMove(actor))[0]).toMatchObject({ sector: 725, longitude: 0, latitude: 0 });
   });
-  it("keeps concealed targets hidden outside their sector after public projection", () => {
+  it("keeps concealed targets hidden outside their sector after public projection", async () => {
     for (const sector of [724, 725]) {
       const actor = structuredClone(user([arrival], { sector, role: "USER" }));
       Object.assign(actor.userQuests[0]!.quest.content.objectives[0]!, { hideLocation: true });
       const projected = getPublicQuestUser(actor);
-      expect(getQuestMapLocations(projected, [])).toHaveLength(sector === 724 ? 1 : 0);
+      expect(await renderThenMove(projected)).toHaveLength(sector === 724 ? 1 : 0);
       if (sector === 725) expect(projected.questData![0]!.goals[0]).not.toHaveProperty("sector");
     }
   });
-  it("retains the building when arrival advances to a dialog at the same location", () => {
-    const result = getQuestMapLocations(user([
+  it("retains the building when arrival advances to a dialog at the same location", async () => {
+    const result = await renderThenMove(user([
       { ...arrival, done: true, selectedNextObjectiveId: "dialog" },
       { ...arrival, id: "dialog" },
-    ]), []);
+    ]));
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ assetId: "tower", objectiveId: "dialog", active: true });
   });
@@ -131,3 +136,37 @@ describe("personal structure lifecycle", () => {
     });
   });
 });
+
+const renderThenMove = async (actor: NonNullable<UserWithRelations>) => {
+  const original = structuredClone(actor);
+  const locations = getQuestMapLocations(actor, []);
+  const group = new Group();
+  const grid = { getHex: () => ({ x: 0, y: 0, width: 20, height: 20 }) } as never;
+  const assets = [{ id: "tower", imageUrl: "tower.png", renderScale: 2.4 }];
+  const textureForPath = () => new Texture();
+  syncMapLocationSprites(group, grid, locations, assets, textureForPath);
+  const sprites = [...group.children];
+  const group_quest = new Group();
+  for (let frame = 0; frame < 3; frame++) {
+    drawQuest({ group_quest, grid, user: actor, structureObjectiveIds: new Set(locations.map((location) => location.objectiveId)) });
+  }
+  const client = new QueryClient();
+  const key = [["profile", "getUser"], { type: "query" }];
+  client.setQueryData(key, { userData: actor });
+  try {
+    // Sector's runJourneySegment applies this patch after ordinary same-sector walking.
+    await updateUserCache(client, key, { location: "Tower trail", updatedAt: new Date(), longitude: 1, latitude: 1 });
+    const moved = client.getQueryData<{ userData: typeof actor }>(key)!.userData;
+    const refreshed = getQuestMapLocations(moved, []);
+    syncMapLocationSprites(group, grid, refreshed, assets, textureForPath);
+    expect(moved).not.toBe(actor);
+    expect(moved.userQuests).toBe(actor.userQuests);
+    expect(refreshed).toEqual(locations);
+    expect(group.children).toEqual(sprites);
+    expect(group.children).toHaveLength(locations.length * 2);
+    expect(actor).toEqual(original);
+    return refreshed;
+  } finally {
+    client.clear();
+  }
+};

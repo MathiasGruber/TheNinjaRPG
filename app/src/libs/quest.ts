@@ -230,7 +230,7 @@ export const hasActiveHiddenQuestObjectives = (
 };
 
 /**
- * Get active objectives for a user
+ * Project active targets without changing the authored or public quest definitions.
  */
 export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
   const activeQuests = user.userQuests.map((uq) => uq.quest);
@@ -243,16 +243,11 @@ export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
       }
       const goal = tracker?.goals.find((g) => g.id === objective.id);
       if (goal && goal.done === false) {
-        if (goal.sector !== objective.sector) {
-          objective.sector = goal.sector;
-        }
-        if (goal.longitude !== objective.longitude) {
-          objective.longitude = goal.longitude;
-        }
-        if (goal.latitude !== objective.latitude) {
-          objective.latitude = goal.latitude;
-        }
-        activeObjectives.push(objective);
+        const resolved = { ...objective };
+        resolved.sector = goal.sector ?? objective.sector;
+        resolved.longitude = goal.longitude ?? objective.longitude;
+        resolved.latitude = goal.latitude ?? objective.latitude;
+        activeObjectives.push(resolved);
       }
     });
   });
