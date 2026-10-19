@@ -77,6 +77,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { applyObjectiveWarAction, fetchWarRules } from "@/server/utils/objectiveWar";
+import { notifyWarVillages } from "@/server/utils/push/war";
 import {
   extendWarParticipantSql,
   handleWarEnd,
@@ -912,8 +913,9 @@ export const warRouter = createTRPCRouter({
         );
       }
 
+      const warId = nanoid();
       const started = await startSectorWar(ctx.drizzle, {
-        id: nanoid(),
+        id: warId,
         attackerVillageId: user.villageId,
         defenderVillageId,
         initiatedByUserId: user.userId,
@@ -939,6 +941,7 @@ export const warRouter = createTRPCRouter({
             ),
           ),
       ]);
+      notifyWarVillages(ctx.drizzle, [user.villageId, defenderVillageId], warId);
       return {
         success: true,
         message: "Sector war declared successfully",

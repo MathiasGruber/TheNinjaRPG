@@ -77,6 +77,7 @@ import type { FetchActiveWarsReturnType } from "@/server/api/routers/war";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchWarRules, settleObjectiveWarSchedule } from "@/server/utils/objectiveWar";
+import { notifyWarVillages } from "@/server/utils/push/war";
 import { logError } from "@/server/utils/sentry";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { DAY_S, secondsFromDate } from "@/utils/time";
@@ -373,6 +374,7 @@ export const handleWarEnd = async (
     );
     if (claimed.rowsAffected > 0) {
       current = { ...current, status, endedAt, settlement, settlementPending: true };
+      notifyWarVillages(client, settlement.villageIds, current.id);
       const saved = await fetchSettlementWar(client, current.id).catch((error) => {
         logError(error, "Failed to load war settlement receipt", { warId: current.id });
       });
@@ -715,6 +717,7 @@ export const startDeclaredWar = async (
   const configuredRules =
     declaration.warType === "VILLAGE_WAR" ? await fetchWarRules(client) : null;
   const rules = configuredRules?.enabled ? configuredRules : null;
+  const warId = nanoid();
   const started = await retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       // Lock settlements before any consistent read so a waiting declaration sees the preceding commit. Sorted locks avoid inversion.
@@ -822,7 +825,7 @@ export const startDeclaredWar = async (
       if (tokenResult.rowsAffected === 0) return false;
 
       await tx.insert(war).values({
-        id: nanoid(),
+        id: warId,
         attackerVillageId: declaration.attackerVillageId,
         defenderVillageId: declaration.defenderVillageId,
         status: "ACTIVE",
@@ -863,6 +866,12 @@ export const startDeclaredWar = async (
     }),
   );
   if (!started) return false;
+
+  notifyWarVillages(
+    client,
+    [declaration.attackerVillageId, declaration.defenderVillageId],
+    warId,
+  );
 
   const warContent = `${declaration.attackerVillageName} has declared ${declaration.warType === "WAR_RAID" ? "a raid" : "war"} on ${declaration.defenderVillageName}!`;
   const notifyKageIds = [declaration.initiatedByUserId];

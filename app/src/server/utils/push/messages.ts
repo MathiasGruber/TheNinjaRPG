@@ -98,6 +98,30 @@ export const membershipUpdate = (group: "clan" | "anbu"): PushMessage => ({
   collapseId: `${group}-requests`,
 });
 
+export const warUpdate = (warId: string): PushMessage => ({
+  title: "War status changed",
+  body: "Open your village to view the latest war or raid status.",
+  category: "war",
+  url: "/townhall",
+  collapseId: `war-${warId}`,
+});
+
+export const raidBattleStarted = (battleId: string): PushMessage => ({
+  title: "Your raid team has started a battle",
+  body: "Open the game to join your team's battle.",
+  category: "war",
+  url: "/combat",
+  collapseId: `raid-${battleId}`,
+});
+
+export const tradeUpdate = (id: string): PushMessage => ({
+  title: "Auction house update",
+  body: "Open the auction house to view your completed listing or trade.",
+  category: "trade",
+  url: "/auctionhouse",
+  collapseId: `trade-${id}`,
+});
+
 /** Keep private conversation content and participant names off the Lock Screen. */
 export const privateMessage = (conversationId: string): PushMessage => ({
   title: "New private message",

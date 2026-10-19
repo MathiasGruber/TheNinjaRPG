@@ -19,6 +19,8 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { deferPushToUsers } from "@/server/utils/push/defer";
+import { tradeUpdate } from "@/server/utils/push/messages";
 import {
   acceptAuctionOfferSchema,
   auctionOfferIdSchema,
@@ -187,7 +189,7 @@ export const auctionOfferProcedures = {
       )
         return errorResponse("Offered item is no longer available");
       if (!supplied) return errorResponse("Item is unavailable");
-      return runOfferMutation(ctx.drizzle, async (tx) => {
+      const result = await runOfferMutation(ctx.drizzle, async (tx) => {
         // Claim the offer before either side moves. Every subsequent write rolls back on conflict.
         const claim = await tx
           .update(auctionOffer)
@@ -235,6 +237,9 @@ export const auctionOfferProcedures = {
           message: "Offer accepted; items and payment delivered",
         };
       });
+      if (result.success)
+        deferPushToUsers(ctx.drizzle, [offer.ownerId], tradeUpdate(offer.id));
+      return result;
     }),
 
   cancelAuctionOffer: protectedProcedure
