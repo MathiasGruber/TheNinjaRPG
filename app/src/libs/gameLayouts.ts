@@ -1,6 +1,6 @@
 import {
+  IMG_LAYOUT_CLASSIC_PREVIEW,
   IMG_LAYOUT_THEME_ART,
-  IMG_LAYOUT_WELCOME_IMG,
   IMG_PIXEL_HERO_POSTER,
 } from "@/drizzle/constants";
 import { bunnyImageUrl } from "@/utils/image";
@@ -10,7 +10,7 @@ export const GAME_LAYOUTS = [
   {
     id: "default",
     name: "Classic",
-    art: IMG_LAYOUT_WELCOME_IMG,
+    art: IMG_LAYOUT_CLASSIC_PREVIEW,
     audience: "Players who enjoy the traditional village setting",
     rationale:
       "Seasonal landscapes, illustrated scrolls and familiar navigation put the village at the center of the game.",

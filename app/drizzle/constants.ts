@@ -2901,6 +2901,8 @@ export const IMG_LAYOUT_HANDSIGN_HALLOWEEN =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJcGYTUXSnxBpQqGNDcTHbLmYz8uXAl3oa54ti.webp";
 export const IMG_LAYOUT_WELCOME_IMG =
   "https://tnr-storage-cdn.b-cdn.net/welcomeimage_compressed.webp";
+export const IMG_LAYOUT_CLASSIC_PREVIEW =
+  "https://ui0arpl8sm.ufs.sh/f/_03vrgYNKcvpN0czPTPcI.webp";
 export const IMG_PIXEL_HERO_POSTER =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJW2NIKTvszvj71yaSYC0MDOmbko5q9JAGuLHf.jpg";
 // "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJqbkFzRdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn.webp";
