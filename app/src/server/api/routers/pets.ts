@@ -364,7 +364,12 @@ export const petsRouter = createTRPCRouter({
         slotCost: PET_COLLECTION_SLOT_COST,
         slotSilverCost: PET_SEICHI_SILVER_COST,
         abilities: {
-          jutsus: abilities.jutsus.filter(isPetJutsuAllowed),
+          jutsus: abilities.jutsus.filter(
+            (entry) =>
+              isPetJutsuAllowed(entry) &&
+              (!entry.requiredPetSpeciesId ||
+                entry.requiredPetSpeciesId === pet?.speciesId),
+          ),
           skills: abilities.skills.filter(isPetSkillAllowed),
         },
         abilityCapacity: pet ? getPetAbilityCapacity(pet) : null,

@@ -104,6 +104,7 @@ beforeEach(() => {
     bloodline: { getAllNames: names, getReskinsForBloodline: names },
     village: { getAllNames: names },
     skillTree: { getAllNames: names },
+    petSpecies: { getAll: { useQuery: () => ({ data: [], isPending: false }) } },
   });
 });
 afterEach(() => {

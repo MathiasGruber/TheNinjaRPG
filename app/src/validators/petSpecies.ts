@@ -6,7 +6,6 @@ import {
   PetRoles,
   PetSkillTargets,
 } from "@/drizzle/constants";
-import { isPetPassiveEffectAllowed } from "@/libs/pets/abilities";
 import {
   AllTags,
   SuperRefineEffects,
@@ -33,19 +32,22 @@ export const PetSpeciesValidator = z
       .array(AllTags)
       .superRefine(SuperRefineEffects)
       .superRefine(SuperRefinePassiveEffects)
+      .superRefine((effects, ctx) => {
+        // Innate skills have no selected empty-ground destination.
+        effects.forEach((effect, index) => {
+          if (effect.type === "barrier" || effect.type === "move") {
+            ctx.addIssue({
+              code: "custom",
+              path: [index, "type"],
+              message: `${effect.type === "barrier" ? "Barrier" : "Move"} tags require an empty-ground combat action.`,
+            });
+          }
+        });
+      })
       .default([]),
     skillTarget: z.enum(PetSkillTargets).default("SELF"),
   })
   .superRefine((species, ctx) => {
-    species.effects.forEach((effect, index) => {
-      if (!isPetPassiveEffectAllowed(effect))
-        ctx.addIssue({
-          code: "custom",
-          path: ["effects", index],
-          message:
-            "Choose a supported companion passive effect without external content dependencies.",
-        });
-    });
     if (new Set(species.defaultJutsuIds).size !== species.defaultJutsuIds.length) {
       ctx.addIssue({
         code: "custom",

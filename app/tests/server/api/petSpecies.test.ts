@@ -6,7 +6,7 @@ import { petSpeciesRouter } from "@/server/api/routers/petSpecies";
 import { insertUsers } from "../../setup/factories";
 import { petJutsuFixture } from "../../libs/pets/helpers/abilities";
 import { ActionEndTurn } from "@/validators/ai";
-import { DamageTag } from "@/validators/combat";
+import { BarrierTag, DamageTag } from "@/validators/combat";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const staffId = "species-content";
@@ -129,6 +129,29 @@ describeWithDatabase("Manual companion species", () => {
     expect((await caller.update({ id: created.message, data: { ...input, role: "HEALER" } })).success).toBe(true);
     expect(await caller.get({ id: created.message })).toMatchObject({ role: "HEALER", defaultJutsuIds: ["pet-strike"] });
     expect(await database.query.actionLog.findMany()).toHaveLength(2);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("rejects occupied-cell barrier skills on %s species before writing", async (skillTarget) => {
+    const database = await getTestDatabase();
+    await database.insert(petSpecies).values({ id: "original", ...species });
+    const caller = callerForDatabase(petSpeciesRouter, staffId, database);
+    const data = { ...species, skillTarget, effects: [BarrierTag.parse({ staticAssetPath: "barrier" })] };
+    await expect(caller.create(data)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(caller.update({ id: "original", data })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await database.query.petSpecies.findMany()).toMatchObject([{ id: "original", effects: [] }]);
+    expect(await database.query.actionLog.findMany()).toHaveLength(0);
+  });
+
+  it("allows species-locked defaults only on their matching companion", async () => {
+    const database = await getTestDatabase();
+    await database.insert(petSpecies).values({ id: "original", ...species });
+    await database.insert(jutsu).values(petJutsuFixture({ requiredPetSpeciesId: "original" }));
+    const caller = callerForDatabase(petSpeciesRouter, staffId, database);
+    const data = { ...species, defaultJutsuIds: ["pet-strike"] };
+    expect((await caller.create({ ...data, name: "Another species" })).success).toBe(false);
+    expect((await caller.update({ id: "original", data })).success).toBe(true);
+    await database.update(jutsu).set({ requiredPetSpeciesId: "other-species" });
+    expect((await caller.update({ id: "original", data })).success).toBe(false);
   });
 
   it.each(["missing", "hidden", "normal", "dependent"] as const)("rejects %s default jutsu on both create and update without content writes", async (state) => {

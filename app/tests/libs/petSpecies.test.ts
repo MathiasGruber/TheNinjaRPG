@@ -1,7 +1,8 @@
+import { z } from "zod";
 import { describe, expect, it } from "bun:test";
 import { PET_ABILITY_SLOTS_BY_RARITY, PetRarities } from "@/drizzle/constants";
 import { ActionEndTurn } from "@/validators/ai";
-import { IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
+import { AllTags, SuperRefineEffects, SuperRefinePassiveEffects, BarrierTag, IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
 import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { petAiProfileSchema, updatePetAiSchema } from "@/validators/pets";
 
@@ -28,11 +29,27 @@ describe("authored companion species contracts", () => {
     }
   });
 
-  it("accepts supported passive tags but rejects coordinates and external dependencies", () => {
-    expect(PetSpeciesValidator.safeParse({ ...species, effects: [IncreaseStatTag.parse({})] }).success).toBe(true);
-    for (const effect of [IncreaseStatTag.parse({ target: "COORDINATES" }), MoveTag.parse({}), SummonTag.parse({ aiId: "external-ai" })]) {
-      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(false);
+  it("validates game tags with standard passive targeting and empty-ground requirements", () => {
+    const standardEffects = z.array(AllTags).superRefine(SuperRefineEffects).superRefine(SuperRefinePassiveEffects);
+    for (const schema of AllTags.options) {
+      const effect = schema.parse({});
+      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(effect.type !== "move" && standardEffects.safeParse([effect]).success);
     }
+    for (const effect of [SummonTag.parse({ aiId: "external-ai" }), IncreaseStatTag.parse({ elements: ["Fire"], power: 150 })]) {
+      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(true);
+    }
+    expect(PetSpeciesValidator.safeParse({ ...species, effects: [IncreaseStatTag.parse({ target: "COORDINATES" })] }).success).toBe(false);
     expect(PetSpeciesValidator.safeParse({ ...species, skillTarget: "ALLIES" }).success).toBe(false);
+  });
+
+  it.each(["SELF", "ENEMIES"] as const)("rejects barriers and movement without an empty-ground destination in %s species skills", (skillTarget) => {
+    for (const effect of [BarrierTag.parse({ staticAssetPath: "barrier" }), MoveTag.parse({})]) {
+      const parsed = PetSpeciesValidator.safeParse({ ...species, skillTarget, effects: [effect] });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) expect(parsed.error.issues).toContainEqual(expect.objectContaining({
+        path: ["effects", 0, "type"],
+        message: `${effect.type === "barrier" ? "Barrier" : "Move"} tags require an empty-ground combat action.`,
+      }));
+    }
   });
 });

@@ -198,6 +198,7 @@ export const SAGE_MODE_ACTIVATION_JUTSU: Jutsu = {
   chakraCostReducePerLvl: 0,
   healthCostReducePerLvl: 0,
   healthCost: 0,
+  requiredPetSpeciesId: null,
   villageId: null,
   method: "SINGLE",
   coordinateTargeting: null,

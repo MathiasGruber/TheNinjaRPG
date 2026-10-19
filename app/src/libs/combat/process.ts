@@ -136,6 +136,7 @@ import {
   creditDamageDealt,
   findBarrier,
   findUser,
+  getBattleGrid,
   getEffectiveMaxPool,
   getEffectStackKey,
   getEffectStage,
@@ -339,10 +340,37 @@ export const applyEffects = (
   const actionEffects: ActionEffect[] = [];
 
   // Convert all ground effects to user effects on the users standing on the tile
+  let spawnGrid: ReturnType<typeof getBattleGrid> | undefined;
   groundEffects.sort(sortEffects).forEach((e) => {
     // Get the round information for the effect
     const { startRound, curRound } = calcEffectRoundInfo(e, battle);
     e.castThisRound = startRound === curRound;
+    // Ignore movement passives because no combat action selected their destination.
+    if (e.fromType === "skill" && e.type === "move") return;
+    if (
+      e.isNew &&
+      e.fromType === "skill" &&
+      (e.type === "clone" || e.type === "summon")
+    ) {
+      const creator = newUsersState.find((user) => user.userId === e.creatorId);
+      spawnGrid ??= getBattleGrid(1, battle);
+      const grid = spawnGrid;
+      const origin = grid.getHex({ col: e.longitude, row: e.latitude });
+      if (!creator || !origin) return;
+      // Innate casts originate on occupied cells; choose the nearest empty destination.
+      // Include earlier spawns in this pass when checking occupancy to prevent overlap.
+      const destination = grid
+        .toArray()
+        .filter(
+          (target) =>
+            !findUser(newUsersState, target.col, target.row) &&
+            !findBarrier(groundEffects, target.col, target.row),
+        )
+        .sort((a, b) => grid.distance(a, origin) - grid.distance(b, origin))[0];
+      if (!destination) return;
+      e.longitude = destination.col;
+      e.latitude = destination.row;
+    }
     // Process special effects
     let info: ActionEffect | undefined;
     if (e.type === "move") {

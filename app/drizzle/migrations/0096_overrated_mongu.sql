@@ -1,0 +1,1 @@
+ALTER TABLE `Jutsu` ADD `requiredPetSpeciesId` varchar(191);

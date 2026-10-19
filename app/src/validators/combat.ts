@@ -1742,6 +1742,12 @@ export const JutsuValidatorRawSchema = z.object({
   extraBaseCost: z.coerce.number().min(0).max(65_535),
   jutsuWeapon: z.enum(WeaponTypes),
   jutsuType: z.enum(JutsuTypes),
+  // Empty form resets and omitted values both clear the species restriction.
+  requiredPetSpeciesId: z
+    .string()
+    .max(191)
+    .nullish()
+    .transform((value) => value || null),
   jutsuRank: z.enum(LetterRanks),
   requiredRank: z.enum(UserRanks),
   requiredLevel: z.coerce.number().min(1).max(100),

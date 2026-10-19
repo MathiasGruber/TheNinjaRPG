@@ -12,7 +12,7 @@ export const petJutsuFixture = (patch: Partial<Jutsu> = {}): Jutsu => ({
   battleDescription: "%user strikes %target", jutsuRank: "D", actionCostPerc: 60,
   staminaCost: 0.05, chakraCost: 0, healthCost: 0,
   staminaCostReducePerLvl: 0, chakraCostReducePerLvl: 0, healthCostReducePerLvl: 0,
-  villageId: null, method: "SINGLE", methodSize: null, coordinateTargeting: null, hidden: false,
+  requiredPetSpeciesId: null, villageId: null, method: "SINGLE", methodSize: null, coordinateTargeting: null, hidden: false,
   injectableInBattle: false, battleUsageType: "BOTH", reskinParentJutsuId: null,
   bloodlineReskinId: null, parentJutsuId: null, requiredNinjutsuMastery: null,
   requiredGenjutsuMastery: null, requiredTaijutsuMastery: null,

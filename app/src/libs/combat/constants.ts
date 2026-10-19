@@ -38,6 +38,15 @@ export const DAMAGE_LEECH_CAP_RATIO = 0.6;
 
 export const BARRIER_DAMAGE_TAG_TYPES = new Set<string>(["damage", "pierce"]);
 
+/** These tags execute from battlefield cells rather than user-effect dispatch. */
+export const GROUND_EFFECT_TAG_TYPES = new Set<string>([
+  "move",
+  "summon",
+  "clone",
+  "barrier",
+  "visual",
+]);
+
 /**
  * Default damage configuration
  */

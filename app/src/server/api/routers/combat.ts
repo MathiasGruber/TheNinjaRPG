@@ -3053,7 +3053,7 @@ export const initiateBattle = async (
       : undefined;
 
   // Create the users array to be inserted into the battle
-  const { userEffects, usersState, extraState, initialDurability } =
+  const { userEffects, usersState, extraState, initialDurability, groundEffects } =
     await processUsersForBattle(client, {
       users: dungeonEncounter
         ? users.slice(
@@ -3231,7 +3231,6 @@ export const initiateBattle = async (
   }
 
   // Starting ground effects
-  const groundEffects: GroundEffect[] = [];
   const groundAssets = assets.filter(
     (a) => a.onInitialBattleField && a.type === "STATIC",
   );
@@ -4150,10 +4149,11 @@ export const initiateBattle = async (
  * allowing copies of the same NPC template on opposite sides. Lobby and summon
  * callers may use `leftSideUserIds` instead. Spawn cells are allocated without reuse;
  * initiation validates capacity before calling this function.
+ * Companion species summons join initiation's preload so their effect dispatch needs no reads.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.
- * @returns Processed user effects, combatant states and static `extraState` data.
+ * @returns User and ground effects, combatant states, durability and static `extraState` data.
  */
 export const processUsersForBattle = async (
   client: DrizzleClient,
@@ -4210,8 +4210,14 @@ export const processUsersForBattle = async (
     }));
   }
   // Collect user effects here
-  const allSummons: string[] = [];
+  // Companion skills share the summon preload pipeline with character abilities.
+  const allSummons: string[] = (info.petPreload?.pets ?? []).flatMap((pet) =>
+    (pet.species?.effects ?? []).flatMap((effect) =>
+      effect.type === "summon" ? [effect.aiId] : [],
+    ),
+  );
   const userEffects: UserEffect[] = [];
+  const groundEffects: GroundEffect[] = [];
   const enemySkills: NonNullable<ExtraState["enemySkills"]> = {};
   const pendingSkillEffects: {
     creatorId: string;
@@ -5190,6 +5196,7 @@ export const processUsersForBattle = async (
       ...info.petPreload,
       usersState: convertedUsersState,
       usersEffects: userEffects,
+      groundEffects,
       extraState,
       battleType,
       width,
@@ -5232,6 +5239,7 @@ export const processUsersForBattle = async (
 
   return {
     userEffects: filteredEffects,
+    groundEffects,
     usersState: convertedUsersState,
     extraState,
     initialDurability,

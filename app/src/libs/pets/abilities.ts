@@ -52,9 +52,6 @@ const passiveEffects = new Set<ZodAllTags["type"]>([
   "increaseaggro",
   "decreaseaggro",
 ]);
-const speciesPassiveEffects = new Set(
-  [...activeEffects, ...passiveEffects].filter((type) => type !== "move"),
-);
 const masteryRequirements = [
   "requiredNinjutsuMastery",
   "requiredGenjutsuMastery",
@@ -112,14 +109,11 @@ export const isPetSkillAllowed = (skill: SkillTree) =>
       effect.target !== "COORDINATES" && isAllowedEffect(effect, passiveEffects),
   );
 
-/** Species passives reuse self-contained combat effects without external preload dependencies. */
-export const isPetPassiveEffectAllowed = (effect: ZodAllTags) =>
-  effect.target !== "COORDINATES" && isAllowedEffect(effect, speciesPassiveEffects);
-
 /**
  * Return the first player-facing loadout rejection, or null when valid.
  * The caller supplies the published companion catalogue and the owner's
  * purchased, activated skills; only those entries may be selected.
+ * Species restrictions are checked here for both saved loadouts and battle selection.
  */
 export const validatePetAbilities = ({
   pet,
@@ -161,6 +155,8 @@ export const validatePetAbilities = ({
       jutsu.requiredLevel > getPetLevel(pet)
     )
       return `${jutsu.name} requires a higher pet rank or level.`;
+    if (jutsu.requiredPetSpeciesId && jutsu.requiredPetSpeciesId !== pet.species.id)
+      return `${jutsu.name} requires a different companion species.`;
     spent += getPetJutsuCost(jutsu);
   }
   for (const id of pet.skillIds) {
@@ -241,7 +237,8 @@ const isAllowedEffect = (effect: ZodAllTags, allowed: Set<ZodAllTags["type"]>) =
   (!("elements" in effect) || !effect.elements?.some((element) => element !== "None"));
 
 /** Persisted selections plus the progression fields needed to validate their limits. */
+/** Saved selections and species identity needed for capacity and eligibility checks. */
 export type PetAbilityLoadout = Pick<
   UserPet,
   "rank" | "experience" | "jutsuIds" | "skillIds"
-> & { species: Pick<PetSpecies, "rarity"> | null };
+> & { species: Pick<PetSpecies, "id" | "rarity"> | null };

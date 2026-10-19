@@ -44,6 +44,7 @@ import {
   jutsu,
   jutsuLoadout,
   jutsuReskin,
+  petSpecies,
   quest,
   skillTree,
   userData,
@@ -1025,6 +1026,7 @@ export const jutsuRouter = createTRPCRouter({
       return { success: true, message: `Evolved into ${evolutionJutsu.name}!` };
     }),
 
+  /** Validate content and species/default-loadout compatibility before saving a jutsu. */
   update: protectedProcedure
     .input(updateJutsuSchema)
     .output(baseServerResponse)
@@ -1042,6 +1044,8 @@ export const jutsuRouter = createTRPCRouter({
         requiredItem,
         reskinParent,
         reskinGroup,
+        requiredSpecies,
+        defaultSpecies,
       ] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchJutsu(ctx.drizzle, input.id),
@@ -1085,6 +1089,19 @@ export const jutsuRouter = createTRPCRouter({
               where: eq(bloodlineReskin.id, input.data.bloodlineReskinId),
             })
           : Promise.resolve(null),
+        input.data.requiredPetSpeciesId
+          ? ctx.drizzle.query.petSpecies.findFirst({
+              where: eq(petSpecies.id, input.data.requiredPetSpeciesId),
+              columns: { id: true },
+            })
+          : Promise.resolve(null),
+        input.data.requiredPetSpeciesId
+          ? ctx.drizzle.query.petSpecies.findMany({
+              // Retired species still keep defaults used by their owned companions.
+              columns: { id: true },
+              where: sql`JSON_CONTAINS(${petSpecies.defaultJutsuIds}, JSON_QUOTE(${input.id}))`,
+            })
+          : Promise.resolve([]),
       ]);
       if (input.data.reskinParentJutsuId) {
         if (
@@ -1128,6 +1145,15 @@ export const jutsuRouter = createTRPCRouter({
       ) {
         return errorResponse("Select a valid SkillTree skill entry");
       }
+      if (
+        input.data.requiredPetSpeciesId &&
+        (input.data.jutsuType !== "PETS" || !requiredSpecies)
+      )
+        return errorResponse("Select a valid companion species for a PETS jutsu");
+      if (
+        defaultSpecies.some((species) => species.id !== input.data.requiredPetSpeciesId)
+      )
+        return errorResponse("This jutsu is a default for another companion species");
       // Guard
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");

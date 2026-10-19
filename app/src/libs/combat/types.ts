@@ -244,6 +244,8 @@ export type CombatUserFields = {
   summonSourceId?: string;
   /** Persistent identity of an owned pet; the battlefield userId remains transient. */
   petId?: string;
+  /** Frozen species identity for validating companion jutsu, including injected actions. */
+  petSpeciesId?: string;
   // Reference IDs to static data in extraState
   relationIds: string[];
   /** Base stat values used for additive percentage modifier calculations (e.g., increaseStat, decreaseStat) */

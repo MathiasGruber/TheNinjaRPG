@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { insertAction } from "@/libs/combat/actions";
 import { getBattleGrid } from "@/libs/combat/util";
-import { DamageTag, HealTag, MoveTag, PoisonTag, StealthTag } from "@/validators/combat";
+import { BarrierTag, CloneTag, DamageTag, HealTag, MoveTag, PoisonTag, StealthTag, SummonTag, VisualTag } from "@/validators/combat";
+import { applyEffects } from "@/libs/combat/process";
 import type { CombatAction, CompleteBattle, ReturnedBattle, UserEffect } from "@/libs/combat/types";
 const ITEM_ID = "test-item";
 const makeActor = () => ({
@@ -95,6 +96,27 @@ describe("enemy-targeted skill and bloodright effects", () => {
     cast(0, 1);
     cast(2, 0);
     expect(procs()).toHaveLength(0);
+  });
+
+  it.each([SummonTag.parse({ aiId: "summoned-ai" }), CloneTag.parse({}), BarrierTag.parse({ staticAssetPath: "barrier" }), VisualTag.parse({})])("routes enemy $type tags to battlefield processing while preserving user passives", (tag) => {
+    const { battle, cast, procs } = setup();
+    battle.extraState.enemySkills!.skill = [tag];
+    expect(cast()).toBe(true);
+    expect(battle.groundEffects).toMatchObject([{
+      type: tag.type, creatorId: "actor", longitude: 1, latitude: 0,
+      fromType: "skill", createdRound: battle.round, isNew: true,
+    }]);
+    expect(procs().map((effect) => effect.type)).toEqual(["poison"]);
+    expect(battle.extraState.enemySkills!.skill).toEqual([tag]);
+  });
+
+  it("ignores enemy movement passives without suppressing other sources", () => {
+    const { battle, cast, procs } = setup();
+    battle.extraState.enemySkills!.skill = [MoveTag.parse({})];
+    expect(cast()).toBe(true);
+    expect(battle.groundEffects).toEqual([]);
+    expect(procs().map((effect) => effect.type)).toEqual(["poison"]);
+    expect(applyEffects(battle, "actor").newBattle.usersState[0]).toMatchObject({ longitude: 0, latitude: 0 });
   });
 
   it("does not trigger on self heals or movement", () => {

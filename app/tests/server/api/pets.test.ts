@@ -823,8 +823,12 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("offers published pet jutsus without learned copies and excludes incompatible content", async () => {
     const database = await getTestDatabase();
     await readyPet(database);
+    const originalPet = await readPet(database);
+    const foreignSpeciesId = initialPetSpecies.find(({ id }) => id !== originalPet!.speciesId)!.id;
     await database.insert(jutsu).values([
       petJutsuFixture(),
+      petJutsuFixture({ id: "matching-species-strike", name: "Matching Species Strike", requiredPetSpeciesId: originalPet!.speciesId }),
+      petJutsuFixture({ id: "foreign-species-strike", name: "Foreign Species Strike", requiredPetSpeciesId: foreignSpeciesId }),
       petJutsuFixture({ id: "human-strike", name: "Human Strike", jutsuType: "NORMAL" }),
       petJutsuFixture({ id: "hidden-strike", name: "Hidden Strike", hidden: true }),
       petJutsuFixture({ id: "injected-strike", name: "Injected Strike", injectableInBattle: true }),
@@ -832,8 +836,8 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     ]);
     await database.insert(userJutsu).values({ id: "learned-human-strike", userId, jutsuId: "human-strike" });
     const caller = callerForDatabase(petsRouter, userId, database);
-    expect((await caller.getPet()).abilities.jutsus.map((entry) => entry.id)).toEqual(["pet-strike"]);
-    const originalPet = await readPet(database);
+    expect((await caller.getPet()).abilities.jutsus.map((entry) => entry.id).sort())
+      .toEqual(["matching-species-strike", "pet-strike"]);
     const originalOwner = await readOwner(database);
     for (const id of ["human-strike", "hidden-strike", "injected-strike", "elemental-strike", "missing-strike"]) {
       expect((await caller.updateAbilities({ petId, jutsuIds: [id], skillIds: [] })).success).toBe(false);

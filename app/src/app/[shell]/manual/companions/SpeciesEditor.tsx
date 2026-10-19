@@ -11,13 +11,7 @@ import AiProfileEdit from "@/layout/AiProfileEdit";
 import { EditContent, EffectFormWrapper } from "@/layout/EditContent";
 import Modal from "@/layout/Modal";
 import { usePetSpeciesEditForm } from "@/libs/petSpecies";
-import { isPetPassiveEffectAllowed } from "@/libs/pets/abilities";
-import {
-  getTagSchema,
-  IncreaseStatTag,
-  tagTypes,
-  type ZodAllTags,
-} from "@/validators/combat";
+import { IncreaseStatTag, tagTypes, type ZodAllTags } from "@/validators/combat";
 import { PetSpeciesValidator, type ZodPetSpeciesType } from "@/validators/petSpecies";
 import { PET_AI_ACTION_TYPES, PET_AI_EFFECT_TYPES } from "@/validators/pets";
 
@@ -174,7 +168,13 @@ const SpeciesForm = ({
                   tag={effect}
                   effects={validEffects}
                   setEffects={setEffects}
-                  availableTags={petSkillTags}
+                  availableTags={tagTypes.filter(
+                    // Innate skills cannot select empty ground or invoke system-only sage activation.
+                    (type) =>
+                      type !== "move" &&
+                      type !== "barrier" &&
+                      type !== "activatesagemode",
+                  )}
                   submitLoading={isSaving}
                 />
               </div>
@@ -226,9 +226,3 @@ const SpeciesForm = ({
     </fieldset>
   );
 };
-
-/** The editor offers exactly the self-contained effects accepted by battle initiation. */
-const petSkillTags = tagTypes.filter((type) => {
-  const parsed = getTagSchema(type as ZodAllTags["type"]).safeParse({});
-  return parsed.success && isPetPassiveEffectAllowed(parsed.data);
-});
