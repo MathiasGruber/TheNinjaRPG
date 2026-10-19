@@ -355,7 +355,8 @@ export const profileRouter = createTRPCRouter({
       });
 
       return {
-        candidates,
+        // Dashboard discovery shows published content even for staff who can play hidden quests.
+        candidates: candidates.filter((candidate) => !candidate.hidden),
         raidProgress: existingRaidParticipations.map((participation) => ({
           raidId: participation.quest.id,
           damageDealt: participation.damageDealt,
