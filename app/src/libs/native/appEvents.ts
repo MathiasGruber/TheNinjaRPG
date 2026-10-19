@@ -5,7 +5,7 @@
  * so effects can return it whether or not the listener was ever attached.
  */
 
-import { addNativeListener, invokeSafe, isNative } from "./bridge";
+import { addNativeListener, invoke, invokeSafe, isNative } from "./bridge";
 
 const PLUGIN = "App";
 
@@ -18,6 +18,10 @@ export const onUrlOpen = (callback: (url: string) => void): (() => void) =>
     const url = (data as { url?: unknown } | null)?.url;
     if (typeof url === "string") callback(url);
   });
+
+/** Whether the shell is in the foreground, including after a browser handoff. */
+export const getState = async (): Promise<{ isActive: boolean }> =>
+  invoke<{ isActive: boolean }>(PLUGIN, "getState");
 
 /**
  * Foreground and background transitions. The WebSocket drops while backgrounded, so the

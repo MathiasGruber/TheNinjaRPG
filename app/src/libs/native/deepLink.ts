@@ -43,6 +43,9 @@ export const toInternalPath = (url: string): string | null => {
   // the flows that registered them.
   if (parsed.protocol !== "https:") return null;
   if (!isAppHost(parsed.hostname)) return null;
+  // Browser authentication owns this route; routing it inside the WebView destroys
+  // the pending proof and separates Clerk from the browser cookie store again.
+  if (isBrowserAuthPath(parsed.pathname)) return null;
   return `${asRelativePath(parsed.pathname)}${parsed.search}${parsed.hash}`;
 };
 
@@ -55,4 +58,29 @@ export const toInternalPath = (url: string): string | null => {
 export const toSafePath = (path: string | undefined): string | null => {
   if (!path?.startsWith("/")) return null;
   return asRelativePath(path);
+};
+
+/** Clerk must finish this intermediate OAuth redirect in the system browser. */
+export const isBrowserAuthPath = (pathname: string): boolean =>
+  pathname === "/native-sign-in" || pathname === "/native-sign-in/";
+
+/** Only a continuation for this exact browser origin and pending flow may reopen it. */
+export const browserAuthContinuation = (
+  url: string,
+  origin: string,
+  flowId: string,
+): string | null => {
+  try {
+    const parsed = new URL(url);
+    return parsed.origin === origin &&
+      !parsed.username &&
+      !parsed.password &&
+      isBrowserAuthPath(parsed.pathname) &&
+      parsed.searchParams.getAll("flow").length === 1 &&
+      parsed.searchParams.get("flow") === flowId
+      ? parsed.toString()
+      : null;
+  } catch {
+    return null;
+  }
 };

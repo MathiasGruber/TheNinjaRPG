@@ -26,6 +26,12 @@ export function GET() {
           components: [
             // Everything opens in the app except the paths below, which have no in-app
             // equivalent and must stay in the browser.
+            { "/": "/native-sign-in", exclude: true, comment: "Browser OAuth handoff" },
+            {
+              "/": "/native-sign-in/*",
+              exclude: true,
+              comment: "Browser OAuth handoff",
+            },
             { "/": "/api/*", exclude: true, comment: "API and webhooks" },
             { "/": "/.well-known/*", exclude: true, comment: "Association files" },
             { "/": "/sitemap*", exclude: true, comment: "Crawler endpoints" },
