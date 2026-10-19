@@ -10,6 +10,7 @@ import {
   isNotNull,
   isNull,
   like,
+  lt,
   lte,
   ne,
   notExists,
@@ -37,7 +38,6 @@ import {
   TUTORIAL_GENIN_EXAM_QUEST_ID,
   TUTORIAL_STARTER_QUEST_ID,
   VILLAGE_SYNDICATE_ID,
-  WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
 import type { Quest, UserData, UserPet } from "@/drizzle/schema";
 import {
@@ -113,6 +113,7 @@ import {
   isWarMissionAvailable,
   postProcessRewards,
   questAlreadyActiveBlockMessage,
+  questDailyLimitMessage,
   questDailyQuota,
   questTypeConcurrentBlockMessage,
   questUiAccessBlockMessage,
@@ -568,23 +569,13 @@ export const questsRouter = createTRPCRouter({
       const setting = getMissionHallSettings(user.isOutlaw).find(
         (s) => s.type === input.type && s.rank === input.rank,
       );
-      const isErrand = setting?.type === "errand";
-      const isMedical = setting?.type === "medical";
-      const isPvp = setting?.type === "pvp";
       // Guards
       if (!setting) return errorResponse("Setting not found");
       if (user.isBanned) return errorResponse("You are banned");
 
       const quota = questDailyQuota(input.type, user);
-      if ((isErrand || isMedical || isPvp) && quota && quota.current >= quota.limit) {
-        const label = isErrand
-          ? "errand"
-          : isMedical
-            ? "medical mission"
-            : "PvP mission";
-        return errorResponse(
-          `You have reached your daily ${label} limit of ${quota.limit}. Please try again tomorrow.`,
-        );
+      if (quota && quota.current >= quota.limit) {
+        return errorResponse(questDailyLimitMessage(input.type, quota.limit));
       }
 
       // Check if user is allowed to perform this rank
@@ -634,30 +625,17 @@ export const questsRouter = createTRPCRouter({
             }
           : null;
 
-      // Insert quest entry
-      const [assignment] = await Promise.all([
-        upsertQuestEntry(ctx.drizzle, user, result, "random_assignment", prevEntry),
-        ctx.drizzle
-          .update(userData)
-          .set(
-            isErrand
-              ? { dailyErrands: sql`${userData.dailyErrands} + 1` }
-              : isMedical
-                ? { dailyMedicalMissions: sql`${userData.dailyMedicalMissions} + 1` }
-                : isPvp
-                  ? { dailyPvpMissions: sql`${userData.dailyPvpMissions} + 1` }
-                  : { dailyMissions: sql`${userData.dailyMissions} + 1` },
-          )
-          .where(eq(userData.userId, user.userId)),
-      ]);
-      const dailyCounter = isErrand
-        ? "dailyErrands"
-        : isMedical
-          ? "dailyMedicalMissions"
-          : isPvp
-            ? "dailyPvpMissions"
-            : "dailyMissions";
-      user[dailyCounter] += 1;
+      // Reserve the slot before delivering a quest, including when another start races us.
+      if (quota && !(await claimDailyQuestSlot(ctx.drizzle, user, input.type))) {
+        return errorResponse(questDailyLimitMessage(input.type, quota.limit));
+      }
+      const assignment = await upsertQuestEntry(
+        ctx.drizzle,
+        user,
+        result,
+        "random_assignment",
+        prevEntry,
+      );
       return {
         success: true,
         message: `Quest started: ${result.name}${rankInfo}`,
@@ -3030,33 +3008,41 @@ export const upsertQuestEntries = async (
   }
 };
 
-/** Increment the SQL counter and the supplied user projection together. */
-export const incrementDailyQuestCounter = async (
+/** Reserve a daily assignment before delivery; SQL enforces the cap across stale callers. */
+export const claimDailyQuestSlot = async (
   client: DrizzleClient,
   user: UserData,
   questType: string,
 ) => {
-  if (["mission", "crime", "medical", "pvp", "war"].includes(questType)) {
-    const updateField =
-      questType === "medical"
-        ? { dailyMedicalMissions: sql`${userData.dailyMedicalMissions} + 1` }
+  const quota = questDailyQuota(questType, user);
+  if (!quota) return true;
+  const field =
+    questType === "errand"
+      ? "dailyErrands"
+      : questType === "medical"
+        ? "dailyMedicalMissions"
         : questType === "pvp"
-          ? { dailyPvpMissions: sql`${userData.dailyPvpMissions} + 1` }
+          ? "dailyPvpMissions"
           : questType === "war"
-            ? { dailyWarMissions: sql`${userData.dailyWarMissions} + 1` }
-            : { dailyMissions: sql`${userData.dailyMissions} + 1` };
-
-    await client
-      .update(userData)
-      .set(updateField)
-      .where(eq(userData.userId, user.userId));
-    const field = Object.keys(updateField)[0] as
-      | "dailyMedicalMissions"
-      | "dailyPvpMissions"
-      | "dailyWarMissions"
-      | "dailyMissions";
-    user[field] += 1;
-  }
+            ? "dailyWarMissions"
+            : "dailyMissions";
+  const counter = userData[field];
+  const result = await client
+    .update(userData)
+    .set({
+      [field]: sql`${counter} + 1`,
+      ...(questType === "war"
+        ? {
+            warParticipantUntil: extendWarParticipantSql(),
+            bracketImmunityLiftedUntil: liftBracketImmunitySql(),
+            immunityUntil: new Date(0),
+          }
+        : {}),
+    })
+    .where(and(eq(userData.userId, user.userId), lt(counter, quota.limit)));
+  if (result.rowsAffected === 0) return false;
+  user[field] += 1;
+  return true;
 };
 
 /**
@@ -3115,7 +3101,7 @@ export type QuestAcquisitionSource =
 /**
  * Core quest-assignment orchestration shared by the UI (`startQuest`) and overworld
  * NPC interactions. Runs all source-agnostic guards (rank, availability, date window,
- * retry delay, already-on-quest, per-type concurrent limit, war daily-CAS), applies
+ * retry delay, already-on-quest, per-type concurrent limit, daily quota), applies
  * structure/occupation guards for UI and companion sources, then writes the quest
  * entry and increments the daily counter.
  */
@@ -3237,6 +3223,12 @@ export const assignQuestToUser = async (args: {
   const block = questTypeConcurrentBlockMessage(questData, user);
   if (block) return errorResponse(block);
 
+  const quota = questDailyQuota(questData.questType, user);
+  const dailyLimitMessage = quota
+    ? questDailyLimitMessage(questData.questType, quota.limit)
+    : "";
+  if (quota && quota.current >= quota.limit) return errorResponse(dailyLimitMessage);
+
   // Entry items are checked and paid when the run starts, not at its first battle, so a
   // player without the items never holds a run they cannot fight. Re-entering an attempt
   // that is still open keeps its receipt; a fresh or restarted attempt pays again.
@@ -3289,7 +3281,7 @@ export const assignQuestToUser = async (args: {
     }
   }
 
-  // Insert quest entry; for war quests guard the daily limit with a CAS counter update.
+  // Reserve daily slots before delivering quests with a guarded counter update.
   // CAS runs first so that a user at the daily limit is rejected before any quest entry
   // is written. This deliberately nontransactional flow means a crash between
   // the CAS success and the upsert burns one daily slot without delivering the quest
@@ -3302,32 +3294,17 @@ export const assignQuestToUser = async (args: {
   let assignment: Awaited<ReturnType<typeof upsertQuestEntry>>;
   // Rolls back the claim, history and any debited stack when a ticket stack changed.
   const entryRejected = new Error("Quest entry rejected");
-  const warLimitMessage = `You have reached your daily war mission limit of ${WAR_MISSIONS_PER_DAY}`;
-  const claimWarSlot = (database: DrizzleClient) =>
-    database
-      .update(userData)
-      .set({
-        dailyWarMissions: sql`${userData.dailyWarMissions} + 1`,
-        warParticipantUntil: extendWarParticipantSql(),
-        bracketImmunityLiftedUntil: liftBracketImmunitySql(),
-        immunityUntil: new Date(0),
-      })
-      .where(
-        and(
-          eq(userData.userId, user.userId),
-          sql`${userData.dailyWarMissions} < ${WAR_MISSIONS_PER_DAY}`,
-        ),
-      );
+  const dailyLimitReached = new Error("Daily quest limit reached");
   if (questData.questType === "war" && entryCharges.length > 0) {
     // With entry items the slot, history row and item debit must commit together, so a
     // changed ticket stack refunds the daily slot instead of burning it.
-    const warLimitReached = new Error("War mission limit reached");
     const paid = await retryOnDeadlock(() =>
       client.transaction(async (tx) => {
         const database = tx as unknown as DrizzleClient;
-        if ((await claimWarSlot(database)).rowsAffected === 0) throw warLimitReached;
         // A rolled-back attempt must not leave its tracker changes on the caller's user.
         const warUser = { ...user };
+        if (!(await claimDailyQuestSlot(database, warUser, questData.questType)))
+          throw dailyLimitReached;
         const result = await upsertQuestEntry(
           database,
           warUser,
@@ -3352,19 +3329,18 @@ export const assignQuestToUser = async (args: {
         return { result, user: warUser };
       }),
     ).catch((error: unknown) => {
-      if (error === warLimitReached) return undefined;
+      if (error === dailyLimitReached) return undefined;
       if (error === entryRejected) return null;
       throw error;
     });
-    if (paid === undefined) return errorResponse(warLimitMessage);
+    if (paid === undefined) return errorResponse(dailyLimitMessage);
     if (paid === null)
       return errorResponse("Your entry items changed. Please try again.");
     Object.assign(user, paid.user);
     assignment = paid.result;
   } else if (questData.questType === "war") {
-    const result = await claimWarSlot(client);
-    if (result.rowsAffected === 0) {
-      return errorResponse(warLimitMessage);
+    if (!(await claimDailyQuestSlot(client, user, questData.questType))) {
+      return errorResponse(dailyLimitMessage);
     }
     assignment = await upsertQuestEntry(
       client,
@@ -3410,6 +3386,8 @@ export const assignQuestToUser = async (args: {
         });
         if (!claim.success) return undefined;
         const claimedUser = { ...user, updatedAt: claim.claimedAt };
+        if (!(await claimDailyQuestSlot(database, claimedUser, questData.questType)))
+          throw dailyLimitReached;
         const result = await upsertQuestEntry(
           database,
           claimedUser,
@@ -3434,13 +3412,14 @@ export const assignQuestToUser = async (args: {
             row.questId === questData.id ? { ...row, entryPaid: true } : row,
           );
         }
-        await incrementDailyQuestCounter(database, claimedUser, questData.questType);
         return { result, user: claimedUser };
       }),
     ).catch((error: unknown) => {
       if (error === entryRejected) return null;
+      if (error === dailyLimitReached) return false;
       throw error;
     });
+    if (assigned === false) return errorResponse(dailyLimitMessage);
     if (assigned === null)
       return errorResponse("Your entry items changed. Please try again.");
     if (!assigned)
@@ -3450,10 +3429,15 @@ export const assignQuestToUser = async (args: {
     Object.assign(user, assigned.user);
     assignment = assigned.result;
   } else {
-    [assignment] = await Promise.all([
-      upsertQuestEntry(client, user, questData, source, prevAttempt ?? null),
-      incrementDailyQuestCounter(client, user, questData.questType),
-    ]);
+    if (!(await claimDailyQuestSlot(client, user, questData.questType)))
+      return errorResponse(dailyLimitMessage);
+    assignment = await upsertQuestEntry(
+      client,
+      user,
+      questData,
+      source,
+      prevAttempt ?? null,
+    );
   }
   return {
     success: true,

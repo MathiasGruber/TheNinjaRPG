@@ -26,11 +26,7 @@ import {
 import { initiateBattle } from "@/routers/combat";
 import type { UserWithRelations } from "@/routers/profile";
 import { fetchUpdatedUser } from "@/routers/profile";
-import {
-  assignQuestToUser,
-  fetchUserQuestByQuestId,
-  incrementDailyQuestCounter,
-} from "@/routers/quests";
+import { assignQuestToUser, fetchUserQuestByQuestId } from "@/routers/quests";
 import { fetchSectorVillage } from "@/routers/village";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
@@ -637,13 +633,10 @@ const acceptTeamQuest = async (
       );
     if (history?.pendingRewardChoice)
       return errorResponse("Claim your pending quest reward choice first");
-    await Promise.all([
-      client
-        .update(questHistory)
-        .set({ previousAttempts: sql`${questHistory.previousAttempts} + 1` })
-        .where(eq(questHistory.id, history.id)),
-      incrementDailyQuestCounter(client, user, definition.questType),
-    ]);
+    await client
+      .update(questHistory)
+      .set({ previousAttempts: sql`${questHistory.previousAttempts} + 1` })
+      .where(eq(questHistory.id, history.id));
     user.userQuests.push({
       id: `party-${user.questPartyId}`,
       userId: user.userId,
