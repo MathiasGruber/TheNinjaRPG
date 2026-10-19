@@ -923,3 +923,45 @@ describe("active Consume damage conversion", () => {
     expect(shieldHp(newBattle)).toBe(SHIELD_MAX_HEALTH);
   });
 });
+
+describe("applyEffects — siphon", () => {
+  const siphon = (rounds = 3): UserEffect => ({ ...makeConsume(50, 3, rounds), type: "siphon" }) as UserEffect;
+
+  it("converts casting damage immediately and stacks shields across actions", () => {
+    const first = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [makeAttack(), siphon()]),
+      "attacker", makeAction(),
+    ).newBattle;
+    const firstShield = findConsumeShield(first.usersEffects);
+    expect(firstShield?.power).toBeGreaterThan(0);
+    const second = applyEffects(
+      { ...first, usersEffects: [...first.usersEffects.map((e) => ({ ...e, isNew: false, castThisRound: false })), makeAttack("second-hit")] },
+      "attacker", makeAction(),
+    ).newBattle;
+    const shields = second.usersEffects.filter((e) => e.type === "shield" && e.targetId === "attacker");
+    expect(shields).toHaveLength(2);
+    expect(shields.reduce((total, e) => total + e.power, 0)).toBeGreaterThan(firstShield!.power);
+  });
+
+  it("supports an instant zero-round cast", () => {
+    const result = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [makeAttack(), siphon(0)]),
+      "attacker", makeAction(),
+    ).newBattle;
+    expect(findConsumeShield(result.usersEffects)?.power).toBeGreaterThan(0);
+    expect(result.usersEffects.some((e) => e.type === "siphon")).toBe(false);
+  });
+
+  it("can be cleared before converting damage", () => {
+    const clear = makeEffect("clear", { power: 100 }, {
+      id: "clear-siphon", creatorId: "defender", targetId: "attacker",
+      isNew: true, castThisRound: true, createdRound: ROUND, targetType: "user",
+    });
+    const { newBattle, actionEffects } = applyEffects(
+      makeBattle([makeAttacker(), makeDefender()], [makeAttack(), siphon(), clear]),
+      "attacker", makeAction(),
+    );
+    expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
+    expect(findConsumeShield(newBattle.usersEffects)).toBeUndefined();
+  });
+});

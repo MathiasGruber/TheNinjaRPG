@@ -2216,7 +2216,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   }
 
   // Keep shield duration beside the active Consume duration.
-  if (tag.type === "consume") {
+  if (tag.type === "consume" || tag.type === "siphon") {
     const shieldIdx = formData.findIndex((e) => String(e.id) === "shieldRounds");
     if (shieldIdx >= 0) {
       const [shieldEntry] = formData.splice(shieldIdx, 1);

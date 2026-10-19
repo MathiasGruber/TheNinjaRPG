@@ -2069,6 +2069,7 @@ export const consume = (
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
   const previous = consumeByUser.get(effect.creatorId);
   consumeByUser.set(effect.creatorId, {
+    isSiphon: previous?.isSiphon || effect.type === "siphon",
     ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
     rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
     hp: 0,

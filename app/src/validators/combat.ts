@@ -205,6 +205,7 @@ export const PotencyTagTypes = [
   "vamp",
   "absorb",
   "consume",
+  "siphon",
   "shield",
   "pierce",
   "drain",
@@ -665,6 +666,14 @@ export const ConsumeTag = z.object({
   shieldRounds: z.coerce.number().int().min(1).max(100).prefault(3),
   target: z.enum(BaseTagTargets).optional().prefault("SELF"),
 });
+export const SiphonTag = ConsumeTag.extend({
+  type: z.literal("siphon").prefault("siphon"),
+  description: msg(
+    "Immediately convert a percentage of all damage you deal while active into stacking temporary shields on yourself. Can be cleared. Not affected by heal modifiers.",
+  ),
+});
+export type SiphonTagType = z.infer<typeof SiphonTag>;
+
 export type ConsumeTagType = z.infer<typeof ConsumeTag>;
 
 export const DisarmTag = z.object({
@@ -1075,6 +1084,7 @@ export const AllTags = z.union([
   ClearTag.prefault({}),
   CloneTag.prefault({}),
   ConsumeTag.prefault({}),
+  SiphonTag.prefault({}),
   CopyTag.prefault({}),
   DamageTag.prefault({}),
   DebuffPreventTag.prefault({}),
@@ -1249,6 +1259,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "absorb",
       // "clearprevent",
       "consume",
+      "siphon",
       "debuffprevent",
       "increaseaggro",
       "decreaseaggro",
@@ -1725,7 +1736,10 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
           "WoundTag must be used together with a damage or pierce effect on the same action",
         );
       }
-    } else if (e.type === "vamp" || (e.type === "consume" && e.rounds === 0)) {
+    } else if (
+      e.type === "vamp" ||
+      ((e.type === "consume" || e.type === "siphon") && e.rounds === 0)
+    ) {
       const hasDamageOrPierce = effects.some(
         (x) =>
           x.type === "damage" || x.type === "elementaldamage" || x.type === "pierce",
@@ -1733,7 +1747,7 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
       if (!hasDamageOrPierce) {
         addIssue(
           ctx,
-          `${e.type === "vamp" ? "VampTag" : "ConsumeTag"} must be used together with a damage or pierce effect on the same action`,
+          `${e.type === "vamp" ? "VampTag" : e.type === "siphon" ? "SiphonTag" : "ConsumeTag"} must be used together with a damage or pierce effect on the same action`,
         );
       }
     } else if (e.type === "rollbloodline" && e.powerPerLevel > 0) {

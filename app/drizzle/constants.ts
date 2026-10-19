@@ -266,6 +266,7 @@ export const SHARED_COOLDOWN_TAGS = [
   "clear",
   "clearprevent",
   "consume",
+  "siphon",
   "debuffprevent",
   "drain",
   "increasepoolcost",
@@ -1931,6 +1932,7 @@ export const POST_DAMAGE_MODIFIER_TYPES: string[] = [
   "absorb",
   "vamp",
   "consume",
+  "siphon",
 ];
 
 // Black market config

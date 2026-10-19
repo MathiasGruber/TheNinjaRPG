@@ -673,7 +673,10 @@ export type Consequence = {
 };
 
 /** Active damage conversion and accumulated shield HP and duration, keyed by caster. */
-export type ConsumeByUser = Map<string, { ratio: number; rounds: number; hp: number }>;
+export type ConsumeByUser = Map<
+  string,
+  { ratio: number; rounds: number; hp: number; isSiphon?: boolean }
+>;
 
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with
