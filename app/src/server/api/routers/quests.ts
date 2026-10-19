@@ -80,6 +80,7 @@ import {
 import { getFarmingLevel, qualifiesForFarmActivityReward } from "@/libs/farming";
 import { getGatheringItemDrops } from "@/libs/gathering";
 import { getHuntingItemDrops } from "@/libs/hunting";
+import { isQuestPresentationOnlyChange } from "@/libs/mapLocations";
 import { canRetryQuestBattle } from "@/libs/objectives";
 import {
   deriveOverworldOpponents,
@@ -171,6 +172,11 @@ import { claimUserSnapshot, getNextUserSnapshotAt } from "@/server/utils/concurr
 import { setEmptyStringsToNulls } from "@/server/utils/emptyStrings";
 import { reduceActiveFarmPlotTimers } from "@/server/utils/farming";
 import {
+  fetchPublicQuestLocations,
+  notifyMapLocationsChanged,
+  validateQuestStructures,
+} from "@/server/utils/mapLocations";
+import {
   masteryGainUpdates,
   masteryRankUpdate,
 } from "@/server/utils/masteryProgression";
@@ -218,6 +224,7 @@ import {
 } from "@/utils/time";
 import type { QueryCondition } from "@/utils/typeutils";
 import { canAccessStructure } from "@/utils/village";
+import { publicMapLocationsSchema } from "@/validators/mapLocation";
 import { idSchema } from "@/validators/misc";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import { QuestTracker, QuestValidator } from "@/validators/objectives";
@@ -245,6 +252,11 @@ import type { UserDelta } from "@/validators/userCache";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 
 export const questsRouter = createTRPCRouter({
+  getPublicLocations: publicProcedure
+    .input(publicMapLocationsSchema)
+    .query(({ ctx, input }) =>
+      fetchPublicQuestLocations(ctx.drizzle, { revision: input?.revision }),
+    ),
   getAllNames: publicProcedure
     .meta({ mcp: { description: "Get all quest names and IDs" } })
     .query(async ({ ctx }) => {
@@ -839,15 +851,18 @@ export const questsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       setEmptyStringsToNulls(input.data, quest);
       // Query
-      const [user, entry, tierQuests, packages, titleError] = await Promise.all([
-        fetchUser(ctx.drizzle, ctx.userId),
-        fetchQuest(ctx.drizzle, input.id),
-        ctx.drizzle.select().from(quest).where(eq(quest.questType, "tier")),
-        ctx.drizzle.query.rewardPackage.findMany(),
-        validateTitleRewardIds(ctx.drizzle, input.data.content),
-      ]);
+      const [user, entry, tierQuests, packages, titleError, structureError] =
+        await Promise.all([
+          fetchUser(ctx.drizzle, ctx.userId),
+          fetchQuest(ctx.drizzle, input.id),
+          ctx.drizzle.select().from(quest).where(eq(quest.questType, "tier")),
+          ctx.drizzle.query.rewardPackage.findMany(),
+          validateTitleRewardIds(ctx.drizzle, input.data.content),
+          validateQuestStructures(ctx.drizzle, input.data),
+        ]);
       // Guards
       if (titleError) return errorResponse(titleError);
+      if (structureError) return errorResponse(structureError);
       if (user.isBanned) {
         return errorResponse("You are banned and cannot perform this action");
       }
@@ -1003,17 +1018,14 @@ export const questsRouter = createTRPCRouter({
         }
 
         const parsedPrevious = QuestValidator.safeParse(entry);
-        const isVisibilityOnlyChange =
+        const isPresentationOnlyChange =
           parsedPrevious.success &&
-          calculateContentDiff(
-            { ...parsedPrevious.data, hidden: input.data.hidden },
-            input.data,
-          ).length === 0;
+          isQuestPresentationOnlyChange(parsedPrevious.data, input.data);
         const updatedAt = new Date(Math.max(Date.now(), entry.updatedAt.getTime() + 1));
-        // Publish visibility and accepted run versions together so another quest's
+        // Publish presentation and accepted run versions together so another quest's
         // tracker persistence cannot discard a checkpoint during a split revision.
         // Drizzle cannot express a multi-table UPDATE; authored edits use its builder.
-        const definitionWrite = isVisibilityOnlyChange
+        const definitionWrite = isPresentationOnlyChange
           ? await retryOnDeadlock(() =>
               ctx.drizzle.execute(sql`
                 UPDATE ${quest}
@@ -1021,6 +1033,8 @@ export const questsRouter = createTRPCRouter({
                   ON ${questHistory.questId} = ${quest.id}
                   AND ${questHistory.questVersion} = ${entry.updatedAt}
                 SET ${quest.hidden} = ${input.data.hidden},
+                    ${quest.publicLocations} = ${input.data.publicLocations},
+                    ${quest.content} = ${JSON.stringify(input.data.content)},
                     ${quest.updatedAt} = ${updatedAt},
                     ${questHistory.questVersion} = ${updatedAt}
                 WHERE ${quest.id} = ${entry.id}
@@ -1070,6 +1084,7 @@ export const questsRouter = createTRPCRouter({
             relatedImage: entry.image,
           }),
         ]);
+        await notifyMapLocationsChanged();
         await outdateProposalsFor(
           ctx.drizzle,
           "QUEST",
@@ -1206,6 +1221,7 @@ export const questsRouter = createTRPCRouter({
       if (!preparedBindings.success) return errorResponse(preparedBindings.message);
       questData.content.objectives = preparedBindings.objectives;
       await ctx.drizzle.insert(quest).values(questData);
+      await notifyMapLocationsChanged();
 
       return { success: true, message: questData.id };
     }),
@@ -1259,6 +1275,7 @@ export const questsRouter = createTRPCRouter({
           [entry.id],
           deletedReason("QUEST", entry.name, user.username),
         );
+        await notifyMapLocationsChanged();
         return { success: true, message: `Quest deleted` };
       } else {
         return { success: false, message: `Not allowed to delete quest` };

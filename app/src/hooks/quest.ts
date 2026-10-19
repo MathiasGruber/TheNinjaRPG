@@ -279,6 +279,11 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   const formData: FormEntry<keyof ZodCombinedQuest>[] = [
     { id: "name", label: "Title", type: "text" },
     { id: "hidden", type: "boolean", label: "Hidden" },
+    {
+      id: "publicLocations",
+      type: "boolean",
+      label: "Show structures to all players (Inspect only)",
+    },
     { id: "consecutiveObjectives", type: "boolean", label: "Sequential Objectives" },
     {
       id: "teamEnabled",

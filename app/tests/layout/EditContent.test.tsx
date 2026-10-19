@@ -46,6 +46,7 @@ vi.mock("@/app/_trpc/client", () => ({
     petSpecies: { getAll: names },
     skillTree: { getAllNames: names },
     badge: { getAll: names },
+    mapAsset: { getAll: names },
     title: { getAllNames: names },
     misc: { getAllGameAssetNames: names },
     village: { getAllNames: names },

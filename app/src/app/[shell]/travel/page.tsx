@@ -63,6 +63,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserItemWithItem } from "@/drizzle/schema";
 import { finishItemConsumeRequest, getItemConsumeInput } from "@/libs/itemConsumption";
+import { MAP_LOCATION_REFRESH_MS } from "@/validators/mapLocation";
 
 type RevealedPlayer = {
   userId: string;
@@ -235,7 +236,9 @@ function Travel() {
   // them across navigation for the whole session, including time away from travel.
   const { data: mapAssets } = api.mapAsset.getAll.useQuery(undefined, {
     enabled: !!userData,
-    staleTime: Infinity,
+    staleTime: MAP_LOCATION_REFRESH_MS,
+    refetchInterval: MAP_LOCATION_REFRESH_MS,
+    refetchIntervalInBackground: false,
     gcTime: Infinity,
   });
   const { data: mapTerrains } = api.mapTerrain.getAll.useQuery(undefined, {

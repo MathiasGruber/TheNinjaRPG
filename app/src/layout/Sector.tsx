@@ -49,6 +49,7 @@ import HealingPopover from "@/layout/HealingPopover";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import { LogbookEntry, QuestDialogScene } from "@/layout/Logbook";
+import { MapLocationActions } from "@/layout/MapLocationActions";
 import Modal from "@/layout/Modal";
 import RaidBrowser from "@/layout/RaidBrowser";
 import { useOpenRewardChoice } from "@/layout/RewardChoice";
@@ -58,6 +59,7 @@ import { getWorldCycleBrightness } from "@/libs/dayNight";
 import type { HexagonalFaceMesh, TerrainHex } from "@/libs/hexgrid";
 import { findHex, PathCalculator } from "@/libs/hexgrid";
 import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
+import { getQuestMapLocations, groupMapLocations } from "@/libs/mapLocations";
 import { isQuestObjectiveAvailable } from "@/libs/objectives";
 import {
   arrivalPromptDecision,
@@ -78,6 +80,7 @@ import { sectorGridNeighbors } from "@/libs/sector-map/world-grid";
 import { isUserCurrentlyStealthed } from "@/libs/stealth";
 import { getBackgroundColor } from "@/libs/threejs/biome";
 import { applyCanvasDayNightBrightness } from "@/libs/threejs/dayNight";
+import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
 import { OrbitControls } from "@/libs/threejs/OrbitControls";
 import {
   buildWindowNav,
@@ -117,6 +120,7 @@ import { findVillageUserRelationship, getAllyStatus } from "@/utils/alliance";
 import { round } from "@/utils/math";
 import { sleep } from "@/utils/time";
 import { blockingPopupOpenAtom, useRequiredUserData } from "@/utils/UserContext";
+import { MAP_LOCATION_REFRESH_MS, type MapLocation } from "@/validators/mapLocation";
 import { type BracketSliderSchema, bracketSliderSchema } from "@/validators/travel";
 
 type SectorWindowEntry =
@@ -148,7 +152,9 @@ interface SectorRenderEntry {
 /** Content identity of a window entry: map version plus dynamic structures */
 const renderKeyOf = (entry: SectorWindowEntry, additions: VillageStructure[] = []) => {
   const structuresKey = [...entry.structures, ...additions]
-    .map((s) => `${s.id}:${s.level}:${s.image}:${s.longitude}:${s.latitude}`)
+    .map(
+      (s) => `${s.id}:${s.level}:${s.hasPage}:${s.image}:${s.longitude}:${s.latitude}`,
+    )
     .join(",");
   return [
     entry.map.metadata.importedAt,
@@ -454,6 +460,9 @@ const Sector: React.FC<SectorProps> = (props) => {
             name: d.content.name,
             route: "/dungeon",
             image:
+              sectorWindow.mapAssets.find(
+                (asset) => asset.id === d.content.structureAssetId,
+              )?.imageUrl ??
               WAR_SHRINE_IMAGE_BY_BIOME[
                 d.content.background === "default"
                   ? "ground"
@@ -465,8 +474,9 @@ const Sector: React.FC<SectorProps> = (props) => {
             latitude: d.content.latitude,
           }),
           id: `dungeon-${d.id}`,
+          hasPage: d.content.structureAssetId ? 0 : 1,
         })),
-    [sectorDungeons, sector],
+    [sectorDungeons, sector, sectorWindow.mapAssets],
   );
   const firstDungeon = dungeonStructures[0];
   // Add dynamic entrances and the shrine without mutating cached village structures.
@@ -490,6 +500,95 @@ const Sector: React.FC<SectorProps> = (props) => {
   const { data: dialogSceneAssets } = api.gameAsset.getSceneAssets.useQuery(
     { assetIds: dialogSceneAssetIds },
     { enabled: dialogSceneAssetIds.length > 0 },
+  );
+
+  const [publicLocationRevision, setPublicLocationRevision] = useState(0);
+  const { data: publicLocations = [] } = api.quests.getPublicLocations.useQuery(
+    { revision: publicLocationRevision },
+    {
+      placeholderData: (previous) => previous,
+      staleTime: MAP_LOCATION_REFRESH_MS,
+      refetchInterval: MAP_LOCATION_REFRESH_MS,
+      refetchIntervalInBackground: false,
+    },
+  );
+  useEffect(() => {
+    if (!pusher) return;
+    const channel = pusher.subscribe("map-content");
+    const update = (event: { revision: number }) => {
+      if (!Number.isSafeInteger(event.revision) || event.revision < 0) return;
+      setPublicLocationRevision((previous) => Math.max(previous, event.revision));
+      void utils.mapAsset.getAll.invalidate();
+      void utils.coop.dungeon.getAvailable.invalidate();
+      // Active runs carry their private presentation in the profile snapshot.
+      if (userRef.current?.userQuests.some((entry) => !entry.completed && !entry.endAt))
+        void utils.profile.getUser.invalidate();
+    };
+    channel.bind("updated", update);
+    return () => {
+      channel.unbind("updated", update);
+      pusher.unsubscribe("map-content");
+    };
+  }, [pusher, utils]);
+  const questLocations = useMemo<MapLocation[]>(
+    () => [
+      ...(userData
+        ? getQuestMapLocations(userData, publicLocations, data?.overworldAis ?? [])
+        : []),
+      ...(sectorDungeons ?? [])
+        .filter((d) => d.content.structureAssetId)
+        .map((d) => ({
+          id: `dungeon:${d.id}`,
+          sector: d.content.sector,
+          longitude: d.content.longitude,
+          latitude: d.content.latitude,
+          name: d.content.name,
+          description: d.content.description,
+          assetId: d.content.structureAssetId,
+          scale: d.content.structureScale ?? 1,
+        })),
+    ],
+    [userData, publicLocations, sectorDungeons, data?.overworldAis],
+  );
+  const questLocationsRef = useRef(questLocations);
+  questLocationsRef.current = questLocations;
+  const structureObjectiveIdsRef = useRef(new Set<string | undefined>());
+  structureObjectiveIdsRef.current = new Set(
+    questLocations.filter((l) => l.active).map((l) => l.objectiveId),
+  );
+  const locationAssetsRef = useRef(sectorWindow.mapAssets);
+  locationAssetsRef.current = sectorWindow.mapAssets;
+  const locationSpritesRef = useRef<Sprite[]>([]);
+  const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
+  const hoveredLocationIdRef = useRef<string | null>(null);
+  const [inspectLocationId, setInspectLocationId] = useState<string | null>(null);
+  const locationGroups = useMemo(
+    () => groupMapLocations(questLocations.filter((l) => l.sector === sector)),
+    [questLocations, sector],
+  );
+  const hoveredLocation = questLocations.find(
+    (l) => l.id === hoveredLocationId && l.sector === sector,
+  );
+  const arrivedLocations = useMemo(
+    () =>
+      locationGroups
+        .filter(
+          (entries) =>
+            entries[0]?.longitude === userData?.longitude &&
+            entries[0]?.latitude === userData?.latitude,
+        )
+        .flat(),
+    [locationGroups, userData?.longitude, userData?.latitude],
+  );
+  useEffect(() => {
+    if (
+      inspectLocationId &&
+      !arrivedLocations.some((location) => location.id === inspectLocationId)
+    )
+      setInspectLocationId(null);
+  }, [inspectLocationId, arrivedLocations]);
+  const inspectedLocations = locationGroups.find((entries) =>
+    entries.some((l) => l.id === inspectLocationId),
   );
 
   // Router for forwarding
@@ -1294,6 +1393,12 @@ const Sector: React.FC<SectorProps> = (props) => {
       entry.villageType,
       groups.villageWallPlan,
     );
+    syncMapLocationSprites(
+      groups.group_assets,
+      groups.honeycombGrid,
+      questLocationsRef.current.filter((l) => l.sector === entry.sector),
+      locationAssetsRef.current,
+    );
     sortSectorAssetsByGroundContact(groups.group_assets);
     groups.group_interaction.children.forEach((mesh) => {
       mesh.userData.sector = entry.sector;
@@ -1368,6 +1473,10 @@ const Sector: React.FC<SectorProps> = (props) => {
     structureSpritesRef.current =
       currentAssets?.children.filter(
         (child): child is Sprite => child.userData.type === "structure",
+      ) ?? [];
+    locationSpritesRef.current =
+      currentAssets?.children.filter(
+        (child): child is Sprite => child.userData.type === "questStructure",
       ) ?? [];
     animatedMaterialsRef.current = entries.flatMap(
       (render) => render.animatedMaterials,
@@ -2063,6 +2172,19 @@ const Sector: React.FC<SectorProps> = (props) => {
     }
   }, [userData, villageData, structures]);
 
+  useEffect(() => {
+    for (const [sectorId, rendered] of worldRegistryRef.current.entries) {
+      syncMapLocationSprites(
+        rendered.assets,
+        rendered.grid,
+        questLocations.filter((l) => l.sector === sectorId),
+        sectorWindow.mapAssets,
+      );
+      sortSectorAssetsByGroundContact(rendered.assets);
+    }
+    refreshRenderCollections();
+  }, [questLocations, sectorWindow]);
+
   // Window changes patch the rendered world in place: crossings and
   // refetches draw only the sectors that entered the window and dispose the
   // ones that left - no scene rebuild, no visual change to shared sectors
@@ -2302,6 +2424,16 @@ const Sector: React.FC<SectorProps> = (props) => {
         }
         // Find intersects with the scene
         setRaycasterFromMouse(raycaster, sceneRef, e, camera);
+        const locationHit = raycaster.intersectObjects(
+          locationSpritesRef.current,
+          false,
+        )[0];
+        const locationId = locationHit?.object.userData.locationId;
+        if (typeof locationId === "string") {
+          hoveredLocationIdRef.current = locationId;
+          setHoveredLocationId(locationId);
+          return;
+        }
         // Sticky-select a structure under the pointer so touch / click can
         // open the "Go to" card the same way desktop hover does.
         const structureHit = raycaster.intersectObjects(
@@ -2571,8 +2703,26 @@ const Sector: React.FC<SectorProps> = (props) => {
 
           // Draw quests
           const endQuest = profiler.mark("animate_quest");
-          drawQuest({ group_quest, user: userRef.current, grid: gridRef.current });
+          drawQuest({
+            group_quest,
+            user: userRef.current,
+            grid: gridRef.current,
+            structureObjectiveIds: structureObjectiveIdsRef.current,
+          });
           endQuest();
+        }
+
+        if (pointerOnMapRef.current) {
+          const locationHit = raycaster.intersectObjects(
+            locationSpritesRef.current,
+            false,
+          )[0];
+          const nextLocationId =
+            (locationHit?.object.userData.locationId as string | undefined) ?? null;
+          if (nextLocationId !== hoveredLocationIdRef.current) {
+            hoveredLocationIdRef.current = nextLocationId;
+            setHoveredLocationId(nextLocationId);
+          }
         }
 
         // Building hover for the fixed HTML "Go to" card. Only update while the
@@ -2827,6 +2977,25 @@ const Sector: React.FC<SectorProps> = (props) => {
         <DayNightIndicator className="absolute top-3 right-3 z-10 rounded-lg border bg-background/90 px-3 py-2 shadow-md backdrop-blur-sm" />
       </div>
       {webglError && <WebGlError />}
+      {inspectedLocations && (
+        <Modal
+          title={inspectedLocations[0]?.name ?? "Location"}
+          isOpen={!!inspectLocationId}
+          setIsOpen={(open) => {
+            if (!(typeof open === "function" ? open(!!inspectLocationId) : open))
+              setInspectLocationId(null);
+          }}
+        >
+          {inspectedLocations.map((location) => (
+            <div key={location.id} className="space-y-2">
+              {inspectedLocations.length > 1 && (
+                <h3 className="font-semibold">{location.name}</h3>
+              )}
+              <p className="whitespace-pre-wrap">{location.description}</p>
+            </div>
+          ))}
+        </Modal>
+      )}
       {currentStructure && (
         <div className="absolute bottom-3 left-3 z-20 max-w-[calc(50%-1.5rem)] rounded-lg bg-black/70 p-2 text-white shadow-lg sm:bottom-4 sm:left-4 sm:max-w-xs sm:p-4">
           <div className="flex items-center gap-4">
@@ -2858,6 +3027,18 @@ const Sector: React.FC<SectorProps> = (props) => {
       )}
       {/* Stack corner actions so dungeon, hover and raid cards share the map without overlap. */}
       <div className="pointer-events-none absolute right-3 bottom-3 z-20 flex max-w-[calc(50%-1.5rem)] flex-col items-end gap-2 sm:right-4 sm:bottom-4 sm:max-w-xs">
+        <MapLocationActions
+          arrived={arrivedLocations}
+          hovered={hoveredLocation}
+          onInspect={(location) => setInspectLocationId(location.id)}
+          onQuest={(questId) => {
+            setLogbookModalQuestId(questId);
+            setLogbookModalOpen(true);
+          }}
+          onGoTo={(location) =>
+            setTarget({ x: location.longitude, y: location.latitude })
+          }
+        />
         {hoveredStructure && hoveredStructure.id !== currentStructure?.id && (
           <div className="pointer-events-auto w-full rounded-lg bg-black/70 p-2 text-white shadow-lg sm:p-4">
             <div className="flex items-center gap-4">

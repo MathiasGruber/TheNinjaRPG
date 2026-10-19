@@ -49,6 +49,7 @@ import ContentImageSelector from "@/layout/ContentImageSelector";
 import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
+import { MapLocationPreview } from "@/layout/MapLocationPreview";
 import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
 import Modal from "@/layout/Modal";
 import { RewardEditor } from "@/layout/RewardEditor";
@@ -88,6 +89,7 @@ import {
   questDebuffTypes,
 } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
+import { supportsMapStructure } from "@/validators/mapLocation";
 import type { MethodSize } from "@/validators/methodSize";
 import type { AllObjectivesType } from "@/validators/objectives";
 import {
@@ -2473,6 +2475,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     enabled: fields.includes("newQuestIds") || fields.includes("completeQuestIds"),
   });
 
+  const { data: structureAssets = [] } = api.mapAsset.getAll.useQuery(undefined, {
+    enabled: supportsMapStructure(objective.task),
+  });
+
   const { data: placementNames } = api.overworldAi.getAllPlacementNames.useQuery(
     undefined,
     { enabled: isSupportedOverworldBindingTask(objective.task) },
@@ -2567,6 +2573,15 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
     .filter((value) => value !== "reward_packages")
+    .filter(
+      (value) =>
+        ![
+          "structureAssetId",
+          "locationName",
+          "locationDescription",
+          "structureScale",
+        ].includes(String(value)) || supportsMapStructure(watchTask),
+    )
     .filter(
       (value) =>
         String(value) !== "durationSeconds" ||
@@ -2668,6 +2683,26 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
+      if (value === "structureAssetId")
+        return {
+          id: value,
+          type: "db_values",
+          label: "Map structure (optional)",
+          values: structureAssets,
+          resetButton: true,
+        };
+      if (value === "locationName")
+        return { id: value, type: "text", label: "Location name" };
+      if (value === "locationDescription")
+        return {
+          id: value,
+          type: "textarea",
+          label: "Location description (Inspect)",
+          doubleWidth: true,
+        };
+      if (value === "structureScale")
+        return { id: value, type: "number", label: "Structure size multiplier" };
+
       if (
         (["attackers", "opponentAIs", "allyAIs"] as string[]).includes(value) &&
         aiData
@@ -2945,6 +2980,25 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
             disabled={props.submitLoading}
           />
         </>
+      )}
+      {watchAll.structureAssetId && (
+        <MapLocationPreview
+          isDynamic={Boolean(
+            (watchAll.sectorType && watchAll.sectorType !== "specific") ||
+              (watchAll.locationType && watchAll.locationType !== "specific") ||
+              watchAll.overworldPlacementId,
+          )}
+          location={{
+            id: objective.id,
+            sector: Number(watchAll.sector),
+            longitude: Number(watchAll.longitude),
+            latitude: Number(watchAll.latitude),
+            name: watchAll.locationName || "Quest location",
+            description: watchAll.locationDescription || "",
+            assetId: watchAll.structureAssetId,
+            scale: Number(watchAll.structureScale) || 1,
+          }}
+        />
       )}
       <EditContent
         schema={objectiveSchema}

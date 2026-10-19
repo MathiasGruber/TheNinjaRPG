@@ -11,6 +11,7 @@ import {
   SECTOR_WIDTH,
 } from "@/drizzle/constants";
 import { type CoopRoster, encounterWaveSchema } from "@/validators/coop";
+import { mapLocationFields } from "@/validators/mapLocation";
 
 /** Each member rolls each authored item or jutsu drop independently at completion. */
 const dungeonDropSchema = z.object({
@@ -35,6 +36,8 @@ export const dungeonContentSchema = z
   .object({
     name: z.string().trim().min(1, "Enter a dungeon name.").max(100),
     description: z.string().max(2000).prefault(""),
+    structureAssetId: mapLocationFields.structureAssetId,
+    structureScale: mapLocationFields.structureScale,
     sector: z.number().int().min(MAP_SECTOR_ID_MIN).max(MAP_SECTOR_ID_MAX),
     longitude: z
       .number()

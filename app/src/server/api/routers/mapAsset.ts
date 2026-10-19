@@ -14,9 +14,13 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import {
+  isStructureAssetUsed,
+  notifyMapLocationsChanged,
+} from "@/server/utils/mapLocations";
 import { calculateContentDiff } from "@/utils/diff";
 import { canChangeContent } from "@/utils/permissions";
-import { mapAssetValidator } from "@/validators/mapAsset";
+import { createMapAssetSchema, mapAssetValidator } from "@/validators/mapAsset";
 import { idSchema } from "@/validators/misc";
 
 export const mapAssetRouter = createTRPCRouter({
@@ -49,26 +53,30 @@ export const mapAssetRouter = createTRPCRouter({
    * and the default avatar image. The new row's id is returned in `message`,
    * which callers use to open the editor for it.
    */
-  create: protectedProcedure.output(baseServerResponse).mutation(async ({ ctx }) => {
-    // Query + guards
-    const user = await fetchUser(ctx.drizzle, ctx.userId);
-    if (user.isBanned) return errorResponse("You are banned");
-    if (!canChangeContent(user.role)) {
-      return errorResponse("Not allowed to create map assets");
-    }
-    // Mutation: placeholder row. The key is sanitized to lowercase alphanumerics
-    // because map decoration objects reference assets by key (must stay url-safe).
-    const id = nanoid();
-    await ctx.drizzle.insert(mapAsset).values({
-      id,
-      key: `new.asset.${id.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
-      name: "New Map Asset",
-      category: "prop",
-      imageUrl: IMG_AVATAR_DEFAULT,
-      createdByUserId: ctx.userId,
-    });
-    return { success: true, message: id };
-  }),
+  create: protectedProcedure
+    .input(createMapAssetSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // Query + guards
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.isBanned) return errorResponse("You are banned");
+      if (!canChangeContent(user.role)) {
+        return errorResponse("Not allowed to create map assets");
+      }
+      // Mutation: placeholder row. The key is sanitized to lowercase alphanumerics
+      // because map decoration objects reference assets by key (must stay url-safe).
+      const id = nanoid();
+      await ctx.drizzle.insert(mapAsset).values({
+        id,
+        key: `new.asset.${id.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+        name: input?.category === "structure" ? "New Structure" : "New Map Asset",
+        category: input?.category ?? "prop",
+        renderScale: input?.category === "structure" ? 2.4 : 1,
+        imageUrl: IMG_AVATAR_DEFAULT,
+        createdByUserId: ctx.userId,
+      });
+      return { success: true, message: id };
+    }),
   /**
    * Update an asset. Enforces global key uniqueness (map decoration objects
    * reference assets by key), audit-logs the field diff to actionLog, and
@@ -107,7 +115,10 @@ export const mapAssetRouter = createTRPCRouter({
       });
       // Mutation: update + audit log in parallel (no transaction on PlanetScale)
       await Promise.all([
-        ctx.drizzle.update(mapAsset).set(input.data).where(eq(mapAsset.id, entry.id)),
+        ctx.drizzle
+          .update(mapAsset)
+          .set({ ...input.data, updatedAt: new Date() })
+          .where(eq(mapAsset.id, entry.id)),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
@@ -118,6 +129,7 @@ export const mapAssetRouter = createTRPCRouter({
           relatedImage: entry.imageUrl,
         }),
       ]);
+      await notifyMapLocationsChanged();
       // Broadcast the change to the content Discord outside development
       if (process.env.NODE_ENV !== "development") {
         await callDiscordContent(user.username, entry.name, diff, entry.imageUrl);
@@ -133,9 +145,10 @@ export const mapAssetRouter = createTRPCRouter({
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Queries (parallel: editor + target row)
-      const [user, entry] = await Promise.all([
+      const [user, entry, inUse] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchMapAsset(ctx.drizzle, input.id),
+        isStructureAssetUsed(ctx.drizzle, input.id),
       ]);
       // Guards
       if (user.isBanned) return errorResponse("You are banned");
@@ -143,6 +156,10 @@ export const mapAssetRouter = createTRPCRouter({
       if (!canChangeContent(user.role)) {
         return errorResponse("Not allowed to delete map assets");
       }
+      if (inUse)
+        return errorResponse(
+          "This asset is used by a quest structure or dungeon entrance. Replace those references first.",
+        );
       // Mutation: hard-delete + audit log in parallel
       await Promise.all([
         ctx.drizzle.delete(mapAsset).where(eq(mapAsset.id, input.id)),
@@ -156,6 +173,7 @@ export const mapAssetRouter = createTRPCRouter({
           relatedImage: entry.imageUrl,
         }),
       ]);
+      await notifyMapLocationsChanged();
       return { success: true, message: `Deleted ${entry.name}` };
     }),
 });

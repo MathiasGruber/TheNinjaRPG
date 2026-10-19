@@ -1143,6 +1143,25 @@ export const getNewTrackers = (
             }
           }
 
+          // Public landmarks share one canonical entrance across all accepted attempts.
+          if (
+            quest.publicLocations &&
+            objective.structureAssetId &&
+            "sectorType" in objective &&
+            objective.sectorType === "specific" &&
+            "locationType" in objective &&
+            objective.locationType === "specific" &&
+            (status.sector !== objective.sector ||
+              status.longitude !== objective.longitude ||
+              status.latitude !== objective.latitude)
+          ) {
+            status.sector = objective.sector;
+            status.longitude = objective.longitude;
+            status.latitude = objective.latitude;
+            status.locationChecked = false;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
+          }
+
           // If locationType is not specific, update the location accordingly
           if (
             "locationType" in objective &&

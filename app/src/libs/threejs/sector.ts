@@ -296,6 +296,7 @@ export const drawQuest = (info: {
   group_quest: Group;
   grid: Grid<TerrainHex>;
   user: NonNullable<UserWithRelations>;
+  structureObjectiveIds?: ReadonlySet<string | undefined>;
 }) => {
   const endMark = profiler.mark("drawQuest");
   const { user, grid, group_quest } = info;
@@ -304,6 +305,7 @@ export const drawQuest = (info: {
 
   activeObjectives
     .filter((o) => "sector" in o && Number(o.sector) === user.sector)
+    .filter((objective) => !info.structureObjectiveIds?.has(objective.id))
     .forEach((objective) => {
       let mesh = meshCache.get(objective.id);
       if (mesh && mesh.parent !== group_quest) {

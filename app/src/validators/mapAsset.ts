@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const createMapAssetSchema = z
+  .object({ category: z.enum(["prop", "structure"]) })
+  .optional();
+
 export const mapAssetValidator = z.object({
   key: z
     .string()

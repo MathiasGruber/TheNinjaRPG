@@ -52,11 +52,12 @@ export default function MapTilesets() {
     },
   });
 
-  const handleCreate = () => {
+  const handleCreate = (category: "prop" | "structure" = "prop") => {
     // isPending updates after React renders; the ref closes the same-tick double-click gap.
     if (createInFlightRef.current) return;
     createInFlightRef.current = true;
-    create();
+    if (category === "structure") create({ category });
+    else create();
   };
 
   const { mutate: remove } = api.mapAsset.delete.useMutation({
@@ -95,28 +96,37 @@ export default function MapTilesets() {
     <>
       <ContentBox
         title="Map Tilesets"
-        subtitle="The shared decoration sprite library"
+        subtitle="Shared decoration and structure artwork"
         defaultBackHref="/manual/world"
         topRightContent={
           canEdit ? (
-            <Button
-              id="create-map-asset"
-              onClick={handleCreate}
-              disabled={isCreating}
-              loading={isCreating}
-              aria-busy={isCreating}
-              aria-label={isCreating ? "Creating map asset" : "Create map asset"}
-            >
-              {!isCreating && <FilePlus className="mr-2 h-5 w-5" />}
-              <span aria-live="polite">{isCreating ? "Creating" : "New"}</span>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                id="create-map-asset"
+                onClick={() => handleCreate()}
+                disabled={isCreating}
+                loading={isCreating}
+                aria-busy={isCreating}
+                aria-label={isCreating ? "Creating map asset" : "Create map asset"}
+              >
+                {!isCreating && <FilePlus className="mr-2 h-5 w-5" />}
+                <span aria-live="polite">{isCreating ? "Creating" : "New"}</span>
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={isCreating}
+                onClick={() => handleCreate("structure")}
+              >
+                New structure
+              </Button>
+            </div>
           ) : undefined
         }
       >
         <p className="pb-2">
-          These sprites can be placed on any sector map as decorations. They are bundled
-          into every &quot;Download for Tiled&quot; kit, so new uploads are immediately
-          usable (and visible) in the Tiled editor for everyone.
+          Reuse these sprites as quest structures, dungeon entrances or sector
+          decorations. Decorations are also included in every &quot;Download for
+          Tiled&quot; kit.
         </p>
         <div className="flex flex-wrap gap-2 pb-3">
           <Button

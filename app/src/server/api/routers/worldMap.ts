@@ -19,6 +19,10 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import {
+  fetchPublicQuestLocations,
+  validateMapLocationTiles,
+} from "@/server/utils/mapLocations";
+import {
   buildSectorWindowLayout,
   fetchPublishedSectorMaps,
   getSectorNeighborIds,
@@ -258,10 +262,16 @@ export const worldMapRouter = createTRPCRouter({
       // Queries (parallel: user + terrain registry + the next version, which
       // depends only on input.sector — folded in here to avoid a third serial
       // round-trip before the insert)
-      const [user, terrainRegistry, version] = await Promise.all([
+      const [user, terrainRegistry, version, locations] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         fetchTerrainRegistry(ctx.drizzle),
         getNextSectorMapVersion(ctx.drizzle, input.sector),
+        input.publish
+          ? fetchPublicQuestLocations(ctx.drizzle, {
+              fresh: true,
+              includeScheduled: true,
+            })
+          : [],
       ]);
       // Guards
       if (user.isBanned) return errorResponse("You are banned");
@@ -287,6 +297,11 @@ export const worldMapRouter = createTRPCRouter({
 
       const normalizedMap = result.map;
       const status: SectorMapStatus = input.publish ? "PUBLISHED" : "DRAFT";
+      const locationError = validateMapLocationTiles(
+        locations.filter((location) => location.sector === input.sector),
+        new Map([[input.sector, result.map]]),
+      );
+      if (locationError) return errorResponse(locationError);
       const id = nanoid();
       const now = new Date();
 
@@ -359,13 +374,14 @@ export const worldMapRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // Queries (parallel: user, the candidate row incl. its raw Tiled JSON for
       // re-normalization, and the terrain registry the importer needs)
-      const [user, candidate, terrainRegistry] = await Promise.all([
+      const [user, candidate, terrainRegistry, locations] = await Promise.all([
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.sectorMap.findFirst({
           columns: { sector: true, name: true, rawTiledJson: true },
           where: eq(sectorMap.id, input.id),
         }),
         fetchTerrainRegistry(ctx.drizzle),
+        fetchPublicQuestLocations(ctx.drizzle, { fresh: true, includeScheduled: true }),
       ]);
       if (user.isBanned) return errorResponse("You are banned");
       if (!canChangeContent(user.role)) return errorResponse("Not allowed");
@@ -386,6 +402,11 @@ export const worldMapRouter = createTRPCRouter({
         );
       }
 
+      const locationError = validateMapLocationTiles(
+        locations.filter((location) => location.sector === candidate.sector),
+        new Map([[candidate.sector, result.map]]),
+      );
+      if (locationError) return errorResponse(locationError);
       const now = new Date();
       // Mutation: promote this map to a NEW highest version FIRST, then archive strictly-
       // older published rows (PlanetScale has no transactions). Bumping to the

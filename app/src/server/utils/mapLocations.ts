@@ -1,0 +1,156 @@
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { dungeon, mapAsset, overworldAiPlacement, quest } from "@/drizzle/schema";
+import { publicQuestLocations } from "@/libs/mapLocations";
+import { getServerPusher } from "@/libs/pusher";
+import type { NormalizedSectorMap } from "@/libs/sector-map/types";
+import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
+import type { DrizzleClient } from "@/server/db";
+import { fetchPublishedSectorMaps } from "@/server/utils/sectorMap";
+import type { MapLocation } from "@/validators/mapLocation";
+import { MAP_LOCATION_REFRESH_MS } from "@/validators/mapLocation";
+import type { AllObjectivesType } from "@/validators/objectives";
+
+type PublicQuest = Parameters<typeof publicQuestLocations>[0][number];
+const publicLocationCache = new WeakMap<
+  DrizzleClient,
+  { quests: PublicQuest[]; at: number; generation: number }
+>();
+let publicLocationGeneration = 0;
+export const invalidatePublicQuestLocations = () => {
+  publicLocationGeneration += 1;
+};
+
+/** One indexed query, independent of player history, with a presentation-only response. */
+export const fetchPublicQuestLocations = async (
+  client: DrizzleClient,
+  {
+    fresh = false,
+    revision = 0,
+    includeScheduled = false,
+  }: { fresh?: boolean; revision?: number; includeScheduled?: boolean } = {},
+) => {
+  const cached = publicLocationCache.get(client);
+  if (
+    !fresh &&
+    cached &&
+    cached.at >= revision &&
+    cached.generation === publicLocationGeneration &&
+    Date.now() - cached.at < MAP_LOCATION_REFRESH_MS
+  )
+    return publicQuestLocations(
+      includeScheduled
+        ? cached.quests.map((q) => ({ ...q, startsAt: null, endsAt: null }))
+        : cached.quests,
+    );
+  const generation = publicLocationGeneration;
+  const quests = await client.query.quest.findMany({
+    columns: { id: true, content: true, hidden: true, startsAt: true, endsAt: true },
+    where: and(eq(quest.publicLocations, true), eq(quest.hidden, false)),
+  });
+  if (generation === publicLocationGeneration)
+    publicLocationCache.set(client, { quests, at: Date.now(), generation });
+  return publicQuestLocations(
+    includeScheduled
+      ? quests.map((q) => ({ ...q, startsAt: null, endsAt: null }))
+      : quests,
+  );
+};
+
+/** Global event contains no quest details; polling/focus refresh recovers missed notifications. */
+export const notifyMapLocationsChanged = async () => {
+  invalidatePublicQuestLocations();
+  try {
+    await getServerPusher().trigger("map-content", "updated", { revision: Date.now() });
+  } catch (error) {
+    console.warn("Map content notification failed", error);
+  }
+};
+
+export const validateMapLocationTiles = (
+  locations: MapLocation[],
+  maps: ReadonlyMap<
+    number,
+    Pick<NormalizedSectorMap, "width" | "height" | "tiles" | "anchors">
+  >,
+) => {
+  for (const location of locations) {
+    const map = maps.get(location.sector);
+    const reachable =
+      map &&
+      findNearestReachableCoordinate(map, {
+        x: location.longitude,
+        y: location.latitude,
+      });
+    if (
+      !reachable ||
+      reachable.x !== location.longitude ||
+      reachable.y !== location.latitude
+    )
+      return `${location.name}: choose a reachable entrance tile on the published sector map`;
+  }
+  return null;
+};
+
+/** Assets and published maps are fetched in batches, never once per objective. */
+export const validateQuestStructures = async (
+  client: DrizzleClient,
+  data: {
+    id?: string;
+    publicLocations: boolean;
+    content: { objectives: AllObjectivesType[] };
+  },
+) => {
+  const objectives = data.content.objectives.filter((o) => o.structureAssetId);
+  if (!objectives.length) return null;
+  const locations = data.publicLocations
+    ? publicQuestLocations([
+        {
+          ...data,
+          id: data.id ?? "draft",
+          hidden: false,
+          startsAt: null,
+          endsAt: null,
+        },
+      ])
+    : [];
+  const ids = [...new Set(objectives.map((o) => o.structureAssetId))];
+  const placementIds = objectives
+    .map((o) => o.overworldPlacementId)
+    .filter((id): id is string => !!id);
+  const [assets, maps, placements] = await Promise.all([
+    client.query.mapAsset.findMany({
+      columns: { id: true },
+      where: inArray(mapAsset.id, ids),
+    }),
+    locations.length
+      ? fetchPublishedSectorMaps(client, [...new Set(locations.map((l) => l.sector))])
+      : new Map<number, NormalizedSectorMap>(),
+    placementIds.length
+      ? client.query.overworldAiPlacement.findMany({
+          where: inArray(overworldAiPlacement.id, placementIds),
+        })
+      : [],
+  ]);
+  if (
+    placements.some((p) => p.sectorType !== "specific" || p.locationType !== "specific")
+  )
+    return "Structures cannot be attached to roaming NPC placements.";
+  if (ids.some((id) => !assets.some((asset) => asset.id === id)))
+    return "A structure asset no longer exists. Choose another asset.";
+  return validateMapLocationTiles(locations, maps);
+};
+
+/** A referenced sprite cannot silently disappear from authored quest/dungeon content. */
+export const isStructureAssetUsed = async (client: DrizzleClient, assetId: string) => {
+  const [questReference, dungeonReference] = await Promise.all([
+    client.query.quest.findFirst({
+      columns: { id: true },
+      where: sql`JSON_CONTAINS(JSON_EXTRACT(${quest.content}, '$.objectives[*].structureAssetId'), JSON_QUOTE(${assetId})) = 1`,
+    }),
+    client.query.dungeon.findFirst({
+      columns: { id: true },
+      where: sql`JSON_UNQUOTE(JSON_EXTRACT(${dungeon.content}, '$.structureAssetId')) = ${assetId}`,
+    }),
+  ]);
+  return !!questReference || !!dungeonReference;
+};

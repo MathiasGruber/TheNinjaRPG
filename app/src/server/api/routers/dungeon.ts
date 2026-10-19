@@ -9,6 +9,7 @@ import {
   dungeonRun,
   item,
   jutsu,
+  mapAsset,
   userData,
 } from "@/drizzle/schema";
 import { transitionCoopParty } from "@/libs/coop";
@@ -24,6 +25,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { launchCoopEncounter } from "@/server/utils/coop";
 import { expireDungeonRun, rollbackDungeonStart } from "@/server/utils/dungeon";
+import { notifyMapLocationsChanged } from "@/server/utils/mapLocations";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canChangeContent } from "@/utils/permissions";
 import { secondsFromNow } from "@/utils/time";
@@ -186,7 +188,7 @@ export const dungeonRouter = createTRPCRouter({
         ),
       ];
       const drops = input.content.rewards.drops;
-      const [user, ais, items, jutsus] = await Promise.all([
+      const [user, ais, items, jutsus, entranceAsset] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
           columns: { role: true },
@@ -213,9 +215,19 @@ export const dungeonRouter = createTRPCRouter({
               columns: { id: true },
             })
           : [],
+        input.content.structureAssetId
+          ? ctx.drizzle.query.mapAsset.findFirst({
+              columns: { id: true },
+              where: eq(mapAsset.id, input.content.structureAssetId),
+            })
+          : null,
       ]);
       if (!user || !canChangeContent(user.role))
         return errorResponse("You cannot edit dungeons.");
+      if (input.content.structureAssetId && !entranceAsset)
+        return errorResponse(
+          "The entrance artwork no longer exists. Choose another asset.",
+        );
       if (
         ais.length !== aiIds.length ||
         drops.some(
@@ -240,6 +252,7 @@ export const dungeonRouter = createTRPCRouter({
           changes: [JSON.stringify(input.content)],
         }),
       ]);
+      await notifyMapLocationsChanged();
       return { success: true, message: "Dungeon saved.", id };
     }),
   /** Snapshot an available definition and reserve the leader's sole active membership. */

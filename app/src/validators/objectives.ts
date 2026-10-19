@@ -51,6 +51,7 @@ import {
   IMG_BADGE_WIN_QUEST,
   IMG_FARM_PLOT_SOIL,
   LetterRanks,
+  MAP_SECTOR_ID_MAX,
   MasteryTypes,
   MEDNIN_RANKS,
   QUEST_PARTY_TYPES,
@@ -58,6 +59,7 @@ import {
   QuestTypes,
   RetryQuestDelays,
   SAGE_MASTERY_RANKS,
+  SECTOR_MAP_MAX_DIMENSION,
 } from "@/drizzle/constants";
 import { DateTimeRegExp } from "@/utils/regex";
 import { idsWithNumberField } from "@/validators/base";
@@ -68,6 +70,7 @@ import {
   questStartingEffectsSchema,
   SuperRefinePassiveEffects,
 } from "@/validators/combat";
+import { mapLocationFields, supportsMapStructure } from "@/validators/mapLocation";
 import { masteryRequirementFields } from "@/validators/mastery";
 import { petTaskMinutesSchema } from "@/validators/petTasks";
 import {
@@ -430,6 +433,7 @@ export const battleObjectiveFields = {
 };
 
 export const baseObjectiveFields = {
+  ...mapLocationFields,
   id: z.string(),
   description: z.string().prefault(""),
   successDescription: z.string().prefault(""),
@@ -841,6 +845,7 @@ export const QuestValidatorRawSchema = z.object({
   }),
   hidden: z.coerce.boolean(),
   teamEnabled: z.boolean().prefault(false),
+  publicLocations: z.boolean().prefault(false),
   retryDelay: z.enum(RetryQuestDelays).optional(),
   attemptDelay: z.enum(RetryQuestDelays).optional(),
   consecutiveObjectives: z.coerce.boolean(),
@@ -855,6 +860,47 @@ const questSuperRefine = (
   val: z.infer<typeof QuestValidatorRawSchema>,
   ctx: z.RefinementCtx,
 ) => {
+  val.content.objectives.forEach((objective, index) => {
+    if (!objective.structureAssetId) return;
+    const issue = (message: string) =>
+      ctx.addIssue({
+        code: "custom",
+        path: ["content", "objectives", index, "structureAssetId"],
+        message,
+      });
+    if (!supportsMapStructure(objective.task))
+      issue("This objective does not support a map structure");
+    if (
+      objective.sector !== undefined &&
+      (!Number.isInteger(objective.sector) ||
+        objective.sector < 0 ||
+        objective.sector > MAP_SECTOR_ID_MAX)
+    )
+      issue("Choose a valid sector for this structure");
+    for (const coordinate of [objective.longitude, objective.latitude]) {
+      if (
+        coordinate !== undefined &&
+        (!Number.isInteger(coordinate) ||
+          coordinate < 0 ||
+          coordinate >= SECTOR_MAP_MAX_DIMENSION)
+      )
+        issue("Structure coordinates must be whole tiles within the sector");
+    }
+    if (!objective.locationName || !objective.locationDescription)
+      issue("Structures need a location name and neutral description");
+    if (
+      val.publicLocations &&
+      (!("sectorType" in objective) ||
+        objective.sectorType !== "specific" ||
+        !("locationType" in objective) ||
+        objective.locationType !== "specific" ||
+        ("hideLocation" in objective && objective.hideLocation) ||
+        objective.overworldPlacementId)
+    )
+      issue(
+        "Public structures need a fixed, visible location without an NPC placement binding",
+      );
+  });
   if (val.petTaskMinutes !== null && !["hunting", "gathering"].includes(val.questType))
     ctx.addIssue({
       code: "custom",
