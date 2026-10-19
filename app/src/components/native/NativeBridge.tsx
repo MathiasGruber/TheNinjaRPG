@@ -18,6 +18,7 @@ import {
   parseNativeUserAgent,
   platform,
   toInternalPath,
+  viewport,
   widgets,
 } from "@/libs/native";
 import {
@@ -105,6 +106,23 @@ export default function NativeBridge() {
   useEffect(() => {
     const client = parseNativeUserAgent(navigator.userAgent);
     setIsOutdated(isOutdatedNativeClient(client, MIN_NATIVE_APP_VERSION));
+  }, []);
+
+  useEffect(() => {
+    if (!isNative() || platform() !== "android") return;
+    const appearance = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const fitContent = () => {
+      void viewport.fitContent(appearance?.matches ?? false);
+    };
+    fitContent();
+    appearance?.addEventListener("change", fitContent);
+    const removeStateListener = appEvents.onStateChange((isActive) => {
+      if (isActive) fitContent();
+    });
+    return () => {
+      appearance?.removeEventListener("change", fitContent);
+      removeStateListener();
+    };
   }, []);
 
   // Read through a ref so the listener is attached once. Attaching and removing it on
