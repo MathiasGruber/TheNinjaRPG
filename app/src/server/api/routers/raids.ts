@@ -58,6 +58,8 @@ import {
   ratelimitMiddleware,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { deferPushToUsers } from "@/server/utils/push/defer";
+import { raidBattleStarted } from "@/server/utils/push/messages";
 import {
   purgeAllRaidChatMembershipsForUser,
   purgeRaidChatMembership,
@@ -1369,6 +1371,11 @@ export const raidsRouter = createTRPCRouter({
           // Pusher - notify sector about team changes (battle started)
           const pusher = getServerPusher();
           void updateRaidTeamsOnSector(pusher, team.sector);
+          deferPushToUsers(
+            ctx.drizzle,
+            attackerUserIds.filter((id) => id !== ctx.userId),
+            raidBattleStarted(result.battleId),
+          );
 
           return {
             success: true,

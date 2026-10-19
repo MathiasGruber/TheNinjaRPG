@@ -1,7 +1,8 @@
 "use client";
 
 import { BellRing, SquarePen, Trash2, UserRoundX, Users, X } from "lucide-react";
-import { startTransition, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, startTransition, useEffect, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,8 +18,24 @@ import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 export default function Inbox() {
+  return (
+    <Suspense fallback={<Loader explanation="Loading inbox" />}>
+      <InboxContent />
+    </Suspense>
+  );
+}
+
+function InboxContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const linkedConversationId = searchParams.get("conversationId");
   const { data: userData } = useRequiredUserData();
-  const [selectedConvo, setSelectedConvo] = useState<string | null>(null);
+  const [selectedConvo, setSelectedConvo] = useState<string | null>(
+    linkedConversationId,
+  );
+  useEffect(() => {
+    setSelectedConvo(linkedConversationId);
+  }, [linkedConversationId]);
   // Opening a thread or going back swaps the whole view, unmounting the clicked control;
   // as a transition that render no longer blocks the click's next paint.
   const selectConvo: React.Dispatch<React.SetStateAction<string | null>> = (value) =>
@@ -55,7 +72,10 @@ export default function Inbox() {
         refreshKey={0}
         convo_id={selectedConvo}
         defaultBackHref="/inbox"
-        onBack={() => selectConvo(null)}
+        onBack={() => {
+          selectConvo(null);
+          if (linkedConversationId) router.replace("/inbox");
+        }}
         title="Inbox"
         subtitle="Private messages"
         topRightContent={topRightContent}

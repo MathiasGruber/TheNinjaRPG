@@ -40,6 +40,8 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { deferPushToUsers } from "@/server/utils/push/defer";
+import { tradeUpdate } from "@/server/utils/push/messages";
 import type { QueryCondition } from "@/utils/typeutils";
 import {
   createAuctionListingSchema,
@@ -987,5 +989,10 @@ export const completeAuctionInternal = async (
     ]);
   }
 
+  deferPushToUsers(
+    drizzle,
+    [auction.sellerId, ...auction.bids.map((bid) => bid.bidderId)],
+    tradeUpdate(auction.id),
+  );
   return winningBid || null;
 };

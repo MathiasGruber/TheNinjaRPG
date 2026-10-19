@@ -31,7 +31,7 @@ export const calcHealCost = (user: UserData) => {
 
 /** The recovery deadline, shifted to the client's clock when a time difference is supplied. */
 export const calcHealFinish = (info: {
-  user: UserData;
+  user: Pick<UserData, "regenAt">;
   timeDiff?: number;
   boost?: number;
 }) => {

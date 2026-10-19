@@ -72,3 +72,80 @@ export const deliveryTest = (): PushMessage => ({
   collapseId: "push-delivery-test",
   suppressFailureReport: true,
 });
+
+/** Do not put private conversation text, titles or participant names on the lock screen. */
+export const conversationMention = (conversationId: string): PushMessage => ({
+  title: "You were mentioned in a conversation",
+  body: "Open the game to view the conversation.",
+  category: "social",
+  url: `/inbox?conversationId=${encodeURIComponent(conversationId)}`,
+  collapseId: `mention-${conversationId}`,
+});
+
+export const combatStarted = (battleId: string): PushMessage => ({
+  title: "A battle has started",
+  body: "Your ninja is in combat. Open the game to take your turn.",
+  category: "combat",
+  url: "/combat",
+  collapseId: `combat-${battleId}`,
+});
+
+export const membershipUpdate = (group: "clan" | "anbu"): PushMessage => ({
+  title: group === "anbu" ? "ANBU request update" : "Clan request update",
+  body: "Open the game to view your membership requests.",
+  category: "clan",
+  url: group === "anbu" ? "/anbu" : "/clanhall",
+  collapseId: `${group}-requests`,
+});
+
+export const warUpdate = (warId: string): PushMessage => ({
+  title: "War status changed",
+  body: "Open your village to view the latest war or raid status.",
+  category: "war",
+  url: "/townhall",
+  collapseId: `war-${warId}`,
+});
+
+export const raidBattleStarted = (battleId: string): PushMessage => ({
+  title: "Your raid team has started a battle",
+  body: "Open the game to join your team's battle.",
+  category: "war",
+  url: "/combat",
+  collapseId: `raid-${battleId}`,
+});
+
+export const tradeUpdate = (id: string): PushMessage => ({
+  title: "Auction house update",
+  body: "Open the auction house to view your completed listing or trade.",
+  category: "trade",
+  url: "/auctionhouse",
+  collapseId: `trade-${id}`,
+});
+
+export const timerElapsed = (
+  kind: "hospital" | "jutsu" | "mastery" | "element" | "covert",
+  id: string,
+): PushMessage => ({
+  title:
+    kind === "hospital"
+      ? "Your recovery timer has finished"
+      : "Your training timer has finished",
+  body: "Open the game to review your progress.",
+  category: kind === "hospital" ? "recovery" : "training",
+  url:
+    kind === "hospital"
+      ? "/hospital"
+      : kind === "jutsu"
+        ? "/jutsus"
+        : "/traininggrounds",
+  collapseId: `timer-${id}`,
+});
+
+/** Keep private conversation content and participant names off the Lock Screen. */
+export const privateMessage = (conversationId: string): PushMessage => ({
+  title: "New private message",
+  body: "Open your inbox to read it.",
+  category: "social",
+  url: `/inbox?conversationId=${encodeURIComponent(conversationId)}`,
+  collapseId: `inbox-${conversationId}`,
+});

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { afterEach, beforeEach, expect, it, spyOn } from "bun:test";
+import { afterEach, beforeEach, expect, it, spyOn, vi } from "bun:test";
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import mysql from "mysql2/promise";
@@ -45,6 +45,7 @@ import type { DrizzleClient } from "@/server/db";
 import { defaultWarRules } from "@/validators/war";
 import { handleWarEnd, startDeclaredWar, startSectorWar } from "@/server/utils/war";
 import { acceptWarAllyOffer, withdrawWarAlly } from "@/server/utils/warAlly";
+import * as warPush from "@/server/utils/push/war";
 import { insertUsers } from "../../setup/factories";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 import {
@@ -166,7 +167,10 @@ const addOffer = (db: DrizzleClient, value = 100) =>
   });
 
 describeWithDatabase("guarded war settlement and delivery", () => {
+  const nativeWar = vi.fn();
   beforeEach(async () => {
+    nativeWar.mockReset();
+    spyOn(warPush, "notifyWarVillages").mockImplementation(nativeWar);
     await resetTables(
       notification,
       gameSetting,
@@ -182,7 +186,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       village,
     );
   });
-  afterEach(resetServerModuleStubs);
+  afterEach(() => { resetServerModuleStubs(); vi.restoreAllMocks(); });
 
   it("settles overdue objective wars at the deadline with final decay, camps and allied bonuses", async () => {
     const db = await seed();
@@ -323,6 +327,9 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       true,
     );
     await handleWarEnd(initial, client);
+    expect(nativeWar).toHaveBeenCalledTimes(1);
+    expect(nativeWar).toHaveBeenCalledWith(client,
+      expect.arrayContaining(["attacker", "defender", "ally", "other"]), warId);
     expect(await balance(db, "attacker")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
     expect(await balance(db, "ally")).toBe(tokens + WAR_VICTORY_TOKEN_BONUS / 2);
     expect(await balance(db, "defender")).toBe(tokens);
@@ -358,6 +365,7 @@ describeWithDatabase("guarded war settlement and delivery", () => {
       .where(eq(village.id, "ally"));
     const initial = await snapshot(db);
     await expect(handleWarEnd(initial, db)).rejects.toThrow();
+    expect(nativeWar).not.toHaveBeenCalled();
     expect(await savedWar(db)).toMatchObject({
       status: "ACTIVE",
       endedAt: null,
