@@ -110,3 +110,28 @@ it("still waits for travel confirmation after the global popup closes", async ()
   await view.findByRole("dialog", { name: "Hunting encounter" });
   expect(window.sessionStorage.getItem(storageKey)).toBeNull();
 });
+
+it("preserves hunting when another arrival dialog takes focus", async () => {
+  const closeOther = vi.fn();
+  const arrivals = (isOpen: boolean) => (
+    <Provider store={store}>
+      <HuntingArrival />
+      <Modal.default title="NPC arrival" isOpen={isOpen} setIsOpen={closeOther}>
+        Another encounter
+      </Modal.default>
+    </Provider>
+  );
+  const view = render(arrivals(false));
+  await view.findByRole("dialog", { name: "Hunting encounter" });
+  view.rerender(arrivals(true));
+  const other = await view.findByRole("dialog", { name: "NPC arrival" });
+  expect(window.sessionStorage.getItem(storageKey)).toBeNull();
+  fireEvent.click(within(other).getAllByRole("button", { name: "Close" })[0]!);
+  expect(closeOther).toHaveBeenCalledWith(false);
+  view.rerender(arrivals(false));
+  const hunting = await view.findByRole("dialog", { name: "Hunting encounter" });
+  expect(window.sessionStorage.getItem(storageKey)).toBeNull();
+  fireEvent.click(within(hunting).getAllByRole("button", { name: "Close" })[0]!);
+  expect(window.sessionStorage.getItem(storageKey)).toBe("1:session");
+  expect(view.queryByRole("dialog", { name: "Hunting encounter" })).toBeNull();
+});

@@ -69,6 +69,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
       <Modal
         title="Hunting encounter"
         returnFocusRef={openButton}
+        dismissOnInteractOutside={false}
         className="sm:max-w-2xl"
         isOpen={
           !blocked &&
