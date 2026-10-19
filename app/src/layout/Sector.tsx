@@ -3029,6 +3029,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       {arrivalNpc && (
         <Modal
           isOpen={!!arrivalNpc}
+          dismissOnInteractOutside={false}
           setIsOpen={(open) => {
             if (!open) setArrivalNpc(null);
           }}
