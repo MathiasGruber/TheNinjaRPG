@@ -3241,19 +3241,6 @@ export const itemRouter = createTRPCRouter({
           fetchUserQuestState(ctx.drizzle, ctx.userId),
           fetchPurchaseCounters(ctx.drizzle, uid, iid, purchaseTime),
         ]);
-      // Derived — capacity counts carried stacks by dedicated inventory bucket
-      const carriedItems = useritems?.filter(countsTowardInventoryStorage) ?? [];
-      const bucketCounts = {
-        normal: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "normal")
-          .length,
-        event: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "event")
-          .length,
-        materials: carriedItems.filter(
-          (ui) => getInventoryBucket(ui.item) === "materials",
-        ).length,
-        cooking: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "cooking")
-          .length,
-      };
       const sDiscount = getStrucBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const loyaltyDiscount = getVillageLoyaltyBonuses(user).shopDiscount;
@@ -3341,10 +3328,12 @@ export const itemRouter = createTRPCRouter({
       }
       if (!isFurniture && equipped === "NONE") {
         const purchaseBucket = getInventoryBucket(info);
-        if (
-          bucketCounts[purchaseBucket] >=
-          getInventoryBucketCapacity(purchaseBucket, user)
-        ) {
+        const bucketCount = useritems.filter(
+          (ui) =>
+            countsTowardInventoryStorage(ui) &&
+            getInventoryBucket(ui.item) === purchaseBucket,
+        ).length;
+        if (bucketCount >= getInventoryBucketCapacity(purchaseBucket, user)) {
           return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
         }
       }
