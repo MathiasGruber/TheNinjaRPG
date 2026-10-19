@@ -17,6 +17,7 @@ import type {
 } from "@/drizzle/schema";
 import { insertAiSchema } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
+import { getPreferredDamageElement } from "@/libs/combat/elementalDamage";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
 import type { ZodAllTags } from "@/validators/combat";
@@ -94,6 +95,7 @@ export const useAiEditForm = (
     name: "effects",
     defaultValue: user.effects,
   });
+  const primaryElement = useWatch({ control: form.control, name: "primaryElement" });
 
   // Handle updating of effects
   const setEffects = (newEffects: ZodAllTags[]) => {
@@ -158,7 +160,7 @@ export const useAiEditForm = (
     },
     {
       id: "preferredDamageElement",
-      label: "Primary damage element",
+      label: `Primary damage element [default: ${getPreferredDamageElement({ primaryElement: primaryElement || null })}]`,
       type: "str_array",
       values: BasicElementName,
       resetButton: true,

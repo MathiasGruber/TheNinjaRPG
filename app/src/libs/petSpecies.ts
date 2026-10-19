@@ -10,6 +10,7 @@ import {
 } from "@/drizzle/constants";
 import type { PetSpecies } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
+import { getPreferredDamageElement } from "@/libs/combat/elementalDamage";
 import { isPetJutsuAllowed } from "@/libs/pets/abilities";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import type { AiRuleType } from "@/validators/ai";
@@ -114,7 +115,7 @@ export const usePetSpeciesEditForm = (
     { id: "role", label: "Role", type: "str_array", values: PetRoles },
     {
       id: "preferredDamageElement",
-      label: "Primary damage element",
+      label: `Primary damage element [default: ${getPreferredDamageElement({})}]`,
       type: "str_array",
       values: BasicElementName,
       resetButton: true,
