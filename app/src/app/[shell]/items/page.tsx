@@ -373,10 +373,7 @@ export default function MyItems() {
               </div>
             </div>
             <div className="max-h-full basis-1/2 overflow-y-scroll border-t-2 border-dashed bg-poppopover p-3 sm:max-h-[600px] sm:border-t-0 sm:border-l-2">
-              <h2 className="font-bold text-2xl text-foreground">Backpack</h2>
-              <p className="mb-2 text-muted-foreground text-sm">
-                Equipped items do not use storage slots.
-              </p>
+              <h2 className="mb-2 font-bold text-2xl text-foreground">Backpack</h2>
               <Backpack
                 userData={userData}
                 useritems={
