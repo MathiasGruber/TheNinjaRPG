@@ -803,16 +803,24 @@ export const GameSettingsPopover: React.FC<GameSettingsProps> = ({
           aria-label={isSettingsTrigger ? "Game settings" : "Audio settings"}
           className={
             triggerClassName ??
-            "mx-1 rounded-full bg-blue-100 bg-opacity-80 text-slate-700 hover:bg-blue-300 hover:text-black"
+            "group/audio mx-1 inline-flex items-center justify-center rounded-full text-slate-700"
           }
         >
-          {isSettingsTrigger ? (
-            <Settings className="h-4 w-4" suppressHydrationWarning />
-          ) : audioEnabled ? (
-            <Volume2 className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
-          ) : (
-            <VolumeX className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
-          )}
+          <span
+            className={
+              triggerClassName
+                ? undefined
+                : "inline-flex rounded-full bg-blue-100 bg-opacity-80 group-hover/audio:bg-blue-300 group-hover/audio:text-black"
+            }
+          >
+            {isSettingsTrigger ? (
+              <Settings className="h-4 w-4" suppressHydrationWarning />
+            ) : audioEnabled ? (
+              <Volume2 className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
+            ) : (
+              <VolumeX className="h-6 w-6 p-1 xl:h-7 xl:w-7" suppressHydrationWarning />
+            )}
+          </span>
         </button>
       </PopoverTrigger>
       <PopoverContent
