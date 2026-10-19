@@ -25,6 +25,42 @@ const stats = { offence: 10, defence: 0, strength: 0, speed: 0, intelligence: 0,
 const task = (patch: Partial<PetTask> = {}): PetTask => ({ petId, questId: "hunting-contract",
   questHistoryId: "profession-attempt", startedAt: 1, questVersion: 1, finishesAt: Date.now() + 60000, ...patch });
 
+it("loads adoption choices and valid meals when an inventory item's definition is missing", async () => {
+  const database = { query: {
+    userData: { findFirst: async () => ({ userId, rank: "GENIN", status: "AWAKE",
+      sector: MAP_WAKE_ISLAND_SECTOR, federalStatus: "NONE", staffAccount: false,
+      petSlots: 1, petAcquisitions: 0, petExperience: 0, activePetId: null }) },
+    userPet: { findMany: async () => [] },
+    petSpecies: { findMany: async () => initialPetSpecies },
+    jutsu: { findMany: async () => [] },
+    userSkill: { findMany: async () => [] },
+    userItem: { findMany: async () => [
+      { id: "orphaned-stack", quantity: 1, item: null },
+      { id: "weapon-stack", quantity: 1, item: { itemType: "WEAPON" } },
+      { id: "meal-stack", quantity: 2, item: { itemType: "MEAL", name: "Rice Bowl", rarity: "COMMON" } },
+    ] },
+  } } as unknown as DrizzleClient;
+  const result = await callerForDatabase(petsRouter, userId, database).getPet();
+  expect(result.canAcquire).toBe(true);
+  expect(result.options.species.length).toBeGreaterThan(0);
+  expect(result.feedMeals).toEqual([{ id: "meal-stack", quantity: 2, name: "Rice Bowl",
+    rarity: "COMMON", experience: PET_FEED_EXPERIENCE_BY_RARITY.COMMON }]);
+});
+
+it("rejects feeding an orphaned inventory stack before changing companion experience", async () => {
+  const database = { query: {
+    userData: { findFirst: async () => ({ userId, rank: "GENIN", status: "AWAKE", activePetId: petId }) },
+    userPet: { findMany: async () => [{ id: petId, rank: 1, artRank: 1, avatar,
+      generationStatus: "READY", lastFedAt: null }] },
+    userItem: { findFirst: async () => ({ id: "orphaned-stack", quantity: 1, item: null }) },
+  } } as unknown as DrizzleClient;
+  const result = await callerForDatabase(petsRouter, userId, database).feedPet({
+    petId, userItemId: "orphaned-stack", expectedQuantity: 1,
+  });
+  expect(result).toMatchObject({ success: false,
+    message: "Carry a finished meal in your inventory to feed your companion." });
+});
+
 it("explains exhausted daily offers before collection capacity, even after a companion is released", async () => {
   const owner = {
     userId, rank: "GENIN", status: "AWAKE", sector: MAP_WAKE_ISLAND_SECTOR,
