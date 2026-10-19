@@ -1821,8 +1821,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // Coordinate drafts must reach the parent validator so Save cannot persist an
     // older valid pattern while duplicate or incomplete coordinates are on screen.
     const hasCoordinateDraft = watchAll.target === "COORDINATES";
-    // Keep invalid cache edits in the parent draft so Save cannot submit older valid settings.
-    const hasCacheDraft = watchType === "noncombatconsumereward";
+    // Keep cache and quest drafts in the parent so Save validates the visible settings.
+    const hasItemDraft = ["noncombatconsumereward", "noncombatquest"].includes(
+      watchType,
+    );
     const leftCoordinateTarget = tag.target === "COORDINATES" && !hasCoordinateDraft;
     const draft = leftCoordinateTarget
       ? { ...watchAll, coordinateTargeting: null }
@@ -1830,7 +1832,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     const parsedTag = tagSchema.safeParse(draft);
     const shownTag = parsedTag.success
       ? parsedTag.data
-      : hasCoordinateDraft || hasCacheDraft
+      : hasCoordinateDraft || hasItemDraft
         ? draft
         : tag;
     newEffects[idx] = shownTag;
@@ -1842,7 +1844,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         }
         if (
           hasCoordinateDraft ||
-          hasCacheDraft ||
+          hasItemDraft ||
           (leftCoordinateTarget && parsedTag.success) ||
           form.formState.isValid
         ) {
