@@ -61,6 +61,7 @@ import {
   calcMaxEventItems,
   calcMaxItems,
   calcMaxMaterials,
+  countsTowardInventoryStorage,
   getInventoryBucket,
   isEquippableUserItem,
   nonCombatConsume,
@@ -212,10 +213,9 @@ export default function MyItems() {
     (ui) => getInventoryBucket(ui.item) === "cooking",
   );
 
-  // Capacity includes every carried row, including an item that is still being
-  // crafted. Keep the heading aligned with the server-side capacity guards even
-  // though unfinished items are intentionally absent from the usable-item list.
-  const carriedItems = userItems?.filter((ui) => !ui.storedAtHome);
+  // Capacity includes unfinished crafts even though they are absent from the
+  // usable-item list. Share the storage rule with server-side capacity guards.
+  const carriedItems = userItems?.filter(countsTowardInventoryStorage);
   const normalItemCount = carriedItems?.filter(
     (ui) => getInventoryBucket(ui.item) === "normal",
   ).length;

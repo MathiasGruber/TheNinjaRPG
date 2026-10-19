@@ -5,6 +5,7 @@ import {
   FED_COOKING_NORMAL_SLOTS,
   FED_COOKING_SILVER_SLOTS,
   ItemTypes,
+  ItemSlots,
   MATERIALS_BASE_SLOTS,
   NonActionItemTypes,
 } from "@/drizzle/constants";
@@ -25,6 +26,7 @@ import {
   getItemStackMergeBucketKey,
   getHomeStorageBucket,
   getHomeStorageBucketFullMessage,
+  countsTowardInventoryStorage,
   getInventoryBucket,
   getInventoryBucketCapacity,
   getInventoryBucketFullMessage,
@@ -960,6 +962,17 @@ describe("COOKING item type", () => {
     expect(showsItemLevelBadge({ itemType: "COOKING", slot: "ITEM" })).toBe(false);
     expect(showsItemLevelBadge({ itemType: "MATERIAL", slot: "ITEM" })).toBe(false);
     expect(showsItemLevelBadge({ itemType: "WEAPON", slot: "HAND" })).toBe(true);
+  });
+});
+
+describe("backpack storage usage", () => {
+  it.each(ItemSlots.filter((slot) => slot !== "NONE"))("excludes stacks equipped in %s", (equipped) => {
+    expect(countsTowardInventoryStorage({ storedAtHome: false, equipped })).toBe(false);
+  });
+
+  it("counts unequipped carried stacks and excludes home storage", () => {
+    expect(countsTowardInventoryStorage({ storedAtHome: false, equipped: "NONE" })).toBe(true);
+    expect(countsTowardInventoryStorage({ storedAtHome: true, equipped: "NONE" })).toBe(false);
   });
 });
 

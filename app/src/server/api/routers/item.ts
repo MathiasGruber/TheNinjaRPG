@@ -89,6 +89,7 @@ import {
   canEquipAdditional,
   computeAutoEquipAssignments,
   computeLoadoutAssignments,
+  countsTowardInventoryStorage,
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
   getHomeStorageBucketFullMessage,
@@ -3240,19 +3241,6 @@ export const itemRouter = createTRPCRouter({
           fetchUserQuestState(ctx.drizzle, ctx.userId),
           fetchPurchaseCounters(ctx.drizzle, uid, iid, purchaseTime),
         ]);
-      // Derived — capacity counts carried stacks by dedicated inventory bucket
-      const carriedItems = useritems?.filter((ui) => !ui.storedAtHome) ?? [];
-      const bucketCounts = {
-        normal: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "normal")
-          .length,
-        event: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "event")
-          .length,
-        materials: carriedItems.filter(
-          (ui) => getInventoryBucket(ui.item) === "materials",
-        ).length,
-        cooking: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "cooking")
-          .length,
-      };
       const sDiscount = getStrucBoost("itemDiscountPerLvl", structures);
       const aDiscount = user.anbuId ? ANBU_ITEMSHOP_DISCOUNT_PERC : 0;
       const loyaltyDiscount = getVillageLoyaltyBonuses(user).shopDiscount;
@@ -3301,14 +3289,6 @@ export const itemRouter = createTRPCRouter({
         ) {
           return errorResponse(getHomeStorageBucketFullMessage(homeBucket));
         }
-      } else {
-        const purchaseBucket = getInventoryBucket(info);
-        if (
-          bucketCounts[purchaseBucket] >=
-          getInventoryBucketCapacity(purchaseBucket, user)
-        ) {
-          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
-        }
       }
       if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
         return errorResponse("Item has expired");
@@ -3345,6 +3325,19 @@ export const itemRouter = createTRPCRouter({
             equipped = slot;
           }
         });
+      }
+      // Resolve auto-equip first: a purchase placed directly into an equipment
+      // slot can succeed even when the backpack is full.
+      if (!isFurniture && equipped === "NONE") {
+        const purchaseBucket = getInventoryBucket(info);
+        const bucketCount = useritems.filter(
+          (ui) =>
+            countsTowardInventoryStorage(ui) &&
+            getInventoryBucket(ui.item) === purchaseBucket,
+        ).length;
+        if (bucketCount >= getInventoryBucketCapacity(purchaseBucket, user)) {
+          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+        }
       }
       // buy_item quest tracker. Source questData + userQuests/completedQuests together from
       // the single fetchUserQuestState read above (NOT fetchUpdatedUser, which pulls

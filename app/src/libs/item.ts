@@ -170,6 +170,15 @@ type BucketItemFields = {
 };
 
 /**
+ * Whether a stack uses one backpack slot; equipped and home-stored stacks do not.
+ * Availability is separate: unfinished crafts still reserve storage.
+ */
+export const countsTowardInventoryStorage = (userItem: {
+  storedAtHome: boolean;
+  equipped: ItemSlot;
+}): boolean => !userItem.storedAtHome && userItem.equipped === "NONE";
+
+/**
  * Classify a carried inventory item into its capacity bucket.
  * Priority: COOKING → Cooking, MATERIAL → Materials, event → Event, else Normal.
  */
