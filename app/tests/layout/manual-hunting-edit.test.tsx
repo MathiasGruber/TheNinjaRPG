@@ -64,7 +64,7 @@ it("uses server-assigned contract IDs when saving the habitat draft again", asyn
   }
   for (const [label, search, option] of [["Creature", "enem", "Enemy"], ["Material", "hide", "Boar hide"]]) {
     fireEvent.click(view.getByRole("combobox", { name: label }));
-    fireEvent.change(view.getByPlaceholderText(`Search ${label!.toLowerCase()}...`), { target: { value: search } });
+    fireEvent.change(view.getByRole("combobox", { name: `Search ${label!.toLowerCase()}` }), { target: { value: search } });
     fireEvent.click(await view.findByRole("option", { name: option }));
   }
   const button = view.getByRole("button", { name: "Save habitat" }) as HTMLButtonElement;

@@ -49,7 +49,7 @@ export function SearchSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
+        <Command label={`Search ${label.toLowerCase()}`}>
           <CommandInput placeholder={`Search ${label.toLowerCase()}...`} />
           <CommandList>
             <CommandEmpty>No matches found.</CommandEmpty>
