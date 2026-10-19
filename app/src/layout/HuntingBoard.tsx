@@ -10,21 +10,29 @@ import { HuntingRewards } from "@/layout/CombatRewards";
 import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
+import { SearchSelect } from "@/layout/SearchSelect";
 import { getHuntingRank, getHuntingRankProgress } from "@/libs/hunting";
-import { huntingAllowance, huntingEligibility } from "@/libs/hunting/contracts";
+import {
+  huntingAllowance,
+  huntingEligibility,
+  huntingSessionStage,
+} from "@/libs/hunting/contracts";
 import { useUserData } from "@/utils/UserContext";
 import type { HuntingReceipt } from "@/validators/hunting";
 
 /**
  * Browse and manage the same personal session from the occupation or combat result.
  * Successful starts own profile/cache updates; onStarted clears an existing combat result.
+ * sessionOnly omits browsing and reward summaries to keep arrival dialogs focused.
  */
 export function HuntingBoard({
   victory,
   onStarted,
+  sessionOnly = false,
 }: {
   victory?: HuntingReceipt;
   onStarted?: () => void;
+  sessionOnly?: boolean;
 }) {
   const router = useRouter();
   const utils = api.useUtils();
@@ -34,7 +42,7 @@ export function HuntingBoard({
   const [rank, setRank] = useState("");
   const [material, setMaterial] = useState("");
   const [showSelector, setShowSelector] = useState(!victory);
-  const selector = useRef<HTMLSelectElement>(null);
+  const selector = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState("");
   const board = api.hunting.getBoard.useQuery(undefined, {
     refetchInterval: 5000,
@@ -44,7 +52,11 @@ export function HuntingBoard({
   const refresh = async (result: { success: boolean; message: string }) => {
     setMessage(result.message);
     if (result.success)
-      await Promise.all([board.refetch(), utils.profile.getUser.invalidate()]);
+      await Promise.all([
+        board.refetch(),
+        utils.hunting.getSession.invalidate(),
+        utils.profile.getUser.invalidate(),
+      ]);
   };
   const accept = api.hunting.accept.useMutation({
     onSuccess: refresh,
@@ -67,6 +79,7 @@ export function HuntingBoard({
         });
         await Promise.all([
           utils.hunting.getBoard.invalidate(),
+          utils.hunting.getSession.invalidate(),
           utils.combat.getBattle.invalidate(),
         ]);
         if (!onStarted) router.push("/combat");
@@ -91,6 +104,33 @@ export function HuntingBoard({
   const receipt = session?.lastResult ?? victory;
   const experience = user?.huntingExperience ?? receipt?.totalExperience ?? 0;
   const rankProgress = getHuntingRankProgress(experience);
+  // Drop empty habitats after combining filters so the board has one empty state.
+  const filteredHabitats = (data?.habitats ?? [])
+    .filter((h) => !habitatId || habitatId === h.id)
+    .map((h) => ({
+      ...h,
+      content: {
+        ...h.content,
+        contracts: h.content.contracts.filter((c) => {
+          const ai = data?.creatures.find((a) => a.userId === c.aiId);
+          return (
+            (!rank || c.rank === rank) &&
+            (!creature.trim() ||
+              `${ai?.username ?? ""} ${c.name}`
+                .toLowerCase()
+                .includes(creature.trim().toLowerCase())) &&
+            (!material.trim() ||
+              c.rewards.some((r) =>
+                data?.materials
+                  .find((m) => m.id === r.itemId)
+                  ?.name.toLowerCase()
+                  .includes(material.trim().toLowerCase()),
+              ))
+          );
+        }),
+      },
+    }))
+    .filter((h) => h.content.contracts.length > 0);
   if (board.isLoading) return <Loader explanation="Loading hunting contracts" />;
   return (
     <ContentBox
@@ -103,7 +143,7 @@ export function HuntingBoard({
             {message || board.error?.message}
           </p>
         )}
-        {user && (
+        {!sessionOnly && user && (
           <p>
             Hunting rank: <strong>{getHuntingRank(experience)}</strong> ·{" "}
             {experience.toLocaleString()} experience ·{" "}
@@ -115,7 +155,7 @@ export function HuntingBoard({
         {user?.occupation !== "HUNTER" && (
           <p>Select the Hunter occupation to accept contracts.</p>
         )}
-        {receipt && <HuntingRewards receipt={receipt} />}
+        {!sessionOnly && receipt && <HuntingRewards receipt={receipt} />}
         {session && (
           <div className="space-y-3 rounded border bg-muted/30 p-4">
             <h3 className="font-semibold text-lg">
@@ -125,17 +165,7 @@ export function HuntingBoard({
               {activeHabitat?.content.name} · Personal encounter in sector{" "}
               <strong>{session.sector}</strong>
             </p>
-            <p>
-              {session.battleId
-                ? "Fighting"
-                : allowance?.cooling
-                  ? "Contract Cooldown"
-                  : !session.readyAt
-                    ? "Accepted"
-                    : preparing
-                      ? `Preparing: ${Math.ceil((session.readyAt.getTime() - now) / 1000)}s remaining`
-                      : "Ready to Fight"}
-            </p>
+            <p>{huntingSessionStage(session, !!allowance?.cooling, now)}</p>
             {allowance && (
               <p>
                 {allowance.remaining} / {active?.hunts} successful hunts remaining
@@ -151,9 +181,11 @@ export function HuntingBoard({
               </p>
             )}
             <div className="grid grid-cols-2 gap-2 [&_button]:h-full [&_button]:min-h-9 [&_button]:w-full [&_button]:whitespace-normal">
-              <Link href="/travel">
-                <Button variant="secondary">Travel to sector {session.sector}</Button>
-              </Link>
+              {user?.sector !== session.sector && (
+                <Link href={`/travel?sector=${session.sector}`}>
+                  <Button variant="secondary">Travel to sector {session.sector}</Button>
+                </Link>
+              )}
               {session.battleId ? (
                 <Link href="/combat">
                   <Button>Return to fight</Button>
@@ -203,6 +235,10 @@ export function HuntingBoard({
                     variant="secondary"
                     disabled={pending}
                     onClick={() => {
+                      if (sessionOnly) {
+                        router.push("/occupation");
+                        return;
+                      }
                       setShowSelector(true);
                       requestAnimationFrame(() => {
                         selector.current?.focus({ preventScroll: true });
@@ -248,46 +284,54 @@ export function HuntingBoard({
             )}
           </div>
         )}
-        {(showSelector || !session) && (
+        {!sessionOnly && (showSelector || !session) && (
           <>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <select
-                ref={selector}
-                aria-label="Habitat filter"
-                className="rounded border bg-background p-2"
-                value={habitatId}
-                onChange={(e) => setHabitatId(e.target.value)}
-              >
-                <option value="">All habitats</option>
-                {data?.habitats.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.content.name}
-                  </option>
-                ))}
-              </select>
-              <Input
-                aria-label="Creature filter"
-                placeholder="Search creature"
-                value={creature}
-                onChange={(e) => setCreature(e.target.value)}
-              />
-              <select
+            <div ref={selector} tabIndex={-1} className="space-y-2">
+              <fieldset
+                className="flex flex-wrap items-center gap-2"
                 aria-label="Hunting rank filter"
-                className="rounded border bg-background p-2"
-                value={rank}
-                onChange={(e) => setRank(e.target.value)}
               >
-                <option value="">All hunting ranks</option>
-                {HUNTING_RANKS.map((r) => (
-                  <option key={r}>{r}</option>
+                {["", ...HUNTING_RANKS].map((r) => (
+                  <Button
+                    key={r}
+                    size="sm"
+                    variant={rank === r ? "default" : "outline"}
+                    aria-pressed={rank === r}
+                    onClick={() => setRank(r)}
+                  >
+                    {r || "All ranks"}
+                  </Button>
                 ))}
-              </select>
-              <Input
-                aria-label="Material filter"
-                placeholder="Search desired material"
-                value={material}
-                onChange={(e) => setMaterial(e.target.value)}
-              />
+                <div className="min-w-48 flex-1">
+                  <SearchSelect
+                    label="Habitat filter"
+                    value={habitatId}
+                    onChange={setHabitatId}
+                    placeholder="All habitats"
+                    options={[
+                      { value: "", label: "All habitats" },
+                      ...(data?.habitats.map((h) => ({
+                        value: h.id,
+                        label: h.content.name,
+                      })) ?? []),
+                    ]}
+                  />
+                </div>
+              </fieldset>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Input
+                  aria-label="Creature filter"
+                  placeholder="Search creature or contract"
+                  value={creature}
+                  onChange={(e) => setCreature(e.target.value)}
+                />
+                <Input
+                  aria-label="Material filter"
+                  placeholder="Search desired material"
+                  value={material}
+                  onChange={(e) => setMaterial(e.target.value)}
+                />
+              </div>
             </div>
             {!data?.habitats.length && (
               <p className="rounded border p-4">
@@ -295,26 +339,12 @@ export function HuntingBoard({
                 board.
               </p>
             )}
-            {data?.habitats
-              .filter((h) => !habitatId || habitatId === h.id)
-              .map((h) => {
-                const contracts = h.content.contracts.filter((c) => {
-                  const ai = data.creatures.find((a) => a.userId === c.aiId);
-                  return (
-                    (!rank || c.rank === rank) &&
-                    (!creature ||
-                      `${ai?.username ?? ""} ${c.name}`
-                        .toLowerCase()
-                        .includes(creature.toLowerCase())) &&
-                    (!material ||
-                      c.rewards.some((r) =>
-                        data.materials
-                          .find((m) => m.id === r.itemId)
-                          ?.name.toLowerCase()
-                          .includes(material.toLowerCase()),
-                      ))
-                  );
-                });
+            {!!data?.habitats.length && !filteredHabitats.length && (
+              <p role="status">No contracts match these filters.</p>
+            )}
+            {data &&
+              filteredHabitats.map((h) => {
+                const contracts = h.content.contracts;
                 return (
                   <section key={h.id} className="space-y-3">
                     <div>
@@ -324,8 +354,7 @@ export function HuntingBoard({
                         Habitat sectors: {h.content.sectors.join(", ")}
                       </p>
                     </div>
-                    {!contracts.length && <p>No contracts match these filters.</p>}
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
                       {contracts.map((c) => {
                         const p = data.progress.find((row) => row.contractId === c.id);
                         const available = huntingAllowance(c, p, now);
@@ -336,47 +365,57 @@ export function HuntingBoard({
                         );
                         const ai = data.creatures.find((a) => a.userId === c.aiId);
                         return (
-                          <article key={c.id} className="space-y-2 rounded border p-4">
-                            <h4 className="font-semibold">{c.name}</h4>
-                            <p>
-                              {ai?.username ?? "Creature unavailable"} · Level{" "}
-                              {ai?.level} · {c.rank} · {c.difficulty}
-                            </p>
-                            <p>
-                              Guaranteed:{" "}
-                              {c.rewards
-                                .filter((r) => r.chance === 100)
-                                .map(
-                                  (r) =>
-                                    `${r.quantity}× ${data.materials.find((m) => m.id === r.itemId)?.name ?? "Unavailable material"}`,
-                                )
-                                .join(", ")}
-                            </p>
-                            <p>
-                              Bonus:{" "}
-                              {c.rewards
-                                .filter((r) => r.chance < 100)
-                                .map(
-                                  (r) =>
-                                    `${r.quantity}× ${data.materials.find((m) => m.id === r.itemId)?.name ?? "Unavailable material"} (${r.chance}%)`,
-                                )
-                                .join(", ") || "None"}
-                            </p>
-                            <p>
-                              +{c.experience.toLocaleString()} hunting experience ·{" "}
-                              {c.preparationSeconds}s preparation
-                            </p>
-                            <p>
-                              {available.remaining} / {c.hunts} hunts · Cooldown after
-                              final victory: {c.cooldownSeconds}s
-                            </p>
-                            {available.cooling && p?.cooldownUntil && (
-                              <p>Cooldown until {p.cooldownUntil.toLocaleString()}</p>
-                            )}
-                            {!eligible && (
-                              <p>Requires Hunter occupation and {c.rank}.</p>
-                            )}
+                          <article
+                            key={c.id}
+                            className="grid items-center gap-3 rounded border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
+                          >
+                            <div className="min-w-0 space-y-1">
+                              <h4 className="font-semibold">{c.name}</h4>
+                              <p>
+                                {ai?.username ?? "Creature unavailable"} · Level{" "}
+                                {ai?.level} · {c.rank} · {c.difficulty}
+                              </p>
+                            </div>
+                            <div className="min-w-0 space-y-1">
+                              <p>
+                                Guaranteed:{" "}
+                                {c.rewards
+                                  .filter((r) => r.chance === 100)
+                                  .map(
+                                    (r) =>
+                                      `${r.quantity}× ${data.materials.find((m) => m.id === r.itemId)?.name ?? "Unavailable material"}`,
+                                  )
+                                  .join(", ")}
+                              </p>
+                              <p>
+                                Bonus:{" "}
+                                {c.rewards
+                                  .filter((r) => r.chance < 100)
+                                  .map(
+                                    (r) =>
+                                      `${r.quantity}× ${data.materials.find((m) => m.id === r.itemId)?.name ?? "Unavailable material"} (${r.chance}%)`,
+                                  )
+                                  .join(", ") || "None"}
+                              </p>
+                            </div>
+                            <div className="space-y-1 sm:col-span-2 sm:row-start-2">
+                              <p>
+                                +{c.experience.toLocaleString()} hunting experience ·{" "}
+                                {c.preparationSeconds}s preparation
+                              </p>
+                              <p>
+                                {available.remaining} / {c.hunts} hunts · Cooldown after
+                                final victory: {c.cooldownSeconds}s
+                              </p>
+                              {available.cooling && p?.cooldownUntil && (
+                                <p>Cooldown until {p.cooldownUntil.toLocaleString()}</p>
+                              )}
+                              {!eligible && (
+                                <p>Requires Hunter occupation and {c.rank}.</p>
+                              )}
+                            </div>
                             <Button
+                              className="sm:col-start-3 sm:row-span-2 sm:row-start-1"
                               disabled={
                                 pending ||
                                 !eligible ||

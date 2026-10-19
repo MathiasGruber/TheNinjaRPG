@@ -23,6 +23,25 @@ export const huntingEligibility = (
 ) => occupation === "HUNTER" && experience >= HUNTING_REQUIRED_EXP[contract.rank];
 
 /**
+ * Describe the encounter with combat taking precedence over cooldown/preparation.
+ * now is server time in milliseconds, so client clock skew cannot change the stage.
+ */
+export const huntingSessionStage = (
+  session: { battleId: string | null; readyAt: Date | null },
+  cooling: boolean,
+  now: number,
+) =>
+  session.battleId
+    ? "Fighting"
+    : cooling
+      ? "Contract Cooldown"
+      : !session.readyAt
+        ? "Accepted"
+        : session.readyAt.getTime() > now
+          ? `Preparing: ${Math.ceil((session.readyAt.getTime() - now) / 1000)}s remaining`
+          : "Ready to Fight";
+
+/**
  * Build the persisted result from preloaded rules, preserving allowance on non-victories.
  * Roll once before settlement so deadlock retries keep the same drops and cooldown.
  */

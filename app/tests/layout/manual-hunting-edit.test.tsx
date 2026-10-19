@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider, useMutation, type UseMutationOptions } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import type { ReactNode } from "react";
 import * as client from "@/app/_trpc/client";
 import type { RouterInputs, RouterOutputs } from "@/app/_trpc/client";
@@ -13,8 +13,25 @@ import { huntingHabitatContent } from "../setup/hunting";
 type SaveInput = RouterInputs["hunting"]["save"];
 type SaveResult = RouterOutputs["hunting"]["save"];
 
+const browserEvents = ["Event", "CustomEvent"] as const;
+const originalEvents = browserEvents.map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const);
+const originalResizeObserver = Object.getOwnPropertyDescriptor(globalThis, "ResizeObserver");
+const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+beforeEach(() => {
+  for (const name of browserEvents) Object.defineProperty(globalThis, name, { configurable: true, value: window[name] });
+  Object.defineProperty(globalThis, "ResizeObserver", { configurable: true, value: class { observe() {} unobserve() {} disconnect() {} } });
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => undefined });
+});
 afterEach(() => {
+  if (originalResizeObserver) Object.defineProperty(globalThis, "ResizeObserver", originalResizeObserver);
+  else Reflect.deleteProperty(globalThis, "ResizeObserver");
+  if (originalScroll) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScroll);
+  else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
   cleanup();
+  for (const [name, descriptor] of originalEvents) {
+    if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+    else Reflect.deleteProperty(globalThis, name);
+  }
   vi.restoreAllMocks();
 });
 
@@ -27,7 +44,7 @@ it("uses server-assigned contract IDs when saving the habitat draft again", asyn
     content: { ...input.content, contracts: input.content.contracts.map((c) => ({ ...c, id: "saved-contract" })) },
   }));
   Object.assign(vi.spyOn(client, "api" as never), {
-    useUtils: () => ({ hunting: { getBoard: { invalidate: async () => undefined } } }),
+    useUtils: () => ({ hunting: { getBoard: { invalidate: async () => undefined }, getSession: { invalidate: async () => undefined } } }),
     hunting: {
       getAll: { useQuery: () => ({ data: [{ id: "forest", content }], refetch }) },
       save: { useMutation: (options: UseMutationOptions<SaveResult, Error, SaveInput>) => useMutation({ ...options, mutationFn: save }) },
@@ -42,8 +59,13 @@ it("uses server-assigned contract IDs when saving the habitat draft again", asyn
   const view = render(<QueryClientProvider client={queryClient}><HuntingEditor /></QueryClientProvider>);
   fireEvent.change(view.getByRole("combobox", { name: "Edit existing habitat" }), { target: { value: "forest" } });
   fireEvent.click(view.getByRole("button", { name: "Add creature contract" }));
-  for (const [label, value] of [["Contract name", "Boar"], ["Creature", "enemy"], ["Combat difficulty", "Easy"], ["Material", "hide"]]) {
+  for (const [label, value] of [["Contract name", "Boar"], ["Combat difficulty", "Easy"]]) {
     fireEvent.change(view.getByLabelText(label!), { target: { value } });
+  }
+  for (const [label, search, option] of [["Creature", "enem", "Enemy"], ["Material", "hide", "Boar hide"]]) {
+    fireEvent.click(view.getByRole("combobox", { name: label }));
+    fireEvent.change(view.getByRole("combobox", { name: `Search ${label!.toLowerCase()}` }), { target: { value: search } });
+    fireEvent.click(await view.findByRole("option", { name: option }));
   }
   const button = view.getByRole("button", { name: "Save habitat" }) as HTMLButtonElement;
   fireEvent.click(button);

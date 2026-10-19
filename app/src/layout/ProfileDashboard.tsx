@@ -79,6 +79,7 @@ const categoryLabels = {
   raids: "Raids",
 } as const;
 
+/** Summarize actionable progress, rewards and the current occupation in reorderable sections. */
 export default function ProfileDashboard({ settings }: { settings?: React.ReactNode }) {
   const { data: userData, timeDiff } = useRequiredUserData();
   const utils = api.useUtils();
@@ -121,6 +122,11 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
   const streaks = useActivityStreaks(true, timeDiff ?? 0);
   const interest = usePendingBankInterest(true, timeDiff ?? 0);
   const sidebarTimers = api.profile.getSidebarTimers.useQuery();
+  const hunting = api.hunting.getSession.useQuery(undefined, {
+    enabled: userData?.occupation === "HUNTER",
+    refetchInterval: 5000,
+    refetchOnMount: "always",
+  });
 
   const claimInterest = useClaimBankInterest();
   const claimStreak = useClaimStreakDay();
@@ -254,6 +260,7 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
     craftingUser: userData,
     quests: userData.userQuests,
     trackers: userData.questData,
+    hunting: hunting.data,
     craftingItemName:
       userData.occupation === "CRAFTING" &&
       sidebarTimers.isLoading &&
@@ -588,7 +595,10 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                     timeDiff={timeDiff}
                     onEndShow="Ready"
                   />
-                ) : userData.occupation === "CRAFTING" ? null : (
+                ) : userData.occupation === "CRAFTING" ? null : hunting.error &&
+                  userData.occupation === "HUNTER" ? (
+                  "Unable to load your hunting contract. Open the board to retry."
+                ) : (
                   occupationLine.detail
                 )
               }

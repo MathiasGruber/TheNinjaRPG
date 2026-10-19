@@ -26,6 +26,7 @@ import {
 } from "@/libs/profileDashboard";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import type { DashboardContentSummary } from "@/libs/profileDashboard";
+import { huntingContract } from "../setup/hunting";
 
 const availableDailyCounts = {
   dailyMissions: 0,
@@ -686,4 +687,24 @@ it("keeps remote raid cards actionable with their destination sector", () => {
   expect(dashboardContentHref(entry!)).toBe("/travel?sector=0");
   expect(entry?.availabilityReason).toBeNull();
   expect(buildDashboardCatalogue([], { ...user, status: "ASLEEP" })[0]).toMatchObject({ availability: "blocked", destination: "/globalanbuhq" });
+});
+
+it("shows the personal hunting contract and its current stage ahead of legacy quests", () => {
+  const serverTime = new Date("2026-01-01T12:00:00Z");
+  const hunting = {
+    session: { userId: "hunter", id: "session", contractId: "contract", habitatId: "forest", sector: 1, readyAt: null as Date | null, battleId: null as string | null, version: 0, startedAt: serverTime, lastResult: null },
+    contract: huntingContract(),
+    allowance: { used: 1, remaining: 2, cooling: false }, serverTime,
+  };
+  const line = () => describeOccupationLine({ occupation: "HUNTER", quests: [], trackers: [], hunting });
+  expect(line()).toMatchObject({ title: "Forest boar", detail: "Accepted · Sector 1 · 2 / 3 hunts remaining", action: "View contract" });
+  hunting.session.readyAt = new Date(serverTime.getTime() + 10_000);
+  expect(line().detail).toContain("Preparing: 10s remaining");
+  hunting.session.readyAt = serverTime;
+  expect(line().detail).toContain("Ready to Fight");
+  hunting.allowance.cooling = true;
+  expect(line().detail).toContain("Contract Cooldown");
+  hunting.session.battleId = "battle";
+  expect(line().detail).toContain("Fighting");
+  expect(describeOccupationLine({ occupation: "HUNTER", quests: [], trackers: [], hunting: { ...hunting, contract: null } }).title).toBe("Unavailable contract");
 });
