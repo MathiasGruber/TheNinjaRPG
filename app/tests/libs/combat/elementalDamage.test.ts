@@ -16,12 +16,14 @@ import { ElementalDamageTag, SuperRefineEffects, AllTags } from "@/validators/co
 import { updateUserPreferencesSchema } from "@/validators/user";
 import { makeBattleUser, makeCompleteBattle, makeEffect, makeTag } from "./helpers/battleScenario";
 
+/** Supply the fetched-character shape consumed by battle initiation. */
 const sourceUser = (patch: Partial<CombatQueryUser> = {}): CombatQueryUser => ({
   ...makeBattleUser("caster", { primaryElement: "Fire", preferredDamageElement: null }),
   regenAt: new Date(), regeneration: 0, money: 0, bloodright: [], effects: [],
   bloodline: null, userSkills: [], village: null, clan: null, anbuSquad: null,
   aiProfile: null, ...patch,
 }) as unknown as CombatQueryUser;
+/** Exercise initiation with preloaded inputs; these scenarios require no database calls. */
 const preload = (user: CombatQueryUser, battleType: BattleType = "COMBAT", isSummon = false) =>
   processUsersForBattle({} as DrizzleClient, {
     users: [user], battleType, leftSideUserIds: [user.userId], hide: false, isSummon,
@@ -32,6 +34,7 @@ const owned: BattleUserJutsu = {
   id: "owned", jutsuId: "elemental-jutsu", level: 1, experience: 0,
   equipped: true, lastUsedRound: -10, originalCooldown: 0, origin: "user",
 };
+/** Share one catalog entry between actors with independent damage preferences. */
 const fixture = (element: BasicElement = "Wind") => {
   const jutsu: Jutsu = {
     ...SAGE_MODE_ACTIVATION_JUTSU, id: owned.jutsuId, name: "Elemental strike",

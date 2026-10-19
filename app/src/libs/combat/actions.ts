@@ -339,6 +339,7 @@ export const availableUserActions = (
         }
       }
     }
+    // AI selection and action previews need actor-specific elements without changing the catalog.
     return user
       ? { ...a, effects: a.effects.map((tag) => resolveElementalDamage(tag, user)) }
       : a;
@@ -1020,6 +1021,7 @@ export const insertAction = (info: {
           !usersEffects.some((userEffect) => userEffect.id === effect.id),
       )
       .map((effect) => ({ ...effect, targetId: actorId, fromGround: true }));
+    // Raw actions can bypass selection; resolve their elements before element-specific potency.
     const castTags = resolvePotencyTags(
       {
         ...action,

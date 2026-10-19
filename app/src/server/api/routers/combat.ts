@@ -4240,6 +4240,7 @@ export const processUsersForBattle = async (
     // Build the processing user object with all required fields
     const user: ProcessingBattleUser = {
       ...inputUser,
+      // Freeze the choice before bloodline processing and later profile edits, including ranked battles.
       preferredDamageElement: getPreferredDamageElement(inputUser),
       // Set controllerID and mark this user as the original
       controllerId: inputUser.userId,

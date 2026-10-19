@@ -97,7 +97,7 @@ export const realizeTag = <T extends BattleEffect>(props: {
   battle?: Battle; // Make battle optional since it's not always needed
 }): T => {
   const { user, target, level, round, barrierAbsorb, battle } = props;
-  // Elemental damage is an authoring variant; all realized effects use ordinary damage.
+  // Passive effects also enter here without passing through action selection or insertion.
   const tag = resolveElementalDamage(props.tag, user) as T;
   if ("rounds" in tag || tag.type === "increaseaggro" || tag.type === "decreaseaggro") {
     tag.timeTracker = {};
@@ -1292,6 +1292,7 @@ export const clone = (
   }
   if (effect.isNew) {
     const newAi = structuredClone(user);
+    // Clones use their innate default independently of the controller's saved preference.
     newAi.preferredDamageElement = getPreferredDamageElement({
       primaryElement: user.primaryElement,
     });

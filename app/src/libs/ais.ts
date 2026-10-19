@@ -95,6 +95,7 @@ export const useAiEditForm = (
     name: "effects",
     defaultValue: user.effects,
   });
+  // The default hint follows the draft innate element when the preference is cleared.
   const primaryElement = useWatch({ control: form.control, name: "primaryElement" });
 
   // Handle updating of effects

@@ -555,6 +555,7 @@ export const DamageTag = z.object({
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+/** Reuse damage authoring controls; combat resolves the caster's element at runtime. */
 export const ElementalDamageTag = DamageTag.omit({ elements: true }).extend({
   type: z.literal("elementaldamage").prefault("elementaldamage"),
   description: msg("Deals damage using the caster's preferred basic element"),
