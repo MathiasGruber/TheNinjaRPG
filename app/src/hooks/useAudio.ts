@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { platform } from "@/libs/native";
 import { addUserInteractionListeners, isSafariOrIOS } from "@/utils/audio";
 
 interface UseAudioOptions {
@@ -122,10 +123,12 @@ export const useAudio = (options: UseAudioOptions): UseAudioReturn => {
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => {
       setIsPlaying(false);
-      // Yield when another app takes audio in the background. A foreground pause can
-      // also occur while our native audio session starts; keep the user's choice so
-      // the player can retry once that session is ready.
-      if (isSafariOrIOS() && document.hidden) setAudioEnabled(false);
+      // Yield when another app takes background audio, including Android WebView.
+      // Retrying would steal its focus back. Foreground native-session startup can
+      // also pause playback, so keep that retry and the saved Music preference.
+      if ((isSafariOrIOS() || platform() === "android") && document.hidden) {
+        setAudioEnabled(false);
+      }
     };
     const handleEnded = () => setIsPlaying(false);
 
