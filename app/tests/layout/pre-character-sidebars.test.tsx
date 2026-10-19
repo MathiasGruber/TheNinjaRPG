@@ -7,6 +7,7 @@ import {
 } from "@/components/layout/shared/LayoutSidebars";
 import { GAME_LAYOUTS } from "@/libs/gameLayouts";
 import { DISCORD_INVITE_URL } from "@/drizzle/constants";
+import * as Image from "@/layout/Image";
 import { ensureDom } from "../setup-dom.mjs";
 
 const variants = GAME_LAYOUTS.map((layout) => layout.id);
@@ -15,6 +16,11 @@ const invalidate = vi.fn(async () => {});
 beforeEach(() => {
   ensureDom();
   invalidate.mockClear();
+  // Bun retains module mocks from other suites; this suite needs visible provider icons.
+  vi.spyOn(Image, "default").mockImplementation(({ alt, src }) => (
+    // biome-ignore lint/performance/noImgElement: isolated sidebar image fixture
+    <img alt={alt} src={typeof src === "string" ? src : undefined} />
+  ));
   Object.assign(vi.spyOn(client, "api" as never), {
     useUtils: () => ({ profile: { getUser: { invalidate } } }),
   });
