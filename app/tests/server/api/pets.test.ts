@@ -599,7 +599,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await parkedPet(database, { id: "parked" });
     await mealStack();
     const input = await adoptionInput(database);
-    await database.update(userData).set({ rank: "ELDER", petSlots: 3, petExperience: 100, ...state }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ rank: "ELITE JONIN", petSlots: 3, petExperience: 100, ...state }).where(eq(userData.userId, userId));
     const before = await readOwner(database);
     const caller = callerForDatabase(petsRouter, userId, database);
     const results = await Promise.all([
@@ -796,7 +796,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
 
   it.each([...PetRarities])("exposes every %s species slot without buying upgrades", async (rarity) => {
     const database = await getTestDatabase(); await readyPet(database, { rank: 10, artRank: 10, experience: 2000000 });
-    await database.update(userData).set({ rank: "ELDER" }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ rank: "ELITE JONIN" }).where(eq(userData.userId, userId));
     await database.update(petSpecies).set({ rarity }).where(eq(petSpecies.id, "pet-species-0"));
     const jutsus = Array.from({ length: 6 }, (_, index) => petJutsuFixture({ id: `slot-jutsu-${index}`, name: `Slot Jutsu ${index}` }));
     await database.insert(jutsu).values(jutsus);
@@ -813,7 +813,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
   it("keeps an away companion immutable and prevents its active passive XP gain", async () => {
     const database = await getTestDatabase(); await readyPet(database, { rank: 5, artRank: 5, experience: 232500 });
     await mealStack();
-    await database.update(userData).set({ rank: "ELDER", petExperience: 100, petTask: task() }).where(eq(userData.userId, userId));
+    await database.update(userData).set({ rank: "ELITE JONIN", petExperience: 100, petTask: task() }).where(eq(userData.userId, userId));
     const beforeOwner = await readOwner(database); const beforePet = await readPet(database);
     const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     const caller = callerForDatabase(petsRouter, userId, database);

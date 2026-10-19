@@ -388,7 +388,7 @@ it("waits for the server retry time before offering another redraw", async () =>
 });
 
 it.each(["rejection", "network error", "success"])("allows routine activity and companion switching during redraw, scoping late %s feedback", async (outcome) => {
-  owner.rank = "ELDER";
+  owner.rank = "ELITE JONIN";
   const other = { ...data.pet!, id: "second", name: "Sora" };
   data = { ...data, pets: [data.pet!, other], maxRank: 10, nextRank: PET_RANKS[7]!, canRankUp: true };
   getPet.mockImplementation((input: { petId: string }) => ({ ...data, pet: data.pets.find((entry) => entry.id === input.petId) }));
@@ -477,7 +477,7 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
 });
 
 it.each([0, 3])("keeps evolution and artwork recoverable with %s attempts left in the previous rank", async (remainingGenerations) => {
-  owner.rank = "ELDER";
+  owner.rank = "ELITE JONIN";
   data = { ...data, maxRank: 10, nextRank: PET_RANKS[7]!, canRankUp: true, remainingGenerations };
   let finishEvolution: () => void = () => undefined;
   const evolution = new Promise<void>((resolve) => { finishEvolution = resolve; });

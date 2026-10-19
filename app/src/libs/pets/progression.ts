@@ -28,15 +28,19 @@ export const getPetCollectionCapacity = (
 export const getPetRank = (rank: number) =>
   PET_RANKS.find((entry) => entry.rank === rank) ?? PET_RANKS[0];
 
-/** Highest companion evolution supported by the owner's actual character rank. */
+/**
+ * Highest companion evolution supported by the owner's actual character rank.
+ * Elite Jonin is the top shinobi rank. Elder is a village office held by Jonin,
+ * who return to JONIN when they leave it, so it carries Jonin progression.
+ */
 export const getMaxPetRank = (ownerRank: UserRank) => {
   const ranks: Record<UserRank, number> = {
     STUDENT: 1,
     GENIN: 3,
     CHUNIN: 5,
     JONIN: 7,
-    "ELITE JONIN": 9,
-    ELDER: 10,
+    "ELITE JONIN": 10,
+    ELDER: 7,
     NONE: 0,
   };
   return ranks[ownerRank];
