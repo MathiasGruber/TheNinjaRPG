@@ -20,8 +20,9 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
     safeSessionStorageGetItem(storageKey),
   );
   const dismiss = (sessionId: string | null) => {
-    safeSessionStorageSetItem(storageKey, sessionId ?? "");
-    setDismissed(sessionId);
+    const value = sessionId ? `${user?.sector}:${sessionId}` : null;
+    safeSessionStorageSetItem(storageKey, value ?? "");
+    setDismissed(value);
   };
   const encounter = api.hunting.getSession.useQuery(undefined, {
     enabled: user?.occupation === "HUNTER",
@@ -31,18 +32,16 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const session = encounter.data?.session;
   const isAtEncounter = user?.status === "AWAKE" && user.sector === session?.sector;
   useEffect(() => {
-    setDismissed(safeSessionStorageGetItem(storageKey));
-  }, [storageKey]);
-  useEffect(() => {
-    // Combat, sleep and loading do not constitute a new arrival. Only departure resets dismissal.
-    if (
-      user &&
-      (user.status === "TRAVEL" || (session && user.sector !== session.sector))
-    ) {
+    const saved = safeSessionStorageGetItem(storageKey);
+    // Optimistic travel keeps the current sector until admission succeeds. Store
+    // the dismissed sector so confirmed departure also works while the session loads.
+    if (user && saved && !saved.startsWith(`${user.sector}:`)) {
       safeSessionStorageSetItem(storageKey, "");
       setDismissed(null);
+    } else {
+      setDismissed(saved);
     }
-  }, [session?.id, session?.sector, user?.sector, user?.status, storageKey]);
+  }, [user?.sector, storageKey]);
   if (user?.occupation !== "HUNTER") return null;
   if (encounter.error)
     return (
@@ -69,7 +68,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
         title="Hunting encounter"
         returnFocusRef={openButton}
         className="sm:max-w-2xl"
-        isOpen={!blocked && dismissed !== session.id}
+        isOpen={!blocked && dismissed !== `${user.sector}:${session.id}`}
         setIsOpen={(open) => {
           if (!open) dismiss(session.id);
         }}

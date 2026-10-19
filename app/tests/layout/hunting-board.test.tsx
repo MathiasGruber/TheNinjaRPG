@@ -7,6 +7,7 @@ import * as ContentBox from "@/layout/ContentBox";
 import { HuntingArrival } from "@/layout/HuntingArrival";
 import { HuntingBoard } from "@/layout/HuntingBoard";
 import * as Modal from "@/layout/Modal";
+import { optimisticGlobalTravelStart } from "@/libs/travel";
 import * as UserContext from "@/utils/UserContext";
 import { huntingContract, huntingHabitatContent } from "../setup/hunting";
 
@@ -17,6 +18,7 @@ let currentSession: typeof session | null;
 
 beforeEach(() => {
   window.sessionStorage.removeItem("huntingArrival:hunter");
+  window.sessionStorage.removeItem("huntingArrival:another-hunter");
   user = { userId: "hunter", occupation: "HUNTER", sector: 2, status: "AWAKE" };
   currentSession = null;
   const board = {
@@ -109,12 +111,57 @@ it("preserves dismissal across remounts, loading and same-sector combat", () => 
   user = { ...user, userId: "another-hunter" };
   view.rerender(<HuntingArrival />);
   expect(view.getByRole("dialog")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
+  user = { ...user, userId: "hunter" };
+  view.rerender(<HuntingArrival />);
+  expect(view.queryByRole("dialog")).toBeNull();
 });
 
-it("resets dismissal during travel even while the session is loading", () => {
-  window.sessionStorage.setItem("huntingArrival:hunter", session.id);
-  user = { ...user, sector: 1, status: "TRAVEL" };
+it.each([
+  { outcome: "is rejected", travelSeconds: 12, isLoading: false },
+  { outcome: "fails with a network error", travelSeconds: 0, isLoading: true },
+])("preserves dismissal when optimistic travel $outcome", ({ travelSeconds, isLoading }) => {
+  currentSession = session;
+  user = { ...user, sector: session.sector };
   const view = render(<HuntingArrival />);
+  fireEvent.click(view.getByRole("button", { name: "Dismiss" }));
+  const savedDismissal = window.sessionStorage.getItem("huntingArrival:hunter");
+
+  // startGlobalMove retains the sector until admission succeeds. Both rejection
+  // and onError restore the previous status without changing the sector.
+  const previousStatus = user.status;
+  if (isLoading) currentSession = null;
+  user = { ...user, ...optimisticGlobalTravelStart(travelSeconds) };
+  view.rerender(<HuntingArrival />);
+  expect(view.queryByRole("dialog")).toBeNull();
+  expect(window.sessionStorage.getItem("huntingArrival:hunter")).toBe(savedDismissal);
+  user = { ...user, status: previousStatus };
+  view.rerender(<HuntingArrival />);
+  currentSession = session;
+  view.rerender(<HuntingArrival />);
+  expect(view.queryByRole("dialog")).toBeNull();
+  view.unmount();
+  expect(render(<HuntingArrival />).queryByRole("dialog")).toBeNull();
+});
+
+it.each([0, 12])("resets dismissal on confirmed departure with a %i-second trip while the session loads", (travelSeconds) => {
+  currentSession = session;
+  user = { ...user, sector: session.sector };
+  const first = render(<HuntingArrival />);
+  fireEvent.click(first.getByRole("button", { name: "Dismiss" }));
+  first.unmount();
+  currentSession = null;
+  const departing = render(<HuntingArrival />);
+  user = { ...user, ...optimisticGlobalTravelStart(travelSeconds) };
+  departing.rerender(<HuntingArrival />);
+  // Successful admission supplies the destination sector before travel finishes.
+  user = { ...user, sector: 2 };
+  departing.rerender(<HuntingArrival />);
+  expect(window.sessionStorage.getItem("huntingArrival:hunter")).toBe("");
+  departing.unmount();
+  const view = render(<HuntingArrival />);
+  user = { ...user, sector: session.sector };
+  view.rerender(<HuntingArrival />);
   user = { ...user, status: "AWAKE" };
   view.rerender(<HuntingArrival />);
   currentSession = session;
