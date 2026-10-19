@@ -43,8 +43,10 @@ export function ThemedWelcome() {
 
       <section id="world" className="theme-welcome-world welcome-section">
         <div className="welcome-section-copy">
-          <Compass aria-hidden="true" className="welcome-section-icon" />
-          <h2>A world you can belong to</h2>
+          <div className="welcome-section-title">
+            <Compass aria-hidden="true" className="welcome-section-icon" />
+            <h2>A world you can belong to</h2>
+          </div>
           <p>
             Seichi is a world of villages, distant regions, and rival shinobi. Your
             character belongs to a community, but the road beyond it is yours to
