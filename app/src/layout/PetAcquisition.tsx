@@ -270,6 +270,13 @@ export function PetAcquisition() {
   const retryAt = data.generationRetryAt;
   const canRetry =
     pet && !appearanceReady && (retryAt === null || retryAt.getTime() <= Date.now());
+  // Keep a final in-flight attempt pending until it finishes or its server lease expires.
+  const needsAppearanceSupport =
+    pet &&
+    !appearanceReady &&
+    data.remainingGenerations <= 0 &&
+    !isBusy &&
+    (pet.generationStatus !== "GENERATING" || canRetry);
 
   return (
     <ContentBox title="Meet your companion" initialBreak>
@@ -348,9 +355,11 @@ export function PetAcquisition() {
             </h3>
             {!appearanceReady && (
               <p className="text-sm">
-                {pet.generationStatus === "GENERATING"
-                  ? "Your companion's image is being created. You can safely return to your pet profile while it finishes."
-                  : "Your companion has been claimed. Finish its appearance for free to train and earn experience."}
+                {needsAppearanceSupport
+                  ? "Your companion is saved, but its appearance is unfinished."
+                  : pet.generationStatus === "GENERATING" || generate.isPending
+                    ? "Your companion's image is being created. You can safely return to your pet profile while it finishes."
+                    : "Your companion has been claimed. Its appearance must be ready to train and earn experience."}
               </p>
             )}
             {!appearanceReady && (
@@ -367,7 +376,14 @@ export function PetAcquisition() {
                   </Link>
                 </Button>
               )}
-              {canRetry && (
+              {needsAppearanceSupport ? (
+                <p className="text-sm">
+                  <Link href="/support" className="underline">
+                    Contact support
+                  </Link>{" "}
+                  to request an image attempt reset for this companion.
+                </p>
+              ) : canRetry ? (
                 <PetAppearanceButton
                   pet={pet}
                   options={data.options}
@@ -383,14 +399,17 @@ export function PetAcquisition() {
                     ? "Creating appearance..."
                     : "Retry appearance for free"}
                 </PetAppearanceButton>
-              )}
+              ) : null}
             </div>
-            {!appearanceReady && retryAt && !canRetry && (
-              <p className="text-muted-foreground text-sm">
-                Appearance retry available in{" "}
-                <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
-              </p>
-            )}
+            {!appearanceReady &&
+              data.remainingGenerations > 0 &&
+              retryAt &&
+              !canRetry && (
+                <p className="text-muted-foreground text-sm">
+                  Appearance retry available in{" "}
+                  <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
+                </p>
+              )}
           </div>
         </div>
       )}

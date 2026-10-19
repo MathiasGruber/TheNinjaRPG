@@ -587,13 +587,27 @@ export function PetProfile() {
   const canRetryGeneration = retryAt
     ? retryAt.getTime() <= Date.now()
     : pet.generationStatus !== "GENERATING";
+  // The last attempt can still succeed while its request or server lease is active.
+  const needsAppearanceSupport =
+    !appearanceReady &&
+    data.remainingGenerations <= 0 &&
+    !isGenerating &&
+    !isEvolving &&
+    (pet.generationStatus !== "GENERATING" || canRetryGeneration);
   const appearanceControls = (
     <div className="space-y-2" aria-live="polite">
       <p className="text-muted-foreground text-sm">
         {data.remainingGenerations} / {data.generationLimit} image attempts remain for
         this rank. Regenerations keep your saved traits.
       </p>
-      {canRetryGeneration ? (
+      {needsAppearanceSupport ? (
+        <p className="text-sm">
+          <Link href="/support" className="underline">
+            Contact support
+          </Link>{" "}
+          to request an image attempt reset for this companion.
+        </p>
+      ) : canRetryGeneration ? (
         <PetAppearanceButton
           key={pet.id}
           pet={pet}
@@ -623,7 +637,7 @@ export function PetProfile() {
           <Loader explanation="Creating appearance..." />
         )
       ) : null}
-      {!canRetryGeneration && retryAt && (
+      {data.remainingGenerations > 0 && !canRetryGeneration && retryAt && (
         <p className="text-muted-foreground text-sm">
           Appearance retry available in{" "}
           <Countdown targetDate={retryAt} onFinish={() => void refetch()} />.
@@ -856,17 +870,27 @@ export function PetProfile() {
         {!appearanceReady && (
           <div className="mt-5 space-y-3 rounded border bg-muted/30 p-4">
             <p className="font-semibold">
-              {pet.generationStatus === "GENERATING"
+              {!needsAppearanceSupport &&
+              (pet.generationStatus === "GENERATING" || isGenerating || isEvolving)
                 ? "Your companion's appearance is being created"
                 : pet.artRank > 0
                   ? "Finish your companion's evolution"
                   : "Create your companion's appearance"}
             </p>
             <p className="text-sm">
-              {pet.generationStatus === "FAILED"
-                ? "The last image attempt did not finish. Retry this same companion for free."
-                : "Your pet can train and earn experience after its appearance is ready."}{" "}
-              Creating the image can take a few minutes.
+              {needsAppearanceSupport ? (
+                "Your companion is saved, but its appearance is unfinished."
+              ) : (
+                <>
+                  {pet.generationStatus === "FAILED" &&
+                  data.remainingGenerations > 0 &&
+                  !isGenerating &&
+                  !isEvolving
+                    ? "The last image attempt did not finish. Retry this same companion for free."
+                    : "Your pet can train and earn experience after its appearance is ready."}{" "}
+                  Creating the image can take a few minutes.
+                </>
+              )}
             </p>
             {appearanceControls}
           </div>

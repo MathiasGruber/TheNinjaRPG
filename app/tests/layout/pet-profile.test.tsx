@@ -260,6 +260,7 @@ it.each([0, 2])("keeps ready-pet care compact with %s attempts and offers redraw
   expect(redraw.disabled).toBe(attempts === 0);
   expect(redraw.className).toContain("border-input");
   expect(settings.textContent).toContain(`${attempts} / 3 image attempts remain for this rank`);
+  expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
   expect(generate).not.toHaveBeenCalled();
 });
 
@@ -274,6 +275,90 @@ it("keeps failed missing-art recovery visible above the activity tabs", async ()
   expect(mealButton(view).disabled).toBe(true);
   selectTab(view, "Training");
   expect((view.getByRole("button", { name: "Assign experience" }) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it.each([1, 2])("directs an exhausted rank %s appearance to support and resumes after an attempt reset", async (rank) => {
+  const pet = { ...data.pet!, rank, artRank: rank - 1, avatar: rank === 1 ? null : "/miso.webp", generationStatus: "FAILED" as const };
+  data = { ...data, pet, pets: [pet], remainingGenerations: 0, canFeed: false, generationRetryAt: new Date(Date.now() + 60_000) };
+  const view = mount();
+  const support = await view.findByRole("link", { name: "Contact support" });
+  expect(support.getAttribute("href")).toBe("/support");
+  expect(view.getByRole("region", { name: "Miso" }).contains(support)).toBe(true);
+  expect(view.getByText(/request an image attempt reset for this companion/)).toBeDefined();
+  expect(view.queryByText(/Retry this same companion for free/)).toBeNull();
+  expect(view.queryByText(/Appearance retry available in/)).toBeNull();
+  expect(view.queryByRole("button", { name: "Create / retry appearance" })).toBeNull();
+  selectTab(view, "Training");
+  expect((view.getByRole("button", { name: "Assign experience" }) as HTMLButtonElement).disabled).toBe(true);
+
+  data = { ...data, remainingGenerations: 1, generationRetryAt: null };
+  await act(async () => { await queryClient.invalidateQueries(); });
+  const retry = await view.findByRole("button", { name: "Create / retry appearance" }) as HTMLButtonElement;
+  expect(retry.disabled).toBe(false);
+  expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+  fireEvent.click(retry);
+  if (rank === 1) {
+    const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+  }
+  await waitFor(() => expect(generate).toHaveBeenCalledWith(rank === 1 ? { petId: pet.id, appearance: {
+    dayKey: data.dayKey, paletteIndex: pet.paletteIndex, characteristicIndex: pet.characteristicIndex, auraIndex: pet.auraIndex,
+  } } : { petId: pet.id }));
+});
+
+it.each(["FAILED", "READY"] as const)("waits for the final active image attempt before showing its %s outcome", async (generationStatus) => {
+  const pet = { ...data.pet!, rank: 2, artRank: 1, generationStatus: "GENERATING" as const };
+  data = { ...data, pet, pets: [pet], remainingGenerations: 0, canFeed: false, generationRetryAt: new Date(Date.now() + 60_000) };
+  const view = mount();
+  await view.findByText("Your companion's appearance is being created");
+  expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+  expect(view.queryByText(/Appearance retry available in/)).toBeNull();
+  expect(view.queryByRole("button", { name: "Create / retry appearance" })).toBeNull();
+  expect(mealButton(view).disabled).toBe(true);
+
+  const completed = { ...pet, generationStatus, artRank: generationStatus === "READY" ? 2 : 1 };
+  data = { ...data, pet: completed, pets: [completed], canFeed: generationStatus === "READY" };
+  await act(async () => { await queryClient.invalidateQueries(); });
+  if (generationStatus === "FAILED") {
+    await view.findByRole("link", { name: "Contact support" });
+  } else {
+    await waitFor(() => expect(mealButton(view).disabled).toBe(false));
+    expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+    expect(view.queryByText(/appearance is unfinished/)).toBeNull();
+  }
+});
+
+it("waits for a local final-attempt response before offering support for failed art", async () => {
+  const pet = { ...data.pet!, rank: 2, artRank: 1, generationStatus: "FAILED" as const };
+  data = { ...data, pet, pets: [pet], remainingGenerations: 1, canFeed: false };
+  let finishGeneration: () => void = () => undefined;
+  const generation = new Promise<void>((resolve) => { finishGeneration = resolve; });
+  generate.mockImplementation(async () => {
+    await generation;
+    return { success: false, message: "Image creation failed." };
+  });
+  const view = mount();
+  try {
+    fireEvent.click(await view.findByRole("button", { name: "Create / retry appearance" }));
+    await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    data = { ...data, remainingGenerations: 0 };
+    await act(async () => { await queryClient.invalidateQueries(); });
+    expect(view.getByText("Your companion's appearance is being created")).toBeDefined();
+    expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+    expect(view.queryByText(/Retry this same companion for free/)).toBeNull();
+    expect((view.getByRole("button", { name: "Creating appearance..." }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { finishGeneration(); });
+    await view.findByRole("link", { name: "Contact support" });
+  } finally { finishGeneration(); }
+});
+
+it("offers support once an exhausted generation lease has expired", async () => {
+  const pet = { ...data.pet!, rank: 2, artRank: 1, generationStatus: "GENERATING" as const };
+  data = { ...data, pet, pets: [pet], remainingGenerations: 0, generationRetryAt: new Date(Date.now() - 1000) };
+  const view = mount();
+  await view.findByRole("link", { name: "Contact support" });
+  expect(view.queryByText("Your companion's appearance is being created")).toBeNull();
+  expect(view.queryByRole("button", { name: "Create / retry appearance" })).toBeNull();
 });
 
 it.each([1, 7])("regenerates a rank %s companion with its saved traits and no cosmetic picker", async (rank) => {
