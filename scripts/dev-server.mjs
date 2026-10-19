@@ -170,31 +170,94 @@ export async function devStatus(paths = devPaths()) {
     phase: ownsSupervisor(state) ? state.phase : "stopped",
     logPath: paths.logPath,
     browserSession: `tnr-${paths.key}`,
-    browserLease: browser?.expiresAt > Date.now() ? browser : null,
+    browserLease: activeBrowserLease(browser, Date.now()),
   };
 }
 
+function activeBrowserLease(lease, now) {
+  if (lease?.mode === "shared") {
+    const holders = lease.holders.filter((holder) => holder.expiresAt > now);
+    if (!holders.length) return null;
+    // Keep the top-level owner and expiry meaningful for status and older managers.
+    return {
+      ...lease,
+      ...holders[0],
+      expiresAt: Math.max(...holders.map((holder) => holder.expiresAt)),
+      holders,
+    };
+  }
+  return lease?.expiresAt > now ? lease : null;
+}
+
+/**
+ * Reserve Chrome's shared cookie store, optionally reusing a UI-verified account.
+ * @param {string} [account] Clerk user ID for shared access.
+ */
 export async function browserLease(
   paths,
   action,
   owner = process.env.CODEX_THREAD_ID || paths.key,
   now = Date.now(),
+  account = undefined,
 ) {
+  if (!["acquire", "share", "release"].includes(action))
+    throw new Error("Unknown browser lease action.");
+  if (account !== undefined && (typeof account !== "string" || !account.trim()))
+    throw new Error("BROWSER_ACCOUNT must be the signed-in Clerk user ID.");
+  if (action === "share" && !account)
+    throw new Error(
+      "Use make dev-browser-share BROWSER_ACCOUNT=<Clerk user ID> after checking the visible account.",
+    );
   return locked(paths, async () => {
     const path = join(paths.registry, "browser.json");
-    const lease = await readJson(path);
-    if (
-      lease?.expiresAt > now &&
-      (lease.owner !== owner || lease.root !== paths.root)
-    ) {
+    const lease = activeBrowserLease(await readJson(path), now);
+    const holders = lease ? (lease.mode === "shared" ? lease.holders : [lease]) : [];
+    const isOwner = (holder) => holder.owner === owner && holder.root === paths.root;
+    const ownLease = holders.find(isOwner);
+    const others = holders.filter((holder) => !isOwner(holder));
+    const conflict = () => {
       throw new Error(
-        `Chrome login lease belongs to ${lease.owner} in ${lease.root} until ${new Date(lease.expiresAt).toISOString()}. Continue API/server work; retry after release. Do not sign in or switch accounts in shared Chrome.`,
+        `Chrome login lease belongs to ${lease.owner} in ${lease.root} until ${new Date(lease.expiresAt).toISOString()}${lease.mode === "shared" ? ` (shared account ${lease.account})` : ""}. Public tabs and API/server work can continue. Join only the same shared account with make dev-browser BROWSER_ACCOUNT=<Clerk user ID>; otherwise retry after release. Do not sign in or switch accounts while another chat holds a lease.`,
       );
-    }
+    };
     if (action === "release") {
-      await rm(path, { force: true });
+      if (lease && !ownLease) conflict();
+      if (others.length) {
+        await saveJson(path, activeBrowserLease({ ...lease, holders: others }, now));
+      } else {
+        await rm(path, { force: true });
+      }
       return { released: true };
     }
+    if (action === "share" || account) {
+      if (action === "share") {
+        // Publishing an account starts with an exclusive owner who checked the UI.
+        if (!ownLease)
+          throw new Error(
+            "Acquire make dev-browser, sign in and check the visible account before sharing it.",
+          );
+        if (lease.mode === "shared" && lease.account !== account) conflict();
+      } else if (lease?.mode !== "shared" || lease.account !== account) {
+        if (lease) conflict();
+        throw new Error(
+          "No shared Chrome account is reserved. Acquire make dev-browser, sign in, then use make dev-browser-share BROWSER_ACCOUNT=<Clerk user ID>.",
+        );
+      }
+      const next = activeBrowserLease(
+        {
+          mode: "shared",
+          account,
+          holders: [
+            ...others,
+            { owner, root: paths.root, expiresAt: now + 30 * 60_000 },
+          ],
+        },
+        now,
+      );
+      await saveJson(path, next);
+      return next;
+    }
+    if (others.length) conflict();
     const next = { owner, root: paths.root, expiresAt: now + 30 * 60_000 };
     await saveJson(path, next);
     return next;
@@ -380,12 +443,16 @@ async function main() {
       break;
     }
     case "browser-acquire":
+    case "browser-share":
     case "browser-release":
       console.log(
         JSON.stringify(
           await browserLease(
             paths,
-            action === "browser-acquire" ? "acquire" : "release",
+            action.slice("browser-".length),
+            undefined,
+            undefined,
+            process.env.BROWSER_ACCOUNT || undefined,
           ),
           null,
           2,
@@ -394,7 +461,7 @@ async function main() {
       break;
     default:
       throw new Error(
-        "Use make start, dev-up, dev-status, dev-down, dev-browser, or dev-browser-release.",
+        "Use make start, dev-up, dev-status, dev-down, dev-browser, dev-browser-share, or dev-browser-release.",
       );
   }
 }

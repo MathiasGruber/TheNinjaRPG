@@ -90,24 +90,56 @@ For plain API routes calling Clerk auth directly, read [HTTP auth](references/ht
 
 ## Chrome UI testing
 
-Use the user's existing **Chrome**, following current tool documentation. Browser pages
-must use `http://localhost:<port>`; `127.0.0.1` can make Next dev chunks return 403 and
-leave Clerk loading forever. API requests are unaffected.
+For disposable-account local tests, prefer **Chrome DevTools MCP** launched with
+`--isolated`, using the installed Google Chrome. Each MCP process gets a temporary
+profile; create `new_page` with a named `isolatedContext` unique to worktree, chat and
+actor to keep accounts separate even if a connection is shared. Derive the prefix from
+`make dev-status`'s `browserSession`, then append the chat ID and actor key. These contexts
+do not need `make dev-browser`. Retain explicit page IDs for every action and close only
+your own pages. Read [Chrome isolation](references/chrome-isolation.md) for setup,
+verification and cleanup. Do not treat an ordinary tab or an unverified connection as
+isolated.
 
-Separate windows, tabs, tab groups, session names and ports **share cookies**. Incognito
-windows in one profile also share an incognito cookie store. Do not ask the user to stop
-other chats or close their browser to resolve a collision.
+Use the user's existing **Chrome extension** for browsing that needs its signed-in
+personal context, or as the serialized fallback when the isolation tool is unavailable.
+Follow current tool documentation for either connection. Browser pages must use
+`http://localhost:<port>`; `127.0.0.1` can make Next dev chunks return 403 and leave Clerk
+loading forever. API requests are unaffected.
 
-- When the connected Chrome tool explicitly supports isolated contexts, use one unique
-  context per chat/worktree (and per simultaneous actor). Chrome DevTools `new_page`
-  exposes `isolatedContext`; use it only when connected to the intended Chrome. Retain
-  explicit page IDs for actions.
-- For the Chrome extension / `cua_repl`, acquire `make dev-browser` **before provisioning
-  tickets or signing in**. Hold this repository-wide login lease through authenticated
-  testing and screenshots. Another owner returns an actionable error: continue API/server
-  work, then retry after release. No user permission is needed to coordinate the lease.
-  It expires in 30 minutes; renew with `make dev-browser` for longer work. Release in
-  cleanup with `make dev-browser-release`.
+### Personal-profile extension fallback
+
+Separate windows, tabs, tab groups, session names and ports in one profile **share
+cookies**. Incognito windows in one profile also share an incognito cookie store. Do not
+ask the user to stop other chats or close their browser to resolve a collision.
+
+- Public pages and unrelated sites can run in parallel in each chat's own tabs; they
+  need no login lease. Server setup and provisioning unrelated disposable users can
+  also happen independently through the broker.
+- For authenticated Chrome extension / `cua_repl` work, acquire `make dev-browser`
+  **before signing in, signing out or switching accounts**. This reserves exclusive
+  access to the shared login. Hold it through testing and screenshots when your scenario
+  needs its own account. Warm the server and prepare the scenario before acquiring it.
+- For parallel tabs using the **same account**, the exclusive owner first checks the
+  visible username against the saved user, then runs
+  `make dev-browser-share BROWSER_ACCOUNT=<userId>` (the Clerk `userId` printed by
+  `dev-user`, never a ticket or token). Other chats inspect `make dev-status` and join
+  with `make dev-browser BROWSER_ACCOUNT=<same userId>`, then open their own server URL
+  **without signing in again** and verify the visible identity. A shared reservation
+  only coordinates access; it does not establish browser authentication. If the expected
+  account is not active in that tab, release and wait for exclusive access to sign in.
+- Shared holders must not sign in/out, switch accounts, re-provision the shared user or
+  run scenarios that change each other's state. Use sharing for compatible UI checks,
+  such as layouts and navigation. Omit `BROWSER_ACCOUNT` to request exclusive access;
+  it is blocked while another chat holds either kind of lease. Different accounts still
+  require isolated contexts or serialized access. Never shorten the lease to cover only
+  the login click: another sign-in would invalidate the ongoing test.
+- Reservations expire individually after 30 minutes. Renew an exclusive reservation
+  with `make dev-browser`, or a shared one with
+  `make dev-browser BROWSER_ACCOUNT=<same userId>`. If it expired, stop authenticated
+  actions and reacquire/verify identity first. Release in cleanup with
+  `make dev-browser-release`; this removes only your reservation. On contention, continue
+  public-tab/API/server work and retry after release. No user permission is needed to
+  coordinate leases.
 - Name the automation session with worktree/issue and create your own tab using
   `cua.createBrowserTab("chrome", url, {sessionName: "🧪 Issue <number>"})`. Retain that
   handle and interact only with your own tabs. Read the first-use documentation instead
@@ -117,8 +149,9 @@ other chats or close their browser to resolve a collision.
   just before login and before setting up a scenario that re-provisioning would reset.
   Check the visible username against the saved user. After a navigation timeout, inspect
   the existing tab before reloading or consuming another ticket.
-- Close your temporary tabs, release the lease and stop your server when finished. Leave
-  other tabs, browser processes and shared services alone. Disposable users can stay.
+- Close your temporary tabs, release any lease you acquired and stop your server when
+  finished. Leave other tabs, browser processes and shared services alone. Disposable
+  users can stay.
 
 If Chrome DevTools says its `chrome-profile` is already running, it is trying to launch
 a contended managed profile. Use the available existing-Chrome extension flow; do not

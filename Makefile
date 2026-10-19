@@ -26,7 +26,7 @@ endif
 -include ./app/.env
 
 PORT ?=
-export PORT REQUEST USER_KEY ENDPOINT INPUT_FILE
+export PORT REQUEST USER_KEY ENDPOINT INPUT_FILE BROWSER_ACCOUNT
 
 ## List of available commands:
 ---------------General------------------: # -------------------------------------------------------
@@ -103,15 +103,17 @@ dev-prepare: ensure-env # Prepare a worktree without starting a server
 	@test -f app/.env || { echo 'dev: app/.env missing; copy app/.env.example and configure it.' >&2; exit 1; }
 	@$(MAKE) install ensure-services
 
-.PHONY: dev-up dev-status dev-down dev-browser dev-browser-release
+.PHONY: dev-up dev-status dev-down dev-browser dev-browser-share dev-browser-release
 dev-up: # Start/reuse this worktree's server, wait for HTTP readiness, print JSON
 	@node scripts/dev-server.mjs up
 dev-status: # Show this worktree's server, log, and browser lease as JSON
 	@node scripts/dev-server.mjs status
 dev-down: # Stop only this worktree's managed server; leave shared Docker alone
 	@node scripts/dev-server.mjs down
-dev-browser: # Acquire/renew the shared Chrome login lease for this chat
+dev-browser: # Reserve Chrome login exclusively, or join BROWSER_ACCOUNT's shared lease
 	@node scripts/dev-server.mjs browser-acquire
+dev-browser-share: # Allow parallel tabs for the verified BROWSER_ACCOUNT=<Clerk user ID>
+	@node scripts/dev-server.mjs browser-share
 dev-browser-release: # Release this chat's Chrome login lease
 	@node scripts/dev-server.mjs browser-release
 
