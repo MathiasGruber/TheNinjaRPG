@@ -1,0 +1,1 @@
+ALTER TABLE `UserPet` DROP COLUMN `generationDay`;
