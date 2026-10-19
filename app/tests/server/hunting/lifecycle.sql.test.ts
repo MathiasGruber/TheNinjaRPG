@@ -35,6 +35,19 @@ describeWithDatabase("Hunting lifecycle", () => {
     expect((await hunter.getBoard()).session).toEqual(first);
     expect(await (await getTestDatabase()).query.huntingSession.findMany()).toHaveLength(1);
   });
+  it("loads only the caller's session and preserves unavailable encounters for recovery", async () => {
+    const { hunter, session } = await accept();
+    const staff = await callerFor(huntingRouter, "staff");
+    expect(await staff.getSession()).toBeNull();
+    expect(await hunter.getSession()).toMatchObject({ session: { id: session.id, sector: 1 }, contract: { name: "Forest boar" }, allowance: { used: 0, remaining: 3, cooling: false } });
+    const db = await getTestDatabase();
+    await db.update(huntingProgress).set({ used: 3, cooldownUntil: new Date(Date.now() + 60_000) });
+    expect(await hunter.getSession()).toMatchObject({ allowance: { used: 3, remaining: 0, cooling: true } });
+    await db.update(huntingHabitat).set({ content: { ...huntingHabitatContent(), enabled: false } });
+    expect(await hunter.getSession()).toMatchObject({ session: { id: session.id }, contract: null, allowance: null });
+    expect((await hunter.sessionAction({ id: session.id, version: session.version, action: "finish" })).success).toBe(true);
+    expect(await hunter.getSession()).toBeNull();
+  });
   it("limits acceptance map payloads to contract sectors and skips them for unchanged or rejected sessions", async () => {
     const db = await getTestDatabase();
     await db.insert(sectorMap).values({ id: "unrelated-map", sector: 2, name: "Other sector", width: 1, height: 1, status: "PUBLISHED", normalizedJson: { ...huntingMap(), sector: 2 } });

@@ -29,6 +29,42 @@ import {
 
 /** Staff-authored definitions and version-guarded, personal hunting sessions. */
 export const huntingRouter = createTRPCRouter({
+  /** Travel and dashboard need only the personal encounter, not the full board catalogs. */
+  getSession: protectedProcedure.query(async ({ ctx }) => {
+    const [row] = await ctx.drizzle
+      .select({
+        session: huntingSession,
+        habitat: huntingHabitat,
+        progress: huntingProgress,
+      })
+      .from(huntingSession)
+      .leftJoin(huntingHabitat, eq(huntingHabitat.id, huntingSession.habitatId))
+      .leftJoin(
+        huntingProgress,
+        and(
+          eq(huntingProgress.userId, huntingSession.userId),
+          eq(huntingProgress.contractId, huntingSession.contractId),
+        ),
+      )
+      .where(eq(huntingSession.userId, ctx.userId));
+    if (!row) return null;
+    const contract = row.habitat?.content.enabled
+      ? row.habitat.content.contracts.find(
+          (c) => c.id === row.session.contractId && c.enabled,
+        )
+      : undefined;
+    const serverTime = new Date();
+    return {
+      session: row.session,
+      contract: contract ?? null,
+      habitatName: row.habitat?.content.name ?? null,
+      allowance: contract
+        ? huntingAllowance(contract, row.progress ?? undefined, serverTime.getTime())
+        : null,
+      cooldownUntil: row.progress?.cooldownUntil ?? null,
+      serverTime,
+    };
+  }),
   /** Load the visible board and session together; filter independent catalogs after parallel reads. */
   getBoard: protectedProcedure.query(async ({ ctx }) => {
     const [user, habitats, session, progress, materials, creatures] = await Promise.all(

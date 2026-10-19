@@ -1,6 +1,8 @@
+import type { RouterOutputs } from "@/app/_trpc/client";
 import { getUserCaps, MAP_WAKE_ISLAND_SECTOR } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { craftingStartBlockMessage } from "@/libs/crafting";
+import { huntingSessionStage } from "@/libs/hunting/contracts";
 import {
   getActiveObjective,
   getObjectiveImage,
@@ -366,6 +368,7 @@ export const describeOccupationLine = ({
   trackers,
   craftingItemName,
   craftingUser,
+  hunting,
 }: {
   occupation: string | null | undefined;
   quests: OccupationQuestEntry[];
@@ -373,6 +376,7 @@ export const describeOccupationLine = ({
   /** Undefined while the crafting timer is still loading. */
   craftingItemName?: string | null;
   craftingUser?: Parameters<typeof craftingStartBlockMessage>[0];
+  hunting?: RouterOutputs["hunting"]["getSession"];
 }): OccupationProgressLine => {
   if (!occupation) {
     return {
@@ -425,6 +429,23 @@ export const describeOccupationLine = ({
       detail: craftingBlock,
       progress: null,
       action: craftingBlock ? "View" : "Start crafting",
+      craftTimer: false,
+    };
+  }
+
+  if (occupation === "HUNTER" && hunting) {
+    const { session, contract, allowance, serverTime } = hunting;
+    const stage = huntingSessionStage(
+      session,
+      !!allowance?.cooling,
+      serverTime.getTime(),
+    );
+    return {
+      label: meta.label,
+      title: contract?.name ?? "Unavailable contract",
+      detail: `${stage} · Sector ${session.sector}${allowance && contract ? ` · ${allowance.remaining} / ${contract.hunts} hunts remaining` : " · Open the board to select a new contract"}`,
+      progress: allowance && contract ? (allowance.used / contract.hunts) * 100 : null,
+      action: "View contract",
       craftTimer: false,
     };
   }

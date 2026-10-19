@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { HUNTING_CONTRACT_DEFAULTS, HUNTING_RANKS } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import { SearchSelect } from "@/layout/SearchSelect";
 import { canChangeContent } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import {
@@ -37,7 +38,11 @@ export default function HuntingEditor() {
       if (r.success && "id" in r) {
         setId(r.id);
         setContent(r.content);
-        await Promise.all([definitions.refetch(), utils.hunting.getBoard.invalidate()]);
+        await Promise.all([
+          definitions.refetch(),
+          utils.hunting.getBoard.invalidate(),
+          utils.hunting.getSession.invalidate(),
+        ]);
       }
     },
     onError: (e) => setMessage(e.message),
@@ -48,7 +53,11 @@ export default function HuntingEditor() {
       if (r.success) {
         setId(undefined);
         setContent(newHabitat());
-        await Promise.all([definitions.refetch(), utils.hunting.getBoard.invalidate()]);
+        await Promise.all([
+          definitions.refetch(),
+          utils.hunting.getBoard.invalidate(),
+          utils.hunting.getSession.invalidate(),
+        ]);
       }
     },
     onError: (e) => setMessage(e.message),
@@ -201,18 +210,17 @@ export default function HuntingEditor() {
                   />
                 </Field>
                 <Field label="Creature">
-                  <select
-                    className="w-full rounded border bg-background p-2"
+                  <SearchSelect
+                    label="Creature"
                     value={c.aiId}
-                    onChange={(e) => edit(ci, { aiId: e.target.value })}
-                  >
-                    <option value="">Select AI creature</option>
-                    {ais.data?.map((a) => (
-                      <option key={a.userId} value={a.userId}>
-                        {a.username}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(aiId) => edit(ci, { aiId })}
+                    placeholder="Select AI creature"
+                    disabled={pending}
+                    options={
+                      ais.data?.map((a) => ({ value: a.userId, label: a.username })) ??
+                      []
+                    }
+                  />
                 </Field>
                 <Field label="Required hunting rank">
                   <select
@@ -295,26 +303,24 @@ export default function HuntingEditor() {
                   className="grid items-end gap-2 sm:grid-cols-4"
                 >
                   <Field label="Material">
-                    <select
-                      className="w-full rounded border bg-background p-2"
+                    <SearchSelect
+                      label="Material"
                       value={r.itemId}
-                      onChange={(e) =>
+                      placeholder="Select huntable item"
+                      disabled={pending}
+                      onChange={(itemId) =>
                         edit(ci, {
                           rewards: c.rewards.map((x, i) =>
-                            i === ri ? { ...x, itemId: e.target.value } : x,
+                            i === ri ? { ...x, itemId } : x,
                           ),
                         })
                       }
-                    >
-                      <option value="">Select huntable item</option>
-                      {items.data
-                        ?.filter((m) => m.canBeHunted)
-                        .map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.name}
-                          </option>
-                        ))}
-                    </select>
+                      options={
+                        items.data
+                          ?.filter((m) => m.canBeHunted)
+                          .map((m) => ({ value: m.id, label: m.name })) ?? []
+                      }
+                    />
                   </Field>
                   <Field label="Quantity">
                     <NumberInput

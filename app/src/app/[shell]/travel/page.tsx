@@ -82,6 +82,7 @@ import { ActionSelector } from "@/layout/CombatActions";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
+import { HuntingArrival } from "@/layout/HuntingArrival";
 import ItemLoadoutSelector from "@/layout/ItemLoadoutSelector";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import JutsuLoadoutSelector from "@/layout/JutsuLoadoutSelector";
@@ -987,6 +988,7 @@ function Travel() {
   // Render
   return (
     <>
+      <HuntingArrival blocked={!!locationRequest || searchParams.has("sector")} />
       {locationRequest && (
         <Modal
           title="Auto Travel"
