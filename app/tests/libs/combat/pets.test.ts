@@ -71,6 +71,13 @@ describe("owned pets in combat", () => {
     expect(battle.usersState.find((user) => user.petId === "pet-1")?.avatarFacing).toBe(avatarFacing);
   });
 
+  it("uses the species damage preference independently of its owner", () => {
+    const battle = scenario();
+    battle.usersState[0]!.preferredDamageElement = "Wind";
+    add(battle, [petFixture({ species: petSpeciesFixture({ preferredDamageElement: "Water" }) })]);
+    expect(battle.usersState.find(user => user.petId === "pet-1")?.preferredDamageElement).toBe("Water");
+  });
+
   it.each([...BattleTypes])("excludes pets, abilities and settlement identities from %s while companion battles are disabled", (battleType) => {
     PET_BATTLE_CONFIG.enabled = false;
     const battle = scenario();

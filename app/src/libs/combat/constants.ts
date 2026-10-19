@@ -136,6 +136,7 @@ export const privateState = [
   "defence",
   "genjutsuMastery",
   "highestGenerals",
+  "preferredDamageElement",
   "intelligence",
   "itemLoadout",
   "jutsuLoadout",

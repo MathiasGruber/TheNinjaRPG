@@ -555,6 +555,12 @@ export const DamageTag = z.object({
 });
 export type DamageTagType = z.infer<typeof DamageTag>;
 
+/** Reuse damage authoring controls; combat resolves the caster's element at runtime. */
+export const ElementalDamageTag = DamageTag.omit({ elements: true }).extend({
+  type: z.literal("elementaldamage").prefault("elementaldamage"),
+  description: msg("Deals damage using the caster's preferred basic element"),
+});
+
 export const CopyTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -1085,6 +1091,7 @@ export const AllTags = z.union([
   DiffuseTag.prefault({}),
   DisarmTag.prefault({}),
   DrainTag.prefault({}),
+  ElementalDamageTag.prefault({}),
   ElementalSealTag.prefault({}),
   FinalStandTag.prefault({}),
   FleePreventTag.prefault({}),
@@ -1291,6 +1298,7 @@ export const isNegativeUserEffect = (tag: ZodAllTags) => {
       // "cleanseprevent",
       "clear",
       "damage",
+      "elementaldamage",
       "decreasedamagegiven",
       "decreaseheal",
       "decreasepotency",
@@ -1394,7 +1402,9 @@ const SuperRefineBase = (data: ContentBaseValidatorType, ctx: z.RefinementCtx) =
   const hasClone = data.effects.find((e) => e.type === "clone");
   const hasSummon = data.effects.find((e) => e.type === "summon");
   const hasBarrier = data.effects.find((e) => e.type === "barrier");
-  const hasDamage = data.effects.find((e) => e.type === "damage");
+  const hasDamage = data.effects.find(
+    (e) => e.type === "damage" || e.type === "elementaldamage",
+  );
   const isAOE = data.method.includes("AOE");
   const isEmptyGround = data.target === "EMPTY_GROUND";
   // Move uses the clicked destination rather than the affected pattern.
@@ -1706,7 +1716,8 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
       addIssue(ctx, "BarrierTag needs a staticAssetPath");
     } else if (e.type === "wound") {
       const hasDamageOrPierce = effects.some(
-        (x) => x.type === "damage" || x.type === "pierce",
+        (x) =>
+          x.type === "damage" || x.type === "elementaldamage" || x.type === "pierce",
       );
       if (!hasDamageOrPierce) {
         addIssue(
@@ -1716,7 +1727,8 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
       }
     } else if (e.type === "vamp" || (e.type === "consume" && e.rounds === 0)) {
       const hasDamageOrPierce = effects.some(
-        (x) => x.type === "damage" || x.type === "pierce",
+        (x) =>
+          x.type === "damage" || x.type === "elementaldamage" || x.type === "pierce",
       );
       if (!hasDamageOrPierce) {
         addIssue(

@@ -11,6 +11,8 @@ import { OBJECTIVE_TAG_TYPES } from "@/validators/objectives";
 //      these are routed to ground effects / special handlers and therefore can never
 //      satisfy a tag_usage_win objective).
 const EXCLUDED_TAG_TYPES = new Set([
+  // Authoring variants normalize before usage tracking and count as damage.
+  "elementaldamage",
   // Non-combat tags
   "increaseregeneration",
   "rollbloodline",

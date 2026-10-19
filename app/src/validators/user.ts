@@ -144,6 +144,7 @@ export const updateUserPreferencesSchema = z
   .object({
     preferredGeneral1: z.enum(GeneralTypes).nullable().optional(),
     preferredGeneral2: z.enum(GeneralTypes).nullable().optional(),
+    preferredDamageElement: z.enum(BasicElementName).nullable().optional(),
     dashboardContentPriority: dashboardContentPrioritySchema.optional(),
     rememberProfileTab: z.boolean().optional(),
     // Audio preferences

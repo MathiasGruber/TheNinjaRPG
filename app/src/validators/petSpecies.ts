@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  BasicElementName,
   PET_ABILITY_SLOTS_BY_RARITY,
   PET_MAX_ABILITY_SLOTS,
   PetRarities,
@@ -21,6 +22,7 @@ export const PetSpeciesValidator = z
     description: z.string().trim().min(1).max(1000),
     rarity: z.enum(PetRarities),
     role: z.enum(PetRoles).default("ASSAULT"),
+    preferredDamageElement: z.enum(BasicElementName).nullable().default(null),
     isActive: z.boolean(),
     defaultJutsuIds: z
       .array(z.string().min(1).max(191))

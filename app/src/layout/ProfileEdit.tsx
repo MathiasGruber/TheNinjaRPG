@@ -66,6 +66,7 @@ import type {
   TavernColorPreset,
 } from "@/drizzle/constants";
 import {
+  BasicElementName,
   BLOODLINE_SWAP_COOLDOWN_HOURS,
   BLOODLINE_SWAP_FREE_DAYS,
   COST_CHANGE_GENDER,
@@ -106,6 +107,7 @@ import { Titles } from "@/layout/Titles";
 import UserBlacklistControl from "@/layout/UserBlacklistControl";
 import UserRequestSystem from "@/layout/UserRequestSystem";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { getPreferredDamageElement } from "@/libs/combat/elementalDamage";
 import {
   DEFAULT_MOBILE_NAV_CONFIG,
   getMobileNavIcon,
@@ -540,6 +542,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
     defaultValues: {
       preferredGeneral1: null,
       preferredGeneral2: null,
+      preferredDamageElement: null,
     },
   });
 
@@ -610,6 +613,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
       form.reset({
         preferredGeneral1: userData.preferredGeneral1,
         preferredGeneral2: userData.preferredGeneral2,
+        preferredDamageElement: userData.preferredDamageElement,
       });
     }
   }, [userData, form]);
@@ -653,7 +657,7 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="grid w-full grid-cols-4 items-end gap-3 p-4"
+                className="grid w-full grid-cols-1 items-end gap-3 p-4 sm:grid-cols-2"
                 aria-busy={isUpdatingPreferences}
               >
                 <FormField
@@ -717,6 +721,43 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="preferredDamageElement"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Primary damage element</FormLabel>
+                      <Select
+                        disabled={isUpdatingPreferences}
+                        onValueChange={(value) =>
+                          field.onChange(value === "__innate__" ? null : value)
+                        }
+                        value={field.value ?? "__innate__"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__innate__">
+                            Default (
+                            {getPreferredDamageElement({
+                              primaryElement: userData?.primaryElement,
+                            })}
+                            )
+                          </SelectItem>
+                          {BasicElementName.map((element) => (
+                            <SelectItem key={element} value={element}>
+                              {element}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" disabled={isUpdatingPreferences}>
                   {isUpdatingPreferences ? (
                     <>
@@ -734,6 +775,12 @@ const BattleSettingsEdit: React.FC<{ userId: string }> = ({ userId }) => {
                 Preferred Generals 1 and 2 select the general stats used by attacks with
                 &quot;Highest&quot; general scaling, such as the basic attack. Selecting
                 Highest uses your strongest available generals.
+              </FormDescription>
+              <FormDescription className="mt-2">
+                Your primary damage element controls Elemental Damage effects in future
+                battles, including ranked combat. Choose any basic element. This is
+                separate from Elemental Mastery's active element and does not change
+                your innate elements or jutsu requirements.
               </FormDescription>
             </Form>
           </TabsContent>
