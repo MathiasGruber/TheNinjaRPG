@@ -136,7 +136,6 @@ function ThemeShell(props: GameLayoutRenderProps) {
                 id="tutorial-gameBtn"
               >
                 <Compass aria-hidden="true" />
-                <span className="theme-world-access-label">World</span>
               </SheetTrigger>
               <SheetContent
                 className="theme-drawer"

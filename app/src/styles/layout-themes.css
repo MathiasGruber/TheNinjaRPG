@@ -206,11 +206,6 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
   display: flex;
   align-items: center;
 }
-.theme-world-access-label {
-  padding-left: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
 .theme-header-button,
 .theme-action-icon {
   display: inline-flex;
@@ -287,6 +282,7 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
     display: block;
   }
   .theme-drawer-buttons,
+  .theme-world-access,
   .theme-mobile-nav {
     display: none;
   }
@@ -317,9 +313,6 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
   }
 }
 @media (width < 1100px) {
-  .theme-world-access-label {
-    display: none;
-  }
   .theme-frame {
     padding-bottom: calc(6rem + env(safe-area-inset-bottom));
   }
