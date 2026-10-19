@@ -5,12 +5,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  browserLease,
-  devPaths,
-  devStatus,
-  portAvailable,
-} from "../../../scripts/dev-server.mjs";
+import { devPaths, devStatus, portAvailable } from "../../../scripts/dev-server.mjs";
 
 const manager = fileURLToPath(
   new URL("../../../scripts/dev-server.mjs", import.meta.url),
@@ -20,15 +15,10 @@ const roots: string[] = [];
 const git = (root: string, ...args: string[]) =>
   execFileSync("git", ["-C", root, ...args], { stdio: "pipe" });
 
-async function command(
-  root: string,
-  action: string,
-  port = "",
-  environment: Record<string, string> = {},
-) {
+async function command(root: string, action: string, port = "") {
   const child = spawn("node", [join(root, "scripts/dev-server.mjs"), action], {
     cwd: root,
-    env: { ...process.env, PORT: port, ...environment },
+    env: { ...process.env, PORT: port },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
@@ -178,140 +168,4 @@ describe("parallel worktree dev servers", () => {
     expect((await command(root, "down")).code).toBe(0);
     expect((await devStatus(paths)).phase).toBe("stopped");
   });
-});
-
-test("Chrome leases reject other owners, renew, release and expire", async () => {
-  const { root } = await fixture();
-  const paths = devPaths(root);
-  const acquired = await browserLease(paths, "acquire", "chat-a", 100);
-  expect(acquired.owner).toBe("chat-a");
-  await expect(browserLease(paths, "acquire", "chat-b", 101)).rejects.toThrow("chat-a");
-  await expect(browserLease(paths, "release", "chat-b", 101)).rejects.toThrow("chat-a");
-  const renewed = await browserLease(paths, "acquire", "chat-a", 102);
-  expect(renewed.expiresAt).toBeGreaterThan(acquired.expiresAt);
-  expect(await browserLease(paths, "release", "chat-a", 103)).toEqual({
-    released: true,
-  });
-  expect((await browserLease(paths, "acquire", "chat-b", 104)).owner).toBe("chat-b");
-  expect(
-    (await browserLease(paths, "acquire", "chat-a", 104 + 31 * 60_000)).owner,
-  ).toBe("chat-a");
-});
-
-test("sharing requires a live reservation owned by the publishing chat", async () => {
-  const { root } = await fixture();
-  const paths = devPaths(root);
-  await expect(browserLease(paths, "share", "chat-a", 100)).rejects.toThrow(
-    "BROWSER_ACCOUNT",
-  );
-  await expect(
-    browserLease(paths, "share", "chat-a", 100, "user_shared"),
-  ).rejects.toThrow("Acquire make dev-browser");
-  await expect(
-    browserLease(paths, "acquire", "chat-a", 100, "user_shared"),
-  ).rejects.toThrow("No shared Chrome account");
-  await browserLease(paths, "acquire", "chat-a", 100);
-  await expect(
-    browserLease(paths, "share", "chat-b", 101, "user_shared"),
-  ).rejects.toThrow("Acquire make dev-browser");
-  await expect(
-    browserLease(paths, "share", "chat-a", 100 + 31 * 60_000, "user_shared"),
-  ).rejects.toThrow("Acquire make dev-browser");
-});
-
-test("parallel worktrees can share one account while account changes stay exclusive", async () => {
-  const { root, directory } = await fixture();
-  const paths = devPaths(root);
-  const sibling = { ...paths, root: join(directory, "sibling") };
-  await browserLease(paths, "acquire", "chat-a", 100);
-  await browserLease(paths, "share", "chat-a", 101, "user_shared");
-  const shared = await browserLease(sibling, "acquire", "chat-b", 102, "user_shared");
-  expect(shared.holders.map(({ owner }: { owner: string }) => owner).sort()).toEqual([
-    "chat-a",
-    "chat-b",
-  ]);
-  await expect(browserLease(paths, "acquire", "chat-a", 103)).rejects.toThrow(
-    "Chrome login lease belongs",
-  );
-  await expect(
-    browserLease(paths, "share", "chat-a", 103, "user_other"),
-  ).rejects.toThrow("shared account user_shared");
-  await expect(
-    browserLease(paths, "acquire", "chat-c", 103, "user_other"),
-  ).rejects.toThrow("shared account user_shared");
-  await expect(browserLease(paths, "release", "chat-c", 103)).rejects.toThrow(
-    "Chrome login lease belongs",
-  );
-  // A matching chat ID in another worktree still cannot release the original holder.
-  await expect(browserLease(sibling, "release", "chat-a", 103)).rejects.toThrow(
-    "Chrome login lease belongs",
-  );
-  await browserLease(paths, "release", "chat-a", 104);
-  await expect(browserLease(paths, "acquire", "chat-a", 105)).rejects.toThrow("chat-b");
-  await browserLease(sibling, "release", "chat-b", 106);
-  expect((await browserLease(paths, "acquire", "chat-a", 107)).owner).toBe("chat-a");
-});
-
-test("browser CLI shares and releases per chat using BROWSER_ACCOUNT", async () => {
-  const { root } = await fixture();
-  const exclusive = { CODEX_THREAD_ID: "chat-a", BROWSER_ACCOUNT: "" };
-  const first = { ...exclusive, BROWSER_ACCOUNT: "user_shared" };
-  const second = { ...first, CODEX_THREAD_ID: "chat-b" };
-  expect((await command(root, "browser-acquire", "", exclusive)).code).toBe(0);
-  const shared = await command(root, "browser-share", "", first);
-  expect(shared.code, shared.output).toBe(0);
-  expect(JSON.parse(shared.output).account).toBe("user_shared");
-  expect((await command(root, "browser-acquire", "", second)).code).toBe(0);
-  expect((await command(root, "browser-release", "", first)).code).toBe(0);
-  const status = JSON.parse((await command(root, "status")).output);
-  expect(
-    status.browserLease.holders.map(({ owner }: { owner: string }) => owner),
-  ).toEqual(["chat-b"]);
-  const blocked = await command(root, "browser-acquire", "", exclusive);
-  expect(blocked.code).not.toBe(0);
-  expect(blocked.output).toContain("chat-b");
-  expect((await command(root, "browser-release", "", second)).code).toBe(0);
-  expect((await command(root, "browser-acquire", "", exclusive)).code).toBe(0);
-});
-
-test("shared reservations renew and expire independently without losing concurrent holders", async () => {
-  const { root } = await fixture();
-  const paths = devPaths(root);
-  const now = Date.now();
-  await browserLease(paths, "acquire", "chat-a", now);
-  await browserLease(paths, "share", "chat-a", now, "user_shared");
-  await Promise.all([
-    browserLease(paths, "acquire", "chat-b", now + 60_000, "user_shared"),
-    browserLease(paths, "acquire", "chat-c", now + 60_000, "user_shared"),
-  ]);
-  expect((await devStatus(paths)).browserLease.holders).toHaveLength(3);
-  const renewed = await browserLease(
-    paths,
-    "acquire",
-    "chat-a",
-    now + 120_000,
-    "user_shared",
-  );
-  expect(renewed.holders).toHaveLength(3);
-  await browserLease(paths, "release", "chat-b", now + 180_000);
-  expect((await devStatus(paths)).browserLease.holders).toHaveLength(2);
-  await expect(
-    browserLease(paths, "acquire", "chat-d", now + 31 * 60_000),
-  ).rejects.toThrow("chat-a");
-  const remaining = await browserLease(
-    paths,
-    "acquire",
-    "chat-a",
-    now + 31 * 60_000,
-    "user_shared",
-  );
-  expect(remaining.holders.map(({ owner }: { owner: string }) => owner)).toEqual([
-    "chat-a",
-  ]);
-  await expect(
-    browserLease(paths, "acquire", "chat-d", now + 62 * 60_000, "user_shared"),
-  ).rejects.toThrow("No shared Chrome account");
-  expect(
-    (await browserLease(paths, "acquire", "chat-d", now + 62 * 60_000)).owner,
-  ).toBe("chat-d");
 });

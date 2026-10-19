@@ -39,17 +39,12 @@ authenticated endpoint calls and Chrome coordination. For parallel tests with di
 accounts, use Chrome DevTools MCP with `--isolated` and a unique named `isolatedContext`
 per worktree/chat/actor. Its temporary profiles and contexts keep login cookies separate;
 the [isolation guide](.agents/skills/tnr-dev-server/references/chrome-isolation.md) covers
-setup, page ownership and cleanup. These tests do not need the personal-profile lease.
+setup, page ownership and cleanup.
 
-For tests through the personal Chrome extension, chats can use their own public
-tabs in parallel without a lease. Tabs, windows and different ports in that profile
-share cookies:
-`make dev-browser` reserves exclusive access for sign-in and account changes. After
-verifying the account, `make dev-browser-share BROWSER_ACCOUNT=<Clerk user ID>` allows
-other chats to join with `make dev-browser BROWSER_ACCOUNT=<same ID>` for parallel
-tabs using that account. Shared holders must avoid account changes and conflicting
-scenarios. Each chat releases with `make dev-browser-release`. Different accounts in
-that profile require serialized access; API and server checks can continue independently.
+The personal Chrome extension remains available for workflows using its existing
+signed-in account. Never sign disposable users into that profile or switch its account
+for local testing: tabs, windows and ports share cookies. If isolated Chrome is
+unavailable, continue authenticated API and server checks until its connection is ready.
 
 In [Codex local environments](https://developers.openai.com/codex/app/local-environments/),
 configure `make dev-prepare` as the worktree setup script and `make start` as the Run
