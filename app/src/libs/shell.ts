@@ -148,8 +148,8 @@ const clientHasSession = (cookies: ReadonlyMap<string, string>) => {
 /**
  * The variant a request is served, and any experiment assignment drawn for it.
  *
- * Game layout preferences apply only while signed in. Public layouts are controlled
- * separately by the site's welcome-theme setting, which defaults to the existing shell.
+ * Layout preferences apply both in game and on public pages. Visitors without a choice
+ * receive the site's welcome default; signed-in players without a choice receive Classic.
  * Crawlers always receive the default. A person
  * whose browser string happens to match the crawler pattern is told apart by their
  * session cookies. A signed-out visitor arriving on the landing page without an
@@ -167,11 +167,9 @@ export const chooseShell = (
     return { variant: { client, layout: "default", signedIn: false }, assigned: {} };
   }
   const preference = cookieValueToLayout(request.cookies.get(LAYOUT_PREFERENCE_COOKIE));
-  const layout = hasSession
-    ? (preference ?? "default")
-    : getWelcomeLayoutTheme(welcomeTheme)
-      ? "themed"
-      : "default";
+  const layout =
+    preference ??
+    (!hasSession && getWelcomeLayoutTheme(welcomeTheme) ? "themed" : "default");
   const assigned: ShellChoice["assigned"] = {};
   const isLandingVisit =
     !hasSession &&

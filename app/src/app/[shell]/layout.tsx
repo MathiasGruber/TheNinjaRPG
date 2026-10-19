@@ -134,6 +134,8 @@ export default async function RootLayout({
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
         <ClerkProvider
+          afterSignOutUrl="/"
+          afterMultiSessionSingleSignOutUrl="/"
           proxyUrl={
             isNativeShell && env.NATIVE_CLERK_PROXY_ENABLED === "true"
               ? "/__clerk"

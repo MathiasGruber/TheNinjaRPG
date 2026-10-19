@@ -24,16 +24,12 @@ import {
   useLocalStorage,
 } from "@/hooks/localstorage";
 import { useAudio } from "@/hooks/useAudio";
+import { useSelectGameLayout } from "@/hooks/useGameLayoutTheme";
 import { useIframeMute } from "@/hooks/useIframeMute";
 import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
-import {
-  type EffectiveLayout,
-  LAYOUT_PREFERENCE_COOKIE,
-  LIGHT_LAYOUT_STORAGE_KEY,
-  persistLayoutPreferenceCookie,
-} from "@/libs/layoutPreference";
+import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
 import { getBackgroundMusicSrc } from "@/libs/music";
 import { audioSession, platform } from "@/libs/native";
 import { showMutationToast } from "@/libs/toast";
@@ -566,11 +562,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     safeLocalStorageSetItem("sfxVolume", JSON.stringify(newVolume));
   };
 
-  const handleLayoutChange = (nextLayout: EffectiveLayout) => {
-    safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify(nextLayout));
-    persistLayoutPreferenceCookie(nextLayout);
-    if (nextLayout !== activeLayout) window.location.reload();
-  };
+  const handleLayoutChange = useSelectGameLayout();
 
   const isPanel = variant === "panel";
   const sectionClass = isPanel ? "space-y-4" : "space-y-3";
@@ -675,27 +667,21 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
 
       <div>
         <p className={headerClass}>Display</p>
-        {/* Game layout preferences apply only to signed-in play. */}
-        {userData && (
-          <div className="mb-4 space-y-2">
-            <div className="flex items-start gap-2">
-              <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div>
-                <p className={textClass}>Game Layout</p>
-              </div>
+        <div className="mb-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className={textClass}>Game Layout</p>
             </div>
-            <GameLayoutPicker
-              layout={activeLayout}
-              onLayoutChange={handleLayoutChange}
-            />
-            <Link
-              href="/layouts"
-              className="inline-flex min-h-11 items-center text-primary text-sm underline"
-            >
-              Explore game layouts
-            </Link>
           </div>
-        )}
+          <GameLayoutPicker layout={activeLayout} onLayoutChange={handleLayoutChange} />
+          <Link
+            href="/layouts"
+            className="inline-flex min-h-11 items-center text-primary text-sm underline"
+          >
+            Explore game layouts
+          </Link>
+        </div>
         {isClassicLayout && (
           <div className="flex items-center justify-between">
             <div>

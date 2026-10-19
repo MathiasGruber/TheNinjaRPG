@@ -1,7 +1,12 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
+import {
+  type EffectiveLayout,
+  LAYOUT_PREFERENCE_COOKIE,
+  persistLayoutPreferenceCookie,
+} from "@/libs/layoutPreference";
 import {
   DEFAULT_GAME_LAYOUT_THEME,
   GAME_LAYOUT_THEME_ATTRIBUTE,
@@ -10,18 +15,21 @@ import {
   getGameLayoutTheme,
   toGameLayoutThemeId,
 } from "@/libs/layoutThemes";
+import { useChangeLayout } from "@/utils/LayoutContext";
 
 const THEME_CHANGE_EVENT = "tnr-layout-theme-change";
 
-export const readGameLayoutTheme = (): GameLayoutThemeId => {
+export const readGameLayoutTheme = (
+  defaultTheme: GameLayoutThemeId = DEFAULT_GAME_LAYOUT_THEME,
+): GameLayoutThemeId => {
   try {
     return (
       toGameLayoutThemeId(
         JSON.parse(safeLocalStorageGetItem(GAME_LAYOUT_THEME_STORAGE_KEY) ?? "null"),
-      ) ?? DEFAULT_GAME_LAYOUT_THEME
+      ) ?? defaultTheme
     );
   } catch {
-    return DEFAULT_GAME_LAYOUT_THEME;
+    return defaultTheme;
   }
 };
 
@@ -48,7 +56,26 @@ const subscribe = (onChange: () => void) => {
   };
 };
 
-const getServerSnapshot = () => DEFAULT_GAME_LAYOUT_THEME;
+export const useGameLayoutTheme = (
+  defaultTheme: GameLayoutThemeId = DEFAULT_GAME_LAYOUT_THEME,
+) => {
+  const getSnapshot = useCallback(
+    () => readGameLayoutTheme(defaultTheme),
+    [defaultTheme],
+  );
+  const getServerSnapshot = useCallback(() => defaultTheme, [defaultTheme]);
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+};
 
-export const useGameLayoutTheme = () =>
-  useSyncExternalStore(subscribe, readGameLayoutTheme, getServerSnapshot);
+/** Persist the presentation choice without changing the active session or navigating to login. */
+export const useSelectGameLayout = () => {
+  const changeLayout = useChangeLayout();
+  return useCallback(
+    (layout: EffectiveLayout) => {
+      safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify(layout));
+      persistLayoutPreferenceCookie(layout);
+      changeLayout(layout);
+    },
+    [changeLayout],
+  );
+};

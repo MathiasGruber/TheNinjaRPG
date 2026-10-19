@@ -124,11 +124,11 @@ describe("chooseShell", () => {
     expect(chooseShell(request({ pathname: "/", cookies: { [LEMU_EXPERIMENT]: "treatment", [WALLPAPER_EXPERIMENT]: "spring" } })).assigned).toEqual({ [LEMU_EXPERIMENT]: "treatment_1" });
   });
 
-  it("ignores a pixel preference until the visitor is signed in", () => {
+  it("preserves a pixel preference on both public and signed-in pages", () => {
     const signedOut = chooseShell(
       request({ pathname: "/", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }),
     );
-    expect(signedOut.variant.layout).toBe("default");
+    expect(signedOut.variant.layout).toBe("pixel");
     const signedIn = chooseShell(
       request({ userId: "user_1", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }),
     );
@@ -137,7 +137,7 @@ describe("chooseShell", () => {
 
   it("serves every collection theme through one cacheable shell family", () => {
     const cookies = { [LAYOUT_PREFERENCE_COOKIE]: "themed" };
-    expect(chooseShell(request({ cookies }), "").variant.layout).toBe("default");
+    expect(chooseShell(request({ cookies }), "").variant.layout).toBe("themed");
     expect(chooseShell(request({ cookies, userId: "user_1" })).variant.layout).toBe("themed");
     expect(publicPathForShellPath("/web-themed-in/layouts")).toBe("/layouts");
   });
@@ -152,13 +152,15 @@ describe("chooseShell", () => {
     expect(parseShellParam(shellParam(choice.variant))).toEqual(choice.variant);
   });
 
-  it.each(["", "not-a-theme", "1-horizon-watch"])("ignores a game preference on public pages when welcome setting is %j", (setting) => {
+  it.each(["", "not-a-theme", "1-horizon-watch"])("preserves an explicit layout on public pages when welcome setting is %j", (setting) => {
     const choice = chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "themed" } }), setting);
-    expect(choice.variant.layout).toBe("default");
+    expect(choice.variant.layout).toBe("themed");
   });
 
   it.each(["20-eclipse-observatory", "17-obsidian-council", "3-sakura-courtyard"])("can roll out %s publicly without overriding game preferences", (setting) => {
     expect(chooseShell(request({}), setting).variant.layout).toBe("themed");
+    expect(chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "default" } }), setting).variant.layout).toBe("default");
+    expect(chooseShell(request({ cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }), setting).variant.layout).toBe("pixel");
     expect(chooseShell(request({ userId: "player" }), setting).variant.layout).toBe("default");
     expect(chooseShell(request({ userId: "player", cookies: { [LAYOUT_PREFERENCE_COOKIE]: "pixel" } }), setting).variant.layout).toBe("pixel");
   });

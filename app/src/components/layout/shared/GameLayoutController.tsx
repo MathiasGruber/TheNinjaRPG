@@ -60,6 +60,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
     data: userData,
     notifications,
     isClerkLoaded,
+    isSignedIn,
     status: userStatus,
     userId,
     updateUser,
@@ -217,8 +218,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   }, [notifications, pathname, rankedQueueCount, userId]);
   const navbarMenuItemsLeft = navbarMenuItems.slice(0, 3);
   const navbarMenuItemsRight = navbarMenuItems.slice(3);
-  const isSignedInLayout =
-    !!userData || !!userId || (!isClerkLoaded && initialIsSignedIn);
+  const isSignedInLayout = isClerkLoaded ? isSignedIn : initialIsSignedIn;
   const isAnonymousLayout = !isSignedInLayout;
   let accountState: AccountMenuState = null;
   if (isSignedInLayout && !userData) {
@@ -240,7 +240,7 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
   const signedInIcons = (
     <SignedInIcons
       variant={variant}
-      isSignedIn={!!userId}
+      isSignedIn={isClerkLoaded && isSignedIn}
       userData={userData}
       updateUser={updateUser}
       onEventClick={() => setLeftSideBarOpen(false)}

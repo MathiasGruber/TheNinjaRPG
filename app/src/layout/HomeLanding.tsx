@@ -1,6 +1,6 @@
 "use client";
 
-import { useClerk, useUser } from "@clerk/nextjs";
+import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/app/_trpc/client";
@@ -19,9 +19,14 @@ import { useUserData } from "@/utils/UserContext";
  */
 export const HomeLanding: React.FC = () => {
   // Fetch data
-  const { isSignedIn } = useUser();
   const { signOut } = useClerk();
-  const { data: userData, status: userStatus, userId } = useUserData();
+  const {
+    data: userData,
+    status: userStatus,
+    userId,
+    isSignedIn,
+    isClerkLoaded,
+  } = useUserData();
   const setReferral = api.register.setReferralSource.useMutation();
   const utils = api.useUtils();
   const [isRetrying, setIsRetrying] = useState(false);
@@ -31,6 +36,8 @@ export const HomeLanding: React.FC = () => {
 
   // Redirect based on user status
   useEffect(() => {
+    // Character data may outlive the session for a render during sign-out.
+    if (!isClerkLoaded || !isSignedIn || !userId) return;
     // When user is signed in (Clerk) but has not created a character yet, set referral immediately
     if (isSignedIn && !userData && userStatus === "success") {
       setReferral.mutate({ utmSource: readCampaignSource() });
@@ -41,7 +48,7 @@ export const HomeLanding: React.FC = () => {
     if (userData && userId) {
       void router.push("/profile");
     }
-  }, [isSignedIn, userData, userId, userStatus]);
+  }, [isClerkLoaded, isSignedIn, userData, userId, userStatus]);
 
   // A signed-in session can expire before the character query completes. Keep both
   // retry and sign-in available instead of trapping the player in the error boundary.
@@ -83,7 +90,7 @@ export const HomeLanding: React.FC = () => {
   }
 
   // Guard
-  if (!isSignedIn && !userData) {
+  if (!isSignedIn) {
     return <Welcome />;
   } else {
     return <Loader explanation="Forwarding to profile" />;

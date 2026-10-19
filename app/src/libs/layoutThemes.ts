@@ -66,23 +66,23 @@ export const GAME_LAYOUT_ART_STYLES = GAME_LAYOUT_THEMES.map(
     `html[data-game-layout="${theme.id}"]{--theme-art:url("${bunnyImageUrl(getGameLayoutArt(theme.id), 1536)}");--theme-art-mobile:url("${bunnyImageUrl(getGameLayoutArt(theme.id), 720)}")}`,
 ).join("");
 
-/** Public rollout is independent of each player's saved game layout. Unset keeps Classic. */
+/** Welcome default for visitors without a saved choice. Unset keeps Classic. */
 export const getWelcomeLayoutTheme = (
   value: unknown = process.env.NEXT_PUBLIC_WELCOME_LAYOUT_THEME,
 ): GameLayoutThemeId | undefined => toGameLayoutThemeId(value);
 
-/** The forced theme is for the public shell; game shells restore the player's preference. */
-export const getGameLayoutThemeScript = (forcedTheme?: GameLayoutThemeId) => {
+/** A saved choice takes precedence over the public shell's configured default. */
+export const getGameLayoutThemeScript = (
+  defaultTheme: GameLayoutThemeId = DEFAULT_GAME_LAYOUT_THEME,
+) => {
   const ids = JSON.stringify(GAME_LAYOUT_THEMES.map((theme) => theme.id));
   const darkIds = JSON.stringify(
     GAME_LAYOUT_THEMES.filter((theme) => theme.tone === "dark").map(
       (theme) => theme.id,
     ),
   );
-  const readPreference = forcedTheme
-    ? ""
-    : `try{var stored=JSON.parse(localStorage.getItem("${GAME_LAYOUT_THEME_STORAGE_KEY}")||"null");if(${ids}.indexOf(stored)>=0)id=stored}catch(e){}`;
-  return `(function(){var id="${forcedTheme ?? DEFAULT_GAME_LAYOUT_THEME}";${readPreference}document.documentElement.setAttribute("${GAME_LAYOUT_THEME_ATTRIBUTE}",id);document.documentElement.classList.toggle("dark",${darkIds}.indexOf(id)>=0)})()`;
+  const readPreference = `try{var stored=JSON.parse(localStorage.getItem("${GAME_LAYOUT_THEME_STORAGE_KEY}")||"null");if(${ids}.indexOf(stored)>=0)id=stored}catch(e){}`;
+  return `(function(){var id="${defaultTheme}";${readPreference}document.documentElement.setAttribute("${GAME_LAYOUT_THEME_ATTRIBUTE}",id);document.documentElement.classList.toggle("dark",${darkIds}.indexOf(id)>=0)})()`;
 };
 
 export const GAME_LAYOUT_THEME_SCRIPT = getGameLayoutThemeScript();

@@ -9,18 +9,24 @@ import {
 } from "@/components/ui/select";
 import { selectGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
 import type { EffectiveLayout } from "@/libs/layoutPreference";
-import { GAME_LAYOUT_THEMES, toGameLayoutThemeId } from "@/libs/layoutThemes";
+import {
+  GAME_LAYOUT_THEMES,
+  type GameLayoutThemeId,
+  toGameLayoutThemeId,
+} from "@/libs/layoutThemes";
 
 export function GameLayoutPicker({
   layout,
   onLayoutChange,
   className,
+  defaultTheme,
 }: {
   layout: EffectiveLayout;
   onLayoutChange: (layout: EffectiveLayout) => void;
   className?: string;
+  defaultTheme?: GameLayoutThemeId;
 }) {
-  const selectedTheme = useGameLayoutTheme();
+  const selectedTheme = useGameLayoutTheme(defaultTheme);
   return (
     <Select
       value={layout === "themed" ? selectedTheme : layout}

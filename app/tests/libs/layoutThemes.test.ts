@@ -3,10 +3,10 @@ import { runInNewContext } from "node:vm";
 import { GAME_LAYOUT_THEME_SCRIPT, getGameLayoutThemeScript, type GameLayoutThemeId } from "@/libs/layoutThemes";
 
 describe("layout theme before first paint", () => {
-  const run = (readStorage: () => string | null, forcedTheme?: GameLayoutThemeId) => {
+  const run = (readStorage: () => string | null, defaultTheme?: GameLayoutThemeId) => {
     const attributes: Record<string, string> = {};
     const classes = new Set<string>();
-    runInNewContext(forcedTheme ? getGameLayoutThemeScript(forcedTheme) : GAME_LAYOUT_THEME_SCRIPT, {
+    runInNewContext(defaultTheme ? getGameLayoutThemeScript(defaultTheme) : GAME_LAYOUT_THEME_SCRIPT, {
       localStorage: { getItem: readStorage },
       document: { documentElement: {
         setAttribute: (name: string, value: string) => { attributes[name] = value; },
@@ -30,9 +30,13 @@ describe("layout theme before first paint", () => {
     },
   );
 
-  it("uses the site welcome theme independently of browser storage", () => {
-    expect(run(() => '"17-obsidian-council"', "3-sakura-courtyard")).toEqual({ theme: "3-sakura-courtyard", dark: false });
-    expect(run(() => { throw new Error("must not read player storage"); }, "17-obsidian-council")).toEqual({ theme: "17-obsidian-council", dark: true });
+  it("uses the site welcome theme only as a fallback for an explicit visitor choice", () => {
+    expect(run(() => '"17-obsidian-council"', "3-sakura-courtyard")).toEqual({ theme: "17-obsidian-council", dark: true });
+    expect(run(() => { throw new Error("Storage unavailable"); }, "17-obsidian-council")).toEqual({ theme: "17-obsidian-council", dark: true });
+  });
+
+  it("restores the configured welcome default when there is no saved choice", () => {
+    expect(run(() => null, "3-sakura-courtyard")).toEqual({ theme: "3-sakura-courtyard", dark: false });
   });
 
   it("still marks a usable theme when browser storage is unavailable", () => {

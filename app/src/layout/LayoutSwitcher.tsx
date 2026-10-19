@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import LayoutCore4Beta from "@/components/layout/core4_beta";
 import LayoutCore4Landing from "@/components/layout/core4_landing";
 import LayoutCore4Pixel from "@/components/layout/core4_pixel";
@@ -16,10 +16,7 @@ import {
   persistLayoutPreferenceCookie,
   storedValueToLayout,
 } from "@/libs/layoutPreference";
-import {
-  GAME_LAYOUT_THEME_ATTRIBUTE,
-  getWelcomeLayoutTheme,
-} from "@/libs/layoutThemes";
+import { GAME_LAYOUT_THEME_ATTRIBUTE } from "@/libs/layoutThemes";
 import type { WallpaperVariant } from "@/libs/wallpaperExperiment";
 import { LayoutContextProvider } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
@@ -34,8 +31,8 @@ interface LayoutSwitcherProps {
 
 /**
  * LayoutSwitcher renders the shell for the layout the proxy chose
- * - Game preferences and the site's public welcome theme are independent
- * - Players can choose Classic, Pixel or a collection layout from display settings
+ * - Layout choices apply both in game and on the welcome page
+ * - Authentication determines the frame, independently of the selected design
  */
 const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   children,
@@ -44,7 +41,10 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   wallpaper,
 }) => {
   const pathname = usePublicPathname();
-  const { data: userData, isClerkLoaded, userId } = useUserData();
+  const { isClerkLoaded, isSignedIn } = useUserData();
+  // Explicit choices replace only the presentation; remounting the root shell would
+  // also restart Clerk and could activate another saved account after sign-out.
+  const [displayedLayout, setDisplayedLayout] = useState(initialLayout);
 
   // The server picks the layout from the cookie; localStorage is only a recovery source
   // for when that cookie is lost (Safari caps JS-set cookies at 7 days, so it expires
@@ -62,12 +62,7 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
     }
   }, [initialLayout, initialIsSignedIn]);
 
-  const isKnownAnonymous = isClerkLoaded ? !userId : !initialIsSignedIn;
-  // Sign-out can happen before the next document request selects a public shell.
-  const displayedLayout =
-    initialLayout === "themed" && isKnownAnonymous && !getWelcomeLayoutTheme()
-      ? "default"
-      : initialLayout;
+  const isKnownAnonymous = isClerkLoaded ? !isSignedIn : !initialIsSignedIn;
   useEffect(() => {
     if (displayedLayout !== "themed") {
       document.documentElement.removeAttribute(GAME_LAYOUT_THEME_ATTRIBUTE);
@@ -79,7 +74,7 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
   }, [displayedLayout]);
 
   const isPixelLanding =
-    displayedLayout === "pixel" && pathname === "/" && isKnownAnonymous && !userData;
+    displayedLayout === "pixel" && pathname === "/" && isKnownAnonymous;
   const content = isPixelLanding ? (
     <LayoutCore4Landing>{children}</LayoutCore4Landing>
   ) : displayedLayout === "themed" && isKnownAnonymous ? (
@@ -100,6 +95,7 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
     <LayoutContextProvider
       isPixelLanding={isPixelLanding}
       value={displayedLayout}
+      onLayoutChange={setDisplayedLayout}
       wallpaper={wallpaper}
     >
       {content}

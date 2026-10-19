@@ -10,8 +10,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { IMG_LOGO_SHORT } from "@/drizzle/constants";
-import { applyGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
+import {
+  applyGameLayoutTheme,
+  useGameLayoutTheme,
+  useSelectGameLayout,
+} from "@/hooks/useGameLayoutTheme";
 import Footer from "@/layout/Footer";
+import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import { GlobalAudioProvider } from "@/layout/GameSettings";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
@@ -20,15 +25,16 @@ import {
   GAME_LAYOUT_ART_STYLES,
   getWelcomeLayoutTheme,
 } from "@/libs/layoutThemes";
+import { useActiveLayout } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
-import { useUserData } from "@/utils/UserContext";
 
 export function ThemedPublicLayout({ children }: { children: ReactNode }) {
-  const themeId = getWelcomeLayoutTheme() ?? DEFAULT_GAME_LAYOUT_THEME;
-  const { data: userData } = useUserData();
+  const themeId = useGameLayoutTheme(
+    getWelcomeLayoutTheme() ?? DEFAULT_GAME_LAYOUT_THEME,
+  );
   useEffect(() => applyGameLayoutTheme(themeId), [themeId]);
   return (
-    <GlobalAudioProvider userData={userData}>
+    <GlobalAudioProvider>
       <ThemedPublicFrame>{children}</ThemedPublicFrame>
     </GlobalAudioProvider>
   );
@@ -36,6 +42,8 @@ export function ThemedPublicLayout({ children }: { children: ReactNode }) {
 
 export function ThemedPublicFrame({ children }: { children: ReactNode }) {
   const pathname = usePublicPathname();
+  const activeLayout = useActiveLayout();
+  const selectLayout = useSelectGameLayout();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isWelcome = pathname === "/";
   const home = "/";
@@ -104,6 +112,14 @@ export function ThemedPublicFrame({ children }: { children: ReactNode }) {
                 ))}
                 <Link href="/guide">Game guide</Link>
               </nav>
+              <div className="mt-6 space-y-2">
+                <p className="font-semibold text-sm">Game layout</p>
+                <GameLayoutPicker
+                  layout={activeLayout}
+                  onLayoutChange={selectLayout}
+                  defaultTheme={getWelcomeLayoutTheme()}
+                />
+              </div>
             </SheetContent>
           </Sheet>
         </div>

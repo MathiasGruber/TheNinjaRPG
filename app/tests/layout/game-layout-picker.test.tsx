@@ -1,7 +1,12 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { useState } from "react";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { useSelectGameLayout } from "@/hooks/useGameLayoutTheme";
 import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
+import { LAYOUT_PREFERENCE_COOKIE } from "@/libs/layoutPreference";
 import { GAME_LAYOUT_THEME_STORAGE_KEY } from "@/libs/layoutThemes";
+import { LayoutContextProvider, useActiveLayout } from "@/utils/LayoutContext";
 import { ensureDom } from "../setup-dom.mjs";
 
 ensureDom();
@@ -11,6 +16,8 @@ const scrollDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 
 
 beforeEach(() => {
   localStorage.removeItem(GAME_LAYOUT_THEME_STORAGE_KEY);
+  localStorage.removeItem(LAYOUT_PREFERENCE_COOKIE);
+  document.cookie = `${LAYOUT_PREFERENCE_COOKIE}=; path=/; max-age=0`;
   for (const key of browserGlobals) Object.defineProperty(globalThis, key, { configurable: true, value: window[key] });
   Object.defineProperty(HTMLElement.prototype, "scrollIntoView", { configurable: true, value: () => {} });
 });
@@ -37,6 +44,38 @@ const openPicker = async (layout: "default" | "pixel" | "themed" = "default") =>
 };
 
 describe("game layout picker", () => {
+  it("changes layouts in place without refreshing or navigating the authentication shell", async () => {
+    const router = { refresh: vi.fn(), push: vi.fn(), replace: vi.fn() };
+    function ConnectedPicker() {
+      const selectLayout = useSelectGameLayout();
+      const layout = useActiveLayout();
+      return <GameLayoutPicker layout={layout} onLayoutChange={selectLayout} />;
+    }
+    function LayoutFrame() {
+      const [layout, setLayout] = useState<"default" | "pixel" | "themed">("default");
+      return (
+        <AppRouterContext.Provider value={router as never}>
+          <LayoutContextProvider value={layout} onLayoutChange={setLayout} isPixelLanding={false}>
+            <ConnectedPicker />
+          </LayoutContextProvider>
+        </AppRouterContext.Provider>
+      );
+    }
+    const view = render(<LayoutFrame />);
+    fireEvent.keyDown(view.getByRole("combobox", { name: "Game layout" }), { key: "ArrowDown" });
+    await act(async () => fireEvent.keyDown(await view.findByRole("option", { name: "Eclipse Observatory" }), { key: "Enter" }));
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(view.getByRole("combobox", { name: "Game layout" }).textContent).toContain("Eclipse Observatory");
+    expect(document.cookie).toContain(`${LAYOUT_PREFERENCE_COOKIE}=themed`);
+    expect(localStorage.getItem(LAYOUT_PREFERENCE_COOKIE)).toBe('"themed"');
+    expect(router.push).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalled();
+    fireEvent.keyDown(view.getByRole("combobox", { name: "Game layout" }), { key: "ArrowDown" });
+    await act(async () => fireEvent.keyDown(await view.findByRole("option", { name: "Sakura Courtyard" }), { key: "Enter" }));
+    expect(router.refresh).not.toHaveBeenCalled();
+    expect(localStorage.getItem(GAME_LAYOUT_THEME_STORAGE_KEY)).toBe('"3-sakura-courtyard"');
+  });
+
   it("offers all five layouts as peers in one selector", async () => {
     const view = await openPicker();
     expect(view.getAllByRole("listbox")).toHaveLength(1);

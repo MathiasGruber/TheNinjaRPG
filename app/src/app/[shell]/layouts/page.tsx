@@ -3,20 +3,19 @@
 import { Check, Palette } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { safeLocalStorageSetItem } from "@/hooks/localstorage";
-import { selectGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
+import {
+  selectGameLayoutTheme,
+  useGameLayoutTheme,
+  useSelectGameLayout,
+} from "@/hooks/useGameLayoutTheme";
 import ContentBox from "@/layout/ContentBox";
 import Image from "@/layout/Image";
-import Link from "@/layout/Link";
-import {
-  LAYOUT_PREFERENCE_COOKIE,
-  persistLayoutPreferenceCookie,
-} from "@/libs/layoutPreference";
 import {
   GAME_LAYOUT_THEMES,
   type GameLayoutThemeId,
   getGameLayoutArt,
   getGameLayoutTheme,
+  getWelcomeLayoutTheme,
 } from "@/libs/layoutThemes";
 import { cn } from "@/libs/shadui";
 import { useActiveLayout } from "@/utils/LayoutContext";
@@ -24,8 +23,9 @@ import { useUserData } from "@/utils/UserContext";
 
 export default function GameLayoutsPage() {
   const activeLayout = useActiveLayout();
-  const { data: userData } = useUserData();
-  const selected = useGameLayoutTheme();
+  const { isSignedIn } = useUserData();
+  const selected = useGameLayoutTheme(isSignedIn ? undefined : getWelcomeLayoutTheme());
+  const selectLayout = useSelectGameLayout();
   const [tone, setTone] = useState<"all" | "light" | "dark">("all");
   const [announcement, setAnnouncement] = useState("");
   const themes = GAME_LAYOUT_THEMES.filter(
@@ -34,12 +34,7 @@ export default function GameLayoutsPage() {
 
   const chooseTheme = (id: GameLayoutThemeId) => {
     selectGameLayoutTheme(id);
-    if (activeLayout !== "themed") {
-      safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify("themed"));
-      persistLayoutPreferenceCookie("themed");
-      window.location.reload();
-      return;
-    }
+    selectLayout("themed");
     setAnnouncement(
       `${getGameLayoutTheme(id).name} selected. Your game layout has been updated.`,
     );
@@ -123,28 +118,19 @@ export default function GameLayoutsPage() {
                     </summary>
                     <p className="pb-3 text-muted-foreground">{theme.composition}</p>
                   </details>
-                  {userData ? (
-                    <Button
-                      className="w-full gap-2"
-                      aria-label={`Use ${theme.name}`}
-                      aria-pressed={isSelected}
-                      onClick={() => chooseTheme(theme.id)}
-                    >
-                      {isSelected ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Palette className="h-4 w-4" />
-                      )}
-                      {isSelected ? "Current layout" : `Use ${theme.name}`}
-                    </Button>
-                  ) : (
-                    <Link
-                      href="/login"
-                      className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-primary px-4 text-primary-foreground text-sm"
-                    >
-                      Log in to choose
-                    </Link>
-                  )}
+                  <Button
+                    className="w-full gap-2"
+                    aria-label={`Use ${theme.name}`}
+                    aria-pressed={isSelected}
+                    onClick={() => chooseTheme(theme.id)}
+                  >
+                    {isSelected ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Palette className="h-4 w-4" />
+                    )}
+                    {isSelected ? "Current layout" : `Use ${theme.name}`}
+                  </Button>
                 </div>
               </article>
             );
