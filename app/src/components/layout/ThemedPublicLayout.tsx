@@ -1,5 +1,6 @@
 "use client";
 
+import { Music } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
 import { IMG_LOGO_SHORT } from "@/drizzle/constants";
 import { applyGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
@@ -7,6 +8,7 @@ import Footer from "@/layout/Footer";
 import { GameSettingsPopover, GlobalAudioProvider } from "@/layout/GameSettings";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
+import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
 import {
   DEFAULT_GAME_LAYOUT_THEME,
   GAME_LAYOUT_ART_STYLES,
@@ -87,6 +89,16 @@ export function ThemedPublicFrame({ children }: { children: ReactNode }) {
       <footer className="theme-public-footer">
         <Footer />
       </footer>
+      <div className="theme-public-audio-shortcut">
+        <LowerRightHelpBtn
+          ariaLabel="Audio settings"
+          defaultLayoutTheme={getWelcomeLayoutTheme()}
+        >
+          <span className="theme-public-audio-button">
+            <Music aria-hidden="true" />
+          </span>
+        </LowerRightHelpBtn>
+      </div>
     </div>
   );
 }
