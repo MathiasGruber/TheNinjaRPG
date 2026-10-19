@@ -14,6 +14,7 @@ import { env } from "@/env/server.mjs";
  */
 export const dynamic = "force-dynamic";
 
+/** Publish link exclusions before the app wildcard so OAuth stays in its browser. */
 export function GET() {
   const appId = iosAppId();
   if (!appId) return new Response("Not found", { status: 404 });
@@ -26,6 +27,12 @@ export function GET() {
           components: [
             // Everything opens in the app except the paths below, which have no in-app
             // equivalent and must stay in the browser.
+            { "/": "/native-sign-in", exclude: true, comment: "Browser OAuth handoff" },
+            {
+              "/": "/native-sign-in/*",
+              exclude: true,
+              comment: "Browser OAuth handoff",
+            },
             { "/": "/api/*", exclude: true, comment: "API and webhooks" },
             { "/": "/.well-known/*", exclude: true, comment: "Association files" },
             { "/": "/sitemap*", exclude: true, comment: "Crawler endpoints" },

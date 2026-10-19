@@ -4,8 +4,9 @@ import { useClerk } from "@clerk/nextjs";
 import type { SignInResource } from "@clerk/shared/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNativeAuthHandoff } from "@/hooks/useNativeAuthHandoff";
-import { appEvents, appleAuth, isNative, oauthBrowser } from "@/libs/native";
+import { appEvents, appleAuth, isNative, oauthBrowser, platform } from "@/libs/native";
 import { createAuthProof } from "@/libs/native/authProof";
+import { browserAuthContinuation } from "@/libs/native/deepLink";
 import type { NativeAuthProvider } from "@/validators/nativeAuth";
 
 /** Where the provider sends the player back to. Registered in both native projects. */
@@ -118,14 +119,83 @@ export const useNativeAuth = () => {
         if (!alive.current) return { status: "cancelled" };
         const target = new URL("/native-sign-in", window.location.origin);
         target.searchParams.set("flow", flowId);
+        const isAndroid = platform() === "android";
         let callback: URL | undefined;
-        let notifyCallback: () => void = () => undefined;
-        const callbackReceived = new Promise<void>((resolve) => {
-          notifyCallback = resolve;
-        });
-        const outcome = await new Promise<"redirected" | "dismissed">((resolve) => {
-          cancelPending.current = () => resolve("dismissed");
+        await new Promise<void>((resolve) => {
+          let settled = false;
+          let revision = 0;
+          let dismissalTimer: ReturnType<typeof setTimeout> | undefined;
+          const clearDismissal = () => {
+            revision += 1;
+            clearTimeout(dismissalTimer);
+          };
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            clearDismissal();
+            resolve();
+          };
+          // An intermediate App Link can hide the first tab while its replacement is
+          // opening. Check the shell after the grace period instead of treating the
+          // old tab's browserFinished event as cancellation of the replacement.
+          const scheduleDismissal = () => {
+            if (settled) return;
+            clearDismissal();
+            const currentRevision = revision;
+            dismissalTimer = setTimeout(() => {
+              // Safari's sheet is inside the active iOS app; only browserFinished
+              // signals its dismissal. Android's tab runs in another activity.
+              if (!isAndroid) {
+                finish();
+                return;
+              }
+              void appEvents.getState().then(
+                ({ isActive }) => {
+                  if (currentRevision === revision && isActive) finish();
+                },
+                () => {
+                  if (currentRevision === revision) finish();
+                },
+              );
+            }, OAUTH_CALLBACK_GRACE_MS);
+          };
+          let shellActive = false;
+          let pendingContinuation: string | undefined;
+          let openingContinuation = false;
+          const reopened = new Set<string>();
+          const reopenContinuation = () => {
+            if (settled || !shellActive || !pendingContinuation || openingContinuation)
+              return;
+            const url = pendingContinuation;
+            pendingContinuation = undefined;
+            openingContinuation = true;
+            void oauthBrowser
+              .open(url)
+              .catch(finish)
+              .finally(() => {
+                openingContinuation = false;
+                reopenContinuation();
+              });
+          };
+          cancelPending.current = finish;
           const stopUrl = appEvents.onUrlOpen((url) => {
+            if (settled) return;
+            const continuation = isAndroid
+              ? browserAuthContinuation(url, window.location.origin, flowId)
+              : null;
+            if (continuation) {
+              if (reopened.has(continuation)) return;
+              reopened.add(continuation);
+              clearDismissal();
+              pendingContinuation = continuation;
+              // MainActivity must resume and clear the old browser controller before
+              // Browser.open can create a replacement controller with the same cookies.
+              void appEvents.getState().then(({ isActive }) => {
+                if (isActive) shellActive = true;
+                reopenContinuation();
+              }, finish);
+              return;
+            }
             const parsed = parseOAuthCallback(url);
             if (
               !parsed ||
@@ -134,28 +204,28 @@ export const useNativeAuth = () => {
             )
               return;
             callback = parsed;
-            notifyCallback();
-            resolve("redirected");
+            finish();
           });
-          const stopFinished = oauthBrowser.onFinished(() => resolve("dismissed"));
+          const stopFinished = oauthBrowser.onFinished(scheduleDismissal);
+          const stopState = isAndroid
+            ? appEvents.onStateChange((isActive) => {
+                shellActive = isActive;
+                if (isActive) {
+                  reopenContinuation();
+                  scheduleDismissal();
+                }
+              })
+            : () => undefined;
           stopListening = () => {
+            settled = true;
+            clearDismissal();
             stopUrl();
             stopFinished();
+            stopState();
           };
           browserOpened = true;
-          void oauthBrowser.open(target.toString()).catch(() => resolve("dismissed"));
+          void oauthBrowser.open(target.toString()).catch(finish);
         });
-        if (!alive.current) return { status: "cancelled" };
-        if (outcome === "dismissed" && !callback) {
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          await Promise.race([
-            callbackReceived,
-            new Promise<void>((resolve) => {
-              timer = setTimeout(resolve, OAUTH_CALLBACK_GRACE_MS);
-            }),
-          ]);
-          clearTimeout(timer);
-        }
         if (!callback || !alive.current) return { status: "cancelled" };
         const { ticket } = await handoff.exchange({
           flowId,

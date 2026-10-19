@@ -10,6 +10,8 @@ import NativeBridge from "@/components/native/NativeBridge";
 
 const back = vi.fn();
 const exit = vi.fn();
+const pushRoute = vi.fn();
+let onUrl: (url: string) => void;
 let onBack: undefined | ((canGoBack: boolean) => void);
 
 beforeEach(() => {
@@ -20,7 +22,7 @@ beforeEach(() => {
     back,
     forward: vi.fn(),
     refresh: vi.fn(),
-    push: vi.fn(),
+    push: pushRoute,
     replace: vi.fn(),
     prefetch: vi.fn(),
     bfcacheId: "test",
@@ -39,7 +41,7 @@ beforeEach(() => {
       onBack = undefined;
     };
   });
-  vi.spyOn(native.appEvents, "onUrlOpen").mockReturnValue(() => {});
+  vi.spyOn(native.appEvents, "onUrlOpen").mockImplementation((callback) => { onUrl = callback; return () => {}; });
   vi.spyOn(native.appEvents, "exitApp").mockImplementation(exit);
 });
 afterEach(() => {
@@ -119,5 +121,17 @@ describe("native viewport lifecycle", () => {
     const fit = vi.spyOn(native.viewport, "fitContent").mockResolvedValue(undefined);
     render(<NativeBridge />);
     expect(fit).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("browser-owned authentication routes", () => {
+  it("keeps the auth screen mounted while ordinary app links still navigate", () => {
+    render(<NativeBridge />);
+    onUrl("https://www.theninja-rpg.com/native-sign-in?flow=current&step=callback");
+    onUrl("https://www.theninja-rpg.com/native-sign-in/?flow=current");
+    expect(pushRoute).not.toHaveBeenCalled();
+    onUrl("https://www.theninja-rpg.com/jutsus");
+    expect(pushRoute).toHaveBeenCalledWith("/jutsus");
   });
 });

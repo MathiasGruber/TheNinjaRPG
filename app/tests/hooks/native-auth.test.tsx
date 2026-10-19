@@ -17,13 +17,18 @@ let onUrl: (url: string) => void;
 let onFinished: () => void;
 const mocks = {
   create: vi.fn(), start: vi.fn(), exchange: vi.fn(), setActive: vi.fn(),
-  open: vi.fn(), close: vi.fn(), stopUrl: vi.fn(), stopFinished: vi.fn(),
+  getState: vi.fn(), open: vi.fn(), close: vi.fn(), stopUrl: vi.fn(), stopFinished: vi.fn(),
 };
 let session: { id: string } | undefined;
+let onState: (isActive: boolean) => void;
+let shellActive = true;
 
 beforeEach(() => {
   vi.clearAllMocks();
   session = undefined;
+  shellActive = true;
+  onState = () => {};
+  vi.spyOn(native, "platform").mockReturnValue("android");
   mocks.create.mockReset().mockResolvedValue({ createdSessionId: "session-native" });
   mocks.start.mockReset().mockResolvedValue({ flowId });
   mocks.exchange.mockReset().mockResolvedValue({ ticket: "single-use-ticket" });
@@ -37,6 +42,9 @@ beforeEach(() => {
     get session() { return session; },
     setActive: mocks.setActive,
   } as unknown as ReturnType<typeof clerk.useClerk>);
+  mocks.getState.mockReset().mockImplementation(async () => ({ isActive: shellActive }));
+  vi.spyOn(appEvents, "getState").mockImplementation(mocks.getState);
+  vi.spyOn(appEvents, "onStateChange").mockImplementation((callback) => { onState = callback; return () => {}; });
   vi.spyOn(appEvents, "onUrlOpen").mockImplementation((callback) => { onUrl = callback; return mocks.stopUrl; });
   vi.spyOn(oauthBrowser, "onFinished").mockImplementation((callback) => { onFinished = callback; return mocks.stopFinished; });
   vi.spyOn(oauthBrowser, "open").mockImplementation(mocks.open);
@@ -137,5 +145,114 @@ describe("native browser-to-shell authentication", () => {
     expect(mocks.exchange).not.toHaveBeenCalled();
     expect(mocks.setActive).not.toHaveBeenCalled();
     expect(mocks.stopUrl).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("browser authentication App Link continuations", () => {
+  const continuation = () => `${window.location.origin}/native-sign-in?flow=${flowId}&step=callback`;
+  const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
+  const grace = () => new Promise<void>((resolve) => setTimeout(resolve, 2050));
+  const exercise = async (run: () => Promise<void>) => {
+    let opened: () => void = () => {};
+    const initialOpen = new Promise<void>((resolve) => { opened = resolve; });
+    mocks.open.mockImplementation(async () => { opened(); });
+    const { result } = renderHook(() => useNativeAuth());
+    let outcome: NativeAuthResult | undefined;
+    await act(async () => {
+      const pending = result.current.signInWithProvider("google");
+      await initialOpen;
+      await run();
+      outcome = await pending;
+    });
+    expect(result.current.isPending).toBe(false);
+    return outcome;
+  };
+
+  it("waits for shell resume, reopens in the browser and ignores the old tab closing", async () => {
+    expect(await exercise(async () => {
+      shellActive = false; onState(false); onFinished(); onUrl(continuation());
+      await flush();
+      expect(mocks.open).toHaveBeenCalledTimes(1);
+      shellActive = true; onState(true); await flush();
+      expect(mocks.open).toHaveBeenCalledTimes(2);
+      expect(mocks.open).toHaveBeenLastCalledWith(continuation());
+      shellActive = false; onState(false); onFinished(); await grace();
+      expect(mocks.exchange).not.toHaveBeenCalled();
+      expect(mocks.create).not.toHaveBeenCalled();
+      onUrl(callback);
+    })).toEqual({ status: "complete" });
+    expect(nativeAuthChallenge(mocks.exchange.mock.calls[0]?.[0].verifier)).toBe(mocks.start.mock.calls[0]?.[0].challenge);
+  });
+
+  it("permits immediate cancellation of the replacement browser and a fresh retry", async () => {
+    expect(await exercise(async () => {
+      onUrl(continuation()); await flush();
+      expect(mocks.open).toHaveBeenCalledTimes(2);
+      onFinished(); shellActive = true; onState(true);
+    })).toEqual({ status: "cancelled" });
+    expect(mocks.exchange).not.toHaveBeenCalled();
+    mocks.stopUrl.mockClear(); mocks.stopFinished.mockClear();
+    mocks.open.mockImplementation(async () => onUrl(callback));
+    expect(await signIn()).toEqual({ status: "complete" });
+  });
+
+  it("invalidates an in-flight dismissal check when a continuation arrives", async () => {
+    expect(await exercise(async () => {
+      let finishCheck: (state: { isActive: boolean }) => void = () => {};
+      let checkStarted: () => void = () => {};
+      const started = new Promise<void>((resolve) => { checkStarted = resolve; });
+      mocks.getState.mockImplementationOnce(() => new Promise((resolve) => { finishCheck = resolve; checkStarted(); }));
+      onFinished(); await started;
+      onUrl(continuation()); await flush();
+      expect(mocks.open).toHaveBeenCalledTimes(2);
+      finishCheck({ isActive: true }); await flush(); onUrl(callback);
+    })).toEqual({ status: "complete" });
+  });
+
+  it("settles on shell return if dismissal occurred while backgrounded", async () => {
+    expect(await exercise(async () => {
+      shellActive = false; onFinished(); await grace();
+      shellActive = true; onState(true);
+    })).toEqual({ status: "cancelled" });
+  }, 6000);
+
+  it("rejects stale/foreign continuations and suppresses duplicate browser opens", async () => {
+    expect(await exercise(async () => {
+      for (const url of [
+        `https://other.example/native-sign-in?flow=${flowId}`,
+        `${window.location.origin}/native-sign-in/other?flow=${flowId}`,
+        `${window.location.origin}/native-sign-in?flow=${"b".repeat(43)}`,
+        `${window.location.origin}/native-sign-in?flow=${flowId}&flow=${flowId}`,
+      ]) onUrl(url);
+      await flush(); expect(mocks.open).toHaveBeenCalledTimes(1);
+      onUrl(continuation()); onUrl(continuation()); await flush();
+      expect(mocks.open).toHaveBeenCalledTimes(2); onUrl(callback);
+    })).toEqual({ status: "complete" });
+  });
+
+  it("keeps iOS Safari open across foreground returns and never reopens its existing sheet", async () => {
+    vi.spyOn(native, "platform").mockReturnValue("ios");
+    expect(await exercise(async () => {
+      onState(false); onState(true); onUrl(continuation()); await grace();
+      expect(mocks.open).toHaveBeenCalledTimes(1);
+      expect(mocks.close).not.toHaveBeenCalled();
+      expect(mocks.getState).not.toHaveBeenCalled();
+      expect(appEvents.onStateChange).not.toHaveBeenCalled();
+      onUrl(callback);
+    })).toEqual({ status: "complete" });
+  });
+
+  it("settles iOS cancellation from browserFinished without an app-state query", async () => {
+    vi.spyOn(native, "platform").mockReturnValue("ios");
+    expect(await exercise(async () => { onFinished(); })).toEqual({ status: "cancelled" });
+    expect(mocks.getState).not.toHaveBeenCalled();
+  });
+
+  it("cleans up failed continuation opens without authenticating", async () => {
+    expect(await exercise(async () => {
+      mocks.open.mockRejectedValueOnce(new Error("Unable to display URL"));
+      onUrl(continuation());
+    })).toEqual({ status: "cancelled" });
+    expect(mocks.create).not.toHaveBeenCalled();
   });
 });
