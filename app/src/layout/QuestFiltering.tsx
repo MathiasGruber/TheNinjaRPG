@@ -33,13 +33,15 @@ const makeSchema = () =>
         includeNone: true,
         emptyValues: ["ALL"],
         options: toOptions(QuestTypes),
-        // NPC-only types are redacted from listings for players, so offering them here would
+        // Types with dedicated acquisition flows are redacted from player listings, so these
         // only ever produce an empty result.
         filterOptions: (opts, ctx) =>
           (ctx as { canChangeContent?: boolean } | undefined)?.canChangeContent
             ? opts
             : opts.filter(
-                (o) => !(NPC_ONLY_QUEST_TYPES as readonly string[]).includes(o.value),
+                (o) =>
+                  o.value !== "special" &&
+                  !(NPC_ONLY_QUEST_TYPES as readonly string[]).includes(o.value),
               ),
         noneOption: { value: "ALL", label: "None" },
       },

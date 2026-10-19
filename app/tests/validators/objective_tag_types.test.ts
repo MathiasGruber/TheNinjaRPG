@@ -20,6 +20,7 @@ const EXCLUDED_TAG_TYPES = new Set([
   "marriageslotincrease",
   "noncombatincreasereskins",
   "noncombatgainskill",
+  "noncombatquest",
   "unlockitemvariant",
   // Combat tags that never resolve on a user target
   "barrier",

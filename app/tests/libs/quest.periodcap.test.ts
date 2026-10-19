@@ -79,6 +79,16 @@ describe("isAvailableUserQuests — period cap vs lifetime cap", () => {
     ).toBe(false);
   });
 
+  it.each(["none", "daily", "weekly", "monthly"] as const)("Special quests ignore completion and attempt caps with %s retries", (retryDelay) => {
+    expect(isAvailableUserQuests({ ...repeatable, questType: "special", retryDelay, maxAttempts: 0, maxCompletes: 0, previousCompletes: 1000, previousAttempts: 1000, periodCompletes: 1000, periodStartAt: new Date() }, user).check).toBe(true);
+  });
+
+  it("Special quests still require prerequisites and respect dates", () => {
+    expect(isAvailableUserQuests({ ...repeatable, questType: "special", prerequisiteQuestId: "missing" }, user)).toMatchObject({ check: false, message: expect.stringContaining("prerequisite") });
+    expect(isAvailableUserQuests({ ...repeatable, questType: "special", startsAt: "2999-01-01T00:00:00Z" }, user).check).toBe(false);
+    expect(isAvailableUserQuests({ ...repeatable, questType: "special", endsAt: "2000-01-01T00:00:00Z" }, user).check).toBe(false);
+  });
+
   it("does not expose a quest before its configured start date", () => {
     expect(
       isAvailableUserQuests(

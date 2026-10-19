@@ -661,4 +661,51 @@ describe("assignQuestToUser compatibility", () => {
       done: true,
     });
   });
+
+  it.each(["ui", "pet_task", "overworld_npc"] as const)("rejects Special quests from %s without writes", async (source) => {
+    const { client, update, insert } = makeClient();
+    expect(await assignQuestToUser({ client, user: { ...user } as never, quest: { ...quest, questType: "special" } as never, source, prevAttempt: undefined })).toMatchObject({ success: false, message: expect.stringContaining("consuming an item") });
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each(["ui", "pet_task", "overworld_npc", "random_assignment", "system", "quest_objective"] as const)("blocks Special quest upserts from %s", async (source) => {
+    const { client, update, insert } = makeClient();
+    await expect(upsertQuestEntry(client, { ...user } as never, { ...quest, questType: "special" } as never, source)).rejects.toThrow("consuming an item");
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("blocks bulk Special grants", async () => {
+    const { client, update, insert } = makeClient();
+    await expect(upsertQuestEntries(client, { ...quest, questType: "special" } as never, undefined as never)).rejects.toThrow("consuming an item");
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { startsAt: "2999-01-01" },
+    { endsAt: "2000-01-01" },
+    { questRank: "S" as const },
+  ])("rejects an item grant outside its date or player rank requirements: %j", async (change) => {
+    const { client, update, insert } = makeClient();
+    const result = await assignQuestToUser({
+      client,
+      user: { ...user, rank: "CHUNIN", userQuests: [] } as never,
+      quest: { ...quest, questType: "special", questRank: "D", ...change } as never,
+      source: "item",
+      inTransaction: true,
+      prevAttempt: undefined,
+    });
+    expect(result.success).toBe(false);
+    expect(update).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("starts a Special quest through the item transaction without incrementing daily quotas", async () => {
+    const { client, set } = makeClient();
+    const result = await assignQuestToUser({ client, user: { ...user, userQuests: [] } as never, quest: { ...quest, questType: "special", maxAttempts: 0, maxCompletes: 0, retryDelay: "daily" } as never, source: "item", inTransaction: true, prevAttempt: undefined });
+    expect(result).toMatchObject({ success: true, message: expect.stringContaining("Quest started") });
+    expect(set.mock.calls.some(([update]) => "dailyMissions" in update)).toBe(false);
+  });
 });

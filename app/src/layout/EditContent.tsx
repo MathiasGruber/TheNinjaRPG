@@ -1683,6 +1683,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     enabled: Object.keys(shownTag).includes("aiId"),
   });
 
+  const { data: questData } = api.quests.getAllNames.useQuery(undefined, {
+    enabled: fields.includes("questId"),
+  });
+
   const { data: jutsuData } = api.jutsu.getAllNames.useQuery(undefined, {
     enabled:
       fields.includes("jutsus") ||
@@ -1817,8 +1821,11 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // Coordinate drafts must reach the parent validator so Save cannot persist an
     // older valid pattern while duplicate or incomplete coordinates are on screen.
     const hasCoordinateDraft = watchAll.target === "COORDINATES";
-    // Keep invalid cache edits in the parent draft so Save cannot submit older valid settings.
-    const hasCacheDraft = watchType === "noncombatconsumereward";
+    // Keep cache and quest drafts in the parent so Save validates the visible settings.
+    // Waiting on child validity can miss the first selection while validation settles.
+    const hasItemDraft = ["noncombatconsumereward", "noncombatquest"].includes(
+      watchType,
+    );
     const leftCoordinateTarget = tag.target === "COORDINATES" && !hasCoordinateDraft;
     const draft = leftCoordinateTarget
       ? { ...watchAll, coordinateTargeting: null }
@@ -1826,7 +1833,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     const parsedTag = tagSchema.safeParse(draft);
     const shownTag = parsedTag.success
       ? parsedTag.data
-      : hasCoordinateDraft || hasCacheDraft
+      : hasCoordinateDraft || hasItemDraft
         ? draft
         : tag;
     newEffects[idx] = shownTag;
@@ -1838,7 +1845,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         }
         if (
           hasCoordinateDraft ||
-          hasCacheDraft ||
+          hasItemDraft ||
           (leftCoordinateTarget && parsedTag.success) ||
           form.formState.isValid
         ) {
@@ -1898,7 +1905,9 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     .filter((value) => !props.editableFields || props.editableFields.includes(value))
     .filter((value) => {
       return (
-        !["noncombatconsumereward", "noncombatgainskill"].includes(watchType) ||
+        !["noncombatconsumereward", "noncombatgainskill", "noncombatquest"].includes(
+          watchType,
+        ) ||
         ![
           "staticAnimation",
           "staticAssetPath",
@@ -2005,6 +2014,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
           values: jutsuData.filter((j) => j.injectableInBattle),
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
+          type: "db_values",
+        };
+      } else if ((value as string) === "questId") {
+        return {
+          id: value,
+          values: (questData ?? []).filter((quest) => quest.questType === "special"),
+          multiple: false,
+          label: "Special quest",
           type: "db_values",
         };
       } else if ((value as string) === "skillId" && skillsData) {

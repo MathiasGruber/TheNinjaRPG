@@ -201,6 +201,7 @@ import {
   ItemValidator,
   NonCombatConsumeRewardTag,
   NonCombatGainSkill,
+  NonCombatQuestTag,
 } from "@/validators/combat";
 import { consumeItemInputSchema, MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 import type { ItemFilteringSchema } from "@/validators/item";
@@ -231,7 +232,13 @@ import {
   type WeightedCache,
   weightedCacheSchema,
 } from "@/validators/weightedCache";
-import { runRewardTasks, updateRewards } from "./quests";
+import {
+  assignQuestToUser,
+  fetchQuest,
+  fetchUserQuestByQuestId,
+  runRewardTasks,
+  updateRewards,
+} from "./quests";
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -2149,6 +2156,48 @@ export const itemRouter = createTRPCRouter({
         return errorResponse("Not consumable");
       }
 
+      const questEffects = useritem.item.effects.filter(
+        (effect) => effect.type === "noncombatquest",
+      );
+      const questEffect = questEffects[0];
+      if (
+        questEffects.length > 1 ||
+        (questEffect &&
+          (!NonCombatQuestTag.safeParse(questEffect).success ||
+            !useritem.item.preventBattleUsage ||
+            useritem.item.target !== "SELF" ||
+            useritem.item.method !== "SINGLE"))
+      )
+        return errorResponse(
+          "This item has an invalid quest grant. Please contact staff.",
+        );
+      if (questEffect && !receiptId)
+        return errorResponse("Please reload before starting this Special quest.");
+      // Only quest items need this content/history preload. Reject active attempts before
+      // debiting inventory or applying any of the item's other effects.
+      const [grantedQuest, previousQuestAttempt] = questEffect
+        ? await Promise.all([
+            fetchQuest(ctx.drizzle, questEffect.questId),
+            fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, questEffect.questId),
+          ])
+        : [undefined, undefined];
+      if (questEffect && grantedQuest?.questType !== "special")
+        return errorResponse(
+          "This item must grant an existing Special quest. Please contact staff.",
+        );
+      if (
+        grantedQuest &&
+        previousQuestAttempt?.completed === 0 &&
+        !previousQuestAttempt.endAt
+      )
+        return errorResponse(
+          `You are already on this quest: ${grantedQuest.name}. Complete it before using this item again.`,
+        );
+      // Assignment failures must escape the receipt callback to roll back the debit,
+      // then become a normal user-facing rejection after the transaction ends.
+      const questRejected = new Error("Item quest grant rejected");
+      let questRejectionMessage = "The quest could not be started. Please try again.";
+
       if (
         useritem.item.effects.some(
           (effect) =>
@@ -2535,7 +2584,10 @@ export const itemRouter = createTRPCRouter({
           ),
         );
       }
-      /** Collection rewards and weighted caches pair the guarded debit with transactional delivery. */
+      /**
+       * Apply the guarded debit and effects on the supplied client. Transactional
+       * grants reuse the receipt owner's session; ordinary items use the root client.
+       */
       const commitConsumption = async (
         client: DrizzleClient,
         inTransaction: boolean,
@@ -2544,6 +2596,9 @@ export const itemRouter = createTRPCRouter({
         const grantedRewards = processedRewards
           ? structuredClone(processedRewards)
           : null;
+        // Quest assignment updates trackers; sibling item rewards must persist that same
+        // projection rather than overwrite the new quest with the pre-consumption snapshot.
+        const consumptionUser = grantedQuest ? structuredClone(user) : user;
         // Claim the account, apply its effects and debit the stack together. A run
         // or battle that wins the account race leaves the item available for retry.
         // Drizzle cannot express this joined UPDATE. Empty stacks are cleaned up
@@ -2571,6 +2626,22 @@ export const itemRouter = createTRPCRouter({
             AND ${userItem.itemId} = ${useritem.itemId}
             AND ${userItem.quantity} > 0
             AND ${userItem.isInAuction} = FALSE
+            ${
+              grantedQuest
+                ? sql`AND NOT EXISTS (
+              SELECT 1 FROM ${questHistory}
+              WHERE ${questHistory.userId} = ${ctx.userId}
+                AND ${questHistory.questId} = ${grantedQuest.id}
+                AND ${questHistory.completed} = 0 AND ${questHistory.endAt} IS NULL
+            ) AND EXISTS (
+              SELECT 1 FROM ${quest} WHERE ${quest.id} = ${grantedQuest.id}
+                AND ${quest.questType} = 'special' AND ${quest.updatedAt} = ${grantedQuest.updatedAt}
+            ) AND EXISTS (
+              SELECT 1 FROM ${item} WHERE ${item.id} = ${useritem.itemId}
+                AND ${item.updatedAt} = ${useritem.item.updatedAt}
+            )`
+                : sql``
+            }
             ${
               petReward
                 ? sql`AND ${and(
@@ -2614,12 +2685,27 @@ export const itemRouter = createTRPCRouter({
             "Item no longer available — please refresh and try again",
           );
         }
+        if (grantedQuest) {
+          const assigned = await assignQuestToUser({
+            client,
+            // Deadlock retries must start with the original projection and trackers.
+            user: consumptionUser,
+            quest: grantedQuest,
+            source: "item",
+            prevAttempt: previousQuestAttempt,
+            inTransaction: true,
+          });
+          if (!assigned.success) {
+            questRejectionMessage = assigned.message;
+            throw questRejected;
+          }
+        }
         // Mutate
         const rewardTask = () =>
           grantedRewards
             ? updateRewards({
                 client: client,
-                user,
+                user: consumptionUser,
                 rewards: grantedRewards,
                 reason: "ITEM/CONSUME",
                 inTransaction,
@@ -2697,7 +2783,9 @@ export const itemRouter = createTRPCRouter({
         // Return
         return {
           success: true as const,
-          message: `You used ${useritem.item.name}`,
+          message: grantedQuest
+            ? `Quest started: ${grantedQuest.name}`
+            : `You used ${useritem.item.name}`,
           notifications: messages,
           rewards: grantedRewards,
           cacheRewards,
@@ -2714,8 +2802,11 @@ export const itemRouter = createTRPCRouter({
             : {}),
         };
       };
-      if ((caches.length > 0 || petReward) && receiptId) {
-        return commitCacheConsumption({
+      // Quest history may need insertion, and entry costs/rewards can touch more rows.
+      // These must commit with the scroll debit and replay receipt; one guarded UPDATE
+      // cannot cover inserts. Reuse the existing cache/collection receipt transaction.
+      if ((caches.length > 0 || petReward || grantedQuest) && receiptId) {
+        return await commitCacheConsumption({
           client: ctx.drizzle,
           receiptId,
           userId: ctx.userId,
@@ -2724,13 +2815,20 @@ export const itemRouter = createTRPCRouter({
           selections: petReward
             ? { caches: cacheResults, pet: petReward }
             : cacheResults,
-          relatedMsg: petReward ? "CompanionRewardConsumption" : "WeightedCacheOpening",
+          relatedMsg: grantedQuest
+            ? "SpecialQuestConsumption"
+            : petReward
+              ? "CompanionRewardConsumption"
+              : "WeightedCacheOpening",
           consume: async (tx) => {
             const response = await commitConsumption(tx, true);
             return response.success
               ? cacheConsumptionResponseSchema.parse(response)
               : response;
           },
+        }).catch((error: unknown) => {
+          if (error === questRejected) return errorResponse(questRejectionMessage);
+          throw error;
         });
       }
       // Ordinary consumables retain the existing guarded claim and parallel mutation path.

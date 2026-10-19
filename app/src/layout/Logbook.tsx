@@ -681,6 +681,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
                 "anbu",
                 "overworld",
                 "mastery",
+                "special",
               ].includes(quest.questType) && (
                 <Button
                   type="button"
@@ -727,9 +728,11 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
               This permanently ends your current attempt and removes all progress for
               this quest.
             </p>
-            <p className="font-semibold text-orange-500">
-              This attempt still counts toward your daily limit.
-            </p>
+            {quest.questType !== "special" && (
+              <p className="font-semibold text-orange-500">
+                This attempt still counts toward your daily limit.
+              </p>
+            )}
             {!!quest.content.entryItems?.length && (
               <p>Consumed entry items will not be returned.</p>
             )}

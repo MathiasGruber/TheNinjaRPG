@@ -16,6 +16,7 @@ import * as UserContext from "@/utils/UserContext";
 import {
   DamageTag,
   NonCombatConsumeRewardTag,
+  NonCombatQuestTag,
   HealTag,
   JutsuValidatorRawSchema,
   ItemValidator,
@@ -793,6 +794,59 @@ describe("companion reward editing", () => {
   });
 });
 
+describe("Special quest item drafts", () => {
+  beforeEach(() => {
+    vi.spyOn(names, "useQuery").mockReturnValue({ data: [
+      { id: "special-quest", name: "Special contract", questType: "special" },
+      { id: "mission", name: "Ordinary mission", questType: "mission" },
+    ] } as never);
+    vi.spyOn(toastHelpers, "showFormErrorsToast");
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["a new quest effect", NonCombatQuestTag.parse({})],
+    ["a Heal effect", HealTag.parse({})],
+  ] as const)("saves the first quest selection immediately from %s", async (_name, initial) => {
+    const view = render(<ItemQuestDraftForm initial={initial} />);
+    if (initial.type === "heal") {
+      fireEvent.click(view.getByRole("combobox", { name: "type" }));
+      fireEvent.click(await view.findByRole("option", { name: "noncombatquest" }));
+    }
+    const field = view.getByText("Special quest").closest<HTMLElement>('[data-slot="form-item"]')!;
+    fireEvent.click(within(field).getByRole("combobox"));
+    expect(view.queryByRole("option", { name: "Ordinary mission" })).toBeNull();
+    fireEvent.click(await view.findByRole("option", { name: "Special contract" }));
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({
+      type: "noncombatquest", questId: "special-quest",
+    });
+    expect(toastHelpers.showFormErrorsToast).not.toHaveBeenCalled();
+  });
+
+  it("rejects a quest draft without a selection", async () => {
+    const view = render(<ItemQuestDraftForm initial={NonCombatQuestTag.parse({})} />);
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it("rejects a cleared quest draft and saves its replacement", async () => {
+    const view = render(<ItemQuestDraftForm initial={NonCombatQuestTag.parse({ questId: "previous-quest" })} />);
+    fireEvent.click(view.getByRole("button", { name: "Clear quest draft" }));
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(save).not.toHaveBeenCalled();
+    const field = view.getByText("Special quest").closest<HTMLElement>('[data-slot="form-item"]')!;
+    fireEvent.click(within(field).getByRole("combobox"));
+    fireEvent.click(await view.findByRole("option", { name: "Special contract" }));
+    fireEvent.click(view.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    expect(save.mock.calls[0]?.[0].data.effects[0]).toMatchObject({ questId: "special-quest" });
+  });
+});
+
 describe("weighted cache effect drafts", () => {
   beforeEach(() => {
     vi.spyOn(names, "useQuery").mockReturnValue({ data: [{ id: "pill", name: "Chakra Pill" }] } as never);
@@ -935,6 +989,18 @@ const ItemCacheDraftForm = ({ item = cacheItem }: { item?: typeof cacheItem }) =
   return <>
     <EffectFormWrapper type="item" idx={0} tag={validEffects[0]!} effects={validEffects} setEffects={setEffects} availableTags={["noncombatconsumereward"]} submitLoading={isUpdating} />
     <button type="button" onClick={() => void handleItemSubmit()}>Save item</button>
+  </>;
+};
+
+const ItemQuestDraftForm = ({ initial }: { initial: ZodAllTags }) => {
+  const [item] = useState(() => ({ ...cacheItem, effects: [initial] }));
+  const { effects, setEffects, handleItemSubmit, isUpdating } = useItemEditForm(item, async () => undefined);
+  const validEffects = effects as ZodAllTags[];
+  const tag = validEffects[0]!;
+  return <>
+    <EffectFormWrapper key={tag.type} type="item" idx={0} tag={tag} effects={validEffects} setEffects={setEffects} availableTags={["heal", "noncombatquest"]} submitLoading={isUpdating} />
+    <button type="button" onClick={() => void handleItemSubmit()}>Save item</button>
+    <button type="button" onClick={() => setEffects([{ ...tag, questId: "" } as ZodAllTags])}>Clear quest draft</button>
   </>;
 };
 });

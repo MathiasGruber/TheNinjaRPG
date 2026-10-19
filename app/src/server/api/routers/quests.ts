@@ -255,7 +255,7 @@ export const questsRouter = createTRPCRouter({
           orderBy: (table, { asc }) => [asc(table.name)],
         }),
       ]);
-      return hideNpcOnlyQuestsFrom(viewerRole, results);
+      return hideRestrictedQuestsFrom(viewerRole, results);
     }),
   getAll: publicProcedure
     .meta({
@@ -312,7 +312,7 @@ export const questsRouter = createTRPCRouter({
       // truncating the infinite scroll early.
       const nextCursor = results.length < input.limit ? null : currentCursor + 1;
       return {
-        data: hideNpcOnlyQuestsFrom(viewerRole, results),
+        data: hideRestrictedQuestsFrom(viewerRole, results),
         nextCursor: nextCursor,
       };
     }),
@@ -423,7 +423,7 @@ export const questsRouter = createTRPCRouter({
     })
     .input(z.object({ level: z.number(), questType: z.enum(QuestTypes) }))
     .query(async ({ ctx, input }) => {
-      if (isNpcOnlyQuestType(input.questType)) {
+      if (isRestrictedQuestType(input.questType)) {
         return [];
       }
       // Query
@@ -725,6 +725,7 @@ export const questsRouter = createTRPCRouter({
           "war",
           "overworld",
           "mastery",
+          "special",
         ].includes(current.questType)
       ) {
         return errorResponse(`Cannot abandon ${current.questType} quest type.`);
@@ -969,7 +970,7 @@ export const questsRouter = createTRPCRouter({
             message: `Ranks rewards are only allowed with starter or exam quests`,
           };
         }
-        const edgeError = await npcOnlyNewQuestEdgeError(ctx.drizzle, {
+        const edgeError = await restrictedNewQuestEdgeError(ctx.drizzle, {
           questId: entry.id,
           questName: entry.name,
           currentType: entry.questType,
@@ -1190,7 +1191,7 @@ export const questsRouter = createTRPCRouter({
       if (!check) {
         return errorResponse(`Objective flow invalid: ${message}`);
       }
-      const edgeError = await npcOnlyNewQuestEdgeError(ctx.drizzle, {
+      const edgeError = await restrictedNewQuestEdgeError(ctx.drizzle, {
         questId: questData.id,
         questName: questData.name,
         currentType: questData.questType,
@@ -2692,6 +2693,10 @@ export const fetchQuest = async (client: DrizzleClient, id: string) => {
 const isNpcOnlyQuestType = (questType: QuestType) =>
   (NPC_ONLY_QUEST_TYPES as readonly QuestType[]).includes(questType);
 
+/** These quests require their dedicated acquisition flow, including when linked by content. */
+const isRestrictedQuestType = (questType: QuestType) =>
+  isNpcOnlyQuestType(questType) || questType === "special";
+
 /**
  * Role of the (possibly signed-out) caller of a public content-browsing endpoint. Defaults to
  * "USER" so an unauthenticated visitor is redacted exactly like an ordinary player.
@@ -2709,22 +2714,21 @@ const fetchViewerRole = async (
 };
 
 /**
- * Drops NPC-only quests from a content listing for anyone who cannot edit content. They are
- * unobtainable outside their assigned overworld NPC, so listing them in the manual would only
- * advertise content the player has no way to start.
+ * Hide quests with dedicated acquisition flows from public content listings.
+ * Editors still need these entries to configure NPC assignments and item grants.
  */
-const hideNpcOnlyQuestsFrom = <T extends { questType: QuestType }>(
+const hideRestrictedQuestsFrom = <T extends { questType: QuestType }>(
   viewerRole: UserRole,
   quests: T[],
 ) =>
   canChangeContent(viewerRole)
     ? quests
-    : quests.filter((q) => !isNpcOnlyQuestType(q.questType));
+    : quests.filter((q) => !isRestrictedQuestType(q.questType));
 
 /**
- * Quests whose stored objectives start `questId` through a new_quest consequence. Retyping a
- * quest to an NPC-only type while such a reference is live would strand the referring chain, so
- * the update endpoint rejects the retype until the reference is removed.
+ * Find quests whose objectives start `questId` through a new_quest consequence. Retyping a
+ * referenced quest to an NPC-only or item-only type would strand the referring chain,
+ * so the update endpoint rejects the retype until the reference is removed.
  */
 const fetchQuestsStartingQuest = async (client: DrizzleClient, questId: string) =>
   client.query.quest.findMany({
@@ -2733,17 +2737,16 @@ const fetchQuestsStartingQuest = async (client: DrizzleClient, questId: string) 
   });
 
 /**
- * Reason a quest save must be rejected because of a new_quest edge involving an NPC-only quest,
+ * Reason a quest save must be rejected because of a new_quest edge involving a restricted quest,
  * or null when it may proceed. Both directions matter:
  *
- * - Outbound: an objective may not start an NPC-only quest, which would hand out content the
- *   overworld-NPC gate is supposed to be the only source of.
- * - Inbound: a quest may not BECOME NPC-only while something still starts it. `create` always
- *   makes a mission, so retyping is the only way an NPC-only quest exists, and a stranded edge
- *   throws in `upsertQuestEntry` after the player's snapshot has already been committed — the
- *   objective is burnt, the chain dead, and a terminal objective completes with no reward.
+ * - Outbound: an objective may not bypass an NPC or item acquisition requirement.
+ * - Inbound: a quest may not become restricted while another objective still starts it.
+ *
+ * Reject invalid links before saving content: a later assignment failure can follow a
+ * committed objective snapshot, leaving the chain without its next quest or reward.
  */
-export const npcOnlyNewQuestEdgeError = async (
+export const restrictedNewQuestEdgeError = async (
   client: DrizzleClient,
   args: {
     questId: string;
@@ -2754,11 +2757,13 @@ export const npcOnlyNewQuestEdgeError = async (
   },
 ): Promise<string | null> => {
   const { questId, questName, currentType, nextType, objectives } = args;
-  const becomingNpcOnly =
-    isNpcOnlyQuestType(nextType) && !isNpcOnlyQuestType(currentType);
+  const becomingRestricted =
+    isRestrictedQuestType(nextType) && nextType !== currentType;
   const [outboundTargets, inboundStarters] = await Promise.all([
-    fetchNpcOnlyNewQuestTargets(client, objectives),
-    becomingNpcOnly ? fetchQuestsStartingQuest(client, questId) : Promise.resolve([]),
+    fetchRestrictedNewQuestTargets(client, objectives),
+    becomingRestricted
+      ? fetchQuestsStartingQuest(client, questId)
+      : Promise.resolve([]),
   ]);
   // Both queries read stored rows, which are stale for this quest itself: this save rewrites its
   // type AND its objectives. Judge every self-reference from the incoming state instead, so an
@@ -2770,17 +2775,17 @@ export const npcOnlyNewQuestEdgeError = async (
       objective.newQuestIds.includes(questId),
   );
   const blockedTargets = outboundTargets.filter(
-    (target) => target.id !== questId || isNpcOnlyQuestType(nextType),
+    (target) => target.id !== questId || isRestrictedQuestType(nextType),
   );
   if (blockedTargets.length > 0) {
-    return `NPC-only quests cannot be started by a new_quest objective: ${blockedTargets
+    return `NPC-only and item-only quests cannot be started by a new_quest objective: ${blockedTargets
       .map((target) => target.name)
       .join(", ")}`;
   }
   const starterNames = inboundStarters
     .filter((starter) => starter.id !== questId)
     .map((starter) => starter.name);
-  if (becomingNpcOnly && startsItself) starterNames.push(questName);
+  if (becomingRestricted && startsItself) starterNames.push(questName);
   if (starterNames.length > 0) {
     return `Cannot change this quest to ${nextType}: it is still started by a new_quest objective in ${[
       ...new Set(starterNames),
@@ -2789,8 +2794,8 @@ export const npcOnlyNewQuestEdgeError = async (
   return null;
 };
 
-/** Resolve NPC-only quests referenced by new_quest objectives so content cannot author a bypass. */
-const fetchNpcOnlyNewQuestTargets = async (
+/** Resolve quests referenced by new_quest objectives whose acquisition flow cannot be bypassed. */
+const fetchRestrictedNewQuestTargets = async (
   client: DrizzleClient,
   objectives: AllObjectivesType[],
 ) => {
@@ -2808,7 +2813,7 @@ const fetchNpcOnlyNewQuestTargets = async (
     columns: { id: true, name: true },
     where: and(
       inArray(quest.id, targetIds),
-      inArray(quest.questType, [...NPC_ONLY_QUEST_TYPES]),
+      inArray(quest.questType, [...NPC_ONLY_QUEST_TYPES, "special"]),
     ),
   });
 };
@@ -2891,10 +2896,12 @@ export const upsertQuestEntries = async (
   quest: Quest,
   updateSelector: QueryCondition,
 ) => {
-  if (isNpcOnlyQuestType(quest.questType)) {
+  if (isRestrictedQuestType(quest.questType)) {
     throw serverError(
       "PRECONDITION_FAILED",
-      "Overworld quests cannot be assigned to users in bulk.",
+      quest.questType === "special"
+        ? "Special quests can only be started by consuming an item."
+        : "Overworld quests cannot be assigned to users in bulk.",
     );
   }
   // One pass over the selector for both branches: the LEFT JOIN already tells us who lacks a
@@ -3053,6 +3060,7 @@ export const claimDailyQuestSlot = async (
  * reach assignQuestToUser, throw, and strand a player's NPC-quest claim.
  */
 export const ASSIGNABLE_QUEST_TYPES: QuestType[] = [
+  "special",
   "mastery",
   "story",
   "hunting",
@@ -3070,14 +3078,13 @@ export const ASSIGNABLE_QUEST_TYPES: QuestType[] = [
 ];
 
 /**
- * Quest types an overworld NPC must NOT grant. Their UI start path enforces an
- * occupation / squad-membership / structure-location prerequisite (HUNTER, GATHERING, anbuId,
- * Global Anbu HQ, adminbuilding) via {@link questUiAccessBlockMessage}, which
- * {@link assignQuestToUser} only runs for UI and companion sources. A player interacting with a friendly
- * NPC in the field can satisfy none of these, so pooling such a quest would hand its content to a
- * player who fails the gate the mission-hall path enforces.
+ * Quest types excluded from overworld NPC pools. Special quests require item
+ * consumption; the remaining types require occupation, squad or structure access
+ * enforced by {@link questUiAccessBlockMessage} for UI and companion starts.
+ * NPC starts cannot bypass those acquisition requirements.
  */
 export const OVERWORLD_GATED_QUEST_TYPES: QuestType[] = [
+  "special",
   "story",
   "hunting",
   "gathering",
@@ -3091,6 +3098,7 @@ export const OVERWORLD_ASSIGNABLE_QUEST_TYPES: QuestType[] =
 
 /** Every path that creates or restarts a quest history row must declare its origin. */
 export type QuestAcquisitionSource =
+  | "item"
   | "ui"
   | "pet_task"
   | "overworld_npc"
@@ -3099,22 +3107,26 @@ export type QuestAcquisitionSource =
   | "quest_objective";
 
 /**
- * Core quest-assignment orchestration shared by the UI (`startQuest`) and overworld
- * NPC interactions. Runs all source-agnostic guards (rank, availability, date window,
- * retry delay, already-on-quest, per-type concurrent limit, daily quota), applies
- * structure/occupation guards for UI and companion sources, then writes the quest
- * entry and increments the daily counter.
+ * Start quests for UI, companion, NPC and item acquisition flows. Validate source,
+ * rank, availability, dates, active attempts and applicable quotas before assignment;
+ * UI and companion starts also enforce structure and occupation access.
+ *
+ * Item starts accept only Special quests and reuse the caller's receipt transaction,
+ * which already owns the account and stack claim. The caller must roll back any
+ * unsuccessful result so history, entry costs and the consumed item stay atomic.
  */
 export const assignQuestToUser = async (args: {
   client: DrizzleClient;
   user: NonNullable<UserWithRelations>;
   quest: Quest;
-  source: "ui" | "pet_task" | "overworld_npc";
+  source: "ui" | "pet_task" | "overworld_npc" | "item";
+  /** Reuse the item receipt's transaction; do not open another assignment transaction. */
+  inTransaction?: boolean;
   /** Required for NPC-only quests so their placement assignment can be verified server-side. */
   overworldPlacementId?: string;
   sectorVillage?: Awaited<ReturnType<typeof fetchSectorVillage>>;
-  // Required: it feeds the availability / period-cap guards below and is threaded into
-  // upsertQuestEntry to skip its findFirst round-trip. Both callers already fetch it.
+  // Feeds availability/period-cap guards and skips upsertQuestEntry's history query.
+  // Callers resolve this row in their opening parallel preload.
   prevAttempt: Awaited<ReturnType<typeof fetchUserQuestByQuestId>>;
 }): Promise<{ success: boolean; message: string; userCacheEligible?: boolean }> => {
   const {
@@ -3126,6 +3138,11 @@ export const assignQuestToUser = async (args: {
     overworldPlacementId,
     prevAttempt,
   } = args;
+
+  if (questData.questType === "special" && source !== "item")
+    return errorResponse("Special quests can only be started by consuming an item.");
+  if (source === "item" && (questData.questType !== "special" || !args.inTransaction))
+    return errorResponse("This item cannot start that quest.");
 
   if (user.petTask?.questId === questData.id)
     return errorResponse(
@@ -3170,7 +3187,7 @@ export const assignQuestToUser = async (args: {
 
   // Availability checks (uses userQuests + completedQuests on user)
   const { check, message } = isAvailableUserQuests(
-    { ...questData, ...prevAttempt },
+    { ...questData, ...prevAttempt, questType: questData.questType },
     user,
   );
   if (!check) {
@@ -3295,7 +3312,33 @@ export const assignQuestToUser = async (args: {
   // Rolls back the claim, history and any debited stack when a ticket stack changed.
   const entryRejected = new Error("Quest entry rejected");
   const dailyLimitReached = new Error("Daily quest limit reached");
-  if (questData.questType === "war" && entryCharges.length > 0) {
+  if (source === "item") {
+    // Reuse the receipt session rather than the entry-payment transactions below.
+    // The caller rolls back the entire consumption if payment or assignment fails.
+    assignment = await upsertQuestEntry(
+      client,
+      user,
+      questData,
+      source,
+      prevAttempt ?? null,
+      true,
+    );
+    if (entryCharges.length > 0) {
+      if (
+        !(await payQuestEntryAtStart({
+          client,
+          userId: user.userId,
+          questId: questData.id,
+          charges: entryCharges,
+        }))
+      )
+        return errorResponse("Your entry items changed. Please try again.");
+      assignment.entry = { ...assignment.entry, entryPaid: true };
+      user.userQuests = user.userQuests.map((row) =>
+        row.questId === questData.id ? { ...row, entryPaid: true } : row,
+      );
+    }
+  } else if (questData.questType === "war" && entryCharges.length > 0) {
     // With entry items the slot, history row and item debit must commit together, so a
     // changed ticket stack refunds the daily slot instead of burning it.
     const paid = await retryOnDeadlock(() =>
@@ -3471,6 +3514,12 @@ export const upsertQuestEntry = async (
   entry: NonNullable<Awaited<ReturnType<typeof fetchUserQuestByQuestId>>>;
   userCacheEligible: boolean;
 }> => {
+  if (quest.questType === "special" && source !== "item") {
+    throw serverError(
+      "PRECONDITION_FAILED",
+      "Special quests can only be started by consuming an item.",
+    );
+  }
   if (isNpcOnlyQuestType(quest.questType) && source !== "overworld_npc") {
     throw serverError(
       "PRECONDITION_FAILED",
@@ -4527,7 +4576,7 @@ const executeClaimedQuestConsequences = async ({
                       entry.id !== `party-${user.questPartyId}`,
                   )) &&
                 q.questType !== "hunting" &&
-                !isNpcOnlyQuestType(q.questType) &&
+                !isRestrictedQuestType(q.questType) &&
                 q.questType !== "village_mission" &&
                 !(q.questType === "mission" && q.questRank === "S"),
             );
