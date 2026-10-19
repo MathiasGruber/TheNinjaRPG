@@ -115,6 +115,9 @@
 .theme-world {
   grid-area: world;
 }
+.tnr-theme-game [data-sidebar-title] {
+  color: var(--theme-text);
+}
 .theme-side-panel {
   display: none;
   min-width: 0;

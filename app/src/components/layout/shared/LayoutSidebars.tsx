@@ -25,7 +25,7 @@ import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import MenuBoxCombat from "@/layout/MenuBoxCombat";
 import MenuBoxProfile from "@/layout/MenuBoxProfile";
-import type { NavBarDropdownLink } from "@/libs/menus";
+import { getMainNavbarLinks, type NavBarDropdownLink } from "@/libs/menus";
 import { cn } from "@/libs/shadui";
 import type { UserWithRelations } from "@/routers/profile";
 import { usePublicPathname } from "@/utils/routing";
@@ -40,10 +40,16 @@ export const SideBannerTitle: React.FC<{
   return (
     <>
       {props.break && <br />}
-      <p className="hidden px-1 pt-2 font-bold text-orange-100 text-xl md:block">
+      <p
+        data-sidebar-title
+        className="hidden px-1 pt-2 font-bold text-orange-100 text-xl md:block"
+      >
         {props.children}
       </p>
-      <p className="block px-1 pt-2 font-bold text-foreground text-xl md:hidden">
+      <p
+        data-sidebar-title
+        className="block px-1 pt-2 font-bold text-foreground text-xl md:hidden"
+      >
         {props.children}
       </p>
     </>
@@ -82,15 +88,6 @@ const RightSidebarLoadingSkeleton: React.FC<{ className?: string }> = ({
       <Skeleton className="aspect-square w-full bg-muted/70" />
     </div>
     <Skeleton className="mt-3 h-8 w-full bg-muted/70" />
-  </div>
-);
-
-const CharacterSetupPrompt: React.FC = () => (
-  <div className="p-2 text-sm">
-    <p>Create your character to unlock the game menus.</p>
-    <Link href="/register" className="font-semibold underline">
-      Create character
-    </Link>
   </div>
 );
 
@@ -133,6 +130,9 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
   accountState,
   userData,
 }) => {
+  const showPublicContent =
+    !userData &&
+    (accountState === "create-character" || (variant === "beta" && !isSignedInLayout));
   return (
     <div>
       {userData && (
@@ -148,26 +148,34 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
           <MenuBoxProfile />
         </>
       )}
-      {variant === "beta" && !isSignedInLayout && (
+      {showPublicContent && (
         <>
           <SideBannerTitle>Participate</SideBannerTitle>
           <div className="flex flex-row gap-4 pt-3">
             <Link
               href="https://github.com/studie-tech/TheNinjaRPG/issues"
+              aria-label="GitHub"
               className="flex flex-col items-center font-bold hover:opacity-50"
             >
               <SiGithub
                 size={60}
-                className="p-2 text-black md:text-white dark:text-white"
+                className={cn(
+                  "p-2",
+                  variant !== "themed" && "text-black md:text-white dark:text-white",
+                )}
               />
             </Link>
             <Link
               href={DISCORD_INVITE_URL}
+              aria-label="Discord"
               className="flex flex-col items-center font-bold hover:opacity-50"
             >
               <SiDiscord
                 size={60}
-                className="p-2 text-black md:text-white dark:text-white"
+                className={cn(
+                  "p-2",
+                  variant !== "themed" && "text-black md:text-white dark:text-white",
+                )}
               />
             </Link>
           </div>
@@ -178,7 +186,6 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
           className={variant === "beta" ? BETA_LEFT_SIDEBAR_RESERVATION : undefined}
         />
       )}
-      {accountState === "create-character" && <CharacterSetupPrompt />}
       {accountState === "error" && <AccountLoadError />}
     </div>
   );
@@ -203,6 +210,10 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
   notifications,
   location,
 }) => {
+  const showPublicContent =
+    !userData &&
+    (accountState === "create-character" || (variant === "beta" && !isSignedInLayout));
+  const variantClasses = layoutVariantClasses[variant];
   return (
     <>
       {userData && (
@@ -214,46 +225,73 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
           location={location}
         />
       )}
-      {variant === "beta" && !isSignedInLayout && (
+      {showPublicContent && (
         <>
           <SideBannerTitle>Welcome</SideBannerTitle>
-          <p className="hidden px-1 text-orange-100 italic md:block">Socials Login</p>
-          <p className="block px-1 text-foreground italic md:hidden">Socials Login</p>
-          <div className="grid grid-cols-4">
-            <Image
-              className="my-4 w-full grayscale"
-              src={IMG_ICON_DISCORD}
-              alt="DiscordProvider"
-              width={50}
-              height={50}
-            ></Image>
-            <Image
-              className="my-4 w-full grayscale"
-              src={IMG_ICON_FACEBOOK}
-              alt="FacebookProvider"
-              width={50}
-              height={50}
-            ></Image>
-            <Image
-              className="my-4 w-full grayscale"
-              src={IMG_ICON_GOOGLE}
-              alt="GoogleProvider"
-              width={50}
-              height={50}
-            ></Image>
-            <Image
-              className="my-4 w-full grayscale"
-              src={IMG_ICON_GITHUB}
-              alt="GithubProvider"
-              width={50}
-              height={50}
-            ></Image>
-          </div>
-          <Link href="/login" className="relative">
-            <Button variant="default" size="sm" className="w-full" decoration="gold">
-              Sign in
-            </Button>
-          </Link>
+          {isSignedInLayout ? (
+            <nav aria-label="Explore Seichi" className="mt-2 grid grid-cols-2 gap-3">
+              {getMainNavbarLinks().map((link) => (
+                <Link key={link.href} href={link.href}>
+                  <Button
+                    decoration={variantClasses.rightMenuDecoration}
+                    className={variantClasses.rightMenuButton}
+                  >
+                    <span className="grow">{link.name}</span>
+                    {link.icon}
+                  </Button>
+                </Link>
+              ))}
+            </nav>
+          ) : (
+            <>
+              <p className="hidden px-1 text-orange-100 italic md:block">
+                Socials Login
+              </p>
+              <p className="block px-1 text-foreground italic md:hidden">
+                Socials Login
+              </p>
+              <div className="grid grid-cols-4">
+                <Image
+                  className="my-4 w-full grayscale"
+                  src={IMG_ICON_DISCORD}
+                  alt="DiscordProvider"
+                  width={50}
+                  height={50}
+                ></Image>
+                <Image
+                  className="my-4 w-full grayscale"
+                  src={IMG_ICON_FACEBOOK}
+                  alt="FacebookProvider"
+                  width={50}
+                  height={50}
+                ></Image>
+                <Image
+                  className="my-4 w-full grayscale"
+                  src={IMG_ICON_GOOGLE}
+                  alt="GoogleProvider"
+                  width={50}
+                  height={50}
+                ></Image>
+                <Image
+                  className="my-4 w-full grayscale"
+                  src={IMG_ICON_GITHUB}
+                  alt="GithubProvider"
+                  width={50}
+                  height={50}
+                ></Image>
+              </div>
+              <Link href="/login" className="relative">
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="w-full"
+                  decoration="gold"
+                >
+                  Sign in
+                </Button>
+              </Link>
+            </>
+          )}
         </>
       )}
       {accountState === "loading" && (
@@ -261,7 +299,6 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
           className={variant === "beta" ? BETA_RIGHT_SIDEBAR_RESERVATION : undefined}
         />
       )}
-      {accountState === "create-character" && <CharacterSetupPrompt />}
       {accountState === "error" && <AccountLoadError />}
       <GithubStar />
     </>
