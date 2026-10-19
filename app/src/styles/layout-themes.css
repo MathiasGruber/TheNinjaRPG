@@ -279,6 +279,7 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
 @media (width >= 1100px) {
   .theme-frame {
     grid-template-columns: 220px minmax(0, 1fr) 240px;
+    grid-template-rows: max-content max-content minmax(0, 1fr) max-content;
     grid-template-areas: "brand brand brand" "nav nav nav" "player main world" "footer footer footer";
     align-items: start;
   }
