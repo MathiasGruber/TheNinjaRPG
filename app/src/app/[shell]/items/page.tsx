@@ -61,6 +61,7 @@ import {
   calcMaxEventItems,
   calcMaxItems,
   calcMaxMaterials,
+  countsTowardInventoryStorage,
   getInventoryBucket,
   isEquippableUserItem,
   nonCombatConsume,
@@ -212,10 +213,9 @@ export default function MyItems() {
     (ui) => getInventoryBucket(ui.item) === "cooking",
   );
 
-  // Capacity includes every carried row, including an item that is still being
-  // crafted. Keep the heading aligned with the server-side capacity guards even
-  // though unfinished items are intentionally absent from the usable-item list.
-  const carriedItems = userItems?.filter((ui) => !ui.storedAtHome);
+  // Capacity includes unfinished crafts even though they are absent from the
+  // usable-item list. Share the storage rule with server-side capacity guards.
+  const carriedItems = userItems?.filter(countsTowardInventoryStorage);
   const normalItemCount = carriedItems?.filter(
     (ui) => getInventoryBucket(ui.item) === "normal",
   ).length;
@@ -373,7 +373,10 @@ export default function MyItems() {
               </div>
             </div>
             <div className="max-h-full basis-1/2 overflow-y-scroll border-t-2 border-dashed bg-poppopover p-3 sm:max-h-[600px] sm:border-t-0 sm:border-l-2">
-              <h2 className="mb-2 font-bold text-2xl text-foreground">Backpack</h2>
+              <h2 className="font-bold text-2xl text-foreground">Backpack</h2>
+              <p className="mb-2 text-muted-foreground text-sm">
+                Equipped items do not use storage slots.
+              </p>
               <Backpack
                 userData={userData}
                 useritems={

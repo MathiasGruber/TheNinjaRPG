@@ -89,6 +89,7 @@ import {
   canEquipAdditional,
   computeAutoEquipAssignments,
   computeLoadoutAssignments,
+  countsTowardInventoryStorage,
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
   getHomeStorageBucketFullMessage,
@@ -3241,7 +3242,7 @@ export const itemRouter = createTRPCRouter({
           fetchPurchaseCounters(ctx.drizzle, uid, iid, purchaseTime),
         ]);
       // Derived — capacity counts carried stacks by dedicated inventory bucket
-      const carriedItems = useritems?.filter((ui) => !ui.storedAtHome) ?? [];
+      const carriedItems = useritems?.filter(countsTowardInventoryStorage) ?? [];
       const bucketCounts = {
         normal: carriedItems.filter((ui) => getInventoryBucket(ui.item) === "normal")
           .length,
@@ -3301,14 +3302,6 @@ export const itemRouter = createTRPCRouter({
         ) {
           return errorResponse(getHomeStorageBucketFullMessage(homeBucket));
         }
-      } else {
-        const purchaseBucket = getInventoryBucket(info);
-        if (
-          bucketCounts[purchaseBucket] >=
-          getInventoryBucketCapacity(purchaseBucket, user)
-        ) {
-          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
-        }
       }
       if (info.expireFromStoreAt && new Date(info.expireFromStoreAt) < new Date()) {
         return errorResponse("Item has expired");
@@ -3345,6 +3338,15 @@ export const itemRouter = createTRPCRouter({
             equipped = slot;
           }
         });
+      }
+      if (!isFurniture && equipped === "NONE") {
+        const purchaseBucket = getInventoryBucket(info);
+        if (
+          bucketCounts[purchaseBucket] >=
+          getInventoryBucketCapacity(purchaseBucket, user)
+        ) {
+          return errorResponse(getInventoryBucketFullMessage(purchaseBucket));
+        }
       }
       // buy_item quest tracker. Source questData + userQuests/completedQuests together from
       // the single fetchUserQuestState read above (NOT fetchUpdatedUser, which pulls

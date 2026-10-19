@@ -34,7 +34,11 @@ import {
   userJutsu,
   userQueue,
 } from "@/drizzle/schema";
-import { getInventoryBucket, getInventoryBucketCapacity } from "@/libs/item";
+import {
+  countsTowardInventoryStorage,
+  getInventoryBucket,
+  getInventoryBucketCapacity,
+} from "@/libs/item";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
 import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
@@ -921,7 +925,7 @@ const startQueuedCraft = async (
     const carried = user.items.filter(
       (row) =>
         row.quantity > 0 &&
-        !row.storedAtHome &&
+        countsTowardInventoryStorage(row) &&
         row.item &&
         getInventoryBucket(row.item) === "cooking",
     ).length;

@@ -169,6 +169,12 @@ type BucketItemFields = {
   isEventItem?: boolean | null;
 };
 
+/** Equipped stacks and home storage do not consume backpack capacity. */
+export const countsTowardInventoryStorage = (userItem: {
+  storedAtHome: boolean;
+  equipped: ItemSlot;
+}): boolean => !userItem.storedAtHome && userItem.equipped === "NONE";
+
 /**
  * Classify a carried inventory item into its capacity bucket.
  * Priority: COOKING → Cooking, MATERIAL → Materials, event → Event, else Normal.

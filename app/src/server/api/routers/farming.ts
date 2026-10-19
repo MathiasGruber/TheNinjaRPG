@@ -38,6 +38,7 @@ import {
   mapPlotToState,
 } from "@/libs/farming";
 import {
+  countsTowardInventoryStorage,
   getInventoryBucket,
   getInventoryBucketCapacity,
   getInventoryBucketFullMessage,
@@ -2152,7 +2153,7 @@ const guardItemAwardInventoryCapacity = (
     Math.max(0, quantity - reusableStackSpace) / stackSize,
   );
 
-  const inventoryItems = userItems.filter((ui) => !ui.storedAtHome);
+  const inventoryItems = userItems.filter(countsTowardInventoryStorage);
   const bucket = getInventoryBucket(itemInfo);
   const bucketCount = inventoryItems.filter(
     (ui) => getInventoryBucket(ui.item) === bucket,
@@ -2169,7 +2170,7 @@ const guardBulkItemAwardInventoryCapacity = (
   userItems: Awaited<ReturnType<typeof fetchUserItems>>,
   awards: { item: Item; quantity: number }[],
 ) => {
-  const inventoryItems = userItems.filter((userItem) => !userItem.storedAtHome);
+  const inventoryItems = userItems.filter(countsTowardInventoryStorage);
   const requiredStacks: Record<InventoryBucket, number> = {
     event: 0,
     materials: 0,

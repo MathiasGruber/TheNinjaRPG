@@ -32,6 +32,7 @@ import {
 } from "@/libs/home";
 import { getHomeRooms, homeRoomStylesError } from "@/libs/homeProperty";
 import {
+  countsTowardInventoryStorage,
   getHomeStorageBucket,
   getHomeStorageBucketCapacity,
   getHomeStorageBucketFullMessage,
@@ -643,7 +644,7 @@ export const homeRouter = createTRPCRouter({
       });
       const useritems = await fetchUserItems(ctx.drizzle, ctx.userId);
       const storedItems = useritems.filter((ui) => ui.storedAtHome);
-      const nonStoredItems = useritems.filter((ui) => !ui.storedAtHome);
+      const nonStoredItems = useritems.filter(countsTowardInventoryStorage);
       const userItemResult = useritems.find((ui) => ui.id === input.userItemId);
       // Guard
       if (!user) return errorResponse("User not found");
