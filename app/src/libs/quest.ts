@@ -2868,6 +2868,21 @@ export const questDailyQuota = (
   }
 };
 
+/** Shared feedback when an assignment's daily quota is exhausted. */
+export const questDailyLimitMessage = (questType: string, limit: number) => {
+  const label =
+    questType === "medical"
+      ? "medical mission"
+      : questType === "pvp"
+        ? "PvP mission"
+        : questType === "war"
+          ? "war mission"
+          : questType;
+  return `You have reached your daily ${label} limit of ${limit}${
+    questType === "war" ? "" : ". Please try again tomorrow."
+  }`;
+};
+
 /** Structure used by the quest's normal UI entry point. */
 export const questStructureRoute = (questType: string) => {
   switch (questType) {

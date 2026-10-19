@@ -1,10 +1,7 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
-import {
-  OVERWORLD_QUEST_ROLLS_PER_DAY,
-  WAR_MISSIONS_PER_DAY,
-} from "@/drizzle/constants";
+import { OVERWORLD_QUEST_ROLLS_PER_DAY } from "@/drizzle/constants";
 import type { UserQuest } from "@/drizzle/schema";
 import {
   overworldAiPlacement,
@@ -27,6 +24,7 @@ import {
   getReward,
   isAvailableUserQuests,
   isMockQuestHistoryRow,
+  questDailyQuota,
   questTypeConcurrentBlockMessage,
 } from "@/libs/quest";
 import {
@@ -671,14 +669,13 @@ export const overworldAiRouter = createTRPCRouter({
           // (hunting/gathering/anbu/story/event) whose UI gate the overworld path can't enforce.
           if (!OVERWORLD_ASSIGNABLE_QUEST_TYPES.includes(q.questType)) return null;
           const prev = historyByQuest.get(q.id);
+          const quota = questDailyQuota(q.questType, activeUser);
           const warEligible =
-            q.questType !== "war" ||
-            (!!activeUser.villageId &&
-              activeUser.dailyWarMissions < WAR_MISSIONS_PER_DAY &&
-              activeWars.length > 0);
+            q.questType !== "war" || (!!activeUser.villageId && activeWars.length > 0);
           const available =
             isAvailableUserQuests({ ...q, ...prev }, activeUser).check &&
             allowedRanks.includes(q.questRank) &&
+            (!quota || quota.current < quota.limit) &&
             !(q.startsAt && q.startsAt > now.toISOString()) &&
             warEligible &&
             !questTypeConcurrentBlockMessage(q, activeUser) &&
