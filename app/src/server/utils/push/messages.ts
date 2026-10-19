@@ -122,6 +122,25 @@ export const tradeUpdate = (id: string): PushMessage => ({
   collapseId: `trade-${id}`,
 });
 
+export const timerElapsed = (
+  kind: "hospital" | "jutsu" | "mastery" | "element" | "covert",
+  id: string,
+): PushMessage => ({
+  title:
+    kind === "hospital"
+      ? "Your recovery timer has finished"
+      : "Your training timer has finished",
+  body: "Open the game to review your progress.",
+  category: kind === "hospital" ? "recovery" : "training",
+  url:
+    kind === "hospital"
+      ? "/hospital"
+      : kind === "jutsu"
+        ? "/jutsus"
+        : "/traininggrounds",
+  collapseId: `timer-${id}`,
+});
+
 /** Keep private conversation content and participant names off the Lock Screen. */
 export const privateMessage = (conversationId: string): PushMessage => ({
   title: "New private message",
