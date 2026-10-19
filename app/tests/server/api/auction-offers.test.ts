@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "bun:test";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { CRAFTING_REQUIRED_EXP, HOME_FURNITURE_STORAGE_CAPACITY } from "@/drizzle/constants";
 import { actionLog, auctionOffer, craftingRequirement, farmCollectionLog, farmPlot, item, userData, userItem, userItemImbuement, userQueue, storeUserIdAlias } from "@/drizzle/schema";
@@ -6,13 +6,19 @@ import { occupationRouter } from "@/server/api/routers/occupation";
 import { auctionRouter } from "@/server/api/routers/auction";
 import { farmingRouter } from "@/server/api/routers/farming";
 import { homeRouter } from "@/server/api/routers/home";
+import * as nativePush from "@/server/utils/push/defer";
+import { tradeUpdate } from "@/server/utils/push/messages";
 import { beforeStatements, failStatements } from "../../setup/statements";
 import type { DrizzleClient } from "@/server/db";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("Auction House fixed-term requests and trades", () => {
+  const queuePush = vi.fn();
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(async () => {
+    queuePush.mockReset();
+    vi.spyOn(nativePush, "deferPushToUsers").mockImplementation(queuePush);
     await resetTables(storeUserIdAlias, actionLog, auctionOffer, farmCollectionLog, farmPlot, userQueue, craftingRequirement, userItemImbuement, userItem, item, userData);
     await insertUsers([
       { userId: "owner", username: "Requester", level: 50, bank: 1000 },
@@ -87,6 +93,8 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     expect(rows.find((row) => row.id === "supplier-ore")?.quantity).toBe(90);
     const logs = await (await getTestDatabase()).select().from(actionLog);
     expect(logs).toHaveLength(2);
+    expect(queuePush).toHaveBeenCalledTimes(1);
+    expect(queuePush).toHaveBeenCalledWith(expect.anything(), ["owner"], tradeUpdate(offer.id));
   });
 
   it("refunds cancellation exactly once and requires ownership", async () => {
@@ -114,6 +122,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     const results = await Promise.all([supplier.acceptAuctionOffer({ offerId: offer.id, userItemId: "supplier-ore" }), rival.acceptAuctionOffer({ offerId: offer.id, userItemId: "rival-ore" })]);
     expect(results.filter((result) => result.success)).toHaveLength(1);
     const bank = await balances();
+    expect(queuePush).toHaveBeenCalledTimes(1);
     expect(bank.owner).toBe(700);
     expect((bank.supplier ?? 0) + (bank.rival ?? 0)).toBe(500);
     const rows = await (await getTestDatabase()).select().from(userItem).where(eq(userItem.itemId, "ore"));
@@ -317,6 +326,7 @@ describeWithDatabase("Auction House fixed-term requests and trades", () => {
     });
     const supplier = callerForDatabase(auctionRouter, "supplier", failed);
     await expect(supplier.acceptAuctionOffer({ offerId: offer.id, userItemId: "supplier-ore" })).rejects.toThrow("Statement failed on purpose");
+    expect(queuePush).not.toHaveBeenCalled();
     expect((await db.select().from(auctionOffer))[0]?.status).toBe("ACTIVE");
     expect(await db.select().from(userItem)).toHaveLength(5);
     expect(await balances()).toMatchObject({ owner: 1000, supplier: 100 });
