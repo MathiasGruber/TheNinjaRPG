@@ -202,7 +202,7 @@ export default function HuntingEditor() {
                   Remove contract
                 </Button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Contract name">
                   <Input
                     value={c.name}
@@ -300,7 +300,7 @@ export default function HuntingEditor() {
               {c.rewards.map((r, ri) => (
                 <div
                   key={`${c.id}-${ri}`}
-                  className="grid items-end gap-2 sm:grid-cols-4"
+                  className="grid grid-cols-1 items-end gap-2 sm:grid-cols-4"
                 >
                   <Field label="Material">
                     <SearchSelect
