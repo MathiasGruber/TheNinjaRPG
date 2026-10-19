@@ -12,11 +12,12 @@ import { huntingContract, huntingHabitatContent } from "../setup/hunting";
 
 const now = new Date();
 const session = { id: "session", habitatId: "forest", contractId: "contract", sector: 1, readyAt: null, battleId: null, version: 0 };
-let user: { occupation: string; sector: number; status: string };
+let user: { userId: string; occupation: string; sector: number; status: string };
 let currentSession: typeof session | null;
 
 beforeEach(() => {
-  user = { occupation: "HUNTER", sector: 2, status: "AWAKE" };
+  window.sessionStorage.removeItem("huntingArrival:hunter");
+  user = { userId: "hunter", occupation: "HUNTER", sector: 2, status: "AWAKE" };
   currentSession = null;
   const board = {
     user: { ...user, huntingExperience: 123 }, session: null, progress: [], serverTime: now,
@@ -86,4 +87,37 @@ it("opens on arrival, stays dismissed across refreshes, and reopens on the next 
   currentSession = null;
   view.rerender(<HuntingArrival />);
   expect(view.queryByRole("dialog")).toBeNull();
+});
+
+
+it("preserves dismissal across remounts, loading and same-sector combat", () => {
+  currentSession = session;
+  user = { ...user, sector: 1 };
+  const first = render(<HuntingArrival />);
+  fireEvent.click(first.getByRole("button", { name: "Dismiss" }));
+  first.unmount();
+  currentSession = null;
+  const view = render(<HuntingArrival />);
+  currentSession = session;
+  view.rerender(<HuntingArrival />);
+  expect(view.queryByRole("dialog")).toBeNull();
+  user = { ...user, status: "BATTLE" };
+  view.rerender(<HuntingArrival />);
+  user = { ...user, status: "AWAKE" };
+  view.rerender(<HuntingArrival />);
+  expect(view.queryByRole("dialog")).toBeNull();
+  user = { ...user, userId: "another-hunter" };
+  view.rerender(<HuntingArrival />);
+  expect(view.getByRole("dialog")).toBeTruthy();
+});
+
+it("resets dismissal during travel even while the session is loading", () => {
+  window.sessionStorage.setItem("huntingArrival:hunter", session.id);
+  user = { ...user, sector: 1, status: "TRAVEL" };
+  const view = render(<HuntingArrival />);
+  user = { ...user, status: "AWAKE" };
+  view.rerender(<HuntingArrival />);
+  currentSession = session;
+  view.rerender(<HuntingArrival />);
+  expect(view.getByRole("dialog")).toBeTruthy();
 });

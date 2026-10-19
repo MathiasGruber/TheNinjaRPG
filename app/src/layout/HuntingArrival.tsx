@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
+import {
+  safeSessionStorageGetItem,
+  safeSessionStorageSetItem,
+} from "@/hooks/localstorage";
 import { HuntingBoard } from "@/layout/HuntingBoard";
 import Modal from "@/layout/Modal";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -11,7 +15,14 @@ import { useRequiredUserData } from "@/utils/UserContext";
 export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const { data: user } = useRequiredUserData();
   const openButton = useRef<HTMLButtonElement>(null);
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const storageKey = `huntingArrival:${user?.userId}`;
+  const [dismissed, setDismissed] = useState<string | null>(() =>
+    safeSessionStorageGetItem(storageKey),
+  );
+  const dismiss = (sessionId: string | null) => {
+    safeSessionStorageSetItem(storageKey, sessionId ?? "");
+    setDismissed(sessionId);
+  };
   const encounter = api.hunting.getSession.useQuery(undefined, {
     enabled: user?.occupation === "HUNTER",
     refetchInterval: 5000,
@@ -20,8 +31,18 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const session = encounter.data?.session;
   const isAtEncounter = user?.status === "AWAKE" && user.sector === session?.sector;
   useEffect(() => {
-    if (!isAtEncounter) setDismissed(null);
-  }, [isAtEncounter]);
+    setDismissed(safeSessionStorageGetItem(storageKey));
+  }, [storageKey]);
+  useEffect(() => {
+    // Combat, sleep and loading do not constitute a new arrival. Only departure resets dismissal.
+    if (
+      user &&
+      (user.status === "TRAVEL" || (session && user.sector !== session.sector))
+    ) {
+      safeSessionStorageSetItem(storageKey, "");
+      setDismissed(null);
+    }
+  }, [session?.id, session?.sector, user?.sector, user?.status, storageKey]);
   if (user?.occupation !== "HUNTER") return null;
   if (encounter.error)
     return (
@@ -40,7 +61,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
           Hunting contract:{" "}
           <strong>{encounter.data?.contract?.name ?? "Unavailable contract"}</strong>
         </p>
-        <Button ref={openButton} onClick={() => setDismissed(null)}>
+        <Button ref={openButton} onClick={() => dismiss(null)}>
           Open hunting contract
         </Button>
       </div>
@@ -50,7 +71,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
         className="sm:max-w-2xl"
         isOpen={!blocked && dismissed !== session.id}
         setIsOpen={(open) => {
-          if (!open) setDismissed(session.id);
+          if (!open) dismiss(session.id);
         }}
       >
         <HuntingBoard sessionOnly />
