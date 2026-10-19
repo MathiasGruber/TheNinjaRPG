@@ -29,11 +29,20 @@ export const MapLocationPreview = ({
     undefined,
     { enabled: validSector && !isDynamic },
   );
-  const { data: assets = [] } = api.mapAsset.getAll.useQuery();
-  const { data: terrains = [] } = api.mapTerrain.getAll.useQuery();
+  const { data: assetData } = api.mapAsset.getAll.useQuery();
+  const { data: terrainData } = api.mapTerrain.getAll.useQuery();
+  const assets = useMemo(() => assetData ?? [], [assetData]);
+  const terrains = useMemo(() => terrainData ?? [], [terrainData]);
   const decorationAssets = useMemo(() => mergeDecorationAssets(assets), [assets]);
   const terrainRegistry = useMemo(() => mergeTerrainSpecs(terrains), [terrains]);
-  const locations = useMemo(() => [location], [location]);
+  const { id, sector, longitude, latitude, assetId, scale } = location;
+  // Inspect text does not affect the scene; typing must preserve the WebGL preview.
+  const locations = useMemo<MapLocation[]>(
+    () => [
+      { id, sector, longitude, latitude, assetId, scale, name: "", description: "" },
+    ],
+    [id, sector, longitude, latitude, assetId, scale],
+  );
   const center = data?.sectors.find((entry) => entry.sector === location.sector);
   const map = center?.map;
   const asset = assets.find((entry) => entry.id === location.assetId);

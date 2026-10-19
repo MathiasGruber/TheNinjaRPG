@@ -48,13 +48,15 @@ export const fetchPublicQuestLocations = async (
         : cached.quests,
     );
   const generation = publicLocationGeneration;
+  // A slow read cannot claim freshness newer than its snapshot.
+  const startedAt = Date.now();
   const quests = await client.query.quest.findMany({
     columns: { id: true, content: true, hidden: true, startsAt: true, endsAt: true },
     where: and(eq(quest.publicLocations, true), eq(quest.hidden, false)),
   });
   // A query started before an edit must not repopulate the invalidated cache.
   if (generation === publicLocationGeneration)
-    publicLocationCache.set(client, { quests, at: Date.now(), generation });
+    publicLocationCache.set(client, { quests, at: startedAt, generation });
   return publicQuestLocations(
     includeScheduled
       ? quests.map((q) => ({ ...q, startsAt: null, endsAt: null }))

@@ -2431,6 +2431,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           false,
         )[0];
         const locationId = locationHit?.object.userData.locationId;
+        const hitLocation = questLocationsRef.current.find((l) => l.id === locationId);
         // Sticky-select a structure under the pointer so touch / click can
         // open the "Go to" card the same way desktop hover does.
         const structureHit = raycaster.intersectObjects(
@@ -2474,11 +2475,16 @@ const Sector: React.FC<SectorProps> = (props) => {
               return false;
             }
             if (i.object.userData.type === "tile") {
-              // Landmark artwork overlaps NPC bodies and player actions. Let
-              // those interactions handle the click before selecting scenery.
-              if (typeof locationId === "string") return true;
               const target = i.object.userData.tile as TerrainHex;
               const clickedSector = i.object.userData.sector as number;
+              // Select only the entrance tile; transparent artwork over nearby tiles must allow walking.
+              if (
+                hitLocation?.sector === clickedSector &&
+                clickedSector === sectorRef.current &&
+                hitLocation.longitude === target.col &&
+                hitLocation.latitude === target.row
+              )
+                return true;
               if (target.blocked) {
                 // Quest markers can sit above blocked tiles, so repeated clicks on
                 // them reuse one toast instead of stacking a new one per click.
