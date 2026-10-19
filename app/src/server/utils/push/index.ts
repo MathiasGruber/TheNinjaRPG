@@ -46,6 +46,7 @@ export const sendPushToUsers = async (
   const recipients = [...new Set(userIds)].filter(Boolean);
   if (recipients.length === 0 || !isPushEnabled()) return emptySummary();
 
+  let summary = emptySummary();
   try {
     // A device that has not checked in for a season is almost certainly uninstalled;
     // skipping it keeps the fan-out small without needing a separate cleanup job.
@@ -86,7 +87,7 @@ export const sendPushToUsers = async (
       fcm.sendAlerts(byPlatform.android, message),
     ]);
 
-    const summary = summarise([...iosResults, ...androidResults]);
+    summary = summarise([...iosResults, ...androidResults]);
     await pruneExpiredTokens(client, summary.expiredTokens);
     if (shouldReportPushFailures(message)) {
       reportFailures([...iosResults, ...androidResults], message.category);
@@ -97,7 +98,8 @@ export const sendPushToUsers = async (
       level: "warning",
       tags: { source: "sendPushToUsers", category: message.category },
     });
-    return emptySummary();
+    // Preserve confirmed sends if token cleanup failed so retrying callers cannot replay them.
+    return { ...summary, dispatchFailed: true };
   }
 };
 

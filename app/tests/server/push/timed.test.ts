@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "bun:test";
 import { Redis } from "@upstash/redis";
+import * as Sentry from "@sentry/node";
 import { HOSPITAL_BASE_HEAL_SECONDS } from "@/drizzle/constants";
+import { userDevice } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import * as push from "@/server/utils/push";
+import * as apns from "@/server/utils/push/apns";
+import * as fcm from "@/server/utils/push/fcm";
+import { timerElapsed } from "@/server/utils/push/messages";
 import { createTimedPushSender, deliverDueTimedPushes, dueTimedPushEvents, timedPushKey, type TimedPushEvent } from "@/server/utils/push/timed";
 import { secondsFromDate } from "@/utils/time";
 import { hasLocalRedis, startLocalRedis } from "../../setup/localRedis";
@@ -71,6 +76,50 @@ integration("background timer delivery receipts (real Redis)", () => {
     finish();
     await first;
     expect(await redis.get<string>(timedPushKey(current))).toBe("new-worker");
+  });
+  it("retries the real dispatcher's caught lookup failure instead of consuming it as a muted event", async () => {
+    const current = { ...event, sourceId: "dispatch-lookup" };
+    const devices = [{ userId: event.userId, token: "synthetic-device", platform: "android" }];
+    const lookup = vi.fn().mockRejectedValueOnce(new Error("Synthetic database outage")).mockResolvedValue(devices);
+    const client = {
+      select: () => ({ from: (table: unknown) => ({ where: () => table === userDevice ? lookup() : Promise.resolve([]) }) }),
+    } as unknown as DrizzleClient;
+    vi.spyOn(fcm, "isConfigured").mockReturnValue(true);
+    vi.spyOn(apns, "isConfigured").mockReturnValue(false);
+    const transport = vi.spyOn(fcm, "sendAlerts").mockResolvedValue([{ token: "synthetic-device", status: "sent" }]);
+    vi.spyOn(apns, "sendAlerts").mockResolvedValue([]);
+    vi.spyOn(Sentry, "captureException").mockReturnValue("synthetic-event");
+    try {
+      const deliver = () => push.sendPushToUsers(client, [event.userId], timerElapsed("jutsu", "synthetic"));
+      expect(await send(current, deliver)).toBe("retry");
+      expect(await redis.get(timedPushKey(current))).toBeNull();
+      expect(await send(current, deliver)).toBe("complete");
+      expect(await send(current, deliver)).toBe("duplicate");
+      expect(transport).toHaveBeenCalledTimes(1);
+    } finally { vi.restoreAllMocks(); }
+  });
+  it("retains successful real dispatch outcomes when pruning fails and never replays the alert", async () => {
+    const current = { ...event, sourceId: "dispatch-prune" };
+    const devices = [{ userId: event.userId, token: "synthetic-live", platform: "android" }, { userId: event.userId, token: "synthetic-expired", platform: "android" }];
+    const prune = vi.fn().mockRejectedValue(new Error("Synthetic cleanup outage"));
+    const client = {
+      select: () => ({ from: (table: unknown) => ({ where: () => Promise.resolve(table === userDevice ? devices : []) }) }),
+      delete: () => ({ where: prune }),
+    } as unknown as DrizzleClient;
+    vi.spyOn(fcm, "isConfigured").mockReturnValue(true);
+    vi.spyOn(apns, "isConfigured").mockReturnValue(false);
+    const transport = vi.spyOn(fcm, "sendAlerts").mockResolvedValue([
+      { token: "synthetic-live", status: "sent" }, { token: "synthetic-expired", status: "expired", reason: "UNREGISTERED" },
+    ]);
+    vi.spyOn(apns, "sendAlerts").mockResolvedValue([]);
+    vi.spyOn(Sentry, "captureException").mockReturnValue("synthetic-event");
+    try {
+      const deliver = () => push.sendPushToUsers(client, [event.userId], timerElapsed("jutsu", "synthetic"));
+      expect(await send(current, deliver)).toBe("complete");
+      expect(await send(current, deliver)).toBe("duplicate");
+      expect(transport).toHaveBeenCalledTimes(1);
+      expect(prune).toHaveBeenCalledTimes(1);
+    } finally { vi.restoreAllMocks(); }
   });
   it("runs persisted recovery and training delivery without the app or a foreground profile read", async () => {
     const current = user({ userId: "background-worker", status: "HOSPITALIZED",

@@ -92,7 +92,8 @@ export const createTimedPushSender =
     // A muted/no-device event is consumed. Never send old timers when a player later
     // unmutes; retry transient total failures, but avoid duplicating successful fan-out.
     const complete =
-      summary.sent > 0 || summary.failed === summary.expiredTokens.length;
+      summary.sent > 0 ||
+      (!summary.dispatchFailed && summary.failed === summary.expiredTokens.length);
     await redis.eval(
       FINISH,
       [key],

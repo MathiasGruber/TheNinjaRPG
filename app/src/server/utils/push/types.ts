@@ -43,6 +43,8 @@ export interface PushSendSummary {
   failed: number;
   /** Tokens the provider rejected as gone; the caller deletes these rows. */
   expiredTokens: string[];
+  /** Dispatch could not finish; an empty result must not be mistaken for muted/no devices. */
+  dispatchFailed?: boolean;
 }
 
 export const emptySummary = (): PushSendSummary => ({
