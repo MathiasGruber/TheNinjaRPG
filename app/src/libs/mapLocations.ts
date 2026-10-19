@@ -131,9 +131,9 @@ export const getQuestMapLocations = (
         return;
       const resolved = {
         ...objective,
-        sector: goal.sector,
-        longitude: goal.longitude,
-        latitude: goal.latitude,
+        sector: goal.sector ?? objective.sector,
+        longitude: goal.longitude ?? objective.longitude,
+        latitude: goal.latitude ?? objective.latitude,
       };
       if (objective.overworldPlacementId) {
         const placement = placements.find(

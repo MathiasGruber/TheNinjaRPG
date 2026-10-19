@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import { getQuestMapLocations, groupMapLocations, publicQuestLocations } from "@/libs/mapLocations";
+import { getNewTrackers, getPublicQuestUser, verifyQuestContentForSave } from "@/libs/quest";
 import type { UserWithRelations } from "@/routers/profile";
-import { DialogObjective, MoveToObjective } from "@/validators/objectives";
+import { DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
 
 const move = MoveToObjective.parse({
   id: "arrival", task: "move_to_location", sector: 724, longitude: 4, latitude: 5,
@@ -55,6 +56,43 @@ describe("personal structure lifecycle", () => {
     const original = structuredClone(actor);
     expect(getQuestMapLocations(actor, [])[0]?.longitude).toBe(8);
     expect(actor).toEqual(original);
+  });
+  it("shows an explicitly located starting dialog through tracker initialization and public projection", () => {
+    const definition = QuestValidator.parse({
+      name: "Tower quest", description: "Visit the tower", successDescription: "Done", questType: "mission",
+      hidden: false, publicLocations: false, consecutiveObjectives: true, startsAt: null, endsAt: null, tierLevel: null,
+      content: {
+        objectives: [DialogObjective.parse({ ...move, task: "dialog", nextObjectiveId: dialog.nextObjectiveId }), { id: "end", task: "win_quest" }],
+        reward: {}, sceneCharacters: ["guide"],
+      },
+    });
+    expect(verifyQuestContentForSave(definition.content.objectives, true).check).toBe(true);
+    const actor = user([], {
+      userId: "u1", status: "AWAKE", level: 50, rank: "JONIN", role: "USER",
+      villageId: "v1", isOutlaw: false, bloodlineId: null, longitude: 0, latitude: 0,
+      village: { id: "v1", sector: 724 }, activeWars: [], completedQuests: [],
+      userQuests: [{ id: "uq-q1", questId: "q1", completed: 0, endAt: null, previousAttempts: 0, previousCompletes: 0, quest: { ...definition, id: "q1" } }],
+      questData: [],
+    });
+    actor.questData = getNewTrackers(actor, [{ task: "any" }]).trackers;
+    expect(actor.questData[0]?.goals[0]).not.toHaveProperty("sector");
+    expect(getQuestMapLocations(getPublicQuestUser(actor), [])).toMatchObject([
+      { assetId: "tower", objectiveId: "arrival", sector: 724, longitude: 4, latitude: 5, active: true },
+    ]);
+  });
+  it("keeps resolved random tracker coordinates authoritative, including tile zero", () => {
+    const actor = structuredClone(user([{ ...arrival, sector: 725, longitude: 0, latitude: 0 }]));
+    Object.assign(actor.userQuests[0]!.quest.content.objectives[0]!, { sectorType: "random", locationType: "random" });
+    expect(getQuestMapLocations(actor, [])[0]).toMatchObject({ sector: 725, longitude: 0, latitude: 0 });
+  });
+  it("keeps concealed targets hidden outside their sector after public projection", () => {
+    for (const sector of [724, 725]) {
+      const actor = structuredClone(user([arrival], { sector, role: "USER" }));
+      Object.assign(actor.userQuests[0]!.quest.content.objectives[0]!, { hideLocation: true });
+      const projected = getPublicQuestUser(actor);
+      expect(getQuestMapLocations(projected, [])).toHaveLength(sector === 724 ? 1 : 0);
+      if (sector === 725) expect(projected.questData![0]!.goals[0]).not.toHaveProperty("sector");
+    }
   });
   it("retains the building when arrival advances to a dialog at the same location", () => {
     const result = getQuestMapLocations(user([
