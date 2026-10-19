@@ -103,17 +103,13 @@ dev-prepare: ensure-env # Prepare a worktree without starting a server
 	@test -f app/.env || { echo 'dev: app/.env missing; copy app/.env.example and configure it.' >&2; exit 1; }
 	@$(MAKE) install ensure-services
 
-.PHONY: dev-up dev-status dev-down dev-browser dev-browser-release
+.PHONY: dev-up dev-status dev-down
 dev-up: # Start/reuse this worktree's server, wait for HTTP readiness, print JSON
 	@node scripts/dev-server.mjs up
-dev-status: # Show this worktree's server, log, and browser lease as JSON
+dev-status: # Show this worktree's server, log, and browser context prefix as JSON
 	@node scripts/dev-server.mjs status
 dev-down: # Stop only this worktree's managed server; leave shared Docker alone
 	@node scripts/dev-server.mjs down
-dev-browser: # Acquire/renew the shared Chrome login lease for this chat
-	@node scripts/dev-server.mjs browser-acquire
-dev-browser-release: # Release this chat's Chrome login lease
-	@node scripts/dev-server.mjs browser-release
 
 .PHONY: dev-user dev-call dev-doctor
 dev-user: ensure-env # Provision REQUEST=<json file>, save private credentials

@@ -5,12 +5,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  browserLease,
-  devPaths,
-  devStatus,
-  portAvailable,
-} from "../../../scripts/dev-server.mjs";
+import { devPaths, devStatus, portAvailable } from "../../../scripts/dev-server.mjs";
 
 const manager = fileURLToPath(
   new URL("../../../scripts/dev-server.mjs", import.meta.url),
@@ -173,22 +168,4 @@ describe("parallel worktree dev servers", () => {
     expect((await command(root, "down")).code).toBe(0);
     expect((await devStatus(paths)).phase).toBe("stopped");
   });
-});
-
-test("Chrome leases reject other owners, renew, release and expire", async () => {
-  const { root } = await fixture();
-  const paths = devPaths(root);
-  const acquired = await browserLease(paths, "acquire", "chat-a", 100);
-  expect(acquired.owner).toBe("chat-a");
-  await expect(browserLease(paths, "acquire", "chat-b", 101)).rejects.toThrow("chat-a");
-  await expect(browserLease(paths, "release", "chat-b", 101)).rejects.toThrow("chat-a");
-  const renewed = await browserLease(paths, "acquire", "chat-a", 102);
-  expect(renewed.expiresAt).toBeGreaterThan(acquired.expiresAt);
-  expect(await browserLease(paths, "release", "chat-a", 103)).toEqual({
-    released: true,
-  });
-  expect((await browserLease(paths, "acquire", "chat-b", 104)).owner).toBe("chat-b");
-  expect(
-    (await browserLease(paths, "acquire", "chat-a", 104 + 31 * 60_000)).owner,
-  ).toBe("chat-a");
 });

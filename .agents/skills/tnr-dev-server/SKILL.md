@@ -13,7 +13,7 @@ source `app/.env` or export secrets by hand to fix startup.
 
 ```bash
 make dev-up                 # start/reuse this worktree's server; wait for /login HTTP 200
-make dev-status             # JSON: url, phase, PID, logPath, browser lease
+make dev-status             # JSON: url, phase, PID, logPath, browser context prefix
 make dev-doctor             # also show database target and whether broker/Clerk keys exist
 make dev-down               # stop only this worktree's supervisor and descendants
 ```
@@ -90,42 +90,38 @@ For plain API routes calling Clerk auth directly, read [HTTP auth](references/ht
 
 ## Chrome UI testing
 
-Use the user's existing **Chrome**, following current tool documentation. Browser pages
-must use `http://localhost:<port>`; `127.0.0.1` can make Next dev chunks return 403 and
-leave Clerk loading forever. API requests are unaffected.
+Use **Chrome DevTools MCP** launched with `--isolated` for disposable-account local UI
+tests, using the installed Google Chrome. Each MCP process gets a temporary profile;
+create `new_page` with a named `isolatedContext` unique to worktree, chat and actor.
+Derive the prefix from `make dev-status`'s `browserSession`, then append the chat ID and
+actor key. Retain explicit page IDs for every action and close only your own pages.
+Read [Chrome isolation](references/chrome-isolation.md) for setup, verification and
+cleanup. Do not treat an ordinary tab or an unverified connection as isolated.
 
-Separate windows, tabs, tab groups, session names and ports **share cookies**. Incognito
-windows in one profile also share an incognito cookie store. Do not ask the user to stop
-other chats or close their browser to resolve a collision.
+Use the user's existing **Chrome extension** for workflows that need its current
+signed-in personal account. Never sign disposable users into that profile or switch its
+account for a local test: windows, tabs, tab groups, session names and ports in one
+profile share cookies. If isolated Chrome is unavailable, continue `dev-call` and server
+checks until its connection is ready. Do not ask the user to stop other chats or close
+their browser to resolve a collision.
 
-- When the connected Chrome tool explicitly supports isolated contexts, use one unique
-  context per chat/worktree (and per simultaneous actor). Chrome DevTools `new_page`
-  exposes `isolatedContext`; use it only when connected to the intended Chrome. Retain
-  explicit page IDs for actions.
-- For the Chrome extension / `cua_repl`, acquire `make dev-browser` **before provisioning
-  tickets or signing in**. Hold this repository-wide login lease through authenticated
-  testing and screenshots. Another owner returns an actionable error: continue API/server
-  work, then retry after release. No user permission is needed to coordinate the lease.
-  It expires in 30 minutes; renew with `make dev-browser` for longer work. Release in
-  cleanup with `make dev-browser-release`.
-- Name the automation session with worktree/issue and create your own tab using
-  `cua.createBrowserTab("chrome", url, {sessionName: "🧪 Issue <number>"})`. Retain that
-  handle and interact only with your own tabs. Read the first-use documentation instead
-  of assuming APIs from older chats exist. Avoid global active-window keyboard shortcuts.
-- Read a user's `loginUrl` from the private artifact and navigate your tab there. Tickets
-  are single-use and last about 300 seconds. Warm the server before provisioning; provision
-  just before login and before setting up a scenario that re-provisioning would reset.
-  Check the visible username against the saved user. After a navigation timeout, inspect
-  the existing tab before reloading or consuming another ticket.
-- Close your temporary tabs, release the lease and stop your server when finished. Leave
-  other tabs, browser processes and shared services alone. Disposable users can stay.
+Browser pages must use `http://localhost:<port>`; `127.0.0.1` can make Next dev chunks
+return 403 and leave Clerk loading forever. API requests are unaffected.
 
-If Chrome DevTools says its `chrome-profile` is already running, it is trying to launch
-a contended managed profile. Use the available existing-Chrome extension flow; do not
-kill Chrome, delete profile locks, edit global MCP settings or switch browsers. Respect
-actual browser security restrictions. A lease coordinates cooperating chats; it cannot
-prevent a user or an older chat from changing accounts. Recheck identity after unexpected
-account/control changes and discard invalid evidence.
+- Warm the server before provisioning. Provision just before login and before setting
+  up a scenario that re-provisioning would reset. A `loginUrl` from the private artifact
+  contains a single-use ticket lasting about 300 seconds; navigate only the actor's own
+  isolated page there and check the visible username against the saved user.
+- After a navigation timeout, inspect the existing page before reloading or consuming
+  another ticket. Recheck identity after unexpected account/control changes and discard
+  invalid evidence.
+- Close your temporary pages and stop only servers you started. Leave other pages,
+  browser processes and shared services alone. Disposable users can stay.
+
+If Chrome DevTools reports a contended `chrome-profile`, its connection is not using
+`--isolated`. Check the isolation guide and continue API/server work until the connection
+is configured and reloaded. Do not kill Chrome, delete profile locks, change browser
+security settings or switch browsers to bypass a blocked action.
 
 ## Recovery
 

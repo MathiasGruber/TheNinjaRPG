@@ -35,10 +35,16 @@ the minimum version in `app/package.json`. Installation uses the committed lockf
 with `--frozen-lockfile`; dependency changes go through `make bun add <package>`.
 
 The [dev-server skill](.agents/skills/tnr-dev-server/SKILL.md) documents disposable users,
-authenticated endpoint calls and Chrome coordination. Tabs, windows and different ports
-share cookies: use supported isolated Chrome contexts, or acquire `make dev-browser`
-for authenticated UI work and release it with `make dev-browser-release` when done.
-Other chats can continue API and server checks while the lease is held.
+authenticated endpoint calls and Chrome coordination. For parallel tests with different
+accounts, use Chrome DevTools MCP with `--isolated` and a unique named `isolatedContext`
+per worktree/chat/actor. Its temporary profiles and contexts keep login cookies separate;
+the [isolation guide](.agents/skills/tnr-dev-server/references/chrome-isolation.md) covers
+setup, page ownership and cleanup.
+
+The personal Chrome extension remains available for workflows using its existing
+signed-in account. Never sign disposable users into that profile or switch its account
+for local testing: tabs, windows and ports share cookies. If isolated Chrome is
+unavailable, continue authenticated API and server checks until its connection is ready.
 
 In [Codex local environments](https://developers.openai.com/codex/app/local-environments/),
 configure `make dev-prepare` as the worktree setup script and `make start` as the Run

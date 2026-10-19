@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Worktree-scoped Next supervisors; the common Git directory coordinates ports and Chrome. */
+/** Worktree-scoped Next supervisors; the common Git directory coordinates ports. */
 import { createHash, randomUUID } from "node:crypto";
 import { spawn, execFileSync } from "node:child_process";
 import { realpathSync } from "node:fs";
@@ -127,7 +127,7 @@ async function reserve(paths, id, requestedPort) {
       );
     const reserved = new Set();
     for (const file of await readdir(paths.registry)) {
-      if (!file.endsWith(".json") || file === "browser.json") continue;
+      if (!file.endsWith(".json")) continue;
       const state = await readJson(join(paths.registry, file));
       if (ownsSupervisor(state) || alive(state?.childPid)) reserved.add(state.port);
     }
@@ -163,42 +163,13 @@ async function reserve(paths, id, requestedPort) {
 
 export async function devStatus(paths = devPaths()) {
   const state = await readJson(paths.stateFile);
-  const browser = await readJson(join(paths.registry, "browser.json"));
   return {
     ...state,
     root: paths.root,
     phase: ownsSupervisor(state) ? state.phase : "stopped",
     logPath: paths.logPath,
     browserSession: `tnr-${paths.key}`,
-    browserLease: browser?.expiresAt > Date.now() ? browser : null,
   };
-}
-
-export async function browserLease(
-  paths,
-  action,
-  owner = process.env.CODEX_THREAD_ID || paths.key,
-  now = Date.now(),
-) {
-  return locked(paths, async () => {
-    const path = join(paths.registry, "browser.json");
-    const lease = await readJson(path);
-    if (
-      lease?.expiresAt > now &&
-      (lease.owner !== owner || lease.root !== paths.root)
-    ) {
-      throw new Error(
-        `Chrome login lease belongs to ${lease.owner} in ${lease.root} until ${new Date(lease.expiresAt).toISOString()}. Continue API/server work; retry after release. Do not sign in or switch accounts in shared Chrome.`,
-      );
-    }
-    if (action === "release") {
-      await rm(path, { force: true });
-      return { released: true };
-    }
-    const next = { owner, root: paths.root, expiresAt: now + 30 * 60_000 };
-    await saveJson(path, next);
-    return next;
-  });
 }
 
 async function supervise(paths, id, port) {
@@ -379,23 +350,8 @@ async function main() {
       console.log(JSON.stringify(await devStatus(paths), null, 2));
       break;
     }
-    case "browser-acquire":
-    case "browser-release":
-      console.log(
-        JSON.stringify(
-          await browserLease(
-            paths,
-            action === "browser-acquire" ? "acquire" : "release",
-          ),
-          null,
-          2,
-        ),
-      );
-      break;
     default:
-      throw new Error(
-        "Use make start, dev-up, dev-status, dev-down, dev-browser, or dev-browser-release.",
-      );
+      throw new Error("Use make start, dev-up, dev-status, or dev-down.");
   }
 }
 
