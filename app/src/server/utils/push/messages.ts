@@ -72,3 +72,12 @@ export const deliveryTest = (): PushMessage => ({
   collapseId: "push-delivery-test",
   suppressFailureReport: true,
 });
+
+/** Keep private conversation content and participant names off the Lock Screen. */
+export const privateMessage = (conversationId: string): PushMessage => ({
+  title: "New private message",
+  body: "Open your inbox to read it.",
+  category: "social",
+  url: "/inbox",
+  collapseId: `inbox-${conversationId}`,
+});
