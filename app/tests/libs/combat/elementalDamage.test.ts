@@ -1,5 +1,4 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
 import { BasicElementName, type BattleType, type BasicElement } from "@/drizzle/constants";
 import type { AiProfile, Jutsu } from "@/drizzle/schema";
 import { availableUserActions, insertAction } from "@/libs/combat/actions";
@@ -12,7 +11,7 @@ import { getBattleGrid } from "@/libs/combat/util";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
-import { ElementalDamageTag, SuperRefineEffects, AllTags } from "@/validators/combat";
+import { ElementalDamageTag, JutsuValidatorRawSchema } from "@/validators/combat";
 import { updateUserPreferencesSchema } from "@/validators/user";
 import { makeBattleUser, makeCompleteBattle, makeEffect, makeTag } from "./helpers/battleScenario";
 
@@ -96,7 +95,7 @@ describe("elemental damage preference", () => {
 describe("elemental damage authoring and combat", () => {
   it("shares damage controls, removes fixed elements and supports derived damage tags", () => {
     expect(ElementalDamageTag.parse({ elements: ["Ice"] })).not.toHaveProperty("elements");
-    const schema = z.array(AllTags).superRefine(SuperRefineEffects);
+    const schema = JutsuValidatorRawSchema.shape.effects;
     for (const tag of [makeTag("wound"), makeTag("vamp"), makeTag("consume", { rounds: 0 })]) {
       expect(schema.safeParse([ElementalDamageTag.parse({}), tag]).success).toBe(true);
     }
