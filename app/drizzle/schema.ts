@@ -2992,7 +2992,6 @@ export const userPet = mysqlTable(
     generationToken: varchar("generationToken", { length: 191 }),
     generationStartedAt: datetime("generationStartedAt", { mode: "date", fsp: 3 }),
     generationAttempts: tinyint("generationAttempts", { unsigned: true }).default(0).notNull(),
-    generationDay: varchar("generationDay", { length: 10 }),
     // Evolution keeps the previous accepted image until artRank catches up to rank.
     artRank: tinyint("artRank", { unsigned: true }).default(0).notNull(),
     revision: int("revision", { unsigned: true }).default(0).notNull(),

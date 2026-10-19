@@ -28,7 +28,7 @@ const petFixture = (patch: Partial<BattlePet> = {}): BattlePet => ({
   avatar: "https://example.com/pet.png", avatarFacing: "left",
   battleEnabled: true, spawnPosition: "BEHIND", aiRules: [], includeDefaultRules: true,
   generationStatus: "READY", generationToken: null, generationStartedAt: null,
-  generationAttempts: 0, generationDay: null,
+  generationAttempts: 0,
   artRank: 1, revision: 0, createdAt: new Date(), updatedAt: new Date(), ...patch,
 });
 const scenario = () => makeCompleteBattle({

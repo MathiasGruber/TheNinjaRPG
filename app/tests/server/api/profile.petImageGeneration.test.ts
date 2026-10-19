@@ -3,7 +3,6 @@ import { eq, sql } from "drizzle-orm";
 import { PET_GENERATION_LEASE_MS, PET_MAX_GENERATION_ATTEMPTS } from "@/drizzle/constants";
 import { actionLog, userData, userPet, type UserPetInsert } from "@/drizzle/schema";
 import { profileRouter } from "@/routers/profile";
-import { getPetDayKey } from "@/utils/time";
 import { insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -16,8 +15,7 @@ const createPet = async (patch: Partial<UserPetInsert> = {}) => {
   await database.insert(userPet).values({
     id: input.petId, userId: input.userId, name: "Kuro", speciesId: "crow",
     paletteIndex: 2, characteristicIndex: 3, auraIndex: 4,
-    rank: 2, experience: 1000, generationStatus: "FAILED",
-    generationDay: getPetDayKey(), generationAttempts: PET_MAX_GENERATION_ATTEMPTS,
+    rank: 2, experience: 1000, generationStatus: "FAILED", generationAttempts: PET_MAX_GENERATION_ATTEMPTS,
     generationStartedAt: new Date(), ...patch,
   });
   return (await database.query.userPet.findFirst({ where: eq(userPet.id, input.petId) }))!;
@@ -32,13 +30,13 @@ describeWithDatabase("staff companion image recovery", () => {
     ]);
   });
 
-  it("restores daily attempts and cooldown with an actor, player and companion audit", async () => {
+  it("restores current-rank attempts and cooldown with an actor, player and companion audit", async () => {
     const database = await getTestDatabase();
     const before = await createPet();
     const api = callerForDatabase(profileRouter, "support-staff", database);
     expect((await api.resetPetImageGeneration(input)).success).toBe(true);
     const after = (await database.query.userPet.findFirst({ where: eq(userPet.id, input.petId) }))!;
-    expect(after).toEqual({ ...before, generationAttempts: 0, generationDay: null,
+    expect(after).toEqual({ ...before, generationAttempts: 0,
       generationStartedAt: null, generationToken: null, revision: 1, updatedAt: after.updatedAt });
     expect(await api.getPetImageGenerationForStaff({ id: input.userId })).toEqual([
       { id: input.petId, name: "Kuro", generationStatus: "FAILED", generationAttempts: 0 },
@@ -96,14 +94,12 @@ describeWithDatabase("staff companion image recovery", () => {
     expect(await database.query.userPet.findFirst()).toMatchObject({ generationStatus: "READY", avatar: "https://example.com/accepted.webp", artRank: 2, rank: 2 });
   });
 
-  it("rejects an empty or previous day's allowance without writing an audit", async () => {
+  it("rejects an empty allowance without writing an audit", async () => {
     const database = await getTestDatabase();
-    await createPet({ generationDay: "2000-01-01" });
+    await createPet({ generationAttempts: 0 });
     const api = callerForDatabase(profileRouter, "support-staff", database);
     expect((await api.resetPetImageGeneration(input)).success).toBe(false);
     expect((await api.getPetImageGenerationForStaff({ id: input.userId }))[0]?.generationAttempts).toBe(0);
-    await database.update(userPet).set({ generationDay: getPetDayKey(), generationAttempts: 0 });
-    expect((await api.resetPetImageGeneration(input)).success).toBe(false);
     expect(await database.query.actionLog.findMany()).toHaveLength(0);
   });
 

@@ -4914,9 +4914,9 @@ export const ResetPetImageGeneration = ({
       >
         <div className="space-y-4">
           <p className="text-muted-foreground text-sm">
-            Restore {username}&apos;s daily image attempts after a generation problem.
-            Accepted artwork is kept. Running generations must finish first. This action
-            is logged.
+            Restore {username}&apos;s current-rank image attempts after a generation
+            problem. Accepted artwork is kept. Running generations must finish first.
+            This action is logged.
           </p>
           {isLoading ? (
             <Loader explanation="Loading companions" />

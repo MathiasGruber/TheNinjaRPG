@@ -15,7 +15,7 @@ import type { UserPet } from "@/drizzle/schema";
 import Modal from "@/layout/Modal";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 
-/** Choose cosmetics for founders and redraws; pending evolutions retain their identity. */
+/** Choose a founder's initial cosmetics; redraws and evolutions retain the saved traits. */
 export function PetAppearanceButton({
   pet,
   options,
@@ -32,7 +32,7 @@ export function PetAppearanceButton({
     auraIndex: pet.auraIndex,
   });
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const canChoose = pet.artRank === pet.rank || (pet.rank === 1 && !pet.avatar);
+  const canChoose = pet.rank === 1 && pet.artRank === 0 && !pet.avatar;
   const fields = [
     {
       field: "paletteIndex",

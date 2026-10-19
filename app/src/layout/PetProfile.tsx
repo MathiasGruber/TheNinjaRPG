@@ -580,11 +580,7 @@ export function PetProfile() {
   const isAway = userData.petTask?.petId === pet.id;
   const settingsDisabled = isBusy || isAway || userData.status !== "AWAKE";
   const nextRank = data.nextRank;
-  const canEvolve =
-    data.canRankUp &&
-    data.remainingGenerations > 0 &&
-    !settingsDisabled &&
-    !isGenerating;
+  const canEvolve = data.canRankUp && !settingsDisabled && !isGenerating;
   const retryAt = data.generationRetryAt ? new Date(data.generationRetryAt) : null;
   const selectedMeal =
     data.feedMeals.find((meal) => meal.id === selectedMealId) ?? data.feedMeals[0];
@@ -594,8 +590,8 @@ export function PetProfile() {
   const appearanceControls = (
     <div className="space-y-2" aria-live="polite">
       <p className="text-muted-foreground text-sm">
-        {data.remainingGenerations} / {data.generationLimit} image attempts remain
-        today. Attempts reset at midnight UTC.
+        {data.remainingGenerations} / {data.generationLimit} image attempts remain for
+        this rank. Regenerations keep your saved traits.
       </p>
       {canRetryGeneration ? (
         <PetAppearanceButton
@@ -1111,12 +1107,6 @@ export function PetProfile() {
                 </Confirm>
                 {data.rankUpReason && (
                   <p className="text-muted-foreground text-sm">{data.rankUpReason}</p>
-                )}
-                {data.remainingGenerations <= 0 && (
-                  <p className="text-muted-foreground text-sm">
-                    Image attempts reset at midnight UTC. Evolution will be available
-                    once an attempt remains.
-                  </p>
                 )}
               </div>
             ) : (

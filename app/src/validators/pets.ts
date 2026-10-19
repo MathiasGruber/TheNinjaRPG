@@ -66,7 +66,7 @@ export const acquirePetSchema = petPaymentSchema.extend({
     .max(PET_AURAS.length - 1),
 });
 
-/** Founders and same-rank redraws can choose daily cosmetics without changing species. */
+/** Only founders without accepted artwork can choose daily cosmetics. */
 export const generatePetAppearanceSchema = petSelectionSchema.extend({
   appearance: acquirePetSchema
     .pick({

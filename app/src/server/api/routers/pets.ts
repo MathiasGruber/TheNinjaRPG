@@ -353,7 +353,7 @@ export const petsRouter = createTRPCRouter({
       const rankUpReason = pet
         ? (petMutationBlockMessage(user, pet) ?? petRankUpBlockMessage(pet, user))
         : "Adopt a pet first.";
-      const attempts = pet?.generationDay === dayKey ? pet.generationAttempts : 0;
+      const attempts = pet?.generationAttempts ?? 0;
       // A generation token is server-only; the UI needs its status and retry time instead.
       const visiblePet = pet ? omitGenerationToken(pet) : null;
       return {
@@ -735,14 +735,10 @@ export const petsRouter = createTRPCRouter({
       if (blocked) return errorResponse(blocked);
       const next = PET_RANKS.find((entry) => entry.rank === pet.rank + 1);
       if (!next) return errorResponse("Your pet has reached its highest rank.");
-      const attempts =
-        pet.generationDay === getPetDayKey() ? pet.generationAttempts : 0;
-      if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
-        return errorResponse(
-          `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
-        );
+      // Each evolution gets its own bounded allowance, even if the previous rank exhausted it.
       const changed = await updateOwnedPet(ctx.drizzle, user, pet, {
         rank: next.rank,
+        generationAttempts: 0,
         generationStatus: "PENDING",
         generationToken: null,
         generationStartedAt: null,
@@ -757,8 +753,8 @@ export const petsRouter = createTRPCRouter({
 
   /**
    * Claim one attempt atomically before calling the image provider, then accept only
-   * its matching lease. Accepted art and cosmetics remain unchanged until success;
-   * same-rank redraws may change cosmetics, while evolutions retain their identity.
+   * its matching lease. Accepted artwork remains usable until replacement succeeds;
+   * redraws and evolutions retain the companion's saved appearance traits.
    */
   generateAppearance: protectedProcedure
     .input(generatePetAppearanceSchema)
@@ -787,14 +783,16 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           "Please wait a moment before retrying your companion's appearance.",
         );
-      const attempts = pet.generationDay === dayKey ? pet.generationAttempts : 0;
+      const attempts = pet.generationAttempts;
       if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
         return errorResponse(
-          `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
+          `You have used all ${PET_MAX_GENERATION_ATTEMPTS} image attempts for this rank. Your companion is still yours.`,
         );
       if (input.appearance) {
-        if (pet.artRank !== pet.rank && (pet.rank !== 1 || pet.avatar))
-          return errorResponse("An evolving companion keeps its appearance traits.");
+        if (pet.rank !== 1 || pet.artRank !== 0 || pet.avatar)
+          return errorResponse(
+            "Your companion keeps its saved appearance traits after its first image.",
+          );
         // Cosmetics roll independently of species; rewards need not be in daily offers.
         const choices = getDailyPetOptions(
           user.userId,
@@ -835,7 +833,6 @@ export const petsRouter = createTRPCRouter({
             generationStatus: "GENERATING",
             generationToken: token,
             generationStartedAt: now,
-            generationDay: dayKey,
             generationAttempts: attempts + 1,
             revision: sql`${userPet.revision} + 1`,
             updatedAt: now,

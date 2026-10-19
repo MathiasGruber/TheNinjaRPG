@@ -356,7 +356,7 @@ export function PetAcquisition() {
             {!appearanceReady && (
               <p className="text-muted-foreground text-sm">
                 {data.remainingGenerations} / {data.generationLimit} image attempts
-                remain today. Attempts reset at midnight UTC.
+                remain for this rank.
               </p>
             )}
             <div className="flex flex-wrap gap-2">
@@ -628,8 +628,8 @@ export function PetAcquisition() {
                     also improves daily species rarity.
                   </p>
                   <p>
-                    Each companion has {data.generationLimit} image attempts per UTC
-                    day. Failed appearance retries are free.
+                    Each companion has {data.generationLimit} image attempts per rank,
+                    including its first image. Failed appearance retries are free.
                   </p>
                   {data.activePetId && (
                     <p>

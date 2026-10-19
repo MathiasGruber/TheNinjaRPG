@@ -259,7 +259,7 @@ it.each([0, 2])("keeps ready-pet care compact with %s attempts and offers redraw
   const redraw = within(settings).getByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement;
   expect(redraw.disabled).toBe(attempts === 0);
   expect(redraw.className).toContain("border-input");
-  expect(settings.textContent).toContain(`${attempts} / 3 image attempts remain today`);
+  expect(settings.textContent).toContain(`${attempts} / 3 image attempts remain for this rank`);
   expect(generate).not.toHaveBeenCalled();
 });
 
@@ -270,29 +270,21 @@ it("keeps failed missing-art recovery visible above the activity tabs", async ()
   const overview = view.getByRole("region", { name: "Miso" });
   expect(overview.contains(retry)).toBe(true);
   expect(overview.textContent).toContain("The last image attempt did not finish.");
-  expect(overview.textContent).toContain("3 / 3 image attempts remain today");
+  expect(overview.textContent).toContain("3 / 3 image attempts remain for this rank");
   expect(mealButton(view).disabled).toBe(true);
   selectTab(view, "Training");
   expect((view.getByRole("button", { name: "Assign experience" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
-it.each([1, 7])("regenerates a rank %s companion with new cosmetics after accepted artwork", async (rank) => {
+it.each([1, 7])("regenerates a rank %s companion with its saved traits and no cosmetic picker", async (rank) => {
   data = { ...data, pet: { ...data.pet!, rank, artRank: rank }, remainingGenerations: 2 };
   const view = mount();
   await view.findByRole("tab", { name: "Settings" });
   selectTab(view, "Settings");
   fireEvent.click(await view.findByRole("button", { name: "Regenerate appearance" }));
-  const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
-  expect(view.getByText(/2 \/ 3 image attempts remain today/)).toBeTruthy();
-  for (const [label, entries] of [["Palette", data.options.palettes], ["Characteristic", data.options.characteristics], ["Aura", data.options.auras]] as const) {
-    fireEvent.click(within(dialog).getByRole("combobox", { name: label }));
-    fireEvent.click(await view.findByRole("option", { name: entries[1]!.name }));
-  }
-  fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
-  await waitFor(() => expect(generate).toHaveBeenCalledWith({ petId: "companion", appearance: {
-    dayKey: data.dayKey, paletteIndex: data.options.palettes[1]!.index,
-    characteristicIndex: data.options.characteristics[1]!.index, auraIndex: data.options.auras[1]!.index,
-  } }));
+  await waitFor(() => expect(generate).toHaveBeenCalledWith({ petId: "companion" }));
+  expect(view.queryByRole("dialog", { name: "Choose companion appearance" })).toBeNull();
+  expect(view.getByText(/2 \/ 3 image attempts remain for this rank/)).toBeTruthy();
   expect(await view.findByRole("alert")).toHaveProperty("textContent", "Please retry your image.");
   expect(view.getByRole("img", { name: "Miso" })).toBeTruthy();
   expect((view.getByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement).disabled).toBe(false);
@@ -330,8 +322,6 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
   const redraw = async () => {
     selectTab(view, "Settings");
     fireEvent.click(view.getByRole("button", { name: "Regenerate appearance" }));
-    const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
   };
   const selectCompanion = async (name: string) => {
     fireEvent.click(view.getByRole("combobox", { name: "Companion" }));
@@ -401,9 +391,9 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
   }
 });
 
-it("keeps evolution guarded through rank-up and artwork, then offers appearance recovery without another rank-up", async () => {
+it.each([0, 3])("keeps evolution and artwork recoverable with %s attempts left in the previous rank", async (remainingGenerations) => {
   owner.rank = "ELDER";
-  data = { ...data, maxRank: 10, nextRank: PET_RANKS[7]!, canRankUp: true };
+  data = { ...data, maxRank: 10, nextRank: PET_RANKS[7]!, canRankUp: true, remainingGenerations };
   let finishEvolution: () => void = () => undefined;
   const evolution = new Promise<void>((resolve) => { finishEvolution = resolve; });
   let finishGeneration: () => void = () => undefined;
@@ -411,7 +401,7 @@ it("keeps evolution guarded through rank-up and artwork, then offers appearance 
   evolve.mockImplementation(async () => {
     await evolution;
     const pet = { ...data.pet!, rank: 8, generationStatus: "PENDING" as const };
-    data = { ...data, pet, pets: [pet], canRankUp: false, canFeed: false };
+    data = { ...data, pet, pets: [pet], canRankUp: false, canFeed: false, remainingGenerations: 3 };
     return { success: true, message: "Evolved" };
   });
   generate.mockImplementation(async () => { await generation; return { success: false, message: "Retry evolved appearance" }; });
