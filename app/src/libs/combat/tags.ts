@@ -1179,6 +1179,7 @@ const removeEffects = (
   usersEffects: UserEffect[],
   target: BattleUserState,
   type: "positive" | "negative",
+  clearedEffectIds?: Set<string>,
 ) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
@@ -1205,6 +1206,7 @@ const removeEffects = (
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .forEach((e) => {
         e.rounds = 0;
+        clearedEffectIds?.add(e.id);
       });
 
     // Type guard to identify ground effects
@@ -1244,10 +1246,11 @@ export const clear = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   target: BattleUserState,
+  clearedEffectIds?: Set<string>,
 ) => {
   const { pass } = preventCheck(usersEffects, "clearprevent", target);
   if (!pass) return preventResponse(effect, target, "resists being cleared");
-  return removeEffects(effect, usersEffects, target, "positive");
+  return removeEffects(effect, usersEffects, target, "positive", clearedEffectIds);
 };
 
 export const cleanse = (

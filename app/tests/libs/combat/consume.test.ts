@@ -952,13 +952,13 @@ describe("applyEffects — siphon", () => {
     expect(result.usersEffects.some((e) => e.type === "siphon")).toBe(false);
   });
 
-  it("can be cleared before converting damage", () => {
+  it.each([0, 3])("can be cleared before converting damage with %i rounds", (rounds) => {
     const clear = makeEffect("clear", { power: 100 }, {
       id: "clear-siphon", creatorId: "defender", targetId: "attacker",
       isNew: true, castThisRound: true, createdRound: ROUND, targetType: "user",
     });
     const { newBattle, actionEffects } = applyEffects(
-      makeBattle([makeAttacker(), makeDefender()], [makeAttack(), siphon(), clear]),
+      makeBattle([makeAttacker(), makeDefender()], [makeAttack(), siphon(rounds), clear]),
       "attacker", makeAction(),
     );
     expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
