@@ -8,13 +8,14 @@ import { getIsolatedPyramid, hasQuestContentChanged } from "@/libs/questRun";
 import { usePublicPathname } from "@/utils/routing";
 import { useUserData } from "@/utils/UserContext";
 
-/** Keep isolated runs on the combat screen without mounting outside activity queries. */
+/** Keep isolated runs on combat while allowing authentication to finish on another device. */
 export const PyramidRunBoundary = ({ children }: { children: React.ReactNode }) => {
   const { data: user } = useUserData();
   const pathname = usePublicPathname();
   const router = useRouter();
   const isolated = getIsolatedPyramid(user);
-  const mustReturn = !!isolated && pathname !== "/combat";
+  const isAuthHandoff = pathname === "/native-sign-in";
+  const mustReturn = !!isolated && pathname !== "/combat" && !isAuthHandoff;
   useEffect(() => {
     if (mustReturn) router.replace("/combat");
   }, [mustReturn, router]);
@@ -28,7 +29,9 @@ export const PyramidRunBoundary = ({ children }: { children: React.ReactNode }) 
   );
   return (
     <>
-      {!isolated && paused && pathname !== "/combat" && <PyramidRun />}
+      {!isolated && paused && pathname !== "/combat" && !isAuthHandoff && (
+        <PyramidRun />
+      )}
       {children}
     </>
   );

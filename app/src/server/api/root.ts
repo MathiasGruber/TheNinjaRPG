@@ -37,6 +37,7 @@ import { mapTerrainRouter } from "./routers/mapTerrain";
 import { marriageRouter } from "./routers/marriage";
 import { merchRouter } from "./routers/merch";
 import { miscRouter } from "./routers/misc";
+import { nativeAuthRouter } from "./routers/nativeAuth";
 import { occupationRouter } from "./routers/occupation";
 import { generativeAiRouter } from "./routers/openai";
 import { overworldAiRouter } from "./routers/overworldAi";
@@ -119,6 +120,7 @@ export const appRouter = createTRPCRouter({
   pets: petsRouter,
   petSpecies: petSpeciesRouter,
   push: pushRouter,
+  nativeAuth: nativeAuthRouter,
   purchases: purchasesRouter,
   quests: questsRouter,
   rewardPackages: rewardPackagesRouter,

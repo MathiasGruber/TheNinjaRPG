@@ -22,6 +22,7 @@ import { toast } from "@/components/ui/use-toast";
 import { BOTID_BLOCKED_MESSAGE, BOTID_RELOAD_REQUIRED_MESSAGE } from "@/libs/botid";
 import { BUILD_ID_HEADER, noteServerBuild } from "@/libs/buildVersion";
 import { showMutationToast } from "@/libs/toast";
+import { shouldLogTrpcOperation } from "@/libs/trpcLogging";
 import {
   createTrpcSessionHeaders,
   SESSION_CHANGED_MESSAGE,
@@ -107,16 +108,7 @@ const TrpcClientProvider = (props: {
           retryDelayMs: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
         }),
         loggerLink({
-          enabled: (opts) =>
-            // Checkout URLs and parental PINs must never enter console logs or Sentry breadcrumbs.
-            !(
-              "path" in opts &&
-              typeof opts.path === "string" &&
-              (opts.path.startsWith("merch.") ||
-                opts.path.startsWith("parentalControls."))
-            ) &&
-            (process.env.NODE_ENV === "development" ||
-              (opts.direction === "down" && opts.result instanceof Error)),
+          enabled: shouldLogTrpcOperation,
         }),
         // CDN-cached queries get their own batch, so their URL is the same for every
         // visitor.

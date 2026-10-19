@@ -71,6 +71,9 @@ export const PUBLIC_MUTATIONS: string[] = [
   // Called as the app signs out, by which point Clerk has already cleared the
   // session. Authority is the device token itself.
   "push.unregisterDevice",
+  // The shell starts and redeems its browser handoff before it has a session.
+  "nativeAuth.start",
+  "nativeAuth.exchange",
 ];
 
 export const useGlobalOnMutateProtect = () => {
