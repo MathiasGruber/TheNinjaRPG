@@ -2584,6 +2584,12 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     )
     .filter(
       (value) =>
+        !["locationName", "locationDescription", "structureScale"].includes(
+          String(value),
+        ) || !!watchAll.structureAssetId,
+    )
+    .filter(
+      (value) =>
         String(value) !== "durationSeconds" ||
         ["espionage", "sabotage"].includes(watchTask),
     )

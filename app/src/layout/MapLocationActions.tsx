@@ -13,7 +13,7 @@ export const MapLocationActions = ({
 }: {
   arrived: MapLocation[];
   hovered?: MapLocation;
-  onInspect: (location: MapLocation) => void;
+  onInspect: (location: MapLocation, trigger: HTMLButtonElement) => void;
   onQuest: (questId: string) => void;
   onGoTo: (location: MapLocation) => void;
 }) => {
@@ -38,7 +38,7 @@ export const MapLocationActions = ({
               <Button
                 size="sm"
                 className="min-h-10"
-                onClick={() => onInspect(location)}
+                onClick={(event) => onInspect(location, event.currentTarget)}
               >
                 Inspect
               </Button>
@@ -59,7 +59,7 @@ export const MapLocationActions = ({
           ) : (
             <Button
               size="sm"
-              className="mt-2 min-h-10"
+              className="mt-2 h-auto min-h-10 w-full whitespace-normal break-words"
               onClick={() => onGoTo(location)}
             >
               Go to {location.name}

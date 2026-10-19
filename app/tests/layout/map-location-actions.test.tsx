@@ -13,8 +13,9 @@ it("shows visitors Inspect without offering or triggering quest actions", () => 
   const onQuest = vi.fn();
   const onGoTo = vi.fn();
   const view = render(<MapLocationActions arrived={[tower]} onInspect={onInspect} onQuest={onQuest} onGoTo={onGoTo} />);
-  fireEvent.click(view.getByRole("button", { name: "Inspect" }));
-  expect(onInspect).toHaveBeenCalledWith(tower);
+  const inspectButton = view.getByRole("button", { name: "Inspect" });
+  fireEvent.click(inspectButton);
+  expect(onInspect).toHaveBeenCalledWith(tower, inspectButton);
   expect(onQuest).not.toHaveBeenCalled();
   expect(onGoTo).not.toHaveBeenCalled();
   expect(view.queryByRole("button", { name: /^Quest$/ })).toBeNull();

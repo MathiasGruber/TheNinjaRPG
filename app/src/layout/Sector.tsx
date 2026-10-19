@@ -562,6 +562,7 @@ const Sector: React.FC<SectorProps> = (props) => {
   const [hoveredLocationId, setHoveredLocationId] = useState<string | null>(null);
   const hoveredLocationIdRef = useRef<string | null>(null);
   const [inspectLocationId, setInspectLocationId] = useState<string | null>(null);
+  const inspectTriggerRef = useRef<HTMLButtonElement>(null);
   const locationGroups = useMemo(
     () => groupMapLocations(questLocations.filter((l) => l.sector === sector)),
     [questLocations, sector],
@@ -2983,6 +2984,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         <Modal
           title={inspectedLocations[0]?.name ?? "Location"}
           isOpen={!!inspectLocationId}
+          returnFocusRef={inspectTriggerRef}
           setIsOpen={(open) => {
             if (!(typeof open === "function" ? open(!!inspectLocationId) : open))
               setInspectLocationId(null);
@@ -3032,7 +3034,10 @@ const Sector: React.FC<SectorProps> = (props) => {
         <MapLocationActions
           arrived={arrivedLocations}
           hovered={hoveredLocation}
-          onInspect={(location) => setInspectLocationId(location.id)}
+          onInspect={(location, trigger) => {
+            inspectTriggerRef.current = trigger;
+            setInspectLocationId(location.id);
+          }}
           onQuest={(questId) => {
             setLogbookModalQuestId(questId);
             setLogbookModalOpen(true);

@@ -34,16 +34,15 @@ export const MapLocationPreview = ({
   const decorationAssets = useMemo(() => mergeDecorationAssets(assets), [assets]);
   const terrainRegistry = useMemo(() => mergeTerrainSpecs(terrains), [terrains]);
   const locations = useMemo(() => [location], [location]);
-  const map = data?.sectors.find((entry) => entry.sector === location.sector)?.map;
+  const center = data?.sectors.find((entry) => entry.sector === location.sector);
+  const map = center?.map;
   const asset = assets.find((entry) => entry.id === location.assetId);
   const collisions =
-    data?.sectors
-      .find((entry) => entry.sector === location.sector)
-      ?.structures.filter(
-        (structure) =>
-          structure.longitude === location.longitude &&
-          structure.latitude === location.latitude,
-      ) ?? [];
+    center?.structures.filter(
+      (structure) =>
+        structure.longitude === location.longitude &&
+        structure.latitude === location.latitude,
+    ) ?? [];
   const overlappingLocations = publicLocations.filter(
     (entry) =>
       entry.sector === location.sector &&
@@ -99,6 +98,8 @@ export const MapLocationPreview = ({
           sector={location.sector}
           decorationAssets={decorationAssets}
           terrainRegistry={terrainRegistry}
+          structures={center.structures}
+          villageType={center.villageType}
           locations={locations}
           mapAssets={assets}
         />
