@@ -2,10 +2,10 @@
 
 import { useMemo } from "react";
 import { api } from "@/app/_trpc/client";
-import { MAP_SECTOR_ID_MAX } from "@/drizzle/constants";
 import Image from "@/layout/Image";
 import SectorPreview from "@/layout/SectorPreview";
 import { mergeDecorationAssets } from "@/libs/sector-map/decorations";
+import { isValidSectorId } from "@/libs/sector-map/sector-ids";
 import { mergeTerrainSpecs } from "@/libs/sector-map/terrains";
 import type { MapLocation } from "@/validators/mapLocation";
 
@@ -17,10 +17,7 @@ export const MapLocationPreview = ({
   location: MapLocation;
   isDynamic?: boolean;
 }) => {
-  const validSector =
-    Number.isInteger(location.sector) &&
-    location.sector >= 0 &&
-    location.sector <= MAP_SECTOR_ID_MAX;
+  const validSector = isValidSectorId(location.sector);
   const { data, isPending, error } = api.worldMap.getSectorWindow.useQuery(
     { sector: validSector ? location.sector : 0 },
     { enabled: validSector && !isDynamic, retry: false },

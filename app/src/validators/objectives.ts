@@ -51,7 +51,6 @@ import {
   IMG_BADGE_WIN_QUEST,
   IMG_FARM_PLOT_SOIL,
   LetterRanks,
-  MAP_SECTOR_ID_MAX,
   MasteryTypes,
   MEDNIN_RANKS,
   QUEST_PARTY_TYPES,
@@ -61,6 +60,7 @@ import {
   SAGE_MASTERY_RANKS,
   SECTOR_MAP_MAX_DIMENSION,
 } from "@/drizzle/constants";
+import { isValidSectorId } from "@/libs/sector-map/sector-ids";
 import { DateTimeRegExp } from "@/utils/regex";
 import { idsWithNumberField } from "@/validators/base";
 import {
@@ -870,12 +870,7 @@ const questSuperRefine = (
       });
     if (!supportsMapStructure(objective.task))
       issue("This objective does not support a map structure");
-    if (
-      objective.sector !== undefined &&
-      (!Number.isInteger(objective.sector) ||
-        objective.sector < 0 ||
-        objective.sector > MAP_SECTOR_ID_MAX)
-    )
+    if (objective.sector !== undefined && !isValidSectorId(objective.sector))
       issue("Choose a valid sector for this structure");
     for (const coordinate of [objective.longitude, objective.latitude]) {
       if (

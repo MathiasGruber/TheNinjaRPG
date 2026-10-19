@@ -1,6 +1,7 @@
-import { MAP_SECTOR_ID_MAX, SECTOR_MAP_MAX_DIMENSION } from "@/drizzle/constants";
+import { SECTOR_MAP_MAX_DIMENSION } from "@/drizzle/constants";
 import type { Quest } from "@/drizzle/schema";
 import { findCompletedPredecessor, isQuestObjectiveAvailable } from "@/libs/objectives";
+import { isValidSectorId } from "@/libs/sector-map/sector-ids";
 import type { UserWithRelations } from "@/routers/profile";
 import { calculateContentDiff } from "@/utils/diff";
 import type { MapLocation } from "@/validators/mapLocation";
@@ -83,10 +84,11 @@ const objectiveMapLocation = (
 ): MapLocation | null => {
   if (
     !presentation.structureAssetId ||
-    ![objective.sector, objective.longitude, objective.latitude].every(
+    objective.sector === undefined ||
+    !isValidSectorId(objective.sector) ||
+    ![objective.longitude, objective.latitude].every(
       (v) => typeof v === "number" && Number.isInteger(v) && v >= 0,
     ) ||
-    (objective.sector ?? Infinity) > MAP_SECTOR_ID_MAX ||
     (objective.longitude ?? Infinity) >= SECTOR_MAP_MAX_DIMENSION ||
     (objective.latitude ?? Infinity) >= SECTOR_MAP_MAX_DIMENSION
   )
@@ -98,7 +100,7 @@ const objectiveMapLocation = (
     ...(objective.overworldPlacementId
       ? { npcPlacementId: objective.overworldPlacementId }
       : {}),
-    sector: objective.sector as number,
+    sector: objective.sector,
     longitude: objective.longitude as number,
     latitude: objective.latitude as number,
     name: presentation.locationName || "Quest location",
