@@ -319,7 +319,7 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
           data-compact-hide
         >
           <Sheet open={leftSideBarOpen} onOpenChange={onLeftSideBarOpenChange}>
-            <SheetTrigger className="block" aria-label="homeBtn">
+            <SheetTrigger className="block" aria-label="Open main menu">
               {userData ? (
                 <House className={cn(variantClasses.yellowButton)} />
               ) : (
@@ -375,7 +375,7 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
             </LowerRightHelpBtn>
           </div>
           <Sheet open={rightSideBarOpen} onOpenChange={onRightSideBarOpenChange}>
-            <SheetTrigger aria-label="gameBtn" id="tutorial-gameBtn">
+            <SheetTrigger aria-label="Open game menu" id="tutorial-gameBtn">
               {userData ? (
                 <Earth className={cn(variantClasses.yellowButton)} />
               ) : (
