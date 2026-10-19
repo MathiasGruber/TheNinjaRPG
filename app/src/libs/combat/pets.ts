@@ -5,6 +5,7 @@ import { CombatStatNames, PET_BASE_STAT, PET_BATTLE_CONFIG } from "@/drizzle/con
 import type { Jutsu, PetSpecies, UserPet } from "@/drizzle/schema";
 import { getDefaultBasicActions } from "@/libs/combat/actions";
 import { GenNames, GROUND_EFFECT_TAG_TYPES } from "@/libs/combat/constants";
+import { getPreferredDamageElement } from "@/libs/combat/elementalDamage";
 import { realizeTag } from "@/libs/combat/tags";
 import type {
   BattleUserState,
@@ -216,7 +217,7 @@ export const getPetSpawnLocation = (
 
 /** Build a fresh summon-like AI actor, retaining team context but replacing owner progression/loadout. */
 const createPetBattleUser = (
-  pet: UserPet,
+  pet: UserPet & { species?: PetSpecies | null },
   owner: BattleUserState,
   location: { x: number; y: number },
 ): BattleUserState => {
@@ -275,6 +276,7 @@ const createPetBattleUser = (
     sageModeExpiresRound: null,
     sageModeUsedThisBattle: false,
     primaryElement: null,
+    preferredDamageElement: getPreferredDamageElement(pet.species ?? {}),
     secondaryElement: null,
     activeTrainedElement: null,
     elementalMastery: {},

@@ -25,7 +25,7 @@ import { ensureDom } from "../setup-dom.mjs";
 
 const testApi = createTRPCReact<AppRouter>();
 const usePetSpeciesEditForm = petSpecies.usePetSpeciesEditForm;
-const defaults = { role: "ASSAULT" as const, defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" as const };
+const defaults = { preferredDamageElement: null, role: "ASSAULT" as const, defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" as const };
 let queryClient: QueryClient;
 let role: UserRole;
 let species: RouterOutputs["petSpecies"]["getAll"];

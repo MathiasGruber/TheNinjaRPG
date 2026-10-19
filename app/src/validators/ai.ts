@@ -101,11 +101,10 @@ export const ConditionSummonWithinRange = z.object({
   ...rangeSettings,
 });
 
-// Import effect types from the combat system
-export const AvailableEffectTypes = (tagTypes.length > 0 ? tagTypes : ["damage"]) as [
-  string,
-  ...string[],
-];
+// Elemental Damage resolves to damage before AI selection and effect conditions.
+export const AvailableEffectTypes = tagTypes.filter(
+  (type) => type !== "elementaldamage",
+) as [string, ...string[]];
 export type AvailableEffectType = (typeof AvailableEffectTypes)[number];
 
 export const ConditionHasEffect = z.object({

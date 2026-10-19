@@ -10,7 +10,7 @@ const species = { name: "Mist fox", description: "A fox with silver ears.", rari
 
 describe("authored companion species contracts", () => {
   it("defaults optional behavior without changing the author's species identity", () => {
-    expect(PetSpeciesValidator.parse(species)).toEqual({ ...species, role: "ASSAULT", defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" });
+    expect(PetSpeciesValidator.parse(species)).toEqual({ ...species, preferredDamageElement: null, role: "ASSAULT", defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" });
   });
 
   it.each([...PetRarities])("bounds default moves by %s rarity and rejects duplicate selections", (rarity) => {

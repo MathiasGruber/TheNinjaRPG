@@ -1,6 +1,7 @@
 import { noCase } from "change-case";
 import { nanoid } from "nanoid";
 import type {
+  BasicElement,
   BattleType,
   ElementName,
   GeneralType,
@@ -20,6 +21,10 @@ import {
 } from "@/drizzle/constants";
 import type { Battle } from "@/drizzle/schema";
 import { damageDerivedTagTypes, damageModifierTypes } from "@/libs/combat/constants";
+import {
+  getPreferredDamageElement,
+  resolveElementalDamage,
+} from "@/libs/combat/elementalDamage";
 import { getPotencyDescription } from "@/libs/combat/potency";
 import { getEffectPower } from "@/libs/combat/power";
 import {
@@ -73,7 +78,10 @@ import type {
 type RealizeTagUser = Pick<
   ReturnedUserState,
   "userId" | "villageId" | "highestGenerals"
->;
+> & {
+  preferredDamageElement?: BasicElement | null;
+  primaryElement?: ElementName | null;
+};
 
 /**
  * Realize tag with information about how powerful tag is
@@ -88,7 +96,9 @@ export const realizeTag = <T extends BattleEffect>(props: {
   barrierAbsorb?: number;
   battle?: Battle; // Make battle optional since it's not always needed
 }): T => {
-  const { tag, user, target, level, round, barrierAbsorb, battle } = props;
+  const { user, target, level, round, barrierAbsorb, battle } = props;
+  // Elemental damage is an authoring variant; all realized effects use ordinary damage.
+  const tag = resolveElementalDamage(props.tag, user) as T;
   if ("rounds" in tag || tag.type === "increaseaggro" || tag.type === "decreaseaggro") {
     tag.timeTracker = {};
   }
@@ -1282,6 +1292,9 @@ export const clone = (
   }
   if (effect.isNew) {
     const newAi = structuredClone(user);
+    newAi.preferredDamageElement = getPreferredDamageElement({
+      primaryElement: user.primaryElement,
+    });
     newAi.enmity = 0;
     delete newAi.baseStatsForModifiers;
     // A clone did not receive the original's hits and must not inherit its deferred damage.

@@ -74,6 +74,7 @@ export type UserDelta = z.infer<typeof userDeltaSchema>;
 export const userPatchSchema = z.object({
   elementalMastery: z.partialRecord(z.enum(BasicElementName), z.number()).optional(),
   activeTrainedElement: z.enum(BasicElementName).nullable().optional(),
+  preferredDamageElement: z.enum(BasicElementName).nullable().optional(),
   dailySageActivations: z.number().optional(),
   dailyMedicalMissions: z.number().optional(),
   dailyWarMissions: z.number().optional(),

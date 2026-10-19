@@ -1494,6 +1494,7 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                           </span>
                         )}
                         {(parsedEffect.type === "damage" ||
+                          parsedEffect.type === "elementaldamage" ||
                           parsedEffect.type === "pierce") && (
                           <>
                             <span>

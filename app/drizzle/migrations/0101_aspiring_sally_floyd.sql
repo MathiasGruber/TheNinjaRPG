@@ -1,0 +1,2 @@
+ALTER TABLE `PetSpecies` ADD `preferredDamageElement` enum('Fire','Water','Wind','Earth','Lightning');
+ALTER TABLE `UserData` ADD `preferredDamageElement` enum('Fire','Water','Wind','Earth','Lightning');

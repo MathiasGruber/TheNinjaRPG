@@ -3,6 +3,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import {
   AvatarFacings,
+  BasicElementName,
   ElementNames,
   GeneralTypes,
   UserRanks,
@@ -153,6 +154,13 @@ export const useAiEditForm = (
       id: "secondaryElement",
       type: "str_array",
       values: ElementNames,
+      resetButton: true,
+    },
+    {
+      id: "preferredDamageElement",
+      label: "Primary damage element",
+      type: "str_array",
+      values: BasicElementName,
       resetButton: true,
     },
     {

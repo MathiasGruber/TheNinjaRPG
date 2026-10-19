@@ -701,6 +701,13 @@
       "when": 1792393482509,
       "tag": "0100_tower_defense_claim_receipts",
       "breakpoints": false
+    },
+    {
+      "idx": 101,
+      "version": "5",
+      "when": 1792415372878,
+      "tag": "0101_aspiring_sally_floyd",
+      "breakpoints": false
     }
   ]
 }

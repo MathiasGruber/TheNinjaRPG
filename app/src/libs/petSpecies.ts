@@ -2,7 +2,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
-import { PetRarities, PetRoles, PetSkillTargets } from "@/drizzle/constants";
+import {
+  BasicElementName,
+  PetRarities,
+  PetRoles,
+  PetSkillTargets,
+} from "@/drizzle/constants";
 import type { PetSpecies } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 import { isPetJutsuAllowed } from "@/libs/pets/abilities";
@@ -19,6 +24,7 @@ const emptySpecies: ZodPetSpeciesType = {
   description: "",
   rarity: "COMMON",
   role: "ASSAULT",
+  preferredDamageElement: null,
   isActive: false,
   defaultJutsuIds: [],
   aiRules: [],
@@ -106,6 +112,13 @@ export const usePetSpeciesEditForm = (
     { id: "name", label: "Species name", type: "text" },
     { id: "rarity", label: "Rarity", type: "str_array", values: PetRarities },
     { id: "role", label: "Role", type: "str_array", values: PetRoles },
+    {
+      id: "preferredDamageElement",
+      label: "Primary damage element",
+      type: "str_array",
+      values: BasicElementName,
+      resetButton: true,
+    },
     {
       id: "description",
       label: "Visual description",

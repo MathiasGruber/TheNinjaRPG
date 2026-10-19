@@ -2726,6 +2726,7 @@ export const userData = mysqlTable(
     // Settings
     preferredGeneral1: mysqlEnum("preferredGeneral1", consts.GeneralTypes),
     preferredGeneral2: mysqlEnum("preferredGeneral2", consts.GeneralTypes),
+    preferredDamageElement: mysqlEnum("preferredDamageElement", consts.BasicElementName),
     showBattleDescription: boolean("showBattleDescription").default(true).notNull(),
     defaultAutoCombat: boolean("defaultAutoCombat").default(true).notNull(),
     showPvpRecord: boolean("showPvpRecord").default(false).notNull(),
@@ -2941,6 +2942,7 @@ export const petSpecies = mysqlTable(
     description: varchar("description", { length: 1000 }).notNull(),
     rarity: mysqlEnum("rarity", consts.PetRarities).default("COMMON").notNull(),
     role: mysqlEnum("role", consts.PetRoles).default("ASSAULT").notNull(),
+    preferredDamageElement: mysqlEnum("preferredDamageElement", consts.BasicElementName),
     defaultJutsuIds: json("defaultJutsuIds").$type<string[]>().default([]).notNull(),
     aiRules: json("aiRules").$type<AiRuleType[]>().default([]).notNull(),
     includeDefaultRules: boolean("includeDefaultRules").default(true).notNull(),

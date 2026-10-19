@@ -32,6 +32,7 @@ export const getPetSkillCost = (skill: Pick<SkillTree, "tier">) =>
 /** Catalog abilities may affect combatants without introducing new content dependencies. */
 const activeEffects = new Set<ZodAllTags["type"]>([
   "damage",
+  "elementaldamage",
   "heal",
   "shield",
   "increasestat",

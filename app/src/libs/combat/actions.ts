@@ -35,6 +35,7 @@ import {
   COMBAT_SECONDS,
   GROUND_EFFECT_TAG_TYPES,
 } from "@/libs/combat/constants";
+import { resolveElementalDamage } from "@/libs/combat/elementalDamage";
 import { recordMasteryUsage } from "@/libs/combat/mastery";
 import { areBattleAllies } from "@/libs/combat/participants";
 import { resolvePotencyTags } from "@/libs/combat/potency";
@@ -225,8 +226,9 @@ export const availableUserActions = (
                 jutsu.elementClassification !== "None") ||
               jutsu.effects.some(
                 (effect) =>
-                  "elements" in effect &&
-                  effect.elements?.some((element) => element !== "None"),
+                  effect.type === "elementaldamage" ||
+                  ("elements" in effect &&
+                    effect.elements?.some((element) => element !== "None")),
               );
             return !isElemental;
           })
@@ -337,7 +339,9 @@ export const availableUserActions = (
         }
       }
     }
-    return a;
+    return user
+      ? { ...a, effects: a.effects.map((tag) => resolveElementalDamage(tag, user)) }
+      : a;
   });
   // A stale companion in a disabled or non-PvE battle may only yield its turn.
   if (
@@ -1017,7 +1021,10 @@ export const insertAction = (info: {
       )
       .map((effect) => ({ ...effect, targetId: actorId, fromGround: true }));
     const castTags = resolvePotencyTags(
-      action,
+      {
+        ...action,
+        effects: action.effects.map((tag) => resolveElementalDamage(tag, user)),
+      },
       [...usersEffects, ...groundPotency],
       actorId,
     );

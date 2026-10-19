@@ -57,7 +57,6 @@ import {
   getConditionSchema,
   updateAiProfileSchema,
 } from "@/validators/ai";
-import { tagTypes } from "@/validators/combat";
 
 interface AiProfileEditProps {
   /** Profile identity and selectable definitions; saved rules can reference missing entries. */
@@ -841,17 +840,15 @@ const AiProfileEdit: React.FC<AiProfileEditProps> = (props) => {
                             <SelectValue placeholder={`None`} />
                           </SelectTrigger>
                           <SelectContent id="available_action">
-                            {tagTypes
-                              .filter(
-                                (effect) =>
-                                  !props.availableActionEffects ||
-                                  props.availableActionEffects.includes(effect),
-                              )
-                              .map((effect, i) => (
-                                <SelectItem key={`${effect}-${i}`} value={effect}>
-                                  {effect}
-                                </SelectItem>
-                              ))}
+                            {AvailableEffectTypes.filter(
+                              (effect) =>
+                                !props.availableActionEffects ||
+                                props.availableActionEffects.includes(effect),
+                            ).map((effect, i) => (
+                              <SelectItem key={`${effect}-${i}`} value={effect}>
+                                {effect}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       )}
