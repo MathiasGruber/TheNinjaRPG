@@ -159,11 +159,14 @@ export default function CombatPage() {
   useEffect(() => {
     if (isBattleMissing) {
       if (userData?.battleId) void utils.profile.getUser.invalidate();
-      if (battle?.extraState.dungeon && !results) router.push("/dungeon");
+      if (battle?.id === userData?.battleId && battle?.extraState.dungeon && !results) {
+        router.push("/dungeon");
+      }
     }
   }, [
     isBattleMissing,
     userData?.battleId,
+    battle?.id,
     battle?.extraState.dungeon,
     results,
     router,

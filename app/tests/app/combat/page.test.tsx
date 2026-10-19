@@ -140,3 +140,18 @@ it("preserves dungeon recovery when a different member settles its battle", asyn
   expect(invalidate).toHaveBeenCalledTimes(1);
   expect(view.queryByText("Active battle dungeon-battle")).toBeNull();
 });
+
+it("does not route a missing newer battle through a retained dungeon battle", async () => {
+  const battle = makeCompleteBattle({
+    id: "dungeon-a", usersState: [makeUser({ userId: "player" })],
+    extraState: { dungeon: dungeonBattleState() },
+  });
+  const { view, changeBattle, push, invalidate } = mount("dungeon-a", async (id) => (
+    id === "dungeon-a" ? { battle, result: null } as unknown as Response : empty
+  ));
+  await waitFor(() => expect(view.getByText("Active battle dungeon-a")).toBeDefined());
+  changeBattle("ordinary-b");
+  await waitFor(() => expect(view.getByRole("link", { name: "Return to Profile" })).toBeDefined());
+  expect(invalidate).toHaveBeenCalledTimes(1);
+  expect(push).not.toHaveBeenCalled();
+});
