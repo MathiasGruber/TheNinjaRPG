@@ -186,7 +186,6 @@ const seedPet = async (fixture: typeof fixtures[number] = fixtures[0], patch: Pa
     generationToken: null,
     generationStartedAt: savedAt,
     generationAttempts: 2,
-    generationDay: "2026-01-01",
     revision: 7,
     createdAt: savedAt,
     updatedAt: savedAt,

@@ -14,7 +14,7 @@ import {
 import { txt2imgNanoBanana, uploadFileFromReplicate } from "@/libs/replicate";
 import { servedUfsUrl } from "@/libs/uploadthing";
 
-/** Authored identity and last accepted image needed for initial art or an evolution. */
+/** Authored traits and last accepted image needed for initial art, redraws or evolution. */
 type AppearancePet = Pick<
   UserPet,
   | "userId"

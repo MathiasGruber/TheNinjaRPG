@@ -3799,7 +3799,10 @@ const petTaskContentCondition = (task: PetTask, role: UserRole) =>
     canPlayHiddenQuests(role) ? undefined : eq(quest.hidden, false),
   )})`;
 
-/** Guard return and terminal history in the same account claim; occupation may change while away. */
+/**
+ * Guard return and terminal history in the same account claim; occupation may change
+ * while away. As at dispatch, accepted current-rank art remains usable during redraws.
+ */
 const petTaskOwnerReturnCondition = (userId: string, task: PetTask) =>
   sql`${and(
     eq(userData.status, "AWAKE"),
@@ -3811,7 +3814,7 @@ const petTaskOwnerReturnCondition = (userId: string, task: PetTask) =>
       eq(userPet.id, task.petId),
       eq(userPet.userId, userId),
       gte(userPet.rank, PET_TASK_MIN_RANK),
-      eq(userPet.generationStatus, "READY"),
+      inArray(userPet.generationStatus, ["READY", "GENERATING"]),
       eq(userPet.artRank, userPet.rank),
       isNotNull(userPet.avatar),
       ne(userPet.avatar, ""),

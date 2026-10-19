@@ -57,6 +57,7 @@ afterEach(() => {
 
 it("keeps a successful adoption intact while its claimed species leaves the daily offers and artwork is pending", async () => {
   let claimed: (RouterInputs["pets"]["acquirePet"] & { id: string; rank: number; avatar: string | null; artRank: number; generationStatus: string }) | null = null;
+  let remainingGenerations = 3;
   let finishGeneration: () => void = () => undefined;
   const generation = new Promise<void>((resolve) => { finishGeneration = resolve; });
   const acquire = vi.fn((input: RouterInputs["pets"]["acquirePet"]) => {
@@ -65,6 +66,7 @@ it("keeps a successful adoption intact while its claimed species leaves the dail
   });
   const generate = vi.fn(async (input: RouterInputs["pets"]["generateAppearance"]) => {
     expect(input).toEqual({ petId: "new-companion" });
+    remainingGenerations = 0;
     await generation;
     claimed = { ...claimed!, avatar: "/new-companion.webp", artRank: 1, generationStatus: "READY" };
     return { success: true, message: "Appearance ready" };
@@ -80,7 +82,7 @@ it("keeps a successful adoption intact while its claimed species leaves the dail
         slots: 4, maxSlots: 6, dayKey,
         options: getDailyPetOptions("owner", "NONE", initialPetSpecies, dayKey, claimed ? { dayKey, speciesIds: [claimed.speciesId] } : undefined),
         optionCount: 3, replacementCost: 0, replacementSilverCost: 0, canAcquire: true,
-        generationLimit: 3, remainingGenerations: 3, generationRetryAt: null,
+        generationLimit: 3, remainingGenerations, generationRetryAt: null,
       };
     };
     void respond().then((data) => { observer.next({ result: { data } }); observer.complete(); }, (error) => observer.error(error));
@@ -101,6 +103,10 @@ it("keeps a successful adoption intact while its claimed species leaves the dail
     const profile = await view.findByRole("link", { name: "Open pet profile" });
     expect(profile.getAttribute("href")).toBe("/profile?tab=pet&petId=new-companion");
     await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
+    await queryClient.invalidateQueries();
+    await view.findByText(/0 \/ 3 image attempts/);
+    expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+    expect(view.getByText(/Your companion's image is being created/)).toBeDefined();
     expect(view.getByText("Creating your companion's unique image. This can take a few minutes...")).toBeDefined();
     expect(view.queryByRole("alert")?.textContent ?? null).toBeNull();
     expect(acquire).toHaveBeenCalledTimes(1);
@@ -378,6 +384,74 @@ for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
     } finally { queryClient.clear(); }
   });
 }
+
+it.each([1, 2])("offers support for an exhausted rank %s appearance and restores retry after a reset", async (rank) => {
+  const pet = { id: "saved", name: "Miso", rank, avatar: rank === 1 ? null : "/miso.webp", artRank: rank - 1, generationStatus: "FAILED",
+    paletteIndex: options.palettes[0]!.index, characteristicIndex: options.characteristics[0]!.index, auraIndex: options.auras[0]!.index };
+  const { view, queryClient, mutations, updateData } = renderAcquisition({
+    pet, pets: [pet], canAcquire: false, remainingGenerations: 0,
+    generationRetryAt: new Date(Date.now() + 60_000),
+  });
+  try {
+    const support = await view.findByRole("link", { name: "Contact support" });
+    expect(support.getAttribute("href")).toBe("/support");
+    expect(view.getByText(/request an image attempt reset for this companion/)).toBeDefined();
+    expect(view.queryByText(/Finish its appearance for free/)).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    expect(view.queryByText(/Appearance retry available in/)).toBeNull();
+    expect(mutations).not.toHaveBeenCalled();
+
+    await updateData({ remainingGenerations: 1, generationRetryAt: null });
+    const retry = await view.findByRole("button", { name: "Retry appearance for free" }) as HTMLButtonElement;
+    expect(retry.disabled).toBe(false);
+    expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+    fireEvent.click(retry);
+    if (rank === 1) {
+      const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
+    }
+    await waitFor(() => expect(mutations).toHaveBeenCalledWith("pets.generateAppearance", rank === 1 ? { petId: pet.id, appearance: {
+      dayKey, paletteIndex: pet.paletteIndex, characteristicIndex: pet.characteristicIndex, auraIndex: pet.auraIndex,
+    } } : { petId: pet.id }));
+  } finally { queryClient.clear(); }
+});
+
+it.each(["FAILED", "READY"])("keeps the final active attempt pending until its %s outcome", async (generationStatus) => {
+  const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus: "GENERATING" };
+  const { view, queryClient, updateData } = renderAcquisition({
+    pet, pets: [pet], canAcquire: false, remainingGenerations: 0,
+    generationRetryAt: new Date(Date.now() + 60_000),
+  });
+  try {
+    await view.findByText(/Your companion's image is being created/);
+    expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    expect(view.queryByText(/Appearance retry available in/)).toBeNull();
+
+    const completed = { ...pet, generationStatus, artRank: generationStatus === "READY" ? 1 : 0, avatar: generationStatus === "READY" ? "/miso.webp" : null };
+    await updateData({ pet: completed, pets: [completed] });
+    if (generationStatus === "FAILED") {
+      await view.findByRole("link", { name: "Contact support" });
+    } else {
+      await waitFor(() => expect(view.queryByText(/Your companion's image is being created/)).toBeNull());
+      expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
+      expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    }
+  } finally { queryClient.clear(); }
+});
+
+it("offers support once an exhausted generation lease has expired", async () => {
+  const pet = { id: "saved", name: "Miso", rank: 1, avatar: null, artRank: 0, generationStatus: "GENERATING" };
+  const { view, queryClient } = renderAcquisition({
+    pet, pets: [pet], canAcquire: false, remainingGenerations: 0,
+    generationRetryAt: new Date(Date.now() - 1000),
+  });
+  try {
+    await view.findByRole("link", { name: "Contact support" });
+    expect(view.queryByText(/Your companion's image is being created/)).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+  } finally { queryClient.clear(); }
+});
 
 it.each([1, 6])("preserves exhausted daily-offer guidance and free appearance recovery in a full collection (max slots: %s)", async (maxSlots) => {
   const message = "You have adopted all of today's companion species. New choices arrive at midnight UTC.";

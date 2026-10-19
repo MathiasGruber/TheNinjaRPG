@@ -353,7 +353,7 @@ export const petsRouter = createTRPCRouter({
       const rankUpReason = pet
         ? (petMutationBlockMessage(user, pet) ?? petRankUpBlockMessage(pet, user))
         : "Adopt a pet first.";
-      const attempts = pet?.generationDay === dayKey ? pet.generationAttempts : 0;
+      const attempts = pet?.generationAttempts ?? 0;
       // A generation token is server-only; the UI needs its status and retry time instead.
       const visiblePet = pet ? omitGenerationToken(pet) : null;
       return {
@@ -735,14 +735,10 @@ export const petsRouter = createTRPCRouter({
       if (blocked) return errorResponse(blocked);
       const next = PET_RANKS.find((entry) => entry.rank === pet.rank + 1);
       if (!next) return errorResponse("Your pet has reached its highest rank.");
-      const attempts =
-        pet.generationDay === getPetDayKey() ? pet.generationAttempts : 0;
-      if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
-        return errorResponse(
-          `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
-        );
+      // Each evolution gets its own bounded allowance, even if the previous rank exhausted it.
       const changed = await updateOwnedPet(ctx.drizzle, user, pet, {
         rank: next.rank,
+        generationAttempts: 0,
         generationStatus: "PENDING",
         generationToken: null,
         generationStartedAt: null,
@@ -755,22 +751,25 @@ export const petsRouter = createTRPCRouter({
         : changedResponse();
     }),
 
-  /** Claim a bounded generation lease and accept only its matching provider result. */
+  /**
+   * Claim one attempt atomically before calling the image provider, then accept only
+   * its matching lease. Accepted artwork remains usable until replacement succeeds;
+   * redraws and evolutions retain the companion's saved appearance traits.
+   */
   generateAppearance: protectedProcedure
     .input(generatePetAppearanceSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const { user, pet } = await fetchPetOwner(ctx.drizzle, ctx.userId, input.petId);
       if (!user || !pet) return errorResponse("Pet not found");
-      if (user.isBanned) return errorResponse("You are banned");
+      const restriction = petMutationBlockMessage(user, pet);
+      if (restriction) return errorResponse(restriction);
       if (!pet.species)
         return errorResponse(
           "This companion's species could not be loaded. Please contact support.",
         );
       if (pet.rank > getMaxPetRank(user.rank))
         return errorResponse("Your rank does not support this companion rank.");
-      if (isPetAppearanceReady(pet))
-        return errorResponse("This companion already has its current appearance.");
       const now = new Date();
       const dayKey = getPetDayKey(now);
       if (hasActiveGeneration(pet, now))
@@ -784,14 +783,16 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           "Please wait a moment before retrying your companion's appearance.",
         );
-      const attempts = pet.generationDay === dayKey ? pet.generationAttempts : 0;
+      const attempts = pet.generationAttempts;
       if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
         return errorResponse(
-          `You have used today's ${PET_MAX_GENERATION_ATTEMPTS} generation attempts. Retry tomorrow; your companion is still yours.`,
+          `You have used all ${PET_MAX_GENERATION_ATTEMPTS} image attempts for this rank. Your companion is still yours.`,
         );
       if (input.appearance) {
-        if (pet.avatar || pet.artRank > 0 || pet.rank !== 1)
-          return errorResponse("An established companion keeps its appearance traits.");
+        if (pet.rank !== 1 || pet.artRank !== 0 || pet.avatar)
+          return errorResponse(
+            "Your companion keeps its saved appearance traits after its first image.",
+          );
         // Cosmetics roll independently of species; rewards need not be in daily offers.
         const choices = getDailyPetOptions(
           user.userId,
@@ -823,17 +824,15 @@ export const petsRouter = createTRPCRouter({
         characteristicIndex: input.appearance.characteristicIndex,
         auraIndex: input.appearance.auraIndex,
       };
-      // Commit cosmetics with the lease so a concurrent retry cannot change its identity.
+      // Claim before spending on the provider; retain accepted cosmetics until replacement succeeds.
       const token = nanoid();
       const claim = await retryOnDeadlock(() =>
         ctx.drizzle
           .update(userPet)
           .set({
-            ...appearance,
             generationStatus: "GENERATING",
             generationToken: token,
             generationStartedAt: now,
-            generationDay: dayKey,
             generationAttempts: attempts + 1,
             revision: sql`${userPet.revision} + 1`,
             updatedAt: now,
@@ -841,14 +840,8 @@ export const petsRouter = createTRPCRouter({
           .where(
             and(
               petSnapshotWhere(pet),
-              or(
-                ne(userPet.generationStatus, "READY"),
-                ne(userPet.artRank, userPet.rank),
-                isNull(userPet.avatar),
-              ),
               sql`EXISTS (SELECT 1 FROM ${userData}
-                WHERE ${userData.userId} = ${ctx.userId} AND ${userData.isBanned} = false
-                AND ${userData.rank} = ${user.rank}
+                WHERE ${ownerSnapshotWhere(user)}
                 AND ${userData.federalStatus} = ${user.federalStatus}
                 AND ${userData.staffAccount} = ${user.staffAccount})`,
             ),
@@ -868,6 +861,7 @@ export const petsRouter = createTRPCRouter({
           ctx.drizzle
             .update(userPet)
             .set({
+              ...appearance,
               avatar,
               avatarFacing,
               artRank: pet.rank,
@@ -897,11 +891,13 @@ export const petsRouter = createTRPCRouter({
           petId: pet.id,
           rank: pet.rank,
         });
+        // A failed redraw keeps usable art; unfinished founders and evolutions still need recovery.
         await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)
             .set({
-              generationStatus: "FAILED",
+              generationStatus:
+                pet.avatar && pet.artRank === pet.rank ? "READY" : "FAILED",
               generationToken: null,
               revision: sql`${userPet.revision} + 1`,
               updatedAt: new Date(),

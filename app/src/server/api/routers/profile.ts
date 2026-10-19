@@ -265,7 +265,6 @@ import {
 import { checkForBadWords } from "@/utils/profanity";
 import sanitize from "@/utils/sanitize";
 import {
-  getPetDayKey,
   getTimeOfLastReset,
   isDifferentDay,
   secondsFromDate,
@@ -2757,19 +2756,14 @@ export const profileRouter = createTRPCRouter({
             id: true,
             name: true,
             generationStatus: true,
-            generationDay: true,
             generationAttempts: true,
           },
         }),
       ]);
       if (actor.isBanned || !canResetPetImageGeneration(actor.role)) return [];
-      const dayKey = getPetDayKey();
-      return pets.map(({ generationDay, ...pet }) => ({
-        ...pet,
-        generationAttempts: generationDay === dayKey ? pet.generationAttempts : 0,
-      }));
+      return pets;
     }),
-  /** Restore a companion's daily allowance without replacing its accepted artwork. */
+  /** Restore a companion's current-rank allowance without replacing its accepted artwork. */
   resetPetImageGeneration: protectedProcedure
     .input(resetPetImageGenerationSchema)
     .output(baseServerResponse)
@@ -2793,18 +2787,22 @@ export const profileRouter = createTRPCRouter({
           "This companion's image is still generating. Wait for it to finish before resetting attempts.",
         );
       }
-      if (pet.generationDay !== getPetDayKey(now) || pet.generationAttempts === 0)
-        return errorResponse("This companion has no image attempts to reset today");
+      if (pet.generationAttempts === 0)
+        return errorResponse("This companion has no image attempts to reset");
       // The revision guard prevents clearing a generation lease claimed after our read.
       const result = await ctx.drizzle
         .update(userPet)
         .set({
           generationAttempts: 0,
-          generationDay: null,
           generationStartedAt: null,
           generationToken: null,
+          // Expired redraws retain usable art; unfinished evolutions remain retryable.
           generationStatus:
-            pet.generationStatus === "GENERATING" ? "FAILED" : pet.generationStatus,
+            pet.generationStatus === "GENERATING"
+              ? pet.avatar && pet.artRank === pet.rank
+                ? "READY"
+                : "FAILED"
+              : pet.generationStatus,
           revision: sql`${userPet.revision} + 1`,
           updatedAt: now,
         })

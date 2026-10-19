@@ -673,6 +673,7 @@ export const PET_SPECIES_RARITY_WEIGHTS: Record<FederalStatus, Record<PetRarity,
   SILVER: { COMMON: 5000, UNCOMMON: 2800, RARE: 1500, EPIC: 550, LEGENDARY: 150 },
   GOLD: { COMMON: 4000, UNCOMMON: 3000, RARE: 2000, EPIC: 750, LEGENDARY: 250 },
 };
+/** Image attempts per evolution rank, including its initial generation. */
 export const PET_MAX_GENERATION_ATTEMPTS = 3;
 export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
 export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;

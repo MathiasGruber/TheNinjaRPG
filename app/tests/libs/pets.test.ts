@@ -67,13 +67,14 @@ describe("companion appearance choices", () => {
 });
 
 describe("companion progression", () => {
-  const ready = { rank: 1, experience: 7500, generationStatus: "READY" as const, artRank: 1, avatar: "/accepted-pet.webp", battleEnabled: true };
+  const ready = { rank: 1, experience: 7500, generationStatus: "READY" as const, generationStartedAt: null, artRank: 1, avatar: "/accepted-pet.webp", battleEnabled: true };
 
   it("enforces the exact owner rank hierarchy and accepted current art", () => {
     expect(["STUDENT", "GENIN", "CHUNIN", "JONIN", "ELITE JONIN", "ELDER", "NONE"].map((rank) => getMaxPetRank(rank as Parameters<typeof getMaxPetRank>[0]))).toEqual([1, 3, 5, 7, 9, 10, 0]);
     expect(canUsePet(ready, { rank: "STUDENT" })).toBe(true);
     expect(canUsePet({ ...ready, rank: 2, artRank: 2 }, { rank: "STUDENT" })).toBe(false);
-    expect(canUsePet({ ...ready, generationStatus: "GENERATING" }, { rank: "GENIN" })).toBe(false);
+    expect(canUsePet({ ...ready, generationStatus: "GENERATING" }, { rank: "GENIN" })).toBe(true);
+    expect(canUsePet({ ...ready, generationStatus: "GENERATING", artRank: 0 }, { rank: "GENIN" })).toBe(false);
     expect(canUsePet({ ...ready, artRank: 0 }, { rank: "GENIN" })).toBe(false);
     expect(canUsePet({ ...ready, battleEnabled: false }, { rank: "GENIN" })).toBe(false);
     expect(canUsePet({ ...ready, avatar: null }, { rank: "GENIN" })).toBe(false);
@@ -89,6 +90,7 @@ describe("companion progression", () => {
     expect(petRankUpBlockMessage(ready, { rank: "GENIN" })).toBeNull();
     expect(petRankUpBlockMessage({ ...ready, experience: 7499 }, { rank: "GENIN" })).toContain("experience");
     expect(petRankUpBlockMessage({ ...ready, artRank: 0 }, { rank: "GENIN" })).toContain("appearance");
+    expect(petRankUpBlockMessage({ ...ready, generationStatus: "GENERATING", generationStartedAt: new Date() }, { rank: "GENIN" })).toContain("appearance");
   });
 });
 
