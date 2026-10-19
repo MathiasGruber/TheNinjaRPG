@@ -537,6 +537,27 @@ fn ensure_game_loop_scheduled(ctx: &ReducerContext) {
     });
 }
 
+/// Whether the caller is the connection that created this session.
+///
+/// Every session row is public, so a session ID alone is not a credential: any client
+/// could otherwise start waves, fire, buy upgrades for, or delete someone else's run.
+fn is_session_owner(ctx: &ReducerContext, session: &GameSession) -> bool {
+    session.spacetimedb_identity == ctx.sender.to_hex().to_string()
+}
+
+/// Loads a session for a mutating reducer, rejecting callers that do not own it.
+fn find_owned_session(ctx: &ReducerContext, session_id: u64) -> Option<GameSession> {
+    let Some(session) = ctx.db.game_session().id().find(session_id) else {
+        log::error!("Session not found: {}", session_id);
+        return None;
+    };
+    if !is_session_owner(ctx, &session) {
+        log::warn!("Rejected reducer call for session {} from a non-owner identity", session_id);
+        return None;
+    }
+    Some(session)
+}
+
 /// Simple hash function for definitions
 /// Creates a deterministic hash from the definition JSON strings
 fn hash_definitions(upgrade_json: &str, enemy_json: &str) -> String {
@@ -620,7 +641,9 @@ pub fn create_session(
         return;
     }
 
-    // Validate signature and definitions are present
+    // The module holds no signing secret, so it only checks that a signature is present.
+    // The tRPC claim re-verifies the HMAC over these parameters and the user ID, and reads
+    // the result from completed_run, so a forged session can be played but never claimed.
     if session_signature.is_empty() || nonce.is_empty() {
         log::error!("Session creation requires valid signature and nonce from tRPC server");
         return;
@@ -647,12 +670,16 @@ pub fn create_session(
     
     let center = get_center_position(initial_grid_size);
     let now = timestamp_to_ms(ctx.timestamp);
-    let identity = ctx.sender.to_hex();
+    let identity = ctx.sender.to_hex().to_string();
     
-    // Mark any existing active sessions for this user as abandoned
+    // Mark this connection's existing active sessions for the user as abandoned. The user ID
+    // is caller-supplied, so sessions created by other identities are left untouched.
     let mut sessions_to_abandon = Vec::new();
     // PERFORMANCE: Use index to find sessions for this user
     for session in ctx.db.game_session().ninjarpg_user_id().filter(&ninjarpg_user_id) {
+        if session.spacetimedb_identity != identity {
+            continue;
+        }
         if let Some(state) = ctx.db.session_state().session_id().find(session.id) {
             if state.status == "active" {
                 sessions_to_abandon.push(session.id);
@@ -701,7 +728,7 @@ pub fn create_session(
         grid_expand_freq,
         range_visual_factor,
         created_at: now,
-        spacetimedb_identity: identity.to_string(),
+        spacetimedb_identity: identity.clone(),
     });
 
     // Create the volatile session state
@@ -850,8 +877,7 @@ fn internal_start_wave(ctx: &ReducerContext, session: GameSession, state: Sessio
 /// Start a new wave
 #[reducer]
 pub fn start_wave(ctx: &ReducerContext, session_id: u64) {
-    let Some(session) = ctx.db.game_session().id().find(session_id) else {
-        log::error!("Session not found: {}", session_id);
+    let Some(session) = find_owned_session(ctx, session_id) else {
         return;
     };
 
@@ -876,6 +902,10 @@ pub fn start_wave(ctx: &ReducerContext, session_id: u64) {
 /// Player throws shuriken at target
 #[reducer]
 pub fn throw_shuriken(ctx: &ReducerContext, session_id: u64, target_col: u32, target_row: u32) {
+    let Some(session) = find_owned_session(ctx, session_id) else {
+        return;
+    };
+
     let Some(state) = ctx.db.session_state().session_id().find(session_id) else {
         log::error!("Session state not found");
         return;
@@ -897,11 +927,6 @@ pub fn throw_shuriken(ctx: &ReducerContext, session_id: u64, target_col: u32, ta
     }
     
     // Check range
-    let Some(session) = ctx.db.game_session().id().find(session_id) else {
-        log::error!("Session not found");
-        return;
-    };
-
     if !is_in_visual_range(state.player_col, state.player_row, target_col, target_row, state.ability_range, session.range_visual_factor) {
         log::error!("Target out of range");
         return;
@@ -942,8 +967,7 @@ pub fn purchase_upgrade(
     session_id: u64,
     upgrade_id: String,
 ) {
-    let Some(session) = ctx.db.game_session().id().find(session_id) else {
-        log::error!("Session not found");
+    let Some(session) = find_owned_session(ctx, session_id) else {
         return;
     };
 
@@ -1145,6 +1169,9 @@ fn internal_delete_session(ctx: &ReducerContext, session_id: u64) {
 /// Abandon a game session
 #[reducer]
 pub fn abandon_session(ctx: &ReducerContext, session_id: u64) {
+    if find_owned_session(ctx, session_id).is_none() {
+        return;
+    }
     internal_delete_session(ctx, session_id);
     log::info!("Abandoned and deleted session {}", session_id);
 }
@@ -1152,6 +1179,9 @@ pub fn abandon_session(ctx: &ReducerContext, session_id: u64) {
 /// Delete a completed run record after it has been claimed by tRPC
 #[reducer]
 pub fn delete_completed_run(ctx: &ReducerContext, session_id: u64) {
+    if find_owned_session(ctx, session_id).is_none() {
+        return;
+    }
     internal_delete_session(ctx, session_id);
     log::info!("Deleted all data for claimed session {}", session_id);
 }

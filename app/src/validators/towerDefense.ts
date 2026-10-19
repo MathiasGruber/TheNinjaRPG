@@ -299,3 +299,64 @@ export type UpdateTowerDefenseUpgrade = z.output<
 export type UpdateTowerDefenseUpgradeInput = z.input<
   typeof updateTowerDefenseUpgradeSchema
 >;
+
+// ============================================
+// Run Claims
+// ============================================
+
+/**
+ * A claim names the SpacetimeDB session only. Score, wave and the signed session
+ * parameters are read from that session's authoritative completed_run row; the
+ * definitions are not stored there, so the client supplies them and the session
+ * signature proves they are the ones the server signed.
+ */
+export const claimCompletedRunInputSchema = z.object({
+  spacetimeSessionId: z.string().regex(/^\d{1,20}$/, "Invalid session ID"),
+  upgradeDefinitionsJson: z.string().min(1, "Upgrade definitions required"),
+  enemyDefinitionsJson: z.string().min(1, "Enemy definitions required"),
+});
+export type ClaimCompletedRunInput = z.infer<typeof claimCompletedRunInputSchema>;
+
+/** A completed_run row as SpacetimeDB's SQL endpoint returns it. */
+export const spacetimeCompletedRunSchema = z.object({
+  session_id: z.number().int().min(0),
+  ninjarpg_user_id: z.string(),
+  session_signature: z.string(),
+  nonce: z.string(),
+  ability_damage: z.number(),
+  ability_range: z.number(),
+  ability_cooldown_ms: z.number(),
+  ability_crit_chance: z.number(),
+  ability_damage_per_tile: z.number(),
+  player_max_health: z.number(),
+  health_regen: z.number(),
+  defense_percent: z.number(),
+  defense_flat: z.number(),
+  lifesteal_percent: z.number(),
+  knockback_chance: z.number(),
+  knockback_force: z.number(),
+  tokens_per_wave: z.number(),
+  tokens_per_kill: z.number(),
+  interest_per_wave: z.number(),
+  skip_enemy_chance: z.number(),
+  score_per_kill: z.number().int(),
+  score_to_points_ratio: z.number().int().min(1),
+  initial_grid_size: z.number().int(),
+  max_grid_size: z.number().int(),
+  grid_expand_freq: z.number().int(),
+  range_visual_factor: z.number(),
+  final_wave: z.number().int().min(0),
+  final_score: z.number().int().min(0),
+  points_earned: z.number().int().min(0),
+});
+export type SpacetimeCompletedRun = z.infer<typeof spacetimeCompletedRunSchema>;
+
+/** One statement result from SpacetimeDB's `/v1/database/:name/sql` endpoint. */
+export const spacetimeSqlResultSchema = z.array(
+  z.object({
+    schema: z.object({
+      elements: z.array(z.object({ name: z.object({ some: z.string() }).nullable() })),
+    }),
+    rows: z.array(z.array(z.unknown())),
+  }),
+);

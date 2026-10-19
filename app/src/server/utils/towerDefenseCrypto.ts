@@ -11,8 +11,9 @@
  * 3. Server creates HMAC signature of (userId, nonce, stats, upgradeDefinitions, enemyDefinitions)
  * 4. Client passes signed params to SpacetimeDB
  * 5. SpacetimeDB stores signature and uses definitions for upgrades and enemy spawning
- * 6. When run ends, client calls tRPC `claimCompletedRun` with all session data
- * 7. Server re-calculates signature and verifies before awarding points
+ * 6. When run ends, client calls tRPC `claimCompletedRun` with the session ID
+ * 7. Server reads the completed run from SpacetimeDB, re-calculates the signature over
+ *    its parameters and verifies it before awarding points (see towerDefenseClaims.ts)
  */
 
 import { createHmac, randomBytes } from "node:crypto";

@@ -19,6 +19,7 @@ import type GameSessionType from "./bindings/game_session_type";
 import type ProjectileType from "./bindings/projectile_type";
 import type SessionStateType from "./bindings/session_state_type";
 import type SessionUpgradeType from "./bindings/session_upgrade_type";
+import { getSpacetimeDBConfig, type SpacetimeDBConfig } from "./config";
 
 // Re-export types from bindings for use in useTowerDefense hook
 export type GameSession = Infer<typeof GameSessionType>;
@@ -39,12 +40,40 @@ export interface EnemySpawn {
   path: Array<{ col: number; row: number }>;
 }
 
-export interface SpacetimeDBConfig {
-  host: string;
-  moduleName: string;
+const DEBUG = false;
+
+/**
+ * The module only lets the identity that created a session act on it, so the identity
+ * must survive page reloads for a run to be resumed or claimed after one. SpacetimeDB
+ * issues the token on first connect; it is kept per browser. Storage can be unavailable
+ * (private windows, blocked site data); the connection then uses a fresh identity.
+ */
+const tokenStorageKey = (config: SpacetimeDBConfig) =>
+  `tnr:spacetimedb-token:${config.host}:${config.moduleName}`;
+
+function readStoredToken(config: SpacetimeDBConfig): string | undefined {
+  try {
+    return window.localStorage.getItem(tokenStorageKey(config)) ?? undefined;
+  } catch {
+    return undefined;
+  }
 }
 
-const DEBUG = false;
+function clearStoredToken(config: SpacetimeDBConfig) {
+  try {
+    window.localStorage.removeItem(tokenStorageKey(config));
+  } catch {
+    // Nothing stored.
+  }
+}
+
+function storeToken(config: SpacetimeDBConfig, token: string) {
+  try {
+    window.localStorage.setItem(tokenStorageKey(config), token);
+  } catch {
+    // Without storage the identity lasts for this page only.
+  }
+}
 
 /**
  * Validate user ID to prevent SQL injection in SpacetimeDB queries.
@@ -65,23 +94,6 @@ function validateUserId(userId: string | undefined | null): string | null {
   }
   return userId;
 }
-
-// Environment-based config
-export const getSpacetimeDBConfig = (): SpacetimeDBConfig => {
-  const isProd = process.env.NODE_ENV === "production";
-
-  // DEFAULT HOSTS:
-  // - Local: ws://127.0.0.1:3001
-  // - SaaS (Testnet/Maincloud): wss://maincloud.spacetimedb.com
-  const defaultHost = isProd
-    ? "wss://maincloud.spacetimedb.com"
-    : "ws://127.0.0.1:3001";
-
-  return {
-    host: process.env.NEXT_PUBLIC_SPACETIMEDB_HOST ?? defaultHost,
-    moduleName: process.env.NEXT_PUBLIC_SPACETIMEDB_MODULE ?? "towerdefense",
-  };
-};
 
 /**
  * Connection state for the SpacetimeDB client
@@ -220,7 +232,9 @@ export class SpacetimeDBConnection {
       const connection = DbConnection.builder()
         .withUri(this.config.host)
         .withModuleName(this.config.moduleName)
-        .onConnect((_ctx, identity, _token) => {
+        .withToken(readStoredToken(this.config))
+        .onConnect((_ctx, identity, token) => {
+          storeToken(this.config, token);
           if (DEBUG) {
             console.log(
               "[SpacetimeDB] Connected with identity:",
@@ -245,6 +259,8 @@ export class SpacetimeDBConnection {
         })
         .onConnectError((_ctx, error) => {
           console.error("[SpacetimeDB] Connection error:", error);
+          // A stored token the server no longer accepts would fail every reconnect.
+          clearStoredToken(this.config);
           this.connectionState = "error";
           this.emit({ type: "connection_state", state: "error" });
           this.emit({ type: "error", message: String(error) });
