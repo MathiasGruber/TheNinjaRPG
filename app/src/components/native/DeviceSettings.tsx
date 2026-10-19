@@ -9,7 +9,7 @@ import { NativeFeatureCard } from "@/components/native/NativeFeatureCard";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import type { PushCategory } from "@/drizzle/constants";
-import { useLocalStorage } from "@/hooks/localstorage";
+import { safeLocalStorageSetItem, useLocalStorage } from "@/hooks/localstorage";
 import { useNativePushPermission } from "@/hooks/useNativePush";
 import { useNativeShell } from "@/hooks/useNativeShell";
 import Link from "@/layout/Link";
@@ -169,6 +169,12 @@ export default function DeviceSettings({ onNavigate }: { onNavigate?: () => void
             id="native-haptics"
             checked={hapticsOn}
             onCheckedChange={(checked) => {
+              // The preview reads the saved preference synchronously; the hook's
+              // persistence effect runs only after this event has finished.
+              safeLocalStorageSetItem(
+                haptics.HAPTICS_STORAGE_KEY,
+                JSON.stringify(checked),
+              );
               setHapticsOn(checked);
               // Play the feedback being switched on so the strength is obvious.
               if (checked) void haptics.impact("MEDIUM");
