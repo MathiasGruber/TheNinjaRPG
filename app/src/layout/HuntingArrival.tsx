@@ -45,7 +45,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
     }
   }, [user?.sector, storageKey]);
   if (user?.occupation !== "HUNTER") return null;
-  if (encounter.error)
+  if (encounter.error && encounter.data === undefined)
     return (
       <p role="status">
         Unable to load your hunting contract.{" "}

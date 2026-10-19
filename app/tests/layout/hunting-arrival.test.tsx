@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { createStore, Provider } from "jotai";
+import { useState } from "react";
 import * as client from "@/app/_trpc/client";
 import * as dialog from "@/components/ui/dialog";
 import * as ActivityStreakPanel from "@/layout/ActivityStreakPanel";
@@ -16,6 +17,10 @@ import { actualDialog, actualModal } from "../setup/preload";
 let store: ReturnType<typeof createStore>;
 let isLoading: boolean;
 let canClaimToday: boolean;
+const cachedEncounter = { session: { id: "session", sector: 1, battleId: null }, contract: huntingContract() };
+let encounterData: typeof cachedEncounter | null | undefined;
+let encounterError: Error | null;
+const refetch = vi.fn();
 const storageKey = "huntingArrival:popup-hunter";
 const user = { userId: "popup-hunter", occupation: "HUNTER", status: "AWAKE", sector: 1, tutorialOn: false };
 const browserEvents = ["Event", "CustomEvent"] as const;
@@ -28,9 +33,12 @@ beforeEach(() => {
   store = createStore();
   isLoading = false;
   canClaimToday = true;
+  encounterData = cachedEncounter;
+  encounterError = null;
+  refetch.mockReset();
   Object.assign(vi.spyOn(client, "api" as never), {
     hunting: {
-      getSession: { useQuery: () => ({ data: { session: { id: "session", sector: 1, battleId: null }, contract: huntingContract() } }) },
+      getSession: { useQuery: () => ({ data: encounterData, error: encounterError, refetch }) },
     },
     activityStreak: {
       getUserStreaks: { useQuery: () => ({ isLoading, data: isLoading ? undefined : { streaks: [{ canClaimToday, lastClaimDate: null }] } }) },
@@ -134,4 +142,50 @@ it("preserves hunting when another arrival dialog takes focus", async () => {
   fireEvent.click(within(hunting).getAllByRole("button", { name: "Close" })[0]!);
   expect(window.sessionStorage.getItem(storageKey)).toBe("1:session");
   expect(view.queryByRole("dialog", { name: "Hunting encounter" })).toBeNull();
+});
+
+it("keeps the open encounter, focus and action feedback through a failed refresh and recovery", async () => {
+  canClaimToday = false;
+  vi.spyOn(HuntingBoard, "HuntingBoard").mockImplementation(function HuntingPreparation() {
+    const [message, setMessage] = useState("");
+    return <><button onClick={() => setMessage("Preparation rejected")}>Prepare</button><p role="status">{message}</p></>;
+  });
+  const view = render(shell());
+  const hunting = await view.findByRole("dialog", { name: "Hunting encounter" });
+  const prepare = within(hunting).getByRole("button", { name: "Prepare" });
+  prepare.focus();
+  fireEvent.click(prepare);
+  for (const error of [new Error("Transient poll failure"), null]) {
+    encounterError = error;
+    view.rerender(shell());
+    expect(view.getByRole("dialog", { name: "Hunting encounter" })).toBe(hunting);
+    expect(document.activeElement).toBe(prepare);
+    expect(within(hunting).getByRole("status").textContent).toBe("Preparation rejected");
+    expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
+  }
+});
+
+it.each(["another sector", "no session"])("keeps the arrival empty after a failed refresh with cached %s", (result) => {
+  canClaimToday = false;
+  encounterData = result === "no session" ? null : { ...cachedEncounter, session: { ...cachedEncounter.session, sector: 2 } };
+  const view = render(shell());
+  expect(view.container.textContent).toBe("");
+  encounterError = new Error("Transient poll failure");
+  view.rerender(shell());
+  expect(view.container.textContent).toBe("");
+});
+
+it("offers Retry after an initial load failure and opens the recovered encounter", async () => {
+  canClaimToday = false;
+  encounterData = undefined;
+  encounterError = new Error("Initial load failure");
+  const view = render(shell());
+  fireEvent.click(view.getByRole("button", { name: "Retry" }));
+  expect(refetch).toHaveBeenCalledTimes(1);
+  expect(view.queryByRole("dialog")).toBeNull();
+  encounterError = null;
+  encounterData = cachedEncounter;
+  view.rerender(shell());
+  await view.findByRole("dialog", { name: "Hunting encounter" });
+  expect(view.queryByRole("button", { name: "Retry" })).toBeNull();
 });
