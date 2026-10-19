@@ -5,7 +5,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { calculateContentDiff } from "@/utils/diff";
 import type { MapLocation } from "@/validators/mapLocation";
 import { mapLocationFields } from "@/validators/mapLocation";
-import type { AllObjectivesType } from "@/validators/objectives";
+import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 
 /** Cosmetic map edits preserve accepted quest runs; gameplay edits retain revision checks. */
 export const isQuestPresentationOnlyChange = <
@@ -108,6 +108,39 @@ const objectiveMapLocation = (
   };
 };
 
+/** Implicit dialogs inherit coordinates even when reloaded authored predecessors omit them. */
+const resolveObjectiveCoordinates = (
+  objective: AllObjectivesType,
+  objectives: AllObjectivesType[],
+  tracker: QuestTrackerType,
+) => {
+  const goal = tracker.goals.find((g) => g.id === objective.id);
+  const coordinates = {
+    sector: goal?.sector ?? objective.sector,
+    longitude: goal?.longitude ?? objective.longitude,
+    latitude: goal?.latitude ?? objective.latitude,
+  };
+  let current = objective;
+  const visited = new Set<string>();
+  while (
+    current.task === "dialog" &&
+    (coordinates.sector === undefined ||
+      coordinates.longitude === undefined ||
+      coordinates.latitude === undefined) &&
+    !visited.has(current.id)
+  ) {
+    visited.add(current.id);
+    const previous = findCompletedPredecessor(objectives, current.id, tracker);
+    if (!previous) break;
+    const previousGoal = tracker.goals.find((g) => g.id === previous.id);
+    coordinates.sector ??= previousGoal?.sector ?? previous.sector;
+    coordinates.longitude ??= previousGoal?.longitude ?? previous.longitude;
+    coordinates.latitude ??= previousGoal?.latitude ?? previous.latitude;
+    current = previous;
+  }
+  return coordinates;
+};
+
 /** Public scenery survives completion; private scenery follows the selected same-location chain. */
 export const getQuestMapLocations = (
   user: NonNullable<UserWithRelations>,
@@ -131,9 +164,7 @@ export const getQuestMapLocations = (
         return;
       const resolved = {
         ...objective,
-        sector: goal.sector ?? objective.sector,
-        longitude: goal.longitude ?? objective.longitude,
-        latitude: goal.latitude ?? objective.latitude,
+        ...resolveObjectiveCoordinates(objective, quest.content.objectives, tracker),
       };
       if (objective.overworldPlacementId) {
         const placement = placements.find(
@@ -155,12 +186,16 @@ export const getQuestMapLocations = (
           presentation.id,
           tracker,
         );
-        const previousGoal = tracker.goals.find((g) => g.id === previous?.id);
+        if (!previous) break;
+        const previousLocation = resolveObjectiveCoordinates(
+          previous,
+          quest.content.objectives,
+          tracker,
+        );
         if (
-          !previous ||
-          previousGoal?.sector !== goal.sector ||
-          previousGoal?.longitude !== goal.longitude ||
-          previousGoal?.latitude !== goal.latitude
+          previousLocation.sector !== resolved.sector ||
+          previousLocation.longitude !== resolved.longitude ||
+          previousLocation.latitude !== resolved.latitude
         )
           break;
         presentation = previous;

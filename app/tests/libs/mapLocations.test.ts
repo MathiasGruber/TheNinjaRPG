@@ -7,7 +7,7 @@ import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
 import { drawQuest } from "@/libs/threejs/sector";
 import type { UserWithRelations } from "@/routers/profile";
 import { updateUserCache } from "@/utils/userCache";
-import { DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
+import { type AllObjectivesType, DialogObjective, MoveToObjective, QuestValidator } from "@/validators/objectives";
 
 const move = MoveToObjective.parse({
   id: "arrival", task: "move_to_location", sector: 724, longitude: 4, latitude: 5,
@@ -137,12 +137,119 @@ describe("personal structure lifecycle", () => {
   });
 });
 
-const renderThenMove = async (actor: NonNullable<UserWithRelations>) => {
+describe("location chains reloaded from authored quests", () => {
+  for (const start of ["dialog", "specific", "random", "zero"] as const) {
+    it(`retains ${start} structure art through two implicit dialogs and removes it on completion`, async () => {
+      const { actor, read } = locationChain(start);
+      const group = new Group();
+      const initial = await renderThenMove(read(), group);
+      expect(initial).toHaveLength(1);
+      const { sector, longitude, latitude } = initial[0]!;
+      if (start === "dialog") expect(actor.questData![0]!.goals[0]).not.toHaveProperty("sector");
+      if (start === "zero") expect({ longitude, latitude }).toEqual({ longitude: 0, latitude: 0 });
+      Object.assign(actor, { sector, longitude, latitude });
+      for (const id of ["detail", "detail2"]) {
+        const snapshot = read(start === "dialog" || id === "detail2" ? id : undefined);
+        if (id === "detail2") expect(actor.questData![0]!.goals[2]).not.toHaveProperty("sector");
+        expect(await renderThenMove(snapshot, group)).toMatchObject([
+          { assetId: "tower", objectiveId: id, sector, longitude, latitude, active: true },
+        ]);
+      }
+      expect(await renderThenMove(read("end"), group)).toEqual([]);
+      expect(group.children).toHaveLength(0);
+    });
+  }
+
+  it("resolves an implicit dialog's coordinates while keeping its own art and Inspect text", async () => {
+    const { actor, read } = locationChain("dialog", [
+      DialogObjective.parse({ id: "detail", task: "dialog", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail2" }] }),
+      DialogObjective.parse({ id: "detail2", task: "dialog", structureAssetId: "shrine", locationName: "Tower shrine", locationDescription: "A small shrine inside the tower.", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] }),
+      { id: "end", task: "win_quest" },
+    ]);
+    const group = new Group();
+    await renderThenMove(read(), group);
+    Object.assign(actor, { longitude: 4, latitude: 5 });
+    read("detail");
+    const snapshot = read("detail2");
+    expect(actor.questData![0]!.goals[2]).not.toHaveProperty("sector");
+    expect(await renderThenMove(snapshot, group)).toMatchObject([
+      { assetId: "shrine", objectiveId: "detail2", sector: 724, longitude: 4, latitude: 5, name: "Tower shrine", description: "A small shrine inside the tower.", active: true },
+    ]);
+    expect(await renderThenMove(read("end"), group)).toEqual([]);
+  });
+
+  it("does not carry an implicit dialog's art across an explicit destination change", async () => {
+    const { actor, read } = locationChain("dialog", [
+      DialogObjective.parse({ id: "detail", task: "dialog", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail2" }] }),
+      DialogObjective.parse({ id: "detail2", task: "dialog", structureAssetId: "shrine", locationName: "Tower shrine", locationDescription: "A small shrine inside the tower.", nextObjectiveId: [{ text: "Leave", nextObjectiveId: "remote" }] }),
+      MoveToObjective.parse({ id: "remote", task: "move_to_location", sector: 725, longitude: 8, latitude: 9, nextObjectiveId: "end" }),
+      { id: "end", task: "win_quest" },
+    ]);
+    const group = new Group();
+    read();
+    Object.assign(actor, { longitude: 4, latitude: 5 });
+    read("detail");
+    expect(await renderThenMove(read("detail2"), group)).toHaveLength(1);
+    const snapshot = read("remote");
+    expect(actor.questData![0]!.goals[3]).toMatchObject({ sector: 725, longitude: 8, latitude: 9, done: false });
+    expect(await renderThenMove(snapshot, group)).toEqual([]);
+    expect(group.children).toHaveLength(0);
+  });
+
+  it("preserves concealed coordinates outside and inside the target sector", async () => {
+    const { actor, read } = locationChain("specific", undefined, { hideLocation: true });
+    const group = new Group();
+    for (const sector of [725, 724, 725]) {
+      actor.sector = sector;
+      const snapshot = read();
+      expect(await renderThenMove(snapshot, group)).toHaveLength(sector === 724 ? 1 : 0);
+      if (sector === 725) {
+        expect(snapshot.questData![0]!.goals[0]).not.toHaveProperty("sector");
+        expect(snapshot.userQuests[0]!.quest.content.objectives[0]).toMatchObject({ sector: 1337, longitude: 1337, latitude: 1337 });
+      }
+    }
+  });
+});
+
+const locationChain = (
+  start: "dialog" | "specific" | "random" | "zero",
+  objectives: unknown[] = [
+    { id: "detail", task: "dialog", nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail2" }] },
+    { id: "detail2", task: "dialog", nextObjectiveId: [{ text: "Finish", nextObjectiveId: "end" }] },
+    { id: "end", task: "win_quest" },
+  ],
+  overrides: Partial<AllObjectivesType> = {},
+) => {
+  const starting = start === "dialog"
+    ? DialogObjective.parse({ ...move, id: "STARTING", task: "dialog", ...overrides, nextObjectiveId: [{ text: "Continue", nextObjectiveId: "detail" }] })
+    : MoveToObjective.parse({ ...move, id: "STARTING", sectorType: start === "random" ? "random" : "specific", locationType: start === "random" ? "random" : "specific", ...(start === "zero" ? { longitude: 0, latitude: 0 } : {}), ...overrides, nextObjectiveId: "detail" });
+  const definition = QuestValidator.parse({
+    name: "Tower quest", description: "Visit the tower", successDescription: "Done", questType: "mission",
+    hidden: false, publicLocations: false, consecutiveObjectives: true, startsAt: null, endsAt: null, tierLevel: null,
+    content: { objectives: [starting, ...objectives], reward: {}, sceneCharacters: ["guide"] },
+  });
+  expect(verifyQuestContentForSave(definition.content.objectives, true).check).toBe(true);
+  const actor = user([], {
+    userId: "u1", status: "AWAKE", level: 50, rank: "JONIN", role: "USER",
+    villageId: "v1", isOutlaw: false, bloodlineId: null, longitude: 2, latitude: 2,
+    village: { id: "v1", sector: 724 }, activeWars: [], completedQuests: [], userQuests: [], questData: [],
+  });
+  return {
+    actor,
+    read: (nextObjectiveId?: string) => {
+      // Each profile read starts with stored authored JSON, never a rendered projection.
+      actor.userQuests = [{ id: "uq-q1", questId: "q1", completed: 0, endAt: null, previousAttempts: 0, previousCompletes: 0, quest: { ...structuredClone(definition), id: "q1" } }] as typeof actor.userQuests;
+      actor.questData = getNewTrackers(actor, nextObjectiveId ? [{ task: "dialog", contentId: nextObjectiveId }] : [{ task: "any" }]).trackers;
+      return getPublicQuestUser(actor);
+    },
+  };
+};
+
+const renderThenMove = async (actor: NonNullable<UserWithRelations>, group = new Group()) => {
   const original = structuredClone(actor);
   const locations = getQuestMapLocations(actor, []);
-  const group = new Group();
   const grid = { getHex: () => ({ x: 0, y: 0, width: 20, height: 20 }) } as never;
-  const assets = [{ id: "tower", imageUrl: "tower.png", renderScale: 2.4 }];
+  const assets = [{ id: "tower", imageUrl: "tower.png", renderScale: 2.4 }, { id: "shrine", imageUrl: "shrine.png", renderScale: 2.4 }];
   const textureForPath = () => new Texture();
   syncMapLocationSprites(group, grid, locations, assets, textureForPath);
   const sprites = [...group.children];
