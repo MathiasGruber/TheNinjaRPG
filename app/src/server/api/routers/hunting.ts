@@ -57,11 +57,9 @@ export const huntingRouter = createTRPCRouter({
     return {
       session: row.session,
       contract: contract ?? null,
-      habitatName: row.habitat?.content.name ?? null,
       allowance: contract
         ? huntingAllowance(contract, row.progress ?? undefined, serverTime.getTime())
         : null,
-      cooldownUntil: row.progress?.cooldownUntil ?? null,
       serverTime,
     };
   }),

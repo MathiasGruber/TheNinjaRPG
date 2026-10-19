@@ -26,6 +26,7 @@ import {
 } from "@/libs/profileDashboard";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import type { DashboardContentSummary } from "@/libs/profileDashboard";
+import { huntingContract } from "../setup/hunting";
 
 const availableDailyCounts = {
   dailyMissions: 0,
@@ -692,8 +693,8 @@ it("shows the personal hunting contract and its current stage ahead of legacy qu
   const serverTime = new Date("2026-01-01T12:00:00Z");
   const hunting = {
     session: { userId: "hunter", id: "session", contractId: "contract", habitatId: "forest", sector: 1, readyAt: null as Date | null, battleId: null as string | null, version: 0, startedAt: serverTime, lastResult: null },
-    contract: { id: "contract", name: "Forest boar", aiId: "enemy", rank: "D RANK" as const, difficulty: "Easy", enabled: true, sectors: [1], preparationSeconds: 10, hunts: 3, cooldownSeconds: 60, experience: 50, rewards: [{ itemId: "hide", quantity: 2, chance: 100 }] },
-    habitatName: "Forest", allowance: { used: 1, remaining: 2, cooling: false }, cooldownUntil: null, serverTime,
+    contract: huntingContract(),
+    allowance: { used: 1, remaining: 2, cooling: false }, serverTime,
   };
   const line = () => describeOccupationLine({ occupation: "HUNTER", quests: [], trackers: [], hunting });
   expect(line()).toMatchObject({ title: "Forest boar", detail: "Accepted · Sector 1 · 2 / 3 hunts remaining", action: "View contract" });
