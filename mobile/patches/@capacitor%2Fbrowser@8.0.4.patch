@@ -1,0 +1,49 @@
+diff --git a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
+index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..3246a4cd7a41bff7ce490d9dd496bc5059e04cd3 100644
+--- a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
++++ b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
+@@ -41,7 +41,7 @@ public class Browser {
+     private Context context;
+     private static final String FALLBACK_CUSTOM_TAB_PACKAGE_NAME = "com.android.chrome";
+     private CustomTabsClient customTabsClient;
+-    private CustomTabsSession browserSession;
++    private Object sessionOwner = new Object();
+     private boolean isInitialLoad = false;
+     private EventGroup group;
+     private CustomTabsServiceConnection connection = new CustomTabsServiceConnection() {
+@@ -95,6 +95,9 @@ public class Browser {
+      * @param toolbarColor
+      */
+     public void open(Uri url, @Nullable Integer toolbarColor) {
++        // Chrome can still route a reused session into its closing tab. A replacement
++        // needs its own session, and late events from the old tab must stay retired.
++        sessionOwner = new Object();
+         CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder(getCustomTabsSession());
+ 
+         builder.setShareState(SHARE_STATE_ON);
+@@ -167,17 +170,16 @@ public class Browser {
+             return null;
+         }
+ 
+-        if (browserSession == null) {
+-            browserSession = customTabsClient.newSession(
+-                new CustomTabsCallback() {
+-                    @Override
+-                    public void onNavigationEvent(int navigationEvent, Bundle extras) {
++        Object owner = sessionOwner;
++        return customTabsClient.newSession(
++            new CustomTabsCallback() {
++                @Override
++                public void onNavigationEvent(int navigationEvent, Bundle extras) {
++                    if (sessionOwner == owner) {
+                         handledNavigationEvent(navigationEvent);
+                     }
+                 }
+-            );
+-        }
+-
+-        return browserSession;
++            }
++        );
+     }
+ }

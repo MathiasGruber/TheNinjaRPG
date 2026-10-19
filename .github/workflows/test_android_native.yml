@@ -1,0 +1,52 @@
+name: Android native tests
+
+on:
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - 'app/package.json'
+      - 'app/tests/native/android/**'
+      - '.github/workflows/test_android_native.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  android_native_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            app
+            mobile
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: app/package.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            mobile/android/**/*.gradle
+            mobile/android/gradle/wrapper/gradle-wrapper.properties
+            mobile/bun.lock
+      - name: Install locked native dependencies
+        run: bun install --frozen-lockfile
+        working-directory: mobile
+      - name: Generate Android plugin projects
+        run: bunx cap sync android
+        working-directory: mobile
+      - name: Run native unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+        working-directory: mobile/android
