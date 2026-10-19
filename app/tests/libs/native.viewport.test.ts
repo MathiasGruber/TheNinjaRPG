@@ -11,14 +11,18 @@ beforeEach(() => {
 afterEach(() => { (window as NativeWindow).Capacitor = previous; });
 
 describe("Android native viewport", () => {
-  it("uses the installed status-bar plugin to stop overlaying tappable content", async () => {
+  it.each([false, true])("fits content and keeps system-bar contrast in dark mode %s", async (darkMode) => {
     const setOverlaysWebView = vi.fn().mockResolvedValue(undefined);
+    const setBackgroundColor = vi.fn().mockResolvedValue(undefined);
+    const setStyle = vi.fn().mockResolvedValue(undefined);
     (window as NativeWindow).Capacitor = {
       isNativePlatform: () => true, getPlatform: () => "android",
-      Plugins: { StatusBar: { setOverlaysWebView } },
+      Plugins: { StatusBar: { setOverlaysWebView, setBackgroundColor, setStyle } },
     };
-    await fitContent();
+    await fitContent(darkMode);
     expect(setOverlaysWebView).toHaveBeenCalledWith({ overlay: false });
+    expect(setBackgroundColor).toHaveBeenCalledWith({ color: darkMode ? "#000000" : "#ffffff" });
+    expect(setStyle).toHaveBeenCalledWith({ style: darkMode ? "DARK" : "LIGHT" });
   });
   it.each(["ios", "web"])("does not alter %s system bars", async (platform) => {
     const setOverlaysWebView = vi.fn();

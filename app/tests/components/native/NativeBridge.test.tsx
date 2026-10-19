@@ -74,6 +74,26 @@ describe("native Back navigation", () => {
 });
 
 describe("native viewport lifecycle", () => {
+  it("updates system-bar contrast when device appearance changes and cleans up", () => {
+    const events = new EventTarget();
+    const appearance = Object.assign(events, { matches: false });
+    const previous = window.matchMedia;
+    const fit = vi.spyOn(native.viewport, "fitContent").mockResolvedValue(undefined);
+    vi.spyOn(native, "platform").mockReturnValue("android");
+    window.matchMedia = () => appearance as MediaQueryList;
+    try {
+      const view = render(<NativeBridge />);
+      expect(fit).toHaveBeenLastCalledWith(false);
+      appearance.matches = true;
+      events.dispatchEvent(new Event("change"));
+      expect(fit).toHaveBeenLastCalledWith(true);
+      view.unmount();
+      const count = fit.mock.calls.length;
+      appearance.matches = false;
+      events.dispatchEvent(new Event("change"));
+      expect(fit).toHaveBeenCalledTimes(count);
+    } finally { window.matchMedia = previous; }
+  });
   it("fits Android on mount and foreground only, and releases its state listener", () => {
     let onState: undefined | ((active: boolean) => void);
     const remove = vi.fn();

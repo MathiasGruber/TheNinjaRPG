@@ -110,10 +110,19 @@ export default function NativeBridge() {
 
   useEffect(() => {
     if (!isNative() || platform() !== "android") return;
-    void viewport.fitContent();
-    return appEvents.onStateChange((isActive) => {
-      if (isActive) void viewport.fitContent();
+    const appearance = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const fitContent = () => {
+      void viewport.fitContent(appearance?.matches ?? false);
+    };
+    fitContent();
+    appearance?.addEventListener("change", fitContent);
+    const removeStateListener = appEvents.onStateChange((isActive) => {
+      if (isActive) fitContent();
     });
+    return () => {
+      appearance?.removeEventListener("change", fitContent);
+      removeStateListener();
+    };
   }, []);
 
   // Read through a ref so the listener is attached once. Attaching and removing it on
