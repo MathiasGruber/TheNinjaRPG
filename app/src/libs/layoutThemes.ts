@@ -8,9 +8,9 @@ export const GAME_LAYOUT_THEMES = [
     name: "Eclipse Observatory",
     audience: "Endgame players and collectors of unusual aesthetics",
     rationale:
-      "An astronomical tower makes high-level progression feel mysterious without obscuring the data. A compact left identity tower and generous command surface keep complex progression screens readable with controlled violet contrast.",
+      "An orbital navigation frame and compact character column keep progression screens readable. Engraved curves and controlled violet contrast carry the celestial character without taking space from the game.",
     composition:
-      "Circular eclipse window above the left character column, orbital navigation across the content and a full-height world rail on the right.",
+      "Compact header above the character and content columns, orbital navigation beside the character panel and a full-height world rail on the right.",
     tone: "dark",
     visualLanguage: "Celestial engraving",
     welcomeTitle: "There is always another horizon.",
@@ -36,9 +36,9 @@ export const GAME_LAYOUT_THEMES = [
     name: "Sakura Courtyard",
     audience: "Social players and long-session readers",
     rationale:
-      "A portrait-like courtyard panel gives the community a peaceful home. A generous reading column and softer lavender hierarchy support forum posts, inbox conversations and quest dialogue.",
+      "A botanical editorial treatment gives the community a peaceful home. A generous reading column and softer lavender hierarchy support forum posts, inbox conversations and quest dialogue.",
     composition:
-      "Tall illustrated left folio, horizontal top navigation, wide reading column and slender world rail.",
+      "Horizontal top navigation, a slim character folio, a wide reading column and a slender world rail.",
     tone: "light",
     visualLanguage: "Botanical editorial",
     welcomeTitle: "Find your place among the shinobi.",

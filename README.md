@@ -52,10 +52,10 @@ action. Preparation does not start a server or run migrations/seeds.
 
 ## Game and welcome layouts
 
-Signed-in players choose Classic, Pixel or the Shinobi collection in Settings → Display.
-The collection contains Eclipse Observatory (`20-eclipse-observatory`), Obsidian Council
-(`17-obsidian-council`) and Sakura Courtyard (`3-sakura-courtyard`). Selection is saved on
-the device; `/layouts` shows the available designs.
+Signed-in players choose Classic, Pixel, Eclipse Observatory, Obsidian Council or Sakura
+Courtyard from one layout selector in Settings → Display. Selection is saved on the
+device; `/layouts` shows the available designs. The themed identifiers are
+`20-eclipse-observatory`, `17-obsidian-council` and `3-sakura-courtyard`.
 
 The public welcome page keeps its existing design regardless of the player's preference.
 To roll out a collection design publicly, set `NEXT_PUBLIC_WELCOME_LAYOUT_THEME` to one

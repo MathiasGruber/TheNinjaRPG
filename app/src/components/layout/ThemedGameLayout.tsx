@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleHelp, Compass, House, Palette } from "lucide-react";
+import { CircleHelp, Compass, House } from "lucide-react";
 import { type ReactNode, Suspense, useEffect } from "react";
 import {
   Sheet,
@@ -16,7 +16,6 @@ import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
-import { GAME_LAYOUT_ART_STYLES, GAME_LAYOUT_THEMES } from "@/libs/layoutThemes";
 import { isTutorialActive } from "@/libs/tutorial";
 import GameLayoutController from "./shared/GameLayoutController";
 import { MobileNotificationsPopover } from "./shared/LayoutNotifications";
@@ -51,7 +50,6 @@ function ThemeShell(props: GameLayoutRenderProps) {
   const {
     children,
     userData,
-    pathname,
     navbarMenuItems,
     signedInIcons,
     leftSideBar,
@@ -73,12 +71,7 @@ function ThemeShell(props: GameLayoutRenderProps) {
   const isGuidedTutorial = isTutorialActive(userData);
 
   return (
-    <div
-      className="tnr-theme-game"
-      data-layout-variant="themed"
-      data-combat={pathname === "/combat"}
-    >
-      <style>{GAME_LAYOUT_ART_STYLES}</style>
+    <div className="tnr-theme-game" data-layout-variant="themed">
       <a className="theme-skip-link" href="#game-content">
         Skip to game content
       </a>
@@ -170,21 +163,6 @@ function ThemeShell(props: GameLayoutRenderProps) {
             </Sheet>
           </div>
         </header>
-
-        <div className="theme-art" data-compact-hide>
-          <div className="theme-art-caption">
-            <p className="theme-location">{userData?.village?.name ?? "Seichi"}</p>
-            {GAME_LAYOUT_THEMES.map((theme) => (
-              <p className="theme-identity" data-theme-id={theme.id} key={theme.id}>
-                {theme.name}
-              </p>
-            ))}
-          </div>
-          <Link className="theme-art-change" href="/layouts">
-            <Palette aria-hidden="true" />
-            Layouts
-          </Link>
-        </div>
 
         <nav
           className="theme-primary-nav"

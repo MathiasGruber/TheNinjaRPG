@@ -8,22 +8,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { selectGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
+import type { EffectiveLayout } from "@/libs/layoutPreference";
 import { GAME_LAYOUT_THEMES, toGameLayoutThemeId } from "@/libs/layoutThemes";
 
-export function LayoutThemePicker({ className }: { className?: string }) {
+export function GameLayoutPicker({
+  layout,
+  onLayoutChange,
+  className,
+}: {
+  layout: EffectiveLayout;
+  onLayoutChange: (layout: EffectiveLayout) => void;
+  className?: string;
+}) {
   const selectedTheme = useGameLayoutTheme();
   return (
     <Select
-      value={selectedTheme}
+      value={layout === "themed" ? selectedTheme : layout}
       onValueChange={(value) => {
         const id = toGameLayoutThemeId(value);
-        if (id) selectGameLayoutTheme(id);
+        if (id) {
+          selectGameLayoutTheme(id);
+          onLayoutChange("themed");
+        } else if (value === "default" || value === "pixel") {
+          onLayoutChange(value);
+        }
       }}
     >
-      <SelectTrigger aria-label="Shinobi layout" className={className}>
+      <SelectTrigger aria-label="Game layout" className={className}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
+        <SelectItem value="default">Classic</SelectItem>
+        <SelectItem value="pixel">Pixel</SelectItem>
         {GAME_LAYOUT_THEMES.map((theme) => (
           <SelectItem key={theme.id} value={theme.id}>
             {theme.name}

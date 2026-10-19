@@ -15,7 +15,6 @@ import { api } from "@/app/_trpc/client";
 import { NativeSettingsEntry } from "@/components/native/NativeSettingsEntry";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
 import { BUTTON_CLICK_SFX_URLS, CONFETTI_SFX_URL } from "@/drizzle/constants";
 import { useDayNightMapOverlays } from "@/hooks/day-night-overlay";
@@ -26,7 +25,7 @@ import {
 } from "@/hooks/localstorage";
 import { useAudio } from "@/hooks/useAudio";
 import { useIframeMute } from "@/hooks/useIframeMute";
-import { LayoutThemePicker } from "@/layout/LayoutThemePicker";
+import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import {
@@ -411,14 +410,6 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
   const { showDayNightMapOverlays, setShowDayNightMapOverlays } =
     useDayNightMapOverlays();
 
-  // Full layout preference state
-  const activeLayout = useActiveLayout();
-  const [anonymousLayout, setAnonymousLayout] = useLocalStorage<EffectiveLayout>(
-    LAYOUT_PREFERENCE_COOKIE,
-    activeLayout,
-  );
-  const layoutPreference: EffectiveLayout = anonymousLayout || activeLayout;
-
   // Embedded iframe mute state
   const { isIframesMuted, setIframesMuted } = useIframeMute();
 
@@ -457,8 +448,6 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
     setLightLayout,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
-    layoutPreference,
-    setAnonymousLayout,
     isIframesMuted,
     setIframesMuted,
     requiresInteraction,
@@ -492,8 +481,6 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     setLightLayout,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
-    layoutPreference,
-    setAnonymousLayout,
     isIframesMuted,
     setIframesMuted,
     requiresInteraction,
@@ -579,16 +566,10 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     safeLocalStorageSetItem("sfxVolume", JSON.stringify(newVolume));
   };
 
-  const handleLayoutChange = (value: string) => {
-    const nextLayout =
-      value === "pixel" ? "pixel" : value === "themed" ? "themed" : "default";
-    if (nextLayout === layoutPreference) return;
+  const handleLayoutChange = (nextLayout: EffectiveLayout) => {
     safeLocalStorageSetItem(LAYOUT_PREFERENCE_COOKIE, JSON.stringify(nextLayout));
     persistLayoutPreferenceCookie(nextLayout);
-    setAnonymousLayout(nextLayout);
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+    if (nextLayout !== activeLayout) window.location.reload();
   };
 
   const isPanel = variant === "panel";
@@ -703,34 +684,10 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
                 <p className={textClass}>Game Layout</p>
               </div>
             </div>
-            <RadioGroup
-              value={layoutPreference}
-              onValueChange={handleLayoutChange}
-              className="grid gap-2"
-            >
-              <label
-                htmlFor="layout-default"
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
-              >
-                <RadioGroupItem id="layout-default" value="default" />
-                Classic
-              </label>
-              <label
-                htmlFor="layout-pixel"
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
-              >
-                <RadioGroupItem id="layout-pixel" value="pixel" />
-                Pixel
-              </label>
-              <label
-                htmlFor="layout-themed"
-                className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent"
-              >
-                <RadioGroupItem id="layout-themed" value="themed" />
-                Shinobi collection
-              </label>
-            </RadioGroup>
-            {layoutPreference === "themed" && <LayoutThemePicker />}
+            <GameLayoutPicker
+              layout={activeLayout}
+              onLayoutChange={handleLayoutChange}
+            />
             <Link
               href="/layouts"
               className="inline-flex min-h-11 items-center text-primary text-sm underline"

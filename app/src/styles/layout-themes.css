@@ -24,7 +24,7 @@
 }
 .theme-frame {
   display: grid;
-  grid-template-areas: "brand" "art" "nav" "main" "footer";
+  grid-template-areas: "brand" "nav" "main" "footer";
   grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   width: min(100% - 3rem, 1540px);
@@ -63,57 +63,6 @@
 .theme-account-controls svg {
   width: 1.75rem;
   height: 1.75rem;
-}
-.theme-art {
-  grid-area: art;
-  position: relative;
-  min-width: 0;
-  min-height: var(--theme-art-height, 13rem);
-  overflow: hidden;
-  border-radius: var(--theme-radius, 12px);
-  isolation: isolate;
-  background-color: var(--theme-line);
-  background-image:
-    linear-gradient(90deg, rgb(8 23 34 / 0.68), transparent 75%), var(--theme-art);
-  background-position: center, var(--theme-art-position, center 54%);
-  background-size: cover;
-}
-.theme-art-caption {
-  position: absolute;
-  inset: auto 2rem 1.6rem;
-  color: white;
-  text-shadow: 0 2px 14px rgb(0 0 0 / 0.5);
-}
-.theme-location {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.theme-identity {
-  display: none;
-  font-family: var(--theme-heading-font);
-  font-size: clamp(2rem, 3.4vw, 3.5rem);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.025em;
-}
-.theme-art-change {
-  position: absolute;
-  right: 1rem;
-  top: 1rem;
-  display: inline-flex;
-  gap: 0.5rem;
-  align-items: center;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.85rem;
-  border: 1px solid rgb(255 255 255 / 0.5);
-  border-radius: 6px;
-  background: rgb(12 26 34 / 0.82);
-  color: white;
-  font-size: 0.85rem;
-}
-.theme-art-change svg {
-  width: 1rem;
-  height: 1rem;
 }
 .theme-primary-nav {
   grid-area: nav;
@@ -326,14 +275,11 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
   outline: 3px solid var(--theme-accent);
   outline-offset: 3px;
 }
-.tnr-theme-game[data-combat="true"] .theme-art {
-  display: none;
-}
 
 @media (width >= 1100px) {
   .theme-frame {
     grid-template-columns: 220px minmax(0, 1fr) 240px;
-    grid-template-areas: "brand brand brand" "art art art" "nav nav nav" "player main world" "footer footer footer";
+    grid-template-areas: "brand brand brand" "nav nav nav" "player main world" "footer footer footer";
     align-items: start;
   }
   .theme-side-panel {
@@ -342,39 +288,6 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
   .theme-drawer-buttons,
   .theme-mobile-nav {
     display: none;
-  }
-  html[data-game-layout="3-sakura-courtyard"] .theme-frame {
-    grid-template-columns: 190px 210px minmax(0, 1fr) 226px;
-    grid-template-areas: "brand brand brand brand" "art nav nav nav" "art player main world" "footer footer footer footer";
-    --theme-art-height: 42rem;
-    --theme-art-position: 62% center;
-    --theme-radius: 18px;
-  }
-  html[data-game-layout="3-sakura-courtyard"] .theme-art-caption {
-    inset: auto 1.25rem 1.5rem;
-  }
-  html[data-game-layout="3-sakura-courtyard"] .theme-identity {
-    font-size: 2.3rem;
-  }
-  html[data-game-layout="17-obsidian-council"] .theme-frame {
-    grid-template-columns: 248px minmax(0, 1fr) 220px;
-    grid-template-areas: "brand brand brand" "world nav player" "world art player" "world main player" "footer footer footer";
-    --theme-art-height: 7rem;
-    --theme-radius: 5px;
-    gap: 1rem;
-  }
-  html[data-game-layout="17-obsidian-council"] .theme-art-caption {
-    bottom: 0.8rem;
-  }
-  html[data-game-layout="17-obsidian-council"] .theme-identity {
-    font-size: 2rem;
-  }
-  html[data-game-layout="20-eclipse-observatory"] .theme-frame {
-    grid-template-columns: 210px 205px minmax(0, 1fr) 225px;
-    grid-template-areas: "brand nav nav nav" "art art art art" "player player main world" "footer footer footer footer";
-    --theme-art-height: 13rem;
-    --theme-radius: 8px;
-    gap: 1rem;
   }
   html[data-game-layout="20-eclipse-observatory"] .theme-brand {
     flex-wrap: wrap;
@@ -386,16 +299,20 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
     max-width: 100%;
     border-left: 3px solid var(--theme-accent);
   }
-}
-@media (1100px <= width < 1400px) {
   html[data-game-layout="3-sakura-courtyard"] .theme-frame {
-    grid-template-columns: 200px minmax(0, 1fr) 225px;
-    grid-template-areas: "brand brand brand" "art art art" "nav nav nav" "player main world" "footer footer footer";
-    --theme-art-height: 12rem;
+    grid-template-columns: 210px minmax(0, 1fr) 226px;
+    grid-template-areas: "brand brand brand" "nav nav nav" "player main world" "footer footer footer";
+    --theme-radius: 18px;
+  }
+  html[data-game-layout="17-obsidian-council"] .theme-frame {
+    grid-template-columns: 248px minmax(0, 1fr) 220px;
+    grid-template-areas: "brand brand brand" "world nav player" "world main player" "footer footer footer";
+    --theme-radius: 5px;
   }
   html[data-game-layout="20-eclipse-observatory"] .theme-frame {
-    grid-template-columns: 205px minmax(0, 1fr) 225px;
-    grid-template-areas: "brand brand brand" "nav nav nav" "art art art" "player main world" "footer footer footer";
+    grid-template-columns: 220px minmax(0, 1fr) 240px;
+    grid-template-areas: "brand brand world" "player nav world" "player main world" "footer footer footer";
+    --theme-radius: 8px;
   }
 }
 @media (width < 1100px) {
@@ -420,15 +337,6 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
     border-top: 1px solid var(--theme-line);
     padding-top: 0.35rem;
   }
-  .theme-art {
-    min-height: 10rem;
-    background-image:
-      linear-gradient(90deg, rgb(8 23 34 / 0.68), transparent 85%),
-      var(--theme-art-mobile, var(--theme-art));
-  }
-  .theme-art-caption {
-    inset: auto 1.1rem 1rem;
-  }
   .theme-primary-nav {
     gap: 0;
     padding: 0.25rem 0;
@@ -452,19 +360,6 @@ html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-righ
   .theme-main {
     padding: 0.75rem;
     border-radius: 8px;
-  }
-  .theme-art {
-    min-height: 8.5rem;
-  }
-  .theme-identity {
-    font-size: 1.9rem;
-  }
-  .theme-art-change {
-    right: 0.6rem;
-    top: 0.6rem;
-    min-height: 2.75rem;
-    padding: 0.4rem 0.6rem;
-    font-size: 0.75rem;
   }
   .theme-primary-nav {
     justify-content: space-between;

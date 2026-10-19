@@ -31,7 +31,7 @@ html[data-game-layout="3-sakura-courtyard"]:not([data-reading-palette]) {
   color-scheme: light;
 }
 html[data-game-layout="3-sakura-courtyard"]
-  :is(.theme-identity, .theme-welcome-copy)[data-theme-id="3-sakura-courtyard"] {
+  .theme-welcome-copy[data-theme-id="3-sakura-courtyard"] {
   display: block;
 }
 html[data-game-layout="17-obsidian-council"] {
@@ -67,7 +67,7 @@ html[data-game-layout="17-obsidian-council"]:not([data-reading-palette]) {
   color-scheme: dark;
 }
 html[data-game-layout="17-obsidian-council"]
-  :is(.theme-identity, .theme-welcome-copy)[data-theme-id="17-obsidian-council"] {
+  .theme-welcome-copy[data-theme-id="17-obsidian-council"] {
   display: block;
 }
 html[data-game-layout="20-eclipse-observatory"] {
@@ -103,6 +103,6 @@ html[data-game-layout="20-eclipse-observatory"]:not([data-reading-palette]) {
   color-scheme: dark;
 }
 html[data-game-layout="20-eclipse-observatory"]
-  :is(.theme-identity, .theme-welcome-copy)[data-theme-id="20-eclipse-observatory"] {
+  .theme-welcome-copy[data-theme-id="20-eclipse-observatory"] {
   display: block;
 }
