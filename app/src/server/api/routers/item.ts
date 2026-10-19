@@ -2193,6 +2193,8 @@ export const itemRouter = createTRPCRouter({
         return errorResponse(
           `You are already on this quest: ${grantedQuest.name}. Complete it before using this item again.`,
         );
+      // Assignment failures must escape the receipt callback to roll back the debit,
+      // then become a normal user-facing rejection after the transaction ends.
       const questRejected = new Error("Item quest grant rejected");
       let questRejectionMessage = "The quest could not be started. Please try again.";
 
@@ -2582,7 +2584,10 @@ export const itemRouter = createTRPCRouter({
           ),
         );
       }
-      /** Collection rewards and weighted caches pair the guarded debit with transactional delivery. */
+      /**
+       * Apply the guarded debit and effects on the supplied client. Transactional
+       * grants reuse the receipt owner's session; ordinary items use the root client.
+       */
       const commitConsumption = async (
         client: DrizzleClient,
         inTransaction: boolean,
@@ -2797,6 +2802,9 @@ export const itemRouter = createTRPCRouter({
             : {}),
         };
       };
+      // Quest history may need insertion, and entry costs/rewards can touch more rows.
+      // These must commit with the scroll debit and replay receipt; one guarded UPDATE
+      // cannot cover inserts. Reuse the existing cache/collection receipt transaction.
       if ((caches.length > 0 || petReward || grantedQuest) && receiptId) {
         return await commitCacheConsumption({
           client: ctx.drizzle,

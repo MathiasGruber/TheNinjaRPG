@@ -2339,7 +2339,8 @@ export const isAvailableUserQuests = (
     !questAndUserQuestInfo.previousAttempts ||
     questAndUserQuestInfo.previousAttempts < maxAttempts;
 
-  // Per-period completion cap (only meaningful when retryDelay != none).
+  // Per-period completion cap (only meaningful when retryDelay != none). Special
+  // quests consume another item for each attempt, so completion caps do not apply.
   const periodCapCheck =
     questAndUserQuestInfo.questType === "special" ||
     !periodCapReached({

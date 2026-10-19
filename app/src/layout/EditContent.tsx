@@ -1822,6 +1822,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     // older valid pattern while duplicate or incomplete coordinates are on screen.
     const hasCoordinateDraft = watchAll.target === "COORDINATES";
     // Keep cache and quest drafts in the parent so Save validates the visible settings.
+    // Waiting on child validity can miss the first selection while validation settles.
     const hasItemDraft = ["noncombatconsumereward", "noncombatquest"].includes(
       watchType,
     );

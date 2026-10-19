@@ -2726,9 +2726,9 @@ const hideRestrictedQuestsFrom = <T extends { questType: QuestType }>(
     : quests.filter((q) => !isRestrictedQuestType(q.questType));
 
 /**
- * Quests whose stored objectives start `questId` through a new_quest consequence. Retyping a
- * quest to an NPC-only or item-only type while such a reference is live would strand the referring chain, so
- * the update endpoint rejects the retype until the reference is removed.
+ * Find quests whose objectives start `questId` through a new_quest consequence. Retyping a
+ * referenced quest to an NPC-only or item-only type would strand the referring chain,
+ * so the update endpoint rejects the retype until the reference is removed.
  */
 const fetchQuestsStartingQuest = async (client: DrizzleClient, questId: string) =>
   client.query.quest.findMany({
@@ -2741,10 +2741,10 @@ const fetchQuestsStartingQuest = async (client: DrizzleClient, questId: string) 
  * or null when it may proceed. Both directions matter:
  *
  * - Outbound: an objective may not bypass an NPC or item acquisition requirement.
- * - Inbound: a quest may not become restricted while something still starts it. `create` always
- *   makes a mission, and a stranded edge
- *   throws in `upsertQuestEntry` after the player's snapshot has already been committed — the
- *   objective is burnt, the chain dead, and a terminal objective completes with no reward.
+ * - Inbound: a quest may not become restricted while another objective still starts it.
+ *
+ * Reject invalid links before saving content: a later assignment failure can follow a
+ * committed objective snapshot, leaving the chain without its next quest or reward.
  */
 export const restrictedNewQuestEdgeError = async (
   client: DrizzleClient,
@@ -3078,12 +3078,10 @@ export const ASSIGNABLE_QUEST_TYPES: QuestType[] = [
 ];
 
 /**
- * Quest types an overworld NPC must NOT grant. Their UI start path enforces an
- * occupation / squad-membership / structure-location prerequisite (HUNTER, GATHERING, anbuId,
- * Global Anbu HQ, adminbuilding) via {@link questUiAccessBlockMessage}, which
- * {@link assignQuestToUser} only runs for UI and companion sources. A player interacting with a friendly
- * NPC in the field can satisfy none of these, so pooling such a quest would hand its content to a
- * player who fails the gate the mission-hall path enforces.
+ * Quest types excluded from overworld NPC pools. Special quests require item
+ * consumption; the remaining types require occupation, squad or structure access
+ * enforced by {@link questUiAccessBlockMessage} for UI and companion starts.
+ * NPC starts cannot bypass those acquisition requirements.
  */
 export const OVERWORLD_GATED_QUEST_TYPES: QuestType[] = [
   "special",
@@ -3109,24 +3107,26 @@ export type QuestAcquisitionSource =
   | "quest_objective";
 
 /**
- * Core quest-assignment orchestration shared by the UI (`startQuest`) and overworld
- * NPC interactions. Runs all source-agnostic guards (rank, availability, date window,
- * retry delay, already-on-quest, per-type concurrent limit, daily quota), applies
- * structure/occupation guards for UI and companion sources, then writes the quest
- * entry and increments the daily counter.
+ * Start quests for UI, companion, NPC and item acquisition flows. Validate source,
+ * rank, availability, dates, active attempts and applicable quotas before assignment;
+ * UI and companion starts also enforce structure and occupation access.
+ *
+ * Item starts accept only Special quests and reuse the caller's receipt transaction,
+ * which already owns the account and stack claim. The caller must roll back any
+ * unsuccessful result so history, entry costs and the consumed item stay atomic.
  */
 export const assignQuestToUser = async (args: {
   client: DrizzleClient;
   user: NonNullable<UserWithRelations>;
   quest: Quest;
   source: "ui" | "pet_task" | "overworld_npc" | "item";
-  /** Item consumption owns the transaction and has already claimed the account and stack. */
+  /** Reuse the item receipt's transaction; do not open another assignment transaction. */
   inTransaction?: boolean;
   /** Required for NPC-only quests so their placement assignment can be verified server-side. */
   overworldPlacementId?: string;
   sectorVillage?: Awaited<ReturnType<typeof fetchSectorVillage>>;
-  // Required: it feeds the availability / period-cap guards below and is threaded into
-  // upsertQuestEntry to skip its findFirst round-trip. Both callers already fetch it.
+  // Feeds availability/period-cap guards and skips upsertQuestEntry's history query.
+  // Callers resolve this row in their opening parallel preload.
   prevAttempt: Awaited<ReturnType<typeof fetchUserQuestByQuestId>>;
 }): Promise<{ success: boolean; message: string; userCacheEligible?: boolean }> => {
   const {
@@ -3313,7 +3313,8 @@ export const assignQuestToUser = async (args: {
   const entryRejected = new Error("Quest entry rejected");
   const dailyLimitReached = new Error("Daily quest limit reached");
   if (source === "item") {
-    // The caller rolls back the entire consumption if entry payment or assignment fails.
+    // Reuse the receipt session rather than the entry-payment transactions below.
+    // The caller rolls back the entire consumption if payment or assignment fails.
     assignment = await upsertQuestEntry(
       client,
       user,

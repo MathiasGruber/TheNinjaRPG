@@ -1035,6 +1035,10 @@ export const NonCombatGainSkill = z.object({
   skillId: z.string().prefault(""),
 });
 
+/**
+ * Start a Special quest through item consumption. The empty ID supports new editor
+ * drafts; ItemValidator rejects it before the item can be saved.
+ */
 export const NonCombatQuestTag = z.object({
   ...BaseAttributes,
   type: z.literal("noncombatquest").prefault("noncombatquest"),
@@ -1531,6 +1535,7 @@ const SuperRefineItem = (data: ItemValidatorType, ctx: z.RefinementCtx) => {
   if (petRewardCount > 0 && !data.preventBattleUsage)
     addIssue(ctx, "Companion rewards must prevent battle usage.");
   const hasUnlockItemVariant = data.effects.find((e) => e.type === "unlockitemvariant");
+  // One consumption receipt owns one quest start, restricted to noncombat use on self.
   const questGrants = data.effects.filter((effect) => effect.type === "noncombatquest");
   if (questGrants.some((effect) => !effect.questId.trim()))
     addIssue(ctx, "Select a Special quest for the item to grant.");
