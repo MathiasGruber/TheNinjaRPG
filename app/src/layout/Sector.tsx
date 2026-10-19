@@ -3026,6 +3026,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           />
         </div>
       )}
+      {/* Hunting can receive focus later without dismissing this NPC arrival. */}
       {arrivalNpc && (
         <Modal
           isOpen={!!arrivalNpc}

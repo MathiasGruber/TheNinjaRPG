@@ -29,7 +29,10 @@ import {
 
 /** Staff-authored definitions and version-guarded, personal hunting sessions. */
 export const huntingRouter = createTRPCRouter({
-  /** Travel and dashboard need only the personal encounter, not the full board catalogs. */
+  /**
+   * Load only the caller's encounter for travel/dashboard polling in one joined read.
+   * A missing session returns null; unavailable rules leave a null contract for recovery.
+   */
   getSession: protectedProcedure.query(async ({ ctx }) => {
     const [row] = await ctx.drizzle
       .select({

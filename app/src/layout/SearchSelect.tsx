@@ -13,7 +13,10 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-/** Single-value version of the searchable content selectors used by the editor. */
+/**
+ * Select one catalog ID with searchable labels, closing the popover on selection.
+ * Values remain stable IDs; an empty value can represent the caller's reset option.
+ */
 export function SearchSelect({
   label,
   value,
@@ -49,6 +52,7 @@ export function SearchSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        {/* Reserve the popover's borders so search stays visible as results scroll. */}
         <Command
           label={`Search ${label.toLowerCase()}`}
           className="max-h-[calc(var(--radix-popover-content-available-height)-2px)]"

@@ -147,6 +147,7 @@ export default function TravelPage() {
   );
 }
 
+/** Coordinate destination confirmation, map travel and personal sector encounters. */
 function Travel() {
   // What is shown on this page
   const [showActive, setShowActive] = useLocalStorage<boolean>(

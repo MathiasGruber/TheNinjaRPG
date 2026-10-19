@@ -79,6 +79,7 @@ const categoryLabels = {
   raids: "Raids",
 } as const;
 
+/** Summarize actionable progress, rewards and the current occupation in reorderable sections. */
 export default function ProfileDashboard({ settings }: { settings?: React.ReactNode }) {
   const { data: userData, timeDiff } = useRequiredUserData();
   const utils = api.useUtils();

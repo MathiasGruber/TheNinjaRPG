@@ -23,6 +23,7 @@ import type { HuntingReceipt } from "@/validators/hunting";
 /**
  * Browse and manage the same personal session from the occupation or combat result.
  * Successful starts own profile/cache updates; onStarted clears an existing combat result.
+ * sessionOnly omits browsing and reward summaries to keep arrival dialogs focused.
  */
 export function HuntingBoard({
   victory,
@@ -103,6 +104,7 @@ export function HuntingBoard({
   const receipt = session?.lastResult ?? victory;
   const experience = user?.huntingExperience ?? receipt?.totalExperience ?? 0;
   const rankProgress = getHuntingRankProgress(experience);
+  // Drop empty habitats after combining filters so the board has one empty state.
   const filteredHabitats = (data?.habitats ?? [])
     .filter((h) => !habitatId || habitatId === h.id)
     .map((h) => ({

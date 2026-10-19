@@ -359,7 +359,7 @@ type OccupationQuestEntry = {
 };
 
 /**
- * One occupation row: the quest the player is on, or a prompt to pick one.
+ * One occupation row: the personal hunting contract, active quest, or prompt to start.
  * Crafting has no quest, so the row names the item on the bench.
  */
 export const describeOccupationLine = ({
@@ -376,6 +376,7 @@ export const describeOccupationLine = ({
   /** Undefined while the crafting timer is still loading. */
   craftingItemName?: string | null;
   craftingUser?: Parameters<typeof craftingStartBlockMessage>[0];
+  /** A personal encounter takes precedence over legacy hunting quests when present. */
   hunting?: RouterOutputs["hunting"]["getSession"];
 }): OccupationProgressLine => {
   if (!occupation) {

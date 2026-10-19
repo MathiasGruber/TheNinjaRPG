@@ -22,7 +22,10 @@ export const huntingEligibility = (
   contract: HuntingContract,
 ) => occupation === "HUNTER" && experience >= HUNTING_REQUIRED_EXP[contract.rank];
 
-/** Keep encounter stages consistent on the dashboard and contract interface. */
+/**
+ * Describe the encounter with combat taking precedence over cooldown/preparation.
+ * now is server time in milliseconds, so client clock skew cannot change the stage.
+ */
 export const huntingSessionStage = (
   session: { battleId: string | null; readyAt: Date | null },
   cooling: boolean,

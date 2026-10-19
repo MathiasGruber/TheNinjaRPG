@@ -12,7 +12,10 @@ import { HuntingBoard } from "@/layout/HuntingBoard";
 import Modal from "@/layout/Modal";
 import { blockingPopupOpenAtom, useRequiredUserData } from "@/utils/UserContext";
 
-/** Open the personal encounter once per arrival; keep a way to reopen it after dismissal. */
+/**
+ * Open the personal encounter when travel confirmation and global popups permit it.
+ * Keep dismissal per account and sector/session across reloads and same-sector combat.
+ */
 export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const { data: user } = useRequiredUserData();
   const isBlockingPopupOpen = useAtomValue(blockingPopupOpenAtom);
@@ -21,6 +24,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
   const [dismissed, setDismissed] = useState<string | null>(() =>
     safeSessionStorageGetItem(storageKey),
   );
+  /** Persist this arrival's dismissal; null explicitly reopens the encounter. */
   const dismiss = (sessionId: string | null) => {
     const value = sessionId ? `${user?.sector}:${sessionId}` : null;
     safeSessionStorageSetItem(storageKey, value ?? "");
@@ -45,6 +49,8 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
     }
   }, [user?.sector, storageKey]);
   if (user?.occupation !== "HUNTER") return null;
+  // Failed polls retain cached data, including a valid null response. Only an
+  // initial load failure should replace the encounter and its action feedback.
   if (encounter.error && encounter.data === undefined)
     return (
       <p role="status">
@@ -66,6 +72,7 @@ export function HuntingArrival({ blocked = false }: { blocked?: boolean }) {
           Open hunting contract
         </Button>
       </div>
+      {/* An NPC prompt can open later; its focus must not dismiss this encounter. */}
       <Modal
         title="Hunting encounter"
         returnFocusRef={openButton}
