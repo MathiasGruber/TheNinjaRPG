@@ -25,6 +25,7 @@ import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import MenuBoxCombat from "@/layout/MenuBoxCombat";
 import MenuBoxProfile from "@/layout/MenuBoxProfile";
+import { getGameLayout } from "@/libs/gameLayouts";
 import { getMainNavbarLinks, type NavBarDropdownLink } from "@/libs/menus";
 import { cn } from "@/libs/shadui";
 import type { UserWithRelations } from "@/routers/profile";
@@ -132,7 +133,8 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
 }) => {
   const showPublicContent =
     !userData &&
-    (accountState === "create-character" || (variant === "beta" && !isSignedInLayout));
+    (accountState === "create-character" ||
+      (variant === "default" && !isSignedInLayout));
   return (
     <div>
       {userData && (
@@ -161,7 +163,8 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
                 size={60}
                 className={cn(
                   "p-2",
-                  variant !== "themed" && "text-black md:text-white dark:text-white",
+                  getGameLayout(variant).frame !== "panel" &&
+                    "text-black md:text-white dark:text-white",
                 )}
               />
             </Link>
@@ -174,7 +177,8 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
                 size={60}
                 className={cn(
                   "p-2",
-                  variant !== "themed" && "text-black md:text-white dark:text-white",
+                  getGameLayout(variant).frame !== "panel" &&
+                    "text-black md:text-white dark:text-white",
                 )}
               />
             </Link>
@@ -183,7 +187,7 @@ export const LayoutLeftSidebar: React.FC<LayoutLeftSidebarProps> = ({
       )}
       {accountState === "loading" && (
         <SidebarLoadingSkeleton
-          className={variant === "beta" ? BETA_LEFT_SIDEBAR_RESERVATION : undefined}
+          className={variant === "default" ? BETA_LEFT_SIDEBAR_RESERVATION : undefined}
         />
       )}
       {accountState === "error" && <AccountLoadError />}
@@ -212,7 +216,8 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
 }) => {
   const showPublicContent =
     !userData &&
-    (accountState === "create-character" || (variant === "beta" && !isSignedInLayout));
+    (accountState === "create-character" ||
+      (variant === "default" && !isSignedInLayout));
   const variantClasses = layoutVariantClasses[variant];
   return (
     <>
@@ -296,7 +301,7 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
       )}
       {accountState === "loading" && (
         <RightSidebarLoadingSkeleton
-          className={variant === "beta" ? BETA_RIGHT_SIDEBAR_RESERVATION : undefined}
+          className={variant === "default" ? BETA_RIGHT_SIDEBAR_RESERVATION : undefined}
         />
       )}
       {accountState === "error" && <AccountLoadError />}
@@ -348,7 +353,7 @@ export const SignedInIcons: React.FC<SignedInIconsProps> = ({
         <Bug className="mx-1 h-6 w-6 rounded-full bg-blue-100 bg-opacity-80 p-1 text-slate-700 hover:bg-blue-300 hover:text-black xl:h-7 xl:w-7" />
       </Link>
       <GameSettingsPopover userData={userData} updateUser={updateUser} />
-      {variant === "beta" && (
+      {variant === "default" && (
         <Eclipse
           className="mx-1 h-6 min-h-6 w-6 min-w-6 rounded-full bg-blue-100 bg-yellow-100 bg-opacity-80 p-1 text-slate-700 hover:cursor-pointer hover:bg-blue-300 hover:text-black xl:h-7 xl:min-h-7 xl:w-7 xl:min-w-7 dark:bg-blue-100"
           onClick={onThemeToggle}
@@ -441,7 +446,7 @@ export const RightSideBar: React.FC<RightSideBarProps> = ({
                 className={cn(
                   variantClasses.rightMenuButton,
                   system.className,
-                  variant === "beta" &&
+                  variant === "default" &&
                     (disabled ? "opacity-30" : "hover:bg-orange-200"),
                   variant === "pixel" && disabled && "opacity-35",
                 )}

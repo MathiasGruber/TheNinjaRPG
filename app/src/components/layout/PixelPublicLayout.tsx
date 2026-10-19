@@ -2,7 +2,6 @@
 
 import { Music } from "lucide-react";
 import type React from "react";
-import { useEffect } from "react";
 import ReactDOM from "react-dom";
 import { GlobalAudioProvider } from "@/layout/GameSettings";
 import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
@@ -11,13 +10,9 @@ export interface LayoutProps {
   children: React.ReactNode;
 }
 
-const LayoutCore4Landing: React.FC<LayoutProps> = ({ children }) => {
+const PixelPublicLayout: React.FC<LayoutProps> = ({ children }) => {
   ReactDOM.prefetchDNS("https://o4507797256601600.ingest.de.sentry.io");
   ReactDOM.prefetchDNS("https://consentcdn.cookiebot.com");
-
-  useEffect(() => {
-    document.documentElement.classList.add("dark");
-  }, []);
 
   return (
     <GlobalAudioProvider>
@@ -42,4 +37,4 @@ const LayoutCore4Landing: React.FC<LayoutProps> = ({ children }) => {
   );
 };
 
-export default LayoutCore4Landing;
+export default PixelPublicLayout;

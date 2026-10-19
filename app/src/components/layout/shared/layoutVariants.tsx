@@ -11,10 +11,11 @@ import {
   IMG_WALLPAPER_SUMMER,
   IMG_WALLPAPER_WINTER,
 } from "@/drizzle/constants";
+import type { GameLayoutId } from "@/libs/gameLayouts";
 import type { UserWithRelations } from "@/routers/profile";
 import { getCurrentSeason } from "@/utils/time";
 
-export type LayoutVariant = "beta" | "pixel" | "themed";
+export type LayoutVariant = GameLayoutId;
 
 export const PIXEL_FALLBACK_WALLPAPER = IMG_PIXEL_HERO_POSTER;
 
@@ -40,16 +41,20 @@ export const PIXEL_MOBILE_HEADER_ICON_STYLE = "h-5 w-5";
 export const PIXEL_SIGNED_IN_SHELL_SURFACE =
   "tnr-pixel-clip border border-sky-200/15 bg-black/50 shadow-2xl shadow-black/30 backdrop-blur-sm";
 
+const PANEL_MENU_CLASSES = {
+  yellowButton: "theme-action-icon",
+  mobileNavbarButton: "theme-mobile-nav-button",
+  mainMenuButton: "w-full theme-menu-button",
+  mainMenuDecoration: "none" as const,
+  rightMenuButton: "relative w-full theme-menu-button",
+  rightMenuDecoration: "none" as const,
+};
+
 export const layoutVariantClasses = {
-  themed: {
-    yellowButton: "theme-action-icon",
-    mobileNavbarButton: "theme-mobile-nav-button",
-    mainMenuButton: "w-full theme-menu-button",
-    mainMenuDecoration: "none" as const,
-    rightMenuButton: "relative w-full theme-menu-button",
-    rightMenuDecoration: "none" as const,
-  },
-  beta: {
+  "20-eclipse-observatory": PANEL_MENU_CLASSES,
+  "17-obsidian-council": PANEL_MENU_CLASSES,
+  "3-sakura-courtyard": PANEL_MENU_CLASSES,
+  default: {
     yellowButton: BETA_YELLOW_BUTTON_STYLE,
     mobileNavbarButton: MOBILE_NAVBAR_BUTTON_STYLE,
     mainMenuButton: "w-full hover:bg-orange-200",

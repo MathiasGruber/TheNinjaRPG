@@ -2,13 +2,13 @@
 
 import type React from "react";
 import { useEffect, useState } from "react";
-import LayoutCore4Beta from "@/components/layout/core4_beta";
-import LayoutCore4Landing from "@/components/layout/core4_landing";
-import LayoutCore4Pixel from "@/components/layout/core4_pixel";
-import { ThemedGameLayout } from "@/components/layout/ThemedGameLayout";
-import { ThemedPublicLayout } from "@/components/layout/ThemedPublicLayout";
+import { GameLayout } from "@/components/layout/GameLayout";
+import { PanelPublicLayout } from "@/components/layout/PanelPublicLayout";
+import PixelPublicLayout from "@/components/layout/PixelPublicLayout";
 import ParticleProvider from "@/components/ui/particles";
 import { safeLocalStorageGetItem } from "@/hooks/localstorage";
+import { applyGameLayout } from "@/hooks/useGameLayout";
+import { getGameLayout } from "@/libs/gameLayouts";
 import {
   applyFontScaleCookie,
   type EffectiveLayout,
@@ -16,7 +16,6 @@ import {
   persistLayoutPreferenceCookie,
   storedValueToLayout,
 } from "@/libs/layoutPreference";
-import { GAME_LAYOUT_THEME_ATTRIBUTE } from "@/libs/layoutThemes";
 import type { WallpaperVariant } from "@/libs/wallpaperExperiment";
 import { LayoutContextProvider } from "@/utils/LayoutContext";
 import { usePublicPathname } from "@/utils/routing";
@@ -64,32 +63,28 @@ const LayoutSwitcher: React.FC<LayoutSwitcherProps> = ({
 
   const isKnownAnonymous = isClerkLoaded ? !isSignedIn : !initialIsSignedIn;
   useEffect(() => {
-    if (displayedLayout !== "themed") {
-      document.documentElement.removeAttribute(GAME_LAYOUT_THEME_ATTRIBUTE);
-      document.documentElement.classList.toggle("dark", displayedLayout === "pixel");
-    }
+    applyGameLayout(displayedLayout);
     // A change of shell variant mid-session remounts everything under <html>, and React
     // strips what the head script set on it; put the font scale back.
     applyFontScaleCookie();
   }, [displayedLayout]);
 
+  const definition = getGameLayout(displayedLayout);
   const isPixelLanding =
-    displayedLayout === "pixel" && pathname === "/" && isKnownAnonymous;
-  const content = isPixelLanding ? (
-    <LayoutCore4Landing>{children}</LayoutCore4Landing>
-  ) : displayedLayout === "themed" && isKnownAnonymous ? (
-    <ThemedPublicLayout>{children}</ThemedPublicLayout>
-  ) : displayedLayout === "themed" ? (
-    <ThemedGameLayout initialIsSignedIn={initialIsSignedIn}>
-      {children}
-    </ThemedGameLayout>
-  ) : displayedLayout === "pixel" ? (
-    <LayoutCore4Pixel initialIsSignedIn={initialIsSignedIn}>
-      {children}
-    </LayoutCore4Pixel>
-  ) : (
-    <LayoutCore4Beta initialIsSignedIn={initialIsSignedIn}>{children}</LayoutCore4Beta>
-  );
+    definition.publicFrame === "landing" && pathname === "/" && isKnownAnonymous;
+  const publicFrames = { landing: PixelPublicLayout, page: PanelPublicLayout };
+  const PublicFrame =
+    definition.publicFrame === "game"
+      ? undefined
+      : publicFrames[definition.publicFrame];
+  const content =
+    isKnownAnonymous &&
+    PublicFrame &&
+    (isPixelLanding || definition.publicFrame === "page") ? (
+      <PublicFrame>{children}</PublicFrame>
+    ) : (
+      <GameLayout initialIsSignedIn={initialIsSignedIn}>{children}</GameLayout>
+    );
 
   return (
     <LayoutContextProvider

@@ -36,7 +36,6 @@ import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
 import { cn } from "@/libs/shadui";
-import GameLayoutController from "./shared/GameLayoutController";
 import { LayoutBackground } from "./shared/LayoutBackground";
 import { MobileNotificationsPopover } from "./shared/LayoutNotifications";
 import { StrongestUsersBanner } from "./shared/LayoutSidebars";
@@ -50,12 +49,7 @@ import { MobileGameNav } from "./shared/MobileGameNav";
 export { SideBannerTitle } from "./shared/LayoutSidebars";
 export { getImageSet } from "./shared/layoutVariants";
 
-export interface LayoutProps {
-  children: React.ReactNode;
-  initialIsSignedIn?: boolean;
-}
-
-const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
+export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
   children,
   userData,
   isSignedInLayout,
@@ -93,7 +87,7 @@ const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
           )}
         </LowerRightHelpBtn>
       </div>
-      <LayoutBackground variant="beta" userData={userData} />
+      <LayoutBackground variant="default" userData={userData} />
       <div className="relative top-0 bottom-0 mr-auto ml-auto w-full max-w-[1280px] md:relative">
         <div
           className="relative top-3 z-2 z-50 flex w-full select-none justify-center"
@@ -246,7 +240,7 @@ const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
                 onWheel={forwardVerticalWheelToDocumentScroll}
               >
                 {/* From md the footer bar below is in flow rather than fixed; one viewport
-                    of minimum height keeps it below the fold (see core4_pixel.tsx). */}
+                    of minimum height keeps it below the fold (see PixelGameLayout.tsx). */}
                 <div className="p-3 pb-28 md:min-h-svh md:pb-3">{children}</div>
               </div>
               <div
@@ -361,7 +355,7 @@ const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
           {isSignedInLayout && showMobileNotifications && (
             <MobileNotificationsPopover
               notifications={shownNotifications}
-              variant="beta"
+              variant="default"
               count={mobileNotificationCount}
             />
           )}
@@ -412,17 +406,3 @@ const BetaGameLayout: React.FC<GameLayoutRenderProps> = ({
     </div>
   );
 };
-
-const LayoutCore4Beta: React.FC<LayoutProps> = ({ children, initialIsSignedIn }) => {
-  return (
-    <GameLayoutController
-      variant="beta"
-      renderer={BetaGameLayout}
-      initialIsSignedIn={initialIsSignedIn}
-    >
-      {children}
-    </GameLayoutController>
-  );
-};
-
-export default LayoutCore4Beta;

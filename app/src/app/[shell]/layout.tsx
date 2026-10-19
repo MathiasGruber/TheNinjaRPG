@@ -24,6 +24,7 @@ import { PyramidRunBoundary } from "@/layout/PyramidRunBoundary";
 import { RewardChoiceModal } from "@/layout/RewardChoice";
 import StructuredData from "@/layout/StructuredData";
 import { WebAnalytics } from "@/layout/WebAnalytics";
+import { getGameLayout, getGameLayoutScript } from "@/libs/gameLayouts";
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_COOKIE,
@@ -31,7 +32,6 @@ import {
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
 } from "@/libs/layoutPreference";
-import { getGameLayoutThemeScript, getWelcomeLayoutTheme } from "@/libs/layoutThemes";
 import {
   READING_ATTRIBUTES,
   READING_OPTIONS,
@@ -101,20 +101,16 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={initialLayout === "pixel" ? "dark" : undefined}
+      className={getGameLayout(initialLayout).tone === "dark" ? "dark" : undefined}
+      data-game-layout={initialLayout}
+      data-game-frame={getGameLayout(initialLayout).frame}
       suppressHydrationWarning
     >
       <head>
-        {initialLayout === "themed" && (
-          <script
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: script assembled only from validated theme identifiers.
-            dangerouslySetInnerHTML={{
-              __html: getGameLayoutThemeScript(
-                initialIsSignedIn ? undefined : getWelcomeLayoutTheme(),
-              ),
-            }}
-          />
-        )}
+        <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: configuration comes from the validated layout registry.
+          dangerouslySetInnerHTML={{ __html: getGameLayoutScript(initialLayout) }}
+        />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from three other constants, with no input from anywhere. */}
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}

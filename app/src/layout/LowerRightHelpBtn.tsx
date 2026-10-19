@@ -12,7 +12,6 @@ import { useLocalStorage } from "@/hooks/localstorage";
 import { GameSettingsPanel } from "@/layout/GameSettings";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
-import type { GameLayoutThemeId } from "@/libs/layoutThemes";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
@@ -32,7 +31,6 @@ interface LowerRightHelpProps {
   className?: string;
   children?: React.ReactNode;
   ariaLabel?: string;
-  defaultLayoutTheme?: GameLayoutThemeId;
 }
 
 const LowerRightHelpBtn: React.FC<LowerRightHelpProps> = (props) => {
@@ -142,7 +140,6 @@ const LowerRightHelpBtn: React.FC<LowerRightHelpProps> = (props) => {
               <GameSettingsPanel
                 userData={userData}
                 updateUser={updateUser}
-                defaultLayoutTheme={props.defaultLayoutTheme}
                 onNavigate={() => setIsOpen(false)}
               />
             </div>
@@ -217,7 +214,6 @@ const LowerRightHelpBtn: React.FC<LowerRightHelpProps> = (props) => {
                 <GameSettingsPanel
                   userData={userData}
                   updateUser={updateUser}
-                  defaultLayoutTheme={props.defaultLayoutTheme}
                   onNavigate={() => setIsOpen(false)}
                 />
               </div>

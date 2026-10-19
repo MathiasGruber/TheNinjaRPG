@@ -1,9 +1,9 @@
+import { GAME_LAYOUTS, getWelcomeLayout } from "@/libs/gameLayouts";
 import {
   cookieValueToLayout,
   type EffectiveLayout,
   LAYOUT_PREFERENCE_COOKIE,
 } from "@/libs/layoutPreference";
-import { getWelcomeLayoutTheme } from "@/libs/layoutThemes";
 import {
   isLemuExperimentEnabled,
   LEMU_EXPERIMENT,
@@ -25,7 +25,7 @@ import {
  * that matches it, so the root layout never reads the request: nothing in a document is
  * specific to the visitor, and a copy rendered for one can be served to the next. A
  * variant is the set of things that change the markup before hydration -- whether the
- * frame is the signed-in one, which layout family it uses, which wallpaper it shows,
+ * frame is the signed-in one, which layout it uses, which wallpaper it shows,
  * and which client it is for,
  * as the native shells load Clerk through a proxy and Android takes a different
  * viewport. Everything the visitor actually sees arrives through tRPC after hydration.
@@ -38,11 +38,7 @@ export interface ShellVariant {
 }
 
 export const SHELL_CLIENTS = ["web", "ios", "android"] as const;
-export const SHELL_LAYOUTS = [
-  "default",
-  "pixel",
-  "themed",
-] as const satisfies readonly EffectiveLayout[];
+export const SHELL_LAYOUTS = GAME_LAYOUTS.map((layout) => layout.id);
 
 /** The URL segment a variant renders under, e.g. "web-pixel-in". */
 export const shellParam = ({ client, layout, signedIn, wallpaper }: ShellVariant) =>
@@ -50,19 +46,14 @@ export const shellParam = ({ client, layout, signedIn, wallpaper }: ShellVariant
 
 /** Inverse of shellParam; null for anything that is not a known variant. */
 export const parseShellParam = (param: string): ShellVariant | null => {
-  const [client, layout, session, wallpaper, ...rest] = param.split("-");
-  if (rest.length > 0) return null;
-  if (
-    wallpaper !== undefined &&
-    (!parseWallpaperVariant(wallpaper) ||
-      client !== "web" ||
-      layout !== "default" ||
-      session !== "out")
-  )
+  const match = new RegExp(
+    `^(${SHELL_CLIENTS.join("|")})-(${SHELL_LAYOUTS.join("|")})-(in|out)(?:-(${WALLPAPER_VARIANTS.join("|")}))?$`,
+  ).exec(param);
+  if (!match) return null;
+  const [, client, layout, session, wallpaper] = match;
+  if (wallpaper && (client !== "web" || layout !== "default" || session !== "out"))
     return null;
-  if (!SHELL_CLIENTS.includes(client as ShellVariant["client"])) return null;
-  if (!SHELL_LAYOUTS.includes(layout as EffectiveLayout)) return null;
-  if (session !== "in" && session !== "out") return null;
+
   return {
     client: client as ShellVariant["client"],
     layout: layout as EffectiveLayout,
@@ -158,7 +149,7 @@ const clientHasSession = (cookies: ReadonlyMap<string, string>) => {
  */
 export const chooseShell = (
   request: ShellRequest,
-  welcomeTheme: unknown = process.env.NEXT_PUBLIC_WELCOME_LAYOUT_THEME,
+  welcomeLayout: unknown = process.env.NEXT_PUBLIC_WELCOME_LAYOUT,
 ): ShellChoice => {
   const native = parseNativeUserAgent(request.userAgent);
   const client: ShellVariant["client"] = native ? native.platform : "web";
@@ -168,8 +159,7 @@ export const chooseShell = (
   }
   const preference = cookieValueToLayout(request.cookies.get(LAYOUT_PREFERENCE_COOKIE));
   const layout =
-    preference ??
-    (!hasSession && getWelcomeLayoutTheme(welcomeTheme) ? "themed" : "default");
+    preference ?? (!hasSession ? getWelcomeLayout(welcomeLayout) : "default");
   const assigned: ShellChoice["assigned"] = {};
   const isLandingVisit =
     !hasSession &&

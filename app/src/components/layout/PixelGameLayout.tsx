@@ -19,7 +19,6 @@ import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
 import { cn } from "@/libs/shadui";
-import GameLayoutController from "./shared/GameLayoutController";
 import { LayoutBackground } from "./shared/LayoutBackground";
 import { MobileNotificationsPopover } from "./shared/LayoutNotifications";
 import type { GameLayoutRenderProps } from "./shared/layoutTypes";
@@ -35,7 +34,7 @@ import {
 } from "./shared/layoutVariants";
 import { MobileGameNav } from "./shared/MobileGameNav";
 
-const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
+export const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
   children,
   userData,
   isSignedInLayout,
@@ -385,22 +384,3 @@ const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
     </div>
   );
 };
-
-export interface LayoutProps {
-  children: React.ReactNode;
-  initialIsSignedIn?: boolean;
-}
-
-const LayoutCore4Pixel: React.FC<LayoutProps> = ({ children, initialIsSignedIn }) => {
-  return (
-    <GameLayoutController
-      variant="pixel"
-      renderer={PixelGameLayout}
-      initialIsSignedIn={initialIsSignedIn}
-    >
-      {children}
-    </GameLayoutController>
-  );
-};
-
-export default LayoutCore4Pixel;

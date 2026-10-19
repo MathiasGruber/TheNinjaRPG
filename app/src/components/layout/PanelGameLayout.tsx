@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleHelp, Compass, House } from "lucide-react";
-import { type ReactNode, Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,14 +10,12 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { IMG_LOGO_SHORT } from "@/drizzle/constants";
-import { applyGameLayoutTheme, useGameLayoutTheme } from "@/hooks/useGameLayoutTheme";
 import Footer from "@/layout/Footer";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import LowerRightHelpBtn from "@/layout/LowerRightHelpBtn";
 import { isTutorialActive } from "@/libs/tutorial";
-import GameLayoutController from "./shared/GameLayoutController";
 import { MobileNotificationsPopover } from "./shared/LayoutNotifications";
 import type { GameLayoutRenderProps } from "./shared/layoutTypes";
 import {
@@ -26,27 +24,7 @@ import {
 } from "./shared/layoutUtils";
 import { MobileGameNav } from "./shared/MobileGameNav";
 
-export function ThemedGameLayout({
-  children,
-  initialIsSignedIn,
-}: {
-  children: ReactNode;
-  initialIsSignedIn: boolean;
-}) {
-  const themeId = useGameLayoutTheme();
-  useEffect(() => applyGameLayoutTheme(themeId), [themeId]);
-  return (
-    <GameLayoutController
-      variant="themed"
-      renderer={ThemeShell}
-      initialIsSignedIn={initialIsSignedIn}
-    >
-      {children}
-    </GameLayoutController>
-  );
-}
-
-function ThemeShell(props: GameLayoutRenderProps) {
+export function PanelGameLayout(props: GameLayoutRenderProps) {
   const {
     children,
     userData,
@@ -71,7 +49,7 @@ function ThemeShell(props: GameLayoutRenderProps) {
   const isGuidedTutorial = isTutorialActive(userData);
 
   return (
-    <div className="tnr-theme-game" data-layout-variant="themed">
+    <div className="tnr-theme-game" data-layout-variant={props.variant}>
       <a className="theme-skip-link" href="#game-content">
         Skip to game content
       </a>
@@ -105,7 +83,7 @@ function ThemeShell(props: GameLayoutRenderProps) {
             {showMobileNotifications && (
               <MobileNotificationsPopover
                 notifications={shownNotifications}
-                variant="themed"
+                variant={props.variant}
                 count={mobileNotificationCount}
               />
             )}

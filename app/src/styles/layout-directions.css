@@ -118,15 +118,15 @@ html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
 html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
   border-block: 3px double #8e7db2;
 }
-html[data-game-layout] :is(button, a).bg-primary:not(.theme-menu-button):hover {
+html[data-game-frame="panel"] :is(button, a).bg-primary:not(.theme-menu-button):hover {
   background-color: color-mix(in srgb, hsl(var(--primary)), #000 8%);
 }
-html[data-game-layout][data-reading-palette] .tnr-theme-game [data-content-box-inner] {
+html[data-game-frame="panel"][data-reading-palette] .tnr-theme-game [data-content-box-inner] {
   background: hsl(var(--card)) !important;
   border-color: hsl(var(--border)) !important;
   color: hsl(var(--card-foreground)) !important;
 }
-html[data-game-layout][data-reading-palette]
+html[data-game-frame="panel"][data-reading-palette]
   .tnr-theme-game
   [data-reading-surface]
   :is([data-reading-heading], h1, h2, h3) {

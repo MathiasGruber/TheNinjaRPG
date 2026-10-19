@@ -3,47 +3,31 @@
 import { Check, Palette } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  selectGameLayoutTheme,
-  useGameLayoutTheme,
-  useSelectGameLayout,
-} from "@/hooks/useGameLayoutTheme";
+import { useSelectGameLayout } from "@/hooks/useGameLayout";
 import ContentBox from "@/layout/ContentBox";
 import Image from "@/layout/Image";
-import {
-  GAME_LAYOUT_THEMES,
-  type GameLayoutThemeId,
-  getGameLayoutArt,
-  getGameLayoutTheme,
-  getWelcomeLayoutTheme,
-} from "@/libs/layoutThemes";
+import { GAME_LAYOUTS, type GameLayoutId, getGameLayout } from "@/libs/gameLayouts";
 import { cn } from "@/libs/shadui";
 import { useActiveLayout } from "@/utils/LayoutContext";
-import { useUserData } from "@/utils/UserContext";
 
 export default function GameLayoutsPage() {
   const activeLayout = useActiveLayout();
-  const { isSignedIn } = useUserData();
-  const selected = useGameLayoutTheme(isSignedIn ? undefined : getWelcomeLayoutTheme());
   const selectLayout = useSelectGameLayout();
   const [tone, setTone] = useState<"all" | "light" | "dark">("all");
   const [announcement, setAnnouncement] = useState("");
-  const themes = GAME_LAYOUT_THEMES.filter(
-    (theme) => tone === "all" || theme.tone === tone,
-  );
+  const themes = GAME_LAYOUTS.filter((theme) => tone === "all" || theme.tone === tone);
 
-  const chooseTheme = (id: GameLayoutThemeId) => {
-    selectGameLayoutTheme(id);
-    selectLayout("themed");
+  const chooseTheme = (id: GameLayoutId) => {
+    selectLayout(id);
     setAnnouncement(
-      `${getGameLayoutTheme(id).name} selected. Your game layout has been updated.`,
+      `${getGameLayout(id).name} selected. Your game layout has been updated.`,
     );
   };
 
   return (
     <ContentBox
       title="Choose your surroundings"
-      subtitle="Three ways to make Seichi your own."
+      subtitle="Five ways to make Seichi your own."
       defaultBackHref="/profile"
       padding={false}
     >
@@ -76,7 +60,7 @@ export default function GameLayoutsPage() {
         </p>
         <div className="grid gap-6 xl:grid-cols-2">
           {themes.map((theme) => {
-            const isSelected = activeLayout === "themed" && selected === theme.id;
+            const isSelected = activeLayout === theme.id;
             return (
               <article
                 key={theme.id}
@@ -88,7 +72,7 @@ export default function GameLayoutsPage() {
               >
                 <div className="relative aspect-[5/2] overflow-hidden bg-muted">
                   <Image
-                    src={getGameLayoutArt(theme.id)}
+                    src={theme.art}
                     alt=""
                     width={720}
                     height={480}
@@ -137,8 +121,7 @@ export default function GameLayoutsPage() {
           })}
         </div>
         <p className="mt-8 text-muted-foreground text-sm">
-          Classic and Pixel are always available in your display settings. Reading
-          preferences, text size and mobile shortcuts work with every layout.
+          Reading preferences, text size and mobile shortcuts work with every layout.
         </p>
       </div>
     </ContentBox>

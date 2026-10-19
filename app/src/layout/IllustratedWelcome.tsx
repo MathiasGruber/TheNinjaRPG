@@ -9,21 +9,21 @@ import {
 } from "@/drizzle/constants";
 import Image from "@/layout/Image";
 import Link from "@/layout/Link";
-import { GAME_LAYOUT_THEMES } from "@/libs/layoutThemes";
+import { getGameLayout } from "@/libs/gameLayouts";
+import { useActiveLayout } from "@/utils/LayoutContext";
 
-export function ThemedWelcome() {
+export function IllustratedWelcome() {
+  const theme = getGameLayout(useActiveLayout());
   return (
     <>
       <section className="theme-welcome-hero" aria-label="Begin your shinobi journey">
         <div className="theme-welcome-art" aria-hidden="true" />
         <div className="theme-welcome-orbit" aria-hidden="true" />
         <div className="theme-welcome-content">
-          {GAME_LAYOUT_THEMES.map((theme) => (
-            <div className="theme-welcome-copy" data-theme-id={theme.id} key={theme.id}>
-              <h1>{theme.welcomeTitle}</h1>
-              <p>{theme.welcomeIntro}</p>
-            </div>
-          ))}
+          <div className="theme-welcome-copy" data-theme-id={theme.id}>
+            <h1>{theme.welcomeTitle}</h1>
+            <p>{theme.welcomeIntro}</p>
+          </div>
           <div className="theme-welcome-actions">
             <Link href="/signup" id="signup_btn" className="welcome-primary-action">
               Create your ninja

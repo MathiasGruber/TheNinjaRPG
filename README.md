@@ -54,13 +54,15 @@ action. Preparation does not start a server or run migrations/seeds.
 
 Visitors and players choose Classic, Pixel, Eclipse Observatory, Obsidian Council or Sakura
 Courtyard from one layout selector in Settings → Display. Selection is saved on the
-device and applies to both the welcome page and the game. The themed welcome pages also
+device and applies to both the welcome page and the game. Public page headers also
 provide the shared sound and display settings in the upper-right corner; `/layouts`
-shows the designs. The themed identifiers are
+shows all five designs. Their identifiers are `default`, `pixel`,
 `20-eclipse-observatory`, `17-obsidian-council` and `3-sakura-courtyard`.
+`app/src/libs/gameLayouts.ts` defines their names, appearance, frame selection and
+responsive behavior; every game frame uses the same controller and layout preference.
 
 Visitors without a saved choice receive the existing welcome design. To set a different
-welcome default, set `NEXT_PUBLIC_WELCOME_LAYOUT_THEME` to one of those three identifiers
+welcome default, set `NEXT_PUBLIC_WELCOME_LAYOUT` to any layout identifier
 and restart the dev server or rebuild the deployment. A visitor's explicit choice takes
 precedence. Unset or unrecognized values preserve the existing default. Search crawlers
 continue to receive the default public shell. Signing out returns to the public welcome

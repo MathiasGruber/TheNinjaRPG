@@ -10,7 +10,7 @@ describe("prerendered wallpaper", () => {
   it.each([...WALLPAPER_VARIANTS])("preloads and paints only the assigned %s image", (wallpaper) => {
     const html = renderToStaticMarkup(
       <LayoutContextProvider value="default" isPixelLanding={false} wallpaper={wallpaper}>
-        <LayoutBackground variant="beta" />
+        <LayoutBackground variant="default" />
       </LayoutContextProvider>,
     );
     const image = WALLPAPER_IMAGES[wallpaper];

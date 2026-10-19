@@ -5,11 +5,11 @@ import {
   LayoutLeftSidebar,
   LayoutRightSidebarContent,
 } from "@/components/layout/shared/LayoutSidebars";
-import type { LayoutVariant } from "@/components/layout/shared/layoutVariants";
+import { GAME_LAYOUTS } from "@/libs/gameLayouts";
 import { DISCORD_INVITE_URL } from "@/drizzle/constants";
 import { ensureDom } from "../setup-dom.mjs";
 
-const variants: LayoutVariant[] = ["beta", "pixel", "themed"];
+const variants = GAME_LAYOUTS.map((layout) => layout.id);
 const invalidate = vi.fn(async () => {});
 
 beforeEach(() => {
@@ -64,7 +64,7 @@ describe("sidebars before character creation", () => {
   });
 
   it("keeps the existing sign-in panel for signed-out Classic visitors", () => {
-    const view = render(<LayoutRightSidebarContent variant="beta" isSignedInLayout={false} accountState={null} systems={[]} />);
+    const view = render(<LayoutRightSidebarContent variant="default" isSignedInLayout={false} accountState={null} systems={[]} />);
     expect(view.getByRole("link", { name: /^Sign in/ }).getAttribute("href")).toBe("/login");
     expect(view.getByAltText("DiscordProvider")).toBeTruthy();
     expect(view.queryByRole("navigation", { name: "Explore Seichi" })).toBeNull();

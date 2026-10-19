@@ -187,7 +187,7 @@
   border-radius: calc(var(--theme-radius, 12px) * 0.6);
   box-shadow: none;
 }
-html[data-game-layout] img:is([alt="signup-decor-left"], [alt="signup-decor-right"]) {
+html[data-game-frame="panel"] img:is([alt="signup-decor-left"], [alt="signup-decor-right"]) {
   display: none;
 }
 .theme-footer {
