@@ -232,7 +232,13 @@ import {
   type WeightedCache,
   weightedCacheSchema,
 } from "@/validators/weightedCache";
-import { assignQuestToUser, runRewardTasks, updateRewards } from "./quests";
+import {
+  assignQuestToUser,
+  fetchQuest,
+  fetchUserQuestByQuestId,
+  runRewardTasks,
+  updateRewards,
+} from "./quests";
 
 export const itemRouter = createTRPCRouter({
   /** Content authoring needs source alpha bounds even for generated and historical uploads. */
@@ -2171,15 +2177,8 @@ export const itemRouter = createTRPCRouter({
       // debiting inventory or applying any of the item's other effects.
       const [grantedQuest, previousQuestAttempt] = questEffect
         ? await Promise.all([
-            ctx.drizzle.query.quest.findFirst({
-              where: eq(quest.id, questEffect.questId),
-            }),
-            ctx.drizzle.query.questHistory.findFirst({
-              where: and(
-                eq(questHistory.questId, questEffect.questId),
-                eq(questHistory.userId, ctx.userId),
-              ),
-            }),
+            fetchQuest(ctx.drizzle, questEffect.questId),
+            fetchUserQuestByQuestId(ctx.drizzle, ctx.userId, questEffect.questId),
           ])
         : [undefined, undefined];
       if (questEffect && grantedQuest?.questType !== "special")
