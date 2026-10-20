@@ -24,6 +24,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        test.java.srcDir rootProject.file('../../app/tests/native/android')
+    }
+    testOptions {
+        unitTests.all {
+            // Robolectric's API 36 shared-memory bridge uses the JDK file-descriptor API.
+            jvmArgs '--add-opens=java.base/jdk.internal.access=ALL-UNNAMED'
+        }
+    }
 }
 
 repositories {
@@ -42,6 +51,9 @@ dependencies {
     implementation "io.sentry:sentry-android:$sentryAndroidVersion"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.robolectric:robolectric:$robolectricVersion"
+    testImplementation "org.mockito:mockito-core:$mockitoVersion"
+    testImplementation "androidx.browser:browser:$androidxBrowserVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

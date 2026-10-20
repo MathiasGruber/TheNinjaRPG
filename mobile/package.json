@@ -37,6 +37,7 @@
     "typescript": "^7.0.2"
   },
   "patchedDependencies": {
-    "@capacitor/android@8.5.0": "patches/@capacitor%2Fandroid@8.5.0.patch"
+    "@capacitor/android@8.5.0": "patches/@capacitor%2Fandroid@8.5.0.patch",
+    "@capacitor/browser@8.0.4": "patches/@capacitor%2Fbrowser@8.0.4.patch"
   }
 }
