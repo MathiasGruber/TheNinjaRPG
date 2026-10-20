@@ -20,12 +20,13 @@ import * as toast from "@/libs/toast";
 import * as UserContext from "@/utils/UserContext";
 import { ActionEndTurn } from "@/validators/ai";
 import { IncreaseStatTag } from "@/validators/combat";
+import { PET_RANK_APPEARANCES } from "@/libs/pets/catalogue";
 import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { ensureDom } from "../setup-dom.mjs";
 
 const testApi = createTRPCReact<AppRouter>();
 const usePetSpeciesEditForm = petSpecies.usePetSpeciesEditForm;
-const defaults = { preferredDamageElement: null, role: "ASSAULT" as const, defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" as const };
+const defaults = { artDirection: null, rankConcepts: [], preferredDamageElement: null, role: "ASSAULT" as const, defaultJutsuIds: [], aiRules: [], includeDefaultRules: true, effects: [], skillTarget: "SELF" as const };
 let queryClient: QueryClient;
 let role: UserRole;
 let species: RouterOutputs["petSpecies"]["getAll"];
@@ -195,6 +196,21 @@ it("saves edits and retires species without exposing a delete action or changing
   await waitFor(() => expect((view.getByRole("button", { name: "Save to Database" }) as HTMLButtonElement).disabled).toBe(true));
   expect(view.queryByRole("button", { name: /delete/i })).toBeNull();
   expect(view.getByText(/retired from new daily offers/)).toBeTruthy();
+});
+
+it("edits species art direction and per-rank concepts with the built-in milestones as placeholders", async () => {
+  const view = await mount(true);
+  await view.findByRole("textbox", { name: "Species name" });
+  fireEvent.change(view.getByRole("textbox", { name: "Art direction (optional)" }), { target: { value: " A white fox with red-tipped flame tails. " } });
+  fireEvent.mouseDown(view.getByRole("tab", { name: "Evolution art" }), { button: 0 });
+  const rankOne = view.getByRole("textbox", { name: "Rank 1 concept (Companion)" }) as HTMLTextAreaElement;
+  expect(rankOne.placeholder).toBe(PET_RANK_APPEARANCES[0]);
+  expect(view.getAllByRole("textbox", { name: /^Rank \d+ concept/ })).toHaveLength(10);
+  fireEvent.change(view.getByRole("textbox", { name: "Rank 2 concept (Scout)" }), { target: { value: "Two flame-tipped tails and a gold neck ornament" } });
+  await waitFor(() => expect((view.getByRole("button", { name: "Save to Database" }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(view.getByRole("button", { name: "Save to Database" }));
+  await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+  expect(update.mock.calls[0]?.[0]).toEqual({ id: "fox", data: { ...defaults, name: "Fox", description: "A fox with a bushy tail.", rarity: "COMMON", isActive: true, artDirection: "A white fox with red-tipped flame tails.", rankConcepts: ["", "Two flame-tipped tails and a gold neck ornament"] } });
 });
 
 it("does not fetch or render an editor for an unauthorized visitor", async () => {

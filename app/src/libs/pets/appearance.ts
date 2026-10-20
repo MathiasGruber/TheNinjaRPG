@@ -6,7 +6,12 @@ import type { PetSpecies, UserPet } from "@/drizzle/schema";
 import { validateSceneCharacterImage } from "@/libs/contentReview/sceneCharacter";
 import { PIXEL_ART_RENDERING } from "@/libs/imagePrompts";
 import { classifyNsfwImage } from "@/libs/moderator";
-import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
+import {
+  PET_AURAS,
+  PET_CHARACTERISTICS,
+  PET_PALETTES,
+  PET_RANK_APPEARANCES,
+} from "@/libs/pets/catalogue";
 import { getPetRank } from "@/libs/pets/progression";
 import {
   classifyPetAppearanceImage,
@@ -26,7 +31,12 @@ type AppearancePet = Pick<
   | "rank"
   | "artRank"
   | "avatar"
-> & { species: Pick<PetSpecies, "id" | "name" | "description"> | null };
+> & {
+  species: Pick<
+    PetSpecies,
+    "id" | "name" | "description" | "artDirection" | "rankConcepts"
+  > | null;
+};
 
 const PET_ART_STYLE = `${PIXEL_ART_RENDERING}
 TheNinja-RPG animal sprite: exactly ONE individual animal with ONE head and ONE connected body, natural species-appropriate adult anatomy and head-to-body proportions, no extra heads, duplicate animals or detached body parts. Cosmetic colours, markings, accessories and aura must preserve recognizable species anatomy. Bright eyes mean clear highlights at natural eye size, never an enlarged head or eyes or a shortened beak. Show animal strength through a powerful native torso, shoulders, haunches and species-specific fur, feathers or scales. Keep animal limb anatomy: no hands, human arms or humanoid torso. Use an elevated three-quarter isometric view with the face or beak pointing toward the viewer's LEFT. Fit the complete animal, including every crest tip, foot and tail, inside the central 80% of the canvas with empty 10% margins on all four sides. Keep the same canvas and view angle across ranks. Reframe when needed to fit a physically redesigned form inside the safe margins; uniform scaling, zoom or filling more of the frame alone is not strength.
@@ -35,26 +45,15 @@ Clean sprite composition overrides cinematic lighting: draw on a perfectly unifo
 const MAX_PET_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_PET_IMAGE_PIXELS = 1024 * 1024;
 
-/** Distinct native structures make each rank a physical evolution while retaining its identity. */
-const RANK_APPEARANCES = [
-  "A modest companion: a lean compact adult with a simple unadorned natural silhouette and no developed crest, mantle or decorative armour",
-  "A sturdy scout: visibly deepen and strengthen the torso, and replace the light idle stance with a firmly braced, confident stance",
-  "A powerful tracker: keep every existing crest, ruff and protective feather, but transform the supporting body into a low, forward-ready hunting stance. Give it visibly larger, heavier native paws or talons (or thicker wing/fin roots), longer strong claws where natural, and pronounced powerful haunches. Make the extremities roughly half again as substantial as the prior form while preserving its recognizable facial design and natural eye proportions. The changed leg geometry, extremities and body build must be conspicuous, not just new fur lines",
-  "An armoured guardian: preserve the powerful paws, talons and hunting build, then add a NEW broad, two-tier protective mantle of native fur, overlapping feathers, scales or shell around the shoulders and chest. Its layered outline must project conspicuously beyond the previous simple ruff or body edge. Broaden and deepen the supporting chest/core so this is a heavy protective form, not the same animal with extra fur lines or a changed foreleg pose",
-  "A formidable hunter: radically develop its existing natural weapons. Give it conspicuously long, thick, hooked claws or talons, and a longer, heavier native beak or jaw; use powerful locomotor fins for a species without these features. These must be large new shapes, not tiny details. Support them with a deeper athletic torso and much heavier native legs, wing roots or swimming core in a forward, ready-to-strike stance. Retain its developed crest, guardian mantle and recognizable facial design",
-  "An imposing warden: flare the native shoulder protection into broad projecting shields of THREE stepped layers of fur, feathers, scales or shell. Spread any existing wings or fins partway to support those wide shields; retain the original limb count. This protective outline must become dramatically wider than the supplied form, not painted-on lines. Give it a deep barrel chest and heavy supporting neck beneath the wide protection, retaining its crest, mantle and natural weapons",
-  "A majestic sentinel: expand its existing native rear display into a sweeping layered tail, tail-feather fan, caudal fin or rear shell/body contour, visibly broader and more substantial than before. Reinforce the rear body and supporting limbs or swimming/flight core beneath that display; retain the heavy front mantle",
-  "A mythic beast: build a high, broad, two-tier dorsal mantle along the entire neck and back from its native fur, feathers, dorsal fin or shell ridge. These large angular layers must rise well beyond the old back line, comparable in height to its head, rather than a few small spikes. Deepen and thicken the body beneath them. Keep the previous rear display fully spread and at least as developed; shrinking it to add back details is not progress. No new limb type, horn or body part absent from this species",
-  "A sovereign companion: raise and widen the existing head/neck crest, mane, feather crown or front shell contour into a grand tiered upper silhouette, preserving the recognizable face and natural eye proportions. Give it an exceptionally broad, deep front body with thick natural support and a planted commanding stance",
-  "A celestial legendary beast: add TWO large NEW structural tiers. Below the existing neck/chest mantle, build a broad projecting lower protective tier with long native fur, feather, fin or shell points extending outward on both sides of the chest. Below the existing rear fan/display, add a second large sweeping lower tier extending down and out, visibly separate from the upper tier. Preserve the high crown and developed protection, but rebuild the supporting chest and native limbs into a much heavier, firmly planted apex body; mammal paws must have broad padded bases carrying their claws. Reframe to fit all tips. These must be conspicuous new projecting contours, not extra surface lines or a larger copy of the old fans",
-] as const;
-
 /** Only authored catalogue text enters the model; the player's chosen name is never a prompt. */
 export const getPetAppearancePrompt = (pet: AppearancePet) => {
   const { species, palette, characteristic, aura } = getPetAppearanceTraits(pet);
   const rank = getPetRank(pet.rank);
-  const identity = `${species.description}. Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
-  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${RANK_APPEARANCES[rank.rank - 1]}. Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
+  const artDirection = species.artDirection
+    ? ` Species art direction: ${toClause(species.artDirection)}.`
+    : "";
+  const identity = `${species.description}.${artDirection} Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura: ${aura.description}.`;
+  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${getPetRankConcept(species, rank.rank)}. Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
   const edit =
     pet.artRank < pet.rank
       ? "Create a newly drawn full-body design of the next evolution, using the reference to identify the SAME individual animal rather than copying its body design. Carry forward or increase the visual weight of its developed crest, mantle, protective layers and rear display. You may reshape, merge and reorganize those native structures into a stronger new silhouette; do not erase developed features or return to a simpler form. Make this rank's milestone a substantial physical redesign of its build and native structures. It must read clearly stronger even with all markings and aura ignored. A near-copy, extra decoration, brighter outline or camera zoom is not an evolution. Preserve identity, not an identical pose or silhouette."
@@ -197,6 +196,15 @@ const reviewVisualQuality = async (
     signal,
   );
 };
+
+/** A staff-authored concept for this species' rank, else the generic built-in milestone. */
+const getPetRankConcept = (species: Pick<PetSpecies, "rankConcepts">, rank: number) => {
+  const concept = species.rankConcepts[rank - 1];
+  return concept?.trim() ? toClause(concept) : PET_RANK_APPEARANCES[rank - 1];
+};
+
+/** Authored text is joined into sentences, so drop its own closing punctuation and spacing. */
+const toClause = (text: string) => text.trim().replace(/[\s.]+$/, "");
 
 /** Resolve saved catalogue IDs and reject corrupt identity before calling an image model. */
 const getPetAppearanceTraits = (pet: AppearancePet) => {

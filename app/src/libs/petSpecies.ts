@@ -23,6 +23,8 @@ import {
 const emptySpecies: ZodPetSpeciesType = {
   name: "",
   description: "",
+  artDirection: null,
+  rankConcepts: [],
   rarity: "COMMON",
   role: "ASSAULT",
   preferredDamageElement: null,
@@ -125,6 +127,13 @@ export const usePetSpeciesEditForm = (
       label: "Visual description",
       type: "textarea",
       rows: 4,
+      fullWidth: true,
+    },
+    {
+      id: "artDirection",
+      label: "Art direction (optional)",
+      type: "textarea",
+      rows: 3,
       fullWidth: true,
     },
     {
