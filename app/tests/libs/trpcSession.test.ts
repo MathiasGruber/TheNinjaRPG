@@ -99,6 +99,21 @@ describe("tRPC session authentication", () => {
 
 
 describe("tRPC account lifetime", () => {
+  it.each(["switch", "sign-out"])("rejects a queued push registration after %s before dispatch", async (change) => {
+    const clerk: Pick<Clerk, "session"> = { session: session("a") };
+    const scope = createTrpcSession(clerk);
+    const fetch = mock(async () => Response.json([]));
+    const client = createTRPCClient<AppRouter>({
+      links: [trpcSessionLink(scope), httpBatchLink({
+        url: "http://localhost/api/trpc", transformer: superjson, headers: scope.headers, fetch,
+      })],
+    });
+    clerk.session = change === "switch" ? session("b") : null;
+    await expect(client.push.registerDevice.mutate({ token: "a".repeat(64), platform: "ios" }))
+      .rejects.toThrow(SESSION_CHANGED_MESSAGE);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("permanently rejects a queued client after switching away and back", async () => {
     const clerk: Pick<Clerk, "session"> = { session: session("a") };
     const scope = createTrpcSession(clerk);

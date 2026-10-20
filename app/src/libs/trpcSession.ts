@@ -69,7 +69,11 @@ export const trpcSessionLink =
       return next(op).subscribe({
         next(value) {
           try {
-            session.assertCurrent();
+            // The push hook needs a completed bind's rotating proof for queued detach.
+            // Its registration epoch keeps it out of the next account's widget state.
+            if (op.type !== "mutation" || op.path !== "push.registerDevice") {
+              session.assertCurrent();
+            }
             observer.next(value);
           } catch (error) {
             observer.error(TRPCClientError.from(error as Error));
