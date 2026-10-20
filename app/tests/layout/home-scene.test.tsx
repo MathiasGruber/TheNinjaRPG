@@ -1149,6 +1149,29 @@ describe("multi-room home scene", () => {
     expect(camera.getAttribute("style")).toBe(overview);
   });
 
+  it("keeps the complete Kitchen artwork visible when focusing a saved placement near the back wall", () => {
+    const kitchen: HomeFurniture = {
+      ...starterFurniture[2]!, groundAnchor: 89.0625,
+      geometry: {
+        aspectRatio: 1.33333333,
+        visibleBounds: { x: 12.6302, y: 22.7431, width: 79.1667, height: 66.3194 },
+        footprint: { x: 14.2135, y: 54.5764, width: 76, height: 34.4861 },
+      },
+    };
+    const placement: HomePlacement = { id: kitchen.id, room: "room-1", x: 50, y: 22.877756813951144, rotation: 0 };
+    expect(homeLayoutPlacementError([placement], [kitchen], "MANSION")).toBeNull();
+    const view = render(<HomeScene {...props} homeType="MANSION" furniture={[kitchen]} layout={[placement]} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: "KitchenPlaced" }));
+    const art = view.getByRole("button", { name: "Move Kitchen" });
+    const camera = sceneCamera(view.getByRole("group", { name: "Home scene" }));
+    for (const [offset, position, size] of [[camera.x, art.style.left, art.style.width], [camera.y, art.style.top, art.style.height]] as const) {
+      const start = offset + Number.parseFloat(position) * camera.scale;
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(start + Number.parseFloat(size) * camera.scale).toBeLessThanOrEqual(100);
+    }
+  });
+
   it("keeps selected furniture actions clear of camera navigation near the bottom edge", () => {
     const garden = { ...starterFurniture[3]!, views: { "180": { image: "/garden-180.webp" } } };
     const placement: HomePlacement = { id: garden.id, room: "yard", x: 73.54497354497354, y: 67.58333333333333, rotation: 0 };

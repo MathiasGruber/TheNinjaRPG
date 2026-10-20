@@ -47,11 +47,16 @@ export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCam
   };
 };
 
-/** Frame the selected floor at a useful magnification without leaving the painted property. */
+/** Frame the selected floor with room headroom without leaving the painted property. */
 export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamera => {
   const room = getHomeRooms(homeType).find((room) => room.id === id);
   if (!room) return getHomeOverviewCamera(homeType);
-  const points = [...room.interior.flat(), ...room.outdoor];
+  const points = [
+    ...room.interior.flat(),
+    ...room.outdoor,
+    // Indoor frames include wall space above the floor for tall furniture.
+    ...(room.isYard ? [] : homeArtRectPolygon([0, 0, 100, 100])),
+  ];
   const left = room.x + (Math.min(...points.map(({ x }) => x)) * room.width) / 100;
   const top = room.y + (Math.min(...points.map(({ y }) => y)) * room.height) / 100;
   const right = room.x + (Math.max(...points.map(({ x }) => x)) * room.width) / 100;
