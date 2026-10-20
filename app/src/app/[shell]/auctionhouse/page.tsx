@@ -1551,7 +1551,10 @@ export const NewAuctionListingDialog: React.FC<{
     control: createForm.control,
     name: ["quantity", "currencyType", "startingPrice"],
   });
-  const listingQuantity = watchedQuantity ?? selectedItem?.quantity ?? 1;
+  const listingQuantity =
+    watchedQuantity !== undefined && Number.isFinite(watchedQuantity)
+      ? watchedQuantity
+      : (selectedItem?.quantity ?? 1);
   const hasRyoBounds = watchedListingType === "AUCTION" && watchedCurrency === "MONEY";
   const minimum = hasRyoBounds ? selectedItem?.item.auctionMinPrice : null;
   const maximum = hasRyoBounds ? selectedItem?.item.auctionMaxPrice : null;
@@ -1574,12 +1577,21 @@ export const NewAuctionListingDialog: React.FC<{
   ]);
   const showQuantityInput = selectedItem?.item?.canStack && selectedItem.quantity > 1;
 
-  // Reset quantity when item selection changes
+  // Start each selected stack at its full quantity so the amount sent is explicit.
   useEffect(() => {
-    if (!showQuantityInput) {
-      createForm.setValue("quantity", undefined);
-    }
-  }, [showQuantityInput, createForm]);
+    createForm.setValue(
+      "quantity",
+      selectedItem?.item.canStack && selectedItem.quantity > 1
+        ? selectedItem.quantity
+        : undefined,
+      { shouldValidate: true },
+    );
+  }, [
+    selectedItem?.id,
+    selectedItem?.quantity,
+    selectedItem?.item.canStack,
+    createForm,
+  ]);
 
   const onCreateSubmit = (data: CreateAuctionListingSchema) => {
     const userSearchData = userSearchMethods.getValues();
@@ -1741,10 +1753,11 @@ export const NewAuctionListingDialog: React.FC<{
                 name="quantity"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Quantity to Auction</FormLabel>
+                    <FormLabel>Quantity to send</FormLabel>
                     <FormControl>
                       <NumberInput
                         min="1"
+                        step={1}
                         max={selectedItem?.quantity || 1}
                         placeholder={`1-${selectedItem?.quantity || 1}`}
                         {...field}
@@ -1753,7 +1766,16 @@ export const NewAuctionListingDialog: React.FC<{
                       />
                     </FormControl>
                     <p className="text-muted-foreground text-sm">
-                      Current stack: {selectedItem?.quantity} items
+                      Current stack: {selectedItem?.quantity} items.
+                      {Number.isInteger(field.value) &&
+                        (field.value ?? 0) >= 1 &&
+                        (field.value ?? 0) <= (selectedItem?.quantity ?? 0) && (
+                          <>
+                            {" "}
+                            Sending {field.value}; keeping{" "}
+                            {(selectedItem?.quantity ?? 0) - (field.value ?? 0)}.
+                          </>
+                        )}
                     </p>
                     <FormMessage />
                   </FormItem>
