@@ -51,7 +51,7 @@ export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCam
 export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamera => {
   const room = getHomeRooms(homeType).find((room) => room.id === id);
   if (!room) return getHomeOverviewCamera(homeType);
-  const points = room.interior.flat();
+  const points = [...room.interior.flat(), ...room.outdoor];
   const left = room.x + (Math.min(...points.map(({ x }) => x)) * room.width) / 100;
   const top = room.y + (Math.min(...points.map(({ y }) => y)) * room.height) / 100;
   const right = room.x + (Math.max(...points.map(({ x }) => x)) * room.width) / 100;

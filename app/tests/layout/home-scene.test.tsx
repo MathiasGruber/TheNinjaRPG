@@ -192,6 +192,9 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^GardenPlace$/ }));
     expect(view.getByRole("button", { name: "Move Garden" })).toBeTruthy();
+    expect(within(view.getByRole("group", { name: "Furniture controls" })).getByRole("button", { name: "Store" })).toBeTruthy();
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^GardenPlaced$/ }));
+    expect(view.getByRole("group", { name: "Furniture controls" })).toBeTruthy();
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("yard");
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
