@@ -526,8 +526,6 @@ export const applyEffects = (
   );
 
   const consumeByUser: ConsumeByUser = new Map();
-  // Clear must also cancel authored instant conversions, whose rounds are already zero.
-  const clearedEffectIds = new Set<string>();
 
   // Apply non-damage-modifier effects first (maintains existing ordering)
   nonDamageModifierEffects.sort(sortEffects).forEach((effect) => {
@@ -543,7 +541,7 @@ export const applyEffects = (
       effect,
       action,
       consumeByUser,
-      clearedEffectIds,
+      instantConsumeIds,
     );
   });
 
@@ -552,7 +550,6 @@ export const applyEffects = (
     .filter(
       (e) =>
         (e.type === "consume" || e.type === "siphon") &&
-        !clearedEffectIds.has(e.id) &&
         (isEffectActive(e) || instantConsumeIds.has(e.id)),
     )
     .sort(sortEffects)
@@ -1287,7 +1284,7 @@ export const applySingleEffect = (
   effect: UserEffect,
   action?: CombatAction,
   consumeByUser?: ConsumeByUser,
-  clearedEffectIds?: Set<string>,
+  instantConsumeIds?: Set<string>,
 ) => {
   if (effect.timedBuffExpiresAt && effect.timedBuffExpiresAt <= Date.now()) return;
   // Derive damage config from battle state (with fallback for older battles)
@@ -1385,7 +1382,7 @@ export const applySingleEffect = (
           } else if (effect.type === "drain" && isTargetOrNew) {
             info = drain(effect, usersEffects, consequences, curTarget);
           } else if (effect.type === "clear" && isTargetOrNew) {
-            info = clear(effect, usersEffects, curTarget, clearedEffectIds);
+            info = clear(effect, usersEffects, curTarget, instantConsumeIds);
           } else if (effect.type === "cleanse" && isTargetOrNew) {
             info = cleanse(effect, usersEffects, curTarget);
           } else if (effect.type === "increasedamagegiven") {
