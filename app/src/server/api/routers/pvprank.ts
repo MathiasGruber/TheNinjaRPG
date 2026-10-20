@@ -429,17 +429,24 @@ export const pvpRankRouter = createTRPCRouter({
     .input(rankedLoadoutSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
+      // Duplicate ids would otherwise fail the existence checks below
+      const loadout = {
+        ...input,
+        jutsuIds: [...new Set(input.jutsuIds)],
+        weaponIds: [...new Set(input.weaponIds)],
+        consumableIds: [...new Set(input.consumableIds)],
+      };
       // Query all relevant information
-      const itemIds = [...input.weaponIds, ...input.consumableIds];
+      const itemIds = [...new Set([...loadout.weaponIds, ...loadout.consumableIds])];
       const [items, jutsus, currentLoadout] = await Promise.all([
         itemIds.length > 0
           ? ctx.drizzle.query.item.findMany({
               where: and(inArray(item.id, itemIds), eq(item.inShop, true)),
             })
           : [],
-        input.jutsuIds.length > 0
+        loadout.jutsuIds.length > 0
           ? ctx.drizzle.query.jutsu.findMany({
-              where: inArray(jutsu.id, input.jutsuIds),
+              where: inArray(jutsu.id, loadout.jutsuIds),
             })
           : [],
         ctx.drizzle.query.rankedLoadout.findFirst({
@@ -453,7 +460,7 @@ export const pvpRankRouter = createTRPCRouter({
       if (items.length !== itemIds.length) {
         return errorResponse("Some items not found or not available in shop");
       }
-      if (jutsus.length !== input.jutsuIds.length) {
+      if (jutsus.length !== loadout.jutsuIds.length) {
         return errorResponse("Some jutsus not found or not available in shop");
       }
       // Check loadout
@@ -466,7 +473,7 @@ export const pvpRankRouter = createTRPCRouter({
       await ctx.drizzle
         .update(rankedLoadout)
         .set({
-          loadout: input,
+          loadout,
           updatedAt: sql`GREATEST(NOW(3), TIMESTAMPADD(MICROSECOND, 1000, ${rankedLoadout.updatedAt}))`,
         })
         .where(eq(rankedLoadout.id, currentLoadout.id));
@@ -543,7 +550,8 @@ export const pvpRankRouter = createTRPCRouter({
         return errorResponse("Ranked season is currently paused");
       }
 
-      // Strip selections ranked no longer allows (skill-gated, PVE jutsu, bloodline items)
+      // Strip selections ranked no longer allows (skill-gated, PVE jutsu, bloodline items,
+      // deleted or unshoppable entries)
       // before validating the remaining loadout.
       let removedJutsuIds: string[] = [];
       let removedItemIds: string[] = [];
