@@ -101,6 +101,24 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
     expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
   });
 
+  it("keeps visible variants out of player listings and training, with or without the reskin", async () => {
+    const id = await createChild();
+    const db = await getTestDatabase();
+    await db.update(jutsu).set({ hidden: false, jutsuRank: "C" }).where(eq(jutsu.id, "parent"));
+    await db.update(jutsu).set({ hidden: false, name: "Scarlet attack" }).where(eq(jutsu.id, id));
+    const player = await callerFor(jutsuRouter, "player");
+    const listed = async (hideAi?: boolean) =>
+      (await player.getAll({ limit: 100, hideAi })).data.map((row) => row.id).sort();
+    for (const bloodlineReskinId of [null, "group"]) {
+      await db.update(userData).set({ bloodlineId: "blood", bloodlineReskinId, rank: "GENIN" }).where(eq(userData.userId, "player"));
+      expect(await listed(true)).toEqual(["parent"]);
+      expect(await player.startTraining({ jutsuId: id })).toMatchObject({ success: false, message: "Jutsu not for you" });
+      expect((await player.startTraining({ jutsuId: "parent" })).message).not.toBe("Jutsu not for you");
+    }
+    // Content listings without hideAi still include the variant for editing.
+    expect(await listed()).toEqual([id, "parent"].sort());
+  });
+
   it("searches only the selected variant when a group has multiple variants of one parent", async () => {
     const db = await getTestDatabase();
     const template = await read(await createChild());
