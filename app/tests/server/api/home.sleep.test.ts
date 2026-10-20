@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { userData } from "@/drizzle/schema";
 import { calcIsInVillage } from "@/libs/travel";
-import { getServerPusher } from "@/libs/pusher";
+import { Pusher } from "@/libs/pusher";
 import { homeRouter } from "@/server/api/routers/home";
 import { insertUsers } from "../../setup/factories";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
@@ -20,7 +20,7 @@ describeWithDatabase("sleep status concurrency", () => {
     expect(point).toBeDefined();
     const user = await database.query.userData.findFirst({ where: eq(userData.userId, userId) });
     stubProfile("fetchUpdatedUser", async () => ({ user: { ...user, longitude: point.x, latitude: point.y, sector: 1, village: { sector: 1 } } }) as never);
-    const trigger = vi.spyOn(getServerPusher(), "trigger").mockResolvedValue({} as never);
+    const trigger = vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
     const client = beforeStatements(database, userData, [async () => {
       await database.update(userData).set({ status: "HOSPITALIZED", curHealth: 0 }).where(eq(userData.userId, userId));
     }]);
