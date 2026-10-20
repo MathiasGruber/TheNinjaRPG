@@ -132,11 +132,12 @@ export const lockWithMinuteTimer = async (client: DrizzleClient, name: string) =
  *
  * @param client
  * @param name
- * @returns The claim result, previous timestamp, and locked response.
+ * @returns The claim result, previous timestamp and value, and locked response.
  */
 export const lockWithDailyTimer = async (client: DrizzleClient, name: string) => {
   const timer = await getGameSetting(client, name);
   const prevTime = timer.time;
+  const prevValue = timer.value;
   const now = new Date();
   const claim = isDifferentDay(now, prevTime)
     ? await client
@@ -146,7 +147,12 @@ export const lockWithDailyTimer = async (client: DrizzleClient, name: string) =>
     : undefined;
   const isNewDay = claim?.rowsAffected === 1;
   const response = isNewDay ? null : "Wait until the next day to run this again";
-  return { isNewDay, prevTime, response: Response.json(response, { status: 200 }) };
+  return {
+    isNewDay,
+    prevTime,
+    prevValue,
+    response: Response.json(response, { status: 200 }),
+  };
 };
 
 /**

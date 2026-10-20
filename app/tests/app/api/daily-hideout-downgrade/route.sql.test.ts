@@ -26,7 +26,7 @@ describeWithDatabase("Stronghold monthly maintenance", () => {
     await resetTables(clan, village);
     stubCronAuth(() => null);
     spies.push(vi.spyOn(headers, "cookies").mockResolvedValue({} as never));
-    spies.push(vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: true, prevTime: new Date(0), response: Response.json("Ready") }));
+    spies.push(vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: true, prevTime: new Date(0), prevValue: 0, response: Response.json("Ready") }));
   });
   afterEach(() => {
     for (const spy of spies.splice(0)) spy.mockRestore();

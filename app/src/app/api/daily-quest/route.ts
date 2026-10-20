@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { type UserRank, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { quest, questHistory, userData } from "@/drizzle/schema";
@@ -12,8 +12,23 @@ import { upsertQuestEntries } from "@/routers/quests";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { periodStart, secondsFromNow } from "@/utils/time";
 
 const ENDPOINT_NAME = "daily-quest";
+
+export const maxDuration = 300;
+
+/** Work budget per invocation, leaving headroom under maxDuration to record the resume marker. */
+const RUN_BUDGET_MS = 240_000;
+
+/**
+ * Accounts updated within this window receive a daily. Matches the window used when a quest is
+ * turned into an event; anyone returning later gets a daily from the next midnight run on.
+ */
+const ACTIVE_WINDOW_SECONDS = 60 * 60 * 24 * 7;
+
+/** Timer value marking a run that closed the dailies but did not finish assigning them. */
+const RESUME_PENDING = 1;
 
 /**
 TO VALIDATE USERS WITH DAILIES RUN: 
@@ -47,8 +62,19 @@ export async function GET(request: Request) {
   const timerCheck = await lockWithDailyTimer(drizzleDB, ENDPOINT_NAME);
   if (!timerCheck.isNewDay && timerCheck.response) return timerCheck.response;
 
+  const deadline = Date.now() + RUN_BUDGET_MS;
+  const dayStart = periodStart("daily", new Date());
+  // An interrupted run rolls the timer back to the instant before its own day with
+  // RESUME_PENDING, so only a tick on that same day resumes; any later day starts over.
+  const resumeMarker = new Date(dayStart.getTime() - 1);
+  const isResume =
+    timerCheck.prevValue === RESUME_PENDING &&
+    timerCheck.prevTime.getTime() === resumeMarker.getTime();
+  const activeSince = secondsFromNow(-ACTIVE_WINDOW_SECONDS);
+
   try {
-    // Reset all current dailies and load the independent assignment inputs together.
+    // Reset all current dailies and load the independent assignment inputs together. A resumed
+    // run skips the close: it would shut the dailies this day's earlier invocation handed out.
     const [dailies, villages, userRankPerVillageLevel] = await Promise.all([
       drizzleDB.query.quest.findMany({
         where: and(
@@ -68,22 +94,25 @@ export async function GET(request: Request) {
           count: sql`count(${userData.userId})`.mapWith(Number),
         })
         .from(userData)
-        .where(eq(userData.isAi, false))
+        .where(and(eq(userData.isAi, false), gte(userData.updatedAt, activeSince)))
         .groupBy(userData.rank, userData.villageId, userData.level),
       // Guarded and idempotent, so a deadlock with the other midnight crons just reruns it.
-      retryOnDeadlock(() =>
-        drizzleDB
-          .update(questHistory)
-          .set({ completed: 0, endAt: new Date() })
-          .where(
-            and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)),
+      isResume
+        ? undefined
+        : retryOnDeadlock(() =>
+            drizzleDB
+              .update(questHistory)
+              .set({ completed: 0, endAt: new Date() })
+              .where(
+                and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)),
+              ),
           ),
-      ),
     ]);
 
     // Book-keeping to do upsert afterwards more efficiently
     const memory: {
       questId: string;
+      size: number;
       combos: {
         rank: UserRank;
         villageId: string;
@@ -93,7 +122,7 @@ export async function GET(request: Request) {
 
     // For each user rank+village+level combo, get a random daily quest
     for (const config of userRankPerVillageLevel) {
-      const { rank, villageId, level } = config;
+      const { rank, villageId, level, count } = config;
       const village = villages?.find(
         (v: (typeof villages)[number]) => v.id === villageId,
       );
@@ -111,35 +140,54 @@ export async function GET(request: Request) {
               q.maxLevel >= level,
           );
         if (newDaily) {
-          if (!memory.find((m) => m.questId === newDaily.id)) {
+          const entry = memory.find((m) => m.questId === newDaily.id);
+          if (!entry) {
             memory.push({
               questId: newDaily.id,
+              size: count,
               combos: [{ rank, villageId: village.id, level }],
             });
           } else {
-            memory
-              .find((m) => m.questId === newDaily.id)
-              ?.combos.push({ rank, villageId: village.id, level });
+            entry.size += count;
+            entry.combos.push({ rank, villageId: village.id, level });
           }
         }
       }
     }
 
+    // Players who already received a daily this day (from an interrupted earlier invocation)
+    // are skipped, so a resume never reopens or re-rolls a daily that is already in play. A
+    // daily this run's close just shut (completed 0, ended) does not count as received.
+    const assignedToday = sql`EXISTS (
+      SELECT 1 FROM ${questHistory} AS assignedDaily
+      WHERE assignedDaily.userId = ${userData.userId}
+        AND assignedDaily.questType = 'daily'
+        AND assignedDaily.startedAt >= ${dayStart}
+        AND (assignedDaily.completed > 0 OR assignedDaily.endedAt IS NULL)
+    )`;
+
     // Do upsertions for each quest. Each combo selects only the players it was counted from
-    // (non-AI, that exact level): matching the quest's whole level range instead would also
-    // hand it to every other level in the range, each of which had a daily of its own picked.
-    // A failure rolls the timer back, and the next cron tick in hour 0 reruns the whole
-    // reset, which closes whatever this run reopened and reassigns from scratch.
+    // (non-AI, active, that exact level): matching the quest's whole level range instead would
+    // also hand it to every other level in the range, each of which had a daily of its own
+    // picked. Smallest quests go first so one very large bracket cannot use up the budget
+    // before the others are assigned. A failure rolls the timer back, and the next cron tick in
+    // hour 0 reruns the whole reset, which closes whatever this run reopened and reassigns from
+    // scratch; running out of budget instead leaves a resume marker for the next tick.
+    memory.sort((a, b) => a.size - b.size);
     for (const m of memory) {
       const newDaily = dailies.find(
         (q: (typeof dailies)[number]) => q.id === m.questId,
       );
-      if (newDaily) {
-        await upsertQuestEntries(
+      if (!newDaily) continue;
+      const finished =
+        Date.now() < deadline &&
+        (await upsertQuestEntries(
           drizzleDB,
           newDaily,
           and(
             eq(userData.isAi, false),
+            gte(userData.updatedAt, activeSince),
+            sql`NOT ${assignedToday}`,
             or(
               ...m.combos.map((c) =>
                 and(
@@ -150,7 +198,13 @@ export async function GET(request: Request) {
               ),
             ),
           ),
-        );
+          deadline,
+        ));
+      if (!finished) {
+        await updateGameSetting(drizzleDB, ENDPOINT_NAME, RESUME_PENDING, resumeMarker);
+        return Response.json("Partially assigned; resuming on the next tick", {
+          status: 202,
+        });
       }
     }
 

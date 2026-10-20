@@ -45,6 +45,7 @@ describeWithDatabase("shrine boost template reserve locks", () => {
       vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({
         isNewDay: false,
         prevTime: new Date(),
+        prevValue: 0,
         response: Response.json("Already maintained"),
       }),
     );
