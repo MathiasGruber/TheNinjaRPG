@@ -27,9 +27,10 @@ export const useBattleMaps = (battle: ReturnedBattle | null): BattleMaps => {
 };
 
 /**
- * Apply committed action deltas without reading history again. Equal or older
- * events can repair a final log; only newer events refresh active battle state.
- * The same cache path handles the actor's mutation response and PvP observers.
+ * Apply committed deltas to actor and observer history caches.
+ * Only settlement and unversioned saved logs force recovery reads. Ordinary
+ * version changes use their normal query keys; newer events refresh active
+ * battle state.
  */
 export const useCombatUpdates = (state: BattleState) => {
   const { pusher } = useUserData();
