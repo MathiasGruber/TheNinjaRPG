@@ -1100,6 +1100,22 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await caller.getPet()).canFeed).toBe(true);
   });
 
+  it("keeps an evolving pet's previous look at its new rank once its final image attempt fails", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank: 2, artRank: 1, generationStatus: "FAILED", generationAttempts: PET_MAX_GENERATION_ATTEMPTS - 2 });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    vi.spyOn(sentry, "logError").mockImplementation(() => {});
+    vi.spyOn(appearance, "generatePetAppearance").mockRejectedValue(new Error("The generated pet did not pass visual quality review"));
+    expect((await caller.generateAppearance({ petId })).success).toBe(false);
+    expect(await readPet(database)).toMatchObject({ avatar, rank: 2, artRank: 1, generationStatus: "FAILED" });
+    setSystemTime(secondsFromNow(PET_GENERATION_RETRY_MS / 1000 + 1));
+    const final = await caller.generateAppearance({ petId });
+    expect(final).toMatchObject({ success: false, message: expect.stringContaining("kept its previous look") });
+    expect(await readPet(database)).toMatchObject({ avatar, rank: 2, artRank: 2, generationStatus: "READY",
+      generationToken: null, generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+    expect(await caller.getPet()).toMatchObject({ canFeed: true, remainingGenerations: 0 });
+  });
+
   it("keeps accepted art usable after the final redraw lease expires without requiring another attempt", async () => {
     const database = await getTestDatabase();
     await readyPet(database, { generationStatus: "GENERATING", generationToken: "abandoned-redraw",

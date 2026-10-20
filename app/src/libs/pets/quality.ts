@@ -78,9 +78,14 @@ export const classifyPetAppearanceImage = async (
   return output;
 };
 
-/** Reject any failed visual check; moderation and transparency checks run separately. */
+/**
+ * Reject any failed visual check; moderation and transparency checks run separately.
+ * Pass requireStrongerEvolution false to accept a usable sprite whose only failure is
+ * the reviewer's subjective judgement that the evolution is not clearly stronger.
+ */
 export const validatePetAppearanceQuality = (
   verdict: ReturnType<typeof petAppearanceQualitySchema.parse>,
+  { requireStrongerEvolution = true } = {},
 ) => {
   if (
     !verdict.singleAnimal ||
@@ -89,7 +94,7 @@ export const validatePetAppearanceQuality = (
     !verdict.completeBody ||
     !verdict.noGroundOrScene ||
     !verdict.identityPreserved ||
-    !verdict.evolutionStronger
+    (requireStrongerEvolution && !verdict.evolutionStronger)
   )
     throw new Error(
       `The generated pet did not pass visual quality review: ${verdict.reason}`,

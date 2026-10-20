@@ -1,4 +1,5 @@
 /** Generate, inspect and bound companion artwork before the router accepts it. */
+import * as Sentry from "@sentry/nextjs";
 import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS } from "@/drizzle/constants";
 import type { PetSpecies, UserPet } from "@/drizzle/schema";
@@ -128,7 +129,23 @@ export const generatePetAppearance = async (
       `Create a new full-body ${species.name} candidate from the supplied reference. The previous attempt was rejected for these visible defects: ${candidate.verdict.reason}. Correct those defects while following this complete request: ${prompt}`,
       previousImage ?? candidate.image,
     );
-    validatePetAppearanceQuality(candidate.verdict);
+    // The strength comparison is subjective; a corrected sprite that passes every
+    // objective check is kept rather than spending the player's limited attempts.
+    validatePetAppearanceQuality(candidate.verdict, {
+      requireStrongerEvolution: false,
+    });
+    if (!candidate.verdict.evolutionStronger)
+      Sentry.captureMessage(
+        "Accepted companion evolution not judged clearly stronger",
+        {
+          level: "warning",
+          extra: {
+            speciesId: pet.speciesId,
+            rank: pet.rank,
+            reason: candidate.verdict.reason,
+          },
+        },
+      );
   }
   signal.throwIfAborted();
   let avatar = candidate.avatar;

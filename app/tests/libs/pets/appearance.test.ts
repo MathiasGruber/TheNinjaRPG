@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as Sentry from "@sentry/nextjs";
 import sharp from "sharp";
 import { Moderations } from "openai/resources/moderations";
 import * as moderator from "@/libs/moderator";
@@ -264,6 +265,27 @@ describe("companion provider pipeline", () => {
     expect(edit).toHaveBeenCalledTimes(2);
     expect(quality.classifyPetAppearanceImage).toHaveBeenCalledTimes(2);
     expect(owned).toEqual([avatarUrl, correctedUrl]);
+  });
+
+  it("accepts an evolution whose repair fails only the strength comparison and reports a warning", async () => {
+    const edit = stubFounder(await cutout()).mockResolvedValueOnce([avatarUrl]).mockResolvedValueOnce([correctedUrl]);
+    const reason = "It does not look clearly stronger than the previous image";
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, evolutionStronger: false, reason });
+    const warning = vi.spyOn(Sentry, "captureMessage").mockImplementation(() => "");
+    const owned: string[] = [];
+    expect(await generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async (url) => { owned.push(url); })).toEqual({ avatar: correctedUrl, avatarFacing: "left" });
+    expect(edit).toHaveBeenCalledTimes(2);
+    expect(owned).toEqual([avatarUrl, correctedUrl]);
+    expect(warning).toHaveBeenCalledTimes(1);
+    expect(warning).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ level: "warning", extra: expect.objectContaining({ rank: 2, reason }) }));
+  });
+
+  it("still rejects a repair that fails the strength comparison and another check", async () => {
+    stubFounder(await cutout()).mockResolvedValueOnce([avatarUrl]).mockResolvedValueOnce([correctedUrl]);
+    vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, evolutionStronger: false, identityPreserved: false, reason: "A different animal" });
+    const warning = vi.spyOn(Sentry, "captureMessage").mockImplementation(() => "");
+    await expect(generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, async () => {})).rejects.toThrow("different animal");
+    expect(warning).not.toHaveBeenCalled();
   });
 
   it("sends the downloaded WebP bytes through the SDK instead of asking OpenAI to fetch a fresh upload", async () => {
