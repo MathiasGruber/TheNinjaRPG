@@ -69,10 +69,12 @@ export const getPetAppearancePrompt = (
     ? ` Species art direction: ${toClause(species.artDirection)}.`
     : "";
   const identity = `${species.description}.${artDirection} Colour palette: ${palette.description}. Distinctive identity: ${characteristic.description}. Aura (shown only as this rank's aura stage allows): ${aura.description}.`;
-  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${getPetRankConcept(species, rank.rank)}. ${getPetAuraStage(rank.rank)} Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description, and this rank's tail count and feature sizes override counts such as multiple tails in it. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
+  const multiTailed = isMultiTailedSpecies(species);
+  const tailStage = multiTailed ? ` ${getPetTailStage(rank.rank)}` : "";
+  const maturity = `Evolution rank ${rank.rank} of 10 (${rank.name}): ${getPetRankConcept(species, rank.rank)}.${tailStage} ${getPetAuraStage(rank.rank)} Adapt every feature to this species: do not invent fur, limbs or other anatomy it does not naturally possess. Natural adult proportions override words such as young or small in the species description. Preserve its recognizable face, eye colours, primary palette and characteristic identity. Keep all limbs inside the frame.`;
   const edit =
     pet.artRank < pet.rank
-      ? "Create a newly drawn full-body design of the next evolution, using the reference to identify the SAME individual animal rather than copying its pixels. Make this rank's named change obvious even at thumbnail size and keep the earlier rank features unless this rank refines or replaces them; you may simplify or remove clutter from the reference. Keep the animal the same size on the canvas as the reference unless this rank says it grows, never larger than 80% of the canvas, with the empty margins intact. It must look more advanced and more impressive than the reference through refinement, presence, markings, ornament or pose, never through extra bulk, fur, feather or scale layers, or filling the frame. Never draw spiky or porcupine-like masses, stacked layers, tails merged into the body or each other, more tails than this rank allows, wings, horns, extra limbs or other body parts this species does not naturally have, a smaller animal, or cartoon or chibi proportions. A near-copy, brighter outline or camera zoom is not an evolution. Preserve identity, not an identical pose or silhouette."
+      ? `Create a newly drawn full-body design of the next evolution, using the reference to identify the SAME individual animal rather than copying its pixels. Make this rank's named change obvious even at thumbnail size and keep the earlier rank features unless this rank refines or replaces them; you may simplify or remove clutter from the reference. Keep the animal the same size on the canvas as the reference unless this rank says it grows, never larger than 80% of the canvas, with the empty margins intact. It must look more advanced and more impressive than the reference through refinement, presence, markings, ornament or pose, never through extra bulk, fur, feather or scale layers, or filling the frame. Never draw spiky or porcupine-like masses, stacked layers, tails merged into the body or each other, ${multiTailed ? "more tails than this rank's tail stage allows" : "additional tails"}, wings, horns, extra limbs or other body parts this species does not naturally have, a smaller animal, or cartoon or chibi proportions. A near-copy, brighter outline or camera zoom is not an evolution. Preserve identity, not an identical pose or silhouette.`
       : "Redraw the supplied image as the SAME individual animal at its CURRENT rank, power and maturity. Do not evolve it, rank it up or age it.";
   return pet.avatar
     ? `${maturity} ${edit} The neutral reference backdrop is only for readability. Use the animal as an identity reference and redraw it cleanly; remove all prior background, shadow and image artifacts. ${identity} ${getPetArtStyle(provider)}`
@@ -267,15 +269,30 @@ const getPetRankConcept = (species: Pick<PetSpecies, "rankConcepts">, rank: numb
   return concept?.trim() ? toClause(concept) : PET_RANK_APPEARANCES[rank - 1];
 };
 
+/** A species described (or art-directed) with plural tails grows them over the ranks. */
+const isMultiTailedSpecies = (
+  species: Pick<PetSpecies, "description" | "artDirection">,
+) => /\btails\b/i.test(`${species.description} ${species.artDirection ?? ""}`);
+
+/**
+ * Tail count for multi-tailed species: one tail at rank 1, one more per rank, and the
+ * species' full count from rank 7. Other species never receive tail-count wording,
+ * which image models otherwise apply to single-tailed animals.
+ */
+const getPetTailStage = (rank: number) =>
+  rank < 7
+    ? `Tail stage: this multi-tailed species has exactly ${["ONE tail", "TWO tails", "THREE tails", "FOUR tails", "FIVE tails", "SIX tails"][rank - 1]} at this rank, each clearly separate; this overrides any tail count in its description.`
+    : "Tail stage: it now shows its full number of tails (for example nine for a nine-tailed fox spirit), each clearly separate.";
+
 /**
  * Aura intensity by rank, applied after built-in or staff rank concepts: early ranks keep
  * natural colouring, seasoned ranks paint markings, and only ascended ranks glow.
  */
 const getPetAuraStage = (rank: number) =>
   rank <= 3
-    ? "Aura stage: plain natural colouring with no glowing, luminous or emissive markings; at most a faint tint of the aura's colour on the coat, feathers or scales."
+    ? "Aura stage: no aura effects yet, only plain natural colouring with no glowing, luminous or emissive markings and no wisps, sparks, droplets or motes; at most a faint tint of the aura's colour on the coat, feathers or scales."
     : rank <= 6
-      ? "Aura stage: flat painted markings in the aura's colour; nothing glows yet."
+      ? "Aura stage: flat painted markings in the aura's colour; nothing glows yet and there are no wisps, sparks, droplets or motes."
       : "Aura stage: crisp luminous markings in the aura's colour, drawn on the body.";
 
 /** Authored text is joined into sentences, so drop its own closing punctuation and spacing. */
