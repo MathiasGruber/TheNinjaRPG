@@ -29,11 +29,14 @@ export const getHomeFloorAnchors = (
     footprint.width / 4,
     footprint.height / 4,
   );
+  // Reuse the corner so coincident sweep and floor edges round identically.
+  const left = footprint.x + inset;
+  const top = footprint.y + inset;
   const corners: Pair[] = [
-    [footprint.x + inset, footprint.y + inset],
-    [footprint.x + footprint.width - inset, footprint.y + inset],
+    [left, top],
+    [footprint.x + footprint.width - inset, top],
     [footprint.x + footprint.width - inset, footprint.y + footprint.height - inset],
-    [footprint.x + inset, footprint.y + footprint.height - inset],
+    [left, footprint.y + footprint.height - inset],
   ];
   // Each boundary swept by the reflected footprint is forbidden anchor space. Unlike
   // half-plane clipping, subtracting these sweeps preserves concave and disconnected floors.
@@ -52,9 +55,7 @@ export const getHomeFloorAnchors = (
   );
   const allowed = intersection(
     floor.map((polygon) =>
-      polygon.map((ring) =>
-        ring.map(([x, y]): Pair => [x - footprint.x - inset, y - footprint.y - inset]),
-      ),
+      polygon.map((ring) => ring.map(([x, y]): Pair => [x - left, y - top])),
     ),
     [
       [

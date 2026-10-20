@@ -250,6 +250,21 @@ describe("painted furniture geometry", () => {
     expect(recoverHomeLayout([position], [oversized], "NONE")).toEqual([]);
   });
 
+  it.each([1, 3] as const)("preserves the seeded lantern's saved facing %s on the measured floor", (rotation) => {
+    const catalogue = readFileSync(new URL("../../data/item.sql", import.meta.url), "utf8");
+    const data = catalogue.match(/\('home-lantern', 'Paper Lantern',.*?'FURNITURE', '(\{.*?\})'/)?.[1];
+    expect(data).toBeDefined();
+    const piece = fixture("home-lantern", furnitureDataSchema.parse(JSON.parse(data!)));
+    const position = { id: piece.id, room: "room-8" as const, x: 50, y: 50, rotation };
+
+    expect(homeFurnitureSaveInputSchema.safeParse({ homeType: "MARSHMALLOWOPOLIS", revision: 0, placements: [position] }).success).toBe(true);
+    expect(homeLayoutOrientationError([position], [piece])).toBeNull();
+    expect(homeLayoutPlacementError([position], [piece], "MARSHMALLOWOPOLIS")).toBeNull();
+    expect(clampHomeFurniturePlacement(position, piece, "MARSHMALLOWOPOLIS")).toEqual(position);
+    expect(fitHomeFurniturePlacement(position, piece, [], [piece], "MARSHMALLOWOPOLIS")).toEqual(position);
+    expect(recoverHomeLayout([position], [piece], "MARSHMALLOWOPOLIS")).toEqual([position]);
+  });
+
   it("preserves a rotated bed when the complete upgraded floor fits its facing", () => {
     const catalogue = readFileSync(new URL("../../data/item.sql", import.meta.url), "utf8");
     const data = catalogue.match(/\('home-bed', 'Bed',.*?'FURNITURE', '(\{.*?\})'/)?.[1];
