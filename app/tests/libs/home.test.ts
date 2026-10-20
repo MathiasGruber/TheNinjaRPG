@@ -201,6 +201,55 @@ describe("painted furniture geometry", () => {
     expect(saved).toEqual(original);
   });
 
+  it.each([
+    { surface: "lawn", widthFraction: 0.5, heightFraction: 1, action: null },
+    { surface: "cultivation", widthFraction: 1, heightFraction: 0.5, action: "farm" as const },
+    { surface: "cultivation", widthFraction: 1, heightFraction: 1, action: "farm" as const },
+  ])("preserves an exact $widthFraction by $heightFraction fit on the $surface", ({ widthFraction, heightFraction, action }) => {
+    const yard = getHomeRooms("NONE").find(({ isYard }) => isYard)!;
+    const floor = action ? yard.outdoor : yard.interior[0]!;
+    const left = Math.min(...floor.map(({ x }) => x));
+    const top = Math.min(...floor.map(({ y }) => y));
+    const width = Math.max(...floor.map(({ x }) => x)) - left;
+    const height = Math.max(...floor.map(({ y }) => y)) - top;
+    const furnitureWidth = width * widthFraction * yard.width / 100;
+    const furnitureHeight = height * heightFraction * yard.height / 100;
+    const piece = fixture("exact-fit", furnitureDataSchema.parse({
+      action,
+      width: furnitureWidth,
+      geometry: {
+        aspectRatio: furnitureWidth * 4 / 3 / furnitureHeight,
+        visibleBounds: { x: 0, y: 0, width: 100, height: 100 },
+        footprint: { x: 0, y: 0, width: 100, height: 100 },
+      },
+    }));
+    const position = {
+      id: piece.id, room: "yard" as const, rotation: 0 as const,
+      ...unprojectHomePlacement({ x: left + width / 2, y: top + height * (1 + heightFraction) / 2 }),
+    };
+    expect(homeLayoutPlacementError([position], [piece], "NONE")).toBeNull();
+    expect(clampHomeFurniturePlacement(position, piece, "NONE")).toEqual(position);
+    expect(fitHomeFurniturePlacement(position, piece, [], [piece], "NONE")).toEqual(position);
+    expect(recoverHomeLayout([position], [piece], "NONE")).toEqual([position]);
+
+    const outside = { ...position, x: position.x + (widthFraction === 1 ? 0.01 : 0), y: position.y + (heightFraction === 1 ? 0.01 : 0) };
+    expect(homeLayoutPlacementError([outside], [piece], "NONE")).not.toBeNull();
+    const clamped = clampHomeFurniturePlacement(outside, piece, "NONE");
+    expect(clamped).not.toBeNull();
+    expect(homeLayoutPlacementError([clamped!], [piece], "NONE")).toBeNull();
+    const footprint = getHomeFurnitureGeometry(piece, clamped!, "NONE").footprint;
+    expect(footprint.x).toBeGreaterThanOrEqual(left - 1e-6);
+    expect(footprint.y).toBeGreaterThanOrEqual(top - 1e-6);
+    expect(footprint.x + footprint.width).toBeLessThanOrEqual(left + width + 1e-6);
+    expect(footprint.y + footprint.height).toBeLessThanOrEqual(top + height + 1e-6);
+
+    const oversized = { ...piece, width: piece.width * 1.001 };
+    expect(homeLayoutPlacementError([position], [oversized], "NONE")).not.toBeNull();
+    expect(clampHomeFurniturePlacement(position, oversized, "NONE")).toBeNull();
+    expect(fitHomeFurniturePlacement(position, oversized, [], [oversized], "NONE")).toBeNull();
+    expect(recoverHomeLayout([position], [oversized], "NONE")).toEqual([]);
+  });
+
   it("preserves a rotated bed when the complete upgraded floor fits its facing", () => {
     const catalogue = readFileSync(new URL("../../data/item.sql", import.meta.url), "utf8");
     const data = catalogue.match(/\('home-bed', 'Bed',.*?'FURNITURE', '(\{.*?\})'/)?.[1];

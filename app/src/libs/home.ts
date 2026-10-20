@@ -9,6 +9,7 @@ import {
 } from "@/drizzle/constants";
 import {
   getHomeFloorAnchors,
+  HOME_GEOMETRY_EPSILON,
   type HomeFloorRegions,
   isPointInHomeFloor,
   subtractHomeFloorBounds,
@@ -411,13 +412,18 @@ const getHomeAnchorRegions = (
       offsetY -
       visible.height,
   );
+  // Visible bounds may also admit only a line or point. Give clipping positive
+  // area within the same tolerance without moving ordinary visible limits.
+  const inset = HOME_GEOMETRY_EPSILON / 2;
+  const paddingX = Math.max(0, HOME_GEOMETRY_EPSILON - (right - left)) / 2;
+  const paddingY = Math.max(0, HOME_GEOMETRY_EPSILON - (bottom - top)) / 2;
   const regions =
-    right > left && bottom > top
+    right + inset > left && bottom + inset > top
       ? getHomeFloorAnchors(floor, footprint, {
-          x: left,
-          y: top,
-          width: right - left,
-          height: bottom - top,
+          x: left - paddingX,
+          y: top - paddingY,
+          width: right - left + 2 * paddingX,
+          height: bottom - top + 2 * paddingY,
         })
       : [];
   cache.set(key, regions);
@@ -468,5 +474,4 @@ const doHomeBoundsOverlap = (a: FurnitureImageBounds, b: FurnitureImageBounds) =
   a.y + a.height > b.y + HOME_GEOMETRY_EPSILON &&
   b.y + b.height > a.y + HOME_GEOMETRY_EPSILON;
 
-const HOME_GEOMETRY_EPSILON = 0.000001;
 type HomePoint = { x: number; y: number };

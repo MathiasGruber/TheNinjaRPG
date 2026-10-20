@@ -5,6 +5,7 @@ import type { FurnitureImageBounds } from "@/validators/itemFurniture";
 
 const { difference, intersection, union } = polygonClipping;
 
+export const HOME_GEOMETRY_EPSILON = 0.000001;
 export type HomeFloorRegions = HomePoint[][][];
 
 /** Erode the union, so a footprint can span finish seams but cannot cross a door or wall notch. */
@@ -16,11 +17,23 @@ export const getHomeFloorAnchors = (
   const floor = union(
     regions.map((region) => [region.map(({ x, y }): Pair => [x, y])]),
   );
+  // Clipping discards line/point results. Keep them as thin areas, limiting
+  // boundary drift to half the polygon tolerance to leave room for rounding.
+  // Every edge's L1 length is at most twice this coordinate scale.
+  const coordinateScale = Math.max(
+    1,
+    ...floor.flat(2).map(([x, y]) => Math.abs(x) + Math.abs(y)),
+  );
+  const inset = Math.min(
+    HOME_GEOMETRY_EPSILON / (4 * coordinateScale),
+    footprint.width / 4,
+    footprint.height / 4,
+  );
   const corners: Pair[] = [
-    [footprint.x, footprint.y],
-    [footprint.x + footprint.width, footprint.y],
-    [footprint.x + footprint.width, footprint.y + footprint.height],
-    [footprint.x, footprint.y + footprint.height],
+    [footprint.x + inset, footprint.y + inset],
+    [footprint.x + footprint.width - inset, footprint.y + inset],
+    [footprint.x + footprint.width - inset, footprint.y + footprint.height - inset],
+    [footprint.x + inset, footprint.y + footprint.height - inset],
   ];
   // Each boundary swept by the reflected footprint is forbidden anchor space. Unlike
   // half-plane clipping, subtracting these sweeps preserves concave and disconnected floors.
@@ -40,7 +53,7 @@ export const getHomeFloorAnchors = (
   const allowed = intersection(
     floor.map((polygon) =>
       polygon.map((ring) =>
-        ring.map(([x, y]): Pair => [x - footprint.x, y - footprint.y]),
+        ring.map(([x, y]): Pair => [x - footprint.x - inset, y - footprint.y - inset]),
       ),
     ),
     [
@@ -100,11 +113,11 @@ export const isPointInHomePolygon = (
     const cross =
       (end.x - start.x) * (point.y - start.y) - (end.y - start.y) * (point.x - start.x);
     if (
-      Math.abs(cross) <= 1e-6 &&
-      point.x >= Math.min(start.x, end.x) - 1e-6 &&
-      point.x <= Math.max(start.x, end.x) + 1e-6 &&
-      point.y >= Math.min(start.y, end.y) - 1e-6 &&
-      point.y <= Math.max(start.y, end.y) + 1e-6
+      Math.abs(cross) <= HOME_GEOMETRY_EPSILON &&
+      point.x >= Math.min(start.x, end.x) - HOME_GEOMETRY_EPSILON &&
+      point.x <= Math.max(start.x, end.x) + HOME_GEOMETRY_EPSILON &&
+      point.y >= Math.min(start.y, end.y) - HOME_GEOMETRY_EPSILON &&
+      point.y <= Math.max(start.y, end.y) + HOME_GEOMETRY_EPSILON
     )
       return includeBoundary;
     if (
