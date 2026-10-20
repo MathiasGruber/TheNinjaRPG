@@ -44,6 +44,7 @@ import {
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
+  ManualStartBattleTypes,
   MasteryNames,
   NonActionItemTypes,
   PoolTypes,
@@ -292,6 +293,7 @@ import {
   IncreaseDamageGivenTag,
   performActionSchema,
   statSchema,
+  toggleAutoCombatSchema,
 } from "@/validators/combat";
 import type { HuntingBattleState } from "@/validators/hunting";
 import { sectorIdSchema } from "@/validators/travel";
@@ -1649,20 +1651,21 @@ export const combatRouter = createTRPCRouter({
       },
     })
     .use(ratelimitMiddleware)
-    .input(z.object({ battleId: z.string(), enabled: z.boolean() }))
+    .input(toggleAutoCombatSchema)
     .mutation(async ({ input, ctx }) => {
       // Maximum number of retry attempts
       const MAX_RETRIES = 3;
       let attempts = 0;
 
-      // Toggling mid-battle also becomes the player's default for future
-      // battles, but only once the battle itself has flipped — a toggle the
-      // player saw fail must not silently change what their next battle does.
-      const rememberPreference = () =>
-        ctx.drizzle
+      // PvP handovers belong to this encounter; only PvE toggles update the
+      // non-PvP default, after the battle change succeeds.
+      const rememberPreference = async (battleType: BattleType) => {
+        if (ManualStartBattleTypes.includes(battleType)) return;
+        await ctx.drizzle
           .update(userData)
           .set({ defaultAutoCombat: input.enabled })
           .where(eq(userData.userId, ctx.userId));
+      };
 
       // Retry loop
       while (attempts < MAX_RETRIES) {
@@ -1695,7 +1698,7 @@ export const combatRouter = createTRPCRouter({
         // with a version here — the battle already reads the way the player
         // asked for, so their choice is safe to remember.
         if (!!user.isAutoCombat === input.enabled) {
-          await rememberPreference();
+          await rememberPreference(userBattle.battleType);
           return {
             success: true,
             message: "",
@@ -1731,7 +1734,7 @@ export const combatRouter = createTRPCRouter({
           );
 
         if (result.rowsAffected > 0) {
-          await rememberPreference();
+          await rememberPreference(userBattle.battleType);
           void pusher.trigger(userBattle.id, "event", {
             version: userBattle.version + 1,
           });
