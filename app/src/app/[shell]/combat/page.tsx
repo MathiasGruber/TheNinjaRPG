@@ -312,7 +312,10 @@ export default function CombatPage() {
   const renderActions = useCallback(() => {
     if (!isInBattle || !battle) return null;
     return (
-      <div className={cn(results && "opacity-50")} inert={!!results}>
+      <div
+        className={cn("flex flex-col gap-1", results && "opacity-50")}
+        inert={!!results}
+      >
         {isAutoCombatActive ? (
           <AutoCombatPanel
             aiOnly={
