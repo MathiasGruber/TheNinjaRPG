@@ -15,11 +15,6 @@ import { getQueueTotalCapacity } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { EnergyQueueCaptchaVerification } from "@/validators/train";
 
-type QueueVerification = {
-  getCaptchaToken?: () => string | undefined;
-  onCaptchaVerification?: (verification: EnergyQueueCaptchaVerification | null) => void;
-};
-
 export const EnergyTrainingQueue = ({
   user,
   availableEnergy,
@@ -189,4 +184,9 @@ export const useEnergyTrainingQueue = (
     else mutate(payload);
   };
   return { saveQueue, isPending, error };
+};
+
+type QueueVerification = {
+  getCaptchaToken?: () => string | undefined;
+  onCaptchaVerification?: (verification: EnergyQueueCaptchaVerification | null) => void;
 };
