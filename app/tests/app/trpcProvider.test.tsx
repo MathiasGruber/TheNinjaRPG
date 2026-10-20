@@ -24,6 +24,7 @@ const toastMessages = () =>
 const session = (id: string, getToken = async (): Promise<string | null> => id) =>
   ({ id, getToken }) as NonNullable<Clerk["session"]>;
 
+/** Mount the real provider with independent hooks despite persistent module mocks. */
 const mountProvider = (
   activeSession: NonNullable<Clerk["session"]>,
   children?: React.ReactNode,
@@ -56,6 +57,7 @@ const mountProvider = (
   return { auth, trpc, unmount: view.unmount };
 };
 
+/** Exercise local mutation feedback through the provider's real dispatch lifecycle. */
 const mountArenaMutation = (activeSession: NonNullable<Clerk["session"]>) => {
   let attack!: () => Promise<unknown>;
   const onSuccess = vi.fn();

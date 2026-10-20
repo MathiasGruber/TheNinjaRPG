@@ -116,6 +116,7 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
       }
     },
     onError: (error) => {
+      // Shared feedback keeps the recovery text in descriptions visible on mobile.
       showMutationToast({
         success: false,
         message: error.message || "Could not update the ticket. Please try again.",

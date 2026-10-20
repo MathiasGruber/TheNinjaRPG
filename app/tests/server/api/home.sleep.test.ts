@@ -18,6 +18,7 @@ describeWithDatabase("sleep status concurrency", () => {
     const user = await database.query.userData.findFirst({ where: eq(userData.userId, userId) });
     stubProfile("fetchUpdatedUser", async () => ({ user: { ...user, sector: 1, village: { sector: 1 } } }) as never);
     const trigger = vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    // Interleave hospitalization after the profile read and before its guarded write.
     const client = beforeStatements(database, userData, [async () => {
       await database.update(userData).set({ status: "HOSPITALIZED", curHealth: 0 }).where(eq(userData.userId, userId));
     }]);

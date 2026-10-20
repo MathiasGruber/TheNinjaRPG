@@ -3,8 +3,8 @@ import { showMutationToast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
 
 /**
- * Hook for toggling sleep status.
- * Can be used across multiple pages (home, battle arena, etc.)
+ * Toggle sleep from any page using the shared user-cache revision guard.
+ * A late response reconciles newer cache state instead of overwriting it.
  */
 export const useSleepToggle = () => {
   const { prepareUserUpdate, updateUser } = useUserData();

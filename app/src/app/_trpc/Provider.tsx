@@ -76,6 +76,7 @@ const TrpcClientProvider = (props: {
         }),
         mutationCache: new MutationCache({
           onMutate: (_variables, mutation) => {
+            // Reject before a local onMutate callback can apply optimistic changes.
             session.assertCurrent();
             // Extract tRPC mutation path from mutation key (e.g., [["towerDefense", "initiateGuestSession"]])
             const key = mutation.options.mutationKey;
@@ -164,7 +165,7 @@ const handleTrpcError = (error: unknown) => {
       ? (error.data as { code?: string } | undefined)?.code
       : undefined;
 
-  // A switch rejects queued requests and discards late responses. Pending state settles,
+  // A switch rejects queued requests and stale successes. Pending state settles,
   // and the rebuilt account tree permits retrying without applying the old response.
   if (
     error instanceof Error &&

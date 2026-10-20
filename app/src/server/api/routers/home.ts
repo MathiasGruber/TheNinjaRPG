@@ -283,6 +283,7 @@ export const homeRouter = createTRPCRouter({
         : errorResponse("Your home changed. Refresh and try again");
     }),
 
+  /** Toggle sleep with a single status CAS; publish only after the write succeeds. */
   toggleSleep: protectedProcedure
     .meta({
       mcp: { description: "Toggle between awake and asleep status" },

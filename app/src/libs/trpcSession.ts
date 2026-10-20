@@ -7,15 +7,21 @@ import type { AppRouter } from "@/api/root";
 export const SESSION_CHANGED_MESSAGE = "Your active account changed. Please try again.";
 export const SESSION_EXPIRED_MESSAGE =
   "Your session has expired. Please sign in again.";
+/** Keep a signed-out tab anonymous even when another tab supplies a session cookie. */
 export const TRPC_ANONYMOUS_HEADER = "x-tnr-anonymous";
 
-/** Query defaults and local callbacks can report the same session failure. */
+/** Share a toast ID only for session failures reported by multiple feedback handlers. */
 export const getSessionErrorToastId = (message: unknown) =>
   message === SESSION_CHANGED_MESSAGE || message === SESSION_EXPIRED_MESSAGE
     ? message
     : undefined;
 
-/** Keep the hydrated client, but permanently retire it when its account changes. */
+/**
+ * Bind one hydrated client to its first resolved Clerk identity.
+ * The stored ID detects switches; authorization always reads live identity and tokens.
+ * Undefined means loading and null means signed out. Retirement is permanent, so
+ * switching away and back cannot revive the old client's queued work.
+ */
 export const createTrpcSession = (clerk: Pick<Clerk, "session">) => {
   const initialSession = clerk.session;
   let clientSessionId =
@@ -23,17 +29,20 @@ export const createTrpcSession = (clerk: Pick<Clerk, "session">) => {
   let retired = false;
   let ready: Promise<void> | undefined;
   let resolveReady: (() => void) | undefined;
+  /** Consume Clerk listener and cleanup snapshots, ignoring unresolved hydration. */
   const observeSession = (sessionId: string | null | undefined) => {
     if (sessionId === undefined) return;
     if (clientSessionId === undefined) clientSessionId = sessionId;
     if (clientSessionId !== sessionId) retired = true;
     resolveReady?.();
   };
+  /** Reject retired clients using Clerk's current identity at call time. */
   const assertCurrent = () => {
     const session = clerk.session;
     observeSession(session === undefined ? undefined : (session?.id ?? null));
     if (retired) throw new Error(SESSION_CHANGED_MESSAGE);
   };
+  /** Wait for identity and bind each batch to a freshly obtained account token. */
   const headers = async (): Promise<Record<string, string>> => {
     assertCurrent();
     // Public queries can depend on the viewer too. Do not cache an anonymous result
@@ -50,6 +59,8 @@ export const createTrpcSession = (clerk: Pick<Clerk, "session">) => {
     if (!session) return { [TRPC_ANONYMOUS_HEADER]: "1" };
     const token = await session.getToken();
     assertCurrent();
+    // assertCurrent ignores loading; a session disappearing during getToken still
+    // invalidates this batch, even before Clerk reports a replacement identity.
     if (clerk.session?.id !== session.id) throw new Error(SESSION_CHANGED_MESSAGE);
     // Falling back to cookies here could authenticate the request as another tab's user.
     if (!token) throw new Error(SESSION_EXPIRED_MESSAGE);
@@ -58,7 +69,11 @@ export const createTrpcSession = (clerk: Pick<Clerk, "session">) => {
   return { headers, assertCurrent, observeSession };
 };
 
-/** Discard late responses before mutation callbacks can update status or show success. */
+/**
+ * Guard dispatch and late successes against the client's account lifetime.
+ * Guard failures use observer.error so pending requests settle. Device-registration
+ * success retains its cleanup proof; upstream errors pass through unchanged.
+ */
 export const trpcSessionLink =
   (
     session: Pick<ReturnType<typeof createTrpcSession>, "assertCurrent">,
