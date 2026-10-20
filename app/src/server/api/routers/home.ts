@@ -324,25 +324,19 @@ export const homeRouter = createTRPCRouter({
         return errorResponse("You cannot sleep in the war-torn battleground");
       }
       // Mutate
-      if (user.status === "ASLEEP") {
-        await ctx.drizzle
-          .update(userData)
-          .set({ status: "AWAKE" })
-          .where(eq(userData.userId, ctx.userId));
-      } else {
-        const result = await ctx.drizzle
-          .update(userData)
-          .set({ status: "ASLEEP" })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              eq(userData.status, "AWAKE"),
-              gte(userData.curHealth, 0),
-            ),
-          );
-        if (result.rowsAffected === 0) {
-          return errorResponse("You can't sleep right now; are you awake and well?");
-        }
+      // Combat can change status after the profile read; neither direction may replace it.
+      const result = await ctx.drizzle
+        .update(userData)
+        .set({ status: newStatus })
+        .where(
+          and(
+            eq(userData.userId, ctx.userId),
+            eq(userData.status, user.status),
+            gte(userData.curHealth, 0),
+          ),
+        );
+      if (result.rowsAffected === 0) {
+        return errorResponse("Your status changed. Refresh and try again.");
       }
       // Push status update to sector
       const output = {

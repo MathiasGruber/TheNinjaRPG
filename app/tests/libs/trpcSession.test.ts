@@ -4,9 +4,12 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
 import type { AppRouter } from "@/api/root";
 import {
-  createTrpcSessionHeaders,
+  createTrpcSession,
   SESSION_CHANGED_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
+  trpcSessionUserId,
+  TRPC_ANONYMOUS_HEADER,
+  trpcSessionLink,
 } from "@/libs/trpcSession";
 
 const session = (id: string, getToken = async (): Promise<string | null> => id) =>
@@ -15,10 +18,16 @@ const session = (id: string, getToken = async (): Promise<string | null> => id) 
 describe("tRPC session authentication", () => {
   it("reads the live session after hydration and refreshes its token for every batch", async () => {
     const clerk: Pick<Clerk, "session"> = { session: undefined };
-    const headers = createTrpcSessionHeaders(clerk);
-    expect(await headers()).toEqual({});
+    const scope = createTrpcSession(clerk);
+    const headers = scope.headers;
+    let sent = false;
+    const pending = headers().then((value) => { sent = true; return value; });
+    await Promise.resolve();
+    expect(sent).toBe(false);
     const getToken = mock(async () => "token_a");
     clerk.session = session("a", getToken);
+    scope.observeSession("a");
+    expect(await pending).toEqual({ Authorization: "Bearer token_a" });
     expect(await headers()).toEqual({ Authorization: "Bearer token_a" });
     getToken.mockResolvedValue("refreshed_a");
     expect(await headers()).toEqual({ Authorization: "Bearer refreshed_a" });
@@ -30,7 +39,7 @@ describe("tRPC session authentication", () => {
       links: [httpBatchLink({
         url: "http://localhost/api/trpc",
         transformer: superjson,
-        headers: createTrpcSessionHeaders({ session: session("token_a") }),
+        headers: createTrpcSession({ session: session("token_a") }).headers,
         fetch: async (url, init) => {
           requests.push({ url: String(url), authorization: new Headers(init?.headers).get("Authorization") });
           return Response.json([{ result: { data: superjson.serialize({ success: true }) } }]);
@@ -48,23 +57,23 @@ describe("tRPC session authentication", () => {
   });
 
   it("keeps signed-out public requests available", async () => {
-    expect(await createTrpcSessionHeaders({ session: null })()).toEqual({});
+    expect(await createTrpcSession({ session: null }).headers()).toEqual({ [TRPC_ANONYMOUS_HEADER]: "1" });
   });
 
   it.each(["switch", "sign-out"])("rejects an old client's queued request after %s", async (change) => {
     const clerk: Pick<Clerk, "session"> = { session: session("a") };
-    const headers = createTrpcSessionHeaders(clerk);
+    const { headers } = createTrpcSession(clerk);
     await headers();
     clerk.session = change === "switch" ? session("b") : null;
     await expect(headers()).rejects.toThrow(SESSION_CHANGED_MESSAGE);
-    expect(await createTrpcSessionHeaders(clerk)()).toEqual(
-      change === "switch" ? { Authorization: "Bearer b" } : {},
+    expect(await createTrpcSession(clerk).headers()).toEqual(
+      change === "switch" ? { Authorization: "Bearer b" } : { [TRPC_ANONYMOUS_HEADER]: "1" },
     );
   });
 
   it("rejects a switch before a new client's first batch is sent", async () => {
     const clerk: Pick<Clerk, "session"> = { session: session("a") };
-    const headers = createTrpcSessionHeaders(clerk);
+    const { headers } = createTrpcSession(clerk);
     clerk.session = session("b");
     await expect(headers()).rejects.toThrow(SESSION_CHANGED_MESSAGE);
   });
@@ -74,16 +83,61 @@ describe("tRPC session authentication", () => {
     const clerk: Pick<Clerk, "session"> = {
       session: session("a", () => new Promise((resolve) => { resolveToken = resolve; })),
     };
-    const pending = createTrpcSessionHeaders(clerk)();
+    const pending = createTrpcSession(clerk).headers();
     clerk.session = change === "switch" ? session("b") : null;
     resolveToken("token_a");
     await expect(pending).rejects.toThrow(SESSION_CHANGED_MESSAGE);
   });
 
   it("never falls back to another tab's cookie when token acquisition fails", async () => {
-    await expect(createTrpcSessionHeaders({ session: session("a", async () => null) })())
+    await expect(createTrpcSession({ session: session("a", async () => null) }).headers())
       .rejects.toThrow(SESSION_EXPIRED_MESSAGE);
-    await expect(createTrpcSessionHeaders({ session: session("a", async () => { throw new Error("Offline"); }) })())
+    await expect(createTrpcSession({ session: session("a", async () => { throw new Error("Offline"); }) }).headers())
       .rejects.toThrow("Offline");
+  });
+});
+
+
+describe("tRPC account lifetime", () => {
+  it("permanently rejects a queued client after switching away and back", async () => {
+    const clerk: Pick<Clerk, "session"> = { session: session("a") };
+    const scope = createTrpcSession(clerk);
+    scope.observeSession("b");
+    clerk.session = session("a");
+    await expect(scope.headers()).rejects.toThrow(SESSION_CHANGED_MESSAGE);
+    expect(() => scope.assertCurrent()).toThrow(SESSION_CHANGED_MESSAGE);
+    expect(await createTrpcSession(clerk).headers()).toEqual({ Authorization: "Bearer a" });
+  });
+
+  it("uses anonymous identity with another tab's cookie while preserving experiment cookies", async () => {
+    const headers = new Headers(await createTrpcSession({ session: null }).headers());
+    headers.set("cookie", "__session=account_b; lemu=variant; wallpaper=night");
+    expect(trpcSessionUserId("account_b", headers)).toBeNull();
+    expect(headers.get("cookie")).toContain("wallpaper=night");
+    expect(trpcSessionUserId("account_a", new Headers({ Authorization: "Bearer a" }))).toBe("account_a");
+  });
+
+  it.each(["query", "mutation"])("discards an in-flight %s response after switching accounts", async (type) => {
+    const clerk: Pick<Clerk, "session"> = { session: session("a") };
+    const scope = createTrpcSession(clerk);
+    let finish!: () => void;
+    let started!: () => void;
+    const dispatched = new Promise<void>((resolve) => { started = resolve; });
+    const client = createTRPCClient<AppRouter>({
+      links: [trpcSessionLink(scope), httpBatchLink({
+        url: "http://localhost/api/trpc", transformer: superjson, headers: scope.headers,
+        fetch: async () => {
+          started();
+          await new Promise<void>((resolve) => { finish = resolve; });
+          return Response.json([{ result: { data: superjson.serialize({ success: true, newStatus: "ASLEEP" }) } }]);
+        },
+      })],
+    });
+    const pending = type === "query" ? client.profile.getUser.query() : client.home.toggleSleep.mutate();
+    await dispatched;
+    scope.observeSession("b");
+    clerk.session = session("b");
+    finish();
+    await expect(pending).rejects.toThrow(SESSION_CHANGED_MESSAGE);
   });
 });

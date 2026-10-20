@@ -27,6 +27,7 @@ import {
   ISOLATED_PYRAMID_MESSAGE,
   isPyramidRestrictedProcedure,
 } from "@/libs/questRun";
+import { trpcSessionUserId } from "@/libs/trpcSession";
 import {
   parseWallpaperVariant,
   WALLPAPER_EXPERIMENT,
@@ -57,7 +58,7 @@ export const createAppTRPCContext = async (options: {
 }) => {
   // Get user ID - SIMPLE
   const session = await auth();
-  const userId = session.userId;
+  const userId = trpcSessionUserId(session.userId, options.readHeaders);
   // Get IP
   const { readHeaders } = options;
   const userIp = getClientIp(readHeaders);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession } from "@clerk/nextjs";
-import { Fragment, useState } from "react";
+import { Provider as AtomProvider } from "jotai";
+import { useState } from "react";
 import { activeSessionKey } from "@/libs/activeSession";
 
 /**
@@ -28,5 +29,5 @@ export const ActiveSessionBoundary: React.FC<{ children: React.ReactNode }> = ({
     const next = activeSessionKey({ sessionId, firstSessionId: first });
     if (next !== key) setKey(next);
   }
-  return <Fragment key={key}>{children}</Fragment>;
+  return <AtomProvider key={key}>{children}</AtomProvider>;
 };
