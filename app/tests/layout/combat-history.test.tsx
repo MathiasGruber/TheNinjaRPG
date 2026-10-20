@@ -12,6 +12,8 @@ import type { BattleState } from "@/libs/combat/types";
 import * as UserContext from "@/utils/UserContext";
 import { ensureDom } from "../setup-dom.mjs";
 
+// Keep the real history component, subscription hook and tRPC query lifecycle;
+// control only websocket delivery, user context and the server's log responses.
 const testApi = createTRPCReact<AppRouter>();
 let queryClient: QueryClient;
 let entries: BattleAction[];
@@ -45,11 +47,13 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); queryClient.clear(); vi.restoreAllMocks(); });
 
+/** Exercise history as either a live battle subscriber or a reopened saved log. */
 const History = ({ state, listen }: { state: BattleState; listen: boolean }) => {
   useCombatUpdates(listen ? state : { battle: null, result: null, isPending: false });
   return <CombatHistory battleId="battle" battleVersion={listen ? state.battle?.version : undefined} results={state.result} />;
 };
 
+/** Reuse the query cache across mounts to reproduce navigation with cached reads. */
 const mount = (listen = true, state = finalState) => {
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
     if (op.path !== "combat.getBattleEntries") throw new Error(`Unexpected procedure ${op.path}`);

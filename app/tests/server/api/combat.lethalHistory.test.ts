@@ -54,6 +54,8 @@ describeWithDatabase("lethal combat history", () => {
           createdRound: 1, level: 1 })],
       }).where(eq(battle.id, snapshot.id));
     }
+    // Pause only the action-log insert, leaving the state claim and settlement
+    // writes free to finish. This exposes the incomplete log to a real observer.
     const delayed = new Proxy(db, {
       get(target, key, receiver) {
         if (key === "insert") return (table: Parameters<typeof db.insert>[0]) => {
@@ -82,6 +84,7 @@ describeWithDatabase("lethal combat history", () => {
       expect(settled.result?.outcome).toBe(route === "performAction" ? "Lost" : "Won");
       const incomplete = await observer.getBattleEntries({ battleId: snapshot.id });
       expect(incomplete.some((entry) => entry.appliedEffects.some((effect) => effect.txt.includes("victim") && effect.txt.includes("damage")))).toBe(false);
+      // Count only notifications sent after the delayed log is allowed to persist.
       trigger.mockClear();
       releaseInsert();
       const response = await pending;
@@ -119,6 +122,7 @@ describeWithDatabase("lethal combat history", () => {
 
 });
 
+/** Use real initiation, then arrange a deterministic next-action killing blow. */
 const startLethalBattle = async (battleType: "COMBAT" | "ARENA", auto = false) => {
     const db = await getTestDatabase();
     await insertUsers(["killer", "victim"].map((userId, i) => ({

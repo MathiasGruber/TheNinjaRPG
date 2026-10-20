@@ -21,10 +21,15 @@ export const useBattleMaps = (battle: ReturnedBattle | null): BattleMaps => {
   return useMemo(() => computeBattleMaps(battle), [battle?.id, battle?.version]);
 };
 
-/** Synchronize battle state and logs after the server finishes its action writes. */
+/**
+ * Refresh all history queries for this battle after the server's action writes.
+ * Even equal or older versions can complete missing logs; only newer versions
+ * refresh active battle state, preserving a result the client already received.
+ */
 export const useCombatUpdates = (state: BattleState) => {
   const { pusher } = useUserData();
   const utils = api.useUtils();
+  // Keep the subscription stable while its handler reads the latest battle/result.
   const stateRef = useRef(state);
   stateRef.current = state;
   const battleId = state.battle?.id;
