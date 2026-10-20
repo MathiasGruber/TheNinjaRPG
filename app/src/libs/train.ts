@@ -208,9 +208,16 @@ export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) 
   );
 };
 
+/**
+ * Match any specified bloodline and reskin against the player's current selection.
+ * A matching reskin never bypasses the parent bloodline requirement.
+ */
 export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData) => {
   if (!jutsu) return false;
-  return !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
+  return (
+    (!jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId) &&
+    (!jutsu.bloodlineReskinId || jutsu.bloodlineReskinId === userdata.bloodlineReskinId)
+  );
 };
 
 export const checkJutsuElements = (jutsu: Jutsu, userElements: Set<ElementName>) => {
@@ -371,7 +378,11 @@ const jutsuRequirementChecks = (
     },
     {
       ok: checkJutsuBloodline(jutsu, userdata),
-      warning: "You do not have the required bloodline to use this jutsu.",
+      // A parent mismatch takes precedence over the more specific reskin warning.
+      warning:
+        jutsu.bloodlineId && jutsu.bloodlineId !== userdata.bloodlineId
+          ? "You do not have the required bloodline to use this jutsu."
+          : "Select the required bloodline reskin to use this jutsu.",
     },
     {
       ok: hasMasteryRequirements(masteries, jutsu),

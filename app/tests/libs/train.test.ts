@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import type { Jutsu } from "@/drizzle/schema";
+import type { Jutsu, UserData } from "@/drizzle/schema";
 import {
+  checkJutsuBloodline,
   checkJutsuBloodlineItem,
   type JutsuBloodlineItemUserItems,
 } from "@/libs/train";
@@ -31,6 +32,28 @@ const check = (
   requiredBloodlineItemId: string | null,
   userItems?: JutsuBloodlineItemUserItems,
 ) => checkJutsuBloodlineItem(makeJutsu(requiredBloodlineItemId) as Jutsu, userItems);
+
+describe("checkJutsuBloodline", () => {
+  it.each([
+    { bloodlineId: null, bloodlineReskinId: null, userBloodline: null, userReskin: null, allowed: true },
+    { bloodlineId: "blood", bloodlineReskinId: null, userBloodline: "blood", userReskin: null, allowed: true },
+    { bloodlineId: "blood", bloodlineReskinId: null, userBloodline: "blood", userReskin: "scarlet", allowed: true },
+    { bloodlineId: "blood", bloodlineReskinId: "scarlet", userBloodline: "blood", userReskin: null, allowed: false },
+    { bloodlineId: "blood", bloodlineReskinId: "scarlet", userBloodline: "blood", userReskin: "other", allowed: false },
+    { bloodlineId: "blood", bloodlineReskinId: "scarlet", userBloodline: "blood", userReskin: "scarlet", allowed: true },
+    { bloodlineId: "blood", bloodlineReskinId: "scarlet", userBloodline: "other", userReskin: "scarlet", allowed: false },
+    { bloodlineId: "blood", bloodlineReskinId: null, userBloodline: "other", userReskin: null, allowed: false },
+  ])("requires bloodline $bloodlineId and reskin $bloodlineReskinId for $userBloodline / $userReskin", ({ bloodlineId, bloodlineReskinId, userBloodline, userReskin, allowed }) => {
+    expect(checkJutsuBloodline(
+      { bloodlineId, bloodlineReskinId } as Jutsu,
+      { bloodlineId: userBloodline, bloodlineReskinId: userReskin } as UserData,
+    )).toBe(allowed);
+  });
+
+  it("rejects a missing jutsu", () => {
+    expect(checkJutsuBloodline(undefined, {} as UserData)).toBe(false);
+  });
+});
 
 describe("checkJutsuBloodlineItem", () => {
   it.each([
