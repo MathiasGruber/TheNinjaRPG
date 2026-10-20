@@ -1256,7 +1256,6 @@ export const calcApplyRatio = (
     "absorb",
     "afterburn",
     "consume",
-    "siphon",
     "diffuse",
     "buffprevent",
     "cleanseprevent",
@@ -1296,13 +1295,8 @@ export const calcApplyRatio = (
   // If always apply, then apply 1 time, but not if rounds set to 0
   if (alwaysApply.includes(effect.type)) {
     if (effect.rounds !== undefined && effect.rounds === 0) {
-      // Authored instant Consume/Siphon tags convert only the casting action's damage.
-      if (
-        (effect.type === "consume" || effect.type === "siphon") &&
-        effect.isNew &&
-        effect.castThisRound
-      )
-        return 1;
+      // Zero-duration Consume still converts the casting action's damage.
+      if (effect.type === "consume" && effect.isNew && effect.castThisRound) return 1;
       return 0;
     }
     return 1;

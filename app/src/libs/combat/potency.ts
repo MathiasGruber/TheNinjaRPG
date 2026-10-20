@@ -25,7 +25,6 @@ export const POTENCY_TAG_LABELS: Record<PotencyTag["affectedTag"], string> = {
   vamp: "Vamp",
   absorb: "Absorb",
   consume: "Consume",
-  siphon: "Siphon",
   shield: "Shield",
   pierce: "Pierce",
   drain: "Drain",

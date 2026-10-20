@@ -672,14 +672,8 @@ export type Consequence = {
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
-/**
- * Per-action Consume/Siphon conversion, shield HP and duration, keyed by caster.
- * isSiphon selects the aggregate log wording when either or both tags contribute.
- */
-export type ConsumeByUser = Map<
-  string,
-  { ratio: number; rounds: number; hp: number; isSiphon?: boolean }
->;
+/** Active damage conversion and accumulated shield HP and duration, keyed by caster. */
+export type ConsumeByUser = Map<string, { ratio: number; rounds: number; hp: number }>;
 
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with

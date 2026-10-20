@@ -4,7 +4,7 @@ import { insertAction } from "@/libs/combat/actions";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { applyEffects } from "@/libs/combat/process";
 import { getBattleGrid } from "@/libs/combat/util";
-import { ConsumeTag, DamageTag, getTagSchema, JutsuValidatorRawSchema, SageModeValidator, SiphonTag } from "@/validators/combat";
+import { ConsumeTag, DamageTag, JutsuValidatorRawSchema, SageModeValidator } from "@/validators/combat";
 import type { CombatAction, CompleteBattle, UserEffect } from "@/libs/combat/types";
 import {
   makeBattleUser,
@@ -819,7 +819,7 @@ describe("active Consume damage conversion", () => {
     ).toBeLessThan(first.usersState.find((u) => u.userId === "attacker")!.curHealth);
   });
 
-  it("does not convert a newly cast active buff that Clear removes", () => {
+  it.each([0, 3])("does not convert a cleared Consume with %i active rounds", (rounds) => {
     const clear = makeEffect(
       "clear",
       { power: 100, rounds: 0 },
@@ -834,13 +834,14 @@ describe("active Consume damage conversion", () => {
     const { newBattle, actionEffects } = applyEffects(
       makeBattle(
         [makeAttacker(), makeDefender()],
-        [staticHit(), makeConsume(50), clear],
+        [staticHit(), makeConsume(50, 3, rounds), clear],
       ),
       "attacker",
       makeAction(),
     );
     expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
     expect(shieldHp(newBattle)).toBe(0);
+    expect(actionEffects.some((e) => e.txt.includes("consumes"))).toBe(false);
   });
 
   it("keeps deferred summon damage conversion on its caster and quest credit on its controller", () => {
@@ -922,193 +923,4 @@ describe("active Consume damage conversion", () => {
     );
     expect(shieldHp(newBattle)).toBe(SHIELD_MAX_HEALTH);
   });
-});
-
-describe("applyEffects — siphon", () => {
-  /** Keep conversion fixed at 50% while varying the active duration. */
-  const siphon = (rounds = 3): UserEffect =>
-    makeEffect(
-      "siphon",
-      { power: 50, powerPerLevel: 0, rounds, shieldRounds: 3 },
-      {
-        creatorId: "attacker",
-        targetId: "attacker",
-        targetType: "user",
-        isNew: true,
-        createdRound: ROUND,
-      },
-    );
-  /** Isolate conversion from stat scaling; damage reduction still applies. */
-  const hit = (id = "hit"): UserEffect =>
-    makeDamageEffect({
-      ...makeAttack(id),
-      power: 100,
-      powerPerLevel: 0,
-      calculation: "static",
-      statTypes: ["None"],
-    } as Partial<UserEffect>);
-
-  it("converts casting damage immediately and stacks shields across actions", () => {
-    const defender = makeDefender();
-    const { newBattle: first, actionEffects } = applyEffects(
-      makeBattle([makeAttacker(), defender], [hit(), siphon()]),
-      "attacker",
-      makeAction(),
-    );
-    const firstShield = findConsumeShield(first.usersEffects);
-    const damage =
-      defender.curHealth -
-      first.usersState.find((u) => u.userId === "defender")!.curHealth;
-    expect(damage).toBeGreaterThan(0);
-    const expectedShield = Math.floor(damage * 0.5);
-    expect(firstShield).toMatchObject({ power: expectedShield, rounds: 3 });
-    expect(
-      actionEffects.some(
-        (e) =>
-          e.txt ===
-          `attacker siphons ${expectedShield} damage as a shield for 3 rounds`,
-      ),
-    ).toBe(true);
-    expect(
-      first.usersState.find((u) => u.userId === "attacker")?.usedTagTypes,
-    ).toContain("siphon");
-    const second = applyEffects(
-      { ...first, usersEffects: [...first.usersEffects, hit("second-hit")] },
-      "attacker",
-      makeAction(),
-    ).newBattle;
-    const shields = second.usersEffects.filter(
-      (e) => e.type === "shield" && e.targetId === "attacker",
-    );
-    expect(shields).toHaveLength(2);
-    expect(shields.reduce((total, e) => total + e.power, 0)).toBe(expectedShield * 2);
-  });
-
-  it("supports an instant zero-round cast without converting later hits", () => {
-    const defender = makeDefender();
-    const result = applyEffects(
-      makeBattle([makeAttacker(), defender], [hit(), siphon(0)]),
-      "attacker",
-      makeAction(),
-    ).newBattle;
-    const damage =
-      defender.curHealth -
-      result.usersState.find((u) => u.userId === "defender")!.curHealth;
-    expect(damage).toBeGreaterThan(0);
-    expect(findConsumeShield(result.usersEffects)?.power).toBe(
-      Math.floor(damage * 0.5),
-    );
-    expect(result.usersEffects.some((e) => e.type === "siphon")).toBe(false);
-    const next = applyEffects(
-      { ...result, usersEffects: [...result.usersEffects, hit("later-hit")] },
-      "attacker",
-      makeAction(),
-    ).newBattle;
-    expect(next.usersEffects.filter((e) => e.type === "shield")).toHaveLength(1);
-    expect(findConsumeShield(next.usersEffects)?.power).toBe(
-      findConsumeShield(result.usersEffects)?.power,
-    );
-  });
-
-  it("stops converting on expiry and keeps earned shields", () => {
-    const first = applyEffects(
-      makeBattle([makeAttacker(), makeDefender()], [hit(), siphon()]),
-      "attacker",
-      makeAction(),
-    ).newBattle;
-    const next = applyEffects(
-      {
-        ...first,
-        round: ROUND + 1,
-        usersEffects: [
-          ...first.usersEffects.map((e) =>
-            e.type === "siphon" ? { ...e, rounds: 0 } : e,
-          ),
-          { ...hit("later-hit"), createdRound: ROUND + 1 },
-        ],
-      },
-      "attacker",
-      makeAction(),
-    ).newBattle;
-    expect(next.usersEffects.some((e) => e.type === "siphon")).toBe(false);
-    expect(next.usersEffects.filter((e) => e.type === "shield")).toHaveLength(1);
-    expect(findConsumeShield(next.usersEffects)?.power).toBe(
-      findConsumeShield(first.usersEffects)?.power,
-    );
-  });
-
-  it("combines with Consume under the shared 100 percent conversion cap", () => {
-    const defender = makeDefender();
-    const { newBattle } = applyEffects(
-      makeBattle([makeAttacker(), defender], [hit(), makeConsume(75, 5), siphon()]),
-      "attacker",
-      makeAction(),
-    );
-    const damage =
-      defender.curHealth -
-      newBattle.usersState.find((u) => u.userId === "defender")!.curHealth;
-    expect(damage).toBeGreaterThan(0);
-    expect(newBattle.usersEffects.filter((e) => e.type === "shield")).toHaveLength(1);
-    expect(findConsumeShield(newBattle.usersEffects)).toMatchObject({
-      power: Math.floor(damage),
-      rounds: 5,
-    });
-  });
-
-  it("accepts an active standalone buff and rejects an instant buff without damage", () => {
-    expect(
-      JutsuValidatorRawSchema.safeParse({
-        ...SAGE_MODE_ACTIVATION_JUTSU,
-        effects: [SiphonTag.parse({ rounds: 3 })],
-      }).success,
-    ).toBe(true);
-    const instant = JutsuValidatorRawSchema.safeParse({
-      ...SAGE_MODE_ACTIVATION_JUTSU,
-      effects: [SiphonTag.parse({ rounds: 0 })],
-    });
-    expect(instant.success).toBe(false);
-    if (!instant.success)
-      expect(
-        instant.error.issues.some((issue) => issue.message.includes("SiphonTag")),
-      ).toBe(true);
-  });
-
-  it.each(["damage", "elementaldamage", "pierce"] as const)(
-    "accepts instant conversion with %s",
-    (type) => {
-      expect(
-        JutsuValidatorRawSchema.safeParse({
-          ...SAGE_MODE_ACTIVATION_JUTSU,
-          effects: [getTagSchema(type).parse({}), SiphonTag.parse({ rounds: 0 })],
-        }).success,
-      ).toBe(true);
-    },
-  );
-
-  it.each([0, 3])(
-    "can be cleared before converting damage with %i rounds",
-    (rounds) => {
-      const clear = makeEffect(
-        "clear",
-        { power: 100 },
-        {
-          id: "clear-siphon",
-          creatorId: "defender",
-          targetId: "attacker",
-          isNew: true,
-          castThisRound: true,
-          createdRound: ROUND,
-          targetType: "user",
-        },
-      );
-      const { newBattle, actionEffects } = applyEffects(
-        makeBattle([makeAttacker(), makeDefender()], [hit(), siphon(rounds), clear]),
-        "attacker",
-        makeAction(),
-      );
-      expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
-      expect(findConsumeShield(newBattle.usersEffects)).toBeUndefined();
-      expect(actionEffects.some((e) => e.txt.includes("siphons"))).toBe(false);
-    },
-  );
 });

@@ -2067,7 +2067,7 @@ export const vamp = (
 };
 
 /**
- * Register Consume/Siphon conversion with a shared 100% cap and longest shield duration.
+ * Register active conversion of all damage dealt by the caster, capped at 100%.
  * process.ts resolves shield HP before incoming shields and grants it after damage.
  */
 export const consume = (
@@ -2078,7 +2078,6 @@ export const consume = (
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
   const previous = consumeByUser.get(effect.creatorId);
   consumeByUser.set(effect.creatorId, {
-    isSiphon: previous?.isSiphon || effect.type === "siphon",
     ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
     rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
     hp: 0,

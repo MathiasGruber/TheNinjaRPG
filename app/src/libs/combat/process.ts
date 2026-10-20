@@ -465,14 +465,11 @@ export const applyEffects = (
 
   // Remember effects applied to different users, so that we only apply effects once
   const appliedEffects = new Set<string>();
-  // Only authored instant Consume/Siphon tags bypass the active-duration check.
+  // Only authored instant tags may convert after their duration reaches zero.
   // Clear revokes these exceptions when it cancels the corresponding effects.
   const instantConsumeIds = new Set(
     usersEffects
-      .filter(
-        (e) =>
-          (e.type === "consume" || e.type === "siphon") && e.rounds === 0 && e.isNew,
-      )
+      .filter((e) => e.type === "consume" && e.rounds === 0 && e.isNew)
       .map((e) => e.id),
   );
 
@@ -514,10 +511,7 @@ export const applyEffects = (
   // Separate post-damage-modifier effects (wound, afterburn, reflect, recoil, lifesteal, absorb)
   // These depend on post-mitigated damage values, so they must run after pierce
   const postDamageModifierEffects = usersEffects.filter(
-    (e) =>
-      POST_DAMAGE_MODIFIER_TYPES.includes(e.type) &&
-      e.type !== "consume" &&
-      e.type !== "siphon",
+    (e) => POST_DAMAGE_MODIFIER_TYPES.includes(e.type) && e.type !== "consume",
   );
 
   // Separate heal adjustment effects (increaseheal/decreaseheal)
@@ -546,12 +540,10 @@ export const applyEffects = (
     );
   });
 
-  // Register Consume/Siphon after activation, Clear and prevention, before damage.
+  // Register Consume after activation, Clear and prevention, before accumulating damage.
   usersEffects
     .filter(
-      (e) =>
-        (e.type === "consume" || e.type === "siphon") &&
-        (isEffectActive(e) || instantConsumeIds.has(e.id)),
+      (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
     )
     .sort(sortEffects)
     .forEach((effect) => {
@@ -1202,9 +1194,9 @@ export const applyEffects = (
       }
     });
 
-  // Grant the accumulated Consume/Siphon shields: one effect and log per attacker,
+  // Grant the accumulated consume shields: one effect and one log line per attacker,
   // sized off the total pre-shield damage the action dealt across every target.
-  consumeByUser.forEach(({ hp, rounds, isSiphon }, userId) => {
+  consumeByUser.forEach(({ hp, rounds }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
     if (!user || user.curHealth <= 0) return;
     const shieldHp = Math.min(Math.floor(hp), SHIELD_MAX_HEALTH);
@@ -1213,7 +1205,7 @@ export const applyEffects = (
       createConsumeShieldEffect(user, shieldHp, rounds, battle.round),
     );
     actionEffects.push({
-      txt: `${user.username} ${isSiphon ? "siphons" : "consumes"} ${shieldHp} damage as a shield for ${rounds} rounds`,
+      txt: `${user.username} consumes ${shieldHp} damage as a shield for ${rounds} rounds`,
       color: "blue",
     });
   });
@@ -1270,7 +1262,7 @@ export const applyEffects = (
  * @param actorId - Actor ID
  * @param effect - Effect to process
  * @param action - Action
- * @param consumeByUser - Per-action conversion totals, mutated by Consume/Siphon
+ * @param consumeByUser - Per-action conversion totals, mutated by Consume
  * @param instantConsumeIds - Shared instant-cast eligibility; Clear removes canceled IDs
  */
 export const applySingleEffect = (
@@ -1499,10 +1491,7 @@ export const applySingleEffect = (
           info = disarm(effect, usersEffects, curTarget);
         } else if (effect.type === "weakness") {
           info = weakness(effect, curTarget);
-        } else if (
-          (effect.type === "consume" || effect.type === "siphon") &&
-          consumeByUser
-        ) {
+        } else if (effect.type === "consume" && consumeByUser) {
           info = consume(effect, consumeByUser);
         } else if (effect.type === "shield") {
           info = shield(effect, curTarget);
