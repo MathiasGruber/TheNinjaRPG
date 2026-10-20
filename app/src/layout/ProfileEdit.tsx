@@ -2331,6 +2331,7 @@ const TavernColors: React.FC = () => {
           input.target === "username"
             ? data.userPatch?.tavernUsernameColor
             : data.userPatch?.tavernTitleColor;
+        // Cache reconciliation must not make a committed purchase retryable.
         await updateUser(
           color !== undefined
             ? {
@@ -2340,9 +2341,9 @@ const TavernColors: React.FC = () => {
               }
             : undefined,
           { revision, delta: data.userDelta },
-        );
+        ).catch(() => undefined);
       } else {
-        await updateUser(undefined, { revision });
+        await updateUser(undefined, { revision }).catch(() => undefined);
       }
     },
   });
