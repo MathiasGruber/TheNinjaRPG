@@ -212,6 +212,7 @@ export const OBJECTIVE_TAG_TYPES = [
   "seal",
   "sealprevent",
   "shield",
+  "siphon",
   "stealth",
   "stun",
   "stunprevent",
