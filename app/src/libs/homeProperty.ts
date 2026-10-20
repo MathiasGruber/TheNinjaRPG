@@ -5,6 +5,7 @@ import {
 } from "@/drizzle/constants";
 import {
   HOME_ART_PLANS,
+  HOME_FLOOR_PROJECTION,
   type HomePoint,
   homeArtRectPolygon,
 } from "@/libs/homeRoomGeometry";
@@ -22,7 +23,9 @@ export type HomeRoom = {
   width: number;
   height: number;
   isYard: boolean;
-  interior: HomePoint[];
+  /** Complete measured floor contours in the unchanged saved-coordinate frame. */
+  interior: HomePoint[][];
+  /** Yard-only cultivation contour, separate from the decorative furniture floor. */
   outdoor: HomePoint[];
 };
 /** Translation is measured in viewport percentages and applied after scaling the property. */
@@ -46,16 +49,37 @@ export const boundHomeCamera = (camera: HomeCamera, homeType: HomeType): HomeCam
   };
 };
 
-/** Frame the selected floor at a useful magnification without leaving the painted property. */
+/** Frame the selected floor with room headroom without leaving the painted property. */
 export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamera => {
   const room = getHomeRooms(homeType).find((room) => room.id === id);
   if (!room) return getHomeOverviewCamera(homeType);
-  const scale = Math.min(1.8, 100 / Math.max(room.width, room.height));
+  const points = [
+    ...room.interior.flat(),
+    ...room.outdoor,
+    // Preserve the saved frame's wall headroom above every measured indoor floor.
+    ...(room.isYard
+      ? []
+      : homeArtRectPolygon([
+          0,
+          Math.min(
+            0,
+            ...room.interior.flat().map(({ y }) => y - HOME_FLOOR_PROJECTION.y),
+          ),
+          100,
+          100,
+        ])),
+  ];
+  const left = room.x + (Math.min(...points.map(({ x }) => x)) * room.width) / 100;
+  const top = room.y + (Math.min(...points.map(({ y }) => y)) * room.height) / 100;
+  const right = room.x + (Math.max(...points.map(({ x }) => x)) * room.width) / 100;
+  const bottom = room.y + (Math.max(...points.map(({ y }) => y)) * room.height) / 100;
+  // Reserve viewport margin around the focused room and its furniture controls.
+  const scale = Math.min(1.8, 85 / Math.max(right - left, bottom - top));
   return boundHomeCamera(
     {
       scale,
-      x: 50 - (room.x + room.width / 2) * scale,
-      y: 50 - (room.y + room.height / 2) * scale,
+      x: 50 - ((left + right) / 2) * scale,
+      y: 50 - ((top + bottom) / 2) * scale,
     },
     homeType,
   );
@@ -73,7 +97,7 @@ export const zoomHomeCamera = (
   y: after.y - ((before.y - camera.y) * scale) / camera.scale,
 });
 
-/** Floor measurements retain normalized anchors while furniture keeps its physical proportions. */
+/** Keep saved room frames and physical scale while mapping all measured contours into them. */
 export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
   const plan = HOME_ART_PLANS[homeType];
   const unit = plan.size / 100;
@@ -88,7 +112,12 @@ export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
       width,
       height,
       isYard: false,
-      interior: homeArtRectPolygon([12, 26, 90, 80]),
+      interior: (plan.floorSurfaces[index] ?? []).map((polygon) =>
+        polygon.map(([x, y]) => ({
+          x: ((x * unit - (left * unit - width * 0.12)) * 100) / width,
+          y: ((y * unit - (top * unit - height * 0.26)) * 100) / height,
+        })),
+      ),
       outdoor: [],
     };
   });
@@ -113,7 +142,7 @@ export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
     width,
     height,
     isYard: true,
-    interior: homeArtRectPolygon(plan.lawn).map(local),
+    interior: [homeArtRectPolygon(plan.lawn).map(local)],
     outdoor: homeArtRectPolygon(plan.garden).map(local),
   });
   return rooms;

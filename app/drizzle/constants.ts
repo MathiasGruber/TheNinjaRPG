@@ -3226,9 +3226,9 @@ export const HOME_FURNITURE_STARTERS = [
   { itemId: "home-garden", x: 86, y: 90.91 },
 ] as const;
 
-/** Floor-space margins keep furniture reachable at scene edges on every home tier. */
-export const HOME_FURNITURE_POSITION_MIN = 0;
-export const HOME_FURNITURE_POSITION_MAX = 100;
+/** Measured floors can extend beyond the historical room frame; geometry validates usable ground. */
+export const HOME_FURNITURE_POSITION_MIN = -1000;
+export const HOME_FURNITURE_POSITION_MAX = 1000;
 export const HOME_FURNITURE_MIN_WIDTH = 6;
 export const HOME_FURNITURE_MAX_WIDTH = 40;
 export const HOME_FURNITURE_MAX_PLACEMENTS = 50;

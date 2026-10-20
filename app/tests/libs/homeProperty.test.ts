@@ -14,14 +14,20 @@ describe("painted home properties", () => {
       const rooms = getHomeRooms(homeType);
       expect(rooms.filter(({isYard}) => !isYard)).toHaveLength([1, 2, 3, 4, 5, 8, 9, 10][tier]!);
       const yard = rooms.find(({isYard})=>isYard)!;
-      expect(yard.interior).toHaveLength(4);
+      expect(yard.interior[0]).toHaveLength(4);
       expect(yard.outdoor).toHaveLength(4);
       expect(new Set(rooms.map(({id})=>id)).size).toBe(rooms.length);
       for (const [index, room] of rooms.filter(({isYard})=>!isYard).entries()) {
-        const bounds = HOME_ART_PLANS[homeType].floors[index]!;
-        const world = room.interior.map(({x,y}) => ({x:room.x+x*room.width/100,y:room.y+y*room.height/100}));
-        expect(world[0]!.x).toBeCloseTo(bounds[0]*HOME_ART_PLANS[homeType].size/100);
-        expect(world[2]!.y).toBeCloseTo(bounds[3]*HOME_ART_PLANS[homeType].size/100);
+        const world = room.interior.map((polygon) => polygon.map(({x,y}) => [
+          (room.x+x*room.width/100)*100/HOME_ART_PLANS[homeType].size,
+          (room.y+y*room.height/100)*100/HOME_ART_PLANS[homeType].size,
+        ]));
+        for (const [surface, polygon] of HOME_ART_PLANS[homeType].floorSurfaces[index]!.map((surface, i) => [surface, world[i]!] as const)) {
+          for (const [i, point] of surface.entries()) {
+            expect(polygon[i]![0]).toBeCloseTo(point[0]);
+            expect(polygon[i]![1]).toBeCloseTo(point[1]);
+          }
+        }
       }
       const farm = {...piece, action: "farm" as const};
       const fitted = clampHomeFurniturePlacement({...placement, room:"yard"},farm,homeType);
@@ -370,8 +376,10 @@ describe("painted home properties", () => {
       for (const room of getHomeRooms(homeType)) {
         const camera = getHomeRoomCamera(homeType,room.id);
         expect(boundHomeCamera(camera,homeType)).toEqual(camera);
-        const centerX = camera.x+(room.x+room.width/2)*camera.scale;
-        const centerY = camera.y+(room.y+room.height/2)*camera.scale;
+        const xs = room.interior.flat().map(({ x }) => x);
+        const ys = room.interior.flat().map(({ y }) => y);
+        const centerX = camera.x+(room.x+(Math.min(...xs)+Math.max(...xs))*room.width/200)*camera.scale;
+        const centerY = camera.y+(room.y+(Math.min(...ys)+Math.max(...ys))*room.height/200)*camera.scale;
         expect(centerX).toBeGreaterThan(0);
         expect(centerX).toBeLessThan(100);
         expect(centerY).toBeGreaterThan(0);
@@ -398,7 +406,7 @@ const containsSourceLandmark = (polygons: readonly (readonly (readonly [number, 
 
 /**
  * Check percentage contours with paint's even-odd fill; the authored floors and foreground
- * have the same interior under nonzero fill. The placement predicate assumes convex polygons.
+ * have the same interior under nonzero fill.
  */
 const containsArtPoint = (polygon: readonly (readonly [number, number])[], x: number, y: number) => {
   let inside = false;

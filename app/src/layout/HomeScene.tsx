@@ -12,7 +12,7 @@ import {
   Save,
   Sprout,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   type CombatBiome,
@@ -75,6 +75,8 @@ export const HomeScene = ({
   styles = [],
   isVisiting = false,
 }: HomeSceneProps) => {
+  // Keep SVG clip paths unique across rendered scene instances.
+  const floorClipId = useId();
   const sceneRef = useRef<HTMLFieldSetElement>(null);
   const dragRef = useRef<{
     placement: HomePlacement;
@@ -549,6 +551,7 @@ export const HomeScene = ({
               onError={() => setFailedHomeType(homeType)}
             />
           )}
+          {/* Full-art targets include measured wings outside the saved room frames. */}
           {isEditing &&
             rooms.map((room) => (
               <button
@@ -560,13 +563,11 @@ export const HomeScene = ({
                 disabled={isSaving || !canDecorate}
                 className="absolute cursor-grab focus-visible:bg-amber-200/20 active:cursor-grabbing"
                 style={{
-                  left: `${room.x}%`,
-                  top: `${room.y}%`,
-                  width: `${room.width}%`,
-                  height: `${room.height}%`,
-                  clipPath: room.isYard
-                    ? undefined
-                    : `polygon(${room.interior.map(({ x, y }) => `${x}% ${y}%`).join(",")})`,
+                  left: room.isYard ? `${room.x}%` : 0,
+                  top: room.isYard ? `${room.y}%` : 0,
+                  width: `${room.isYard ? room.width : HOME_ART_PLANS[homeType].size}%`,
+                  height: `${room.isYard ? room.height : HOME_ART_PLANS[homeType].size}%`,
+                  clipPath: room.isYard ? undefined : `url(#${floorClipId}-${room.id})`,
                 }}
                 onClick={(event) => {
                   // Finishing a camera gesture must not select the room beneath the pointer.
@@ -575,7 +576,30 @@ export const HomeScene = ({
                   setActiveRoom(room.id);
                   setSelectedId(null);
                 }}
-              />
+              >
+                {!room.isYard && (
+                  <svg aria-hidden className="absolute h-0 w-0">
+                    <defs>
+                      <clipPath
+                        id={`${floorClipId}-${room.id}`}
+                        clipPathUnits="objectBoundingBox"
+                      >
+                        {room.interior.map((polygon, index) => (
+                          <polygon
+                            key={index}
+                            points={polygon
+                              .map(
+                                ({ x, y }) =>
+                                  `${(room.x + (x * room.width) / 100) / HOME_ART_PLANS[homeType].size},${(room.y + (y * room.height) / 100) / HOME_ART_PLANS[homeType].size}`,
+                              )
+                              .join(" ")}
+                          />
+                        ))}
+                      </clipPath>
+                    </defs>
+                  </svg>
+                )}
+              </button>
             ))}
           {placements.map((placement) => {
             const details = furnitureById.get(placement.id);
@@ -714,12 +738,15 @@ export const HomeScene = ({
                         100,
                   };
                   const target = rooms.find((room) =>
-                    isPointInHomePolygon(
-                      {
-                        x: ((point.x - room.x) * 100) / room.width,
-                        y: ((point.y - room.y) * 100) / room.height,
-                      },
-                      details.action === "farm" ? room.outdoor : room.interior,
+                    (details.action === "farm" ? [room.outdoor] : room.interior).some(
+                      (region) =>
+                        isPointInHomePolygon(
+                          {
+                            x: ((point.x - room.x) * 100) / room.width,
+                            y: ((point.y - room.y) * 100) / room.height,
+                          },
+                          region,
+                        ),
                     ),
                   );
                   if (!target) return;

@@ -192,6 +192,9 @@ describe("Home scene", () => {
     fireEvent.click(view.getByRole("button", { name: "Decorate" }));
     fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^GardenPlace$/ }));
     expect(view.getByRole("button", { name: "Move Garden" })).toBeTruthy();
+    expect(within(view.getByRole("group", { name: "Furniture controls" })).getByRole("button", { name: "Store" })).toBeTruthy();
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: /^GardenPlaced$/ }));
+    expect(view.getByRole("group", { name: "Furniture controls" })).toBeTruthy();
     expect((view.getByLabelText("Furniture room") as HTMLSelectElement).value).toBe("yard");
     fireEvent.click(view.getByRole("button", { name: "Save layout" }));
     await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
@@ -220,6 +223,31 @@ describe("Home scene", () => {
       });
     });
     expect(scene.querySelector('[data-home-wall-paint="yard"]')).toBeNull();
+  });
+
+  it("drags furniture onto the extended Mansion rear floor and saves its unchanged facing", async () => {
+    const chair: HomeFurniture = { ...starterFurniture[1]!, id: "chair", name: "Chair", width: 6, action: null, views: {} };
+    const room = getHomeRooms("MANSION").find(({ id }) => id === "room-3")!;
+    const initial = { id: chair.id, room: room.id, rotation: 0 as const, ...unprojectHomePlacement({ x: (50 * 3.7 - room.x) * 100 / room.width, y: (38 * 3.7 - room.y) * 100 / room.height }) };
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="MANSION" furniture={[chair]} layout={[initial]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 1000);
+    const button = view.getByRole("button", { name: "Move Chair" });
+    button.setPointerCapture = vi.fn();
+    firePointerEvent(button, "pointerdown", 1, 0, 0);
+    firePointerEvent(button, "pointermove", 1, -140, -10);
+    firePointerEvent(button, "pointerup", 1, -140, -10);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements[0]!;
+    const anchor = projectHomePlacement(saved);
+    expect((room.x + anchor.x * room.width / 100) / 3.7).toBeCloseTo(36);
+    expect((room.y + anchor.y * room.height / 100) / 3.7).toBeCloseTo(37);
+    expect(saved.rotation).toBe(0);
+    expect(homeFurnitureSaveInputSchema.safeParse(onSave.mock.calls[0]![0]).success).toBe(true);
+    expect(homeLayoutPlacementError([saved], [chair], "MANSION")).toBeNull();
   });
 
   it("retains wall finishes on the foreground while furniture remains above rear walls", () => {
@@ -1119,6 +1147,52 @@ describe("multi-room home scene", () => {
     fireEvent.click(reset);
     expect(zoom.textContent).toBe("100%");
     expect(camera.getAttribute("style")).toBe(overview);
+  });
+
+  const cameraFurniture: HomeFurniture[] = [
+    { ...starterFurniture[2]!, groundAnchor: 89.0625,
+      geometry: {
+        aspectRatio: 1.33333333,
+        visibleBounds: { x: 12.6302, y: 22.7431, width: 79.1667, height: 66.3194 },
+        footprint: { x: 14.2135, y: 54.5764, width: 76, height: 34.4861 },
+      },
+    },
+    { ...starterFurniture[1]!, groundAnchor: 95.6597,
+      geometry: {
+        aspectRatio: 1.33333333,
+        visibleBounds: { x: 11.4583, y: 28.4722, width: 77.2135, height: 67.1875 },
+        footprint: { x: 12.2305, y: 55.3472, width: 75.6693, height: 40.3125 },
+      },
+    },
+    { ...rugDefinition, name: "Folding Screen", isFloor: false, width: 24, groundAnchor: 86.4583,
+      geometry: {
+        aspectRatio: 1.33333333,
+        visibleBounds: { x: 5.0781, y: 25.5208, width: 89.974, height: 60.9375 },
+        footprint: { x: 6.8776, y: 71.224, width: 86.375, height: 15.2344 },
+      },
+    },
+  ];
+
+  it.each([
+    { homeType: "MANSION", room: "room-1", x: 50, y: 22.877756813951144, piece: cameraFurniture[0]! },
+    { homeType: "PALACE", room: "room-1", x: 50, y: -15.554182605093189, piece: cameraFurniture[1]! },
+    { homeType: "PALACE", room: "room-5", x: -13.337866666666677, y: -88.16394223293703, piece: cameraFurniture[1]! },
+    { homeType: "MARSHMALLOWOPOLIS", room: "room-1", x: 50, y: -18.04602670472942, piece: cameraFurniture[1]! },
+    { homeType: "MARSHMALLOWOPOLIS", room: "room-1", x: 50.614231292517026, y: -38.19815175510973, piece: cameraFurniture[2]! },
+    { homeType: "MARSHMALLOWOPOLIS", room: "room-9", x: 110.01059455782314, y: -107.5730586472369, piece: cameraFurniture[2]! },
+  ] satisfies { homeType: HomeType; room: HomePlacement["room"]; x: number; y: number; piece: HomeFurniture }[])("keeps $piece.name artwork visible when focusing $homeType $room near the back wall", ({ homeType, room, x, y, piece }) => {
+    const placement: HomePlacement = { id: piece.id, room, x, y, rotation: 0 };
+    expect(homeLayoutPlacementError([placement], [piece], homeType)).toBeNull();
+    const view = render(<HomeScene {...props} homeType={homeType} furniture={[piece]} layout={[placement]} canDecorate />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    fireEvent.click(within(view.getByRole("group", { name: "Owned furniture" })).getByRole("button", { name: `${piece.name}Placed` }));
+    const art = view.getByRole("button", { name: `Move ${piece.name}` });
+    const camera = sceneCamera(view.getByRole("group", { name: "Home scene" }));
+    for (const [offset, position, size] of [[camera.x, art.style.left, art.style.width], [camera.y, art.style.top, art.style.height]] as const) {
+      const start = offset + Number.parseFloat(position) * camera.scale;
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(start + Number.parseFloat(size) * camera.scale).toBeLessThanOrEqual(100);
+    }
   });
 
   it("keeps selected furniture actions clear of camera navigation near the bottom edge", () => {
