@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { beforeEach, expect, it, setSystemTime } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { actionLog, bloodlineReskin, contentProposal, contentProposalBasis, item, jutsu, userData, userJutsu } from "@/drizzle/schema";
 import { loadEntities, entityKey } from "@/libs/contentReview/entities";
 import { bloodlineRouter } from "@/server/api/routers/bloodline";
@@ -22,6 +22,17 @@ const createChild = async () => {
   const result = await (await staff()).createLinkedReskin({ parentId: "parent", bloodlineReskinId: "group" });
   expect(result.success).toBe(true);
   return result.message;
+};
+
+// Keep the procedure rate limiter active without requiring Redis.
+const stubRateLimitTransport = () => {
+  const realFetch = globalThis.fetch;
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit")) return realFetch(input, init);
+    const commands = JSON.parse(init.body) as unknown[];
+    const resultFor = (command: unknown[]) => ({ result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1 });
+    return Response.json(Array.isArray(commands[0]) ? commands.map((command) => resultFor(command as unknown[])) : resultFor(commands));
+  });
 };
 
 // Pause after upfront guards; the transaction still executes against real MySQL.
@@ -101,11 +112,16 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
     expect((await fetchUserJutsus(db, "player", { name: "parent" })).map((owned) => owned.jutsuId)).toEqual(["parent"]);
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("keeps visible variants out of player listings and training, with or without the reskin", async () => {
     const id = await createChild();
     const db = await getTestDatabase();
     await db.update(jutsu).set({ hidden: false, jutsuRank: "C" }).where(eq(jutsu.id, "parent"));
     await db.update(jutsu).set({ hidden: false, name: "Scarlet attack" }).where(eq(jutsu.id, id));
+    stubRateLimitTransport();
     const player = await callerFor(jutsuRouter, "player");
     const listed = async (hideAi?: boolean) =>
       (await player.getAll({ limit: 100, hideAi })).data.map((row) => row.id).sort();
