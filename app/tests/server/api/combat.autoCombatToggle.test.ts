@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { ManualStartBattleTypes, type BattleType } from "@/drizzle/constants";
+import { AutoBattleTypes, ManualStartBattleTypes, type BattleType } from "@/drizzle/constants";
 import { battle, userData } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { combatRouter } from "@/server/api/routers/combat";
@@ -32,7 +32,7 @@ describeWithDatabase("battle AI control preference scope", () => {
     return { db, caller: await callerFor(combatRouter, USER) };
   };
 
-  it.each(ManualStartBattleTypes)("keeps %s handovers local to the battle, including repeated requests", async (battleType) => {
+  it.each(ManualStartBattleTypes.filter((type) => !AutoBattleTypes.includes(type)))("keeps %s handovers local to the battle, including repeated requests", async (battleType) => {
     const { db, caller } = await seed(battleType, false);
     for (const enabled of [true, true, false, false]) {
       expect((await caller.toggleAutoCombat({ battleId: BATTLE, enabled })).success).toBe(true);
@@ -56,6 +56,12 @@ describeWithDatabase("battle AI control preference scope", () => {
       expect((await caller.toggleAutoCombat({ battleId: BATTLE, enabled })).success).toBe(true);
       expect((await db.query.userData.findFirst({ where: eq(userData.userId, USER) }))!.defaultAutoCombat).toBe(enabled);
     }
+  });
+
+  it("keeps always-AI battles locked without changing the PvE preference", async () => {
+    const { db, caller } = await seed("KAGE_AI", false);
+    expect((await caller.toggleAutoCombat({ battleId: BATTLE, enabled: true })).success).toBe(false);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, USER) }))!.defaultAutoCombat).toBe(false);
   });
 
   it("rejects changes from someone outside the battle without changing their preference", async () => {
