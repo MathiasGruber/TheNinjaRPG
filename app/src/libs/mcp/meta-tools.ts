@@ -852,8 +852,13 @@ export const handleCallEndpoint = async (
     return authError;
   }
 
+  // Clients omit input for endpoints whose object schema has only optional
+  // fields; tRPC still requires an object there, so send an empty one.
+  const resolvedInput =
+    input === undefined && endpoint.inputSchema?.type === "object" ? {} : input;
+
   const validationError = validateEndpointInput(
-    input,
+    resolvedInput,
     endpoint.inputSchema,
     endpointName,
   );
@@ -875,5 +880,11 @@ export const handleCallEndpoint = async (
     };
   }
 
-  return await executeProcedure(procedure, input, endpoint, endpointName, filters);
+  return await executeProcedure(
+    procedure,
+    resolvedInput,
+    endpoint,
+    endpointName,
+    filters,
+  );
 };
