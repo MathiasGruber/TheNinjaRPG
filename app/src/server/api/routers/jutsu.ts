@@ -365,11 +365,7 @@ export const jutsuRouter = createTRPCRouter({
       const results = await ctx.drizzle.query.jutsu.findMany({
         where: and(
           ...baseFilters,
-          // Player-facing lists (hideAi) omit linked reskin variants, which reach their
-          // owners as cosmetics on the learned parent jutsu instead.
-          ...(input.hideAi
-            ? [ne(jutsu.jutsuType, "AI"), isNull(jutsu.reskinParentJutsuId)]
-            : []),
+          ...(input.hideAi ? [ne(jutsu.jutsuType, "AI")] : []),
         ),
         orderBy: (table) => desc(table.updatedAt),
         offset: skip,
