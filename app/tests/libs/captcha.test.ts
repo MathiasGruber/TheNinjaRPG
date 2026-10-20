@@ -9,27 +9,36 @@ const user = (federalStatus: FederalStatus, dailyTrainings: number, staffAccount
 });
 
 describe("showTrainingCapcha", () => {
+  // The rarer (larger) of the count-based interval (4 below 30, 3 below 40, 2 below 50,
+  // then 1) and the tier interval (NONE 2, NORMAL 3, SILVER 4, GOLD 5) applies.
   const cases: [FederalStatus, number, boolean][] = [
-    ["NONE", 0, false],
-    ["NONE", 8, false],
     ["NONE", 9, false],
-    ["NONE", 10, true],
-    ["NONE", 11, false],
+    ["NONE", 10, false],
     ["NONE", 12, true],
+    ["NONE", 14, false],
+    ["NONE", 16, true],
+    ["NONE", 30, true],
+    ["NONE", 32, false],
+    ["NONE", 33, true],
+    ["NONE", 40, true],
+    ["NONE", 41, false],
     ["NONE", 63, false],
     ["NONE", 64, true],
-    ["NORMAL", 9, false],
     ["NORMAL", 10, false],
     ["NORMAL", 12, true],
-    ["NORMAL", 13, false],
+    ["NORMAL", 15, false],
+    ["NORMAL", 16, true],
+    ["NORMAL", 33, true],
+    ["NORMAL", 42, true],
+    ["NORMAL", 44, false],
     ["NORMAL", 51, true],
     ["NORMAL", 52, false],
-    ["SILVER", 8, false],
     ["SILVER", 10, false],
     ["SILVER", 12, true],
-    ["SILVER", 14, false],
+    ["SILVER", 33, false],
+    ["SILVER", 36, true],
     ["SILVER", 52, true],
-    ["SILVER", 53, false],
+    ["SILVER", 54, false],
     ["GOLD", 5, false],
     ["GOLD", 10, true],
     ["GOLD", 12, false],
@@ -42,13 +51,13 @@ describe("showTrainingCapcha", () => {
     expect(showTrainingCapcha(user(status, trainings))).toBe(expected);
   });
 
-  it("asks once every N trainings per tier once past the minimum", () => {
+  it("never asks more often than the count-based rule or the tier rule", () => {
     const perTier = (status: FederalStatus) =>
       Array.from({ length: 60 }, (_, i) => i + 10).filter((n) =>
         showTrainingCapcha(user(status, n)),
       ).length;
-    expect(perTier("NONE")).toBe(30);
-    expect(perTier("NORMAL")).toBe(20);
+    expect(perTier("NONE")).toBe(24);
+    expect(perTier("NORMAL")).toBe(19);
     expect(perTier("SILVER")).toBe(15);
     expect(perTier("GOLD")).toBe(12);
   });
