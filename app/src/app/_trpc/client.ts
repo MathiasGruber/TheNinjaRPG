@@ -8,6 +8,7 @@ import { createTRPCReact } from "@trpc/react-query";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/api/root";
 import { toast } from "@/components/ui/use-toast";
+import { getSessionErrorToastId } from "@/libs/trpcSession";
 
 /** A set of type-safe react-query hooks for your tRPC API. */
 export const api = createTRPCReact<AppRouter>({
@@ -41,12 +42,14 @@ export const onError = (err: unknown) => {
       variant: "destructive",
       title: err?.data?.code ?? "Unknown",
       description: err.message,
+      id: getSessionErrorToastId(err.message),
     });
   } else if (err instanceof Error) {
     toast({
       variant: "destructive",
       title: "Error",
       description: err.message,
+      id: getSessionErrorToastId(err.message),
     });
   }
 };

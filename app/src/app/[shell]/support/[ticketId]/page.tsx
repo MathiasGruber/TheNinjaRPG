@@ -41,6 +41,7 @@ import {
   getStatusColor,
 } from "@/libs/support";
 import { showMutationToast } from "@/libs/toast";
+import { getSessionErrorToastId } from "@/libs/trpcSession";
 import {
   canEditCannedResponses,
   canEscalateToGithub,
@@ -117,7 +118,11 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
       }
     },
     onError: (error) => {
-      toast.error(error.message || "Could not update the ticket. Please try again.");
+      toast.error(error.message || "Could not update the ticket. Please try again.", {
+        id: getSessionErrorToastId(error.message),
+        // Sonner merges by ID; the shared notice may already describe this message.
+        description: undefined,
+      });
     },
   });
 

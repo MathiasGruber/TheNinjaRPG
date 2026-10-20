@@ -9,6 +9,12 @@ export const SESSION_EXPIRED_MESSAGE =
   "Your session has expired. Please sign in again.";
 export const TRPC_ANONYMOUS_HEADER = "x-tnr-anonymous";
 
+/** Query defaults and local callbacks can report the same session failure. */
+export const getSessionErrorToastId = (message: unknown) =>
+  message === SESSION_CHANGED_MESSAGE || message === SESSION_EXPIRED_MESSAGE
+    ? message
+    : undefined;
+
 /** Keep the hydrated client, but permanently retire it when its account changes. */
 export const createTrpcSession = (clerk: Pick<Clerk, "session">) => {
   const initialSession = clerk.session;

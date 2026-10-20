@@ -40,6 +40,7 @@ import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { showMutationToast } from "@/libs/toast";
+import { getSessionErrorToastId } from "@/libs/trpcSession";
 import { parseHtml } from "@/utils/parse";
 import {
   canAddNonCustomPollOptions,
@@ -1042,6 +1043,7 @@ function EditPollForm({
         title: "Error",
         description: error.message,
         variant: "destructive",
+        id: getSessionErrorToastId(error.message),
       });
     },
   });
