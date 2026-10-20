@@ -1174,11 +1174,13 @@ export const decreaseHealGiven = (
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
+/** Expire removable statuses when Clear/Cleanse succeeds, preserving protected sources. */
 const removeEffects = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   target: BattleUserState,
   type: "positive" | "negative",
+  instantConsumeIds?: Set<string>,
 ) => {
   const { power } = getPower(effect);
   const mainCheck = Math.random() < power / 100;
@@ -1205,6 +1207,8 @@ const removeEffects = (
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .forEach((e) => {
         e.rounds = 0;
+        // Authored instant conversions already have zero rounds; revoke their exception.
+        instantConsumeIds?.delete(e.id);
       });
 
     // Type guard to identify ground effects
@@ -1240,14 +1244,19 @@ const persistentEffectSourceTypes = new Set<UserEffect["fromType"]>([
   "sageModeAfter",
 ]);
 
+/**
+ * Resolve Clear prevention and remove positive statuses, including instant conversions.
+ * The optional eligibility set belongs to the current applyEffects resolution.
+ */
 export const clear = (
   effect: UserEffect,
   usersEffects: UserEffect[],
   target: BattleUserState,
+  instantConsumeIds?: Set<string>,
 ) => {
   const { pass } = preventCheck(usersEffects, "clearprevent", target);
   if (!pass) return preventResponse(effect, target, "resists being cleared");
-  return removeEffects(effect, usersEffects, target, "positive");
+  return removeEffects(effect, usersEffects, target, "positive", instantConsumeIds);
 };
 
 export const cleanse = (

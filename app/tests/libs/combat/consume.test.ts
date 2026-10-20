@@ -819,7 +819,7 @@ describe("active Consume damage conversion", () => {
     ).toBeLessThan(first.usersState.find((u) => u.userId === "attacker")!.curHealth);
   });
 
-  it("does not convert a newly cast active buff that Clear removes", () => {
+  it.each([0, 3])("does not convert a cleared Consume with %i active rounds", (rounds) => {
     const clear = makeEffect(
       "clear",
       { power: 100, rounds: 0 },
@@ -834,13 +834,14 @@ describe("active Consume damage conversion", () => {
     const { newBattle, actionEffects } = applyEffects(
       makeBattle(
         [makeAttacker(), makeDefender()],
-        [staticHit(), makeConsume(50), clear],
+        [staticHit(), makeConsume(50, 3, rounds), clear],
       ),
       "attacker",
       makeAction(),
     );
     expect(actionEffects.some((e) => e.txt.includes("cleared"))).toBe(true);
     expect(shieldHp(newBattle)).toBe(0);
+    expect(actionEffects.some((e) => e.txt.includes("consumes"))).toBe(false);
   });
 
   it("keeps deferred summon damage conversion on its caster and quest credit on its controller", () => {

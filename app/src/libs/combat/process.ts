@@ -466,6 +466,7 @@ export const applyEffects = (
   // Remember effects applied to different users, so that we only apply effects once
   const appliedEffects = new Set<string>();
   // Only authored instant tags may convert after their duration reaches zero.
+  // Clear revokes these exceptions when it cancels the corresponding effects.
   const instantConsumeIds = new Set(
     usersEffects
       .filter((e) => e.type === "consume" && e.rounds === 0 && e.isNew)
@@ -535,10 +536,11 @@ export const applyEffects = (
       effect,
       action,
       consumeByUser,
+      instantConsumeIds,
     );
   });
 
-  // Register Consume after activation and prevention, before accumulating damage.
+  // Register Consume after activation, Clear and prevention, before accumulating damage.
   usersEffects
     .filter(
       (e) => e.type === "consume" && (isEffectActive(e) || instantConsumeIds.has(e.id)),
@@ -1260,6 +1262,8 @@ export const applyEffects = (
  * @param actorId - Actor ID
  * @param effect - Effect to process
  * @param action - Action
+ * @param consumeByUser - Per-action conversion totals, mutated by Consume
+ * @param instantConsumeIds - Shared instant-cast eligibility; Clear removes canceled IDs
  */
 export const applySingleEffect = (
   // Mutated parameters
@@ -1270,11 +1274,12 @@ export const applySingleEffect = (
   actionEffects: ActionEffect[],
   appliedEffects: Set<string>,
   battle: CompleteBattle,
-  // Not mutated parameters
+  // Effect context and shared per-action conversion state.
   actorId: string,
   effect: UserEffect,
   action?: CombatAction,
   consumeByUser?: ConsumeByUser,
+  instantConsumeIds?: Set<string>,
 ) => {
   if (effect.timedBuffExpiresAt && effect.timedBuffExpiresAt <= Date.now()) return;
   // Derive damage config from battle state (with fallback for older battles)
@@ -1372,7 +1377,7 @@ export const applySingleEffect = (
           } else if (effect.type === "drain" && isTargetOrNew) {
             info = drain(effect, usersEffects, consequences, curTarget);
           } else if (effect.type === "clear" && isTargetOrNew) {
-            info = clear(effect, usersEffects, curTarget);
+            info = clear(effect, usersEffects, curTarget, instantConsumeIds);
           } else if (effect.type === "cleanse" && isTargetOrNew) {
             info = cleanse(effect, usersEffects, curTarget);
           } else if (effect.type === "increasedamagegiven") {
