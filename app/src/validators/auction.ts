@@ -99,11 +99,26 @@ export const getAuctionListingsSchema = z.object({
 
 /** Item-specific validation for the listing form; the router checks fresh item data. */
 export const auctionListingSchemaForItem = (
-  item?: Pick<Item, "canBeTraded" | "auctionMinPrice" | "auctionMaxPrice">,
+  item?: Pick<Item, "canBeTraded" | "auctionMinPrice" | "auctionMaxPrice"> &
+    Partial<Pick<Item, "canStack">>,
   fullQuantity = 1,
 ) =>
   createAuctionListingSchema.superRefine((data, ctx) => {
     if (!item) return;
+    if (item.canStack && fullQuantity > 1 && data.quantity === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["quantity"],
+        message: "Enter the quantity to send",
+      });
+    }
+    if (data.quantity !== undefined && data.quantity > fullQuantity) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["quantity"],
+        message: `Quantity must be between 1 and ${fullQuantity}`,
+      });
+    }
     for (const field of ["startingPrice", "buyoutPrice"] as const) {
       const price = data[field];
       if (price === undefined) continue;

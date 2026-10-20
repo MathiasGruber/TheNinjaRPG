@@ -320,7 +320,7 @@ export const auctionRouter = createTRPCRouter({
         listingType === "AUCTION" ? bidderMaxLevel : AUCTION_BIDDER_LEVEL_MAX;
 
       // Check if user item exists and get the item data
-      const [userItemData, user] = await Promise.all([
+      const [userItemData, user, targetUser] = await Promise.all([
         ctx.drizzle.query.userItem.findFirst({
           where: and(
             eq(userItem.id, userItemId),
@@ -339,6 +339,12 @@ export const auctionRouter = createTRPCRouter({
           },
         }),
         fetchUser(ctx.drizzle, ctx.userId),
+        listingType === "DIRECT" && targetUserId
+          ? ctx.drizzle.query.userData.findFirst({
+              where: eq(userData.userId, targetUserId),
+              columns: { userId: true },
+            })
+          : Promise.resolve(undefined),
       ]);
       // Guard
       if (!userItemData) {
@@ -364,6 +370,19 @@ export const auctionRouter = createTRPCRouter({
       }
       if (buyoutPrice && buyoutPrice <= startingPrice) {
         return errorResponse("Buyout price must be greater than starting price");
+      }
+
+      // Validate the recipient before splitting any of the sender's inventory.
+      if (listingType === "DIRECT") {
+        if (!targetUserId) {
+          return errorResponse("Target user must be specified for direct listings");
+        }
+        if (!targetUser) {
+          return errorResponse("Target user not found");
+        }
+        if (targetUserId === ctx.userId) {
+          return errorResponse("You cannot create a direct listing for yourself");
+        }
       }
 
       // Handle quantity splitting for stackable items
@@ -414,22 +433,6 @@ export const auctionRouter = createTRPCRouter({
 
           // Use the new item for the auction
           auctionUserItemId = result.newUserItemId;
-        }
-      }
-
-      // Validate target user for DIRECT listings
-      if (listingType === "DIRECT") {
-        if (!targetUserId) {
-          return errorResponse("Target user must be specified for direct listings");
-        }
-        const targetUser = await ctx.drizzle.query.userData.findFirst({
-          where: eq(userData.userId, targetUserId),
-        });
-        if (!targetUser) {
-          return errorResponse("Target user not found");
-        }
-        if (targetUserId === ctx.userId) {
-          return errorResponse("You cannot create a direct listing for yourself");
         }
       }
 
