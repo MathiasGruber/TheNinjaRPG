@@ -114,6 +114,15 @@ describe("companion image safety and AI controls", () => {
     const evolution = getPetAppearancePrompt({ ...base, rank: 2, artRank: 1, avatar: "/previous.webp" });
     expect(evolution).toContain("next evolution");
     expect(evolution).toContain("SAME individual animal");
+    // Later ranks impress through refinement and may replace earlier features instead of stacking layers.
+    expect(evolution).toContain("never through extra bulk");
+    expect(evolution).toContain("you may simplify or remove clutter");
+    expect(evolution).toMatch(/spiky or porcupine-like masses.*tails merged into the body.*wings, horns, extra limbs.*a smaller animal/);
+    expect(founder).toContain("Growth phase");
+    expect(rankedPrompts[3]).toContain("Seasoned fighter phase");
+    expect(rankedPrompts[6]).toContain("Ascended phase");
+    expect(rankedPrompts[9]).toContain("Legendary apex");
+    expect(rankedPrompts[9]).toContain("never bulkier, spikier or fluffier");
     const restyle = getPetAppearancePrompt({ ...base, rank: 2, artRank: 2, avatar: "/previous.webp" });
     expect(restyle).toContain("Do not evolve it, rank it up or age it");
     expect(restyle).toContain("Evolution rank 2 of 10");
