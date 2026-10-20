@@ -426,6 +426,44 @@ describe("assignQuestToUser compatibility", () => {
     expect(wheres).toHaveLength(3);
   });
 
+  it("stops before the next batch once the deadline has passed", async () => {
+    // Two batches of users; the clock crosses the deadline after the first one, so the second
+    // stays untouched for the caller to pick up on its next invocation.
+    const rows = Array.from({ length: 150 }, (_, i) => ({
+      userId: `user-${i}`,
+      historyId: `history-${i}`,
+    }));
+    const { client, sets } = makeBulkClient(rows, [0, 0]);
+    const ticks = [1_000, 10_000];
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => ticks.shift() ?? 10_000);
+    try {
+      const finished = await upsertQuestEntries(
+        client,
+        { ...quest, questType: "daily" } as never,
+        undefined as never,
+        5_000,
+      );
+
+      expect(finished).toBe(false);
+      expect(sets.filter((set) => "completed" in set)).toHaveLength(1);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("reports a finished reset when every batch ran inside the deadline", async () => {
+    const { client } = makeBulkClient([{ userId: user.userId, historyId: "history-1" }]);
+
+    const finished = await upsertQuestEntries(
+      client,
+      { ...quest, questType: "daily" } as never,
+      undefined as never,
+      Date.now() + 60_000,
+    );
+
+    expect(finished).toBe(true);
+  });
+
   it("batches distinct users when a quest has duplicate history rows", async () => {
     const daily = { ...quest, questType: "daily" };
     const { client, wheres } = makeBulkClient([

@@ -89,7 +89,46 @@ const seedHappyPath = () => {
   }));
   mocks.upsertQuestEntries.mockImplementation(async () => {
     mocks.calls.push("upsertQuestEntries");
+    return true;
   });
+};
+
+/** Replace the rank/village/level grouping with `rows`, keeping the rest of the happy path. */
+const seedCombos = (
+  rows: { rank: string; villageId: string; level: number; count: number }[],
+) => {
+  mocks.select.mockReset();
+  mocks.select.mockReturnValueOnce({
+    from: vi.fn(() => ({
+      where: vi.fn(() => ({ groupBy: vi.fn().mockResolvedValue(rows) })),
+    })),
+  });
+};
+
+/** One daily per level band, sized so the bands are deliberately uneven. */
+const bandDailies = [
+  { ...daily, id: "band-low", requiredLevel: 1, maxLevel: 20 },
+  { ...daily, id: "band-mid", requiredLevel: 21, maxLevel: 60 },
+  { ...daily, id: "band-high", requiredLevel: 61, maxLevel: 100 },
+];
+const bandCombos = [
+  { rank: "GENIN", villageId: "village-1", level: 10, count: 900 },
+  { rank: "GENIN", villageId: "village-1", level: 40, count: 30 },
+  { rank: "GENIN", villageId: "village-1", level: 80, count: 5 },
+];
+
+/** Quest ids in the order the route handed them to upsertQuestEntries. */
+const assignedQuestIds = () =>
+  mocks.upsertQuestEntries.mock.calls.map((call) => (call[1] as { id: string }).id);
+
+const cronRequest = () =>
+  new Request("https://example.com/api/daily-quest", {
+    headers: { authorization: "Bearer test-cron" },
+  });
+
+const dayStart = (now: number) => {
+  const d = new Date(now);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 };
 
 describe("daily-quest cron", () => {
@@ -180,7 +219,7 @@ describe("daily-quest cron", () => {
     for (const query of selectors) {
       expect(query.sql).toContain("`UserData`.`isAi` = ?");
       expect(query.sql).toContain("`UserData`.`level` = ?");
-      expect(query.sql).not.toContain(">=");
+      expect(query.sql).not.toContain("`UserData`.`level` >=");
     }
   });
 
@@ -214,6 +253,112 @@ describe("daily-quest cron", () => {
 
     expect(mocks.findQuests).not.toHaveBeenCalled();
     expect(mocks.upsertQuestEntries).not.toHaveBeenCalled();
+  });
+
+  it("assigns the smallest quest first and still reaches every level band", async () => {
+    // Every input order must end with each band assigned once, smallest first, so one huge
+    // bracket can never use up the run before the others are handed out.
+    const orders = [
+      [0, 1, 2],
+      [2, 1, 0],
+      [1, 0, 2],
+      [2, 0, 1],
+    ];
+    for (const order of orders) {
+      mocks.upsertQuestEntries.mockReset();
+      mocks.rollback.mockReset();
+      seedHappyPath();
+      mocks.findQuests.mockResolvedValue(order.map((i) => bandDailies[i]));
+      seedCombos(order.map((i) => bandCombos[i]!));
+
+      const response = await GET(cronRequest());
+
+      expect(await response.json()).toBe("OK");
+      expect(assignedQuestIds()).toEqual(["band-high", "band-mid", "band-low"]);
+      expect(mocks.rollback).not.toHaveBeenCalled();
+    }
+  });
+
+  it("only assigns recently active players and skips anyone already holding today's daily", async () => {
+    seedHappyPath();
+
+    await GET(cronRequest());
+
+    const dialect = new MySqlDialect();
+    const selector = dialect.sqlToQuery(mocks.upsertQuestEntries.mock.calls[0]?.[2] as SQL);
+    expect(selector.sql).toContain("`UserData`.`updatedAt` >= ?");
+    expect(selector.sql).toContain("NOT EXISTS");
+    expect(selector.sql).toContain("assignedDaily.startedAt >= ?");
+  });
+
+  it("stops at the deadline and resumes on the next tick without closing dailies again", async () => {
+    let now = Date.UTC(2026, 9, 20, 0, 0, 6);
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    try {
+      seedHappyPath();
+      mocks.findQuests.mockResolvedValue(bandDailies);
+      seedCombos(bandCombos);
+      // The first (smallest) quest uses up the whole budget.
+      mocks.upsertQuestEntries.mockImplementation(async () => {
+        mocks.calls.push("upsertQuestEntries");
+        now += 241_000;
+        return true;
+      });
+
+      const first = await GET(cronRequest());
+
+      expect(first.status).toBe(202);
+      expect(assignedQuestIds()).toEqual(["band-high"]);
+      expect(mocks.calls.filter((c) => c === "update:completed,endAt")).toHaveLength(1);
+      expect(mocks.rollback).toHaveBeenCalledTimes(1);
+      const [, name, value, time] = mocks.rollback.mock.calls[0] as [unknown, string, number, Date];
+      expect(name).toBe("daily-quest");
+      expect(value).toBe(1);
+      expect(time.getTime()).toBe(dayStart(new Date().getTime()) - 1);
+
+      // Next tick: the lock hands back the resume marker the first call wrote.
+      mocks.upsertQuestEntries.mockReset();
+      mocks.rollback.mockReset();
+      mocks.calls.length = 0;
+      seedHappyPath();
+      mocks.findQuests.mockResolvedValue(bandDailies);
+      seedCombos(bandCombos);
+      mocks.lock.mockResolvedValue({ isNewDay: true, prevTime: time, prevValue: value });
+
+      const second = await GET(cronRequest());
+
+      expect(await second.json()).toBe("OK");
+      expect(mocks.calls).not.toContain("update:completed,endAt");
+      // Every band is offered again; the SQL guard skips players the first call already served.
+      expect(assignedQuestIds()).toEqual(["band-high", "band-mid", "band-low"]);
+      expect(mocks.rollback).not.toHaveBeenCalled();
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("leaves a resume marker when a quest's batches run out of budget", async () => {
+    seedHappyPath();
+    mocks.upsertQuestEntries.mockResolvedValue(false);
+
+    const response = await GET(cronRequest());
+
+    expect(response.status).toBe(202);
+    expect(mocks.upsertQuestEntries.mock.calls[0]?.[3]).toBeNumber();
+    expect(mocks.rollback.mock.calls[0]?.[2]).toBe(1);
+  });
+
+  it("starts over with a full close when the resume marker is from an earlier day", async () => {
+    seedHappyPath();
+    mocks.lock.mockResolvedValue({
+      isNewDay: true,
+      prevTime: new Date(Date.UTC(2020, 0, 1) - 1),
+      prevValue: 1,
+    });
+
+    await GET(cronRequest());
+
+    expect(mocks.calls).toContain("update:completed,endAt");
   });
 
   it("rolls the timer back when reassignment throws", async () => {

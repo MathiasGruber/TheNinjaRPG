@@ -2890,11 +2890,19 @@ const QUEST_RESET_BATCH_SIZE = 100;
 /** Ceiling on the repeated tracker-removal passes per batch; a stuck-loop guard, not a bound. */
 const QUEST_RESET_MAX_TRACKER_PASSES = 50;
 
-/** Upsert quest entries for all users by selector. NOTE: selector determined which users get updated/inserted entries */
+/**
+ * Upsert quest entries for all users by selector. NOTE: selector determined which users get
+ * updated/inserted entries.
+ *
+ * @param deadline - Optional epoch-ms cutoff checked before each batch. Once it has passed the
+ *   remaining batches are left untouched so the caller can stop inside its time budget.
+ * @returns `false` when the deadline stopped the reset before every batch ran, else `true`.
+ */
 export const upsertQuestEntries = async (
   client: DrizzleClient,
   quest: Quest,
   updateSelector: QueryCondition,
+  deadline?: number,
 ) => {
   if (isRestrictedQuestType(quest.questType)) {
     throw serverError(
@@ -2961,6 +2969,7 @@ export const upsertQuestEntries = async (
       QUEST_RESET_BATCH_SIZE,
     );
     for (const batchUserIds of batches) {
+      if (deadline !== undefined && Date.now() >= deadline) return false;
       // Drop the tracker before reopening the history row, never in parallel with it: between
       // the two the quest would be active carrying last run's fully-done tracker, which
       // getReward reads as resolved and pays out again. Removing it in SQL rather than
@@ -3013,6 +3022,7 @@ export const upsertQuestEntries = async (
       );
     }
   }
+  return true;
 };
 
 /** Reserve a daily assignment before delivery; SQL enforces the cap across stale callers. */
