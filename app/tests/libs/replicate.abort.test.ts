@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import Replicate from "replicate";
 import sharp from "sharp";
 import { UTApi } from "uploadthing/server";
-import { fastTxt2imgReplicate, removeBackgroundReplicate, txt2imgNanoBanana } from "@/libs/replicate";
+import { Images } from "openai/resources/images";
+import { fastTxt2imgReplicate, generateSpriteGPT, removeBackgroundReplicate, removeBackgroundToBuffer, txt2imgNanoBanana } from "@/libs/replicate";
 
 const upload = { data: { ufsUrl: "https://example.com/upload.webp" }, error: null };
 let savedWindow: PropertyDescriptor | undefined;
@@ -80,5 +81,49 @@ describe("image provider abort propagation", () => {
     expect(await txt2imgNanoBanana({ preprompt: "Pixel art", prompt: "A forest", removeBg: false, backgroundRemovalModel: "851-labs", userId: "owner", width: 512, height: 512, size: "square" })).toEqual([upload.data.ufsUrl]);
     expect(run).toHaveBeenCalledTimes(1);
     expect(run.mock.calls[0]![0]).toBe("google/nano-banana");
+  });
+
+  it("draws a GPT founder at the smallest square size with medium quality and native transparency", async () => {
+    const png = await sharp({ create: { width: 8, height: 8, channels: 4, background: "transparent" } }).png().toBuffer();
+    const generate = vi.spyOn(Images.prototype, "generate").mockResolvedValue({ created: 0, data: [{ b64_json: png.toString("base64") }] } as never);
+    const edit = vi.spyOn(Images.prototype, "edit");
+    const controller = new AbortController();
+    expect(await generateSpriteGPT({ prompt: "A fox sprite", userId: "owner", signal: controller.signal })).toEqual(png);
+    expect(generate).toHaveBeenCalledWith(
+      { model: "gpt-image-2.5-flare", prompt: "A fox sprite", size: "1024x1024", quality: "medium", background: "transparent", output_format: "png", n: 1, user: "owner" },
+      { signal: controller.signal },
+    );
+    expect(edit).not.toHaveBeenCalled();
+  });
+
+  it("edits the supplied GPT reference and logs provider failures before rethrowing", async () => {
+    const reference = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#f0f0f0" } }).png().toBuffer();
+    const error = new Error("Image provider unavailable");
+    const edit = vi.spyOn(Images.prototype, "edit").mockRejectedValue(error);
+    const generate = vi.spyOn(Images.prototype, "generate");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(generateSpriteGPT({ prompt: "Evolve the fox", reference, userId: "owner" })).rejects.toBe(error);
+    expect(generate).not.toHaveBeenCalled();
+    const [params, options] = edit.mock.calls[0]!;
+    expect(params).toMatchObject({ model: "gpt-image-2.5-flare", size: "1024x1024", quality: "medium", background: "transparent" });
+    const image = params.image as File;
+    expect(Buffer.from(await image.arrayBuffer())).toEqual(reference);
+    expect(options).toBeUndefined();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("generateSpriteGPT"), expect.objectContaining({ hasImageInput: true, prompt: "Evolve the fox" }));
+  });
+
+  it("rejects a GPT response without image data", async () => {
+    vi.spyOn(Images.prototype, "generate").mockResolvedValue({ created: 0, data: [] } as never);
+    await expect(generateSpriteGPT({ prompt: "A fox sprite", userId: "owner" })).rejects.toThrow("No output");
+  });
+
+  it("cuts out sprite bytes with 851-labs under the caller's signal", async () => {
+    const controller = new AbortController();
+    const source = Buffer.from("source");
+    const result = Buffer.from("cutout");
+    const run = vi.spyOn(Replicate.prototype, "run").mockResolvedValue({ blob: async () => new Blob([result as BlobPart]) });
+    expect(await removeBackgroundToBuffer(source, controller.signal)).toEqual(result);
+    expect(String(run.mock.calls[0]![0])).toStartWith("851-labs/background-remover:");
+    expect(run.mock.calls[0]![1]).toEqual({ input: { image: source, threshold: 0.5, background_type: "rgba", format: "png" }, signal: controller.signal });
   });
 });

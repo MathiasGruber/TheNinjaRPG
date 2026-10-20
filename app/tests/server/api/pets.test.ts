@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { and, eq, sql } from "drizzle-orm";
-import { ItemRarities, PetRarities, PET_ABILITY_SLOTS_BY_RARITY, type ItemRarity, MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_BY_RARITY, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST } from "@/drizzle/constants";
-import { item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
+import { ItemRarities, PetRarities, PET_ABILITY_SLOTS_BY_RARITY, type ItemRarity, MAP_WAKE_ISLAND_SECTOR, PET_BATTLE_CONFIG, PET_COLLECTION_SLOT_COST, PET_FEED_COOLDOWN_HOURS, PET_FEED_EXPERIENCE_BY_RARITY, PET_GENERATION_LEASE_MS, PET_GENERATION_RETRY_MS, PET_MAX_COLLECTION_SLOTS, PET_MAX_GENERATION_ATTEMPTS, PET_REPLACEMENT_COST, PET_SEICHI_SILVER_COST, PET_ART_PROVIDER_SETTING, PetArtProviders } from "@/drizzle/constants";
+import { gameSetting, item, jutsu, skillTree, userData, userItem, userJutsu, userPet, petSpecies, userSkill, userUpload } from "@/drizzle/schema";
 import * as appearance from "@/libs/pets/appearance";
 import { PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
 import * as creation from "@/libs/pets/creation";
@@ -91,7 +91,7 @@ it("explains exhausted daily offers before collection capacity, even after a com
 
 describeWithDatabase("Companion ownership, economy and generation", () => {
   beforeEach(async () => {
-    await resetTables(petSpecies, userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);
+    await resetTables(gameSetting, petSpecies, userUpload, userPet, userSkill, userJutsu, userItem, skillTree, jutsu, item, userData);
     await insertPetSpecies(initialPetSpecies);
     await insertUsers([{ userId, username: "PetOwner", rank: "GENIN", sector: MAP_WAKE_ISLAND_SECTOR, status: "AWAKE", reputationPoints: 200 }]);
   });
@@ -257,7 +257,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect(view.pet?.species).toMatchObject({ ...species, isActive: false });
     const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId: pet.id })).success).toBe(true);
-    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ species: expect.objectContaining({ id: species.id, description: species.description, isActive: false }) }), expect.any(Function));
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ species: expect.objectContaining({ id: species.id, description: species.description, isActive: false }) }), "GPT", expect.any(Function));
   });
 
   it("rejects a species retired after today's menu was loaded without granting a pet or charging reputation", async () => {
@@ -1183,7 +1183,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
     expect((await caller.generateAppearance({ petId, appearance: selected })).success).toBe(true);
     const { dayKey: _, ...traits } = selected;
-    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ ...traits, speciesId: "pet-species-0" }), expect.any(Function));
+    expect(generate).toHaveBeenCalledWith(expect.objectContaining({ ...traits, speciesId: "pet-species-0" }), "GPT", expect.any(Function));
     expect(await readPet(database)).toMatchObject({ ...traits, speciesId: "pet-species-0", avatar, avatarFacing: "left", generationAttempts: 1 });
     expect(await readOwner(database)).toMatchObject({ reputationPoints: 200, petAcquisitions: 0 });
   });
@@ -1257,7 +1257,7 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await readOwner(database))?.petAcquisitions).toBe(1);
     expect((await readOwner(database))?.reputationPoints).toBe(200);
     await database.update(userPet).set({ generationStartedAt: new Date(Date.now() - PET_GENERATION_RETRY_MS - 1000) }).where(eq(userPet.userId, userId));
-    generate.mockImplementation(async (_pet, onUpload) => { await onUpload(avatar); return { avatar, avatarFacing: "left" }; });
+    generate.mockImplementation(async (_pet, _provider, onUpload) => { await onUpload(avatar); return { avatar, avatarFacing: "left" }; });
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationStatus).toBe("READY");
     expect((await readPet(database))?.generationAttempts).toBe(2);
@@ -1265,6 +1265,15 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     expect((await database.query.userUpload.findFirst())?.imageUrl).toBe(avatar);
     expect((await caller.generateAppearance({ petId })).success).toBe(false);
     expect(generate).toHaveBeenCalledTimes(2);
+  });
+
+  it("generates with the provider stored in the art provider game setting", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "PENDING", avatar: null, artRank: 0 });
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    await database.insert(gameSetting).values({ id: "pet-art-provider", name: PET_ART_PROVIDER_SETTING, time: new Date(), value: PetArtProviders.indexOf("NANO_BANANA") });
+    expect((await callerForDatabase(petsRouter, userId, database).generateAppearance({ petId })).success).toBe(true);
+    expect(generate).toHaveBeenCalledWith(expect.any(Object), "NANO_BANANA", expect.any(Function));
   });
 
   it("lets only one generation claim reach the provider", async () => {

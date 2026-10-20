@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "bun:test";
-import { lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
+import { PetArtProviders } from "@/drizzle/constants";
+import { fetchPetArtProvider, lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
 import type { DrizzleClient } from "@/server/db";
 
 describe("lockWithDailyTimer", () => {
@@ -105,5 +106,16 @@ describe("lockWithHourlyTimer", () => {
 
     expect(result.isNewHour).toBe(true);
     expect(update).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("fetchPetArtProvider", () => {
+  it("selects the companion art provider from its game setting, defaulting to GPT", async () => {
+    const client = (row?: { value: number }) => ({ query: { gameSetting: { findFirst: async () => row } } }) as unknown as DrizzleClient;
+    expect(await fetchPetArtProvider(client())).toBe("GPT");
+    expect(await fetchPetArtProvider(client({ value: PetArtProviders.indexOf("GPT") }))).toBe("GPT");
+    expect(await fetchPetArtProvider(client({ value: PetArtProviders.indexOf("NANO_BANANA") }))).toBe("NANO_BANANA");
+    expect(await fetchPetArtProvider(client({ value: 7 }))).toBe("GPT");
+    expect(await fetchPetArtProvider(client({ value: 0.5 }))).toBe("GPT");
   });
 });

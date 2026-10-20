@@ -32,6 +32,7 @@ import {
   userSkill,
   userUpload,
 } from "@/drizzle/schema";
+import { fetchPetArtProvider } from "@/libs/gamesettings";
 import {
   getPetAbilityCapacity,
   isPetJutsuAllowed,
@@ -760,7 +761,10 @@ export const petsRouter = createTRPCRouter({
     .input(generatePetAppearanceSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const { user, pet } = await fetchPetOwner(ctx.drizzle, ctx.userId, input.petId);
+      const [{ user, pet }, provider] = await Promise.all([
+        fetchPetOwner(ctx.drizzle, ctx.userId, input.petId),
+        fetchPetArtProvider(ctx.drizzle),
+      ]);
       if (!user || !pet) return errorResponse("Pet not found");
       const restriction = petMutationBlockMessage(user, pet);
       if (restriction) return errorResponse(restriction);
@@ -851,6 +855,7 @@ export const petsRouter = createTRPCRouter({
       try {
         const { avatar, avatarFacing } = await generatePetAppearance(
           { ...pet, ...appearance },
+          provider,
           async (imageUrl) => {
             await ctx.drizzle
               .insert(userUpload)
