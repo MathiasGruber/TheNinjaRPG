@@ -86,6 +86,21 @@ it("refreshes a cached saved log when it is reopened after the final insert", as
   expect(readEntries).toHaveBeenCalledTimes(2);
 });
 
+it("discards a saved log's pre-insert request when reopened before it finishes", async () => {
+  let finishOldRead!: (rows: BattleAction[]) => void;
+  const oldResponse = new Promise<BattleAction[]>((resolve) => { finishOldRead = resolve; });
+  readEntries.mockImplementationOnce(() => oldResponse);
+  const state = { ...finalState, result: null };
+  const view = mount(false, state);
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  view.unmount();
+  entries = [lethalEntry];
+  const reopened = mount(false, state);
+  await act(async () => { finishOldRead([]); });
+  await reopened.findByText(/Victim takes 100 damage/);
+  expect(readEntries).toHaveBeenCalledTimes(2);
+});
+
 it("discards an in-flight pre-insert history response when the final event arrives", async () => {
   let finishOldRead!: (rows: BattleAction[]) => void;
   const oldResponse = new Promise<BattleAction[]>((resolve) => { finishOldRead = resolve; });
