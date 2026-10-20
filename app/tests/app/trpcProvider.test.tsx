@@ -1,0 +1,177 @@
+import * as clerk from "@clerk/nextjs";
+import type { Clerk } from "@clerk/shared/types";
+import { cleanup, render, waitFor } from "@testing-library/react";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
+import type { TRPCClient } from "@trpc/client";
+import { createTRPCReact } from "@trpc/react-query";
+import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { toast as sonnerToast } from "sonner";
+import superjson from "superjson";
+import type { AppRouter } from "@/api/root";
+import * as clientModule from "@/app/_trpc/client";
+import TrpcClientProvider from "@/app/_trpc/Provider";
+import * as toast from "@/libs/toast";
+import { SESSION_CHANGED_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/libs/trpcSession";
+import { actualShowMutationToast } from "../setup/preload";
+
+const testApi = createTRPCReact<AppRouter>();
+let queryClient: QueryClient;
+const toastMessages = () =>
+  sonnerToast
+    .getToasts()
+    .map((notice) => ("description" in notice ? notice.description : undefined));
+
+const session = (id: string, getToken = async (): Promise<string | null> => id) =>
+  ({ id, getToken }) as NonNullable<Clerk["session"]>;
+
+const mountProvider = (activeSession: NonNullable<Clerk["session"]>) => {
+  const auth = {
+    session: activeSession,
+    isSignedIn: true,
+    addListener: () => () => {},
+  };
+  vi.spyOn(clerk, "useClerk").mockReturnValue(
+    auth as unknown as ReturnType<typeof clerk.useClerk>,
+  );
+  // Other suites replace this shared module; use fresh tRPC context and client factories.
+  Object.assign(vi.spyOn(clientModule, "api" as never), {
+    Provider: testApi.Provider,
+    createClient: testApi.createClient,
+  });
+  let trpc!: TRPCClient<AppRouter>;
+  const Probe = () => {
+    queryClient = useQueryClient();
+    trpc = testApi.useUtils().client;
+    return null;
+  };
+  render(
+    <TrpcClientProvider cdnCachedQueryPaths={[]}>
+      <Probe />
+    </TrpcClientProvider>,
+  );
+  return { auth, trpc };
+};
+
+beforeEach(() => {
+  sonnerToast.dismiss();
+  // Restore the real helper even when another suite has installed a toast module mock.
+  vi.spyOn(toast, "showMutationToast").mockImplementation(actualShowMutationToast);
+});
+
+afterEach(() => {
+  cleanup();
+  queryClient?.clear();
+  sonnerToast.dismiss();
+  vi.restoreAllMocks();
+});
+
+it("coalesces a retired account's late batch while every query and mutation settles as failed", async () => {
+  const releases: Array<() => void> = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const count = new URL(String(input), "http://localhost").pathname
+      .split("/")
+      .at(-1)!
+      .split(",").length;
+    await new Promise<void>((resolve) => releases.push(resolve));
+    return Response.json(
+      Array.from({ length: count }, () => ({
+        result: {
+          data: superjson.serialize({ success: true, newStatus: "ASLEEP" }),
+        },
+      })),
+    );
+  });
+  const { auth, trpc } = mountProvider(session("a"));
+  const queries = [
+    () => trpc.war.getWarPointClaims.query(),
+    () => trpc.war.getWarCampNotices.query(),
+    () => trpc.profile.getDashboard.query(),
+    () => trpc.bank.getPendingInterest.query(),
+    () => trpc.gameAsset.getSceneAssets.query({ assetIds: [] }),
+  ];
+  const pendingQueries = queries.map((queryFn, i) =>
+    queryClient.fetchQuery({
+      queryKey: ["late", i],
+      queryFn: queryFn as () => Promise<unknown>,
+      retry: false,
+    }),
+  );
+  const onSuccess = vi.fn();
+  const mutation = queryClient.getMutationCache().build(queryClient, {
+    mutationKey: [["home", "toggleSleep"]],
+    mutationFn: () => trpc.home.toggleSleep.mutate(),
+    onSuccess,
+  });
+  const settled = Promise.allSettled([...pendingQueries, mutation.execute(undefined)]);
+  await waitFor(() => expect(releases).toHaveLength(2));
+  expect(queryClient.isFetching()).toBe(5);
+  expect(mutation.state.status).toBe("pending");
+  auth.session = session("b");
+  for (const release of releases) release();
+  const results = await settled;
+  expect(results).toHaveLength(6);
+  for (const result of results) {
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected")
+      expect(result.reason.message).toBe(SESSION_CHANGED_MESSAGE);
+  }
+  expect(queryClient.isFetching()).toBe(0);
+  for (const query of queryClient.getQueryCache().getAll()) {
+    expect(query.state).toMatchObject({
+      status: "error",
+      fetchStatus: "idle",
+      data: undefined,
+    });
+  }
+  expect(mutation.state.status).toBe("error");
+  expect(onSuccess).not.toHaveBeenCalled();
+  expect(toastMessages()).toEqual([SESSION_CHANGED_MESSAGE]);
+});
+
+it("coalesces expired-session failures before dispatch", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const { trpc } = mountProvider(session("a", async () => null));
+  const results = await Promise.allSettled(
+    Array.from({ length: 5 }, (_, i) =>
+      queryClient.fetchQuery({
+        queryKey: ["expired", i],
+        queryFn: () => trpc.profile.getUser.query(),
+        retry: false,
+      }),
+    ),
+  );
+  expect(results.every((result) => result.status === "rejected")).toBe(true);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(queryClient.isFetching()).toBe(0);
+  expect(toastMessages()).toEqual([SESSION_EXPIRED_MESSAGE]);
+});
+
+it("keeps ordinary action failures as separate notices", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    Response.json([
+      {
+        error: superjson.serialize({
+          message: "Please wait before trying again.",
+          code: -32029,
+          data: { code: "TOO_MANY_REQUESTS" },
+        }),
+      },
+    ]),
+  );
+  vi.spyOn(console, "error").mockImplementation(() => {});
+  const { trpc } = mountProvider(session("a"));
+  for (let i = 0; i < 2; i++) {
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationKey: [["home", "toggleSleep"]],
+      mutationFn: () => trpc.home.toggleSleep.mutate(),
+    });
+    await expect(mutation.execute(undefined)).rejects.toThrow(
+      "Please wait before trying again.",
+    );
+    expect(mutation.state.status).toBe("error");
+  }
+  expect(toastMessages()).toEqual([
+    "Please wait before trying again.",
+    "Please wait before trying again.",
+  ]);
+});

@@ -171,7 +171,7 @@ const handleTrpcError = (error: unknown) => {
     (error.message === SESSION_CHANGED_MESSAGE ||
       error.message === SESSION_EXPIRED_MESSAGE)
   ) {
-    showMutationToast({ success: false, message: error.message });
+    showMutationToast({ success: false, message: error.message, id: error.message });
     return;
   }
 
