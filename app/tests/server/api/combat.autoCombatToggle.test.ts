@@ -4,7 +4,7 @@ import { AutoBattleTypes, ManualStartBattleTypes, type BattleType } from "@/driz
 import { battle, userData } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { combatRouter } from "@/server/api/routers/combat";
-import { makeUser } from "../../libs/combat/helpers/battleScenario";
+import { makeCompleteBattle, makeUser } from "../../libs/combat/helpers/battleScenario";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -21,7 +21,7 @@ describeWithDatabase("battle AI control preference scope", () => {
   const seed = async (battleType: BattleType, preference: boolean) => {
     const db = await getTestDatabase();
     await insertUsers([{ userId: USER, username: USER, defaultAutoCombat: preference }]);
-    await db.insert(battle).values({
+    const row = makeCompleteBattle({
       id: BATTLE, battleType, width: 13, height: 9, background: "default",
       usersState: [
         makeUser({ userId: USER, controllerId: USER, isAi: false }),
@@ -29,6 +29,7 @@ describeWithDatabase("battle AI control preference scope", () => {
       ],
       usersEffects: [], groundEffects: [], extraState: {},
     });
+    await db.insert(battle).values(row);
     return { db, caller: await callerFor(combatRouter, USER) };
   };
 
