@@ -2332,16 +2332,17 @@ const TavernColors: React.FC = () => {
             ? data.userPatch?.tavernUsernameColor
             : data.userPatch?.tavernTitleColor;
         await updateUser(
-          color !== undefined && data.userPatch?.reputationPoints !== undefined
+          color !== undefined
             ? {
                 ...(input.target === "username"
                   ? { tavernUsernameColor: color }
                   : { tavernTitleColor: color }),
-                reputationPoints: data.userPatch.reputationPoints,
               }
             : undefined,
-          { revision },
+          { revision, delta: data.userDelta },
         );
+      } else {
+        await updateUser(undefined, { revision });
       }
     },
   });
@@ -2380,6 +2381,13 @@ const TavernColors: React.FC = () => {
         const isThisPending =
           updateColor.isPending && updateColor.variables?.target === control.target;
         const disabled = unchanged || !canAfford || updateColor.isPending;
+        const error =
+          !updateColor.isPending && updateColor.variables?.target === control.target
+            ? updateColor.error?.message ||
+              (updateColor.data?.success === false
+                ? updateColor.data.message
+                : undefined)
+            : undefined;
 
         return (
           <section key={control.target} className="space-y-4 rounded-lg border p-4">
@@ -2470,6 +2478,11 @@ const TavernColors: React.FC = () => {
               Change your tavern {control.target} color to{" "}
               {TAVERN_COLOR_STYLES[control.value].label} for {cost} reputation points?
             </Confirm>
+            {error && (
+              <p role="alert" className="text-destructive text-sm">
+                {error}
+              </p>
+            )}
           </section>
         );
       })}
