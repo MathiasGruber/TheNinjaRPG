@@ -88,6 +88,18 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it("leaves a same-session mutation successful", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () =>
+    Response.json([{ result: { data: superjson.serialize({ success: true }) } }]),
+  );
+  const { attack, onSuccess, onError } = mountArenaMutation(session("a"));
+  await act(async () => { await expect(attack()).resolves.toEqual({ success: true }); });
+  expect(queryClient.isMutating()).toBe(0);
+  expect(onSuccess).toHaveBeenCalledTimes(1);
+  expect(onError).not.toHaveBeenCalled();
+  expect(toastMessages()).toEqual([]);
+});
+
 it("coalesces a retired account's late batch while every query and mutation settles as failed", async () => {
   const releases: Array<() => void> = [];
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
