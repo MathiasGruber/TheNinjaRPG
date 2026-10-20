@@ -41,7 +41,7 @@ const purchases = [
     name: "tavern username color",
     run: (client: DrizzleClient) => callerForDatabase(profileRouter, userId, client)
       .updateTavernColor({ target: "username", currentColor: "DEFAULT", color: "NAVY" }),
-    userPatch: { tavernUsernameColor: "NAVY", reputationPoints: reputationPoints - getTavernColorChangeCost("NAVY") },
+    userPatch: { tavernUsernameColor: "NAVY" },
     reads: 1,
   },
 ];
@@ -58,6 +58,9 @@ describeWithDatabase("Committed cosmetic cache patches", () => {
     const result = await purchase.run(counted.client);
     expect(result.success).toBe(true);
     expect(result.userPatch).toEqual<typeof purchase.userPatch>(purchase.userPatch);
+    if (purchase.name === "tavern username color") {
+      expect(result.userDelta).toEqual({ reputationPoints: -getTavernColorChangeCost("NAVY") });
+    }
     expect(counted.getReads()).toBe(purchase.reads);
     const saved = await database.query.userData.findFirst({ where: eq(userData.userId, userId) });
     for (const [field, value] of Object.entries(purchase.userPatch)) {
@@ -65,7 +68,7 @@ describeWithDatabase("Committed cosmetic cache patches", () => {
     }
   });
 
-  it.each([...purchases])("rejects a concurrent balance change before the $name debit", async (purchase) => {
+  it.each(purchases.filter((purchase) => purchase.name !== "tavern username color"))("rejects a concurrent balance change before the $name debit", async (purchase) => {
     const database = await getTestDatabase();
     const result = await purchase.run(beforeStatements(database, userData, [
       async () => {

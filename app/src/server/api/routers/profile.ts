@@ -2074,7 +2074,8 @@ export const profileRouter = createTRPCRouter({
                 : userData.tavernTitleColor,
               input.currentColor,
             ),
-            eq(userData.reputationPoints, user.reputationPoints),
+            // FLOAT balances do not round-trip through exact SQL equality. The
+            // floor and SQL debit preserve concurrent earnings and prevent overspending.
             gte(userData.reputationPoints, cost),
           ),
         );
@@ -2100,8 +2101,8 @@ export const profileRouter = createTRPCRouter({
         success: true,
         userPatch: {
           ...colorUpdate,
-          reputationPoints: user.reputationPoints - cost,
         },
+        userDelta: { reputationPoints: -cost },
         message: `Tavern ${input.target} color updated for ${cost} reputation points`,
       };
     }),
