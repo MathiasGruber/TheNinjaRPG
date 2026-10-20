@@ -5,6 +5,7 @@ import {
 } from "@/drizzle/constants";
 import {
   HOME_ART_PLANS,
+  HOME_FLOOR_PROJECTION,
   type HomePoint,
   homeArtRectPolygon,
 } from "@/libs/homeRoomGeometry";
@@ -54,8 +55,18 @@ export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamer
   const points = [
     ...room.interior.flat(),
     ...room.outdoor,
-    // Indoor frames include wall space above the floor for tall furniture.
-    ...(room.isYard ? [] : homeArtRectPolygon([0, 0, 100, 100])),
+    // Preserve the saved frame's wall headroom above every measured indoor floor.
+    ...(room.isYard
+      ? []
+      : homeArtRectPolygon([
+          0,
+          Math.min(
+            0,
+            ...room.interior.flat().map(({ y }) => y - HOME_FLOOR_PROJECTION.y),
+          ),
+          100,
+          100,
+        ])),
   ];
   const left = room.x + (Math.min(...points.map(({ x }) => x)) * room.width) / 100;
   const top = room.y + (Math.min(...points.map(({ y }) => y)) * room.height) / 100;
