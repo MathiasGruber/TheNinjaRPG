@@ -891,13 +891,21 @@ export const petsRouter = createTRPCRouter({
           petId: pet.id,
           rank: pet.rank,
         });
-        // A failed redraw keeps usable art; unfinished founders and evolutions still need recovery.
-        await retryOnDeadlock(() =>
+        // A failed redraw keeps usable art. An evolution whose last attempt fails keeps its
+        // previous look at the new rank so it can still fight and evolve; founders still need art.
+        const keepsPreviousLook =
+          !!pet.avatar &&
+          pet.artRank < pet.rank &&
+          attempts + 1 >= PET_MAX_GENERATION_ATTEMPTS;
+        const settled = await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)
             .set({
+              ...(keepsPreviousLook && { artRank: pet.rank }),
               generationStatus:
-                pet.avatar && pet.artRank === pet.rank ? "READY" : "FAILED",
+                pet.avatar && (pet.artRank === pet.rank || keepsPreviousLook)
+                  ? "READY"
+                  : "FAILED",
               generationToken: null,
               revision: sql`${userPet.revision} + 1`,
               updatedAt: new Date(),
@@ -911,6 +919,10 @@ export const petsRouter = createTRPCRouter({
               ),
             ),
         );
+        if (keepsPreviousLook && settled.rowsAffected === 1)
+          return errorResponse(
+            "The evolved image could not be verified, so we kept its previous look. Your companion can fight and evolve again; staff can redraw it.",
+          );
         return errorResponse(
           "The appearance could not be generated or verified. Your companion is kept and retrying never charges adoption again.",
         );

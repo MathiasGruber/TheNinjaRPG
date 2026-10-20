@@ -17,6 +17,13 @@ describe("pet visual quality", () => {
       expect(() => validatePetAppearanceQuality({ ...accepted, avatarFacing })).not.toThrow();
   });
 
+  it("can waive only the subjective evolution strength check", () => {
+    const options = { requireStrongerEvolution: false };
+    expect(() => validatePetAppearanceQuality({ ...accepted, evolutionStronger: false }, options)).not.toThrow();
+    for (const field of ["singleAnimal", "anatomyCorrect", "noGroundOrScene", "speciesMatches", "identityPreserved", "completeBody"] as const)
+      expect(() => validatePetAppearanceQuality({ ...accepted, [field]: false, evolutionStronger: false, reason: `Invalid ${field}` }, options)).toThrow(field);
+  });
+
   it.each([
     { previousRank: 1, hasPrevious: true, required: true },
     { previousRank: 2, hasPrevious: true, required: false },
