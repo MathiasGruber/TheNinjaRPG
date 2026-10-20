@@ -15,6 +15,7 @@ import {
   ensureParticleOverlayCanvas,
 } from "@/libs/particleOverlay";
 import { registerParticlePlugins } from "@/libs/particlePlugins";
+import { SESSION_CHANGED_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/libs/trpcSession";
 import { countNames } from "@/utils/array";
 import { playPreloadedAudio, savedSfxVolume } from "@/utils/audio";
 import { parseHtml } from "@/utils/parse";
@@ -165,7 +166,13 @@ export const showMutationToast = (data: {
         title: data?.title ?? "Error",
         description: data.message,
         duration: data.duration,
-        id: data.id,
+        // Query defaults and local mutation handlers can report the same session failure.
+        id:
+          data.id ??
+          (data.message === SESSION_CHANGED_MESSAGE ||
+          data.message === SESSION_EXPIRED_MESSAGE
+            ? data.message
+            : undefined),
         variant: data.variant ?? "default",
         action: data.action ?? (
           <ToastAction

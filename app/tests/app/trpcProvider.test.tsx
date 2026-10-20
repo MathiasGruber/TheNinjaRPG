@@ -1,6 +1,6 @@
 import * as clerk from "@clerk/nextjs";
 import type { Clerk } from "@clerk/shared/types";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import type { TRPCClient } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
@@ -24,7 +24,10 @@ const toastMessages = () =>
 const session = (id: string, getToken = async (): Promise<string | null> => id) =>
   ({ id, getToken }) as NonNullable<Clerk["session"]>;
 
-const mountProvider = (activeSession: NonNullable<Clerk["session"]>) => {
+const mountProvider = (
+  activeSession: NonNullable<Clerk["session"]>,
+  children?: React.ReactNode,
+) => {
   const auth = {
     session: activeSession,
     isSignedIn: true,
@@ -44,12 +47,32 @@ const mountProvider = (activeSession: NonNullable<Clerk["session"]>) => {
     trpc = testApi.useUtils().client;
     return null;
   };
-  render(
+  const view = render(
     <TrpcClientProvider cdnCachedQueryPaths={[]}>
       <Probe />
+      {children}
     </TrpcClientProvider>,
   );
-  return { auth, trpc };
+  return { auth, trpc, unmount: view.unmount };
+};
+
+const mountArenaMutation = (activeSession: NonNullable<Clerk["session"]>) => {
+  let attack!: () => Promise<unknown>;
+  const onSuccess = vi.fn();
+  const onError = vi.fn((error: { message: string }) => {
+    toast.showMutationToast({ success: false, message: error.message });
+  });
+  const ArenaChallenge = () => {
+    const mutation = testApi.combat.startArenaBattle.useMutation({ onSuccess, onError });
+    attack = () => mutation.mutateAsync({ aiId: "opponent", autoCombat: false });
+    return null;
+  };
+  return {
+    ...mountProvider(activeSession, <ArenaChallenge />),
+    attack: () => attack(),
+    onSuccess,
+    onError,
+  };
 };
 
 beforeEach(() => {
@@ -144,6 +167,112 @@ it("coalesces expired-session failures before dispatch", async () => {
   expect(fetch).not.toHaveBeenCalled();
   expect(queryClient.isFetching()).toBe(0);
   expect(toastMessages()).toEqual([SESSION_EXPIRED_MESSAGE]);
+});
+
+it("coalesces a local mutation error after unmount with a retired account's late query batch", async () => {
+  const releases: Array<() => void> = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const count = new URL(String(input), "http://localhost").pathname
+      .split("/")
+      .at(-1)!
+      .split(",").length;
+    await new Promise<void>((resolve) => releases.push(resolve));
+    return Response.json(
+      Array.from({ length: count }, () => ({
+        result: { data: superjson.serialize({ success: true, battleId: "battle-a" }) },
+      })),
+    );
+  });
+  const { auth, trpc, unmount, attack, onSuccess, onError } = mountArenaMutation(
+    session("a"),
+  );
+  let settled!: Promise<PromiseSettledResult<unknown>[]>;
+  act(() => {
+    settled = Promise.allSettled([
+      queryClient.fetchQuery({
+        queryKey: ["late-local", "dashboard"],
+        queryFn: () => trpc.profile.getDashboard.query(),
+        retry: false,
+      }),
+      queryClient.fetchQuery({
+        queryKey: ["late-local", "notices"],
+        queryFn: () => trpc.war.getWarCampNotices.query(),
+        retry: false,
+      }),
+      attack(),
+    ]);
+  });
+  await waitFor(() => expect(releases).toHaveLength(2));
+  auth.session = session("b");
+  unmount();
+  for (const release of releases) release();
+  const results = await settled;
+  expect(results.map((result) => result.status)).toEqual([
+    "rejected",
+    "rejected",
+    "rejected",
+  ]);
+  for (const result of results) {
+    if (result.status === "rejected")
+      expect(result.reason.message).toBe(SESSION_CHANGED_MESSAGE);
+  }
+  expect(queryClient.isFetching()).toBe(0);
+  expect(queryClient.getMutationCache().getAll()[0]?.state.status).toBe("error");
+  expect(onSuccess).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(toastMessages()).toEqual([SESSION_CHANGED_MESSAGE]);
+});
+
+it("coalesces expired-session notices from a query and a local mutation handler", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch");
+  const { trpc, attack, onSuccess, onError } = mountArenaMutation(
+    session("a", async () => null),
+  );
+  let results!: PromiseSettledResult<unknown>[];
+  await act(async () => {
+    results = await Promise.allSettled([
+      queryClient.fetchQuery({
+        queryKey: ["expired-local"],
+        queryFn: () => trpc.profile.getUser.query(),
+        retry: false,
+      }),
+      attack(),
+    ]);
+  });
+  expect(results.map((result) => result.status)).toEqual(["rejected", "rejected"]);
+  expect(fetch).not.toHaveBeenCalled();
+  expect(queryClient.isFetching()).toBe(0);
+  expect(queryClient.getMutationCache().getAll()[0]?.state.status).toBe("error");
+  expect(onSuccess).not.toHaveBeenCalled();
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(toastMessages()).toEqual([SESSION_EXPIRED_MESSAGE]);
+});
+
+it.each([SESSION_CHANGED_MESSAGE, SESSION_EXPIRED_MESSAGE])(
+  "preserves explicit toast IDs for %s",
+  (message) => {
+    for (const id of ["first-session-notice", "second-session-notice"]) {
+      toast.showMutationToast({ success: false, message, id });
+    }
+    expect(sonnerToast.getToasts().map((notice) => notice.id)).toEqual([
+      "first-session-notice",
+      "second-session-notice",
+    ]);
+  },
+);
+
+it("keeps success messages and ReactNode error messages as separate notices", () => {
+  const message = <span>{SESSION_CHANGED_MESSAGE}</span>;
+  for (let i = 0; i < 2; i++) {
+    toast.showMutationToast({ success: true, message: SESSION_CHANGED_MESSAGE });
+    toast.showMutationToast({ success: false, message });
+  }
+  expect(toastMessages()).toEqual([
+    SESSION_CHANGED_MESSAGE,
+    message,
+    SESSION_CHANGED_MESSAGE,
+    message,
+  ]);
 });
 
 it("keeps ordinary action failures as separate notices", async () => {
