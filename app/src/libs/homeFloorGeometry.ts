@@ -5,10 +5,18 @@ import type { FurnitureImageBounds } from "@/validators/itemFurniture";
 
 const { difference, intersection, union } = polygonClipping;
 
+/** Numerical tolerance shared by floor containment and furniture overlap checks. */
 export const HOME_GEOMETRY_EPSILON = 0.000001;
-export type HomeFloorRegions = HomePoint[][][];
 
-/** Erode the union, so a footprint can span finish seams but cannot cross a door or wall notch. */
+/**
+ * Compute legal anchors after joining floor seams and eroding by the footprint.
+ * Clipping errors propagate to preserve saved layouts during recovery.
+ *
+ * @param regions Floor contours in room-local projected coordinates.
+ * @param footprint Ground-contact bounds relative to an anchor at (0, 0).
+ * @param bounds Allowed anchor rectangle, including the caller's visible-art limits.
+ * @returns Components with outer rings and holes; empty when no anchor fits.
+ */
 export const getHomeFloorAnchors = (
   regions: HomePoint[][],
   footprint: FurnitureImageBounds,
@@ -72,7 +80,11 @@ export const getHomeFloorAnchors = (
   );
 };
 
-/** Remove occupied anchor rectangles while retaining the floor's exact boundary and components. */
+/**
+ * Subtract forbidden anchor rectangles from the already eroded floor regions.
+ * Callers expand occupied footprints for the moving piece and account for touching tolerance.
+ * Clipping errors propagate, as in getHomeFloorAnchors.
+ */
 export const subtractHomeFloorBounds = (
   regions: HomeFloorRegions,
   bounds: FurnitureImageBounds[],
@@ -93,6 +105,7 @@ export const subtractHomeFloorBounds = (
   );
 };
 
+/** Accept boundary contact across all components while excluding hole interiors. */
 export const isPointInHomeFloor = (point: HomePoint, regions: HomeFloorRegions) =>
   regions.some(
     ([outer, ...holes]) =>
@@ -101,7 +114,7 @@ export const isPointInHomeFloor = (point: HomePoint, regions: HomeFloorRegions) 
       !holes.some((hole) => isPointInHomePolygon(point, hole, false)),
   );
 
-/** Boundary-inclusive ray casting also supports the concave artwork's door cutouts. */
+/** Ray-cast a possibly concave ring; includeBoundary controls tolerant edge contact. */
 export const isPointInHomePolygon = (
   point: HomePoint,
   polygon: readonly HomePoint[],
@@ -130,6 +143,7 @@ export const isPointInHomePolygon = (
   return inside;
 };
 
+/** Monotone-chain hull for temporary sweep vertices; sorts its input in place. */
 const convexHull = (points: Pair[]): Pair[] => {
   const sorted = points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const cross = (a: Pair, b: Pair, c: Pair) =>
@@ -149,3 +163,6 @@ const convexHull = (points: Pair[]): Pair[] => {
   };
   return [...half(sorted), ...half([...sorted].reverse())];
 };
+
+/** Room-local polygon components as [outer, ...holes], without repeated closing vertices. */
+export type HomeFloorRegions = HomePoint[][][];

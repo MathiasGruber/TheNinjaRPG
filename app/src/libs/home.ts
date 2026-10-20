@@ -334,9 +334,10 @@ export const homeLayoutOrientationError = (
     : null;
 };
 
+/** Cache lifetime follows furniture identity; callers replace snapshots when appearance changes. */
 const homeAnchorCache = new WeakMap<HomeFurniture, Map<string, HomeFloorRegions>>();
 
-/** Keep saved frames stable while using the complete measured floor for each facing. */
+/** Intersect footprint-safe room-local floors with visible-art and saved-position limits. */
 const getHomeAnchorRegions = (
   furniture: HomeFurniture,
   placement: HomePlacement,
@@ -369,6 +370,7 @@ const getHomeAnchorRegions = (
   const offsetY = visible.y - anchor.y;
   const floor = furniture.action === "farm" ? [room.outdoor] : room.interior;
   if (furniture.action === "farm") {
+    // Cultivation reserves both the visible sprite and its ground contact within the clearing.
     const x = Math.min(footprint.x, offsetX);
     const y = Math.min(footprint.y, offsetY);
     footprint = {
@@ -386,6 +388,7 @@ const getHomeAnchorRegions = (
     x: room.isYard ? 100 : HOME_FURNITURE_POSITION_MAX,
     y: room.isYard ? 100 : HOME_FURNITURE_POSITION_MAX,
   });
+  // Tall sprites can rise above the floor; lateral floor spans and painting bounds limit their art.
   const left = Math.max(
     min.x,
     Math.max(room.isYard ? 0 : -Infinity, Math.min(...floor.flat().map(({ x }) => x))) -
@@ -430,6 +433,7 @@ const getHomeAnchorRegions = (
   return regions;
 };
 
+/** Find the nearest legal point in nonempty regions, considering outer and hole boundaries. */
 const closestPointInHomeFloor = (point: HomePoint, regions: HomeFloorRegions) => {
   if (isPointInHomeFloor(point, regions)) return point;
   return regions

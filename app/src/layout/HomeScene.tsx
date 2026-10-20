@@ -75,6 +75,7 @@ export const HomeScene = ({
   styles = [],
   isVisiting = false,
 }: HomeSceneProps) => {
+  // Keep SVG clip paths unique across rendered scene instances.
   const floorClipId = useId();
   const sceneRef = useRef<HTMLFieldSetElement>(null);
   const dragRef = useRef<{
@@ -550,6 +551,7 @@ export const HomeScene = ({
               onError={() => setFailedHomeType(homeType)}
             />
           )}
+          {/* Full-art targets include measured wings outside the saved room frames. */}
           {isEditing &&
             rooms.map((room) => (
               <button

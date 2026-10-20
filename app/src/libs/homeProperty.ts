@@ -25,6 +25,7 @@ export type HomeRoom = {
   isYard: boolean;
   /** Complete measured floor contours in the unchanged saved-coordinate frame. */
   interior: HomePoint[][];
+  /** Yard-only cultivation contour, separate from the decorative furniture floor. */
   outdoor: HomePoint[];
 };
 /** Translation is measured in viewport percentages and applied after scaling the property. */
@@ -72,6 +73,7 @@ export const getHomeRoomCamera = (homeType: HomeType, id: HomeRoomId): HomeCamer
   const top = room.y + (Math.min(...points.map(({ y }) => y)) * room.height) / 100;
   const right = room.x + (Math.max(...points.map(({ x }) => x)) * room.width) / 100;
   const bottom = room.y + (Math.max(...points.map(({ y }) => y)) * room.height) / 100;
+  // Reserve viewport margin around the focused room and its furniture controls.
   const scale = Math.min(1.8, 85 / Math.max(right - left, bottom - top));
   return boundHomeCamera(
     {
@@ -95,7 +97,7 @@ export const zoomHomeCamera = (
   y: after.y - ((before.y - camera.y) * scale) / camera.scale,
 });
 
-/** Floor measurements retain normalized anchors while furniture keeps its physical proportions. */
+/** Keep saved room frames and physical scale while mapping all measured contours into them. */
 export const getHomeRooms = (homeType: HomeType): HomeRoom[] => {
   const plan = HOME_ART_PLANS[homeType];
   const unit = plan.size / 100;
