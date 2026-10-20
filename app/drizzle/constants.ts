@@ -3135,6 +3135,8 @@ export const MUSIC_HYORIN_THEME =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJe1hBMMyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
 export const MUSIC_HORIZON_THEME =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ7dGr02BXKPBOUWGyFuM4DlL1v5HNTZhkte0z";
+export const MUSIC_FREEDOM_STATE_THEME =
+  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJeMdhutyV3OvUJQExAi0bGoIZDF74LqSnHRdp";
 export const MUSIC_HALLOWEEN_THEME =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJX2KBuGqIOpAoLKbZ4nW9Rsil2V67yuFwQhqv";
 export const MUSIC_WINTER_THEME =
