@@ -137,13 +137,13 @@ describe("companion image safety and AI controls", () => {
     const base = { userId: "player", speciesId: kitsune.id, species: kitsune, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
     const founder = getPetAppearancePrompt(base);
     expect(founder).toContain(`${kitsune.description}. Species art direction: A white fox with flowing red-tipped flame tails. Colour palette:`);
-    expect(founder).toContain("(Companion): A slim white kit with two short flame-tipped tails. Aura stage:");
+    expect(founder).toContain("(Companion): A slim white kit with two short flame-tipped tails. Tail stage:");
     expect(founder).not.toContain(PET_RANK_APPEARANCES[0]);
     expect(founder).toContain("Keep all limbs inside the frame");
     // Blank, whitespace-only and missing entries keep the generic milestone for that rank.
     for (const rank of [2, 3, 4]) {
       const prompt = getPetAppearancePrompt({ ...base, rank, artRank: rank - 1, avatar: "/previous.webp" });
-      expect(prompt).toContain(`: ${PET_RANK_APPEARANCES[rank - 1]}. Aura stage:`);
+      expect(prompt).toContain(`: ${PET_RANK_APPEARANCES[rank - 1]}. Tail stage:`);
       expect(prompt).toContain("Species art direction: A white fox");
     }
     const plain = getPetAppearancePrompt({ ...base, species: { ...kitsune, artDirection: null, rankConcepts: [] } });
@@ -155,13 +155,23 @@ describe("companion image safety and AI controls", () => {
     const kitsune = { ...initialPetSpecies.find((entry) => entry.name === "Kitsune")!, artDirection: null, rankConcepts: [] };
     const base = { userId: "player", speciesId: kitsune.id, species: kitsune, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
     const prompts = PET_RANKS.map(({ rank }) => getPetAppearancePrompt({ ...base, rank, artRank: rank - 1, avatar: rank > 1 ? "/previous.webp" : null }));
-    const tails = ["exactly ONE tail", "exactly TWO tails", "exactly THREE tails", "a FOURTH tail", "a FIFTH tail", "a SIXTH tail", "full number of tails"];
-    tails.forEach((count, index) => expect(prompts[index]).toContain(count));
+    const tails = ["exactly ONE tail", "exactly TWO tails", "exactly THREE tails", "exactly FOUR tails", "exactly FIVE tails", "exactly SIX tails", "full number of tails", "full number of tails", "full number of tails", "full number of tails"];
+    tails.forEach((count, index) => expect(prompts[index]).toContain(`Tail stage: ${index < 6 ? "this multi-tailed species has " : "it now shows its "}${count}`));
+    expect(prompts[0]).toContain("this overrides any tail count in its description");
+    expect(prompts[1]).toContain("more tails than this rank's tail stage allows");
     expect(prompts[0]).toContain("only small, short beginnings");
-    // The species description's "multiple tails" must not override the rank's tail count.
-    for (const prompt of prompts) expect(prompt).toContain("tail count and feature sizes override counts such as multiple tails");
+    // Single-tailed species never see tail-count wording, which models otherwise apply to them.
+    const wolfSpecies = { ...initialPetSpecies.find((entry) => entry.name === "Wolf")!, artDirection: null, rankConcepts: [] };
+    const wolf = { ...base, speciesId: wolfSpecies.id, species: wolfSpecies };
+    for (const { rank } of PET_RANKS) {
+      const prompt = getPetAppearancePrompt({ ...wolf, rank, artRank: rank - 1, avatar: "/previous.webp" });
+      expect(prompt).not.toContain("Tail stage");
+      expect(prompt).not.toMatch(/\b(ONE|TWO|THREE|FOUR|FIVE|SIX) tails?\b/);
+      expect(prompt).toContain("additional tails");
+    }
+    for (const concept of PET_RANK_APPEARANCES) expect(concept).not.toMatch(/multiple tails/i);
     for (const prompt of prompts.slice(0, 3)) {
-      expect(prompt).toContain("Aura stage: plain natural colouring with no glowing, luminous or emissive markings");
+      expect(prompt).toContain("Aura stage: no aura effects yet, only plain natural colouring with no glowing, luminous or emissive markings");
       expect(prompt).not.toContain("crisp luminous markings");
     }
     for (const prompt of prompts.slice(3, 6)) {
@@ -172,7 +182,8 @@ describe("companion image safety and AI controls", () => {
     for (const concept of PET_RANK_APPEARANCES.slice(0, 6)) expect(concept).not.toMatch(/glow|luminous/i);
     // Staff concepts replace the milestone but still follow the aura stage.
     const staff = getPetAppearancePrompt({ ...base, species: { ...kitsune, rankConcepts: ["A kit with one ember-tipped tail"] } });
-    expect(staff).toContain("A kit with one ember-tipped tail. Aura stage: plain natural colouring");
+    expect(staff).toContain("A kit with one ember-tipped tail. Tail stage: this multi-tailed species has exactly ONE tail");
+    expect(staff).toContain("Aura stage: no aura effects yet");
   });
 
   it("asks GPT for native transparency and Nano Banana for the neutral cutout backdrop", () => {

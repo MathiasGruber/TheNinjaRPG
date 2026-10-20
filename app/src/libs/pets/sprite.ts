@@ -7,8 +7,12 @@ export const PET_SPRITE_SIZE = 512;
 export const PET_SPRITE_SAFE_AREA = 0.8;
 /** Pixels at or below this alpha are cutout residue, not part of the animal. */
 const PET_SPRITE_ALPHA_THRESHOLD = 16;
-/** Faint residue covering more of the canvas than this is a background haze. */
-const PET_SPRITE_MAX_HAZE = 0.1;
+/**
+ * Faint residue covering more of the canvas than this is a background haze. Clean GPT
+ * cutouts keep up to about 23% faint pixels along anti-aliased edges; hazy ones 27-75%,
+ * and residue at or below the alpha threshold is cleared during framing anyway.
+ */
+const PET_SPRITE_MAX_HAZE = 0.25;
 /** Provider canvases are larger than the stored sprite, so input decoding is bounded. */
 const MAX_SOURCE_PIXELS = 2048 * 2048;
 
