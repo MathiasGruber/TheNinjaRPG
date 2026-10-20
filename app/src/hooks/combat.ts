@@ -72,17 +72,20 @@ export const useCombatUpdates = (state: BattleState) => {
           // contain later committed rows. Never replace them with an older delta.
           const isNewer = (rows: BattleAction[] | undefined) =>
             rows?.some((row) => row.battleVersion >= target.refreshKey);
-          if (isNewer(utils.combat.getBattleEntries.getData(target))) continue;
-          // A pre-insert response must not overwrite the committed delta.
-          await utils.combat.getBattleEntries.cancel(target);
-          utils.combat.getBattleEntries.setData(target, (current) =>
-            isNewer(current) ? current : entries,
-          );
-        } else if (
-          !input.refreshKey ||
-          finished ||
-          (logEntries === null && input.refreshKey >= version)
-        ) {
+          // An ended observer may keep this older key after battle deletion.
+          const keys =
+            finished && target.refreshKey !== input.refreshKey
+              ? [target, input]
+              : [target];
+          for (const key of keys) {
+            if (isNewer(utils.combat.getBattleEntries.getData(key))) continue;
+            // A pre-insert response must not overwrite the committed delta.
+            await utils.combat.getBattleEntries.cancel(key);
+            utils.combat.getBattleEntries.setData(key, (current) =>
+              isNewer(current) ? current : entries,
+            );
+          }
+        } else if (!input.refreshKey || finished) {
           // Ordinary version changes load their new history key naturally. At
           // settlement the battle may be deleted, leaving an older key mounted.
           await utils.combat.getBattleEntries.cancel(input);
@@ -104,7 +107,11 @@ export const useCombatUpdates = (state: BattleState) => {
           data.logEntries === null
             ? null
             : superjson.deserialize<BattleAction[]>(data.logEntries),
-          !!data.finished || !!stateRef.current.result,
+          // Repair this viewer's own settlement, without refetching their held
+          // result on every later ordinary turn in a multi-person battle.
+          !!data.finished ||
+            (!!stateRef.current.result &&
+              data.version <= (stateRef.current.battle?.version ?? 0)),
         );
       }
       const { battle, result } = stateRef.current;

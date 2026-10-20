@@ -195,6 +195,30 @@ it("preserves newer committed rows already fetched under an older refresh key", 
   expect(readEntries).not.toHaveBeenCalled();
 });
 
+it("updates a complete older held log directly when terminal state cannot advance its key", async () => {
+  const state = { ...finalState, battle: { ...finalState.battle!, version: 3 } };
+  const input = { battleId: "battle", refreshKey: 3, checkBattle: true, limit: 30 };
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, input, "query"), [2, 1].map((version) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version })));
+  const view = mount(true, state);
+  await act(async () => { await onEvent?.({ version: 4, logEntries: superjson.serialize([lethalEntry]), finished: true }); });
+  await waitFor(() => expect(view.getAllByText(/Victim takes 100 damage/)).toHaveLength(3));
+  expect(readEntries).not.toHaveBeenCalled();
+});
+
+it("does not add reads for an oversized ordinary event at the current version", async () => {
+  mount(true, { ...finalState, result: null });
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  await act(async () => { await onEvent?.({ version: 4, logEntries: null }); });
+  expect(readEntries).toHaveBeenCalledTimes(1);
+});
+
+it("does not repeatedly repair a spectator's held result for later ordinary actions", async () => {
+  mount();
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  await act(async () => { await onEvent?.({ version: 6, logEntries: superjson.serialize([{ ...lethalEntry, battleVersion: 5 }]) }); });
+  expect(readEntries).toHaveBeenCalledTimes(1);
+});
+
 it("cancels a pre-insert response before seeding a complete final page", async () => {
   let finishOldRead!: (rows: BattleAction[]) => void;
   readEntries.mockImplementationOnce(() => new Promise<BattleAction[]>((resolve) => { finishOldRead = resolve; }));

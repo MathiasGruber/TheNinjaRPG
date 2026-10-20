@@ -2,7 +2,7 @@ import type { SuperJSONResult } from "superjson";
 import type { RouterInputs } from "@/app/_trpc/client";
 import type { BattleAction } from "@/drizzle/schema";
 
-/** Committed log rows only; null requests recovery when a delta exceeds the event limit. */
+/** Committed public log rows; oversized batches carry only a version/settlement signal. */
 export type BattleUpdate = {
   version: number;
   logEntries?: SuperJSONResult | null;

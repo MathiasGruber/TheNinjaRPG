@@ -1966,7 +1966,7 @@ export const combatRouter = createTRPCRouter({
 /***********************************************
  * CONVENIENCE FUNCTIONS USED ON COMBAT ENDPOINTS
  ***********************************************/
-/** Send only committed public log rows, falling back to a small recovery signal above 10 KB. */
+/** Send only committed public log rows; oversized batches retain a small version notification. */
 const notifyBattleLogs = (
   pusher: ReturnType<typeof getServerPusher>,
   battle: { id: string; version: number },
