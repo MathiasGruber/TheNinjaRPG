@@ -130,13 +130,6 @@ export const usePetSpeciesEditForm = (
       fullWidth: true,
     },
     {
-      id: "artDirection",
-      label: "Art direction (optional)",
-      type: "textarea",
-      rows: 3,
-      fullWidth: true,
-    },
-    {
       id: "isActive",
       label: "Available for daily offers",
       type: "boolean",

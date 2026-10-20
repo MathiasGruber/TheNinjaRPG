@@ -77,17 +77,16 @@ const SpeciesForm = ({
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4 grid grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="evolution">Evolution art</TabsTrigger>
+          <TabsTrigger value="artwork">Artwork</TabsTrigger>
           <TabsTrigger value="loadout">Loadout</TabsTrigger>
           <TabsTrigger value="skills">Pet skills</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
         </TabsList>
         <TabsContent value="general" forceMount hidden={tab !== "general"}>
           <p className="mb-4 text-muted-foreground text-sm">
-            Describe the animal&apos;s appearance for its generated portrait; the
-            optional art direction adds a species-wide look and style. Rarity affects
-            daily availability and jutsu slots. Role describes its playstyle; authored
-            jutsu and AI instructions determine its behavior.
+            Describe the animal&apos;s appearance for its generated portrait. Rarity
+            affects daily availability and jutsu slots. Role describes its playstyle;
+            authored jutsu and AI instructions determine its behavior.
           </p>
           <EditContent
             schema={PetSpeciesValidator}
@@ -105,13 +104,14 @@ const SpeciesForm = ({
             </p>
           </EditContent>
         </TabsContent>
-        <TabsContent value="evolution" forceMount hidden={tab !== "evolution"}>
+        <TabsContent value="artwork" forceMount hidden={tab !== "artwork"}>
           <p className="mb-4 text-muted-foreground text-sm">
-            Describe what each evolution rank adds to this species. A blank rank uses
-            the built-in milestone shown as its placeholder. Concepts apply to portraits
-            generated after saving; existing portraits are unchanged.
+            Steer this species&apos; generated portraits. Art direction adds a
+            species-wide look and style to every portrait; each rank concept describes
+            what that evolution adds, and a blank rank uses the built-in milestone shown
+            as its placeholder. Changes apply to portraits generated after saving.
           </p>
-          <RankConceptFields form={contentForm} />
+          <ArtworkFields form={contentForm} />
         </TabsContent>
         <TabsContent value="loadout" forceMount hidden={tab !== "loadout"}>
           <p className="mb-4 text-muted-foreground text-sm">
@@ -247,10 +247,30 @@ const SpeciesForm = ({
   );
 };
 
-/** One optional concept per evolution rank, falling back to the built-in milestone text. */
-const RankConceptFields = ({ form }: { form: UseFormReturn<ZodPetSpeciesType> }) => (
+/** Species art direction plus one optional concept per rank, falling back to built-in milestones. */
+const ArtworkFields = ({ form }: { form: UseFormReturn<ZodPetSpeciesType> }) => (
   <Form {...form}>
     <div className="grid gap-3">
+      <FormField
+        control={form.control}
+        name="artDirection"
+        render={({ field, fieldState }) => (
+          <FormItem>
+            <FormLabel htmlFor="artDirection">Art direction (optional)</FormLabel>
+            <FormControl>
+              <Textarea
+                id="artDirection"
+                rows={4}
+                placeholder="Overall look for every companion of this species, e.g. fur colour, markings, ornaments and style."
+                isDirty={fieldState.isDirty}
+                {...field}
+                value={field.value ?? ""}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       {PET_RANKS.map(({ rank, name }) => (
         <FormField
           key={rank}
