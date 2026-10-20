@@ -2940,6 +2940,10 @@ export const petSpecies = mysqlTable(
     id: varchar("id", { length: 191 }).primaryKey().notNull(),
     name: varchar("name", { length: 191 }).notNull(),
     description: varchar("description", { length: 1000 }).notNull(),
+    /** Species-wide look and style added to every companion portrait prompt. */
+    artDirection: varchar("artDirection", { length: 1000 }),
+    /** Per-rank evolution concepts (index = rank - 1); blank entries use the built-in milestone. */
+    rankConcepts: json("rankConcepts").$type<string[]>().default([]).notNull(),
     rarity: mysqlEnum("rarity", consts.PetRarities).default("COMMON").notNull(),
     role: mysqlEnum("role", consts.PetRoles).default("ASSAULT").notNull(),
     preferredDamageElement: mysqlEnum("preferredDamageElement", consts.BasicElementName),

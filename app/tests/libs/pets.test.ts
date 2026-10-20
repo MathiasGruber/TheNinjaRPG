@@ -3,7 +3,7 @@ import { Moderations } from "openai/resources/moderations";
 import { PET_OPTION_COUNTS, PET_RANKS } from "@/drizzle/constants";
 import { classifyNsfwImage } from "@/libs/moderator";
 import { getPetAppearancePrompt } from "@/libs/pets/appearance";
-import { getDailyPetOptions, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES } from "@/libs/pets/catalogue";
+import { getDailyPetOptions, isAvailablePetAppearance, PET_AURAS, PET_CHARACTERISTICS, PET_PALETTES, PET_RANK_APPEARANCES } from "@/libs/pets/catalogue";
 import { canUsePet, getMaxPetRank, getPetLevel, petRankUpBlockMessage } from "@/libs/pets/progression";
 import { calcLevelRequirements } from "@/libs/profile";
 import { getPetDayKey } from "@/utils/time";
@@ -121,6 +121,25 @@ describe("companion image safety and AI controls", () => {
     expect(() => getPetAppearancePrompt({ ...base, species: null })).toThrow("Invalid pet appearance");
     const retiredSpecies = { ...initialPetSpecies[0]!, name: "Spirit fox", description: "A fox with translucent ears", isActive: false };
     expect(getPetAppearancePrompt({ ...base, species: retiredSpecies })).toContain(retiredSpecies.description);
+  });
+
+  it("applies staff species art direction and rank concepts, falling back to built-in milestones", () => {
+    const kitsune = { ...initialPetSpecies[65]!, artDirection: "A white fox with flowing red-tipped flame tails.", rankConcepts: ["A slim white kit with two short flame-tipped tails", "", "  "] };
+    const base = { userId: "player", speciesId: kitsune.id, species: kitsune, paletteIndex: 0, characteristicIndex: 0, auraIndex: 0, rank: 1, artRank: 0, avatar: null };
+    const founder = getPetAppearancePrompt(base);
+    expect(founder).toContain(`${kitsune.description}. Species art direction: A white fox with flowing red-tipped flame tails. Colour palette:`);
+    expect(founder).toContain("(Companion): A slim white kit with two short flame-tipped tails. Adapt every feature");
+    expect(founder).not.toContain(PET_RANK_APPEARANCES[0]);
+    expect(founder).toContain("Keep all limbs inside the frame");
+    // Blank, whitespace-only and missing entries keep the generic milestone for that rank.
+    for (const rank of [2, 3, 4]) {
+      const prompt = getPetAppearancePrompt({ ...base, rank, artRank: rank - 1, avatar: "/previous.webp" });
+      expect(prompt).toContain(`: ${PET_RANK_APPEARANCES[rank - 1]}. Adapt every feature`);
+      expect(prompt).toContain("Species art direction: A white fox");
+    }
+    const plain = getPetAppearancePrompt({ ...base, species: { ...kitsune, artDirection: null, rankConcepts: [] } });
+    expect(plain).not.toContain("Species art direction");
+    expect(plain).toContain(PET_RANK_APPEARANCES[0]);
   });
 
   it("fails closed when strict image moderation returns no result", async () => {
