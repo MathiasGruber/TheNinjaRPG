@@ -13,7 +13,7 @@ import {
 } from "@gltf-transform/functions";
 import { MeshoptEncoder } from "meshoptimizer";
 import { nanoid } from "nanoid";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import type { FileOutput } from "replicate";
 import Replicate from "replicate";
 import sharp from "sharp";
@@ -348,6 +348,32 @@ export const txt2imgGPT = async (config: Txt2ImgConfig) => {
  * The optional signal bounds generation, background removal, download and upload.
  */
 export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
+  const image = await generateNanoBananaImage(config);
+  // Resize to requested bounds (match OpenAI flow)
+  const resultBuffer = await sharp(image)
+    .resize({ width: config.width, height: config.height, fit: "inside" })
+    .webp({ quality: 70 })
+    .toBuffer();
+
+  const resizedBlob = new Blob([resultBuffer as BlobPart]);
+  const uploaded = await uploadFileFromReplicate(
+    "content",
+    resizedBlob,
+    "webp",
+    config.signal,
+  );
+  const url = uploaded.data ? servedUfsUrl(uploaded.data) : null;
+  return url ? [url] : [];
+};
+
+/**
+ * Generate (and optionally cut out) a Nano Banana image and return its full-size bytes
+ * without uploading, so callers can post-process before storing anything.
+ * The optional signal bounds generation, background removal and download.
+ */
+export const generateNanoBananaImage = async (
+  config: Omit<Txt2ImgConfig, "width" | "height">,
+) => {
   const replicate = getReplicateInstance();
 
   // nano-banana (Gemini Flash Image) is an image model with no system-prompt
@@ -422,31 +448,72 @@ export const txt2imgNanoBanana = async (config: Txt2ImgConfig) => {
     );
   }
 
-  // Fetch and resize to requested bounds (match OpenAI flow)
   const blob = await runAbortable(() => file.blob(), config.signal);
-  const arrayBuffer = await blob.arrayBuffer();
-  const resultBuffer = await sharp(Buffer.from(arrayBuffer))
-    .resize({ width: config.width, height: config.height, fit: "inside" })
-    .webp({ quality: 70 })
-    .toBuffer();
+  return Buffer.from(await blob.arrayBuffer());
+};
 
-  const resizedBlob = new Blob([resultBuffer as BlobPart]);
-  const uploaded = await uploadFileFromReplicate(
-    "content",
-    resizedBlob,
-    "webp",
-    config.signal,
-  );
-  const url = uploaded.data ? servedUfsUrl(uploaded.data) : null;
-  return url ? [url] : [];
+/** GPT Image rejects 512px requests, so sprites are drawn at its smallest square size. */
+const GPT_SPRITE_SIZE = "1024x1024";
+
+/**
+ * Draw a transparent-background sprite with GPT Image and return its PNG bytes without
+ * uploading. A reference image turns the request into an edit of that animal; without one
+ * the prompt alone draws a new sprite. The signal bounds the provider request.
+ */
+export const generateSpriteGPT = async (config: {
+  prompt: string;
+  reference?: Buffer;
+  userId: string;
+  signal?: AbortSignal;
+}) => {
+  const client = new OpenAI();
+  const common = {
+    model: "gpt-image-2.5-flare",
+    prompt: config.prompt,
+    size: GPT_SPRITE_SIZE,
+    quality: "medium",
+    background: "transparent",
+    output_format: "png",
+    n: 1,
+    user: config.userId,
+  } as const;
+  const options = config.signal ? { signal: config.signal } : undefined;
+  let response: OpenAI.Images.ImagesResponse;
+  try {
+    response = config.reference
+      ? await client.images.edit(
+          {
+            ...common,
+            image: await toFile(config.reference, "reference.png", {
+              type: "image/png",
+            }),
+          },
+          options,
+        )
+      : await client.images.generate(common, options);
+  } catch (cause) {
+    console.error("[generateSpriteGPT] OpenAI image generation failed", {
+      model: common.model,
+      hasImageInput: Boolean(config.reference),
+      promptLength: config.prompt.length,
+      prompt: config.prompt,
+      error:
+        cause instanceof Error ? { message: cause.message, stack: cause.stack } : cause,
+    });
+    throw cause;
+  }
+  const encoded = response.data?.[0]?.b64_json;
+  if (!encoded) throw new Error("No output from AI model");
+  return Buffer.from(encoded, "base64");
 };
 
 /**
  * Remove the background, retaining the standard model unless crisp sprite edges are requested.
+ * Accepts a URL or image bytes (the SDK uploads bytes as a Replicate file input).
  * The caller's signal also bounds waiting on the provider's polling/network work.
  */
 export const removeBackgroundReplicate = async (
-  imageUrl: string,
+  image: string | Buffer,
   signal?: AbortSignal,
   model: BackgroundRemovalModel = "lucataco",
 ) => {
@@ -459,7 +526,7 @@ export const removeBackgroundReplicate = async (
           : "lucataco/remove-bg:95fcc2a26d3899cd6c2691c900465aaeff466285a65c14638cc5f36f34befaf1",
         {
           input: {
-            image: imageUrl,
+            image,
             ...(model === "851-labs"
               ? { threshold: 0.5, background_type: "rgba", format: "png" }
               : {}),
@@ -473,6 +540,13 @@ export const removeBackgroundReplicate = async (
   if (!file) throw new Error("No output from remove-bg model");
   return file;
 };
+/** Cut out image bytes with the crisp 851-labs model and return the PNG result's bytes. */
+export const removeBackgroundToBuffer = async (image: Buffer, signal?: AbortSignal) => {
+  const file = await removeBackgroundReplicate(image, signal, "851-labs");
+  const blob = await runAbortable(() => file.blob(), signal);
+  return Buffer.from(await blob.arrayBuffer());
+};
+
 /**
  * Upload an image from OpenAI to UploadThing
  * @param img - The image to upload
