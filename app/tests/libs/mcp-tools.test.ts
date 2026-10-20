@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { describe, expect, it, vi } from "bun:test";
+import { z } from "zod";
 import { buildToolRegistry, handleCallEndpoint } from "@/libs/mcp/meta-tools";
 import { extractToolsFromProcedures } from "@/libs/mcp/tools";
 import type { McpMeta } from "@/libs/mcp/types";
@@ -22,6 +23,9 @@ const router = t.router({
   profile: t.router({
     read: t.procedure.query(() => ({ username: "ninja" })),
     update: t.procedure.input(idSchema).mutation(write),
+    filtered: t.procedure
+      .input(z.object({ search: z.string().optional() }))
+      .query(({ input }) => ({ filtered: input })),
     described: t.procedure
       .meta({ mcp: { description: "A custom description", transformMcpProcedure: transform } })
       .query(() => ({ success: true })),
@@ -59,6 +63,11 @@ describe("universal MCP exposure", () => {
   it("invokes newly exposed queries and validated mutations", async () => {
     expect(firstText(await call("profile.read"))).toContain("ninja");
     expect(firstText(await call("profile.update", { id: "ninja" }))).toContain("true");
+  });
+
+  it("sends an empty object when input is omitted for an object schema", async () => {
+    expect(firstText(await call("profile.filtered"))).toContain('"filtered":{}');
+    expect(firstText(await call("profile.update"))).toContain("Missing required fields");
   });
 
   it("still enforces procedure authorization and input validation before writes", async () => {
