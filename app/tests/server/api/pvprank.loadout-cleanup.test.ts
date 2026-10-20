@@ -179,4 +179,45 @@ describeWithDatabase("ranked prohibited loadout cleanup", () => {
       setSystemTime();
     }
   });
+  it("strips deleted, unshoppable and duplicate selections so the loadout can be edited", async () => {
+    await insertItems([
+      { id: "retired-item", name: "Retired item", itemType: "WEAPON", inShop: false },
+      { id: "new-weapon", name: "New weapon", itemType: "WEAPON" },
+    ]);
+    const db = await getTestDatabase();
+    await db
+      .update(rankedLoadout)
+      .set({
+        loadout: loadout(
+          ["usable", "usable", "deleted-jutsu"],
+          ["weapon", "weapon", "retired-item", "deleted-item"],
+        ),
+      })
+      .where(eq(rankedLoadout.userId, USER));
+    const caller = await callerFor(pvpRankRouter, USER);
+
+    const cleaned = await caller.getRankedLoadout();
+
+    expect(cleaned.loadout).toEqual(loadout(["usable"], ["weapon"]));
+    expect((await storedLoadout()).loadout).toEqual(loadout(["usable"], ["weapon"]));
+    const saved = await caller.updateRankedLoadout({
+      ...cleaned.loadout,
+      weaponIds: [...cleaned.loadout.weaponIds, "new-weapon"],
+    });
+    expect(saved.success).toBe(true);
+    expect((await storedLoadout()).loadout.weaponIds).toEqual(["weapon", "new-weapon"]);
+  });
+
+  it("ignores duplicate ids when updating the loadout", async () => {
+    const saved = await (await callerFor(pvpRankRouter, USER)).updateRankedLoadout(
+      loadout(["usable", "usable"], ["weapon", "weapon"]),
+    );
+
+    expect(saved.success).toBe(true);
+    expect((await storedLoadout()).loadout).toEqual({
+      ...loadout(["usable"], ["weapon"]),
+      favoriteJutsuIds: ["usable", "usable"],
+      favoriteWeaponIds: ["weapon", "weapon"],
+    });
+  });
 });

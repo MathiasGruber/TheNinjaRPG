@@ -55,44 +55,59 @@ const filterProhibitedRankedSelections = async (
       ? client.query.item.findMany({ where: inArray(item.id, referencedItemIds) })
       : Promise.resolve([]),
   ]);
-  const removedJutsuIds = selectedJutsus
-    .filter(
-      (entry) =>
-        entry.requiredSkillId || entry.battleUsageType === "PVE" || !!entry.villageId,
-    )
-    .map((entry) => entry.id);
-  const removedItemIds = selectedItems
-    .filter((entry) => entry.requiredSkillId || entry.bloodlineId)
-    .map((entry) => entry.id);
-  let loadout = storedLoadout;
-  if (removedJutsuIds.length > 0 || removedItemIds.length > 0) {
-    loadout = {
-      ...storedLoadout,
-      loadout: {
-        ...storedLoadout.loadout,
-        jutsuIds: storedLoadout.loadout.jutsuIds.filter(
-          (id) => !removedJutsuIds.includes(id),
-        ),
-        favoriteJutsuIds: (storedLoadout.loadout.favoriteJutsuIds ?? []).filter(
-          (id) => !removedJutsuIds.includes(id),
-        ),
-        weaponIds: storedLoadout.loadout.weaponIds.filter(
-          (id) => !removedItemIds.includes(id),
-        ),
-        consumableIds: storedLoadout.loadout.consumableIds.filter(
-          (id) => !removedItemIds.includes(id),
-        ),
-        favoriteWeaponIds: (storedLoadout.loadout.favoriteWeaponIds ?? []).filter(
-          (id) => !removedItemIds.includes(id),
-        ),
-        favoriteConsumableIds: (
-          storedLoadout.loadout.favoriteConsumableIds ?? []
-        ).filter((id) => !removedItemIds.includes(id)),
-      },
-    };
-  }
+  // Deleted jutsu and items missing from the shop can never pass
+  // updateRankedLoadout, so they are stripped alongside prohibited selections.
+  const foundJutsuIds = new Set(selectedJutsus.map((entry) => entry.id));
+  const foundItemIds = new Set(selectedItems.map((entry) => entry.id));
+  const removedJutsuIds = [
+    ...selectedJutsus
+      .filter(
+        (entry) =>
+          entry.requiredSkillId || entry.battleUsageType === "PVE" || !!entry.villageId,
+      )
+      .map((entry) => entry.id),
+    ...referencedJutsuIds.filter((id) => !foundJutsuIds.has(id)),
+  ];
+  const removedItemIds = [
+    ...selectedItems
+      .filter((entry) => entry.requiredSkillId || entry.bloodlineId || !entry.inShop)
+      .map((entry) => entry.id),
+    ...referencedItemIds.filter((id) => !foundItemIds.has(id)),
+  ];
+  const keep = (ids: string[] = [], removed: string[]) => [
+    ...new Set(ids.filter((id) => !removed.includes(id))),
+  ];
+  const cleanedLoadout = {
+    ...storedLoadout.loadout,
+    jutsuIds: keep(storedLoadout.loadout.jutsuIds, removedJutsuIds),
+    favoriteJutsuIds: keep(storedLoadout.loadout.favoriteJutsuIds, removedJutsuIds),
+    weaponIds: keep(storedLoadout.loadout.weaponIds, removedItemIds),
+    consumableIds: keep(storedLoadout.loadout.consumableIds, removedItemIds),
+    favoriteWeaponIds: keep(storedLoadout.loadout.favoriteWeaponIds, removedItemIds),
+    favoriteConsumableIds: keep(
+      storedLoadout.loadout.favoriteConsumableIds,
+      removedItemIds,
+    ),
+  };
+  // Duplicate ids change the loadout without being reported as removals.
+  const hasChanges = (
+    [
+      "jutsuIds",
+      "favoriteJutsuIds",
+      "weaponIds",
+      "consumableIds",
+      "favoriteWeaponIds",
+      "favoriteConsumableIds",
+    ] as const
+  ).some(
+    (key) => (storedLoadout.loadout[key] ?? []).length !== cleanedLoadout[key].length,
+  );
+  const loadout = hasChanges
+    ? { ...storedLoadout, loadout: cleanedLoadout }
+    : storedLoadout;
   return {
     loadout,
+    hasChanges,
     removedJutsuIds,
     removedItemIds,
     // Favorites remain stored; only equipped rows contribute to loadout limits.
@@ -109,7 +124,8 @@ const filterProhibitedRankedSelections = async (
 
 /**
  * Strip selections ranked validation rejects: skill-gated jutsu/items,
- * PVE-only jutsu, village-gated jutsu, and bloodline-bound items. Kept in sync
+ * PVE-only jutsu, village-gated jutsu, bloodline-bound items, deleted jutsu,
+ * deleted or no-longer-in-shop items, and duplicate ids. Kept in sync
  * with validateJutsuLoadout / validateItemLoadout so matchmaking cannot force
  * a pre-restriction loadout into battle.
  *
@@ -123,13 +139,14 @@ export const cleanRankedProhibitedSelections = async (
   attempt = 0,
 ): Promise<{
   loadout: RankedLoadout;
+  hasChanges: boolean;
   removedJutsuIds: string[];
   removedItemIds: string[];
   jutsus: Jutsu[];
   items: Item[];
 }> => {
   const filtered = await filterProhibitedRankedSelections(client, storedLoadout);
-  if (filtered.removedJutsuIds.length === 0 && filtered.removedItemIds.length === 0) {
+  if (!filtered.hasChanges) {
     return filtered;
   }
 
