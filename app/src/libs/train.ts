@@ -210,7 +210,10 @@ export const checkJutsuVillage = (jutsu: Jutsu | undefined, userdata: UserData) 
 
 export const checkJutsuBloodline = (jutsu: Jutsu | undefined, userdata: UserData) => {
   if (!jutsu) return false;
-  return !jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId;
+  return (
+    (!jutsu.bloodlineId || jutsu.bloodlineId === userdata.bloodlineId) &&
+    (!jutsu.bloodlineReskinId || jutsu.bloodlineReskinId === userdata.bloodlineReskinId)
+  );
 };
 
 export const checkJutsuElements = (jutsu: Jutsu, userElements: Set<ElementName>) => {

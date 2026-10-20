@@ -77,6 +77,24 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
     expect((await fetchUserJutsus(db, "player"))[0]?.jutsu.name).toBe("Parent");
   });
 
+  it("rejects training a visible variant without its reskin before charging ryo or granting ownership", async () => {
+    const id = await createChild();
+    const db = await getTestDatabase();
+    await db.update(jutsu).set({ hidden: false }).where(eq(jutsu.id, id));
+    await db.update(userData).set({ bloodlineId: "blood", rank: "JONIN", level: 100, money: 1000 }).where(eq(userData.userId, "player"));
+    const player = await callerFor(jutsuRouter, "player");
+    for (const bloodlineReskinId of [null, "other"]) {
+      await db.update(userData).set({ bloodlineReskinId }).where(eq(userData.userId, "player"));
+      expect(await player.startTraining({ jutsuId: id })).toMatchObject({ success: false, message: "Jutsu not for you" });
+      expect((await db.query.userData.findFirst({ where: eq(userData.userId, "player") }))?.money).toBe(1000);
+      expect(await db.query.userJutsu.findMany({ where: eq(userJutsu.userId, "player") })).toHaveLength(0);
+    }
+    await db.update(userData).set({ bloodlineReskinId: "group" }).where(eq(userData.userId, "player"));
+    expect(await player.startTraining({ jutsuId: id })).toMatchObject({ success: true });
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "player") }))?.money).toBeLessThan(1000);
+    expect(await db.query.userJutsu.findFirst({ where: eq(userJutsu.userId, "player") })).toMatchObject({ jutsuId: id, level: 1 });
+  });
+
   it("searches linked names and retains base-name filtering for unlinked jutsu", async () => {
     const id = await createChild();
     const db = await getTestDatabase();

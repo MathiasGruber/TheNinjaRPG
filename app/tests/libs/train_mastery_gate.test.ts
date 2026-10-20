@@ -54,6 +54,16 @@ const ninjutsuBuff = {
 } as unknown as ZodAllTags;
 
 describe("jutsu mastery gate", () => {
+  it("requires the selected reskin as well as the underlying bloodline", () => {
+    const reskinned = { ...jutsu, requiredNinjutsuMastery: null, bloodlineId: "blood", bloodlineReskinId: "scarlet" };
+    const parentOwner = { ...user, bloodlineId: "blood", bloodlineReskinId: null };
+    expect(jutsuRequirementWarning(reskinned, parentOwner)).toContain("bloodline");
+    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineReskinId: "scarlet" })).toBe("");
+    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineReskinId: "other" })).toContain("bloodline");
+    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineId: "other", bloodlineReskinId: "scarlet" })).toContain("bloodline");
+    expect(jutsuRequirementWarning({ ...reskinned, bloodlineReskinId: null }, parentOwner)).toBe("");
+  });
+
   it("reserves pet jutsu for companions even when player requirements are met", () => {
     const available = { ...jutsu, requiredNinjutsuMastery: null };
     expect(jutsuRequirementWarning(available, user)).toBe("");
