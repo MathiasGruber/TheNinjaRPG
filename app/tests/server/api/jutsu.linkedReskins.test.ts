@@ -80,6 +80,7 @@ describeWithDatabase("linked H-rank jutsu against real MySQL", () => {
   it("rejects training a visible variant without its reskin before charging ryo or granting ownership", async () => {
     const id = await createChild();
     const db = await getTestDatabase();
+    // Keep the variant visible so this test isolates reskin eligibility.
     await db.update(jutsu).set({ hidden: false }).where(eq(jutsu.id, id));
     await db.update(userData).set({ bloodlineId: "blood", rank: "JONIN", level: 100, money: 1000 }).where(eq(userData.userId, "player"));
     const player = await callerFor(jutsuRouter, "player");
