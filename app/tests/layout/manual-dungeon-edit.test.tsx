@@ -40,6 +40,7 @@ it.each(["success", "error"])("keeps the saved draft selected until a pending sa
       save: { useMutation: (options: UseMutationOptions<SaveResult, Error, SaveInput>) => useMutation({ ...options, mutationFn: save }) },
     },
     },
+    mapAsset: { getAll: { useQuery: () => ({ data: [] }) } },
     profile: { getAllAiNames: { useQuery: () => ({ data: [{ userId: "enemy", username: "Enemy" }] }) } },
     item: { getAllNames: { useQuery: () => ({ data: [] }) } },
     jutsu: { getAllNames: { useQuery: () => ({ data: [] }) } },

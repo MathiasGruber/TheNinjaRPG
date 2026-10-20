@@ -186,14 +186,17 @@ export const overworldAiRouter = createTRPCRouter({
       ).catch(() => null);
 
       // Referential-safety guards: a bound placement cannot be deactivated, repointed at a
-      // different AI, or changed to HOSTILE while it carries a friendly interaction objective.
+      // different AI, made roaming while carrying structure art, or changed to HOSTILE
+      // while it carries a friendly interaction objective.
       const makingHostile = input.data.interactionType === "HOSTILE";
+      const makingRoaming =
+        cfg.sectorType !== "specific" || cfg.locationType !== "specific";
       const changingAi =
         !!existingPlacement &&
         existingPlacement.aiTemplateUserId !== cfg.aiTemplateUserId;
-      if (placementId && makingHostile) {
-        // HOSTILE needs objective content to detect friendly deliver/dialog bindings; that fetch
-        // already carries the quest names, so a single query also covers the deactivate check.
+      if (placementId && (makingHostile || makingRoaming)) {
+        // These guards need objective content; the same fetch supplies names for
+        // deactivation and AI reassignment without another query.
         const binding = await fetchQuestsBindingPlacement(ctx.drizzle, placementId);
         if (!input.data.isActive && binding.length > 0) {
           return errorResponse(
@@ -205,9 +208,25 @@ export const overworldAiRouter = createTRPCRouter({
             `Cannot change AI template: bound to quest(s): ${binding.map((q) => q.name).join(", ")}. Unbind them first.`,
           );
         }
-        const friendlyBound = binding.filter((q) =>
-          hasFriendlyBindingToPlacement(q.content.objectives, placementId),
-        );
+        const structureBound = makingRoaming
+          ? binding.filter((q) =>
+              q.content.objectives.some(
+                (objective) =>
+                  objective.overworldPlacementId === placementId &&
+                  objective.structureAssetId,
+              ),
+            )
+          : [];
+        if (structureBound.length > 0) {
+          return errorResponse(
+            `Cannot make roaming: structure objectives in quest(s) ${structureBound.map((q) => q.name).join(", ")} require a fixed NPC placement. Unbind them first.`,
+          );
+        }
+        const friendlyBound = makingHostile
+          ? binding.filter((q) =>
+              hasFriendlyBindingToPlacement(q.content.objectives, placementId),
+            )
+          : [];
         if (friendlyBound.length > 0) {
           return errorResponse(
             `Cannot set HOSTILE: deliver/dialog objectives in quest(s) ${friendlyBound
@@ -829,8 +848,7 @@ const fetchQuestNamesBindingPlacement = async (
     where: questBindsPlacementWhere(placementId),
   });
 
-/** Same binding set, plus the objective content needed to detect friendly deliver/dialog
- *  bindings (only the make-HOSTILE guard reads it). Admin-only guard. */
+/** Same binding set, plus objective content for friendly interaction and fixed structure guards. */
 const fetchQuestsBindingPlacement = async (
   client: DrizzleClient,
   placementId: string,

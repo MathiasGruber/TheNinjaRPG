@@ -63,6 +63,7 @@ import {
 } from "@/drizzle/constants";
 import type { UserItemWithItem } from "@/drizzle/schema";
 import { finishItemConsumeRequest, getItemConsumeInput } from "@/libs/itemConsumption";
+import { MAP_LOCATION_REFRESH_MS } from "@/validators/mapLocation";
 
 type RevealedPlayer = {
   userId: string;
@@ -231,13 +232,15 @@ function Travel() {
       select: (data) => data?.sectorData?.village?.name ?? null,
     },
   );
-  // The decoration + terrain libraries change rarely; fetch them once and keep
-  // them across navigation for the whole session, including time away from travel.
+  // Keep libraries across navigation; refresh artwork so content edits reach existing maps.
   const { data: mapAssets } = api.mapAsset.getAll.useQuery(undefined, {
     enabled: !!userData,
-    staleTime: Infinity,
+    staleTime: MAP_LOCATION_REFRESH_MS,
+    refetchInterval: MAP_LOCATION_REFRESH_MS,
+    refetchIntervalInBackground: false,
     gcTime: Infinity,
   });
+  // Terrain definitions remain cached for the session.
   const { data: mapTerrains } = api.mapTerrain.getAll.useQuery(undefined, {
     enabled: !!userData,
     staleTime: Infinity,

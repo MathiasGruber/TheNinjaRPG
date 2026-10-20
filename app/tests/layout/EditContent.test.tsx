@@ -46,10 +46,13 @@ vi.mock("@/app/_trpc/client", () => ({
     petSpecies: { getAll: names },
     skillTree: { getAllNames: names },
     badge: { getAll: names },
+    mapAsset: { getAll: names },
     title: { getAllNames: names },
     misc: { getAllGameAssetNames: names },
     village: { getAllNames: names },
-    quests: { getAllNames: names, update: { useMutation: () => ({ mutateAsync: saveQuest }) } },
+    quests: { getAllNames: names, getPublicLocations: names, update: { useMutation: () => ({ mutateAsync: saveQuest }) } },
+    worldMap: { getSectorWindow: { useQuery: () => ({ data: undefined }) } },
+    mapTerrain: { getAll: names },
     overworldAi: { getAllPlacementNames: names },
     rewardPackages: {
       getCatalog: rewardCatalogQuery,
@@ -252,6 +255,67 @@ const ObjectiveRewardForm = ({ onUpdate }: { onUpdate: () => void }) => {
     <button type="button" onClick={() => void handleQuestSubmit()}>Save objective</button>
   </>;
 };
+
+const savedStructureQuest = {
+  ...savedObjectiveQuest,
+  content: {
+    ...savedObjectiveQuest.content,
+    objectives: [getObjectiveSchema("move_to_location").parse({
+      id: "structure", task: "move_to_location", structureAssetId: "tower",
+      locationName: "Watchtower", locationDescription: "An old tower", structureScale: 1,
+    })],
+  },
+} as Quest;
+
+const StructureObjectiveForm = () => {
+  const { objectives, setObjectives, handleQuestSubmit } = useQuestEditForm(savedStructureQuest, async () => undefined);
+  return <>
+    <ObjectiveFormWrapper
+      idx={0} quest={savedStructureQuest} availableTags={["move_to_location"]} hideTagType
+      objective={objectives[0]!} objectives={objectives} setObjectives={setObjectives}
+    />
+    <button type="button" onClick={() => void handleQuestSubmit()}>Save objective</button>
+  </>;
+};
+
+describe("quest structure drafts", () => {
+  it.each([
+    ["structureScale", "6", "2"],
+    ["locationName", "N".repeat(101), "Repaired tower"],
+    ["locationDescription", "D".repeat(2001), "Repaired description"],
+  ])("keeps an invalid %s draft repairable after clearing artwork", async (field, invalid, repaired) => {
+    const view = render(<StructureObjectiveForm />);
+    const input = view.container.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${field}"]`)!;
+    await act(async () => { fireEvent.input(input, { target: { value: invalid } }); });
+    fireEvent.click(view.getByRole("button", { name: "Clear Map structure (optional)" }));
+    await waitFor(() => expect(view.container.querySelector(`[name="${field}"]`)).toBe(input));
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(toastHelpers.showFormErrorsToast).toHaveBeenCalledTimes(1));
+    expect(saveQuest).not.toHaveBeenCalled();
+    await act(async () => { input.focus(); fireEvent.input(input, { target: { value: repaired } }); });
+    expect(view.container.querySelector(`[name="${field}"]`)).toBe(input);
+    expect(document.activeElement).toBe(input);
+    fireEvent.blur(input);
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(saveQuest).toHaveBeenCalledTimes(1));
+    expect(saveQuest.mock.calls[0]?.[0]).toMatchObject({ data: { content: { objectives: [{
+      structureAssetId: "", [field!]: field === "structureScale" ? Number(repaired) : repaired,
+    }] } } });
+  });
+
+  it("keeps valid cleared artwork drafts compact and preserves their values on save", async () => {
+    const view = render(<StructureObjectiveForm />);
+    fireEvent.click(view.getByRole("button", { name: "Clear Map structure (optional)" }));
+    await waitFor(() => expect(view.queryByLabelText("Structure size multiplier")).toBeNull());
+    expect(view.queryByLabelText("Location name")).toBeNull();
+    expect(view.queryByLabelText("Location description (Inspect)")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Save objective" }));
+    await waitFor(() => expect(saveQuest).toHaveBeenCalledTimes(1));
+    expect(saveQuest.mock.calls[0]?.[0]).toMatchObject({ data: { content: { objectives: [{
+      structureAssetId: "", locationName: "Watchtower", locationDescription: "An old tower", structureScale: 1,
+    }] } } });
+  });
+});
 
 describe("reward node editing", () => {
   it.each(["button", "selector"])("validates drafts before copying a reward group via the %s", async (control) => {

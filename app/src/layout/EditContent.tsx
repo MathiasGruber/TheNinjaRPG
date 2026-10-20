@@ -49,6 +49,7 @@ import ContentImageSelector from "@/layout/ContentImageSelector";
 import { CoordinateTargetingEditor } from "@/layout/CoordinateTargetingEditor";
 import { EpidemicSfxSearch } from "@/layout/EpidemicSfxSearch";
 import Image from "@/layout/Image";
+import { MapLocationPreview } from "@/layout/MapLocationPreview";
 import { MethodSizeEditor } from "@/layout/MethodSizeEditor";
 import Modal from "@/layout/Modal";
 import { RewardEditor } from "@/layout/RewardEditor";
@@ -88,6 +89,7 @@ import {
   questDebuffTypes,
 } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
+import { supportsMapStructure } from "@/validators/mapLocation";
 import type { MethodSize } from "@/validators/methodSize";
 import type { AllObjectivesType } from "@/validators/objectives";
 import {
@@ -834,8 +836,8 @@ export const EditContent = <
                         "appearSfx",
                         "disappearSfx",
                       ].includes(id))) && (
-                    <div className="flex flex-row items-end">
-                      <div className="grow">
+                    <div className="flex min-w-0 flex-row items-end">
+                      <div className="min-w-0 flex-1">
                         <FormField
                           control={form.control}
                           name={id}
@@ -848,6 +850,11 @@ export const EditContent = <
                             const dynamicOptions =
                               dynamicOptionsMap[fieldId] || options;
                             const newItemInput = newItemInputMap[fieldId] || "";
+                            const selectedLabel = hasComboboxValue(field.value)
+                              ? dynamicOptions.find(
+                                  (option) => String(option.value) === String(field.value),
+                                )?.label
+                              : "Select option";
 
                             const setDynamicOptions = (newOptions: OptionType[]) => {
                               setDynamicOptionsMap((prev) => ({
@@ -927,14 +934,10 @@ export const EditContent = <
                                             fieldState.isDirty && "border-orange-300",
                                           )}
                                         >
-                                          {hasComboboxValue(field.value)
-                                            ? dynamicOptions.find(
-                                                (option) =>
-                                                  String(option.value) ===
-                                                  String(field.value),
-                                              )?.label
-                                            : "Select option"}
-                                          <ChevronsUpDown className="opacity-50" />
+                                          <span className="min-w-0 truncate text-left" title={selectedLabel}>
+                                            {selectedLabel}
+                                          </span>
+                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                       </FormControl>
                                     </PopoverTrigger>
@@ -1021,7 +1024,7 @@ export const EditContent = <
                       {formEntry.resetButton && (
                         <Button
                           aria-label={`Clear ${formEntry.label ?? id}`}
-                          className="ml-1 w-8 p-0"
+                          className="ml-1 w-8 shrink-0 p-0"
                           type="button"
                           variant="ghost"
                           onClick={(e) => {
@@ -2473,6 +2476,10 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     enabled: fields.includes("newQuestIds") || fields.includes("completeQuestIds"),
   });
 
+  const { data: structureAssets = [] } = api.mapAsset.getAll.useQuery(undefined, {
+    enabled: supportsMapStructure(objective.task),
+  });
+
   const { data: placementNames } = api.overworldAi.getAllPlacementNames.useQuery(
     undefined,
     { enabled: isSupportedOverworldBindingTask(objective.task) },
@@ -2500,6 +2507,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   const watchTask = watchAll.task;
   const watchPlacementId = watchAll.overworldPlacementId;
   const watchOpponentAis = watchAll.opponentAIs;
+  const [showStructureDraftFields, setShowStructureDraftFields] = useState(false);
 
   // When user changes type, we need to update the effects array to re-render form
   useEffect(() => {
@@ -2526,6 +2534,19 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   useEffect(() => {
     const newObjectives = [...objectives];
     const parsedTag = objectiveSchema.safeParse(watchAll);
+    // Keep cleared artwork's invalid drafts repairable through correction and blur.
+    if (watchAll.structureAssetId) {
+      setShowStructureDraftFields(false);
+    } else if (
+      !parsedTag.success &&
+      parsedTag.error.issues.some((issue) =>
+        ["locationName", "locationDescription", "structureScale"].includes(
+          String(issue.path[0]),
+        ),
+      )
+    ) {
+      setShowStructureDraftFields(true);
+    }
     const shownTag = parsedTag.success ? parsedTag.data : watchAll;
     if ("id" in shownTag && shownTag.id) {
       newObjectives[idx] = shownTag as AllObjectivesType;
@@ -2567,6 +2588,24 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   // Parse how to present the tag form
   const formData: FormEntry<Attribute>[] = attributes
     .filter((value) => value !== "reward_packages")
+    .filter(
+      (value) =>
+        ![
+          "structureAssetId",
+          "locationName",
+          "locationDescription",
+          "structureScale",
+        ].includes(String(value)) || supportsMapStructure(watchTask),
+    )
+    .filter(
+      (value) =>
+        !["locationName", "locationDescription", "structureScale"].includes(
+          String(value),
+        ) ||
+        !!watchAll.structureAssetId ||
+        showStructureDraftFields ||
+        !objectiveSchema.shape[value].safeParse(watchAll[value]).success,
+    )
     .filter(
       (value) =>
         String(value) !== "durationSeconds" ||
@@ -2668,6 +2707,27 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
     })
     .map((value) => {
       const innerType = getInner(objectiveSchema.shape[value]);
+      if (value === "structureAssetId")
+        return {
+          id: value,
+          type: "db_values",
+          label: "Map structure (optional)",
+          values: structureAssets,
+          searchable: true,
+          resetButton: true,
+        };
+      if (value === "locationName")
+        return { id: value, type: "text", label: "Location name" };
+      if (value === "locationDescription")
+        return {
+          id: value,
+          type: "textarea",
+          label: "Location description (Inspect)",
+          doubleWidth: true,
+        };
+      if (value === "structureScale")
+        return { id: value, type: "number", label: "Structure size multiplier" };
+
       if (
         (["attackers", "opponentAIs", "allyAIs"] as string[]).includes(value) &&
         aiData
@@ -2945,6 +3005,25 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
             disabled={props.submitLoading}
           />
         </>
+      )}
+      {watchAll.structureAssetId && (
+        <MapLocationPreview
+          isDynamic={Boolean(
+            (watchAll.sectorType && watchAll.sectorType !== "specific") ||
+              (watchAll.locationType && watchAll.locationType !== "specific") ||
+              watchAll.overworldPlacementId,
+          )}
+          location={{
+            id: objective.id,
+            sector: Number(watchAll.sector),
+            longitude: Number(watchAll.longitude),
+            latitude: Number(watchAll.latitude),
+            name: watchAll.locationName || "Quest location",
+            description: watchAll.locationDescription || "",
+            assetId: watchAll.structureAssetId,
+            scale: Number(watchAll.structureScale) || 1,
+          }}
+        />
       )}
       <EditContent
         schema={objectiveSchema}

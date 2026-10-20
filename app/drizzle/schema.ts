@@ -4217,6 +4217,7 @@ export const quest = mysqlTable(
     hidden: boolean("hidden").default(false).notNull(),
     consecutiveObjectives: boolean("consecutiveObjectives").default(true).notNull(),
     teamEnabled: boolean("teamEnabled").default(false).notNull(),
+    publicLocations: boolean("publicLocations").default(false).notNull(),
     requiredVillage: varchar("requiredVillage", { length: 191 }),
     requiredBloodlineId: varchar("requiredBloodlineId", { length: 191 }),
     requiredSageModeId: varchar("requiredSageModeId", { length: 191 }),
@@ -4254,6 +4255,7 @@ export const quest = mysqlTable(
     return {
       tierLevel: unique("tierLevel").on(table.tierLevel),
       questTypeIdx: index("Quest_questType_idx").on(table.questType),
+      publicLocationsIdx: index("Quest_publicLocations_hidden_idx").on(table.publicLocations, table.hidden),
       questRankIdx: index("Quest_questRank_idx").on(table.questRank),
       requiredLevelIdx: index("Quest_requiredLevel_idx").on(table.requiredLevel),
       requiredFarmingLevelIdx: index("Quest_requiredFarmingLevel_idx").on(

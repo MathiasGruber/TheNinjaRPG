@@ -36,7 +36,13 @@ import {
   WAR_MISSION_REQUIRED_RANK,
   WAR_MISSIONS_PER_DAY,
 } from "@/drizzle/constants";
-import type { GameSetting, Quest, UserData, UserItem } from "@/drizzle/schema";
+import type {
+  GameSetting,
+  Quest,
+  UserData,
+  UserItem,
+  UserQuest,
+} from "@/drizzle/schema";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
 import { getFarmingLevel } from "@/libs/farming";
 import { getGatheringRank } from "@/libs/gathering";
@@ -112,7 +118,12 @@ import { getQuestCounterFieldName } from "@/validators/user";
  * Get currently active quests for a user
  */
 /** Select playable definitions; raw history remains available for isolation and recovery controls. */
-export const getUserQuests = (user: NonNullable<UserWithRelations>) => {
+export const getUserQuests = (
+  user: UserData & {
+    userQuests: UserQuest[];
+    completedQuests: { id: string; questId: string; completed?: number }[];
+  },
+) => {
   const userQuests =
     user?.userQuests
       .filter((uq) => !!uq.quest && !hasQuestContentChanged(uq))
@@ -230,7 +241,7 @@ export const hasActiveHiddenQuestObjectives = (
 };
 
 /**
- * Get active objectives for a user
+ * Project active targets without changing the authored or public quest definitions.
  */
 export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
   const activeQuests = user.userQuests.map((uq) => uq.quest);
@@ -243,16 +254,11 @@ export const getActiveObjectives = (user: NonNullable<UserWithRelations>) => {
       }
       const goal = tracker?.goals.find((g) => g.id === objective.id);
       if (goal && goal.done === false) {
-        if (goal.sector !== objective.sector) {
-          objective.sector = goal.sector;
-        }
-        if (goal.longitude !== objective.longitude) {
-          objective.longitude = goal.longitude;
-        }
-        if (goal.latitude !== objective.latitude) {
-          objective.latitude = goal.latitude;
-        }
-        activeObjectives.push(objective);
+        const resolved = { ...objective };
+        resolved.sector = goal.sector ?? objective.sector;
+        resolved.longitude = goal.longitude ?? objective.longitude;
+        resolved.latitude = goal.latitude ?? objective.latitude;
+        activeObjectives.push(resolved);
       }
     });
   });
@@ -1143,6 +1149,25 @@ export const getNewTrackers = (
             }
           }
 
+          // Public landmarks share one canonical entrance across all accepted attempts.
+          if (
+            quest.publicLocations &&
+            objective.structureAssetId &&
+            "sectorType" in objective &&
+            objective.sectorType === "specific" &&
+            "locationType" in objective &&
+            objective.locationType === "specific" &&
+            (status.sector !== objective.sector ||
+              status.longitude !== objective.longitude ||
+              status.latitude !== objective.latitude)
+          ) {
+            status.sector = objective.sector;
+            status.longitude = objective.longitude;
+            status.latitude = objective.latitude;
+            status.locationChecked = false;
+            consequences.push({ type: "update_user", ids: ["location_update"] });
+          }
+
           // If locationType is not specific, update the location accordingly
           if (
             "locationType" in objective &&
@@ -1167,7 +1192,40 @@ export const getNewTrackers = (
             questTracker,
           );
 
-          if (previousObjective) {
+          // Implicit dialogs follow live NPC positions, never a bound objective's fallback coordinates.
+          let locationPredecessor = previousObjective;
+          const visited = new Set([objective.id]);
+          while (
+            locationPredecessor?.task === "dialog" &&
+            !locationPredecessor.overworldPlacementId &&
+            locationPredecessor.sector === undefined &&
+            locationPredecessor.longitude === undefined &&
+            locationPredecessor.latitude === undefined &&
+            !visited.has(locationPredecessor.id)
+          ) {
+            visited.add(locationPredecessor.id);
+            locationPredecessor = findCompletedPredecessor(
+              quest.content.objectives,
+              locationPredecessor.id,
+              questTracker,
+            );
+          }
+          const hasBoundLocation =
+            objective.task === "dialog" &&
+            !objective.overworldPlacementId &&
+            !!locationPredecessor?.overworldPlacementId &&
+            isSupportedOverworldBindingTask(locationPredecessor.task);
+          if (hasBoundLocation) {
+            for (const field of ["sector", "longitude", "latitude"] as const) {
+              if (objective[field] === undefined && status[field] !== undefined) {
+                delete status[field];
+                delete status.locationChecked;
+                consequences.push({ type: "update_user", ids: ["location_update"] });
+              }
+            }
+          }
+
+          if (previousObjective && !hasBoundLocation) {
             if (status.sector === undefined && "sector" in previousObjective) {
               status.sector = previousObjective.sector;
               consequences.push({ type: "update_user", ids: [`sector_update`] });

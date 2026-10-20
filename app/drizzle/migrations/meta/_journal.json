@@ -708,6 +708,13 @@
       "when": 1792415372878,
       "tag": "0101_aspiring_sally_floyd",
       "breakpoints": false
+    },
+    {
+      "idx": 102,
+      "version": "5",
+      "when": 1792427234261,
+      "tag": "0102_last_rictor",
+      "breakpoints": false
     }
   ]
 }

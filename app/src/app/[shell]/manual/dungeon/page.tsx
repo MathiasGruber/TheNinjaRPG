@@ -21,6 +21,7 @@ import {
 } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
+import { MapLocationPreview } from "@/layout/MapLocationPreview";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { formatLocalDateTimeInput } from "@/utils/time";
@@ -40,6 +41,7 @@ export default function DungeonEditor() {
   const [panel, setPanel] = useState("details");
   const formRef = useRef<HTMLDivElement>(null);
   const definitions = api.coop.dungeon.getAll.useQuery(undefined, { enabled: allowed });
+  const assets = api.mapAsset.getAll.useQuery(undefined, { enabled: allowed });
   const ais = api.profile.getAllAiNames.useQuery(undefined, { enabled: allowed });
   const items = api.item.getAllNames.useQuery(undefined, { enabled: allowed });
   const jutsus = api.jutsu.getAllNames.useQuery(undefined, { enabled: allowed });
@@ -184,11 +186,49 @@ export default function DungeonEditor() {
               data-editor-panel="details"
               className="space-y-4 data-[state=inactive]:hidden"
             >
+              {content.structureAssetId && (
+                <MapLocationPreview
+                  location={{
+                    id: id ?? "dungeon-preview",
+                    sector: content.sector,
+                    longitude: content.longitude,
+                    latitude: content.latitude,
+                    assetId: content.structureAssetId,
+                    name: content.name,
+                    description: content.description,
+                    scale: content.structureScale,
+                  }}
+                />
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Name">
                   <Input
                     value={content.name}
                     onChange={(e) => patch({ name: e.target.value })}
+                  />
+                </Field>
+                <Field label="Entrance artwork">
+                  <select
+                    aria-label="Entrance artwork"
+                    className="w-full rounded border bg-background p-2"
+                    value={content.structureAssetId}
+                    onChange={(e) => patch({ structureAssetId: e.target.value })}
+                  >
+                    <option value="">Default biome entrance</option>
+                    {assets.data?.map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Entrance size multiplier">
+                  <NumberInput
+                    min={0.2}
+                    max={5}
+                    step={0.1}
+                    value={content.structureScale}
+                    onChange={(e) => patch({ structureScale: Number(e.target.value) })}
                   />
                 </Field>
                 <Field label="Battle background">
@@ -598,6 +638,8 @@ const normalizeRooms = (tiers: DungeonContent["tiers"]): DungeonContent["tiers"]
 const newDungeon = (): DungeonContent => ({
   name: "",
   description: "",
+  structureAssetId: "",
+  structureScale: 1,
   sector: 1,
   longitude: 10,
   latitude: 10,

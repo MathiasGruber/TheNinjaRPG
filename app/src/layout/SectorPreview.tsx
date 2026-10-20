@@ -9,7 +9,7 @@ import {
   HEX_ASPECT_RATIO,
   HEX_STACKING_DISPLACEMENT,
 } from "@/drizzle/constants";
-import type { VillageStructure } from "@/drizzle/schema";
+import type { MapAsset, VillageStructure } from "@/drizzle/schema";
 import type { TerrainHex } from "@/libs/hexgrid";
 import type { DecorationAsset } from "@/libs/sector-map/decorations";
 import type { TerrainSpec } from "@/libs/sector-map/terrains";
@@ -19,6 +19,7 @@ import {
   usesVillageWalls,
 } from "@/libs/sector-map/village-walls";
 import { getBackgroundColor } from "@/libs/threejs/biome";
+import { syncMapLocationSprites } from "@/libs/threejs/mapLocations";
 import {
   drawSector,
   drawVillage,
@@ -30,9 +31,12 @@ import {
   setRaycasterFromMouse,
   setupScene,
 } from "@/libs/threejs/util";
+import type { MapLocation } from "@/validators/mapLocation";
 
 interface SectorPreviewProps {
   map: NormalizedSectorMap;
+  locations?: MapLocation[];
+  mapAssets?: Pick<MapAsset, "id" | "imageUrl" | "renderScale">[];
   sector: number;
   decorationAssets: Map<string, DecorationAsset>;
   terrainRegistry: Map<string, TerrainSpec>;
@@ -117,6 +121,12 @@ const SectorPreview: React.FC<SectorPreviewProps> = (props) => {
         map,
         villageType ?? null,
         groups.villageWallPlan,
+      );
+      syncMapLocationSprites(
+        groups.group_assets,
+        groups.honeycombGrid,
+        props.locations ?? [],
+        props.mapAssets ?? [],
       );
       sortSectorAssetsByGroundContact(groups.group_assets);
       scene.add(groups.group_dirt);
@@ -283,6 +293,8 @@ const SectorPreview: React.FC<SectorPreviewProps> = (props) => {
     structures,
     villageType,
     draggable,
+    props.locations,
+    props.mapAssets,
   ]);
 
   return <div ref={mountRef} className="w-full" />;

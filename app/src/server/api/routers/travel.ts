@@ -38,17 +38,20 @@ import {
   battle,
   clan,
   overworldAiPlacement,
+  questHistory,
   userData,
   userItem,
   userSkill,
   village,
   war,
 } from "@/drizzle/schema";
+import { getQuestMapLocations } from "@/libs/mapLocations";
 import { maskWarObjectives } from "@/libs/objectiveWar";
 import { placementToSectorUser } from "@/libs/overworldAi";
 import { calcActiveUserRegen, calcLevel, calcMaxEnergy } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
+import { getUserQuests } from "@/libs/quest";
 import { hasEnergyQueue } from "@/libs/queue";
 import {
   findNearestWalkableCoordinate,
@@ -87,6 +90,7 @@ import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
+  buildSectorWindowLayout,
   fetchPublishedSectorMap,
   fetchPublishedSectorMaps,
   getSectorNeighborIds,
@@ -351,7 +355,24 @@ export const travelRouter = createTRPCRouter({
     })
     .input(z.object({ sector: sectorIdSchema })) // Note: this is not actively used, but is there for reloading the sector data
     .query(async ({ ctx }) => {
-      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      const [user, userQuests, completedQuests] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.questHistory.findMany({
+          where: and(
+            eq(questHistory.userId, ctx.userId),
+            eq(questHistory.completed, 0),
+            isNull(questHistory.endAt),
+          ),
+          with: { quest: true },
+        }),
+        ctx.drizzle.query.questHistory.findMany({
+          columns: { id: true, questId: true, completed: true },
+          where: and(
+            eq(questHistory.userId, ctx.userId),
+            or(gte(questHistory.completed, 1), gt(questHistory.previousCompletes, 0)),
+          ),
+        }),
+      ]);
 
       // Guard: Only awake/travel/queued users can scout
       // QUEUED is included so users in raid queues can still see war/sector data
@@ -452,7 +473,10 @@ export const travelRouter = createTRPCRouter({
           }),
           ctx.drizzle.query.overworldAiPlacement.findMany({
             where: and(
-              eq(overworldAiPlacement.sector, user.sector),
+              inArray(
+                overworldAiPlacement.sector,
+                buildSectorWindowLayout(user.sector).map((entry) => entry.sector),
+              ),
               eq(overworldAiPlacement.isActive, true),
             ),
             // Stable order so the arrival-prompt `find`-first NPC can't flip between polls when two
@@ -462,6 +486,8 @@ export const travelRouter = createTRPCRouter({
               id: true,
               aiTemplateUserId: true,
               interactionType: true,
+              sectorType: true,
+              locationType: true,
               sector: true,
               longitude: true,
               latitude: true,
@@ -520,8 +546,38 @@ export const travelRouter = createTRPCRouter({
         });
 
       const overworldAis = placements
-        .filter((p) => p.aiTemplate?.isAi)
+        .filter((p) => p.sector === user.sector && p.aiTemplate?.isAi)
         .map((p) => placementToSectorUser(p, p.aiTemplate!));
+
+      const activeQuests = getUserQuests({ ...user, userQuests, completedQuests });
+      const boundPlacementIds = new Set(
+        activeQuests.flatMap((entry) =>
+          entry.content.objectives.map((objective) => objective.overworldPlacementId),
+        ),
+      );
+      const questPlacements = placements
+        .filter(
+          (p) =>
+            p.aiTemplate?.isAi &&
+            boundPlacementIds.has(p.id) &&
+            (p.sector === user.sector ||
+              (p.sectorType === "specific" && p.locationType === "specific")),
+        )
+        .map((p) => ({
+          npcPlacementId: p.id,
+          sector: p.sector,
+          longitude: p.longitude,
+          latitude: p.latitude,
+        }));
+      // Reuse landmark visibility and inheritance rules; remote coordinates carry no NPC actions.
+      const visibleLocations = getQuestMapLocations(
+        { ...user, userQuests: activeQuests },
+        [],
+        questPlacements,
+      );
+      const visibleTiles = new Set(
+        visibleLocations.map((l) => `${l.sector}:${l.longitude}:${l.latitude}`),
+      );
 
       return {
         users: processedUsers,
@@ -538,6 +594,9 @@ export const travelRouter = createTRPCRouter({
           ),
         ),
         overworldAis,
+        questPlacements: questPlacements.filter((p) =>
+          visibleTiles.has(`${p.sector}:${p.longitude}:${p.latitude}`),
+        ),
       };
     }),
   // Get village & alliance information for a given sector

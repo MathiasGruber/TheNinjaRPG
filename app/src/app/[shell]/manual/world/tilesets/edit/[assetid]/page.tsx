@@ -97,6 +97,7 @@ const SingleEditMapAsset: React.FC<SingleEditMapAssetProps> = (props) => {
     (errors) => showFormErrorsToast(errors),
   );
 
+  const category = useWatch({ control: form.control, name: "category" });
   const imageUrl = useWatch({ control: form.control, name: "imageUrl" });
 
   const formData: FormEntry<keyof ZodMapAssetType>[] = [
@@ -106,10 +107,8 @@ const SingleEditMapAsset: React.FC<SingleEditMapAssetProps> = (props) => {
       label: "Sprite (transparent PNG)",
       type: "avatar",
       href: imageUrl,
-      // Match the existing decoration set (75x75 webp, ~1KB): the default 256
-      // saved sprites at ~12x the pixels of their neighbors, wasting bandwidth
-      // and losing the chunky pixel look when drawn at map scale
-      maxDim: 75,
+      // Buildings need more detail than small terrain decorations.
+      maxDim: category === "structure" ? 512 : 75,
     },
     { id: "key", label: "Asset Key (used by maps)", type: "text" },
     { id: "category", label: "Category", type: "text" },
