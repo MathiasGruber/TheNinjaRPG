@@ -371,7 +371,10 @@ const jutsuRequirementChecks = (
     },
     {
       ok: checkJutsuBloodline(jutsu, userdata),
-      warning: "You do not have the required bloodline to use this jutsu.",
+      warning:
+        jutsu.bloodlineId && jutsu.bloodlineId !== userdata.bloodlineId
+          ? "You do not have the required bloodline to use this jutsu."
+          : "Select the required bloodline reskin to use this jutsu.",
     },
     {
       ok: hasMasteryRequirements(masteries, jutsu),

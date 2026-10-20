@@ -54,14 +54,41 @@ const ninjutsuBuff = {
 } as unknown as ZodAllTags;
 
 describe("jutsu mastery gate", () => {
-  it("requires the selected reskin as well as the underlying bloodline", () => {
+  it("identifies a missing or different selected reskin when the bloodline requirement is met", () => {
     const reskinned = { ...jutsu, requiredNinjutsuMastery: null, bloodlineId: "blood", bloodlineReskinId: "scarlet" };
-    const parentOwner = { ...user, bloodlineId: "blood", bloodlineReskinId: null };
-    expect(jutsuRequirementWarning(reskinned, parentOwner)).toContain("bloodline");
-    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineReskinId: "scarlet" })).toBe("");
-    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineReskinId: "other" })).toContain("bloodline");
-    expect(jutsuRequirementWarning(reskinned, { ...parentOwner, bloodlineId: "other", bloodlineReskinId: "scarlet" })).toContain("bloodline");
-    expect(jutsuRequirementWarning({ ...reskinned, bloodlineReskinId: null }, parentOwner)).toBe("");
+    for (const bloodlineId of ["blood", null]) {
+      for (const bloodlineReskinId of [null, "other"]) {
+        expect(jutsuRequirementWarning(
+          { ...reskinned, bloodlineId },
+          { ...user, bloodlineId, bloodlineReskinId },
+        )).toBe("Select the required bloodline reskin to use this jutsu.");
+      }
+    }
+  });
+
+  it("reports the underlying bloodline requirement before the reskin requirement", () => {
+    const reskinned = { ...jutsu, requiredNinjutsuMastery: null, bloodlineId: "blood", bloodlineReskinId: "scarlet" };
+    for (const bloodlineId of [null, "other"]) {
+      for (const bloodlineReskinId of [null, "other", "scarlet"]) {
+        expect(jutsuRequirementWarning(reskinned, { ...user, bloodlineId, bloodlineReskinId }))
+          .toBe("You do not have the required bloodline to use this jutsu.");
+      }
+    }
+    expect(jutsuRequirementWarning({ ...reskinned, bloodlineReskinId: null }, user))
+      .toBe("You do not have the required bloodline to use this jutsu.");
+  });
+
+  it("allows satisfied or unbound bloodline and reskin requirements", () => {
+    const parentOwner = { ...user, bloodlineId: "blood", bloodlineReskinId: "scarlet" };
+    for (const bloodlineId of [null, "blood"]) {
+      for (const bloodlineReskinId of [null, "scarlet"]) {
+        expect(jutsuRequirementWarning(
+          { ...jutsu, requiredNinjutsuMastery: null, bloodlineId, bloodlineReskinId },
+          parentOwner,
+        )).toBe("");
+      }
+    }
+    expect(jutsuRequirementWarning({ ...jutsu, requiredNinjutsuMastery: null }, user)).toBe("");
   });
 
   it("reserves pet jutsu for companions even when player requirements are met", () => {
