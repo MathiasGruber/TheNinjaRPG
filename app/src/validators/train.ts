@@ -6,6 +6,18 @@ import {
   TimedMasteryNames,
   TrainingSpeeds,
 } from "@/drizzle/constants";
+import { userDeltaResponseSchema } from "@/validators/userCache";
+
+export const energyQueueCaptchaVerificationSchema = z.object({
+  token: z.string().max(128),
+  expiresAt: z.number().int(),
+});
+export type EnergyQueueCaptchaVerification = z.infer<
+  typeof energyQueueCaptchaVerificationSchema
+>;
+export const energyQueueResponseSchema = userDeltaResponseSchema.extend({
+  captchaVerification: energyQueueCaptchaVerificationSchema.nullable().optional(),
+});
 
 export const energyTrainingQueueEntrySchema = z.object({
   stat: z.enum(CombatStatNames),
@@ -19,6 +31,7 @@ export const updateEnergyTrainingQueueInputSchema = z.object({
     .array(energyTrainingQueueEntrySchema)
     .max(1 + QUEUE_WAITING_SLOTS.GOLD),
   guess: z.string().optional(),
+  captchaToken: z.string().max(128).optional(),
 });
 
 export const masteryTrainingQueueEntrySchema = z.object({

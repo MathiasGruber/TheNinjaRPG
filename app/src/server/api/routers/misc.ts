@@ -593,11 +593,11 @@ export const validateCaptcha = async (
   // Check
   if (current) {
     const success = current.value === guess;
-    await client
+    const result = await client
       .update(captcha)
       .set({ used: true, success: success })
-      .where(eq(captcha.id, current.id));
-    return success;
+      .where(and(eq(captcha.id, current.id), eq(captcha.used, false)));
+    return success && result.rowsAffected === 1;
   }
   return false;
 };

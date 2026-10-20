@@ -47,6 +47,7 @@ const context = (ua = "TNR-Native/1.0 (ios)", userId: string | null = "user_test
   userIp: "127.0.0.1",
   abLemuReplacementVariant: undefined,
   wallpaperVariant: undefined,
+    authSessionId: undefined,
 });
 const request = (
   input: unknown = body,

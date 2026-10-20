@@ -71,6 +71,7 @@ export const createAppTRPCContext = async (options: {
     drizzle: drizzleDB,
     userIp,
     userId,
+    authSessionId: session.sessionId as string | null | undefined,
     userAgent,
     abLemuReplacementVariant,
     wallpaperVariant: parseWallpaperVariant(
@@ -87,6 +88,7 @@ export const createCdnTRPCContext = (readHeaders: ReadonlyHeaders) => ({
   drizzle: drizzleDB,
   userIp: getClientIp(readHeaders),
   userId: null,
+  authSessionId: undefined,
   userAgent: undefined,
   abLemuReplacementVariant: undefined,
   wallpaperVariant: undefined,

@@ -8,7 +8,7 @@ import type { UserDeltaResponse } from "@/validators/userCache";
 import { ensureDom } from "../setup-dom.mjs";
 import { createToastMock } from "../setup/toastMock";
 
-type Result = UserDeltaResponse;
+type Result = UserDeltaResponse & { captchaVerification?: { token: string; expiresAt: number } | null };
 type QueueCallbacks = {
   onMutate: () => { revision: number | undefined };
   onSuccess: (result: Result) => void;
@@ -96,12 +96,16 @@ const QueueImageAction = ({
   user,
   getGuess,
   refreshCaptcha,
+  getCaptchaToken,
+  onCaptchaVerification,
 }: {
+  getCaptchaToken?: () => string | undefined;
+  onCaptchaVerification?: (value: Result["captchaVerification"]) => void;
   user: NonNullable<UserWithRelations>;
   getGuess: () => string;
   refreshCaptcha: () => Promise<void>;
 }) => {
-  const { saveQueue, error } = useEnergyTrainingQueue(refreshCaptcha);
+  const { saveQueue, error } = useEnergyTrainingQueue(refreshCaptcha, { getCaptchaToken, onCaptchaVerification });
   return (
     <>
       <button type="button" onClick={() => saveQueue({ expectedEntries: [], entries: [{ stat: "offence", energy: user.maxEnergy }], guess: getGuess() })}>
@@ -149,6 +153,32 @@ describe("Energy queue captcha recovery", () => {
         expect(view.getByRole("alert").textContent).toBe("Invalid captcha");
     },
   );
+
+  it("reuses a pass on the next entry while refreshing the consumed shared challenge", async () => {
+    const proof = { token: "signed-pass", expiresAt: Date.now() + 600_000 };
+    let token: string | undefined;
+    let guess = "answer";
+    const refreshCaptcha = vi.fn(async () => { guess = ""; });
+    const onCaptchaVerification = vi.fn((value: Result["captchaVerification"]) => { token = value?.token; });
+    const view = render(<QueueImageAction user={user} getGuess={() => guess} refreshCaptcha={refreshCaptcha} getCaptchaToken={() => token} onCaptchaVerification={onCaptchaVerification} />);
+    fireEvent.click(view.getByRole("button", { name: "Add to queue" }));
+    const result = { success: true, message: "Training queue saved", captchaVerification: proof };
+    await act(async () => { await mocks.callbacks?.onSettled(result, null, mocks.mutate.mock.lastCall?.[0]); });
+    expect(refreshCaptcha).toHaveBeenCalledTimes(1);
+    expect(onCaptchaVerification).toHaveBeenLastCalledWith(proof);
+    fireEvent.click(view.getByRole("button", { name: "Add to queue" }));
+    expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ captchaToken: proof.token, guess: "" }));
+    await act(async () => { await mocks.callbacks?.onSettled(result, null, mocks.mutate.mock.lastCall?.[0]); });
+    expect(refreshCaptcha).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const rejected = { success: false, message: "Captcha required", captchaVerification: null };
+      mocks.callbacks?.onSuccess(rejected);
+      await mocks.callbacks?.onSettled(rejected, null, mocks.mutate.mock.lastCall?.[0]);
+    });
+    expect(token).toBeUndefined();
+    expect(refreshCaptcha).toHaveBeenCalledTimes(2);
+    expect(view.getByRole("alert").textContent).toBe("Captcha required");
+  });
 
   it("recovers when the write throws after consuming the captcha", async () => {
     const refreshCaptcha = vi.fn(async () => undefined);

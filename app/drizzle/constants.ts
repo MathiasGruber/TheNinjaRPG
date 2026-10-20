@@ -1198,6 +1198,8 @@ export const QUEUE_WAITING_SLOTS = { NONE: 1, NORMAL: 2, SILVER: 3, GOLD: 4 } as
 // Training captcha cadence: no captcha below the minimum daily trainings, then one at
 // every Nth daily training, rarer for higher federal tiers.
 export const TRAINING_CAPTCHA_MIN_TRAININGS = 10;
+// A solved Energy queue challenge covers a short editing session without sliding expiry.
+export const ENERGY_QUEUE_CAPTCHA_TTL_MS = 10 * 60 * 1000;
 // Count-based captcha interval (before federal tiers): every 4th below 30, every 3rd below
 // 40, every 2nd below 50, then every training. The rarer of this and the tier interval applies.
 export const TRAINING_CAPTCHA_COUNT_INTERVALS = [

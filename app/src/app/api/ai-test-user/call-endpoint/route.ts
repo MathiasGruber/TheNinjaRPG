@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     userIp: "ai-test-broker",
     userId,
     userAgent: "tnr-reviewer-broker",
+    authSessionId: undefined,
     abLemuReplacementVariant: undefined,
     wallpaperVariant: undefined,
   });

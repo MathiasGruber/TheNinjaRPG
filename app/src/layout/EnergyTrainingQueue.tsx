@@ -13,20 +13,31 @@ import { statTrainingBlockMessage } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
 import { getQueueTotalCapacity } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
+import type { EnergyQueueCaptchaVerification } from "@/validators/train";
+
+type QueueVerification = {
+  getCaptchaToken?: () => string | undefined;
+  onCaptchaVerification?: (verification: EnergyQueueCaptchaVerification | null) => void;
+};
 
 export const EnergyTrainingQueue = ({
   user,
   availableEnergy,
   getGuess,
   refreshCaptcha,
+  getCaptchaToken,
+  onCaptchaVerification,
 }: {
   user: NonNullable<UserWithRelations>;
   availableEnergy: number;
   getGuess: () => string;
   refreshCaptcha: () => Promise<void>;
-}) => {
+} & QueueVerification) => {
   const utils = api.useUtils();
-  const { saveQueue, isPending, error } = useEnergyTrainingQueue(refreshCaptcha);
+  const { saveQueue, isPending, error } = useEnergyTrainingQueue(refreshCaptcha, {
+    getCaptchaToken,
+    onCaptchaVerification,
+  });
   const entries = getEnergyQueue(user);
   const capacity = getQueueTotalCapacity(user);
   const block = statTrainingBlockMessage({
@@ -144,27 +155,38 @@ export const EnergyTrainingQueue = ({
 };
 
 /** Keep account and captcha state in sync after any Energy queue edit. */
-export const useEnergyTrainingQueue = (refreshCaptcha: () => Promise<void>) => {
+export const useEnergyTrainingQueue = (
+  refreshCaptcha: () => Promise<void>,
+  verification: QueueVerification = {},
+) => {
   const { prepareUserUpdate, updateUser } = useRequiredUserData();
   const [error, setError] = useState<string | null>(null);
-  const { mutate: saveQueue, isPending } =
-    api.train.updateEnergyTrainingQueue.useMutation({
-      onMutate: () => ({ revision: prepareUserUpdate() }),
-      onSuccess: (result) => {
-        showMutationToast(result);
-        setError(result.success ? null : result.message);
-      },
-      onError: (cause) => setError(cause.message),
-      onSettled: async (result, _error, variables, context) => {
-        // Validation consumes a captcha even when the guess or a later write fails.
-        await Promise.all([
-          updateUser(result?.success ? result.userPatch : undefined, {
-            revision: context?.revision,
-            achievementProgress: result?.achievementProgress,
-          }),
-          ...(variables.entries.length && variables.guess ? [refreshCaptcha()] : []),
-        ]);
-      },
-    });
+  const { mutate, isPending } = api.train.updateEnergyTrainingQueue.useMutation({
+    onMutate: () => ({ revision: prepareUserUpdate() }),
+    onSuccess: (result) => {
+      showMutationToast(result);
+      setError(result.success ? null : result.message);
+    },
+    onError: (cause) => setError(cause.message),
+    onSettled: async (result, _error, variables, context) => {
+      verification.onCaptchaVerification?.(result?.captchaVerification ?? null);
+      // Validation consumes a captcha even when the guess or a later write fails.
+      await Promise.all([
+        updateUser(result?.success ? result.userPatch : undefined, {
+          revision: context?.revision,
+          achievementProgress: result?.achievementProgress,
+        }),
+        ...(variables.entries.length &&
+        (variables.guess || (variables.captchaToken && !result?.captchaVerification))
+          ? [refreshCaptcha()]
+          : []),
+      ]);
+    },
+  });
+  const saveQueue: typeof mutate = (input, options) => {
+    const payload = { ...input, captchaToken: verification.getCaptchaToken?.() };
+    if (options) mutate(payload, options);
+    else mutate(payload);
+  };
   return { saveQueue, isPending, error };
 };

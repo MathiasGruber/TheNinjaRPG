@@ -54,6 +54,7 @@ describeWithDatabase("parental controls", () => {
     const api = parentalControlsRouter.createCaller({
       drizzle: await getTestDatabase(), userId: null, userIp: "127.0.0.1",
       userAgent: undefined, abLemuReplacementVariant: undefined, wallpaperVariant: undefined,
+    authSessionId: undefined,
     });
     try {
       await api.save({ ...settings, newPin: "654321" });

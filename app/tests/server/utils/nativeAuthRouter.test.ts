@@ -17,6 +17,7 @@ const router = createTRPCRouter({ nativeAuth: nativeAuthRouter });
 const caller = (userId: string | null = null) => router.createCaller({
   drizzle: drizzleDB, userId, userIp: "127.0.0.1", userAgent: "test",
   abLemuReplacementVariant: undefined, wallpaperVariant: undefined,
+    authSessionId: undefined,
 }).nativeAuth;
 
 beforeEach(() => {

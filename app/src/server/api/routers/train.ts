@@ -44,6 +44,10 @@ import {
 } from "@/server/api/trpc";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import {
+  issueEnergyQueueCaptcha,
+  verifyEnergyQueueCaptcha,
+} from "@/server/utils/energyQueueCaptcha";
+import {
   elementalSnapshotConditions,
   masteryGainUpdates,
 } from "@/server/utils/masteryProgression";
@@ -53,6 +57,7 @@ import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
 import { secondsPassed } from "@/utils/time";
 import { selectTrainedElementSchema } from "@/validators/elementalMastery";
 import {
+  energyQueueResponseSchema,
   startMasteryTrainingInputSchema,
   startTrainingInputSchema,
   stopTrainingInputSchema,
@@ -95,7 +100,7 @@ export const trainRouter = createTRPCRouter({
     }),
   updateEnergyTrainingQueue: protectedProcedure
     .input(updateEnergyTrainingQueueInputSchema)
-    .output(userDeltaResponseSchema)
+    .output(energyQueueResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const { user, requiresProgressionRefresh, publishedAchievementIds } =
         await fetchUpdatedUser({
@@ -104,6 +109,8 @@ export const trainRouter = createTRPCRouter({
           forceRegen: true,
         });
       if (!user) return errorResponse("User not found");
+      const scope = { userId: ctx.userId, sessionId: ctx.authSessionId };
+      let verification = verifyEnergyQueueCaptcha(input.captchaToken, scope);
       const result = await editTrainingQueue({
         client: ctx.drizzle,
         user,
@@ -118,10 +125,11 @@ export const trainRouter = createTRPCRouter({
             return "Training queue is full";
           if (input.entries.some((entry) => entry.energy > user.maxEnergy))
             return "Queued Energy cannot exceed your capacity";
-          if (showTrainingCapcha(user)) {
+          if (showTrainingCapcha(user) && !verification) {
             if (!input.guess) return "Captcha required";
             if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess)))
               return "Invalid captcha";
+            verification = issueEnergyQueueCaptcha(scope);
           }
           return null;
         },
@@ -133,12 +141,16 @@ export const trainRouter = createTRPCRouter({
           cleared: "Training queue cleared",
         },
       });
-      return withSavedQueue(
-        result,
-        user,
-        requiresProgressionRefresh,
-        publishedAchievementIds,
-      );
+      return {
+        ...withSavedQueue(
+          result,
+          user,
+          requiresProgressionRefresh,
+          publishedAchievementIds,
+        ),
+        // A failed edit cannot establish or preserve a client-side pass.
+        captchaVerification: result.success ? verification : null,
+      };
     }),
 
   updateMasteryTrainingQueue: protectedProcedure

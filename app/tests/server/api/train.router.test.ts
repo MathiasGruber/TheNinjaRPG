@@ -1,9 +1,10 @@
 import {eq} from "drizzle-orm";
 import {afterEach, beforeEach, expect, it, vi} from "bun:test";
 import {CombatStatNames, getUserCaps, MAX_MASTERY_CAP} from "@/drizzle/constants";
-import {bloodline, gameSetting, item, userItem, quest, questHistory, trainingLog, userData, userQueue, userVote} from "@/drizzle/schema";
+import {bloodline, captcha, gameSetting, item, userItem, quest, questHistory, trainingLog, userData, userQueue, userVote} from "@/drizzle/schema";
 import {getEnergyQueue} from "@/libs/queue";
 import {fetchUpdatedUser} from "@/server/api/routers/profile";
+import {validateCaptcha} from "@/server/api/routers/misc";
 import {trainRouter} from "@/server/api/routers/train";
 import {InstantNewQuestObjective, SimpleObjective} from "@/validators/objectives";
 import {ObjectiveReward} from "@/validators/rewards";
@@ -74,8 +75,47 @@ const backdate = async (patch: Partial<typeof userData.$inferInsert>) => {
 };
 
 describeWithDatabase("Energy and mastery training against a real MySQL", () => {
-  beforeEach(async () => { await resetTables(userQueue, trainingLog, questHistory, quest, userVote, userItem, item, userData, bloodline, gameSetting); });
+  beforeEach(async () => { await resetTables(captcha, userQueue, trainingLog, questHistory, quest, userVote, userItem, item, userData, bloodline, gameSetting); });
   afterEach(() => vi.restoreAllMocks());
+
+  it("consumes a solved captcha only once across simultaneous validations", async () => {
+    const database = await getTestDatabase();
+    await database.insert(captcha).values({ userId: USER_ID, value: "one-use" });
+    const results = await Promise.all([validateCaptcha(database, USER_ID, "one-use"), validateCaptcha(database, USER_ID, "one-use")]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
+
+  it("solves once for five Energy queue entries and rejects account/session replay", async () => {
+    await trainee({ dailyTrainings: 60, federalStatus: "GOLD", curEnergy: 0, regeneration: 0 });
+    const database = await getTestDatabase();
+    await database.insert(captcha).values({ userId: USER_ID, value: "solve-me" });
+    const api = trainRouter.createCaller({ drizzle: database, userId: USER_ID, authSessionId: "queue-session" } as never);
+    const entry = { stat: "offence" as const, energy: 100 };
+    expect((await api.updateEnergyTrainingQueue({ expectedEntries: [], entries: [entry] })).message).toBe("Captcha required");
+    expect((await api.updateEnergyTrainingQueue({ expectedEntries: [], entries: [entry], guess: "wrong" })).message).toBe("Invalid captcha");
+    expect((await readEnergyQueue(USER_ID))).toHaveLength(0);
+    await database.insert(captcha).values({ userId: USER_ID, value: "solve-me" });
+    const first = await api.updateEnergyTrainingQueue({ expectedEntries: [], entries: [entry], guess: "solve-me" });
+    expect(first.success).toBe(true);
+    const proof = first.captchaVerification!;
+    expect(proof).toBeTruthy();
+    for (let count = 2; count <= 5; count++) {
+      const saved = await api.updateEnergyTrainingQueue({ expectedEntries: Array(count - 1).fill(entry), entries: Array(count).fill(entry), captchaToken: proof.token });
+      expect(saved.success).toBe(true);
+      expect(saved.captchaVerification).toEqual(proof);
+    }
+    expect(await readEnergyQueue(USER_ID)).toHaveLength(5);
+    expect((await api.updateEnergyTrainingQueue({ expectedEntries: Array(5).fill(entry), entries: Array(5).fill({ ...entry, energy: 101 }), captchaToken: proof.token })).message).toBe("Queued Energy cannot exceed your capacity");
+    await api.updateEnergyTrainingQueue({ expectedEntries: Array(5).fill(entry), entries: [] });
+    for (const authSessionId of ["other-session", undefined]) {
+      const otherSession = trainRouter.createCaller({ drizzle: database, userId: USER_ID, authSessionId } as never);
+      expect((await otherSession.updateEnergyTrainingQueue({ expectedEntries: [], entries: [entry], captchaToken: proof.token })).message).toBe("Captcha required");
+    }
+    await insertUsers([{ userId: "other-trainee", username: "OtherTrainee", rank: "GENIN", status: "AWAKE", isOutlaw: true, primaryElement: "Fire", secondaryElement: "Water", dailyTrainings: 60, federalStatus: "GOLD", curEnergy: 0, regeneration: 0 }]);
+    const otherAccount = trainRouter.createCaller({ drizzle: database, userId: "other-trainee", authSessionId: "queue-session" } as never);
+    expect((await otherAccount.updateEnergyTrainingQueue({ expectedEntries: [], entries: [entry], captchaToken: proof.token })).message).toBe("Captcha required");
+    expect((await api.startTraining({ stat: "offence", energy: 1 })).success).toBe(false);
+  });
 
   it.each(["AWAKE", "ASLEEP"] as const)(
     "settles one-time %s queues offline without losing regenerated Energy to capacity",

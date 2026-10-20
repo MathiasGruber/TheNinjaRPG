@@ -1,5 +1,6 @@
 "use client";
 
+import { useSession } from "@clerk/nextjs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { sendGTMEvent } from "@next/third-parties/google";
 import {
@@ -54,6 +55,7 @@ import {
   CombatStatNames,
   ELEMENTAL_MASTERY_BOOST,
   ELEMENTAL_MASTERY_CAP,
+  ENERGY_QUEUE_CAPTCHA_TTL_MS,
   IMG_TRAIN_BUKI_DEF,
   IMG_TRAIN_BUKI_OFF,
   IMG_TRAIN_GEN_DEF,
@@ -80,6 +82,7 @@ import {
   TUTORIAL_JUTSU_ID,
 } from "@/drizzle/constants";
 import type { Jutsu } from "@/drizzle/schema";
+import { useEnergyQueueCaptcha } from "@/hooks/energyQueueCaptcha";
 import { safeLocalStorageSetItem } from "@/hooks/localstorage";
 import { useTutorialStep } from "@/hooks/tutorial";
 import AvatarImage from "@/layout/Avatar";
@@ -560,7 +563,15 @@ const StatsTraining: React.FC<
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
   }, [userData, timeDiff]);
-  const showCaptcha = userData && showTrainingCapcha(userData);
+  const { session: authSession } = useSession();
+  const queueCaptcha = useEnergyQueueCaptcha(
+    userData.userId,
+    authSession?.id,
+    timeDiff,
+  );
+  const showCaptcha = showTrainingCapcha(userData);
+  const showEnergyCaptcha =
+    showCaptcha && !(isQueueingStats && queueCaptcha.verification);
 
   // tRPC useUtils
   const utils = api.useUtils();
@@ -568,7 +579,7 @@ const StatsTraining: React.FC<
   // Query
   const { data: captcha } = api.misc.getCaptcha.useQuery(undefined, {
     staleTime: 5000,
-    enabled: showCaptcha,
+    enabled: props.section === "Stats" ? showEnergyCaptcha : showCaptcha,
   });
 
   // Tutorial management hook
@@ -610,7 +621,7 @@ const StatsTraining: React.FC<
   } = useEnergyTrainingQueue(async () => {
     await utils.misc.getCaptcha.invalidate();
     captchaForm.reset();
-  });
+  }, queueCaptcha);
 
   const { mutate: startMasteryTraining, isPending: isStartingMastery } =
     api.train.startMasteryTraining.useMutation({
@@ -675,6 +686,9 @@ const StatsTraining: React.FC<
     resolver: zodResolver(captchaVerifySchema),
     defaultValues: { guess: "" },
   });
+  useEffect(() => {
+    if (queueCaptcha.verification) captchaForm.reset();
+  }, [queueCaptcha.verification, captchaForm]);
 
   const collectMasteryTraining = (guess?: string) => {
     const { stat, startedAt } = session;
@@ -778,6 +792,8 @@ const StatsTraining: React.FC<
         <EnergyTrainingQueue
           user={userData}
           availableEnergy={availableEnergy}
+          getCaptchaToken={queueCaptcha.getCaptchaToken}
+          onCaptchaVerification={queueCaptcha.onCaptchaVerification}
           getGuess={() => captchaForm.getValues("guess")}
           refreshCaptcha={async () => {
             await utils.misc.getCaptcha.invalidate();
@@ -856,7 +872,14 @@ const StatsTraining: React.FC<
               Wake up to add training. Existing queues continue while asleep.
             </p>
           )}
-          {showCaptcha && captcha && (
+          {isQueueingStats && queueCaptcha.verification && (
+            <p role="status" className="mb-4 text-muted-foreground text-sm">
+              Queue verification complete. You can add entries without another captcha
+              for this editing session (up to {ENERGY_QUEUE_CAPTCHA_TTL_MS / 60_000}{" "}
+              minutes).
+            </p>
+          )}
+          {showEnergyCaptcha && captcha && (
             <div className="mb-4">
               {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element */}
               <img
