@@ -18,7 +18,7 @@ export type HomeArtRect = readonly [
 export type HomeArtPolygon = readonly (readonly [x: number, y: number])[];
 export type HomePoint = { x: number; y: number };
 
-/** Placement floors are convex; finish masks trace the full floor without covering door leaves. */
+/** Finish contours also define usable placement ground, including concave rooms and door cutouts. */
 export type HomeArtPlan = {
   /** Paintings without an override use 4:3; mansion and palace artwork uses 3:2. */
   aspectRatio?: number;

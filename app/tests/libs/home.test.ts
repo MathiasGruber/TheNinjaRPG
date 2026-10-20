@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "bun:test";
-import { HOME_FURNITURE_MAX_PLACEMENTS } from "@/drizzle/constants";
+import { HOME_FURNITURE_MAX_PLACEMENTS, HOME_FURNITURE_POSITION_MIN, HOME_FURNITURE_POSITION_MAX } from "@/drizzle/constants";
 import { DEFAULT_HOME_FURNITURE_GEOMETRY, clampHomeFurniturePlacement, fitHomeFurniturePlacement, getHomeLayout, getHomeFurnitureGeometry, getHomeFurnitureRotations, getHomeFurnitureView, homeLayoutOrientationError, homeLayoutOwnershipError, homeLayoutPlacementError, projectHomePlacement, recoverHomeLayout, unprojectHomePlacement, type HomeFurniture } from "@/libs/home";
 import { homeFurnitureSaveInputSchema } from "@/validators/home";
 import { getHomeRooms } from "@/libs/homeProperty";
@@ -66,8 +66,8 @@ describe("owned furniture layouts", () => {
   });
 
   it.each([
-    { id: "row", x: -1, y: 50, rotation: 0 },
-    { id: "row", x: 50, y: 101, rotation: 0 },
+    { id: "row", x: HOME_FURNITURE_POSITION_MIN - 1, y: 50, rotation: 0 },
+    { id: "row", x: 50, y: HOME_FURNITURE_POSITION_MAX + 1, rotation: 0 },
     { id: "row", x: Number.NaN, y: 50, rotation: 0 },
     { id: "row", x: 50, y: 50, rotation: 4 },
     { id: "", x: 50, y: 50, rotation: 0 },
@@ -114,11 +114,12 @@ describe("painted furniture geometry", () => {
   });
 
   it("fits tight visible bounds at the right wall instead of reserving transparent frame padding", () => {
-    const rightWall = Math.max(...getHomeRooms("NONE")[0]!.interior.map(({ x }) => x));
+    const rightWall = Math.max(...getHomeRooms("NONE")[0]!.interior.flat().map(({ x }) => x));
     const fitted = clampHomeFurniturePlacement({ ...placement(piece.id), x: 100 }, piece, "NONE");
     expect(fitted).not.toBeNull();
     const geometry = getHomeFurnitureGeometry(piece, fitted!, "NONE");
-    expect(geometry.visibleBounds.x + geometry.visibleBounds.width).toBeCloseTo(rightWall);
+    expect(geometry.visibleBounds.x + geometry.visibleBounds.width).toBeLessThanOrEqual(rightWall);
+    expect(homeLayoutPlacementError([{ ...fitted!, x: fitted!.x + 1 }], [piece], "NONE")).not.toBeNull();
     expect(geometry.image.x + geometry.image.width).toBeGreaterThan(rightWall);
     expect(homeLayoutPlacementError([fitted!], [piece], "NONE")).toBeNull();
   });
@@ -159,7 +160,7 @@ describe("painted furniture geometry", () => {
     expect(saved[2]!.y).toBe(40);
   });
 
-  it("recovers a rotated bed in the same room after an upgrade makes its facing too deep", () => {
+  it("preserves a rotated bed when the complete upgraded floor fits its facing", () => {
     const catalogue = readFileSync(new URL("../../data/item.sql", import.meta.url), "utf8");
     const data = catalogue.match(/\('home-bed', 'Bed',.*?'FURNITURE', '(\{.*?\})'/)?.[1];
     expect(data).toBeDefined();
@@ -169,11 +170,11 @@ describe("painted furniture geometry", () => {
 
     expect(homeLayoutPlacementError(saved, [bed], "TOWN_HOUSE")).toBeNull();
     expect(recoverHomeLayout(saved, [bed], "TOWN_HOUSE")).toEqual(saved);
-    expect(fitHomeFurniturePlacement(saved[0]!, bed, [], [bed], "MANSION")).toBeNull();
+    expect(fitHomeFurniturePlacement(saved[0]!, bed, [], [bed], "MANSION")).not.toBeNull();
 
     const recovered = recoverHomeLayout(saved, [bed], "MANSION");
     expect(recovered).toHaveLength(1);
-    expect(recovered[0]).toMatchObject({ id: bed.id, room: "room-3", rotation: 0 });
+    expect(recovered[0]).toMatchObject({ id: bed.id, room: "room-3", rotation: 1 });
     expect(homeLayoutPlacementError(recovered, [bed], "MANSION")).toBeNull();
     expect(homeLayoutOrientationError(recovered, [bed])).toBeNull();
     expect({ saved, bed }).toEqual(original);

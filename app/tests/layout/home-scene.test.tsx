@@ -222,6 +222,31 @@ describe("Home scene", () => {
     expect(scene.querySelector('[data-home-wall-paint="yard"]')).toBeNull();
   });
 
+  it("drags furniture onto the extended Mansion rear floor and saves its unchanged facing", async () => {
+    const chair: HomeFurniture = { ...starterFurniture[1]!, id: "chair", name: "Chair", width: 6, action: null, views: {} };
+    const room = getHomeRooms("MANSION").find(({ id }) => id === "room-3")!;
+    const initial = { id: chair.id, room: room.id, rotation: 0 as const, ...unprojectHomePlacement({ x: (50 * 3.7 - room.x) * 100 / room.width, y: (38 * 3.7 - room.y) * 100 / room.height }) };
+    const onSave = vi.fn<NonNullable<ComponentProps<typeof HomeScene>["onSave"]>>().mockResolvedValue(false);
+    const view = render(<HomeScene {...props} homeType="MANSION" furniture={[chair]} layout={[initial]} canDecorate onSave={onSave} />);
+    fireEvent.click(view.getByRole("button", { name: "Decorate" }));
+    const scene = view.getByRole("group", { name: "Home scene" });
+    scene.getBoundingClientRect = () => new DOMRect(0, 0, 1000, 1000);
+    const button = view.getByRole("button", { name: "Move Chair" });
+    button.setPointerCapture = vi.fn();
+    firePointerEvent(button, "pointerdown", 1, 0, 0);
+    firePointerEvent(button, "pointermove", 1, -140, -10);
+    firePointerEvent(button, "pointerup", 1, -140, -10);
+    fireEvent.click(view.getByRole("button", { name: "Save layout" }));
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+    const saved = onSave.mock.calls[0]![0].placements[0]!;
+    const anchor = projectHomePlacement(saved);
+    expect((room.x + anchor.x * room.width / 100) / 3.7).toBeCloseTo(36);
+    expect((room.y + anchor.y * room.height / 100) / 3.7).toBeCloseTo(37);
+    expect(saved.rotation).toBe(0);
+    expect(homeFurnitureSaveInputSchema.safeParse(onSave.mock.calls[0]![0]).success).toBe(true);
+    expect(homeLayoutPlacementError([saved], [chair], "MANSION")).toBeNull();
+  });
+
   it("retains wall finishes on the foreground while furniture remains above rear walls", () => {
     const view = render(<HomeScene {...props} homeType="MANSION" styles={[{ room: "room-2", paint: "rose", floor: "original" }]} />);
     const scene = view.getByRole("group", { name: "Home scene" });

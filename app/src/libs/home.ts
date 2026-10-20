@@ -8,10 +8,17 @@ import {
   type HomeType,
 } from "@/drizzle/constants";
 import {
+  getHomeFloorAnchors,
+  type HomeFloorRegions,
+  isPointInHomeFloor,
+  subtractHomeFloorBounds,
+} from "@/libs/homeFloorGeometry";
+import {
   getHomePlacementRoom,
   getHomeRooms,
   homeRoomLayoutError,
 } from "@/libs/homeProperty";
+
 import { HOME_ART_PLANS, HOME_FLOOR_PROJECTION } from "@/libs/homeRoomGeometry";
 import { clamp } from "@/utils/math";
 import type { HomePlacement } from "@/validators/home";
@@ -20,6 +27,8 @@ import type {
   FurnitureImageBounds,
   FurnitureViews,
 } from "@/validators/itemFurniture";
+
+export { isPointInHomePolygon } from "@/libs/homeFloorGeometry";
 
 /** A furniture instance is an owned inventory row; content supplies its appearance and home action. */
 export type HomeFurniture = {
@@ -131,9 +140,9 @@ export const homeLayoutPlacementError = (
     const piece = available.get(placement.id);
     if (!piece) continue; // Ownership is validated before geometry on the server.
     if (
-      !isPointInHomePolygon(
+      !isPointInHomeFloor(
         projectHomePlacement(placement),
-        getHomeAnchorPolygon(piece, placement, homeType),
+        getHomeAnchorRegions(piece, placement, homeType),
       )
     ) {
       return piece.action === "farm"
@@ -173,11 +182,11 @@ export const clampHomeFurniturePlacement = (
   furniture: HomeFurniture,
   homeType: HomeType,
 ): HomePlacement | null => {
-  const polygon = getHomeAnchorPolygon(furniture, placement, homeType);
-  if (!polygon.length) return null;
+  const regions = getHomeAnchorRegions(furniture, placement, homeType);
+  if (!regions.length) return null;
   const anchor = projectHomePlacement(placement);
-  if (isPointInHomePolygon(anchor, polygon)) return { ...placement };
-  const point = closestPointInHomePolygon(anchor, polygon);
+  if (isPointInHomeFloor(anchor, regions)) return { ...placement };
+  const point = closestPointInHomeFloor(anchor, regions);
   return { ...placement, ...unprojectHomePlacement(point) };
 };
 
@@ -209,33 +218,20 @@ export const fitHomeFurniturePlacement = (
 
   const anchor = projectHomePlacement(clamped);
   const offset = { x: footprint.x - anchor.x, y: footprint.y - anchor.y };
-  const polygon = getHomeAnchorPolygon(furniture, clamped, homeType);
-  const candidates = polygon.flatMap((point, index) => [
-    point,
-    closestPointOnHomeSegment(
-      anchor,
-      point,
-      polygon[(index + 1) % polygon.length] ?? point,
-    ),
-  ]);
-  const xs = [anchor.x, ...polygon.map(({ x }) => x)];
-  const ys = [anchor.y, ...polygon.map(({ y }) => y)];
-  for (const other of obstacles) {
-    xs.push(other.x - offset.x - footprint.width, other.x + other.width - offset.x);
-    ys.push(other.y - offset.y - footprint.height, other.y + other.height - offset.y);
-  }
-  for (const x of xs)
-    for (const y of ys) candidates.push(closestPointInHomePolygon({ x, y }, polygon));
-  candidates.sort(
-    (a, b) => homePointDistanceSquared(a, anchor) - homePointDistanceSquared(b, anchor),
+  const regions = subtractHomeFloorBounds(
+    getHomeAnchorRegions(furniture, clamped, homeType),
+    obstacles.map((other) => ({
+      x: other.x - offset.x - footprint.width,
+      y: other.y - offset.y - footprint.height,
+      width: other.width + footprint.width,
+      height: other.height + footprint.height,
+    })),
   );
-  for (const point of candidates) {
-    const candidate = { ...clamped, ...unprojectHomePlacement(point) };
-    const bounds = getHomeFurnitureGeometry(furniture, candidate, homeType).footprint;
-    if (!obstacles.some((other) => doHomeBoundsOverlap(bounds, other)))
-      return candidate;
-  }
-  return null;
+  if (!regions.length) return null;
+  return {
+    ...clamped,
+    ...unprojectHomePlacement(closestPointInHomeFloor(anchor, regions)),
+  };
 };
 
 /** Read old layouts without a database mutation; pieces that no longer fit remain owned in storage. */
@@ -332,133 +328,108 @@ export const homeLayoutOrientationError = (
     : null;
 };
 
-/** Measured convex floor regions shrink by the footprint to keep every piece on usable ground. */
-const getHomeAnchorPolygon = (
+const homeAnchorCache = new WeakMap<HomeFurniture, Map<string, HomeFloorRegions>>();
+
+/** Keep saved frames stable while using the complete measured floor for each facing. */
+const getHomeAnchorRegions = (
   furniture: HomeFurniture,
   placement: HomePlacement,
   homeType: HomeType,
-) => {
+): HomeFloorRegions => {
   const room = getHomeRooms(homeType).find(
     ({ id }) => id === getHomePlacementRoom(placement),
   );
-  const isYard = room?.isYard;
-  // Decorative lawn and cultivation ground remain separate within the garden.
-  if (!room || (!isYard && furniture.action === "farm")) return [];
-  const region = furniture.action === "farm" ? room.outdoor : room.interior;
-  if (region.length < 3) return [];
-  const anchor = projectHomePlacement(placement);
-  const geometry = getHomeFurnitureGeometry(furniture, placement, homeType);
-  const footprint = {
+  if (!room) return [];
+  if (!room.isYard && furniture.action === "farm") return [];
+  const key = `${homeType}:${room.id}:${placement.rotation}`;
+  let cache = homeAnchorCache.get(furniture);
+  if (!cache) {
+    cache = new Map();
+    homeAnchorCache.set(furniture, cache);
+  }
+  const cached = cache.get(key);
+  if (cached) return cached;
+  // A fixed reference avoids rounding-dependent cache entries while dragging.
+  const reference = { ...placement, x: 50, y: 50 };
+  const anchor = projectHomePlacement(reference);
+  const geometry = getHomeFurnitureGeometry(furniture, reference, homeType);
+  let footprint = {
     ...geometry.footprint,
     x: geometry.footprint.x - anchor.x,
     y: geometry.footprint.y - anchor.y,
   };
-  const corners = getHomeBoundsCorners(footprint);
-  if (furniture.action === "farm") {
-    corners.push(
-      ...getHomeBoundsCorners({
-        ...geometry.visibleBounds,
-        x: geometry.visibleBounds.x - anchor.x,
-        y: geometry.visibleBounds.y - anchor.y,
-      }),
-    );
-  }
-  const min = projectHomePlacement({
-    x: HOME_FURNITURE_POSITION_MIN,
-    y: HOME_FURNITURE_POSITION_MIN,
-  });
-  const max = projectHomePlacement({
-    x: HOME_FURNITURE_POSITION_MAX,
-    y: HOME_FURNITURE_POSITION_MAX,
-  });
-  let polygon: HomePoint[] = [
-    { x: min.x, y: min.y },
-    { x: max.x, y: min.y },
-    { x: max.x, y: max.y },
-    { x: min.x, y: max.y },
-  ];
-  const orientation = homePolygonOrientation(region);
-  for (const [index, point] of region.entries()) {
-    const next = region[(index + 1) % region.length] ?? point;
-    const a = -(next.y - point.y) * orientation;
-    const b = (next.x - point.x) * orientation;
-    const c =
-      a * point.x +
-      b * point.y -
-      Math.min(...corners.map((corner) => a * corner.x + b * corner.y));
-    polygon = clipHomeAnchorPolygon(polygon, a, b, c);
-  }
-  // Tall furniture may cover the rear wall, but its visible sides cannot enter side curtains.
   const visible = geometry.visibleBounds;
   const offsetX = visible.x - anchor.x;
   const offsetY = visible.y - anchor.y;
-  const left = Math.max(0, Math.min(...region.map(({ x }) => x)));
-  const right = Math.min(100, Math.max(...region.map(({ x }) => x)));
-  polygon = clipHomeAnchorPolygon(polygon, 1, 0, left - offsetX);
-  polygon = clipHomeAnchorPolygon(polygon, -1, 0, -(right - offsetX - visible.width));
-  polygon = clipHomeAnchorPolygon(polygon, 0, 1, -offsetY);
-  return clipHomeAnchorPolygon(polygon, 0, -1, -(100 - offsetY - visible.height));
-};
-
-const clipHomeAnchorPolygon = (
-  polygon: HomePoint[],
-  a: number,
-  b: number,
-  c: number,
-) => {
-  const clipped: HomePoint[] = [];
-  for (const [index, point] of polygon.entries()) {
-    const next = polygon[(index + 1) % polygon.length] ?? point;
-    const distance = a * point.x + b * point.y - c;
-    const nextDistance = a * next.x + b * next.y - c;
-    const isInside = distance >= -HOME_GEOMETRY_EPSILON;
-    const isNextInside = nextDistance >= -HOME_GEOMETRY_EPSILON;
-    if (isInside) clipped.push(point);
-    if (isInside !== isNextInside) {
-      const amount = distance / (distance - nextDistance);
-      clipped.push({
-        x: point.x + (next.x - point.x) * amount,
-        y: point.y + (next.y - point.y) * amount,
-      });
-    }
+  const floor = furniture.action === "farm" ? [room.outdoor] : room.interior;
+  if (furniture.action === "farm") {
+    const x = Math.min(footprint.x, offsetX);
+    const y = Math.min(footprint.y, offsetY);
+    footprint = {
+      x,
+      y,
+      width: Math.max(footprint.x + footprint.width, offsetX + visible.width) - x,
+      height: Math.max(footprint.y + footprint.height, offsetY + visible.height) - y,
+    };
   }
-  return clipped;
-};
-
-/** Use the placement polygon for room targeting as well as furniture boundary checks. */
-export const isPointInHomePolygon = (
-  point: HomePoint,
-  polygon: readonly HomePoint[],
-) => {
-  if (polygon.length < 3) return false;
-  const orientation = homePolygonOrientation(polygon);
-  return polygon.every((edge, index) => {
-    const next = polygon[(index + 1) % polygon.length] ?? edge;
-    return (
-      ((next.x - edge.x) * (point.y - edge.y) -
-        (next.y - edge.y) * (point.x - edge.x)) *
-        orientation >=
-      -HOME_GEOMETRY_EPSILON
-    );
+  const min = projectHomePlacement({
+    x: room.isYard ? 0 : HOME_FURNITURE_POSITION_MIN,
+    y: room.isYard ? 0 : HOME_FURNITURE_POSITION_MIN,
   });
+  const max = projectHomePlacement({
+    x: room.isYard ? 100 : HOME_FURNITURE_POSITION_MAX,
+    y: room.isYard ? 100 : HOME_FURNITURE_POSITION_MAX,
+  });
+  const left = Math.max(
+    min.x,
+    Math.max(room.isYard ? 0 : -Infinity, Math.min(...floor.flat().map(({ x }) => x))) -
+      offsetX,
+  );
+  const right = Math.min(
+    max.x,
+    Math.min(
+      room.isYard ? 100 : Infinity,
+      Math.max(...floor.flat().map(({ x }) => x)),
+    ) -
+      offsetX -
+      visible.width,
+  );
+  const top = Math.max(
+    min.y,
+    (room.isYard ? 0 : (-room.y * 100) / room.height) - offsetY,
+  );
+  const bottom = Math.min(
+    max.y,
+    (room.isYard
+      ? 100
+      : ((HOME_ART_PLANS[homeType].size - room.y) * 100) / room.height) -
+      offsetY -
+      visible.height,
+  );
+  const regions =
+    right > left && bottom > top
+      ? getHomeFloorAnchors(floor, footprint, {
+          x: left,
+          y: top,
+          width: right - left,
+          height: bottom - top,
+        })
+      : [];
+  cache.set(key, regions);
+  return regions;
 };
 
-const homePolygonOrientation = (polygon: readonly HomePoint[]) =>
-  polygon.reduce((area, point, index) => {
-    const next = polygon[(index + 1) % polygon.length] ?? point;
-    return area + point.x * next.y - next.x * point.y;
-  }, 0) >= 0
-    ? 1
-    : -1;
-
-const closestPointInHomePolygon = (point: HomePoint, polygon: readonly HomePoint[]) => {
-  if (isPointInHomePolygon(point, polygon)) return point;
-  return polygon
-    .map((edge, index) =>
-      closestPointOnHomeSegment(
-        point,
-        edge,
-        polygon[(index + 1) % polygon.length] ?? edge,
+const closestPointInHomeFloor = (point: HomePoint, regions: HomeFloorRegions) => {
+  if (isPointInHomeFloor(point, regions)) return point;
+  return regions
+    .flat()
+    .flatMap((polygon) =>
+      polygon.map((edge, index) =>
+        closestPointOnHomeSegment(
+          point,
+          edge,
+          polygon[(index + 1) % polygon.length] ?? edge,
+        ),
       ),
     )
     .reduce((closest, candidate) =>
@@ -485,13 +456,6 @@ const closestPointOnHomeSegment = (
 
 const homePointDistanceSquared = (a: HomePoint, b: HomePoint) =>
   (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
-
-const getHomeBoundsCorners = (bounds: FurnitureImageBounds): HomePoint[] => [
-  { x: bounds.x, y: bounds.y },
-  { x: bounds.x + bounds.width, y: bounds.y },
-  { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
-  { x: bounds.x, y: bounds.y + bounds.height },
-];
 
 const doHomeBoundsOverlap = (a: FurnitureImageBounds, b: FurnitureImageBounds) =>
   a.x + a.width > b.x + HOME_GEOMETRY_EPSILON &&
