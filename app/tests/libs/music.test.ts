@@ -5,6 +5,7 @@ import {
   MUSIC_AKASUMI_THEME,
   MUSIC_ANOTHER_DAY_ANOTHER_BATTLEFIELD,
   MUSIC_BLUE_BLADE_THEME,
+  MUSIC_FREEDOM_STATE_THEME,
   MUSIC_HALLOWEEN_THEME,
   MUSIC_HEAVENLY_SONATA_THEME,
   MUSIC_HORIZON_THEME,
@@ -26,6 +27,24 @@ describe("getBackgroundMusicSrc", () => {
     expect(
       getBackgroundMusicSrc({ villageName: "Akasumi", isOutlaw: false }, "summer"),
     ).toBe(MUSIC_AKASUMI_THEME);
+    expect(getBackgroundMusicSrc({ villageName: "Freedom State" }, "fall")).toBe(
+      MUSIC_FREEDOM_STATE_THEME,
+    );
+  });
+
+  it("plays the Freedom State theme only outside the Halloween and winter events", () => {
+    expect(getBackgroundMusicSrc({ villageName: "Freedom State" }, "spring")).toBe(
+      MUSIC_FREEDOM_STATE_THEME,
+    );
+    expect(getBackgroundMusicSrc({ villageName: "Freedom State" }, "halloween")).toBe(
+      MUSIC_HALLOWEEN_THEME,
+    );
+    expect(getBackgroundMusicSrc({ villageName: "Freedom State" }, "winter")).toBe(
+      MUSIC_WINTER_THEME,
+    );
+    expect(
+      getBackgroundMusicSrc({ villageName: "Freedom State", isOutlaw: true }, "fall"),
+    ).toBe(MUSIC_SYNDICATE_THEME);
   });
 
   it("falls back to Welcome to Seichi without a themed village or bloodline", () => {

@@ -5,6 +5,7 @@ import {
   MUSIC_AKIKAZE_THEME,
   MUSIC_ANOTHER_DAY_ANOTHER_BATTLEFIELD,
   MUSIC_BLUE_BLADE_THEME,
+  MUSIC_FREEDOM_STATE_THEME,
   MUSIC_HALLOWEEN_THEME,
   MUSIC_HEAVENLY_SONATA_THEME,
   MUSIC_HORIZON_THEME,
@@ -36,6 +37,7 @@ const VILLAGE_MUSIC = new Map<string, string>([
   ["Akasumi", MUSIC_AKASUMI_THEME],
   ["Hyorin", MUSIC_HYORIN_THEME],
   ["Horizon", MUSIC_HORIZON_THEME],
+  ["Freedom State", MUSIC_FREEDOM_STATE_THEME],
 ]);
 
 /** Bloodline themes, keyed by bloodline id */
