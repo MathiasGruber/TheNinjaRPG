@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as nextServer from "next/server";
-import { aiProfile, battle, battleAction, battleHistory, userData } from "@/drizzle/schema";
+import superjson from "superjson";
+import { type BattleAction, aiProfile, battle, battleAction, battleHistory, userData } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
+import type { BattleUpdate } from "@/libs/combat/log";
 import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { makeEffect } from "../../libs/combat/helpers/battleScenario";
 import { insertUsers } from "../../setup/factories";
@@ -93,8 +95,13 @@ describeWithDatabase("lethal combat history", () => {
       // The action notification has the version the victim already saw, so a
       // version-only client refresh would leave the incomplete history cached.
       expect(finalBattle.version).toBe(settled.battle.version);
-      expect(Pusher.prototype.trigger).toHaveBeenCalledWith(snapshot.id, "event", { version: finalBattle.version });
       const history = await observer.getBattleEntries({ battleId: snapshot.id });
+      const notification = [...trigger.mock.calls].reverse().find(([channel]) => channel === snapshot.id)?.[2] as BattleUpdate;
+      expect(notification).toMatchObject({ version: finalBattle.version, finished: true });
+      const delta = superjson.deserialize<typeof history>(notification.logEntries!);
+      expect(delta).toHaveLength(1);
+      expect(history).toEqual(expect.arrayContaining(delta));
+      expect(delta[0]!.appliedEffects.some((effect) => effect.txt.includes("victim") && effect.txt.includes("damage"))).toBe(true);
       expect(history.some((entry) => entry.appliedEffects.some((effect) => effect.txt.includes("victim") && effect.txt.includes("damage")))).toBe(true);
       expect((await observer.getBattle({ battleId: snapshot.id })).battle).toBeNull();
       expect(await observer.getBattleEntries({ battleId: snapshot.id })).toEqual(history);
@@ -117,7 +124,32 @@ describeWithDatabase("lethal combat history", () => {
     if (!("battleUpdate" in response) || !response.battleUpdate) throw new Error("Expected lethal action");
     expect(response.result?.outcome).toBe("Won");
     expect(await db.query.battle.findFirst({ where: eq(battle.id, snapshot.id) })).toBeUndefined();
-    expect(Pusher.prototype.trigger).toHaveBeenCalledWith(snapshot.id, "event", { version: response.battleUpdate.version });
+    const notification = [...trigger.mock.calls].reverse().find(([channel]) => channel === snapshot.id)?.[2] as BattleUpdate;
+    expect(notification).toMatchObject({ version: response.battleUpdate.version, finished: true });
+    expect(superjson.deserialize<BattleAction[]>(notification.logEntries!)).toEqual(response.logEntries);
+  });
+
+  it.each([false, true])("sends a bounded PvP delta without extra battle/log SELECTs (oversized=%s)", async (oversized) => {
+    const snapshot = await startLethalBattle("COMBAT");
+    const db = await getTestDatabase();
+    const victim = snapshot.usersState.find((user) => user.userId === "victim")!;
+    victim.curHealth = victim.maxHealth = 5000;
+    if (oversized) victim.username = "界".repeat(5000);
+    await db.update(battle).set({ usersState: snapshot.usersState }).where(eq(battle.id, snapshot.id));
+    const caller = await callerFor(combatRouter, "killer");
+    const battleRead = vi.spyOn(db.query.battle, "findFirst");
+    const logRead = vi.spyOn(db.query.battleAction, "findMany");
+    const response = await caller.performAction({ battleId: snapshot.id, version: snapshot.version,
+      actionId: "basicAttack", longitude: 1, latitude: 0 });
+    if (!("battleUpdate" in response) || !response.battleUpdate) throw new Error("Expected combat action");
+    expect(response.result).toBeNull();
+    expect(battleRead).toHaveBeenCalledTimes(1);
+    expect(logRead).not.toHaveBeenCalled();
+    const notification = [...trigger.mock.calls].reverse().find(([channel]) => channel === snapshot.id)?.[2] as BattleUpdate;
+    expect(Object.keys(notification).sort()).toEqual(["logEntries", "version"]);
+    expect(Buffer.byteLength(JSON.stringify(notification))).toBeLessThanOrEqual(10_000);
+    if (oversized) expect(notification.logEntries).toBeNull();
+    else expect(superjson.deserialize<BattleAction[]>(notification.logEntries!)).toEqual(response.logEntries);
   });
 
 });

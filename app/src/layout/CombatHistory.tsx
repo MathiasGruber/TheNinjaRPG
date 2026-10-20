@@ -44,9 +44,10 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     {
       enabled: !!battleId && !!userData,
       placeholderData: (previousData) => previousData,
-      // Refetch saved logs that were read before the final action finished saving.
+      // Unversioned saved logs may predate the final insert. Live keys are seeded
+      // from committed deltas and must keep their cache across layout/tab remounts.
       // Abort abandoned reads so reopening cannot reuse their incomplete response.
-      refetchOnMount: "always",
+      refetchOnMount: battleVersion === undefined ? "always" : true,
       trpc: { abortOnUnmount: true },
     },
   );

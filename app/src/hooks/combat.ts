@@ -1,7 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { api } from "@/app/_trpc/client";
+import superjson from "superjson";
+import { api, type RouterInputs } from "@/app/_trpc/client";
+import type { BattleAction } from "@/drizzle/schema";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { type BattleMaps, computeBattleMaps } from "@/libs/combat/battleMaps";
+import { type BattleUpdate, mergeBattleEntries } from "@/libs/combat/log";
 import type { BattleState, ReturnedBattle } from "@/libs/combat/types";
 import { showMutationToast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
@@ -22,28 +27,86 @@ export const useBattleMaps = (battle: ReturnedBattle | null): BattleMaps => {
 };
 
 /**
- * Refresh all history queries for this battle after the server's action writes.
- * Even equal or older versions can complete missing logs; only newer versions
- * refresh active battle state, preserving a result the client already received.
+ * Apply committed action deltas without reading history again. Equal or older
+ * events can repair a final log; only newer events refresh active battle state.
+ * The same cache path handles the actor's mutation response and PvP observers.
  */
 export const useCombatUpdates = (state: BattleState) => {
   const { pusher } = useUserData();
   const utils = api.useUtils();
+  const queryClient = useQueryClient();
   // Keep the subscription stable while its handler reads the latest battle/result.
   const stateRef = useRef(state);
   stateRef.current = state;
   const battleId = state.battle?.id;
 
+  const updateLogs = useCallback(
+    async (
+      id: string,
+      version: number,
+      logEntries: BattleAction[] | null,
+      finished = false,
+    ) => {
+      if (logEntries?.length === 0) return;
+      const queries = queryClient.getQueryCache().findAll({
+        queryKey: getQueryKey(api.combat.getBattleEntries, { battleId: id }, "query"),
+      });
+      for (const query of queries) {
+        const { input } = query.queryKey[1] as {
+          input: RouterInputs["combat"]["getBattleEntries"];
+        };
+        const entries =
+          logEntries &&
+          mergeBattleEntries(
+            utils.combat.getBattleEntries.getData(input),
+            logEntries,
+            input,
+            version,
+          );
+        if (entries) {
+          const target = {
+            ...input,
+            refreshKey: Math.max(input.refreshKey ?? 0, version),
+          };
+          // refreshKey is a cache key, not a SQL cutoff: this page may already
+          // contain later committed rows. Never replace them with an older delta.
+          const isNewer = (rows: BattleAction[] | undefined) =>
+            rows?.some((row) => row.battleVersion >= target.refreshKey);
+          if (isNewer(utils.combat.getBattleEntries.getData(target))) continue;
+          // A pre-insert response must not overwrite the committed delta.
+          await utils.combat.getBattleEntries.cancel(target);
+          utils.combat.getBattleEntries.setData(target, (current) =>
+            isNewer(current) ? current : entries,
+          );
+        } else if (
+          !input.refreshKey ||
+          finished ||
+          (logEntries === null && input.refreshKey >= version)
+        ) {
+          // Ordinary version changes load their new history key naturally. At
+          // settlement the battle may be deleted, leaving an older key mounted.
+          await utils.combat.getBattleEntries.cancel(input);
+          void utils.combat.getBattleEntries.invalidate(input);
+        }
+      }
+    },
+    [queryClient, utils],
+  );
+
   useEffect(() => {
     if (!battleId || !pusher) return;
     const channel = pusher.subscribe(battleId);
-    const onUpdate = async (data: { version: number }) => {
-      // State is claimed before logs are inserted. A poll may already hold this
-      // version (or settle a newer one) while its history is still incomplete.
-      // Cancel an earlier read too: invalidating an initial in-flight query can
-      // reuse its pre-insert response and mark the incomplete log fresh again.
-      await utils.combat.getBattleEntries.cancel({ battleId });
-      void utils.combat.getBattleEntries.invalidate({ battleId });
+    const onUpdate = async (data: BattleUpdate) => {
+      if (data.logEntries !== undefined) {
+        await updateLogs(
+          battleId,
+          data.version,
+          data.logEntries === null
+            ? null
+            : superjson.deserialize<BattleAction[]>(data.logEntries),
+          !!data.finished || !!stateRef.current.result,
+        );
+      }
       const { battle, result } = stateRef.current;
       if (battle && data.version > battle.version && !result) {
         void utils.combat.getBattle.invalidate();
@@ -54,7 +117,8 @@ export const useCombatUpdates = (state: BattleState) => {
       channel.unbind("event", onUpdate);
       pusher.unsubscribe(battleId);
     };
-  }, [battleId, pusher, utils]);
+  }, [battleId, pusher, utils, updateLogs]);
+  return updateLogs;
 };
 
 /**
