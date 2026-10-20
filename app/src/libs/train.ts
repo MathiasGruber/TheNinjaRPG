@@ -295,6 +295,9 @@ export const canTrainJutsu = (
   masteries?: MasteryStatSource,
 ): boolean => {
   if (isJutsuEvolution(jutsu)) return false;
+  // Linked bloodline-reskin variants are cosmetics overlaid on their learned parent
+  // (see fetchUserJutsus); they are never learned directly.
+  if (jutsu.reskinParentJutsuId) return false;
   // Bloodline items and activated skills gate use, while learning remains available.
   return canUseJutsu(jutsu, userdata, true, masteries, true);
 };
