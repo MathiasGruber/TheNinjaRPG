@@ -1195,6 +1195,15 @@ export const TimedQueueKinds = ["JUTSU", "CRAFT"] as const satisfies readonly Qu
 export type TimedQueueKind = (typeof TimedQueueKinds)[number];
 
 export const QUEUE_WAITING_SLOTS = { NONE: 1, NORMAL: 2, SILVER: 3, GOLD: 4 } as const;
+// Training captcha cadence: no captcha below the minimum daily trainings, then one at
+// every Nth daily training, rarer for higher federal tiers.
+export const TRAINING_CAPTCHA_MIN_TRAININGS = 10;
+export const TRAINING_CAPTCHA_INTERVAL = {
+  NONE: 2,
+  NORMAL: 3,
+  SILVER: 4,
+  GOLD: 5,
+} as const satisfies Record<FederalStatus, number>;
 // Energy restored (up to capacity) when a quest of one of these types is completed.
 export const ENERGY_QUEST_REWARDS: Partial<Record<QuestType, number>> = {
   mission: 20,
