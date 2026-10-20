@@ -201,8 +201,8 @@ it("saves edits and retires species without exposing a delete action or changing
 it("edits species art direction and per-rank concepts with the built-in milestones as placeholders", async () => {
   const view = await mount(true);
   await view.findByRole("textbox", { name: "Species name" });
+  fireEvent.mouseDown(view.getByRole("tab", { name: "Artwork" }), { button: 0 });
   fireEvent.change(view.getByRole("textbox", { name: "Art direction (optional)" }), { target: { value: " A white fox with red-tipped flame tails. " } });
-  fireEvent.mouseDown(view.getByRole("tab", { name: "Evolution art" }), { button: 0 });
   const rankOne = view.getByRole("textbox", { name: "Rank 1 concept (Companion)" }) as HTMLTextAreaElement;
   expect(rankOne.placeholder).toBe(PET_RANK_APPEARANCES[0]);
   expect(view.getAllByRole("textbox", { name: /^Rank \d+ concept/ })).toHaveLength(10);
