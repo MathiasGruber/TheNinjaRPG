@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { api } from "@/app/_trpc/client";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { type BattleMaps, computeBattleMaps } from "@/libs/combat/battleMaps";
-import type { ReturnedBattle } from "@/libs/combat/types";
+import type { BattleState, ReturnedBattle } from "@/libs/combat/types";
 import { showMutationToast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
 
@@ -19,6 +19,37 @@ export {
  */
 export const useBattleMaps = (battle: ReturnedBattle | null): BattleMaps => {
   return useMemo(() => computeBattleMaps(battle), [battle?.id, battle?.version]);
+};
+
+/** Synchronize battle state and logs after the server finishes its action writes. */
+export const useCombatUpdates = (state: BattleState) => {
+  const { pusher } = useUserData();
+  const utils = api.useUtils();
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const battleId = state.battle?.id;
+
+  useEffect(() => {
+    if (!battleId || !pusher) return;
+    const channel = pusher.subscribe(battleId);
+    const onUpdate = async (data: { version: number }) => {
+      // State is claimed before logs are inserted. A poll may already hold this
+      // version (or settle a newer one) while its history is still incomplete.
+      // Cancel an earlier read too: invalidating an initial in-flight query can
+      // reuse its pre-insert response and mark the incomplete log fresh again.
+      await utils.combat.getBattleEntries.cancel({ battleId });
+      void utils.combat.getBattleEntries.invalidate({ battleId });
+      const { battle, result } = stateRef.current;
+      if (battle && data.version > battle.version && !result) {
+        void utils.combat.getBattle.invalidate();
+      }
+    };
+    channel.bind("event", onUpdate);
+    return () => {
+      channel.unbind("event", onUpdate);
+      pusher.unsubscribe(battleId);
+    };
+  }, [battleId, pusher, utils]);
 };
 
 /**

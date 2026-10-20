@@ -44,6 +44,8 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     {
       enabled: !!battleId && !!userData,
       placeholderData: (previousData) => previousData,
+      // Saved logs can have been read while the final action was still saving.
+      refetchOnMount: "always",
     },
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");

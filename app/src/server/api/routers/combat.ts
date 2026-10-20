@@ -475,6 +475,16 @@ export const combatRouter = createTRPCRouter({
                   ]
                 : []),
             ]);
+            // Idle effects can land a killing blow here too. Announce only after
+            // their log insert finishes so clients can refresh an earlier read.
+            if (
+              history.length &&
+              settledBattle.usersState.filter((user) => !user.isAi).length > 1
+            ) {
+              void pusher.trigger(settledBattle.id, "event", {
+                version: settledBattle.version,
+              });
+            }
           }
 
           // Hide private state of non-session user
@@ -980,16 +990,13 @@ export const combatRouter = createTRPCRouter({
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
 
-            // Ping users on websocket
-            if (!battleOver) {
-              // Only push websocket data if there is more than one non-AI in battle
-              const nUsers = battle.usersState.filter((u) => !u.isAi).length;
-              if (nUsers > 1) {
-                void pusher.trigger(battle.id, "event", {
-                  // Every persisted update advances the version, including timeouts.
-                  version: newBattle.version,
-                });
-              }
+            // Notify after logs are persisted, including the terminal action.
+            // Polling clients may have read the claimed state before its log insert.
+            const nUsers = battle.usersState.filter((u) => !u.isAi).length;
+            if (nUsers > 1) {
+              void pusher.trigger(battle.id, "event", {
+                version: newBattle.version,
+              });
             }
 
             // Stop profiling. Flush after the response so the client is not

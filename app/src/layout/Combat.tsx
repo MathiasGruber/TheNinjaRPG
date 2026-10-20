@@ -20,6 +20,7 @@ import {
   shouldInvalidateEndedBattleCaches,
   useAutoCombatSetting,
   useBattleMaps,
+  useCombatUpdates,
 } from "@/hooks/combat";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { usePerformanceMonitor } from "@/hooks/performance-monitor";
@@ -199,11 +200,11 @@ const Combat: React.FC<CombatProps> = (props) => {
   const setCombatActionId = useSetAtom(combatActionIdAtom);
   const {
     data: userData,
-    pusher,
     timeDiff,
     updateUser,
     prepareUserUpdate,
   } = useRequiredUserData();
+  useCombatUpdates(battleState);
   const [statDistribution] = useLocalStorage<StatSchemaType | undefined>(
     "statDistribution",
     undefined,
@@ -975,20 +976,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         : []),
     ]);
   }, [props.battleState.result, props.battleState.battle?.id]);
-
-  useEffect(() => {
-    if (battleId && pusher) {
-      const channel = pusher.subscribe(battleId);
-      channel.bind("event", (data: { version: number }) => {
-        if (battleRef.current && data.version > battleRef.current.version && !result) {
-          void utils.combat.getBattle.invalidate();
-        }
-      });
-      return () => {
-        pusher.unsubscribe(battleId);
-      };
-    }
-  }, [battleId]);
 
   // Lobby for non-arena battles, letting both oppoenents join
   useEffect(() => {
