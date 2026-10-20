@@ -1174,6 +1174,7 @@ export const decreaseHealGiven = (
   return adjustHealGiven(effect, usersEffects, consequences, target);
 };
 
+/** Expire removable statuses when Clear/Cleanse succeeds, preserving protected sources. */
 const removeEffects = (
   effect: UserEffect,
   usersEffects: UserEffect[],
@@ -1206,6 +1207,7 @@ const removeEffects = (
       .filter(type === "positive" ? isPositiveUserEffect : isNegativeUserEffect)
       .forEach((e) => {
         e.rounds = 0;
+        // Authored instant conversions already have zero rounds; revoke their exception.
         instantConsumeIds?.delete(e.id);
       });
 
@@ -1242,6 +1244,10 @@ const persistentEffectSourceTypes = new Set<UserEffect["fromType"]>([
   "sageModeAfter",
 ]);
 
+/**
+ * Resolve Clear prevention and remove positive statuses, including instant conversions.
+ * The optional eligibility set belongs to the current applyEffects resolution.
+ */
 export const clear = (
   effect: UserEffect,
   usersEffects: UserEffect[],
@@ -2061,7 +2067,7 @@ export const vamp = (
 };
 
 /**
- * Register active conversion of all damage dealt by the caster, capped at 100%.
+ * Register Consume/Siphon conversion with a shared 100% cap and longest shield duration.
  * process.ts resolves shield HP before incoming shields and grants it after damage.
  */
 export const consume = (

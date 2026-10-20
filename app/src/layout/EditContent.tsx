@@ -2215,7 +2215,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     }
   }
 
-  // Keep shield duration beside the active Consume duration.
+  // Keep generated shield duration beside the conversion buff's active duration.
   if (tag.type === "consume" || tag.type === "siphon") {
     const shieldIdx = formData.findIndex((e) => String(e.id) === "shieldRounds");
     if (shieldIdx >= 0) {

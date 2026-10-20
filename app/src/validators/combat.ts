@@ -666,6 +666,7 @@ export const ConsumeTag = z.object({
   shieldRounds: z.coerce.number().int().min(1).max(100).prefault(3),
   target: z.enum(BaseTagTargets).optional().prefault("SELF"),
 });
+/** Reuse Consume's fields so both conversion tags share validation bounds and defaults. */
 export const SiphonTag = ConsumeTag.extend({
   type: z.literal("siphon").prefault("siphon"),
   description: msg(
@@ -1740,6 +1741,7 @@ export const SuperRefineEffects = (effects: ZodAllTags[], ctx: z.RefinementCtx) 
       e.type === "vamp" ||
       ((e.type === "consume" || e.type === "siphon") && e.rounds === 0)
     ) {
+      // Instant conversion needs damage on this action; active buffs can convert later hits.
       const hasDamageOrPierce = effects.some(
         (x) =>
           x.type === "damage" || x.type === "elementaldamage" || x.type === "pierce",

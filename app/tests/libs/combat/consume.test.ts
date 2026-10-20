@@ -925,6 +925,7 @@ describe("active Consume damage conversion", () => {
 });
 
 describe("applyEffects — siphon", () => {
+  /** Keep conversion fixed at 50% while varying the active duration. */
   const siphon = (rounds = 3): UserEffect =>
     makeEffect(
       "siphon",
@@ -937,6 +938,7 @@ describe("applyEffects — siphon", () => {
         createdRound: ROUND,
       },
     );
+  /** Isolate conversion from stat scaling; damage reduction still applies. */
   const hit = (id = "hit"): UserEffect =>
     makeDamageEffect({
       ...makeAttack(id),

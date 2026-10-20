@@ -465,7 +465,8 @@ export const applyEffects = (
 
   // Remember effects applied to different users, so that we only apply effects once
   const appliedEffects = new Set<string>();
-  // Only authored instant tags may convert after their duration reaches zero.
+  // Only authored instant Consume/Siphon tags bypass the active-duration check.
+  // Clear revokes these exceptions when it cancels the corresponding effects.
   const instantConsumeIds = new Set(
     usersEffects
       .filter(
@@ -545,7 +546,7 @@ export const applyEffects = (
     );
   });
 
-  // Register Consume after activation and prevention, before accumulating damage.
+  // Register Consume/Siphon after activation, Clear and prevention, before damage.
   usersEffects
     .filter(
       (e) =>
@@ -1201,7 +1202,7 @@ export const applyEffects = (
       }
     });
 
-  // Grant the accumulated consume shields: one effect and one log line per attacker,
+  // Grant the accumulated Consume/Siphon shields: one effect and log per attacker,
   // sized off the total pre-shield damage the action dealt across every target.
   consumeByUser.forEach(({ hp, rounds, isSiphon }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
@@ -1269,6 +1270,8 @@ export const applyEffects = (
  * @param actorId - Actor ID
  * @param effect - Effect to process
  * @param action - Action
+ * @param consumeByUser - Per-action conversion totals, mutated by Consume/Siphon
+ * @param instantConsumeIds - Shared instant-cast eligibility; Clear removes canceled IDs
  */
 export const applySingleEffect = (
   // Mutated parameters
@@ -1279,7 +1282,7 @@ export const applySingleEffect = (
   actionEffects: ActionEffect[],
   appliedEffects: Set<string>,
   battle: CompleteBattle,
-  // Not mutated parameters
+  // Effect context and shared per-action conversion state.
   actorId: string,
   effect: UserEffect,
   action?: CombatAction,

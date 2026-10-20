@@ -672,7 +672,10 @@ export type Consequence = {
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
-/** Active damage conversion and accumulated shield HP and duration, keyed by caster. */
+/**
+ * Per-action Consume/Siphon conversion, shield HP and duration, keyed by caster.
+ * isSiphon selects the aggregate log wording when either or both tags contribute.
+ */
 export type ConsumeByUser = Map<
   string,
   { ratio: number; rounds: number; hp: number; isSiphon?: boolean }
