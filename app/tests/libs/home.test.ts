@@ -160,6 +160,47 @@ describe("painted furniture geometry", () => {
     expect(saved[2]!.y).toBe(40);
   });
 
+  it.each([{ columns: 2, rows: 1 }, { columns: 1, rows: 2 }, { columns: 2, rows: 2 }])("fits touching furniture in a full $columns by $rows arrangement", ({ columns, rows }) => {
+    const yard = getHomeRooms("NONE").find(({ isYard }) => isYard)!;
+    const lawn = yard.interior[0]!;
+    const left = Math.min(...lawn.map(({ x }) => x));
+    const top = Math.min(...lawn.map(({ y }) => y));
+    const width = Math.max(...lawn.map(({ x }) => x)) - left;
+    const height = Math.max(...lawn.map(({ y }) => y)) - top;
+    const pieceWidth = width * (columns === 1 ? 0.7 : 1 / columns);
+    const pieceHeight = height * (rows === 1 ? 0.7 : 1 / rows);
+    const furnitureWidth = pieceWidth * yard.width / 100;
+    const furnitureHeight = pieceHeight * yard.height / 100;
+    const data = furnitureDataSchema.parse({
+      width: furnitureWidth,
+      geometry: {
+        aspectRatio: furnitureWidth * 4 / 3 / furnitureHeight,
+        visibleBounds: { x: 0, y: 0, width: 100, height: 100 },
+        footprint: { x: 0, y: 0, width: 100, height: 100 },
+      },
+    });
+    const pieces = Array.from({ length: columns * rows }, (_, index) => fixture(`chair-${index}`, data));
+    const touching = pieces.map(({ id }, index) => ({
+      id, room: "yard" as const, rotation: 0 as const,
+      ...unprojectHomePlacement({
+        x: left + (width - columns * pieceWidth) / 2 + (index % columns + 0.5) * pieceWidth,
+        y: top + (height - rows * pieceHeight) / 2 + (Math.floor(index / columns) + 1) * pieceHeight,
+      }),
+    }));
+    expect(homeLayoutPlacementError(touching, pieces, "NONE")).toBeNull();
+    const saved = touching.map((position) => ({ ...position, x: touching[0]!.x, y: touching[0]!.y }));
+    const original = structuredClone(saved);
+    const fitted = fitHomeFurniturePlacement(saved.at(-1)!, pieces.at(-1)!, touching.slice(0, -1), pieces, "NONE");
+    expect(fitted).not.toBeNull();
+    expect(homeLayoutPlacementError([...touching.slice(0, -1), fitted!], pieces, "NONE")).toBeNull();
+    const overlapping = { ...fitted!, x: fitted!.x + (saved[0]!.x - fitted!.x) / 100, y: fitted!.y + (saved[0]!.y - fitted!.y) / 100 };
+    expect(homeLayoutPlacementError([...touching.slice(0, -1), overlapping], pieces, "NONE")).toContain("overlaps");
+    const recovered = recoverHomeLayout(saved, pieces, "NONE");
+    expect(recovered).toHaveLength(pieces.length);
+    expect(homeLayoutPlacementError(recovered, pieces, "NONE")).toBeNull();
+    expect(saved).toEqual(original);
+  });
+
   it("preserves a rotated bed when the complete upgraded floor fits its facing", () => {
     const catalogue = readFileSync(new URL("../../data/item.sql", import.meta.url), "utf8");
     const data = catalogue.match(/\('home-bed', 'Bed',.*?'FURNITURE', '(\{.*?\})'/)?.[1];

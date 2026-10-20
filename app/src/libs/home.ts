@@ -218,14 +218,19 @@ export const fitHomeFurniturePlacement = (
 
   const anchor = projectHomePlacement(clamped);
   const offset = { x: footprint.x - anchor.x, y: footprint.y - anchor.y };
+  // Polygon clipping drops edge-only space. Keep a margin inside the overlap
+  // tolerance so touching furniture still fits after projection rounding.
+  const inset = HOME_GEOMETRY_EPSILON / 2;
   const regions = subtractHomeFloorBounds(
     getHomeAnchorRegions(furniture, clamped, homeType),
-    obstacles.map((other) => ({
-      x: other.x - offset.x - footprint.width,
-      y: other.y - offset.y - footprint.height,
-      width: other.width + footprint.width,
-      height: other.height + footprint.height,
-    })),
+    obstacles
+      .map((other) => ({
+        x: other.x - offset.x - footprint.width + inset,
+        y: other.y - offset.y - footprint.height + inset,
+        width: other.width + footprint.width - 2 * inset,
+        height: other.height + footprint.height - 2 * inset,
+      }))
+      .filter(({ width, height }) => width > 0 && height > 0),
   );
   if (!regions.length) return null;
   return {
