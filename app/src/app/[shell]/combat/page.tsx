@@ -1,17 +1,18 @@
 "use client";
 
 import { useAtom, useSetAtom } from "jotai";
-import { Bot, Hand } from "lucide-react";
+import { Bot } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AutoBattleTypes } from "@/drizzle/constants";
+import { AutoBattleTypes, ManualStartBattleTypes } from "@/drizzle/constants";
 import { type CombatLayoutComponentId, useCombatPreferences } from "@/hooks/combat";
 import { useTutorialStep } from "@/hooks/tutorial";
 import ActionTimer from "@/layout/ActionTimer";
+import { AutoCombatControl } from "@/layout/AutoCombatControl";
 import { ActionSelector } from "@/layout/CombatActions";
 import CombatHistory from "@/layout/CombatHistory";
 import CombatTimeline from "@/layout/CombatTimeline";
@@ -45,6 +46,7 @@ export default function CombatPage() {
   const [battleState, setBattleState] = useState<BattleState | undefined>(undefined);
   const [lastViewedVersion, setLastViewedVersion] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>("actions");
+  const [autoCombatError, setAutoCombatError] = useState<string>();
 
   // Data from the DB
   const setBattleAtom = useSetAtom(userBattleAtom);
@@ -59,10 +61,16 @@ export default function CombatPage() {
   // Mutation for handing turns to / taking them back from the user's AI profile
   const { mutate: toggleAutoCombat, isPending: isTogglingAutoCombat } =
     api.combat.toggleAutoCombat.useMutation({
+      onMutate: () => setAutoCombatError(undefined),
       onSuccess: async (result) => {
+        setAutoCombatError(result.success ? undefined : result.message);
         if (result.message) showMutationToast(result);
-        await utils.combat.getBattle.invalidate();
+        await Promise.all([
+          utils.combat.getBattle.invalidate(),
+          utils.profile.getUser.invalidate(),
+        ]);
       },
+      onError: (error) => setAutoCombatError(error.message),
     });
 
   // Derived variables
@@ -83,6 +91,7 @@ export default function CombatPage() {
   const canToggleAutoCombat =
     !!battle &&
     !AutoBattleTypes.includes(battle.battleType) &&
+    !battle.extraState.tournamentAiOnly &&
     !battle.extraState.kageMatch &&
     !!sessionBattleUser &&
     !sessionBattleUser.isAi &&
@@ -309,43 +318,35 @@ export default function CombatPage() {
             aiOnly={
               battle.extraState.tournamentAiOnly || battle.extraState.kageMatch?.ai
             }
-            isToggling={isTogglingAutoCombat}
-            onTakeControl={() =>
-              toggleAutoCombat({ battleId: battle.id, enabled: false })
-            }
           />
         ) : (
-          <>
-            <ActionSelector
-              showInfoIcon={true}
-              items={actions}
-              currentRound={battle.round}
-              className="p-1"
-              showBgColor={true}
-              eagerImages={true}
-              showLabels={showActionLabels}
-              selectedId={actionId}
-              combatMode={true}
-              userActionPoints={user?.actionPoints}
-              battle={battle}
-              userId={controlledActorId}
-              gridClassNameOverwrite={actionGridClass}
-              aspectRatioClass={actionAspect}
-              onClick={handleActionClick}
-            />
-            {canToggleAutoCombat && !results && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-muted-foreground"
-                disabled={isTogglingAutoCombat}
-                onClick={() => toggleAutoCombat({ battleId: battle.id, enabled: true })}
-              >
-                <Bot className="mr-2 h-4 w-4" />
-                Let my AI profile finish this battle
-              </Button>
-            )}
-          </>
+          <ActionSelector
+            showInfoIcon={true}
+            items={actions}
+            currentRound={battle.round}
+            className="p-1"
+            showBgColor={true}
+            eagerImages={true}
+            showLabels={showActionLabels}
+            selectedId={actionId}
+            combatMode={true}
+            userActionPoints={user?.actionPoints}
+            battle={battle}
+            userId={controlledActorId}
+            gridClassNameOverwrite={actionGridClass}
+            aspectRatioClass={actionAspect}
+            onClick={handleActionClick}
+          />
+        )}
+        {canToggleAutoCombat && !results && (
+          <AutoCombatControl
+            key={battle.id}
+            isActive={isAutoCombatActive}
+            isPending={isTogglingAutoCombat}
+            requiresConfirmation={ManualStartBattleTypes.includes(battle.battleType)}
+            error={autoCombatError}
+            onChange={(enabled) => toggleAutoCombat({ battleId: battle.id, enabled })}
+          />
         )}
       </div>
     );
@@ -356,6 +357,7 @@ export default function CombatPage() {
     isAutoCombatActive,
     results,
     isTogglingAutoCombat,
+    autoCombatError,
     toggleAutoCombat,
     canToggleAutoCombat,
     actions,
@@ -533,8 +535,6 @@ export default function CombatPage() {
 
 interface AutoCombatPanelProps {
   aiOnly?: boolean;
-  isToggling: boolean;
-  onTakeControl: () => void;
 }
 
 const AutoCombatPanel: React.FC<AutoCombatPanelProps> = (props) => {
@@ -547,18 +547,8 @@ const AutoCombatPanel: React.FC<AutoCombatPanelProps> = (props) => {
       <p className="text-muted-foreground text-sm">
         {props.aiOnly
           ? "Both sides use AI control for this match. You can edit your rules before your next match."
-          : "Your AI profile is fighting this battle for you. Sit back and watch, or take back control at any time."}
+          : "Your AI profile is fighting this battle for you. Turn AI control off below to take control."}
       </p>
-      {!props.aiOnly && (
-        <Button
-          variant="secondary"
-          disabled={props.isToggling}
-          onClick={props.onTakeControl}
-        >
-          <Hand className="mr-2 h-4 w-4" />
-          Take control
-        </Button>
-      )}
     </div>
   );
 };

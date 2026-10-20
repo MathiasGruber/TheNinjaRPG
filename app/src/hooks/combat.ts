@@ -175,8 +175,9 @@ export type CombatPreferences = ReturnType<typeof useCombatPreferences>;
 /**
  * Whether new battles should start with the player's own AI profile in control
  * (auto combat). Persisted on the user rather than in localStorage so the
- * choice follows the player across devices, and so toggling it mid-battle can
- * remember the preference for next time. Defaults to true for every account.
+ * choice follows the player across devices. Toggling it in a non-PvP battle
+ * remembers the preference for next time; PvP choices apply only to that fight.
+ * Defaults to true for every account.
  *
  * Returns a [value, setValue] pair mirroring useLocalStorage, so call sites
  * read the same either way.

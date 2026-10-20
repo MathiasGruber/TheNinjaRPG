@@ -2205,6 +2205,11 @@ export const actSchema = z.object({
   generalTypes: z.array(z.enum(GeneralTypes)).prefault(["Strength"]),
 });
 
+export const toggleAutoCombatSchema = z.object({
+  battleId: z.string(),
+  enabled: z.boolean(),
+});
+
 /** A player's real level and experience, which can exceed what their stats sum to */
 export const loadedProgressSchema = z.object({
   level: z.number().int().min(1),
