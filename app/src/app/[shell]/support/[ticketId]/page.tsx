@@ -14,7 +14,6 @@ import {
   Users,
 } from "lucide-react";
 import { use, useRef, useState } from "react";
-import { toast } from "sonner";
 import { api } from "@/app/_trpc/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +40,6 @@ import {
   getStatusColor,
 } from "@/libs/support";
 import { showMutationToast } from "@/libs/toast";
-import { getSessionErrorToastId } from "@/libs/trpcSession";
 import {
   canEditCannedResponses,
   canEscalateToGithub,
@@ -118,10 +116,10 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
       }
     },
     onError: (error) => {
-      toast.error(error.message || "Could not update the ticket. Please try again.", {
-        id: getSessionErrorToastId(error.message),
-        // Sonner merges by ID; the shared notice may already describe this message.
-        description: undefined,
+      showMutationToast({
+        success: false,
+        message: error.message || "Could not update the ticket. Please try again.",
+        variant: "destructive",
       });
     },
   });

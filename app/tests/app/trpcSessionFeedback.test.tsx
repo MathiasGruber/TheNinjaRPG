@@ -25,7 +25,7 @@ const notices = () => sonnerToast.getToasts().filter((notice): notice is ToastT 
 const messages = () => notices().map((notice) => notice.description ?? notice.title);
 
 const callbacks = [
-  { file: "support/[ticketId]", path: "support.updateTicket", direct: true },
+  { file: "support/[ticketId]", path: "support.updateTicket" },
   { file: "manual/polls", path: "poll.updatePoll" },
   { file: "points", path: "paypal.resolveSubscription", subscription: true },
   { file: "points", path: "paypal.upgradeSubscription", subscription: true },
@@ -41,12 +41,13 @@ const pageOnError = (source: (typeof callbacks)[number], onFailure: () => void) 
     ?.match(/onError:\s*(\(error\) => \{[\s\S]*?\n\s*\}),/)?.[1];
   if (!expression) throw new Error(`${source.path} onError callback was not found`);
   return new Function(
-    "toast", "onError", "props", "getSessionErrorToastId", `return (${expression});`,
+    "toast", "onError", "props", "getSessionErrorToastId", "showMutationToast", `return (${expression});`,
   )(
-    "direct" in source ? sonnerToast : uiToast,
+    uiToast,
     clientModule.onError,
     { onFailure },
     Reflect.get(sessionModule, "getSessionErrorToastId"),
+    toast.showMutationToast,
   ) as (error: { message: string }) => void;
 };
 
@@ -104,6 +105,8 @@ for (const source of callbacks) {
         for (const notify of sharedFirst ? [shared, local] : [local, shared]) notify();
         expect(notices()).toHaveLength(1);
         expect([notices()[0]?.title, notices()[0]?.description].filter((value) => value === message)).toHaveLength(1);
+        // The app's toaster hides titles on mobile; the recovery message must stay visible.
+        expect(notices()[0]?.description).toBe(message);
       },
     );
   }
@@ -176,7 +179,7 @@ for (const source of callbacks) {
     expect(queryClient.isMutating()).toBe(0);
     expect(messages()).toEqual([message, message]);
     expect(notices().map((notice) => notice.title)).toEqual(
-      Array(2).fill("direct" in source ? message : "subscription" in source ? "BAD_REQUEST" : "Error"),
+      Array(2).fill("subscription" in source ? "BAD_REQUEST" : "Error"),
     );
     expect(notices().every((notice) => notice.type === "error")).toBe(true);
   });
