@@ -84,7 +84,9 @@ async function loadEntry(entryConfig: string) {
   };
   runInNewContext(entryConfig, context);
   const html = readFileSync(join(MOBILE_ROOT, "www/index.html"), "utf8");
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  const script = new DOMParser()
+    .parseFromString(html, "text/html")
+    .querySelector("script:not([src])")?.textContent;
   if (!script) throw new Error("Bundled entry script is missing");
   runInNewContext(script, context);
   await new Promise<void>((resolve) => setImmediate(resolve));
