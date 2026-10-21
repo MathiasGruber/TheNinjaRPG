@@ -69,7 +69,11 @@ import {
   showsItemLevelBadge,
   userItemActionBadges,
 } from "@/libs/item";
-import { finishItemConsumeRequest, getItemConsumeInput } from "@/libs/itemConsumption";
+import {
+  finishItemConsumeRequest,
+  getItemConsumeErrorMessage,
+  getItemConsumeInput,
+} from "@/libs/itemConsumption";
 import { gearMissingMastery } from "@/libs/mastery";
 import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/repair";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
@@ -77,7 +81,6 @@ import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { hasRequiredLevel, remainingXpToLevel } from "@/libs/train";
 import { getVillageLoyaltyShopCost } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
-import { isRetryableTrpcError } from "@/utils/error";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { displayCostType } from "@/validators/item";
 
@@ -899,20 +902,8 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       }
     },
     onError: (error) => {
-      // Transport failures are suppressed globally; server rejections already show a toast.
-      if (!isRetryableTrpcError(error)) return;
-      const isCache = useritem?.item.effects.some(
-        (effect) =>
-          effect.type === "noncombatconsumereward" &&
-          (effect.rewardMode === "weightedCache" ||
-            (effect.reward_pets?.length ?? 0) > 0),
-      );
-      showMutationToast({
-        success: false,
-        message: isCache
-          ? "Could not confirm item use. Try Consume again to check the opening."
-          : "Could not confirm item use. Refresh your inventory to check the result.",
-      });
+      const message = getItemConsumeErrorMessage(error, useritem?.item);
+      if (message) showMutationToast({ success: false, message });
     },
     onSettled,
   });
