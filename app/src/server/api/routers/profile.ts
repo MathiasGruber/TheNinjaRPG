@@ -3077,7 +3077,8 @@ export const updateNindo = async (
  * Fetch a user by id
  * @param client - The database client
  * @param userId - The id of the user
- * @returns The user
+ * @returns The user, never null or undefined
+ * @throws A NOT_FOUND error if the user does not exist
  *
  * NOTE: This function is used across the codebase. Use fetchUpdatedUser
  * if more information is required on the user object, so that we keep this method "light"

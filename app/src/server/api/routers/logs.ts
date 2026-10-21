@@ -128,7 +128,7 @@ export const logsRouter = createTRPCRouter({
       // Query
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       // Guard
-      if (!user || !canSeeSecretData(user.role)) {
+      if (!canSeeSecretData(user.role)) {
         return [];
       }
       // Get bloodline history
