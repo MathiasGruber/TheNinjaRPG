@@ -2040,7 +2040,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       } else if ((value as string) === "reward_items" && itemData) {
         return {
           id: value,
-          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          values: itemData,
           doubleWidth: true,
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
@@ -2748,7 +2748,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       } else if (value === "reward_items" && itemData) {
         return {
           id: value,
-          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          values: itemData,
           doubleWidth: true,
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
@@ -3140,7 +3140,7 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
       if (value === "reward_items" && itemData) {
         return {
           id: value,
-          values: itemData.sort((a, b) => a.name.localeCompare(b.name)),
+          values: itemData,
           doubleWidth: true,
           multiple: true,
           label: FORM_LABEL_MAP[value] ?? value,
