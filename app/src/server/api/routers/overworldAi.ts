@@ -367,9 +367,8 @@ export const overworldAiRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       // Fetch placement + actor (with quest relations) + inventory in parallel. The
-      // bound-objective check needs quest relations before the HOSTILE branch, so load
-      // the full user up front (this also removes the previous duplicate user fetch in
-      // the FRIENDLY branch).
+      // bound-objective check needs quest relations before either interaction branch,
+      // so load the full user up front.
       //
       // forceRegen MUST be false here: fetchUpdatedUser persists passive regen to
       // userData when forceRegen is true, which would add a DB write to EVERY overworld

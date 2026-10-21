@@ -1136,12 +1136,10 @@ export const bloodlineRouter = createTRPCRouter({
  */
 
 /**
- * Thrown ONLY by updateBloodline's pre-write CAS rejection — i.e. nothing was granted yet. The
- * pity handler refunds the reserved credit exclusively on this marker, so a post-grant side-effect
- * failure (a raw DB error today, or a TRPCError a future edit might add inside the side-effect
- * writes) can never trigger a refund after the bloodline was already granted (grant + refund double
- * benefit). Extends TRPCError so framework serialization and any `instanceof TRPCError` handling
- * elsewhere stay identical to the previous serverError("BAD_REQUEST", ...) throw.
+ * Marks a rejection before updateBloodline changes the user's bloodline. The pity handler
+ * refunds the reserved credit exclusively on this marker, so post-grant side-effect failures
+ * and ambiguous driver errors cannot trigger a grant + refund double benefit. Extends
+ * TRPCError for BAD_REQUEST serialization and `instanceof TRPCError` handling.
  */
 class BloodlineGrantRejectedError extends TRPCError {
   constructor(message: string) {
