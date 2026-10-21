@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, eq, isNotNull, isNull, lt, lte, notExists, sql } from "drizzle-orm";
 import { MODERATION_SCAN_RETENTION_DAYS } from "@/drizzle/constants";
 import {
   anbuSquad,
@@ -77,12 +77,11 @@ export async function GET(request: Request) {
     const rangeCleanupBatchSize = 10_000;
 
     // Step 1: Delete from battle table where updatedAt is older than 1 day
-    await drizzleDB.execute(
-      sql`DELETE FROM ${battle}
-          WHERE updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY
-          ORDER BY updatedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(battle)
+      .where(lt(battle.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY`))
+      .orderBy(battle.updatedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Step 2: Release missing fights while preserving an open isolated Pyramid run.
     await drizzleDB
@@ -101,7 +100,12 @@ export async function GET(request: Request) {
       .where(
         and(
           isNotNull(userData.battleId),
-          sql`NOT EXISTS (SELECT 1 FROM ${battle} WHERE ${battle.id} = ${userData.battleId})`,
+          notExists(
+            drizzleDB
+              .select({ id: battle.id })
+              .from(battle)
+              .where(eq(battle.id, userData.battleId)),
+          ),
         ),
       );
 
@@ -137,12 +141,11 @@ export async function GET(request: Request) {
 
     // Step 3a: All action types expire after at most 72 hours. Keep the backlog
     // path join-free so the updatedAt index can stop after one small range batch.
-    await drizzleDB.execute(
-      sql`DELETE FROM ${battleAction}
-          WHERE updatedAt < DATE_SUB(NOW(), INTERVAL 72 HOUR)
-          ORDER BY updatedAt
-          LIMIT ${backlogCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(battleAction)
+      .where(lt(battleAction.updatedAt, sql`DATE_SUB(NOW(), INTERVAL 72 HOUR)`))
+      .orderBy(battleAction.updatedAt)
+      .limit(backlogCleanupBatchSize);
 
     // Step 3b: Only inspect the bounded 12-72 hour window for shorter non-PVP
     // retention and orphans. The derived table is deliberately the first side of
@@ -231,9 +234,16 @@ export async function GET(request: Request) {
       );
 
     // Step 7: Conversation comments where the conversation does not exist anymore
-    await drizzleDB.execute(
-      sql`DELETE FROM ${conversationComment} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`,
-    );
+    await drizzleDB
+      .delete(conversationComment)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ id: conversation.id })
+            .from(conversation)
+            .where(eq(conversation.id, conversationComment.conversationId)),
+        ),
+      );
 
     // Step 8a: Delete conversation comments older than 14 days
     await drizzleDB.execute(
@@ -255,17 +265,38 @@ export async function GET(request: Request) {
     );
 
     // Step 9: Delete user2conversation where the conversation does not exist anymore
-    await drizzleDB.execute(
-      sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT id FROM ${conversation} b WHERE b.id = a.conversationId)`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE FROM ${user2conversation} a WHERE NOT EXISTS (SELECT userId FROM ${userData} b WHERE b.userId = a.userId)`,
-    );
+    await drizzleDB
+      .delete(user2conversation)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ id: conversation.id })
+            .from(conversation)
+            .where(eq(conversation.id, user2conversation.conversationId)),
+        ),
+      );
+    await drizzleDB
+      .delete(user2conversation)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, user2conversation.userId)),
+        ),
+      );
 
     // Step 10: Remove user jutsus where the jutsu ID no longer exists
-    await drizzleDB.execute(
-      sql`DELETE FROM ${userJutsu} a WHERE NOT EXISTS (SELECT id FROM ${jutsu} b WHERE b.id = a.jutsuId)`,
-    );
+    await drizzleDB
+      .delete(userJutsu)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ id: jutsu.id })
+            .from(jutsu)
+            .where(eq(jutsu.id, userJutsu.jutsuId)),
+        ),
+      );
 
     // Step 11: Clearing historical avatars that failed more than 3 hours ago
     await drizzleDB
@@ -278,59 +309,145 @@ export async function GET(request: Request) {
       );
 
     // Step 12: Update users who have a clanId by no clan
-    await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.clanId=NULL WHERE NOT EXISTS (SELECT id FROM ${clan} b WHERE b.id = a.clanId) AND a.clanId IS NOT NULL`,
-    );
+    await drizzleDB
+      .update(userData)
+      .set({ clanId: null })
+      .where(
+        and(
+          isNotNull(userData.clanId),
+          notExists(
+            drizzleDB
+              .select({ id: clan.id })
+              .from(clan)
+              .where(eq(clan.id, userData.clanId)),
+          ),
+        ),
+      );
 
     // Step 13: Bank transfers from deleted users
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${bankTransfers} a LEFT JOIN ${userData} b ON a.senderId = b.userId WHERE b.userId IS NULL`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${bankTransfers} a LEFT JOIN ${userData} b ON a.receiverId = b.userId WHERE b.userId IS NULL`,
-    );
+    await drizzleDB
+      .delete(bankTransfers)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, bankTransfers.senderId)),
+        ),
+      );
+    await drizzleDB
+      .delete(bankTransfers)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, bankTransfers.receiverId)),
+        ),
+      );
 
     // Step 14: Clear users older than 60 days
-    await drizzleDB.execute(
-      sql`DELETE FROM ${userData} WHERE experience < 100 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY AND reputationPointsTotal <= 5`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE FROM ${userData} WHERE experience < 10000 AND isAi = 0 AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY AND reputationPointsTotal <= 5`,
-    );
+    await drizzleDB
+      .delete(userData)
+      .where(
+        and(
+          lt(userData.experience, 100),
+          eq(userData.isAi, false),
+          lt(userData.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`),
+          lte(userData.reputationPointsTotal, 5),
+        ),
+      );
+    await drizzleDB
+      .delete(userData)
+      .where(
+        and(
+          lt(userData.experience, 10_000),
+          eq(userData.isAi, false),
+          lt(userData.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 60 DAY`),
+          lte(userData.reputationPointsTotal, 5),
+        ),
+      );
 
     // Inactive-character purges bypass the account cleaner; remove their owned pets.
     await drizzleDB
       .delete(userPet)
       .where(
-        sql`NOT EXISTS (SELECT 1 FROM ${userData} WHERE ${userData.userId} = ${userPet.userId})`,
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, userPet.userId)),
+        ),
       )
       .limit(cleanupBatchSize);
 
     // Step 15: Clear bloodline rolls without a user
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${bloodlineRolls} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
+    await drizzleDB
+      .delete(bloodlineRolls)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, bloodlineRolls.userId)),
+        ),
+      );
 
     // Step 16: Clear concept images without a user
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${conceptImage} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
+    await drizzleDB
+      .delete(conceptImage)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, conceptImage.userId)),
+        ),
+      );
 
     // Step 17: Clear forums without a user
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${forumThread} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${forumPost} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${forumPost} a LEFT JOIN ${forumThread} b ON a.threadId = b.id WHERE b.id IS NULL`,
-    );
+    await drizzleDB
+      .delete(forumThread)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, forumThread.userId)),
+        ),
+      );
+    await drizzleDB
+      .delete(forumPost)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, forumPost.userId)),
+        ),
+      );
+    await drizzleDB
+      .delete(forumPost)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ id: forumThread.id })
+            .from(forumThread)
+            .where(eq(forumThread.id, forumPost.threadId)),
+        ),
+      );
 
     // Step 18: Historical avatars
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${historicalAvatar} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
+    await drizzleDB
+      .delete(historicalAvatar)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, historicalAvatar.userId)),
+        ),
+      );
 
     // Step 19: Quest history without a user. Both orphan sweeps drain in bounded
     // primary-key batches, so neither holds locks across the whole table while
@@ -367,42 +484,83 @@ export async function GET(request: Request) {
     );
 
     // Step 21: User jutsu & items
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${userJutsu} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
-    await drizzleDB.execute(
-      sql`DELETE a FROM ${userItem} a LEFT JOIN ${userData} b ON a.userId = b.userId WHERE b.userId IS NULL`,
-    );
+    await drizzleDB
+      .delete(userJutsu)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, userJutsu.userId)),
+        ),
+      );
+    await drizzleDB
+      .delete(userItem)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ userId: userData.userId })
+            .from(userData)
+            .where(eq(userData.userId, userItem.userId)),
+        ),
+      );
 
     // Step 22: Clear training log entries
-    await drizzleDB.execute(
-      sql`DELETE FROM ${trainingLog}
-          WHERE trainingFinishedAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY
-          ORDER BY trainingFinishedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(trainingLog)
+      .where(
+        lt(trainingLog.trainingFinishedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`),
+      )
+      .orderBy(trainingLog.trainingFinishedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Step 23: Clear mpvp battle queue entries
-    await drizzleDB.execute(
-      sql`DELETE FROM ${mpvpBattleQueue}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY
-          ORDER BY createdAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(mpvpBattleQueue)
+      .where(lt(mpvpBattleQueue.createdAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 7 DAY`))
+      .orderBy(mpvpBattleQueue.createdAt)
+      .limit(rangeCleanupBatchSize);
 
     // Step 24: Clear mpvp battle user entries
-    await drizzleDB.execute(
-      sql`DELETE FROM ${mpvpBattleUser} a WHERE NOT EXISTS (SELECT id FROM ${mpvpBattleQueue} b WHERE b.id = a.clanBattleId)`,
-    );
+    await drizzleDB
+      .delete(mpvpBattleUser)
+      .where(
+        notExists(
+          drizzleDB
+            .select({ id: mpvpBattleQueue.id })
+            .from(mpvpBattleQueue)
+            .where(eq(mpvpBattleQueue.id, mpvpBattleUser.clanBattleId)),
+        ),
+      );
 
     // Step 25: Set status to AWAKE for users who are QUEUED if they are not in any active battle systems
     // Only claimed ranked rows own status; provisional joins must not keep an orphan queued.
     // This covers mpvp battles and ranked PvP.
-    await drizzleDB.execute(
-      sql`UPDATE ${userData} a SET a.status="AWAKE" WHERE a.status="QUEUED" 
-          AND NOT EXISTS (SELECT id FROM ${mpvpBattleUser} b WHERE b.userId = a.userId)
-          AND NOT EXISTS (SELECT id FROM ${rankedPvpQueue} d WHERE d.userId = a.userId AND d.hasClaimed = true)`,
-    );
+    await drizzleDB
+      .update(userData)
+      .set({ status: "AWAKE" })
+      .where(
+        and(
+          eq(userData.status, "QUEUED"),
+          notExists(
+            drizzleDB
+              .select({ id: mpvpBattleUser.id })
+              .from(mpvpBattleUser)
+              .where(eq(mpvpBattleUser.userId, userData.userId)),
+          ),
+          notExists(
+            drizzleDB
+              .select({ id: rankedPvpQueue.id })
+              .from(rankedPvpQueue)
+              .where(
+                and(
+                  eq(rankedPvpQueue.userId, userData.userId),
+                  eq(rankedPvpQueue.hasClaimed, true),
+                ),
+              ),
+          ),
+        ),
+      );
 
     // Step 26: Update the population of each village
     await drizzleDB.execute(
@@ -416,12 +574,11 @@ export async function GET(request: Request) {
     );
 
     // Step 27: Clear old captcha checks
-    await drizzleDB.execute(
-      sql`DELETE FROM ${captcha}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY
-          ORDER BY createdAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(captcha)
+      .where(lt(captcha.createdAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`))
+      .orderBy(captcha.createdAt)
+      .limit(rangeCleanupBatchSize);
 
     // Expiry releases pending ally reservations in the same write; accepted history stays.
     await retryOnDeadlock(() =>
@@ -465,18 +622,24 @@ export async function GET(request: Request) {
     }
 
     // Step 31: Clear automatedModeration older than  3 months
-    await drizzleDB.execute(
-      sql`DELETE FROM ${automatedModeration}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH
-          ORDER BY createdAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(automatedModeration)
+      .where(
+        lt(automatedModeration.createdAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 3 MONTH`),
+      )
+      .orderBy(automatedModeration.createdAt)
+      .limit(rangeCleanupBatchSize);
 
-    await drizzleDB.execute(
-      sql`DELETE FROM ${moderationScan}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL ${MODERATION_SCAN_RETENTION_DAYS} DAY
-          ORDER BY createdAt LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(moderationScan)
+      .where(
+        lt(
+          moderationScan.createdAt,
+          sql`CURRENT_TIMESTAMP(3) - INTERVAL ${MODERATION_SCAN_RETENTION_DAYS} DAY`,
+        ),
+      )
+      .orderBy(moderationScan.createdAt)
+      .limit(rangeCleanupBatchSize);
 
     // Step 32: Federal status is derived state. Reconcile its exact maximum active tier
     // across PayPal and both stores, including downgrades when a higher receipt expires.
@@ -484,61 +647,62 @@ export async function GET(request: Request) {
 
     // Step 34: Clear bank interest outside the claimable UTC date window
     const { oldestDate } = getBankInterestDateRange();
-    await drizzleDB.execute(
-      sql`DELETE FROM ${dailyBankInterest}
-          WHERE date < ${oldestDate}
-          ORDER BY updatedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(dailyBankInterest)
+      .where(lt(dailyBankInterest.date, oldestDate))
+      .orderBy(dailyBankInterest.updatedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Step 35: Clear daily bank interest older than 2 days which are already claimed
-    await drizzleDB.execute(
-      sql`DELETE FROM ${dailyBankInterest}
-          WHERE claimed = 1
-          AND updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 2 DAY
-          ORDER BY updatedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(dailyBankInterest)
+      .where(
+        and(
+          eq(dailyBankInterest.claimed, true),
+          lt(dailyBankInterest.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 2 DAY`),
+        ),
+      )
+      .orderBy(dailyBankInterest.updatedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Delete historical ips older than 90 days
-    await drizzleDB.execute(
-      sql`DELETE FROM ${historicalIp}
-          WHERE usedAt < CURRENT_TIMESTAMP(3) - INTERVAL 90 DAY
-          ORDER BY usedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(historicalIp)
+      .where(lt(historicalIp.usedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 90 DAY`))
+      .orderBy(historicalIp.usedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Clean activity events older than 10 days
-    await drizzleDB.execute(
-      sql`DELETE FROM ${userActivityEvent}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 10 DAY
-          ORDER BY createdAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(userActivityEvent)
+      .where(
+        lt(userActivityEvent.createdAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 10 DAY`),
+      )
+      .orderBy(userActivityEvent.createdAt)
+      .limit(rangeCleanupBatchSize);
 
     // Clear rankedPvpQueue entries older than 1 day
-    await drizzleDB.execute(
-      sql`DELETE FROM ${rankedPvpQueue}
-          WHERE createdAt < CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY
-          ORDER BY createdAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(rankedPvpQueue)
+      .where(lt(rankedPvpQueue.createdAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY`))
+      .orderBy(rankedPvpQueue.createdAt)
+      .limit(rangeCleanupBatchSize);
 
     // Clear war kills older than 10 days
-    await drizzleDB.execute(
-      sql`DELETE FROM ${warKill}
-          WHERE killedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY
-          ORDER BY killedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(warKill)
+      .where(lt(warKill.killedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`))
+      .orderBy(warKill.killedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Clear dataBattleAction entries older than 30 days
-    await drizzleDB.execute(
-      sql`DELETE FROM ${dataBattleAction}
-          WHERE updatedAt < CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY
-          ORDER BY updatedAt
-          LIMIT ${rangeCleanupBatchSize}`,
-    );
+    await drizzleDB
+      .delete(dataBattleAction)
+      .where(
+        lt(dataBattleAction.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 30 DAY`),
+      )
+      .orderBy(dataBattleAction.updatedAt)
+      .limit(rangeCleanupBatchSize);
 
     // Handle expired exclusive raids - return sectors to neutral if raid timed out without boss defeat
     await cleanupExpiredExclusiveRaids(drizzleDB);
