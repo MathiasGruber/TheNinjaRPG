@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, expect, it, vi } from "bun:test";
 import { actionLog, jutsu, userData, userJutsu } from "@/drizzle/schema";
-import type { InsertAiSchemaInput } from "@/drizzle/schema";
 import * as socials from "@/libs/socials";
 import { profileRouter } from "@/server/api/routers/profile";
+import type { InsertAiSchemaInput } from "@/validators/aiInput";
 import { insertUsers } from "../../setup/factories";
 import {
   callerFor,

@@ -77,7 +77,6 @@ import {
   farmPlot,
   gameSetting,
   historicalIp,
-  insertAiSchema,
   item,
   jutsu,
   jutsuReskin,
@@ -272,6 +271,7 @@ import {
   secondsPassed,
 } from "@/utils/time";
 import { countBoostingShrines, getShrineBoost } from "@/utils/village";
+import { insertAiSchema } from "@/validators/aiInput";
 import { mutateContentSchema } from "@/validators/comments";
 import { idSchema } from "@/validators/misc";
 import { attributes, colors, skin_colors, usernameSchema } from "@/validators/register";

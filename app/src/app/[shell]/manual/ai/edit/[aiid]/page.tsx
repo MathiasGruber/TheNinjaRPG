@@ -6,8 +6,6 @@ import { use, useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
-import type { InsertAiSchema } from "@/drizzle/schema";
-import { insertAiSchema } from "@/drizzle/schema";
 import AiProfileEdit from "@/layout/AiProfileEdit";
 import ContentBox from "@/layout/ContentBox";
 import { AiHelper } from "@/layout/ContentHelp";
@@ -22,6 +20,7 @@ import { showMutationToast } from "@/libs/toast";
 import type { AiWithRelations } from "@/routers/profile";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
+import { type InsertAiSchema, insertAiSchema } from "@/validators/aiInput";
 import { tagTypes, WeaknessTag, type ZodAllTags } from "@/validators/combat";
 
 export default function ManualAisEdit(props: { params: Promise<{ aiid: string }> }) {

@@ -6,11 +6,11 @@ import {
   spriteGroundingOffset,
   TILED_TILE_HEIGHT,
   TILED_TILE_WIDTH,
-  type TiledProperty,
   WYSIWYG_TILE_HEIGHT,
 } from "@/libs/sector-map/tiled";
 import { buildTiledProject, TILED_KIT_README } from "@/libs/sector-map/tiled-project";
 import { sleep } from "@/utils/time";
+import type { TiledProperty } from "@/validators/tiled";
 
 /**
  * Client-side export of a stored sector map into a Tiled-editable .zip.
