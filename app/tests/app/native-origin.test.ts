@@ -22,6 +22,7 @@ function readConfiguration(rawOrigin: string | undefined) {
     mkdirSync(join(directory, "scripts"));
     mkdirSync(join(directory, "www"));
     for (const file of [
+      "package.json",
       "origin.mjs",
       "capacitor.config.ts",
       "scripts/write-config.mjs",
