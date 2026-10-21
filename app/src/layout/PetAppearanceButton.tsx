@@ -87,9 +87,10 @@ export function PetAppearanceButton({
           }}
         >
           <p className="text-muted-foreground text-sm">
-            Choose today's traits for {pet.name}. Each generation uses one image
-            attempt. The new image and traits replace the current appearance only after
-            generation succeeds. Creating the image can take a few minutes.
+            Choose today's traits for {pet.name}. Each accepted image uses one image
+            attempt; failed generations are refunded. The new image and traits replace
+            the current appearance only after generation succeeds. Creating the image
+            can take a few minutes.
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             {fields.map(({ field, label, choices, catalogue }) => {
