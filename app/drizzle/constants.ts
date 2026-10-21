@@ -678,6 +678,10 @@ export const PET_MAX_GENERATION_ATTEMPTS = 3;
 export const PET_GENERATION_LEASE_MS = 15 * 60 * 1000;
 export const PET_GENERATION_TIMEOUT_MS = 4 * 60 * 1000;
 export const PET_GENERATION_RETRY_MS = 60 * 1000;
+/** Image providers for companion art; the GameSetting row stores the array index, absent = GPT. */
+export const PetArtProviders = ["GPT", "NANO_BANANA"] as const;
+export type PetArtProvider = (typeof PetArtProviders)[number];
+export const PET_ART_PROVIDER_SETTING = "petArtProvider";
 export const PET_SANCTUARY_NAME = "Bondkeeper Sanctuary";
 export const PET_SANCTUARY_IMAGE =
   "https://ui0arpl8sm.ufs.sh/f/ar-xbD9hKwKkVBXFZacnC.webp";

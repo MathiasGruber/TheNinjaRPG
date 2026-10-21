@@ -23,6 +23,8 @@ import {
 const emptySpecies: ZodPetSpeciesType = {
   name: "",
   description: "",
+  artDirection: null,
+  rankConcepts: [],
   rarity: "COMMON",
   role: "ASSAULT",
   preferredDamageElement: null,

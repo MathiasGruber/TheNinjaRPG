@@ -72,14 +72,16 @@ const entries = [
   ["Phoenix", "A mythical phoenix bird with a swept feather crest, broad feathered wings and long flame-shaped tail plumes", "LEGENDARY"],
 ] as const;
 
-/** Stable IDs mirror the initial database catalogue seeded by the migration. */
-export const initialPetSpecies: PetSpeciesOption[] = entries.map(
+/** Stable IDs mirror the initial database catalogue seeded by the migration; art overrides start unset. */
+export const initialPetSpecies: (PetSpeciesOption & Pick<PetSpecies, "artDirection" | "rankConcepts">)[] = entries.map(
   ([name, description, rarity], index) => ({
     id: `pet-species-${index}`,
     name,
     description,
     rarity,
     isActive: true,
+    artDirection: null,
+    rankConcepts: [],
   }),
 );
 

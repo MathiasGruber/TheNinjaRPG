@@ -3,7 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { DMG_SETTING_DEFAULTS, DMG_SETTING_NAMES } from "@/drizzle/constants";
+import {
+  DMG_SETTING_DEFAULTS,
+  DMG_SETTING_NAMES,
+  PET_ART_PROVIDER_SETTING,
+  PetArtProviders,
+} from "@/drizzle/constants";
 import { gameSetting } from "@/drizzle/schema";
 import type { DmgConfig } from "@/libs/combat/constants";
 import type { DrizzleClient } from "@/server/db";
@@ -243,6 +248,17 @@ const checkGameTimerDuration = async (
     );
   }
   return false;
+};
+
+/**
+ * Read the companion art provider without creating a row: the setting stores an index
+ * into PetArtProviders, and an absent or unknown value selects GPT.
+ */
+export const fetchPetArtProvider = async (client: DrizzleClient) => {
+  const setting = await client.query.gameSetting.findFirst({
+    where: eq(gameSetting.name, PET_ART_PROVIDER_SETTING),
+  });
+  return PetArtProviders[setting?.value ?? 0] ?? "GPT";
 };
 
 /**

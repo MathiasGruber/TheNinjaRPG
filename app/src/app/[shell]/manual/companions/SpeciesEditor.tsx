@@ -4,13 +4,23 @@ import { FilePlus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PET_ABILITY_SLOTS_BY_RARITY } from "@/drizzle/constants";
+import { Textarea } from "@/components/ui/textarea";
+import { PET_ABILITY_SLOTS_BY_RARITY, PET_RANKS } from "@/drizzle/constants";
 import type { PetSpecies } from "@/drizzle/schema";
 import AiProfileEdit from "@/layout/AiProfileEdit";
 import { EditContent, EffectFormWrapper } from "@/layout/EditContent";
 import Modal from "@/layout/Modal";
 import { usePetSpeciesEditForm } from "@/libs/petSpecies";
+import { PET_RANK_APPEARANCES } from "@/libs/pets/catalogue";
 import { IncreaseStatTag, tagTypes, type ZodAllTags } from "@/validators/combat";
 import { PetSpeciesValidator, type ZodPetSpeciesType } from "@/validators/petSpecies";
 import { PET_AI_ACTION_TYPES, PET_AI_EFFECT_TYPES } from "@/validators/pets";
@@ -65,8 +75,9 @@ const SpeciesForm = ({
   return (
     <fieldset disabled={isSaving} className="min-w-0">
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="mb-4 grid grid-cols-4">
+        <TabsList className="mb-4 grid grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
+          <TabsTrigger value="artwork">Artwork</TabsTrigger>
           <TabsTrigger value="loadout">Loadout</TabsTrigger>
           <TabsTrigger value="skills">Pet skills</TabsTrigger>
           <TabsTrigger value="ai">AI</TabsTrigger>
@@ -92,6 +103,15 @@ const SpeciesForm = ({
               Existing companions keep their species and generated portraits.
             </p>
           </EditContent>
+        </TabsContent>
+        <TabsContent value="artwork" forceMount hidden={tab !== "artwork"}>
+          <p className="mb-4 text-muted-foreground text-sm">
+            Steer this species&apos; generated portraits. Art direction adds a
+            species-wide look and style to every portrait; each rank concept describes
+            what that evolution adds, and a blank rank uses the built-in milestone shown
+            as its placeholder. Changes apply to portraits generated after saving.
+          </p>
+          <ArtworkFields form={contentForm} />
         </TabsContent>
         <TabsContent value="loadout" forceMount hidden={tab !== "loadout"}>
           <p className="mb-4 text-muted-foreground text-sm">
@@ -226,3 +246,56 @@ const SpeciesForm = ({
     </fieldset>
   );
 };
+
+/** Species art direction plus one optional concept per rank, falling back to built-in milestones. */
+const ArtworkFields = ({ form }: { form: UseFormReturn<ZodPetSpeciesType> }) => (
+  <Form {...form}>
+    <div className="grid gap-3">
+      <FormField
+        control={form.control}
+        name="artDirection"
+        render={({ field, fieldState }) => (
+          <FormItem>
+            <FormLabel htmlFor="artDirection">Art direction (optional)</FormLabel>
+            <FormControl>
+              <Textarea
+                id="artDirection"
+                rows={4}
+                placeholder="Overall look for every companion of this species, e.g. fur colour, markings, ornaments and style."
+                isDirty={fieldState.isDirty}
+                {...field}
+                value={field.value ?? ""}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      {PET_RANKS.map(({ rank, name }) => (
+        <FormField
+          key={rank}
+          control={form.control}
+          name={`rankConcepts.${rank - 1}`}
+          render={({ field, fieldState }) => (
+            <FormItem>
+              <FormLabel htmlFor={`rankConcept-${rank}`}>
+                Rank {rank} concept ({name})
+              </FormLabel>
+              <FormControl>
+                <Textarea
+                  id={`rankConcept-${rank}`}
+                  rows={3}
+                  placeholder={PET_RANK_APPEARANCES[rank - 1]}
+                  isDirty={fieldState.isDirty}
+                  {...field}
+                  value={field.value ?? ""}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      ))}
+    </div>
+  </Form>
+);

@@ -3,6 +3,7 @@ import {
   BasicElementName,
   PET_ABILITY_SLOTS_BY_RARITY,
   PET_MAX_ABILITY_SLOTS,
+  PET_RANKS,
   PetRarities,
   PetRoles,
   PetSkillTargets,
@@ -20,6 +21,31 @@ export const PetSpeciesValidator = z
   .object({
     name: z.string().trim().min(1).max(191),
     description: z.string().trim().min(1).max(1000),
+    artDirection: z
+      .string()
+      .trim()
+      .max(1000)
+      .nullable()
+      .default(null)
+      .transform((value) => value || null),
+    rankConcepts: z
+      // Sparse form arrays send unfilled ranks as undefined/null; treat them as blank.
+      .array(
+        z
+          .string()
+          .trim()
+          .max(1000)
+          .nullish()
+          .transform((concept) => concept ?? ""),
+      )
+      .max(PET_RANKS.length)
+      // Trailing blank ranks fall back to the defaults, so they are not stored.
+      .transform((concepts) => {
+        const kept = [...concepts];
+        while (kept.length && !kept[kept.length - 1]) kept.pop();
+        return kept;
+      })
+      .default([]),
     rarity: z.enum(PetRarities),
     role: z.enum(PetRoles).default("ASSAULT"),
     preferredDamageElement: z.enum(BasicElementName).nullable().default(null),

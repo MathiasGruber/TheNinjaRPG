@@ -39,6 +39,19 @@ describe("pet visual quality", () => {
     expect(JSON.parse(content[0].text)).toMatchObject({ rank: candidate.rank, previousRank: previousRank ?? null, evolutionRequired: required, images: hasPrevious ? ["PREVIOUS", "CANDIDATE"] : ["CANDIDATE"] });
   });
 
+  it("judges evolutions by impressiveness and rejects non-native limbs, clutter, framing and shrinking", async () => {
+    const model = vi.spyOn(ai, "generateText").mockResolvedValue({ output: accepted } as never);
+    await classifyPetAppearanceImage(await input(), new AbortController().signal);
+    const instructions = String(model.mock.calls[0]![0].instructions);
+    expect(instructions).toContain("does not naturally have, such as wings on a wolf or panda");
+    expect(instructions).toContain("cluttered mass of spikes");
+    expect(instructions).toContain("multiple tails merged into the body");
+    expect(instructions).toContain("fills the canvas edge to edge or touches the border");
+    expect(instructions).toContain("clearly more impressive and advanced");
+    expect(instructions).toContain("A noticeably smaller animal than PREVIOUS FAILS");
+    expect(instructions).toMatch(/Bulk, extra fur, feather or scale layers, spikes, filling more of the frame.*alone FAIL/);
+  });
+
   it("does not call vision after an abort, and observes a caller abort in flight", async () => {
     const model = vi.spyOn(ai, "generateText").mockResolvedValue({ output: accepted } as never);
     await expect(classifyPetAppearanceImage(await input(), AbortSignal.abort())).rejects.toThrow();

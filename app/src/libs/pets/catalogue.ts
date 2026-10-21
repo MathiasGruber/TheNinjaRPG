@@ -184,3 +184,25 @@ export const isAvailablePetAppearance = (
     ({ index }) => index === selection.characteristicIndex,
   ) &&
   choices.auras.some(({ index }) => index === selection.auraIndex);
+
+/**
+ * Built-in evolution milestones by rank (index = rank - 1), in three phases: growth to an
+ * athletic adult, a seasoned fighter, then an ascended spirit and legendary apex. Each rank
+ * names one or two readable changes and may refine or replace earlier features instead of
+ * stacking them, so the final form impresses through elegance rather than bulk. Signature
+ * features start in their simplest form and grow: antlers, horns, crests, manes and plumes
+ * start small (multi-tailed species add tails through a separate tail stage). Species rank
+ * concepts override them.
+ */
+export const PET_RANK_APPEARANCES = [
+  "Growth phase, a fresh companion: a slender, light-framed young adult drawn small, about 60% of the canvas height with wide empty space around it, in an alert relaxed stance with a smooth simple coat, feathers or scales. Its signature features are in their simplest, earliest form: any antlers, horns, crest, mane, frill or long plumes this species naturally has are only small, short beginnings. No armour, ornament or exaggerated features",
+  "Growth phase, a scout: it grows to about 70% of the canvas height with longer, more athletic limbs and a firm, confident stance with the head held higher. Any antlers, horns, crest, mane or plumes it naturally has grow slightly longer but stay modest. Its face and markings stay the same; nothing else is added",
+  "Growth phase, an athletic adult: it reaches its full adult size, about 75% of the canvas height, with a defined athletic build true to its species (a bear stays sturdy, a fox stays slender) under a smooth, close-fitting coat, feathers or scales, in a poised forward-ready stance. Any antlers, horns, crest, mane or plumes it naturally has reach about half their final size",
+  "Seasoned fighter phase, natural weapons: one bold native change, visibly stronger natural weapons such as a firmer jaw with bared fangs, longer sharp claws or talons, a heavier hooked beak, mandibles or pincers, whichever this species has. Everything else stays as before",
+  "Seasoned fighter phase, refined crest: sculpt its native crest, mane, ruff, ear tufts, head feathers, frill or fins into one sleek, well-defined shape that frames the head. It is tidier and more striking, never fluffier or larger overall.",
+  "Seasoned fighter phase, battle markings: add crisp, bold battle markings painted on the body, such as clean stripes, chevrons or swirls in the palette's accent colour across the face, shoulders and legs. Keep the coat, feathers or scales smooth and the silhouette unchanged",
+  "Ascended phase, spirit markings: its battle markings now glow as crisp luminous lines in the aura's colour, drawn on the body only. Its most elegant existing feature, such as the tails of a spirit fox, a long tail, tail feathers, fins, crest, mane, antlers or ear tufts, becomes longer and more flowing, each part clearly separate. Never lengthen a short tail: a bear, panda, rabbit or similar keeps its short tail and refines its crest, ears or markings instead",
+  "Ascended phase, ceremonial ornament: add one tasteful ceremonial ornament sized for the animal, such as an ornate gold collar, neck ring or chest medallion with a few small hanging tassels or charms in the palette's accent colour. It is jewellery, not armour; the body stays unchanged",
+  "Ascended phase, regal bearing: a new dignified pose with head raised high, chest forward and one forelimb lifted mid-stride (or wings half-raised for a flyer); a four-legged animal stays on all fours, never rearing up like a human, still in three-quarter view facing left, with a cleaner, more elegant silhouette, species-true proportions and sleek coat, feathers or scales lying close to the body. Keep its ceremonial ornament and remove leftover clutter",
+  "Legendary apex: a majestic, sleek guardian spirit in a heroic, commanding pose facing left, head high, its native tail or tails, plumes or fins sweeping in one graceful curve. The tips of its tails, ears, crest, feathers or fins take on a bright aura-coloured, flame-like colour, it bears a small glowing sigil on the forehead, and it still wears its ceremonial ornament, now finer with gold filigree and a jewel. The most impressive form through elegance, presence and ornament, never bulkier, spikier or fluffier than before",
+] as const;
