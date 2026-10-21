@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gte,
+  inArray,
+  like,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type {
@@ -316,92 +328,51 @@ export const supportRouter = createTRPCRouter({
       ];
       const whereClause = baseConds.length > 0 ? and(...baseConds) : undefined;
       // Run queries pass 2 if all guards passed
-      const [
-        totalResult,
-        openResult,
-        resolvedResult,
-        assignedToCurrentUserResult,
-        categoryResult,
-        priorityResult,
-        statusResult,
-        assigneeResult,
-        metrics,
-      ] = await Promise.all([
-        // Total tickets
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(whereClause),
-        // Open tickets
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(
-            and(
-              eq(supportTicket.status, "OPEN"),
-              ...(baseConds.length > 0 ? [and(...baseConds)] : []),
-            ),
-          ),
-        // Resolved tickets
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(
-            and(
-              eq(supportTicket.status, "RESOLVED"),
-              ...(baseConds.length > 0 ? [and(...baseConds)] : []),
-            ),
-          ),
-        // Tickets assigned to current user
-        ctx.drizzle
-          .select({ count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(
-            and(
-              eq(supportTicket.assignedToUserId, ctx.userId),
-              ...(baseConds.length > 0 ? [and(...baseConds)] : []),
-            ),
-          ),
-        // Tickets by category
-        ctx.drizzle
-          .select({ category: supportTicket.category, count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(whereClause)
-          .groupBy(supportTicket.category),
-        // Tickets by priority
-        ctx.drizzle
-          .select({ priority: supportTicket.priority, count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(whereClause)
-          .groupBy(supportTicket.priority),
-        // Tickets by status
-        ctx.drizzle
-          .select({ status: supportTicket.status, count: sql<number>`count(*)` })
-          .from(supportTicket)
-          .where(whereClause)
-          .groupBy(supportTicket.status),
-        // Tickets by assignee
-        ctx.drizzle
-          .select({
-            assignedToUserId: supportTicket.assignedToUserId,
-            count: sql<number>`count(*)`,
-          })
-          .from(supportTicket)
-          .where(whereClause)
-          .groupBy(supportTicket.assignedToUserId),
-        // Metrics (average response etc.)
-        calculateSupportMetrics(ctx.drizzle, dateFrom, dateTo),
-      ]);
+      const [categoryResult, priorityResult, statusResult, assigneeResult, metrics] =
+        await Promise.all([
+          // Tickets by category
+          ctx.drizzle
+            .select({ category: supportTicket.category, count: count() })
+            .from(supportTicket)
+            .where(whereClause)
+            .groupBy(supportTicket.category),
+          // Tickets by priority
+          ctx.drizzle
+            .select({ priority: supportTicket.priority, count: count() })
+            .from(supportTicket)
+            .where(whereClause)
+            .groupBy(supportTicket.priority),
+          // Tickets by status
+          ctx.drizzle
+            .select({ status: supportTicket.status, count: count() })
+            .from(supportTicket)
+            .where(whereClause)
+            .groupBy(supportTicket.status),
+          // Tickets by assignee
+          ctx.drizzle
+            .select({
+              assignedToUserId: supportTicket.assignedToUserId,
+              count: count(),
+            })
+            .from(supportTicket)
+            .where(whereClause)
+            .groupBy(supportTicket.assignedToUserId),
+          // Metrics (average response etc.)
+          calculateSupportMetrics(ctx.drizzle, dateFrom, dateTo),
+        ]);
 
       /* Transform results */
-      const totalTickets = totalResult[0]?.count ?? 0;
-      const openTickets = openResult[0]?.count ?? 0;
-      const resolvedTickets = resolvedResult[0]?.count ?? 0;
-      const assignedToCurrentUser = assignedToCurrentUserResult[0]?.count ?? 0;
       const ticketsByCategory = reduceByKey(categoryResult, "category");
       const ticketsByPriority = reduceByKey(priorityResult, "priority");
       const ticketsByStatus = reduceByKey(statusResult, "status");
       const ticketsByAssignee = reduceByKey(assigneeResult, "assignedToUserId");
+      const totalTickets = Object.values(ticketsByStatus).reduce(
+        (total, count) => total + count,
+        0,
+      );
+      const openTickets = ticketsByStatus.OPEN ?? 0;
+      const resolvedTickets = ticketsByStatus.RESOLVED ?? 0;
+      const assignedToCurrentUser = ticketsByAssignee[ctx.userId] ?? 0;
 
       return {
         totalTickets,
