@@ -734,10 +734,15 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const utils = api.useUtils();
-  const { mutate: createPoll, isPending } = api.poll.createPoll.useMutation({
-    onSuccess: async (data) => {
+  const {
+    mutate: createPoll,
+    isPending,
+    data: saveResponse,
+  } = api.poll.createPoll.useMutation({
+    onSuccess: (data) => {
       showMutationToast(data);
-      await utils.poll.getPolls.invalidate();
+      if (!data.success) return;
+      void utils.poll.getPolls.invalidate();
       form.reset();
       onSuccess();
     },
@@ -973,6 +978,11 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         />
 
+        {saveResponse && !saveResponse.success && (
+          <p role="alert" className="text-destructive">
+            {saveResponse.message}
+          </p>
+        )}
         <Button type="submit" className="hover:cursor-pointer" disabled={isPending}>
           Create Poll
         </Button>
@@ -1000,10 +1010,15 @@ function EditPollForm({
   });
 
   const utils = api.useUtils();
-  const { mutate: updatePoll, isPending } = api.poll.updatePoll.useMutation({
-    onSuccess: async (data) => {
+  const {
+    mutate: updatePoll,
+    isPending,
+    data: saveResponse,
+  } = api.poll.updatePoll.useMutation({
+    onSuccess: (data) => {
       showMutationToast(data);
-      await utils.poll.getPolls.invalidate();
+      if (!data.success) return;
+      void utils.poll.getPolls.invalidate();
       form.reset();
       onSuccess();
     },
@@ -1074,6 +1089,11 @@ function EditPollForm({
           )}
         />
 
+        {saveResponse && !saveResponse.success && (
+          <p role="alert" className="text-destructive">
+            {saveResponse.message}
+          </p>
+        )}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onSuccess}>
             Cancel
