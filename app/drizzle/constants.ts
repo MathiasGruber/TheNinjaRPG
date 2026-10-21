@@ -1205,6 +1205,10 @@ export const TRAINING_CAPTCHA_COUNT_INTERVALS = [
   { below: 40, every: 3 },
   { below: 50, every: 2 },
 ] as const;
+// After a solved training captcha, no further captcha is asked for this many minutes.
+// Energy training and queue edits do not advance `dailyTrainings`, so without this window
+// every Energy action asks again while the counter rests on a captcha count.
+export const TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES = 10;
 export const TRAINING_CAPTCHA_INTERVAL = {
   NONE: 2,
   NORMAL: 3,

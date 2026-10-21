@@ -23,3 +23,15 @@ export const showTrainingCapcha = (
   const tierInterval = TRAINING_CAPTCHA_INTERVAL[getUserFederalStatus(user)];
   return trainings % Math.max(countInterval, tierInterval) === 0;
 };
+
+/** Fold case, surrounding spaces and the O/0 look-alikes so only misread glyphs fail. */
+const normalizeCaptcha = (text: string) =>
+  text.trim().toLowerCase().replaceAll("0", "o");
+
+/**
+ * Whether a typed captcha answer matches the generated value. Case is ignored because the
+ * rendered font makes letters such as C/c, S/s and O/o indistinguishable, and phone
+ * keyboards capitalize the first letter.
+ */
+export const captchaAnswerMatches = (value: string, guess: string) =>
+  normalizeCaptcha(value) === normalizeCaptcha(guess);

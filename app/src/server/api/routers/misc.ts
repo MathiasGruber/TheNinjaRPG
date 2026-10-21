@@ -3,7 +3,11 @@ import { and, desc, eq, gt, gte, inArray, like, lt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import TextToSVG from "text-to-svg";
 import { z } from "zod";
-import { DMG_SETTING_NAMES, Sentiment } from "@/drizzle/constants";
+import {
+  DMG_SETTING_NAMES,
+  Sentiment,
+  TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES,
+} from "@/drizzle/constants";
 import {
   abEvent,
   captcha,
@@ -17,6 +21,7 @@ import {
   userRewards,
   visitorLog,
 } from "@/drizzle/schema";
+import { captchaAnswerMatches, showTrainingCapcha } from "@/libs/captcha";
 import { fetchDmgConfig, getGameSetting, updateGameSetting } from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
 import { hasEnergyQueue } from "@/libs/queue";
@@ -546,14 +551,42 @@ export const miscRouter = createTRPCRouter({
 });
 
 /**
- * Generate a captcha & its hash
- * @returns
+ * `Captcha.createdAt` stores its event time one day ahead (the column default), which the
+ * cleaner's 30-day expiry is measured against; comparisons and refreshes keep that offset.
+ */
+const captchaNow = sql`CURRENT_TIMESTAMP(3) + INTERVAL 1 DAY`;
+
+/**
+ * Whether the user solved a captcha within `TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES`.
+ */
+export const solvedCaptchaRecently = async (client: DrizzleClient, userId: string) => {
+  const solved = await client.query.captcha.findFirst({
+    columns: { id: true },
+    where: and(
+      eq(captcha.userId, userId),
+      eq(captcha.success, true),
+      gt(
+        captcha.createdAt,
+        sql`${captchaNow} - INTERVAL ${TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES} MINUTE`,
+      ),
+    ),
+  });
+  return Boolean(solved);
+};
+
+/**
+ * Generate the user's pending captcha image, reusing an unanswered one. Returns no image
+ * while a recent solve still covers training, so the page hides the challenge.
  */
 export const generateCaptcha = async (client: DrizzleClient, userId: string) => {
   // Fetch
-  const current = await client.query.captcha.findFirst({
-    where: and(eq(captcha.userId, userId), eq(captcha.used, false)),
-  });
+  const [current, recentlySolved] = await Promise.all([
+    client.query.captcha.findFirst({
+      where: and(eq(captcha.userId, userId), eq(captcha.used, false)),
+    }),
+    solvedCaptchaRecently(client, userId),
+  ]);
+  if (recentlySolved) return { svg: null };
   // Value to guess
   const value = current?.value ?? randomString(6);
   // Create the SVG
@@ -576,10 +609,8 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
 };
 
 /**
- * Validate a given captcha value
- * @param hash
- * @param value
- * @returns
+ * Validate a guess against the user's pending captcha and consume it. A correct answer
+ * restamps the row with the solve time, which starts the training grace window.
  */
 export const validateCaptcha = async (
   client: DrizzleClient,
@@ -592,14 +623,31 @@ export const validateCaptcha = async (
   });
   // Check
   if (current) {
-    const success = current.value === guess;
+    const success = captchaAnswerMatches(current.value, guess);
     await client
       .update(captcha)
-      .set({ used: true, success: success })
+      .set({ used: true, success, ...(success ? { createdAt: captchaNow } : {}) })
       .where(eq(captcha.id, current.id));
     return success;
   }
   return false;
+};
+
+/**
+ * Why a stat, Energy queue or mastery training action is blocked by the captcha, or null.
+ * The count rule in `showTrainingCapcha` decides when to ask; a solve then covers every
+ * training action for the grace window, since Energy actions do not advance the count.
+ */
+export const trainingCaptchaMessage = async (
+  client: DrizzleClient,
+  user: Parameters<typeof showTrainingCapcha>[0] & { userId: string },
+  guess: string | undefined,
+) => {
+  if (!showTrainingCapcha(user)) return null;
+  if (await solvedCaptchaRecently(client, user.userId)) return null;
+  if (!guess) return "Captcha required";
+  if (!(await validateCaptcha(client, user.userId, guess))) return "Invalid captcha";
+  return null;
 };
 
 /**
