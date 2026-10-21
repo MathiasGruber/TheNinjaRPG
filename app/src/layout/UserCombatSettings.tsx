@@ -20,7 +20,6 @@ import {
   type CombatLayoutComponentId,
   DEFAULT_LAYOUT_ORDER,
 } from "@/hooks/combat";
-import { safeLocalStorageSetItem } from "@/hooks/localstorage";
 import { useGameSettings } from "@/layout/GameSettings";
 import type { UserWithRelations } from "@/routers/profile";
 
@@ -35,8 +34,10 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
   userData,
   updateUser,
 }) => {
-  const { sfxOn, setSfxOn, lightLayout, setLightLayout, updatePreferences } =
-    useGameSettings(userData);
+  const { sfxOn, setSfxEnabled, lightLayout, setLightLayout } = useGameSettings(
+    userData,
+    updateUser,
+  );
 
   const [initialLightLayout] = React.useState<boolean>(lightLayout);
   const [lightLayoutChanged, setLightLayoutChanged] = React.useState(false);
@@ -45,21 +46,6 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
   React.useEffect(() => {
     setLightLayoutChanged(lightLayout !== initialLightLayout);
   }, [lightLayout, initialLightLayout]);
-
-  const handleSfxToggle = (checked: boolean) => {
-    safeLocalStorageSetItem("sfxOn", JSON.stringify(checked));
-    setSfxOn(checked);
-    if (userData) {
-      updatePreferences({
-        preferredGeneral1: userData.preferredGeneral1 ?? null,
-        preferredGeneral2: userData.preferredGeneral2 ?? null,
-        sfxOn: checked,
-      });
-      if (updateUser) {
-        void updateUser({ sfxOn: checked });
-      }
-    }
-  };
 
   const handleRefreshPage = () => {
     if (typeof window !== "undefined") {
@@ -221,7 +207,7 @@ export const UserCombatSettings: React.FC<UserCombatSettingsProps> = ({
             </div>
             <Switch
               checked={!!sfxOn}
-              onCheckedChange={handleSfxToggle}
+              onCheckedChange={setSfxEnabled}
               aria-label="Toggle sound effects"
             />
           </div>

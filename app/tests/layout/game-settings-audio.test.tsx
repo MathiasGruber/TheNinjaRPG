@@ -1,8 +1,10 @@
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import * as client from "@/app/_trpc/client";
 import { MUSIC_HALLOWEEN_THEME, MUSIC_WELCOME_TO_SEICHI } from "@/drizzle/constants";
 import * as audioHook from "@/hooks/useAudio";
-import { GlobalAudioProvider } from "@/layout/GameSettings";
+import * as iframeHook from "@/hooks/useIframeMute";
+import { GlobalAudioProvider, useGameSettings } from "@/layout/GameSettings";
 import type { UserWithRelations } from "@/routers/profile";
 import * as audioUtils from "@/utils/audio";
 import * as timeUtils from "@/utils/time";
@@ -60,7 +62,7 @@ const user = (level: number, musicOn = true) =>
     musicOn,
     buttonSfxOn: true,
     level,
-  }) as UserWithRelations;
+  }) as NonNullable<UserWithRelations>;
 
 ensureDom();
 
@@ -328,5 +330,92 @@ describe("GlobalAudioProvider", () => {
       </GlobalAudioProvider>,
     );
     await waitFor(() => expect(audio.setEnabled).toHaveBeenCalledWith(false, true));
+  });
+});
+
+describe("shared SFX preference action", () => {
+  const updatePreferences = vi.fn();
+
+  beforeEach(() => {
+    updatePreferences.mockClear();
+    Object.assign(vi.spyOn(client, "api" as never), {
+      profile: { updatePreferences: { useMutation: () => ({ mutate: updatePreferences }) } },
+    });
+    vi.spyOn(iframeHook, "useIframeMute").mockReturnValue({
+      isIframesMuted: false,
+      setIframesMuted: vi.fn(),
+      toggleIframesMute: vi.fn(),
+    });
+  });
+
+  afterEach(() => {
+    localStorage.removeItem("sfxOn");
+  });
+
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <GlobalAudioProvider>{children}</GlobalAudioProvider>
+  );
+
+  it("keeps signed-out SFX changes local and restores them on remount", () => {
+    const updateUser = vi.fn(async () => undefined);
+    const view = renderHook(() => useGameSettings(null, updateUser), { wrapper });
+
+    act(() => view.result.current.setSfxEnabled(false));
+    expect(view.result.current.sfxOn).toBe(false);
+    expect(localStorage.getItem("sfxOn")).toBe("false");
+    expect(updatePreferences).not.toHaveBeenCalled();
+    expect(updateUser).not.toHaveBeenCalled();
+
+    view.unmount();
+    const remounted = renderHook(() => useGameSettings(), { wrapper });
+    expect(remounted.result.current.sfxOn).toBe(false);
+    act(() => remounted.result.current.setSfxEnabled(true));
+    expect(remounted.result.current.sfxOn).toBe(true);
+    expect(localStorage.getItem("sfxOn")).toBe("true");
+    expect(updatePreferences).not.toHaveBeenCalled();
+  });
+
+  it("updates playback preferences immediately and uses the current account and cache updater", () => {
+    const updateUser = vi.fn(() => new Promise<void>(() => undefined));
+    const initialUser: NonNullable<UserWithRelations> = {
+      ...user(1),
+      sfxOn: true,
+      preferredGeneral1: "Strength",
+      preferredGeneral2: null,
+    };
+    const view = renderHook(
+      (props) => useGameSettings(props.userData, props.updateUser),
+      { initialProps: { userData: initialUser, updateUser }, wrapper },
+    );
+
+    act(() => view.result.current.setSfxEnabled(false));
+    expect(view.result.current.sfxOn).toBe(false);
+    expect(localStorage.getItem("sfxOn")).toBe("false");
+    expect(updatePreferences).toHaveBeenLastCalledWith({
+      preferredGeneral1: "Strength",
+      preferredGeneral2: null,
+      sfxOn: false,
+    });
+    expect(updateUser).toHaveBeenCalledWith({ sfxOn: false });
+
+    // An unrelated profile refresh must preserve the optimistic preference.
+    view.rerender({ userData: { ...initialUser, level: 2 }, updateUser });
+    expect(view.result.current.sfxOn).toBe(false);
+
+    const nextUpdateUser = vi.fn(async () => undefined);
+    view.rerender({
+      userData: { ...user(1), userId: "user-2", sfxOn: false },
+      updateUser: nextUpdateUser,
+    });
+    act(() => view.result.current.setSfxEnabled(true));
+    expect(view.result.current.sfxOn).toBe(true);
+    expect(localStorage.getItem("sfxOn")).toBe("true");
+    expect(updatePreferences).toHaveBeenLastCalledWith({
+      preferredGeneral1: null,
+      preferredGeneral2: null,
+      sfxOn: true,
+    });
+    expect(nextUpdateUser).toHaveBeenCalledWith({ sfxOn: true });
+    expect(updateUser).toHaveBeenCalledTimes(1);
   });
 });

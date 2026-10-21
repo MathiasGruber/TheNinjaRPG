@@ -367,10 +367,12 @@ const useGlobalAudio = () => {
 };
 
 /**
- * Hook to manage all audio-related state and logic
- * Now uses the global audio instance instead of creating its own
+ * Manage settings through the global audio instance and persisted preferences.
  */
-export const useGameSettings = (userData?: UserWithRelations | null) => {
+export const useGameSettings = (
+  userData?: UserWithRelations | null,
+  updateUser?: GameSettingsProps["updateUser"],
+) => {
   // Use the global audio instance
   const {
     audioEnabled,
@@ -440,11 +442,26 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
     },
   });
 
+  const setSfxEnabled = (enabled: boolean) => {
+    safeLocalStorageSetItem("sfxOn", JSON.stringify(enabled));
+    setSfxOn(enabled);
+    if (userData) {
+      updatePreferences({
+        preferredGeneral1: userData.preferredGeneral1 ?? null,
+        preferredGeneral2: userData.preferredGeneral2 ?? null,
+        sfxOn: enabled,
+      });
+      if (updateUser) {
+        void updateUser({ sfxOn: enabled });
+      }
+    }
+  };
+
   return {
     audioEnabled,
     setAudioEnabled,
     sfxOn,
-    setSfxOn,
+    setSfxEnabled,
     buttonSfxOn,
     setButtonSfxOn,
     sfxVolume,
@@ -479,7 +496,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     audioEnabled,
     setAudioEnabled,
     sfxOn,
-    setSfxOn,
+    setSfxEnabled,
     buttonSfxOn,
     setButtonSfxOn,
     sfxVolume,
@@ -494,7 +511,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     setIframesMuted,
     requiresInteraction,
     updatePreferences,
-  } = useGameSettings(userData);
+  } = useGameSettings(userData, updateUser);
 
   // Track initial lightLayout value to detect changes
   const [initialLightLayout] = useState<boolean>(lightLayout);
@@ -528,21 +545,6 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
       }
     } else {
       safeLocalStorageSetItem("musicOn", JSON.stringify(checked));
-    }
-  };
-
-  const handleSfxToggle = (checked: boolean) => {
-    safeLocalStorageSetItem("sfxOn", JSON.stringify(checked));
-    setSfxOn(checked);
-    if (userData) {
-      updatePreferences({
-        preferredGeneral1: userData.preferredGeneral1 ?? null,
-        preferredGeneral2: userData.preferredGeneral2 ?? null,
-        sfxOn: checked,
-      });
-      if (updateUser) {
-        void updateUser({ sfxOn: checked });
-      }
     }
   };
 
@@ -634,7 +636,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
           </div>
           <Switch
             checked={!!sfxOn}
-            onCheckedChange={handleSfxToggle}
+            onCheckedChange={setSfxEnabled}
             aria-label="Toggle sound effects"
           />
         </div>
