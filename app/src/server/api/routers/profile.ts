@@ -1726,9 +1726,8 @@ export const profileRouter = createTRPCRouter({
         if (target.clanId) return errorResponse(`Leave ${clanName} first`);
         if (target.status !== "AWAKE") return errorResponse("AWAKE to change village");
       }
-      // Compute jutsu & item changes (read-only; the writes run after the AI
-      // check below — PlanetScale has no transactions, so a rejected reason
-      // must not leave partially applied jutsu/item rows behind)
+      // Compute jutsu & item changes without writing so the AI check below can
+      // reject the reason before any jutsu/item changes are applied.
       const contentChanges = await computeUserContentChanges({
         client: ctx.drizzle,
         oldJutsuIds,
@@ -3099,7 +3098,7 @@ export const fetchUser = async (client: DrizzleClient, userId: string) => {
 /**
  * Compute human-readable jutsu/item diffs and the id sets to delete/insert.
  * Read-only, so callers can run moderation or other guards on the diff before
- * committing anything (PlanetScale has no transactions to roll back with).
+ * applying any content changes.
  */
 export const computeUserContentChanges = async (props: {
   client: DrizzleClient;
