@@ -23,6 +23,12 @@ export const kageScheduleSchema = kageVillageSchema.extend({
     ),
 });
 export const kageMatchSchema = z.object({ id: z.string().min(1) });
+export const kageStartSchema = kageMatchSchema.extend({
+  instantRequestId: z.string().min(1).optional(),
+});
+export const kageInstantResponseSchema = kageMatchSchema.extend({
+  instantRequestId: z.string().min(1),
+});
 export const kageAiSchema = kageMatchSchema.extend({ consent: z.boolean() });
 export const kageJoinSchema = kageVillageSchema.extend({
   aiRequested: z.boolean().default(false),
@@ -58,5 +64,13 @@ export type KageDefenseSchedule = {
   paused: boolean;
   /** Last reconciliation, used to avoid treating unobserved service gaps as player absences. */
   observedAt: string;
+  /** One short-lived invitation, bound to this tenure and an unchanged appointment. */
+  instantChallenge?: {
+    id: string;
+    matchId: string;
+    scheduledAt: string;
+    expiresAt: string;
+    ai: boolean;
+  };
   vacancy?: { removedUserId: string; reason: string };
 };

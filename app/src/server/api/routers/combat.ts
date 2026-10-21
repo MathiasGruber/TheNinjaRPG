@@ -2033,6 +2033,7 @@ export const initiateBattle = async (
       tenure: string;
       battleId: string;
       ai: boolean;
+      instantRequest?: { id: string; scheduledAt: string };
     };
   },
   battleType: BattleType,
@@ -3929,12 +3930,25 @@ export const initiateBattle = async (
           const launchAt = new Date();
           const leader = await tx
             .update(village)
-            .set({ kageScheduleVersion: sql`${village.kageScheduleVersion} + 1` })
+            .set({
+              kageScheduleVersion: sql`${village.kageScheduleVersion} + 1`,
+              ...(m.instantRequest?.id && {
+                kageSchedule: sql`JSON_REMOVE(${village.kageSchedule}, '$.instantChallenge')`,
+              }),
+            })
             .where(
               and(
                 eq(village.id, m.villageId),
                 eq(village.kageId, m.kageId),
                 eq(village.leaderUpdatedAt, new Date(m.tenure)),
+                ...(m.instantRequest?.id
+                  ? [
+                      sql`JSON_UNQUOTE(JSON_EXTRACT(${village.kageSchedule}, '$.instantChallenge.id')) = ${m.instantRequest?.id}`,
+                      sql`JSON_UNQUOTE(JSON_EXTRACT(${village.kageSchedule}, '$.instantChallenge.matchId')) = ${m.id}`,
+                      sql`JSON_UNQUOTE(JSON_EXTRACT(${village.kageSchedule}, '$.instantChallenge.expiresAt')) > ${launchAt.toISOString()}`,
+                      sql`JSON_UNQUOTE(JSON_EXTRACT(${village.kageSchedule}, '$.instantChallenge.ai')) = ${String(m.ai)}`,
+                    ]
+                  : []),
                 notExists(
                   tx
                     .select({ id: war.id })
@@ -3962,13 +3976,22 @@ export const initiateBattle = async (
                 eq(kageDefendedChallenges.status, "SCHEDULED"),
                 eq(kageDefendedChallenges.kageId, m.kageId),
                 eq(kageDefendedChallenges.tenure, new Date(m.tenure)),
-                isNotNull(kageDefendedChallenges.checkedInAt),
                 eq(kageDefendedChallenges.hospitalDeferred, false),
-                lte(kageDefendedChallenges.scheduledAt, launchAt),
-                gte(
-                  kageDefendedChallenges.scheduledAt,
-                  secondsFromDate(-KAGE_DEFENSE_GRACE_MINUTES * 60, launchAt),
-                ),
+                ...(m.instantRequest?.id
+                  ? [
+                      eq(
+                        kageDefendedChallenges.scheduledAt,
+                        new Date(m.instantRequest.scheduledAt),
+                      ),
+                    ]
+                  : [
+                      isNotNull(kageDefendedChallenges.checkedInAt),
+                      lte(kageDefendedChallenges.scheduledAt, launchAt),
+                      gte(
+                        kageDefendedChallenges.scheduledAt,
+                        secondsFromDate(-KAGE_DEFENSE_GRACE_MINUTES * 60, launchAt),
+                      ),
+                    ]),
                 m.ai
                   ? and(
                       eq(kageDefendedChallenges.aiRequested, true),

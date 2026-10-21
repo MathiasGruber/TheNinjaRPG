@@ -5,10 +5,12 @@ import {
   KAGE_CHALLENGER_WEEKLY_LIMIT,
   KAGE_DEFENSE_CHECK_IN_MINUTES,
   KAGE_DEFENSE_GRACE_MINUTES,
+  KAGE_DEFENSE_INSTANT_REQUEST_MINUTES,
   KAGE_DEFENSE_NOTICE_HOURS,
   KAGE_DEFENSE_SLOT_MINUTES,
 } from "@/drizzle/constants";
 import { kageDefendedChallenges, userData, village } from "@/drizzle/schema";
+import { getServerPusher } from "@/libs/pusher";
 import { initiateBattle } from "@/routers/combat";
 import {
   baseServerResponse,
@@ -29,9 +31,11 @@ import { secondsFromDate } from "@/utils/time";
 import {
   kageAiSchema,
   kageBattleResponseSchema,
+  kageInstantResponseSchema,
   kageJoinSchema,
   kageMatchSchema,
   kageScheduleSchema,
+  kageStartSchema,
   kageVillageSchema,
 } from "@/validators/kage";
 
@@ -334,9 +338,106 @@ export const kageDefenseProcedures = {
         })) ?? errorResponse("Village not found")
       );
     }),
-  /** Validate the scheduled start, then preload combat and recheck admission at its atomic launch. */
-  startDefense: protectedProcedure
+  /** Offer an early fight without changing attendance, notice or the assigned appointment. */
+  requestInstantDefense: protectedProcedure
     .input(kageMatchSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const match = await ctx.drizzle.query.kageDefendedChallenges.findFirst({
+        where: eq(kageDefendedChallenges.id, input.id),
+      });
+      if (!match) return errorResponse("Match not found");
+      const result = await withKageDefense(
+        ctx.drizzle,
+        match.villageId,
+        async (tx, hall) => {
+          if (hall.village.kageId !== ctx.userId || hall.village.kage?.isAi)
+            return errorResponse("Only the current Kage can send an instant challenge");
+          if (!(await syncLockedKageDefense(tx, hall)))
+            return errorResponse("Leadership changed. Refresh the defense schedule.");
+          const m = hall.rows.find((r) => r.match.id === input.id)?.match;
+          if (
+            m?.status !== "SCHEDULED" ||
+            !m.scheduledAt ||
+            hall.paused ||
+            m.hospitalDeferred
+          )
+            return errorResponse(
+              "This match is not available for an instant challenge",
+            );
+          if (
+            hall.village.kage?.status !== "AWAKE" ||
+            hall.rows.some((r) => ["STARTING", "BATTLE"].includes(r.match.status))
+          )
+            return errorResponse("Be awake and finish the current battle first");
+          if (hall.state.instantChallenge)
+            return errorResponse(
+              "An instant challenge is already pending. Cancel it or wait for it to expire.",
+            );
+          // Invitations belong to the existing schedule JSON so tenure resets revoke them
+          // together with assignments. They never create an attendance obligation.
+          hall.state.instantChallenge = {
+            id: nanoid(),
+            matchId: m.id,
+            scheduledAt: m.scheduledAt.toISOString(),
+            expiresAt: secondsFromDate(
+              KAGE_DEFENSE_INSTANT_REQUEST_MINUTES * 60,
+              hall.now,
+            ).toISOString(),
+            ai: m.aiRequested && m.aiAccepted,
+          };
+          await saveKageSchedule(tx, hall);
+          return {
+            success: true,
+            message:
+              "Instant challenge sent. Your scheduled match remains unchanged until accepted.",
+          };
+        },
+      );
+      if (result?.success)
+        await getServerPusher()
+          .trigger(match.userId, "event", {
+            type: "userMessage",
+            message:
+              "Your Kage invites you to fight now. Accept at the town hall; ignoring this request has no penalty.",
+            route: "/townhall#Kage",
+            routeText: "View challenge",
+            duration: 15_000,
+          })
+          .catch(console.error);
+      return result ?? errorResponse("Village not found");
+    }),
+  /** Either participant may dismiss only the invitation they actually viewed. */
+  dismissInstantDefense: protectedProcedure
+    .input(kageInstantResponseSchema)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const match = await ctx.drizzle.query.kageDefendedChallenges.findFirst({
+        where: eq(kageDefendedChallenges.id, input.id),
+      });
+      if (!match) return errorResponse("Match not found");
+      return (
+        (await withKageDefense(ctx.drizzle, match.villageId, async (tx, hall) => {
+          if (ctx.userId !== hall.village.kageId && ctx.userId !== match.userId)
+            return errorResponse("Only match participants can dismiss this invitation");
+          if (
+            hall.state.instantChallenge?.id !== input.instantRequestId ||
+            hall.state.instantChallenge.matchId !== input.id
+          )
+            return errorResponse("This invitation is no longer pending");
+          delete hall.state.instantChallenge;
+          await saveKageSchedule(tx, hall);
+          return {
+            success: true,
+            message:
+              "Invitation dismissed without penalty. Your scheduled match is unchanged.",
+          };
+        })) ?? errorResponse("Village not found")
+      );
+    }),
+  /** Validate scheduled attendance or an accepted invitation, then recheck at atomic launch. */
+  startDefense: protectedProcedure
+    .input(kageStartSchema)
     .output(kageBattleResponseSchema)
     .mutation(async ({ ctx, input }) => {
       const match = await ctx.drizzle.query.kageDefendedChallenges.findFirst({
@@ -351,8 +452,11 @@ export const kageDefenseProcedures = {
             return errorResponse("Leadership changed. Refresh the defense schedule.");
           const row = hall.rows.find((r) => r.match.id === input.id);
           const m = row?.match;
+          const instant = input.instantRequestId !== undefined;
           const npcIncumbent = hall.village.kage?.isAi && ctx.userId === m?.userId;
-          if (!m || (ctx.userId !== hall.village.kageId && !npcIncumbent))
+          if (instant && (!m || ctx.userId !== m.userId))
+            return errorResponse("Only the invited challenger can accept");
+          if (!m || (!instant && ctx.userId !== hall.village.kageId && !npcIncumbent))
             return errorResponse("Only the current Kage can start this match");
           if (
             m.status !== "SCHEDULED" ||
@@ -367,15 +471,26 @@ export const kageDefenseProcedures = {
             m.tenure.getTime() !== hall.village.leaderUpdatedAt.getTime()
           )
             return errorResponse("Leadership changed; the match will be reassigned");
+          const invitation = hall.state.instantChallenge;
           if (
-            hall.now < m.scheduledAt ||
-            hall.now.getTime() >
-              m.scheduledAt.getTime() + KAGE_DEFENSE_GRACE_MINUTES * 60_000
+            instant &&
+            (!invitation ||
+              invitation.id !== input.instantRequestId ||
+              invitation.matchId !== m.id)
+          )
+            return errorResponse(
+              "This invitation expired or changed. Your scheduled match is unchanged.",
+            );
+          if (
+            !instant &&
+            (hall.now < m.scheduledAt ||
+              hall.now.getTime() >
+                m.scheduledAt.getTime() + KAGE_DEFENSE_GRACE_MINUTES * 60_000)
           )
             return errorResponse(
               "Start at the scheduled time, within the published grace period",
             );
-          if (!m.checkedInAt)
+          if (!instant && !m.checkedInAt)
             return errorResponse("The challenger must check in first");
           const reason = getKageEligibility(row.user, match.villageId);
           if (reason) return errorResponse(reason);
@@ -398,7 +513,7 @@ export const kageDefenseProcedures = {
           return {
             success: true as const,
             message: "Ready",
-            match: { ...m, tenure: m.tenure },
+            match: { ...m, tenure: m.tenure, scheduledAt: m.scheduledAt },
           };
         },
       );
@@ -424,15 +539,33 @@ export const kageDefenseProcedures = {
               tenure: m.tenure.toISOString(),
               battleId: nanoid(),
               ai: m.aiRequested && m.aiAccepted,
+              instantRequest: input.instantRequestId
+                ? {
+                    id: input.instantRequestId,
+                    scheduledAt: m.scheduledAt.toISOString(),
+                  }
+                : undefined,
             },
           },
           "KAGE_PVP",
         );
       } catch (error) {
-        await resetFailedLaunch(ctx.drizzle, m.id, m.villageId);
+        if (!input.instantRequestId)
+          await resetFailedLaunch(ctx.drizzle, m.id, m.villageId);
         throw error;
       }
-      if (!result.success) await resetFailedLaunch(ctx.drizzle, m.id, m.villageId);
+      if (!result.success && !input.instantRequestId)
+        await resetFailedLaunch(ctx.drizzle, m.id, m.villageId);
+      if (result.success && input.instantRequestId)
+        await getServerPusher()
+          .trigger(m.kageId, "event", {
+            type: "userMessage",
+            message:
+              "Your instant title challenge was accepted. The battle has started.",
+            route: "/combat",
+            routeText: "To Combat",
+          })
+          .catch(console.error);
       return result;
     }),
 };
