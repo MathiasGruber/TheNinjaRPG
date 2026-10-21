@@ -403,7 +403,6 @@ export const staffRouter = createTRPCRouter({
         }),
       ]);
       // Guard
-      if (!user) return errorResponse("User not found");
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
       if (!canUnstuckVillage(user.role)) return errorResponse("Not allowed for you");
@@ -520,7 +519,6 @@ export const staffRouter = createTRPCRouter({
         fetchBadge(ctx.drizzle, input.badgeId),
       ]);
       // Guard
-      if (!user) return errorResponse("User not found");
       if (!badge) return errorResponse("Badge not found");
       if (!canModifyUserBadges(user.role)) return errorResponse("Not allowed for you");
       // Mutate
@@ -556,7 +554,6 @@ export const staffRouter = createTRPCRouter({
         }),
       ]);
       // Guard
-      if (!user) return errorResponse("User not found");
       if (!badge) return errorResponse("Badge not found");
       if (!userbadge) return errorResponse("Badge not found");
       if (!canModifyUserBadges(user.role)) return errorResponse("Not allowed for you");
@@ -593,9 +590,6 @@ export const staffRouter = createTRPCRouter({
         fetchUser(ctx.drizzle, input.userId),
         fetchAttributes(ctx.drizzle, input.userId),
       ]);
-      if (!user || !target) {
-        return { success: false, message: "User not found" };
-      }
       if (!canCloneUser(user.role)) {
         return { success: false, message: "You are not allowed to clone users" };
       }
