@@ -14,6 +14,7 @@
 import type { Infer } from "spacetimedb/sdk";
 import { DbConnection, type ErrorContext, type SubscriptionHandle } from "./bindings";
 import type CompletedRunType from "./bindings/completed_run_type";
+import type EnemySpawnType from "./bindings/enemy_spawn_type";
 import type EnemyType from "./bindings/enemy_type";
 import type GameSessionType from "./bindings/game_session_type";
 import type ProjectileType from "./bindings/projectile_type";
@@ -25,20 +26,10 @@ import { getSpacetimeDBConfig, type SpacetimeDBConfig } from "./config";
 export type GameSession = Infer<typeof GameSessionType>;
 export type SessionState = Infer<typeof SessionStateType>;
 export type Enemy = Infer<typeof EnemyType>;
+export type EnemySpawn = Infer<typeof EnemySpawnType>;
 export type Projectile = Infer<typeof ProjectileType>;
 export type CompletedRun = Infer<typeof CompletedRunType>;
 export type SessionUpgrade = Infer<typeof SessionUpgradeType>;
-
-// COST OPTIMIZATION: EnemySpawn contains static data sent once per enemy
-// This type mirrors the Rust struct - will be auto-generated after binding regeneration
-export interface EnemySpawn {
-  enemyId: bigint;
-  sessionId: bigint;
-  spawnCol: number;
-  spawnRow: number;
-  maxHealth: number;
-  path: Array<{ col: number; row: number }>;
-}
 
 const DEBUG = false;
 
@@ -473,26 +464,19 @@ export class SpacetimeDBConnection {
 
     // COST OPTIMIZATION: Enemy spawn events (static path data, sent once)
     // These are only insert/delete, never update
-    if ("enemySpawn" in db) {
-      const enemySpawnTable = db.enemySpawn as {
-        onInsert: (cb: (ctx: unknown, row: EnemySpawn) => void) => void;
-        onDelete: (cb: (ctx: unknown, row: EnemySpawn) => void) => void;
-      };
+    db.enemySpawn.onInsert((_ctx, row) => {
+      if (DEBUG) {
+        console.log("[SpacetimeDB] EnemySpawn inserted:", row.enemyId);
+      }
+      this.emit({ type: "enemy_spawn_insert", spawn: row });
+    });
 
-      enemySpawnTable.onInsert((_ctx, row) => {
-        if (DEBUG) {
-          console.log("[SpacetimeDB] EnemySpawn inserted:", row.enemyId);
-        }
-        this.emit({ type: "enemy_spawn_insert", spawn: row });
-      });
-
-      enemySpawnTable.onDelete((_ctx, row) => {
-        if (DEBUG) {
-          console.log("[SpacetimeDB] EnemySpawn deleted:", row.enemyId);
-        }
-        this.emit({ type: "enemy_spawn_delete", enemyId: row.enemyId });
-      });
-    }
+    db.enemySpawn.onDelete((_ctx, row) => {
+      if (DEBUG) {
+        console.log("[SpacetimeDB] EnemySpawn deleted:", row.enemyId);
+      }
+      this.emit({ type: "enemy_spawn_delete", enemyId: row.enemyId });
+    });
 
     // Enemy events (volatile data only, no path)
     db.enemy.onInsert((_ctx, row) => {
