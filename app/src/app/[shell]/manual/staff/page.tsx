@@ -130,7 +130,7 @@ export default function Staff() {
                           shouldValidate: true,
                         })
                       }
-                      value={form.watch("targetRole")}
+                      value={targetRole}
                       disabled={createApp.isPending}
                     >
                       <SelectTrigger>

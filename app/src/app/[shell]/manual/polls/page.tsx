@@ -705,10 +705,6 @@ function PollContent({
 
 function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
   const [optionType, setOptionType] = useState<PollOptionType>("text");
-  const [options, setOptions] = useState<PollOptionSchema[]>([
-    { type: "text", text: "" },
-    { type: "text", text: "" },
-  ]);
 
   const form = useForm<CreatePollInput, unknown, CreatePollOutput>({
     resolver: zodResolver(createPollSchema),
@@ -723,6 +719,7 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
     },
     mode: "onChange",
   });
+  const options = useWatch({ control: form.control, name: "options" });
 
   // Form for user search
   const maxUsers = 1;
@@ -730,6 +727,10 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     resolver: zodResolver(userSearchSchema),
     defaultValues: { username: "", users: [] },
+  });
+  const selectedUsers = useWatch({
+    control: userSearchMethods.control,
+    name: "users",
   });
 
   const utils = api.useUtils();
@@ -751,8 +752,6 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
     // Create a new array with the new option
     const newOptions = [...options, newOption];
 
-    // Update both the local state and the form state
-    setOptions(newOptions);
     form.setValue("options", newOptions);
   };
 
@@ -763,44 +762,18 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
 
     const newOptions = [...options];
     newOptions.splice(index, 1);
-    setOptions(newOptions);
     form.setValue("options", newOptions);
   };
 
-  // Watch for changes in the user search form
   useEffect(() => {
-    const subscription = userSearchMethods.watch((value, { name }) => {
-      if (name?.includes("users")) {
-        // Convert selected users to poll options
-        const userOptions: PollOptionSchema[] = value.users
-          ?.map((user) => {
-            if (!user) return null;
-            return {
-              type: "user",
-              userId: user.userId,
-              username: user.username,
-              text: user.username, // Add text field to satisfy validation
-            };
-          })
-          .filter(Boolean) as PollOptionSchema[];
-
-        // Keep text options and add user options
-        const textOptions = options.filter((opt) => opt.type === "text");
-        const newOptions = [...textOptions, ...userOptions];
-
-        setOptions(newOptions);
-        form.setValue("options", newOptions);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [userSearchMethods, form, options]);
-
-  // Ensure options state and form options are always in sync
-  useEffect(() => {
-    // Update the form's options field whenever the options state changes
-    form.setValue("options", options);
-  }, [options, form]);
+    const userOptions: PollOptionSchema[] = selectedUsers.map((user) => ({
+      type: "user",
+      userId: user.userId,
+      username: user.username,
+    }));
+    const textOptions = form.getValues("options").filter((opt) => opt.type === "text");
+    form.setValue("options", [...textOptions, ...userOptions]);
+  }, [selectedUsers, form]);
 
   const onSubmit = (data: CreatePollOutput) => {
     // Filter out empty options and ensure all options have the required fields
@@ -925,7 +898,6 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
                             ...textOption,
                             text: e.target.value,
                           };
-                          setOptions(newOptions);
                           form.setValue("options", newOptions);
                         }}
                       />

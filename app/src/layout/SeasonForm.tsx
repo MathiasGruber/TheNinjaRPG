@@ -91,6 +91,7 @@ export default function SeasonForm({
       paused: false,
     },
   });
+  const rewards = useWatch({ control: form.control, name: "rewards" });
   const createSeason = api.pvpRank.createSeason.useMutation();
 
   const updateSeason = api.pvpRank.updateSeason.useMutation();
@@ -315,7 +316,7 @@ export default function SeasonForm({
               </Button>
             </div>
 
-            {form.watch("rewards").map((division, divisionIndex) => (
+            {rewards.map((division, divisionIndex) => (
               <Card key={`division-${division.division}-${divisionIndex}`}>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">

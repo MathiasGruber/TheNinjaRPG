@@ -3331,7 +3331,10 @@ const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
       newUserId: userId,
     },
   });
-  const requestedId = userIdForm.watch("newUserId").trim();
+  const requestedId = useWatch({
+    control: userIdForm.control,
+    name: "newUserId",
+  }).trim();
 
   const handleUpdateUserId = userIdForm.handleSubmit(async (data) => {
     if (requestRef.current || committedSourceId === userId) return;
