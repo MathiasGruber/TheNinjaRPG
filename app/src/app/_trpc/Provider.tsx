@@ -188,11 +188,9 @@ const handleTrpcError = (error: unknown) => {
     return;
   }
 
-  // Note: HTML error pages (403 auth, 500 server errors) trigger JSON parse errors.
-  // - 403 auth errors: Handled by "Unauthorized for tRPC endpoint" check above (lines 118-124)
-  // - Network/CDN HTML responses: Handled by isRetryableTrpcError below (retried up to 3x)
-  // - 500 server errors: Should NOT be silently suppressed - users need to see these
-  // Therefore, we don't filter HTML responses here. Let them fall through to proper handling.
+  // HTML error pages can surface as JSON parse errors. Classify them through the
+  // specific auth and transient-error checks; other server failures must reach
+  // error reporting and user feedback.
 
   // Ignore transient network/CDN errors (retries handle these gracefully)
   // Queries are retried by retryLink (up to 3 attempts), mutations are never retried
