@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { KAGE_DEFENSE_INSTANT_REQUEST_MINUTES, KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
 import { Pusher } from "@/libs/pusher";
+import * as pusherModule from "@/libs/pusher";
 import { aiProfile, battle, battleHistory, kageDefendedChallenges, userData, village, villageElderVote, war } from "@/drizzle/schema";
 import * as combat from "@/server/api/routers/combat";
 import { updateBattle, updateKage } from "@/libs/combat/database";
@@ -23,6 +24,7 @@ const villageId = "defense-home";
 describeWithDatabase("scheduled Kage defenses", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    vi.spyOn(pusherModule, "getServerPusher").mockReturnValue(new Pusher("", "", "", ""));
     setSystemTime(now);
     await resetTables(aiProfile, battleHistory, battle, kageDefendedChallenges, userData, village, villageElderVote, war);
     const db = await getTestDatabase();
