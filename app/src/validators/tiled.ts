@@ -78,6 +78,7 @@ export const TiledMapSchema = z.object({
 });
 
 export type TiledProperty = z.infer<typeof TiledPropertySchema>;
+export type TiledObject = z.infer<typeof TiledObjectSchema>;
 export type TiledLayer = z.infer<typeof TiledLayerSchema>;
 export type TiledMap = z.infer<typeof TiledMapSchema>;
 export type TiledTileset = z.infer<typeof TiledTilesetSchema>;

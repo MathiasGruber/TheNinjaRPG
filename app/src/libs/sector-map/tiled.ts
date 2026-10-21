@@ -27,6 +27,7 @@ import {
   type TiledLayer,
   type TiledMap,
   TiledMapSchema,
+  type TiledObject,
   type TiledTileset,
 } from "@/validators/tiled";
 
@@ -275,7 +276,7 @@ export const hexTileToPixel = (x: number, y: number) => ({
  */
 const getObjectCoordinate = (
   map: TiledMap,
-  object: z.infer<typeof TiledObjectSchema>,
+  object: TiledObject,
   flipped: boolean,
   spriteScale = 1,
 ) => {
