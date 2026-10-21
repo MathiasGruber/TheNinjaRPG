@@ -8,18 +8,16 @@ import {
   GeneralTypes,
   UserRanks,
 } from "@/drizzle/constants";
-import type {
-  InsertAiSchema,
-  InsertAiSchemaInput,
-  UserData,
-  UserItem,
-  UserJutsu,
-} from "@/drizzle/schema";
-import { insertAiSchema } from "@/drizzle/schema";
+import type { UserData, UserItem, UserJutsu } from "@/drizzle/schema";
 import type { FormEntry } from "@/layout/EditContent";
 import { getPreferredDamageElement } from "@/libs/combat/elementalDamage";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
 import { calculateContentDiff } from "@/utils/diff";
+import {
+  type InsertAiSchema,
+  type InsertAiSchemaInput,
+  insertAiSchema,
+} from "@/validators/aiInput";
 import type { ZodAllTags } from "@/validators/combat";
 
 /**

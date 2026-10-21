@@ -7,7 +7,7 @@ import type {
   ItemType,
 } from "@/drizzle/constants";
 import { CONTENT_REVIEW_SFX_SEARCH_RESULTS, ItemTypes } from "@/drizzle/constants";
-import type { insertAiSchema, UserData } from "@/drizzle/schema";
+import type { UserData } from "@/drizzle/schema";
 import {
   contentProposal,
   contentProposalChange,
@@ -59,6 +59,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { canChangeContent, canSuggestContent, isStaffRole } from "@/utils/permissions";
 import { getUtcDayWindowStart } from "@/utils/time";
+import type { insertAiSchema } from "@/validators/aiInput";
 import type { gameAssetValidator } from "@/validators/asset";
 import type { BadgeValidator } from "@/validators/badge";
 import type {

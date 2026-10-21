@@ -5,7 +5,6 @@ import {
   badge,
   bloodline,
   gameAsset,
-  insertAiSchema,
   item,
   jutsu,
   quest,
@@ -13,6 +12,7 @@ import {
   userData,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
+import { insertAiSchema } from "@/validators/aiInput";
 import { gameAssetValidator } from "@/validators/asset";
 import { BadgeValidator } from "@/validators/badge";
 import {
