@@ -104,13 +104,13 @@ export const shrineRouter = createTRPCRouter({
       });
     }),
 
-  // Get the captured sectors for a village
+  /** List standing captured shrines; destroyed remnants cannot be maintained. */
   getCapturedSectors: protectedProcedure
     .meta({ mcp: { description: "Get captured sectors for a village" } })
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
       const sectors = await ctx.drizzle.query.sector.findMany({
-        where: eq(sector.villageId, input.villageId),
+        where: and(eq(sector.villageId, input.villageId), gt(sector.shrineLevel, 0)),
       });
       return sectors;
     }),
@@ -136,6 +136,9 @@ export const shrineRouter = createTRPCRouter({
       if (!targetSector) return errorResponse("Sector not found");
       if (targetSector.villageId !== user.villageId) {
         return errorResponse("You can only upgrade your own shrines");
+      }
+      if (targetSector.shrineLevel < 1) {
+        return errorResponse("This shrine has been destroyed");
       }
       if (targetSector.shrineLevel >= SHRINE_MAX_LEVEL) {
         return errorResponse(`Shrine level cannot exceed ${SHRINE_MAX_LEVEL}`);
@@ -163,13 +166,14 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Not enough village tokens to upgrade shrine");
       }
 
-      // Then upgrade shrine level with DB-guard to prevent concurrent upgrades
+      // Match ownership and level so a concurrent capture or upgrade triggers a refund.
       const shrineUpdateRes = await ctx.drizzle
         .update(sector)
         .set({ shrineLevel: targetSector.shrineLevel + 1 })
         .where(
           and(
             eq(sector.sector, input.sectorNumber),
+            eq(sector.villageId, user.villageId),
             eq(sector.shrineLevel, targetSector.shrineLevel),
           ),
         );
@@ -474,14 +478,16 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Not enough village tokens for maintenance");
       }
 
-      // Update maintenance date with DB-guard to prevent concurrent modifications
-      // Check against the actual database value (null or the date we read)
+      // Match the saved deadline, live shrine and ownership; a concurrent capture,
+      // destruction or payment must fail this update and refund the token debit.
       const maintenanceUpdateRes = await ctx.drizzle
         .update(sector)
         .set({ nextMaintainanceDueDate: nextNextMaintainanceDueDate })
         .where(
           and(
             eq(sector.id, input.sectorId),
+            eq(sector.villageId, user.villageId),
+            gt(sector.shrineLevel, 0),
             targetSector.nextMaintainanceDueDate === null
               ? isNull(sector.nextMaintainanceDueDate)
               : eq(

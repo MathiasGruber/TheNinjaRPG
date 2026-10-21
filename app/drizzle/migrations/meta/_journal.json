@@ -722,6 +722,13 @@
       "when": 1792491838518,
       "tag": "0103_neat_chamber",
       "breakpoints": false
+    },
+    {
+      "idx": 104,
+      "version": "5",
+      "when": 1792574171896,
+      "tag": "0104_remove_destroyed_war_shrines",
+      "breakpoints": false
     }
   ]
 }

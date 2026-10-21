@@ -83,15 +83,28 @@ describeWithDatabase("committed shrine cache state", () => {
     vi.restoreAllMocks();
   });
 
-  it("rejects maintenance for a destroyed level 0 shrine without charging", async () => {
+  it("omits destroyed shrines from captured sectors", async () => {
     const db = await getTestDatabase();
-    await db.update(sector).set({ shrineLevel: 0 }).where(eq(sector.id, sectorId));
-    const result = await (await callerFor(shrineRouter, userId)).payWeeklyMaintenance({ sectorId });
-    expect(result.success).toBe(false);
-    expect(result.message).toBe("This shrine has been destroyed");
-    const stored = await db.query.village.findFirst({ where: eq(village.id, villageId) });
-    expect(stored?.tokens).toBe(initialTokens + concurrentTokens);
+    await db.insert(sector).values({ sector: sectorId + 1, villageId, shrineLevel: 0 });
+    const caller = await callerFor(shrineRouter, userId);
+    expect(await caller.getCapturedSectors({ villageId })).toEqual([
+      expect.objectContaining({ sector: sectorId, shrineLevel: 3 }),
+    ]);
   });
+
+  for (const endpoint of ["upgradeShrine", "payWeeklyMaintenance"] as const) {
+    it(`${endpoint} rejects destroyed shrines before charging tokens`, async () => {
+      const db = await getTestDatabase();
+      await db.update(sector).set({ shrineLevel: 0 }).where(eq(sector.id, sectorId));
+      const caller = await callerFor(shrineRouter, userId);
+      const result = await (endpoint === "upgradeShrine"
+        ? caller.upgradeShrine({ sectorNumber: sectorId })
+        : caller.payWeeklyMaintenance({ sectorId }));
+      expect(result).toMatchObject({ success: false, message: "This shrine has been destroyed" });
+      expect((await db.query.village.findFirst({ where: eq(village.id, villageId) }))?.tokens).toBe(initialTokens + concurrentTokens);
+      expect(await db.query.sector.findFirst({ where: eq(sector.id, sectorId) })).toMatchObject({ shrineLevel: 0, nextMaintainanceDueDate: maintenanceAt });
+    });
+  }
 
   for (const mustRefresh of [false, true]) {
     for (const endpoint of [
