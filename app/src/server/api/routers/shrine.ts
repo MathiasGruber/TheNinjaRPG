@@ -443,6 +443,9 @@ export const shrineRouter = createTRPCRouter({
       if (user.village.kageId !== user.userId) {
         return errorResponse("Only the Kage can pay shrine maintenance");
       }
+      if (targetSector.shrineLevel <= 0) {
+        return errorResponse("This shrine has been destroyed");
+      }
       if (user.village.tokens < SHRINE_WEEKLY_MAINTENANCE_COST) {
         return errorResponse(
           `Need ${SHRINE_WEEKLY_MAINTENANCE_COST.toLocaleString()} tokens for maintenance`,

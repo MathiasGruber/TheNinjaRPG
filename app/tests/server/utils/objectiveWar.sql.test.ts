@@ -64,6 +64,15 @@ describeWithDatabase("objective war atomic strategic actions", () => {
     expect(await db.query.sector.findFirst({ where: eq(sector.sector, 201) })).toBeUndefined();
     const rows = await db.query.warContribution.findMany(); expect(rows.reduce((n, r) => n + r.damage, 0)).toBe(1500);
   });
+  it("deletes a destroyed objective once and ignores a later capture attempt", async () => {
+    const db = await getTestDatabase(); const w = await readWar();
+    expect(await applyObjectiveWarAction(db, w, { id: "first", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 })).toBe(true);
+    // The sector is free again; a new owner must not lose it to a stale capture.
+    await db.insert(sector).values({ sector: 201, villageId: "b" });
+    expect(await applyObjectiveWarAction(db, w, { id: "second", userId: "hero2", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 })).toBe(false);
+    expect((await readWar()).defenderWarHealth).toBe(8500);
+    expect((await db.query.sector.findFirst({ where: eq(sector.sector, 201) }))?.shrineLevel).toBe(1);
+  });
   it("keeps an objective's sector while its shrine still has HP", async () => {
     const db = await getTestDatabase();
     await applyObjectiveWarAction(db, await readWar(), { id: "chip", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 100 });

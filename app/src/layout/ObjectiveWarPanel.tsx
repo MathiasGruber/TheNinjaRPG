@@ -192,7 +192,7 @@ export const ObjectiveWarPanel = ({
             : "Combat and missions are closed. Review your village’s contributions below."
           : isNotice
             ? "Prepare with your allies and gather intelligence before combat begins."
-            : "Destroy enemy shrines and win camp battles to damage the enemy townhall."}{" "}
+            : "Destroy enemy shrines and win camp battles to damage the enemy townhall. Destroyed objective shrines are lost for good."}{" "}
         The village with the most townhall health wins.
       </p>
       {error && (
