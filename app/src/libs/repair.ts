@@ -77,7 +77,7 @@ export const getRepairKits = (
  * Shared by the inventory UI and `item.useRepairAll`.
  *
  * @param itemsNeedingRepair - Items that need repair
- * @param repairKits - Available repair kits with their repair amounts
+ * @param repairKits - Available stacks with unique inventory IDs and positive integer repair amounts
  * @param userItems - All user items (used to look up kit names)
  * @returns Calculation result with kits to use, total durability needed, and whether all items can be repaired
  */
@@ -101,86 +101,31 @@ export const calculateKitsToUse = (
     return { kitsToUse: [], totalDurabilityNeeded, canRepairAll: false };
   }
 
-  const kitUsage: Map<string, number> = new Map();
-  const kitAvailability: Map<string, number> = new Map();
-  for (const kit of repairKits) {
-    kitAvailability.set(kit.userItem.id, kit.userItem.quantity);
-  }
-
-  // Pool all durability together and use kits starting with lowest power first
-  // Group kits by power level and aggregate quantities
-  const kitsByPower = new Map<
-    number,
-    Array<{ kitId: string; available: number; power: number }>
-  >();
-  for (const kit of repairKits) {
-    const available = kitAvailability.get(kit.userItem.id) || 0;
-    if (available <= 0) continue;
-
-    if (!kitsByPower.has(kit.repairAmount)) {
-      kitsByPower.set(kit.repairAmount, []);
-    }
-    kitsByPower.get(kit.repairAmount)?.push({
-      kitId: kit.userItem.id,
-      available,
-      power: kit.repairAmount,
-    });
-  }
-
-  // Sort by power (smallest first)
-  const sortedPowers = Array.from(kitsByPower.keys()).sort((a, b) => a - b);
-
-  // Use kits starting with lowest power first until all durability is covered
+  const kitNames = new Map(userItems?.map((ui) => [ui.id, ui.item.name]));
+  const kitsToUse: RepairKitCalculationResult["kitsToUse"] = [];
+  // Stable sorting preserves inventory order among stacks with equal power.
+  const sortedKits = [...repairKits].sort((a, b) => a.repairAmount - b.repairAmount);
   let remainingDurability = totalDurabilityNeeded;
-  for (const power of sortedPowers) {
+  for (const { userItem, repairAmount } of sortedKits) {
     if (remainingDurability <= 0) break;
 
-    const kitsWithThisPower = kitsByPower.get(power);
-    if (!kitsWithThisPower) continue;
-    const totalAvailable = kitsWithThisPower.reduce((sum, k) => sum + k.available, 0);
-
-    if (totalAvailable <= 0) continue;
-
-    const kitsNeeded = Math.ceil(remainingDurability / power);
-    let kitsToUse = Math.min(kitsNeeded, totalAvailable);
-
-    // Distribute across all stacks of this power level
-    for (const { kitId, available } of kitsWithThisPower) {
-      if (kitsToUse <= 0) break;
-      const useFromThisStack = Math.min(kitsToUse, available);
-      if (useFromThisStack > 0) {
-        const currentUsage = kitUsage.get(kitId) || 0;
-        kitUsage.set(kitId, currentUsage + useFromThisStack);
-        const currentAvailable = kitAvailability.get(kitId) || 0;
-        kitAvailability.set(kitId, currentAvailable - useFromThisStack);
-        kitsToUse -= useFromThisStack;
-        remainingDurability -= useFromThisStack * power;
-      }
-    }
-  }
-
-  const canRepairAll = remainingDurability <= 0;
-
-  const kitsToUseArray: Array<{
-    repairItemId: string;
-    repairItemName: string;
-    quantityUsed: number;
-  }> = [];
-  for (const [repairItemId, quantityUsed] of kitUsage.entries()) {
+    const quantityUsed = Math.min(
+      userItem.quantity,
+      Math.ceil(remainingDurability / repairAmount),
+    );
     if (quantityUsed > 0) {
-      const repairUserItem = userItems?.find((ui) => ui.id === repairItemId);
-      const repairItemName = repairUserItem?.item.name ?? "Unknown Repair Kit";
-      kitsToUseArray.push({
-        repairItemId,
-        repairItemName,
+      kitsToUse.push({
+        repairItemId: userItem.id,
+        repairItemName: kitNames.get(userItem.id) ?? "Unknown Repair Kit",
         quantityUsed,
       });
+      remainingDurability -= quantityUsed * repairAmount;
     }
   }
 
   return {
-    kitsToUse: kitsToUseArray,
+    kitsToUse,
     totalDurabilityNeeded,
-    canRepairAll,
+    canRepairAll: remainingDurability <= 0,
   };
 };
