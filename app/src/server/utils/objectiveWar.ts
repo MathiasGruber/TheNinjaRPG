@@ -58,6 +58,8 @@ export const resumeBracketImmunitySql = () => sql`CASE
  * Commit a unique receipt and its actual, clamped strategic deltas without a read.
  * The transaction holds the war/sector locks between measuring and applying deltas:
  * MySQL does not guarantee assignment order across tables in a joined UPDATE.
+ * Destroyed ordinary shrines are deleted under those locks so ownership and
+ * strategic credit cannot diverge. MySQL cannot combine UPDATE and DELETE.
  * Optional mission consumption must commit with those writes, never before them.
  */
 export const applyObjectiveWarAction = async (

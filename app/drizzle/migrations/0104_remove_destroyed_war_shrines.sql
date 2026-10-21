@@ -1,4 +1,5 @@
--- Ordinary objective shrines previously left level-zero ownership behind.
+-- Remove zero-level ordinary shrine ownership; retain home and reserved sectors.
+-- Reserved sector IDs are fixed here so cleanup is independent of future map changes.
 DELETE s FROM `Sector` s
 LEFT JOIN `Village` v ON v.sector = s.sector
 WHERE s.shrineLevel = 0 AND v.id IS NULL

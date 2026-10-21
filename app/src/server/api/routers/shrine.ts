@@ -104,7 +104,7 @@ export const shrineRouter = createTRPCRouter({
       });
     }),
 
-  // Get the captured sectors for a village
+  /** List standing captured shrines; destroyed remnants cannot be maintained. */
   getCapturedSectors: protectedProcedure
     .meta({ mcp: { description: "Get captured sectors for a village" } })
     .input(z.object({ villageId: z.string() }))
@@ -166,7 +166,7 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Not enough village tokens to upgrade shrine");
       }
 
-      // Then upgrade shrine level with DB-guard to prevent concurrent upgrades
+      // Match ownership and level so a concurrent capture or upgrade triggers a refund.
       const shrineUpdateRes = await ctx.drizzle
         .update(sector)
         .set({ shrineLevel: targetSector.shrineLevel + 1 })
@@ -478,8 +478,8 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Not enough village tokens for maintenance");
       }
 
-      // Update maintenance date with DB-guard to prevent concurrent modifications
-      // Check against the actual database value (null or the date we read)
+      // Match the saved deadline, live shrine and ownership; a concurrent capture,
+      // destruction or payment must fail this update and refund the token debit.
       const maintenanceUpdateRes = await ctx.drizzle
         .update(sector)
         .set({ nextMaintainanceDueDate: nextNextMaintainanceDueDate })
