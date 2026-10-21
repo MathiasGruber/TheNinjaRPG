@@ -648,7 +648,7 @@ export function PetAcquisition() {
                   </p>
                   <p>
                     Each companion has {data.generationLimit} image attempts per rank,
-                    including its first image. Failed appearance retries are free.
+                    including its first image. Failed generations do not use an attempt.
                   </p>
                   {data.activePetId && (
                     <p>

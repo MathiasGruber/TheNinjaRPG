@@ -754,7 +754,7 @@ export const petsRouter = createTRPCRouter({
 
   /**
    * Claim one attempt atomically before calling the image provider, then accept only
-   * its matching lease. Accepted artwork remains usable until replacement succeeds;
+   * its matching lease; a failed generation refunds its attempt. Accepted artwork remains usable until replacement succeeds;
    * redraws and evolutions retain the companion's saved appearance traits.
    */
   generateAppearance: protectedProcedure
@@ -896,17 +896,19 @@ export const petsRouter = createTRPCRouter({
           petId: pet.id,
           rank: pet.rank,
         });
-        // A failed redraw keeps usable art. An evolution whose last attempt fails keeps its
-        // previous look at the new rank so it can still fight and evolve; founders still need art.
+        // Attempts limit accepted images, so a failed one is refunded and its retry is free.
+        // A failed redraw keeps usable art. An evolution whose free retry also fails keeps
+        // its previous look at the new rank so it can still fight and evolve; founders
+        // still need art and may retry until an image is accepted.
         const keepsPreviousLook =
-          !!pet.avatar &&
-          pet.artRank < pet.rank &&
-          attempts + 1 >= PET_MAX_GENERATION_ATTEMPTS;
+          !!pet.avatar && pet.artRank < pet.rank && pet.generationStatus === "FAILED";
         const settled = await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)
             .set({
               ...(keepsPreviousLook && { artRank: pet.rank }),
+              // Staff can reset the counter mid-generation; never underflow the unsigned column.
+              generationAttempts: sql`GREATEST(${userPet.generationAttempts}, 1) - 1`,
               generationStatus:
                 pet.avatar && (pet.artRank === pet.rank || keepsPreviousLook)
                   ? "READY"
@@ -926,10 +928,10 @@ export const petsRouter = createTRPCRouter({
         );
         if (keepsPreviousLook && settled.rowsAffected === 1)
           return errorResponse(
-            "The evolved image could not be verified, so we kept its previous look. Your companion can fight and evolve again; staff can redraw it.",
+            "The evolved image could not be verified, so we kept its previous look. No image attempt was used. Your companion can fight and evolve again; staff can redraw it.",
           );
         return errorResponse(
-          "The appearance could not be generated or verified. Your companion is kept and retrying never charges adoption again.",
+          "The appearance could not be generated or verified. No image attempt was used, your companion is kept and retrying never charges adoption again.",
         );
       }
     }),
