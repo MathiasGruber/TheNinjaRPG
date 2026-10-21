@@ -113,6 +113,7 @@ html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav .theme-help {
 html[data-game-layout="20-eclipse-observatory"] .theme-help > .absolute {
   top: auto;
   bottom: 100%;
+  pointer-events: none;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-main {
   min-height: 0;
