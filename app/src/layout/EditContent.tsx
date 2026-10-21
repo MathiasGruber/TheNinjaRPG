@@ -1863,19 +1863,6 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   type Attribute = keyof typeof tag;
   const attributes = Object.keys(tagSchema.shape) as Attribute[];
 
-  /** Unwrap zod types to get inner-most type */
-  const getInner = (type: z.ZodType): z.ZodType => {
-    if (
-      type instanceof z.ZodDefault ||
-      type instanceof z.ZodOptional ||
-      type instanceof z.ZodNullable ||
-      type instanceof z.ZodPrefault
-    ) {
-      return getInner(type.unwrap() as z.ZodType);
-    }
-    return type;
-  };
-
   // Parse how to present the tag form
   const ignore = ["timeTracker", "type", "weightedCache", "rewardMode"];
   if (watchAll.rewardMode === "weightedCache") {
@@ -1891,7 +1878,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
   if (props.type === "sageMode") {
     ignore.push("friendlyFire");
     const roundsSchema = tagSchema.shape.rounds
-      ? getInner(tagSchema.shape.rounds)
+      ? unwrapFieldSchema(tagSchema.shape.rounds)
       : undefined;
     if (roundsSchema instanceof z.ZodNumber && !roundsSchema.safeParse(0).success) {
       ignore.push("rounds");
@@ -1961,7 +1948,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
       );
     })
     .map((value) => {
-      const innerType = getInner(tagSchema.shape[value]);
+      const innerType = unwrapFieldSchema(tagSchema.shape[value]);
       if (String(value) === "aggroMode") {
         return {
           id: value,
@@ -2569,19 +2556,6 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
   type Attribute = keyof AllObjectivesType;
   const attributes = Object.keys(objectiveSchema.shape) as Attribute[];
 
-  /** Unwrap zod types to get inner-most type */
-  const getInner = (type: z.ZodType): z.ZodType => {
-    if (
-      type instanceof z.ZodDefault ||
-      type instanceof z.ZodOptional ||
-      type instanceof z.ZodNullable ||
-      type instanceof z.ZodPrefault
-    ) {
-      return getInner(type.unwrap() as z.ZodType);
-    }
-    return type;
-  };
-
   const sectorType = "sectorType" in watchAll ? watchAll.sectorType : undefined;
   const locationType = "locationType" in watchAll ? watchAll.locationType : undefined;
 
@@ -2706,7 +2680,7 @@ export const ObjectiveFormWrapper: React.FC<ObjectiveFormWrapperProps> = (props)
       );
     })
     .map((value) => {
-      const innerType = getInner(objectiveSchema.shape[value]);
+      const innerType = unwrapFieldSchema(objectiveSchema.shape[value]);
       if (value === "structureAssetId")
         return {
           id: value,
@@ -3117,24 +3091,11 @@ export const RewardFormWrapper: React.FC<RewardFormWrapperProps> = (props) => {
   type Attribute = keyof ObjectiveRewardType;
   const attributes = Object.keys(ObjectiveReward.shape) as Attribute[];
 
-  /** Unwrap zod types to get inner-most type */
-  const getInner = (type: z.ZodType): z.ZodType => {
-    if (
-      type instanceof z.ZodDefault ||
-      type instanceof z.ZodOptional ||
-      type instanceof z.ZodNullable ||
-      type instanceof z.ZodPrefault
-    ) {
-      return getInner(type.unwrap() as z.ZodType);
-    }
-    return type;
-  };
-
   // Generate form data dynamically
   const formData: FormEntry<Attribute>[] = attributes
     .filter((value) => !hideFields.includes(value))
     .map((value) => {
-      const innerType = getInner(ObjectiveReward.shape[value]);
+      const innerType = unwrapFieldSchema(ObjectiveReward.shape[value]);
 
       // Special handling for db-backed array fields
       if (value === "reward_items" && itemData) {
@@ -3345,18 +3306,7 @@ export const EffectFieldInputGeneric = <E extends ZodAllTags>(opts: {
     | z.ZodType
     | undefined;
   if (!fieldSchema) return <div className="text-muted-foreground">N/A</div>;
-  const inner = ((): z.ZodType => {
-    let t: z.ZodType = fieldSchema;
-    while (
-      t instanceof z.ZodDefault ||
-      t instanceof z.ZodOptional ||
-      t instanceof z.ZodNullable ||
-      t instanceof z.ZodPrefault
-    ) {
-      t = t.unwrap() as z.ZodType;
-    }
-    return t;
-  })();
+  const inner = unwrapFieldSchema(fieldSchema);
   const eff = effect as unknown as Record<string, unknown>;
 
   // Common db-backed fields
@@ -3499,18 +3449,9 @@ export const EffectFieldInputGeneric = <E extends ZodAllTags>(opts: {
     );
   }
   if (inner instanceof z.ZodArray) {
-    const innerArray: z.ZodType = (inner as z.ZodArray<z.ZodType>).element;
-    let t: z.ZodType = innerArray;
-    while (
-      t instanceof z.ZodDefault ||
-      t instanceof z.ZodOptional ||
-      t instanceof z.ZodNullable ||
-      t instanceof z.ZodPrefault
-    ) {
-      t = t.unwrap() as z.ZodType;
-    }
-    if (t instanceof z.ZodEnum) {
-      const values = (t as unknown as { options: string[] }).options || [];
+    const elementSchema = unwrapFieldSchema(inner.element as z.ZodType);
+    if (elementSchema instanceof z.ZodEnum) {
+      const values = (elementSchema as unknown as { options: string[] }).options || [];
       const options = values.map((v) => ({ label: String(v), value: String(v) }));
       const selected = Array.isArray(eff[field])
         ? (eff[field] as unknown[]).filter((x): x is string => typeof x === "string")
@@ -3526,7 +3467,7 @@ export const EffectFieldInputGeneric = <E extends ZodAllTags>(opts: {
         />
       );
     }
-    if (t instanceof z.ZodString) {
+    if (elementSchema instanceof z.ZodString) {
       const selected = Array.isArray(eff[field])
         ? (eff[field] as unknown[]).filter((x): x is string => typeof x === "string")
         : [];
@@ -4153,3 +4094,17 @@ const QuestBattleEffects = ({
     ))}
   </div>
 );
+
+/** Resolve a field control's schema without removing refinements or transforms. */
+const unwrapFieldSchema = (schema: z.ZodType): z.ZodType => {
+  let inner = schema;
+  while (
+    inner instanceof z.ZodDefault ||
+    inner instanceof z.ZodOptional ||
+    inner instanceof z.ZodNullable ||
+    inner instanceof z.ZodPrefault
+  ) {
+    inner = inner.unwrap() as z.ZodType;
+  }
+  return inner;
+};
