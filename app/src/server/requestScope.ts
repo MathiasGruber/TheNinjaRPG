@@ -1,13 +1,13 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
 /**
- * Per-request memo for reads that every procedure in an HTTP request repeats.
+ * Per-request memo for reads shared by procedures in an HTTP request.
  *
  * The tRPC client batches whatever a page mounts into a single POST, and tRPC
- * resolves those procedures concurrently. Any read that a shared helper performs
- * - the achievement catalogue and game settings that `fetchUpdatedUser` needs, for
- * instance - therefore hits PlanetScale once per procedure rather than once per
- * page load, which is the dominant source of duplicate queries on the busy pages.
+ * resolves those procedures concurrently. The memo shares reads by key across the
+ * batch, including the achievement catalogue and game settings that `fetchUpdatedUser`
+ * needs. Concurrent callers share a pending query, and later callers reuse its
+ * successful result within the request.
  *
  * Only reads that satisfy all three of the following belong here:
  *
@@ -32,8 +32,7 @@ export const withRequestScope = <T>(fn: () => T): T => storage.run(new Map(), fn
 /**
  * Read `load()` at most once per request, keyed by `key`.
  *
- * Outside a request scope (crons, scripts, tests) this is a plain pass-through, so
- * callers behave exactly as they did before.
+ * Outside a request scope (crons, scripts, tests), each call invokes `load()` directly.
  *
  * Every caller - including the first - receives a structured clone rather than the
  * memoized value. Callers routinely mutate what they read back: quest objectives

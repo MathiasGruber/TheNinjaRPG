@@ -438,8 +438,7 @@ export async function GET(request: Request) {
       sql`UPDATE ${userData} u INNER JOIN ${clan} c ON u.clanId = c.id SET u.villageId = c.villageId WHERE c.hasHideout = true AND u.villageId != c.villageId`,
     );
 
-    // Step 30: Keep tavern cleanup and activity decay on their original daily
-    // cadence even though the rest of this cleaner now runs hourly.
+    // Step 30: Run tavern cleanup and activity decay once per day.
     const tavernDecayTimer = await lockWithDailyTimer(drizzleDB, "cleaner-daily");
     if (tavernDecayTimer.isNewDay) {
       try {
