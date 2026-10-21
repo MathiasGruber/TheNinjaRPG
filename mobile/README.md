@@ -18,8 +18,11 @@ start for the same allowed origins as native messaging. Without this patch, mode
 Android WebViews inject it only into the bundled origin. Keep the navigation allowlist
 restricted to the configured game origin; never add third-party or wildcard hosts.
 
-The origin lives in one place: `TNR_ORIGIN`. `bun run sync` writes it into `www/config.js`
-and `capacitor.config.ts` reads it for the navigation allowlist.
+The origin lives in one place: `TNR_ORIGIN`. `origin.mjs` validates it as a bare HTTPS
+origin and normalizes an optional trailing slash, host casing and the default port.
+Credentials, wildcards, paths, queries and fragments are rejected. `bun run sync` writes the
+normalized origin into `www/config.js`, and `capacitor.config.ts` uses the same configuration for the
+navigation allowlist. Override it for staging with `TNR_ORIGIN=https://staging... bun run sync`.
 
 ## Native session refresh
 
