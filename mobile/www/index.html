@@ -214,7 +214,7 @@
         }
 
         var ORIGIN = window.TNR_ORIGIN || "https://www.theninja-rpg.com";
-        var HEALTH = ORIGIN + "/api/healthcheck";
+        var HEALTH = new URL("/api/healthcheck", ORIGIN).href;
         var TIMEOUT_MS = 8000;
         var RETRY_DELAYS = [1000, 2000, 4000];
 

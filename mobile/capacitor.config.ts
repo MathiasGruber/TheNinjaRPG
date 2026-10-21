@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { nativeAllowNavigation } from "./origin.mjs";
 
 /**
  * Shell version. Keep in step with `version` in package.json — it is appended to the
@@ -6,13 +7,6 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * when a binary falls too far behind.
  */
 const APP_VERSION = "1.0.0";
-
-/**
- * The origin the shell navigates to once connectivity is confirmed. Override for staging
- * with `TNR_ORIGIN=https://staging... bun run sync`.
- */
-const ORIGIN = process.env.TNR_ORIGIN ?? "https://www.theninja-rpg.com";
-const ORIGIN_HOST = new URL(ORIGIN).host;
 
 const config: CapacitorConfig = {
   appId: process.env.TNR_APP_ID ?? "com.theninjarpg.app",
@@ -34,12 +28,7 @@ const config: CapacitorConfig = {
     // Production session refresh must visit Clerk inside the same WebView to update
     // its cookies. Trust only the verified FAPI host, never a subdomain wildcard.
     // Custom origins do not inherit trust in the production authentication host.
-    allowNavigation: [
-      ORIGIN_HOST,
-      ...(ORIGIN === "https://www.theninja-rpg.com"
-        ? ["clerk.theninja-rpg.com"]
-        : []),
-    ],
+    allowNavigation: nativeAllowNavigation,
   },
 
   ios: {
