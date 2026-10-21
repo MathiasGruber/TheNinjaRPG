@@ -4,8 +4,7 @@ import { waitFor } from "@testing-library/react";
 import { MutationObserver, type MutationObserverOptions, QueryClient, QueryObserver, type QueryObserverOptions } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "bun:test";
 import type { z } from "zod";
-import { finishItemConsumeRequest } from "@/libs/itemConsumption";
-import { isRetryableTrpcError } from "@/utils/error";
+import { finishItemConsumeRequest, getItemConsumeErrorMessage } from "@/libs/itemConsumption";
 import type { consumeItemInputSchema } from "@/validators/cooking";
 
 const sourceRoot = join(import.meta.dirname, "../../src");
@@ -60,7 +59,7 @@ describe("inventory pages", () => {
       (value: boolean) => { isOpen = value; },
       (value: unknown) => { selected = value; },
     );
-    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", `return (${callbacks});`)(
+    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", "getItemConsumeErrorMessage", `return (${callbacks});`)(
       {
         profile: { getUser: { invalidate: () => client.invalidateQueries({ queryKey: ["profile"] }) } },
         item: { getUserItemsWithVariants: { invalidate: () => client.invalidateQueries({ queryKey: ["inventory"] }) } },
@@ -71,6 +70,7 @@ describe("inventory pages", () => {
       onSettled,
       finishItemConsumeRequest,
       { userId: "user" },
+      getItemConsumeErrorMessage,
     ) as MutationObserverOptions<{ success: boolean; message: string }, Error, z.input<typeof consumeItemInputSchema>>;
     const consume = new MutationObserver(client, { ...options, mutationFn: async () => ({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" }) });
     try {
@@ -114,8 +114,8 @@ describe("inventory pages", () => {
       const setUserItem = (value: unknown) => { selected = value; };
       const settled = source.split("const Backpack:")[1]?.match(/const onSettled = (\(\) => \{[\s\S]*?\n  \});/)?.[1];
       const onSettled = settled ? new Function("setIsOpen", "setUserItem", `return (${settled});`)(setIsOpen, setUserItem) : undefined;
-      const options = new Function("showMutationToast", "isRetryableTrpcError", "useritem", "onSettled", "setIsOpen", "setUserItem", `return (${callbacks});`)(
-        toast, isRetryableTrpcError, selected, onSettled, setIsOpen, setUserItem,
+      const options = new Function("showMutationToast", "getItemConsumeErrorMessage", "useritem", "onSettled", "setIsOpen", "setUserItem", `return (${callbacks});`)(
+        toast, getItemConsumeErrorMessage, selected, onSettled, setIsOpen, setUserItem,
       ) as MutationObserverOptions<never, Error, z.input<typeof consumeItemInputSchema>>;
       const client = new QueryClient();
       const error = new Error(message);
@@ -146,8 +146,8 @@ describe("inventory pages", () => {
         item: { getUserItems: invalidate, getUserItemsWithVariants: invalidate },
         bloodline: { getItemRolls: invalidate }, raids: { getUserRaidBuffs: invalidate },
         pets: { getPet: { invalidate: refreshPets } } };
-      const options = new Function("utils", "showRewardToast", "showMutationToast", "finishItemConsumeRequest", "userData", "onSettled", `return (${callbacks});`)(
-        utils, rewardToast, vi.fn(), vi.fn(), { userId: "recipient" }, vi.fn(),
+      const options = new Function("utils", "showRewardToast", "showMutationToast", "finishItemConsumeRequest", "userData", "onSettled", "getItemConsumeErrorMessage", `return (${callbacks});`)(
+        utils, rewardToast, vi.fn(), vi.fn(), { userId: "recipient" }, vi.fn(), getItemConsumeErrorMessage,
       ) as { onSuccess: (data: unknown, variables: { userItemId: string }) => Promise<void> };
       const petRewards = [{ id: "new-pet", speciesId: "fox", name: "Nami" }];
       await options.onSuccess({ success: true, rewards: {}, message: "Used contract", notifications: [], cacheRewards: [], petRewards }, { userItemId: "contract" });
