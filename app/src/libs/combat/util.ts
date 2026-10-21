@@ -1245,12 +1245,7 @@ export const calcApplyRatio = (
   if (alwaysApply.includes(effect.type)) {
     if (effect.rounds !== undefined && effect.rounds === 0) {
       // Zero-duration Consume still converts the casting action's damage.
-      if (
-        (effect.type === "consume" || effect.type === "siphon") &&
-        effect.isNew &&
-        effect.castThisRound
-      )
-        return 1;
+      if (effect.type === "consume" && effect.isNew && effect.castThisRound) return 1;
       return 0;
     }
     return 1;

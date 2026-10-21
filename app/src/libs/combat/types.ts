@@ -672,12 +672,17 @@ export type Consequence = {
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
-/** Active damage conversion by caster, with shield contributions grouped by duration. */
-export type ConsumeByUser = Map<
+/** Outgoing Consume and incoming Siphon share conversion and per-action shield HP caps. */
+export type ShieldConversionsByUser = Map<
   string,
   {
     ratio: number;
-    shields: Map<number, { ratio: number; hp: number; siphon: boolean }>;
+    shields: {
+      type: "consume" | "siphon";
+      ratio: number;
+      hp: number;
+      rounds: number;
+    }[];
   }
 >;
 

@@ -49,7 +49,6 @@ import {
   clear,
   clearPrevent,
   clone,
-  consume,
   copy,
   damageBarrier,
   damageUser,
@@ -96,6 +95,7 @@ import {
   recoil,
   redirection,
   reflect,
+  registerShieldConversion,
   rob,
   robPrevent,
   seal,
@@ -121,10 +121,11 @@ import type {
   CombatAction,
   CompleteBattle,
   Consequence,
-  ConsumeByUser,
+  EnmityDamageKey,
   ExtraState,
   GroundEffect,
   PreBattleGearModifiers,
+  ShieldConversionsByUser,
   UserEffect,
 } from "./types";
 import {
@@ -226,9 +227,9 @@ const getVisualOrSound = (
  * power and health are overridden per cast below - so the parse never runs on the
  * per-action combat path.
  */
-const CONSUME_SHIELD_BASE = ShieldTag.parse({
+const CONVERSION_SHIELD_BASE = ShieldTag.parse({
   type: "shield",
-  description: "Temporary shield from consume",
+  description: "Temporary shield from damage conversion",
   rounds: 1,
   power: 1,
   powerPerLevel: 0,
@@ -239,7 +240,7 @@ const CONSUME_SHIELD_BASE = ShieldTag.parse({
 });
 
 /**
- * Build the temporary shield effect granted by the consume tag.
+ * Build the temporary shield effect granted by Consume or Siphon.
  *
  * shieldHp and rounds are clamped to the bounds ShieldTag accepts, so a very large
  * consumed hit can never produce a shield outside the schema's range.
@@ -247,9 +248,9 @@ const CONSUME_SHIELD_BASE = ShieldTag.parse({
  * isNew is intentionally false: shield()'s cast-round branch rolls a
  * `Math.random() < power / 100` primary check to decide whether the shield lands, but
  * here `power` is the raw shield HP (not a 0-100 probability). Marking the effect as
- * not-new skips that roll so the consume shield is applied deterministically.
+ * not-new skips that roll so the conversion shield is applied deterministically.
  */
-const createConsumeShieldEffect = (
+const createConversionShieldEffect = (
   user: BattleUserState,
   shieldHp: number,
   rounds: number,
@@ -257,7 +258,7 @@ const createConsumeShieldEffect = (
 ): UserEffect => {
   const cappedHp = Math.min(shieldHp, SHIELD_MAX_HEALTH);
   return {
-    ...CONSUME_SHIELD_BASE,
+    ...CONVERSION_SHIELD_BASE,
     rounds: Math.min(rounds, 100),
     power: cappedHp,
     health: cappedHp,
@@ -469,10 +470,7 @@ export const applyEffects = (
   // Clear revokes these exceptions when it cancels the corresponding effects.
   const instantConsumeIds = new Set(
     usersEffects
-      .filter(
-        (e) =>
-          (e.type === "consume" || e.type === "siphon") && e.rounds === 0 && e.isNew,
-      )
+      .filter((e) => e.type === "consume" && e.rounds === 0 && e.isNew)
       .map((e) => e.id),
   );
 
@@ -526,7 +524,7 @@ export const applyEffects = (
     (e) => e.type === "increaseheal" || e.type === "decreaseheal",
   );
 
-  const consumeByUser: ConsumeByUser = new Map();
+  const shieldConversionsByUser: ShieldConversionsByUser = new Map();
 
   // Apply non-damage-modifier effects first (maintains existing ordering)
   nonDamageModifierEffects.sort(sortEffects).forEach((effect) => {
@@ -541,12 +539,12 @@ export const applyEffects = (
       actorId,
       effect,
       action,
-      consumeByUser,
+      shieldConversionsByUser,
       instantConsumeIds,
     );
   });
 
-  // Register Consume after activation, Clear and prevention, before accumulating damage.
+  // Register conversions after activation, Clear and prevention, before damage.
   usersEffects
     .filter(
       (e) =>
@@ -566,18 +564,51 @@ export const applyEffects = (
         actorId,
         effect,
         action,
-        consumeByUser,
+        shieldConversionsByUser,
       );
     });
 
   // Accumulate before collapseConsequences merges hits from different casters.
   // Grant shields after damage resolves so they cannot absorb the generating action.
-  const accumulateConsumeShield = (userId: string, damage: number) => {
-    const consume = consumeByUser.get(userId);
-    if (!consume || damage <= 0) return;
-    consume.shields.forEach((shield) => {
-      shield.hp += damage * (shield.ratio / Math.max(1, consume.ratio));
+  const accumulateShieldConversion = (
+    userId: string,
+    damage: number,
+    type: "consume" | "siphon",
+  ) => {
+    const conversion = shieldConversionsByUser.get(userId);
+    if (!conversion || damage <= 0) return;
+    conversion.shields.forEach((shield) => {
+      if (shield.type === type) {
+        shield.hp += damage * (shield.ratio / Math.max(1, conversion.ratio));
+      }
     });
+  };
+
+  // Count each HP loss before any healing, after shields and Final Stand resolve.
+  const accumulateSiphonShield = (
+    consequence: Consequence,
+    key: EnmityDamageKey,
+    target: BattleUserState,
+  ) => {
+    if (
+      consequence.damageSource === "recoil" ||
+      !shieldConversionsByUser
+        .get(target.userId)
+        ?.shields.some((shield) => shield.type === "siphon")
+    )
+      return;
+    let remaining = Math.min(
+      Math.max(0, target.curHealth),
+      Math.max(0, consequence[key] ?? 0),
+    );
+    let incomingDamage = 0;
+    // Source attribution survives target-level collapse, including mixed self/enemy hits.
+    for (const source of consequence.enmitySources ?? [consequence]) {
+      const healthLost = Math.min(remaining, Math.max(0, source[key] ?? 0));
+      remaining -= healthLost;
+      if (source.userId !== target.userId) incomingDamage += healthLost;
+    }
+    accumulateShieldConversion(target.userId, incomingDamage, "siphon");
   };
 
   // Resolve activation and prevention before Final Stand can protect debt repayment.
@@ -587,8 +618,11 @@ export const applyEffects = (
     actorId,
     round,
     actionEffects,
-    (userId, targetId, damage) => {
-      if (userId !== targetId) accumulateConsumeShield(userId, damage);
+    (userId, targetId, damage, healthLost) => {
+      if (userId !== targetId) {
+        accumulateShieldConversion(userId, damage, "consume");
+        accumulateShieldConversion(targetId, healthLost, "siphon");
+      }
     },
   );
 
@@ -850,7 +884,7 @@ export const applyEffects = (
 
       if (target && user && c.userId !== c.targetId) {
         if (c.damageSource !== "recoil") {
-          accumulateConsumeShield(
+          accumulateShieldConversion(
             c.userId,
             Math.max(0, preShieldDamage) +
               Math.max(0, c.residual ?? 0) +
@@ -858,6 +892,7 @@ export const applyEffects = (
               Math.max(0, c.afterburn ?? 0) +
               Math.max(0, c.drain_hp ?? 0) +
               Math.max(0, c.poison ?? 0),
+            "consume",
           );
         }
       }
@@ -933,6 +968,7 @@ export const applyEffects = (
         const damageCreditUser = resolveDamageCreditUser(newUsersState, user);
         if (c.damage !== undefined && c.damage >= 0) {
           creditConsequenceEnmity(c, "damage", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "damage", target);
           target.curHealth -= c.damage;
           target.curHealth = Math.max(0, target.curHealth);
           // Accumulate per-attacker damage dealt to real opponents (non-self, non-summon)
@@ -981,6 +1017,7 @@ export const applyEffects = (
         }
         if (c.residual !== undefined && c.residual >= 0) {
           creditConsequenceEnmity(c, "residual", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "residual", target);
           target.curHealth -= c.residual;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.residual);
@@ -1006,6 +1043,7 @@ export const applyEffects = (
         }
         if (c.wound !== undefined && c.wound >= 0) {
           creditConsequenceEnmity(c, "wound", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "wound", target);
           target.curHealth -= c.wound;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.wound);
@@ -1066,7 +1104,12 @@ export const applyEffects = (
           );
           // Reflect belongs to the defender and converts only its capped return.
           if (target.userId !== user.userId) {
-            accumulateConsumeShield(target.userId, finalReflect);
+            accumulateShieldConversion(target.userId, finalReflect, "consume");
+            accumulateShieldConversion(
+              user.userId,
+              Math.min(user.curHealth, finalReflect),
+              "siphon",
+            );
           }
           user.curHealth -= finalReflect;
           user.curHealth = Math.max(0, user.curHealth);
@@ -1085,6 +1128,7 @@ export const applyEffects = (
         }
         if (c.afterburn !== undefined && c.afterburn >= 0) {
           creditConsequenceEnmity(c, "afterburn", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "afterburn", target);
           target.curHealth -= c.afterburn;
           target.curHealth = Math.max(0, target.curHealth);
           creditDamageDealt(damageCreditUser, target, c.afterburn);
@@ -1145,6 +1189,7 @@ export const applyEffects = (
         // Handle drain effects for each pool
         if (c.drain_hp !== undefined && c.drain_hp >= 0 && target.curHealth > 0) {
           creditConsequenceEnmity(c, "drain_hp", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "drain_hp", target);
           target.curHealth = Math.max(0, target.curHealth - c.drain_hp);
           creditDamageDealt(damageCreditUser, target, c.drain_hp);
           actionEffects.push({
@@ -1168,6 +1213,7 @@ export const applyEffects = (
         }
         if (c.poison !== undefined && c.poison >= 0) {
           creditConsequenceEnmity(c, "poison", newUsersState, usersEffects);
+          accumulateSiphonShield(c, "poison", target);
           target.curHealth = Math.max(
             0,
             Math.min(cap(target, "Health"), target.curHealth - c.poison),
@@ -1204,23 +1250,20 @@ export const applyEffects = (
       }
     });
 
-  // Preserve each duration while sharing the per-caster shield HP cap proportionally.
-  consumeByUser.forEach(({ shields }, userId) => {
+  // Grant shields after all damage, sharing each recipient's HP cap proportionally.
+  shieldConversionsByUser.forEach(({ shields }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
     if (!user || user.curHealth <= 0) return;
-    const totalHp = Array.from(shields.values()).reduce(
-      (total, shield) => total + shield.hp,
-      0,
-    );
+    const totalHp = shields.reduce((total, shield) => total + shield.hp, 0);
     const scale = totalHp > SHIELD_MAX_HEALTH ? SHIELD_MAX_HEALTH / totalHp : 1;
-    shields.forEach(({ hp, siphon }, rounds) => {
+    shields.forEach(({ hp, type, rounds }) => {
       const shieldHp = Math.floor(hp * scale);
       if (shieldHp <= 0) return;
       newUsersEffects.push(
-        createConsumeShieldEffect(user, shieldHp, rounds, battle.round),
+        createConversionShieldEffect(user, shieldHp, rounds, battle.round),
       );
       actionEffects.push({
-        txt: `${user.username} ${siphon ? "siphons" : "consumes"} ${shieldHp} damage as a shield for ${rounds} rounds`,
+        txt: `${user.username} ${type === "siphon" ? "siphons" : "consumes"} ${shieldHp} damage as a shield for ${rounds} rounds`,
         color: "blue",
       });
     });
@@ -1278,7 +1321,7 @@ export const applyEffects = (
  * @param actorId - Actor ID
  * @param effect - Effect to process
  * @param action - Action
- * @param consumeByUser - Per-action conversion totals, mutated by Consume
+ * @param shieldConversionsByUser - Per-action totals for outgoing and incoming conversion
  * @param instantConsumeIds - Shared instant-cast eligibility; Clear removes canceled IDs
  */
 export const applySingleEffect = (
@@ -1294,7 +1337,7 @@ export const applySingleEffect = (
   actorId: string,
   effect: UserEffect,
   action?: CombatAction,
-  consumeByUser?: ConsumeByUser,
+  shieldConversionsByUser?: ShieldConversionsByUser,
   instantConsumeIds?: Set<string>,
 ) => {
   if (effect.timedBuffExpiresAt && effect.timedBuffExpiresAt <= Date.now()) return;
@@ -1509,9 +1552,14 @@ export const applySingleEffect = (
           info = weakness(effect, curTarget);
         } else if (
           (effect.type === "consume" || effect.type === "siphon") &&
-          consumeByUser
+          shieldConversionsByUser
         ) {
-          info = consume(effect, consumeByUser);
+          info = registerShieldConversion(
+            effect,
+            shieldConversionsByUser,
+            usersEffects,
+            curTarget,
+          );
         } else if (effect.type === "shield") {
           info = shield(effect, curTarget);
         } else if (effect.type === "immunity") {
@@ -1533,7 +1581,7 @@ export const applySingleEffect = (
             effect,
             action,
             newTarget,
-            consumeByUser,
+            shieldConversionsByUser,
           );
         } else if (effect.type === "copy") {
           info = copy(effect, usersEffects, curUser, curTarget);
@@ -2394,7 +2442,7 @@ function applyActivateSageMode(
   effect: UserEffect,
   action: CombatAction | undefined,
   newTarget: BattleUserState,
-  consumeByUser?: ConsumeByUser,
+  shieldConversionsByUser?: ShieldConversionsByUser,
 ): ActionEffect | undefined {
   if (effect.actionId !== SAGE_MODE_ACTIVATION_JUTSU_ID) {
     return {
@@ -2483,7 +2531,7 @@ function applyActivateSageMode(
       actorId,
       realized,
       action,
-      consumeByUser,
+      shieldConversionsByUser,
     );
   }
 

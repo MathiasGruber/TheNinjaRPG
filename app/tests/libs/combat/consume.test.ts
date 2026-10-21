@@ -545,11 +545,11 @@ describe("active Consume damage conversion", () => {
     expect(newBattle.usersState[1]?.curHealth).toBe(960);
     expect(newBattle.usersEffects.find((e) => e.type === "consume" && e.fromType === "sageMode")?.rounds).toBe(sageMode.activationRounds);
     expect(shieldHp(newBattle)).toBe(40 * (50 + existingPower) / 100);
-    expect(newBattle.usersEffects.filter((e) => e.type === "shield").map((e) => [e.rounds, e.power]).sort((first, second) => first[0]! - second[0]!)).toEqual(existingPower ? [[2, 20], [5, 10]] : [[2, 20]]);
-    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(existingPower ? 2 : 1);
+    expect(findConsumeShield(newBattle.usersEffects)?.rounds).toBe(existingPower ? 5 : 2);
+    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(1);
   });
 
-  it("combines Diffuse repayments and new damage with capped conversion and separate shield durations", () => {
+  it("combines Diffuse repayments and new damage with capped conversion and the longest shield duration", () => {
     const defender = makeDefender("defender", {
       diffuseDamage: [
         {
@@ -581,8 +581,8 @@ describe("active Consume damage conversion", () => {
     const healthLost = defender.curHealth - newBattle.usersState[1]!.curHealth;
     expect(healthLost).toBeGreaterThan(100);
     expect(shieldHp(newBattle)).toBe(healthLost);
-    expect(newBattle.usersEffects.filter((e) => e.type === "shield").map((e) => [e.rounds, e.power]).sort((first, second) => first[0]! - second[0]!)).toEqual([[3, healthLost * 0.4], [6, healthLost * 0.6]]);
-    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(2);
+    expect(findConsumeShield(newBattle.usersEffects)?.rounds).toBe(6);
+    expect(actionEffects.filter((e) => e.txt.includes("consumes"))).toHaveLength(1);
   });
 
   it("does not generate shields from self-inflicted damage", () => {
