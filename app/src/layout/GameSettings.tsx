@@ -29,7 +29,10 @@ import { useIframeMute } from "@/hooks/useIframeMute";
 import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
-import { LIGHT_LAYOUT_STORAGE_KEY } from "@/libs/layoutPreference";
+import {
+  LIGHT_LAYOUT_STORAGE_KEY,
+  SWAP_SIDEBARS_STORAGE_KEY,
+} from "@/libs/layoutPreference";
 import { getBackgroundMusicSrc } from "@/libs/music";
 import { audioSession, platform } from "@/libs/native";
 import { showMutationToast } from "@/libs/toast";
@@ -402,6 +405,12 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
     false,
   );
 
+  // Swapped sidebars apply immediately in every layout through GameLayoutController
+  const [swapSidebars, setSwapSidebars] = useLocalStorage<boolean>(
+    SWAP_SIDEBARS_STORAGE_KEY,
+    false,
+  );
+
   // Day/night map overlay preference (applies immediately, no refresh)
   const { showDayNightMapOverlays, setShowDayNightMapOverlays } =
     useDayNightMapOverlays();
@@ -442,6 +451,8 @@ export const useGameSettings = (userData?: UserWithRelations | null) => {
     setSfxVolume,
     lightLayout,
     setLightLayout,
+    swapSidebars,
+    setSwapSidebars,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
     isIframesMuted,
@@ -475,6 +486,8 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
     setSfxVolume,
     lightLayout,
     setLightLayout,
+    swapSidebars,
+    setSwapSidebars,
     showDayNightMapOverlays,
     setShowDayNightMapOverlays,
     isIframesMuted,
@@ -714,6 +727,23 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
             checked={!!showDayNightMapOverlays}
             onCheckedChange={setShowDayNightMapOverlays}
             aria-label="Toggle day/night map overlays"
+          />
+        </div>
+        <div className="mt-3 flex items-center justify-between">
+          <div>
+            <p className={textClass}>Swap sidebars</p>
+            {isPanel && (
+              <p className="text-muted-foreground text-xs">
+                {swapSidebars
+                  ? "Player and world panels on opposite sides"
+                  : "Layout default"}
+              </p>
+            )}
+          </div>
+          <Switch
+            checked={!!swapSidebars}
+            onCheckedChange={setSwapSidebars}
+            aria-label="Swap sidebars"
           />
         </div>
         {lightLayoutChanged && (

@@ -204,11 +204,13 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
         <div
           className="relative top-[70px] z-10 flex h-full flex-row md:top-[-122px]"
           data-compact-content
+          data-sidebar-row
         >
           <div className="relative hidden w-[200px] shrink-0 md:block lg:w-[250px]">
             <div className="relative">
               <Image
                 className="absolute left-0 -z-10 select-none"
+                data-sidebar-art
                 src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
@@ -216,10 +218,16 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
                 alt="leftbanner"
                 loading="lazy"
               ></Image>
-              <div className="z-10 pt-4 pr-4 pl-20 text-white">{leftSideBar}</div>
+              <div
+                className="z-10 pt-4 pr-4 pl-20 text-white"
+                data-sidebar-content="start"
+              >
+                {leftSideBar}
+              </div>
             </div>
             <Image
               className="relative left-0 select-none"
+              data-sidebar-art
               src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}
@@ -295,6 +303,7 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
             <div className="relative">
               <Image
                 className="absolute right-0 -z-10 scale-x-[-1] select-none"
+                data-sidebar-art
                 src={IMG_LAYOUT_SIDETOPBANNER_CONTENT}
                 width={250}
                 height={235}
@@ -302,10 +311,13 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
                 alt="rightbanner"
                 loading="lazy"
               ></Image>
-              <div className="p-2 pr-20 pl-4 text-white">{rightSideBar}</div>
+              <div className="p-2 pr-20 pl-4 text-white" data-sidebar-content="end">
+                {rightSideBar}
+              </div>
             </div>
             <Image
               className="relative left-0 scale-x-[-1] select-none"
+              data-sidebar-art
               src={IMG_LAYOUT_SIDETOPBANNER_BOTTOM}
               width={250}
               height={68}

@@ -23,6 +23,8 @@ import {
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
   persistFontScaleCookie,
+  SWAP_SIDEBARS_ATTRIBUTE,
+  SWAP_SIDEBARS_STORAGE_KEY,
   toFontScale,
 } from "@/libs/layoutPreference";
 import { getMainNavbarLinks, useGameMenu } from "@/libs/menus";
@@ -95,6 +97,18 @@ const GameLayoutController: React.FC<GameLayoutControllerProps> = ({
       lightLayout === true,
     );
   }, [lightLayout]);
+
+  const [swapSidebars] = useLocalStorage<boolean>(SWAP_SIDEBARS_STORAGE_KEY, false);
+
+  // Like the light layout, the head script marks swapped sidebars before first paint and
+  // the layout stylesheets place the columns; this applies a change from the settings
+  // immediately and restores the attribute after a remount of the shell strips it.
+  useLayoutEffect(() => {
+    document.documentElement.toggleAttribute(
+      SWAP_SIDEBARS_ATTRIBUTE,
+      swapSidebars === true,
+    );
+  }, [swapSidebars]);
 
   const { data: rankedQueueCount = 0 } = api.pvpRank.getRankedQueueCount.useQuery(
     undefined,

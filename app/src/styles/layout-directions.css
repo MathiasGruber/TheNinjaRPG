@@ -182,3 +182,36 @@ html[data-game-frame="panel"][data-reading-palette]
   :is([data-reading-heading], h1, h2, h3) {
   color: hsl(var(--foreground)) !important;
 }
+
+/*
+ * Swapped sidebars (data-swap-sidebars, see SWAP_SIDEBARS_ATTRIBUTE) exchange the sides of
+ * the player and world columns in every layout while leaving each layout's own column
+ * widths and drawers alone. Panel layouts trade grid areas; the flex-based frames reverse
+ * their column row, and Classic mirrors its banner art to match the side it renders on.
+ */
+html[data-swap-sidebars] .theme-player {
+  grid-area: world;
+}
+html[data-swap-sidebars] .theme-world {
+  grid-area: player;
+}
+html[data-swap-sidebars] [data-sidebar-row] {
+  flex-direction: row-reverse;
+}
+html[data-swap-sidebars] [data-sidebar-art] {
+  transform: scaleX(-1);
+}
+html[data-swap-sidebars] [data-sidebar-content="start"] {
+  padding-left: 1rem;
+  padding-right: 5rem;
+}
+html[data-swap-sidebars] [data-sidebar-content="end"] {
+  padding-left: 5rem;
+  padding-right: 1rem;
+}
+@media (width >= 1100px) {
+  html[data-swap-sidebars][data-game-layout="20-eclipse-observatory"] .theme-player {
+    border-left: 1px solid #8e7db2;
+    border-right: 3px solid var(--theme-accent);
+  }
+}
