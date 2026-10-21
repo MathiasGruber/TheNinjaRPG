@@ -592,7 +592,9 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
     userQuest.previousCompletes,
   ]);
 
-  const { mutateAsync: abandon } = api.quests.abandon.useMutation();
+  const { mutateAsync: abandon } = api.quests.abandon.useMutation({
+    meta: { handlesTransportError: true },
+  });
   const isAbandoning = abandonPendingIdentity === abandonIdentity;
   const isAbandoned =
     abandonedIdentity === abandonIdentity ||
@@ -634,8 +636,7 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
         utils.profile.getUser.invalidate(),
       ]);
     } catch (error) {
-      // The global mutation handler intentionally suppresses transient transport failures, so
-      // supply the one missing retry message without duplicating normal server error toasts.
+      // This caller owns transport recovery feedback; other tRPC failures use the global handler.
       if (
         abandonRequestRef.current === request &&
         activeAbandonIdentityRef.current === request.identity &&

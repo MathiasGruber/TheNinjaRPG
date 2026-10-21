@@ -354,7 +354,9 @@ export const RankedLoadoutSelector: React.FC = () => {
   const { data: rankedLoadout } = api.pvpRank.getRankedLoadout.useQuery();
 
   // All seven controls replace the same JSON document, so they share one editor-scoped lock.
-  const updateLoadout = api.pvpRank.updateRankedLoadout.useMutation();
+  const updateLoadout = api.pvpRank.updateRankedLoadout.useMutation({
+    meta: { handlesTransportError: true },
+  });
   const saveSequenceRef = useRef(0);
   const saveRef = useRef<RankedLoadoutSaveSnapshot | null>(null);
   const [pendingSave, setPendingSave] = useState<RankedLoadoutSaveSnapshot | null>(
