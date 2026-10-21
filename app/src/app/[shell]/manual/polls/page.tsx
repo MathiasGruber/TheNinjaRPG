@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { Eye, Pencil, Plus, Trash2, Type, User, Vote, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,6 @@ import { useUserData } from "@/utils/UserContext";
 import {
   type AddPollOptionSchema,
   createPollSchema,
-  type PollOptionSchema,
   type UpdatePollSchema,
   updatePollSchema,
 } from "@/validators/poll";
@@ -719,7 +718,17 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
     },
     mode: "onChange",
   });
-  const options = useWatch({ control: form.control, name: "options" });
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "options",
+  });
+  const textOptions = fields
+    .map((option, index) => ({ ...option, index }))
+    .filter((option) => option.type === "text");
+
+  const optionsError =
+    form.formState.errors.options?.root?.message ??
+    form.formState.errors.options?.message;
 
   // Form for user search
   const maxUsers = 1;
@@ -733,6 +742,35 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
     name: "users",
   });
 
+  useEffect(() => {
+    const options = form.getValues("options");
+    const removedIndices = options.flatMap((option, index) =>
+      option.type === "user" &&
+      !selectedUsers.some((user) => user.userId === option.userId)
+        ? [index]
+        : [],
+    );
+    if (removedIndices.length > 0) remove(removedIndices);
+
+    const newUsers = selectedUsers.filter(
+      (user) =>
+        !options.some(
+          (option) => option.type === "user" && option.userId === user.userId,
+        ),
+    );
+    if (newUsers.length > 0) {
+      append(
+        newUsers.map((user) => ({
+          type: "user" as const,
+          userId: user.userId,
+          username: user.username,
+        })),
+        { shouldFocus: false },
+      );
+    }
+    if (form.formState.isSubmitted) void form.trigger("options");
+  }, [selectedUsers, form, append, remove]);
+
   const utils = api.useUtils();
   const {
     mutate: createPoll,
@@ -743,78 +781,14 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
       showMutationToast(data);
       if (!data.success) return;
       void utils.poll.getPolls.invalidate();
+      userSearchMethods.reset();
       form.reset();
       onSuccess();
     },
   });
 
-  const addOption = () => {
-    const newOption: PollOptionSchema =
-      optionType === "text"
-        ? { type: "text", text: "" }
-        : { type: "user", userId: "", username: "" };
-
-    // Create a new array with the new option
-    const newOptions = [...options, newOption];
-
-    form.setValue("options", newOptions);
-  };
-
-  const removeOption = (index: number) => {
-    // Make sure we have at least 2 text options after removal
-    const textOptions = options.filter((opt) => opt.type === "text");
-    if (textOptions.length <= 2 && options[index]?.type === "text") return;
-
-    const newOptions = [...options];
-    newOptions.splice(index, 1);
-    form.setValue("options", newOptions);
-  };
-
-  useEffect(() => {
-    const userOptions: PollOptionSchema[] = selectedUsers.map((user) => ({
-      type: "user",
-      userId: user.userId,
-      username: user.username,
-    }));
-    const textOptions = form.getValues("options").filter((opt) => opt.type === "text");
-    form.setValue("options", [...textOptions, ...userOptions]);
-  }, [selectedUsers, form]);
-
   const onSubmit = (data: CreatePollOutput) => {
-    // Filter out empty options and ensure all options have the required fields
-    const filteredOptions = options
-      .filter((option) => {
-        if (option.type === "text") {
-          return option.text && option.text.trim() !== "";
-        } else if (option.type === "user") {
-          return (
-            option.userId &&
-            option.userId.trim() !== "" &&
-            option.username &&
-            option.username.trim() !== ""
-          );
-        }
-        return false;
-      })
-      .map((option) => {
-        // Ensure user options have a text field
-        if (option.type === "user") {
-          return {
-            ...option,
-            text: option.username, // Add text field to satisfy validation
-          };
-        }
-        return option;
-      });
-
-    // Validate the data against the schema
-    createPoll({
-      title: data.title,
-      description: data.description,
-      options: filteredOptions,
-      allowCustomOptions: data.allowCustomOptions,
-      endDate: data.endDate,
-    });
+    createPoll(data);
   };
 
   return (
@@ -859,88 +833,93 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
           )}
         />
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <FormLabel>Options</FormLabel>
-            <RadioGroup
-              defaultValue="text"
-              className="flex flex-row space-x-2"
-              onValueChange={(value) => setOptionType(value as PollOptionType)}
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="text" id="text" />
-                <FormLabel htmlFor="text" className="flex items-center">
-                  <Type className="mr-1 h-4 w-4" /> Text
-                </FormLabel>
+        <FormField
+          control={form.control}
+          name="options"
+          render={() => (
+            <FormItem className="space-y-4">
+              <div className="flex items-center justify-between">
+                <FormLabel>Options</FormLabel>
+                <RadioGroup
+                  defaultValue="text"
+                  className="flex flex-row space-x-2"
+                  onValueChange={(value) => setOptionType(value as PollOptionType)}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="text" id="text" />
+                    <FormLabel htmlFor="text" className="flex items-center">
+                      <Type className="mr-1 h-4 w-4" /> Text
+                    </FormLabel>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="user" id="user" />
+                    <FormLabel htmlFor="user" className="flex items-center">
+                      <User className="mr-1 h-4 w-4" /> User
+                    </FormLabel>
+                  </div>
+                </RadioGroup>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="user" id="user" />
-                <FormLabel htmlFor="user" className="flex items-center">
-                  <User className="mr-1 h-4 w-4" /> User
-                </FormLabel>
-              </div>
-            </RadioGroup>
-          </div>
 
-          {optionType === "text" ? (
-            // Text options
-            <>
-              {options
-                .filter((opt) => opt.type === "text")
-                .map((option, index) => {
-                  // Find the actual index in the full options array
-                  const actualIndex = options.indexOf(option);
-                  // After filtering, we know this is a text option
-                  const textOption = option as { type: "text"; text: string };
-                  return (
-                    <div key={actualIndex} className="flex gap-2">
-                      <Input
-                        placeholder={`Option ${index + 1}`}
-                        value={textOption.text}
-                        onChange={(e) => {
-                          const newOptions = [...options];
-                          newOptions[actualIndex] = {
-                            ...textOption,
-                            text: e.target.value,
-                          };
-                          form.setValue("options", newOptions);
-                        }}
-                      />
-                      {options.filter((opt) => opt.type === "text").length > 2 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeOption(actualIndex)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+              {optionType === "text" ? (
+                // Text options
+                <>
+                  {textOptions.map((option, index) => (
+                    <FormField
+                      key={option.id}
+                      control={form.control}
+                      name={`options.${option.index}.text`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <div className="flex gap-2">
+                            <FormControl>
+                              <Input placeholder={`Option ${index + 1}`} {...field} />
+                            </FormControl>
+                            {textOptions.length > 2 && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                aria-label={`Remove option ${index + 1}`}
+                                onClick={() => remove(option.index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </div>
-                  );
-                })}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addOption}
-                className="mt-2"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Text Option
-              </Button>
-            </>
-          ) : (
-            // User options
-            <div className="space-y-4">
-              <UserSearchSelect
-                useFormMethods={userSearchMethods}
-                showYourself={true}
-                label="Search for users to add as options"
-              />
-            </div>
+                    />
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ type: "text", text: "" })}
+                    className="mt-2"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Text Option
+                  </Button>
+                </>
+              ) : (
+                // User options
+                <div className="space-y-4">
+                  <UserSearchSelect
+                    useFormMethods={userSearchMethods}
+                    showYourself={true}
+                    label="Search for users to add as options"
+                  />
+                </div>
+              )}
+              {optionsError && (
+                <p role="alert" className="text-destructive text-sm">
+                  {optionsError}
+                </p>
+              )}
+            </FormItem>
           )}
-        </div>
+        />
 
         <FormField
           control={form.control}
