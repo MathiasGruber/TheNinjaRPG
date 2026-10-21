@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import type React from "react";
 import { api } from "@/app/_trpc/client";
+import { Button } from "@/components/ui/button";
 import Loader from "@/layout/Loader";
 import { getUnique } from "@/utils/grouping";
 
@@ -19,12 +20,23 @@ const GraphUsersGeneric = dynamic(() => import("@/layout/GraphUsersGeneric"), {
 
 const GraphCombatLog: React.FC<GraphCombatLogProps> = (props) => {
   // Queries
-  const { data, isPending } = api.combat.getGraph.useQuery(
+  const { data, isPending, isFetching, refetch } = api.combat.getGraph.useQuery(
     { userId: props.userId },
     {},
   );
 
-  if (!data || isPending) return <Loader explanation="Loading Battle Data" />;
+  if (!data) {
+    if (isPending) return <Loader explanation="Loading Battle Data" />;
+    return (
+      <div role="alert" className="space-y-2 py-2">
+        <p>Could not load the battle graph.</p>
+        <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  if (data.length === 0) return <p role="status">No battles to display.</p>;
 
   // Wrangle data a bit
   const users =
