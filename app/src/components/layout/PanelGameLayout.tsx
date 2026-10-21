@@ -101,7 +101,16 @@ export function PanelGameLayout(props: GameLayoutRenderProps) {
               height={63}
             />
           </Link>
-          <div className="theme-account-controls">{signedInIcons}</div>
+          <div className="theme-account-controls">
+            {signedInIcons}
+            {props.variant === "20-eclipse-observatory" && (
+              <div className="theme-world-access">
+                <LowerRightHelpBtn className="theme-header-button">
+                  <CircleHelp aria-hidden="true" />
+                </LowerRightHelpBtn>
+              </div>
+            )}
+          </div>
           <div className="theme-world-access">
             <Sheet
               open={rightSideBarOpen}

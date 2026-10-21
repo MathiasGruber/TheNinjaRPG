@@ -152,6 +152,15 @@ html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
   padding-block: 0.25rem;
   border-block: 3px double #8e7db2;
 }
+/* Community links are already in the player drawer while the sidebars are collapsed. */
+@media (width < 1100px) {
+  html[data-game-layout="20-eclipse-observatory"] .theme-frame {
+    grid-template-areas: "brand" "main" "footer";
+  }
+  html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
+    display: none;
+  }
+}
 /* Compact mouse menus while preserving the shared touch-target sizing. */
 @media (hover: hover) and (pointer: fine) {
   html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
