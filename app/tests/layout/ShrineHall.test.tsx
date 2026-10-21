@@ -58,23 +58,6 @@ describe("ShrineHall reserve boost locks", () => {
     { name: "expired reserve lock", lockDays: -1, canActivate: true },
     { name: "unlocked shrine", lockDays: 0, canActivate: true },
   ])("shows the effective bonus and activation availability with $name", (fixture) => {
-    const user = {
-      userId: "kage",
-      villageId: "reserve-village",
-      sector: 100,
-      role: "USER",
-      rank: "JONIN",
-      village: {
-        id: "reserve-village",
-        name: "Reserve village",
-        kageId: "kage",
-        tokens: SHRINE_BOOST_COST * 3,
-        shrineSettings: {
-          activeBoosts: { Training: new Date(Date.now() + 3600000).toISOString() },
-          boostTemplate: [],
-        },
-      },
-    } as unknown as NonNullable<UserWithRelations>;
     const shrines = [{
       sector: 100,
       villageId: "reserve-village",
@@ -83,39 +66,7 @@ describe("ShrineHall reserve boost locks", () => {
         ? new Date(Date.now() + fixture.lockDays * 86400000)
         : null,
     }];
-    const mutation = { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
-    const invalidation = { invalidate: vi.fn() };
-    const templateData = { boostTemplate: [] };
-    Object.assign(vi.spyOn(client, "api" as never), {
-      useUtils: () => ({
-        profile: { getUser: invalidation },
-        travel: { getSectorData: invalidation },
-        shrine: {
-          getCapturedSectors: invalidation,
-          getBoostTemplate: invalidation,
-        },
-      }),
-      travel: { getSectorData: { useQuery: () => ({ data: {} }) } },
-      shrine: {
-        getCapturedSectors: { useQuery: () => ({ data: shrines }) },
-        getShrineAis: { useQuery: () => ({ data: [] }) },
-        getBoostTemplate: { useQuery: () => ({ data: templateData }) },
-        upgradeShrine: mutation,
-        activateBoost: mutation,
-        unlockAiDefender: mutation,
-        toggleVillageAiDefender: mutation,
-        payWeeklyMaintenance: mutation,
-        setBoostTemplate: mutation,
-      },
-      war: { getActiveWars: { useQuery: () => ({ data: [] }) } },
-    });
-    vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({
-      data: user,
-      updateUser: vi.fn(),
-      prepareUserUpdate: vi.fn(),
-    } as never);
-
-    const view = render(<ShrineHall user={user} navTabs={null} />);
+    const view = renderShrineHall(shrines);
     fireEvent.mouseDown(view.getByRole("tab", { name: "Boosts" }), {
       button: 0,
       ctrlKey: false,
@@ -133,4 +84,71 @@ describe("ShrineHall reserve boost locks", () => {
       expect(view.getByText("Need at least one Level 3 shrine to activate boosts")).toBeTruthy();
     }
   });
+
+  it("leaves destroyed level 0 shrines out of maintenance", () => {
+    const view = renderShrineHall([
+      { id: 1, sector: 100, villageId: "reserve-village", shrineLevel: 2 },
+      { id: 2, sector: 290, villageId: "reserve-village", shrineLevel: 0 },
+    ]);
+    fireEvent.mouseDown(view.getByRole("tab", { name: "Maintenance" }), {
+      button: 0,
+      ctrlKey: false,
+    });
+    expect(view.getByText("Sector 100")).toBeTruthy();
+    expect(view.queryByText("Sector 290")).toBeNull();
+  });
 });
+
+/** Render the Shrine Hall for a Kage whose village owns the given sectors. */
+const renderShrineHall = (shrines: object[]) => {
+  const user = {
+    userId: "kage",
+    villageId: "reserve-village",
+    sector: 100,
+    role: "USER",
+    rank: "JONIN",
+    village: {
+      id: "reserve-village",
+      name: "Reserve village",
+      kageId: "kage",
+      tokens: SHRINE_BOOST_COST * 3,
+      shrineSettings: {
+        activeBoosts: { Training: new Date(Date.now() + 3600000).toISOString() },
+        boostTemplate: [],
+      },
+    },
+  } as unknown as NonNullable<UserWithRelations>;
+  const mutation = { useMutation: () => ({ mutate: vi.fn(), isPending: false }) };
+  const invalidation = { invalidate: vi.fn() };
+  const templateData = { boostTemplate: [] };
+  Object.assign(vi.spyOn(client, "api" as never), {
+    useUtils: () => ({
+      profile: { getUser: invalidation },
+      travel: { getSectorData: invalidation },
+      shrine: {
+        getCapturedSectors: invalidation,
+        getBoostTemplate: invalidation,
+      },
+    }),
+    travel: { getSectorData: { useQuery: () => ({ data: {} }) } },
+    shrine: {
+      getCapturedSectors: { useQuery: () => ({ data: shrines }) },
+      getShrineAis: { useQuery: () => ({ data: [] }) },
+      getBoostTemplate: { useQuery: () => ({ data: templateData }) },
+      upgradeShrine: mutation,
+      activateBoost: mutation,
+      unlockAiDefender: mutation,
+      toggleVillageAiDefender: mutation,
+      payWeeklyMaintenance: mutation,
+      setBoostTemplate: mutation,
+    },
+    war: { getActiveWars: { useQuery: () => ({ data: [] }) } },
+  });
+  vi.spyOn(UserContext, "useRequiredUserData").mockReturnValue({
+    data: user,
+    updateUser: vi.fn(),
+    prepareUserUpdate: vi.fn(),
+  } as never);
+
+  return render(<ShrineHall user={user} navTabs={null} />);
+};

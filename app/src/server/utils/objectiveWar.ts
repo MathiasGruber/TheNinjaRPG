@@ -147,8 +147,6 @@ export const applyObjectiveWarAction = async (
             objective
               ? sql`,
             ${sector.boostLockedUntil} = CASE WHEN ${warActionReceipt.captured} AND ${objective.isReserve} THEN DATE_ADD(SYSDATE(3), INTERVAL ${WAR_RESERVE_LOCKOUT_DAYS} DAY) ELSE ${sector.boostLockedUntil} END,
-            ${sector.shrineLevel} = CASE WHEN ${warActionReceipt.captured} AND NOT ${objective.isReserve} THEN 0 ELSE ${sector.shrineLevel} END,
-            ${sector.villageId} = CASE WHEN ${warActionReceipt.captured} AND NOT ${objective.isReserve} THEN ${action.sideVillageId} ELSE ${sector.villageId} END,
             ${war.objectiveState} = JSON_SET(${war.objectiveState}, ${`${path}.destroyed`}, IF(${warActionReceipt.captured}, CAST('true' AS JSON), JSON_EXTRACT(${war.objectiveState}, ${`${path}.destroyed`})), ${`${path}.hp`}, GREATEST(${hp} - ${warActionReceipt.shrineDamage}, 0))`
               : sql``
           }
@@ -156,6 +154,15 @@ export const applyObjectiveWarAction = async (
           ${action.camp ? sql`, ${isAttacker ? warCamp.attackerScore : warCamp.defenderScore} = ${isAttacker ? warCamp.attackerScore : warCamp.defenderScore} + ${WAR_CAMP_SCORE_PER_WIN}` : sql``}
       WHERE ${war.id} = ${activeWar.id} AND ${warActionReceipt.applied} = TRUE
     `);
+      // A destroyed ordinary objective is gone for good: its owner loses the sector and
+      // shrine, and nobody inherits it, so the sector is free to be claimed again.
+      if (objective && !objective.isReserve) {
+        await tx.execute(sql`
+        DELETE ${sector} FROM ${sector}
+        INNER JOIN ${warActionReceipt} ON ${warActionReceipt.id} = ${action.id} AND ${warActionReceipt.captured} = TRUE
+        WHERE ${sector.sector} = ${objective.sector} AND ${sector.villageId} = ${objective.villageId}
+      `);
+      }
       if (action.kills?.length) await tx.insert(warKill).values(action.kills);
       // A concurrent espionage completion can already have saturated the counter.
       // The guarded receipt still proves this attempt completed successfully.

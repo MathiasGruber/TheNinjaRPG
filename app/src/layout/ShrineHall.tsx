@@ -734,8 +734,10 @@ const MaintenanceTab = ({ user }: TabProps) => {
     });
 
   const isKage = user.userId === user.village?.kageId;
+  // Destroyed shrines (level 0) have nothing left to maintain.
+  const maintainedSectors = capturedSectors?.filter((s) => s.shrineLevel > 0);
 
-  if (!capturedSectors) {
+  if (!maintainedSectors) {
     return <Loader explanation="Loading sector maintenance information..." />;
   }
 
@@ -764,13 +766,13 @@ const MaintenanceTab = ({ user }: TabProps) => {
             <div className="space-y-3">
               <h4 className="font-semibold">Captured Sectors</h4>
 
-              {capturedSectors.length === 0 ? (
+              {maintainedSectors.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
                   No captured sectors. Capture sectors to build shrines that require
                   maintenance.
                 </p>
               ) : (
-                capturedSectors.map((sector) => {
+                maintainedSectors.map((sector) => {
                   const dueDate = sector.nextMaintainanceDueDate
                     ? new Date(sector.nextMaintainanceDueDate)
                     : new Date();
