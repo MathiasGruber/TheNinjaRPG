@@ -40,6 +40,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { deferPushToUsers } from "@/server/utils/push/defer";
 import { tradeUpdate } from "@/server/utils/push/messages";
 import type { QueryCondition } from "@/utils/typeutils";
@@ -564,6 +565,12 @@ export const auctionRouter = createTRPCRouter({
 
       // Check if user has an existing bid
       const existingBid = auction.bids.find((bid) => bid.bidderId === ctx.userId);
+      if (
+        existingBid &&
+        (existingBid.status !== "ACTIVE" || amount <= existingBid.amount)
+      ) {
+        return errorResponse("Bid must raise your existing active bid; please refresh");
+      }
       const amountToDeduct = existingBid ? amount - existingBid.amount : amount;
 
       // Validate user has enough currency for the bid raise
@@ -594,113 +601,132 @@ export const auctionRouter = createTRPCRouter({
       }
 
       const itemLabel = auction.userItem?.item?.name ?? "An auction lot";
-      const outbidNotifyPromises: Promise<unknown>[] =
-        outbidUserId === null
-          ? []
-          : [
-              ctx.drizzle.insert(notification).values({
+      const bidId = existingBid?.id ?? nanoid();
+      const updatedAt = new Date();
+      try {
+        // The listing claim serializes bids, including first bids by the same account.
+        // The debit and publication must roll back together if any later write fails.
+        await retryOnDeadlock(() =>
+          ctx.drizzle.transaction(async (tx) => {
+            const claim = await tx
+              .update(auctionListing)
+              .set({ currentPrice: amount, updatedAt })
+              .where(
+                and(
+                  eq(auctionListing.id, auction.id),
+                  eq(auctionListing.status, "ACTIVE"),
+                  eq(auctionListing.currentPrice, auction.currentPrice),
+                  gt(auctionListing.expiresAt, sql`CURRENT_TIMESTAMP(3)`),
+                  // A committed buyout cannot be overtaken while settlement starts.
+                  or(
+                    isNull(auctionListing.buyoutPrice),
+                    lt(auctionListing.currentPrice, auctionListing.buyoutPrice),
+                  ),
+                ),
+              );
+            requireBidWrite(
+              claim.rowsAffected,
+              "Auction changed; please refresh and try again",
+            );
+
+            const debit = await tx
+              .update(userData)
+              .set(
+                auction.currencyType === "MONEY"
+                  ? { bank: sql`${userData.bank} - ${amountToDeduct}` }
+                  : {
+                      reputationPoints: sql`${userData.reputationPoints} - ${amountToDeduct}`,
+                    },
+              )
+              .where(
+                and(
+                  eq(userData.userId, ctx.userId),
+                  eq(userData.isBanned, false),
+                  eq(userData.isTradeBanned, false),
+                  gte(userData.level, AUCTION_HOUSE_MIN_LEVEL),
+                  auction.listingType === "AUCTION"
+                    ? and(
+                        gte(userData.level, auction.bidderMinLevel),
+                        lte(userData.level, auction.bidderMaxLevel),
+                      )
+                    : undefined,
+                  auction.currencyType === "MONEY"
+                    ? gte(userData.bank, amountToDeduct)
+                    : gte(userData.reputationPoints, amountToDeduct),
+                ),
+              );
+            requireBidWrite(
+              debit.rowsAffected,
+              "Balance or trading access changed; please refresh and try again",
+            );
+
+            if (existingBid) {
+              const bid = await tx
+                .update(auctionBid)
+                .set({ amount })
+                .where(
+                  and(
+                    eq(auctionBid.id, existingBid.id),
+                    eq(auctionBid.auctionId, auction.id),
+                    eq(auctionBid.bidderId, ctx.userId),
+                    eq(auctionBid.status, "ACTIVE"),
+                    eq(auctionBid.amount, existingBid.amount),
+                  ),
+                );
+              requireBidWrite(
+                bid.rowsAffected,
+                "Bid changed; please refresh and try again",
+              );
+            } else {
+              await tx
+                .insert(auctionBid)
+                .values({ id: bidId, auctionId, bidderId: ctx.userId, amount });
+            }
+            await tx.insert(actionLog).values({
+              id: nanoid(),
+              userId: ctx.userId,
+              tableName: "auctionBid",
+              changes: JSON.stringify(
+                existingBid
+                  ? {
+                      action: "RAISE_BID",
+                      auctionId,
+                      previousAmount: existingBid.amount,
+                      newAmount: amount,
+                    }
+                  : { action: "PLACE_BID", auctionId, amount },
+              ),
+              relatedId: bidId,
+            });
+            if (outbidUserId !== null) {
+              await tx.insert(notification).values({
                 userId: outbidUserId,
                 content: isBuyoutBid
                   ? `Someone bought out "${itemLabel}" — you were the previous high bidder.`
                   : `You were outbid on "${itemLabel}" in the auction.`,
-              }),
-              ctx.drizzle
+              });
+              await tx
                 .update(userData)
-                .set({ unreadNotifications: sql`unreadNotifications + 1` })
-                .where(eq(userData.userId, outbidUserId)),
-            ];
-
-      // Deduct only what the raise costs; WHERE guards concurrent bids (no negative bank/rep).
-      const balanceGuard =
-        auction.currencyType === "MONEY"
-          ? sql`${userData.bank} >= ${amountToDeduct}`
-          : sql`${userData.reputationPoints} >= ${amountToDeduct}`;
-      const result = await ctx.drizzle
-        .update(userData)
-        .set(
-          auction.currencyType === "MONEY"
-            ? { bank: sql`${userData.bank} - ${amountToDeduct}` }
-            : {
-                reputationPoints: sql`${userData.reputationPoints} - ${amountToDeduct}`,
-              },
-        )
-        .where(and(eq(userData.userId, ctx.userId), balanceGuard));
-      if (result.rowsAffected === 0) {
-        return errorResponse(
-          auction.currencyType === "MONEY"
-            ? "Insufficient funds in bank (balance may have changed — try again)"
-            : "Insufficient reputation points (balance may have changed — try again)",
+                .set({ unreadNotifications: sql`${userData.unreadNotifications} + 1` })
+                .where(eq(userData.userId, outbidUserId));
+            }
+          }),
         );
+      } catch (error) {
+        if (error instanceof Error && error.name === "AuctionBidConflict")
+          return errorResponse(error.message);
+        throw error;
       }
 
-      // Either update existing bid or create new one
-      if (existingBid) {
-        // Update existing bid
-        await Promise.all([
-          ctx.drizzle
-            .update(auctionBid)
-            .set({
-              amount,
-            })
-            .where(eq(auctionBid.id, existingBid.id)),
-          ctx.drizzle
-            .update(auctionListing)
-            .set({
-              currentPrice: amount,
-              updatedAt: new Date(),
-            })
-            .where(eq(auctionListing.id, auction.id)),
-          ctx.drizzle.insert(actionLog).values({
-            id: nanoid(),
-            userId: ctx.userId,
-            tableName: "auctionBid",
-            changes: JSON.stringify({
-              action: "RAISE_BID",
-              auctionId,
-              previousAmount: existingBid.amount,
-              newAmount: amount,
-            }),
-            relatedId: existingBid.id,
-          }),
-          ...outbidNotifyPromises,
-        ]);
-      } else {
-        // Create new bid
-        const bidId = nanoid();
-        await Promise.all([
-          ctx.drizzle.insert(auctionBid).values({
-            id: bidId,
-            auctionId,
-            bidderId: ctx.userId,
-            amount,
-          }),
-          ctx.drizzle
-            .update(auctionListing)
-            .set({
-              currentPrice: amount,
-              updatedAt: new Date(),
-            })
-            .where(eq(auctionListing.id, auction.id)),
-          ctx.drizzle.insert(actionLog).values({
-            id: nanoid(),
-            userId: ctx.userId,
-            tableName: "auctionBid",
-            changes: JSON.stringify({
-              action: "PLACE_BID",
-              auctionId,
-              amount,
-            }),
-            relatedId: bidId,
-          }),
-          ...outbidNotifyPromises,
-        ]);
-        // Force insert bid into auction object
+      auction.currentPrice = amount;
+      auction.updatedAt = updatedAt;
+      if (!existingBid) {
         auction.bids.push({
           id: bidId,
           auctionId,
           bidderId: ctx.userId,
           amount,
-          createdAt: new Date(),
+          createdAt: updatedAt,
           status: "ACTIVE",
         });
       }
@@ -998,4 +1024,9 @@ export const completeAuctionInternal = async (
     tradeUpdate(auction.id),
   );
   return winningBid || null;
+};
+
+const requireBidWrite = (rowsAffected: number, message: string) => {
+  if (rowsAffected !== 1)
+    throw Object.assign(new Error(message), { name: "AuctionBidConflict" });
 };
