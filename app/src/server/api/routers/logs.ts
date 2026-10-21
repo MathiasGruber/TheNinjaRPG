@@ -33,8 +33,8 @@ export const logsRouter = createTRPCRouter({
       // Query
       const [user, target] = await Promise.all([
         ctx.userId ? fetchUser(ctx.drizzle, ctx.userId) : null,
-        ctx.userId
-          ? await ctx.drizzle.query.userData.findFirst({
+        ctx.userId && input.username
+          ? ctx.drizzle.query.userData.findFirst({
               where: like(userData.username, `%${input.username}%`),
             })
           : null,
@@ -70,25 +70,29 @@ export const logsRouter = createTRPCRouter({
         limit: input.limit,
       });
       // Overwrite all villageIds, bloodlineIds, etc. with their names
-      const villageIds: string[] = [];
-      const bloodlineIds: string[] = [];
+      const villageIds = new Set<string>();
+      const bloodlineIds = new Set<string>();
       entries.forEach((entry) => {
         (entry.changes as string[]).forEach((change) => {
           const bloodlineId = extractValueFromJson(change, "bloodlineId");
           const villageId = extractValueFromJson(change, "villageId");
-          if (bloodlineId) bloodlineIds.push(bloodlineId);
-          if (villageId) villageIds.push(villageId);
+          if (bloodlineId) bloodlineIds.add(bloodlineId);
+          if (villageId) villageIds.add(villageId);
         });
       });
       const [bloodlines, villages] = await Promise.all([
-        ctx.drizzle.query.bloodline.findMany({
-          where: inArray(bloodline.id, bloodlineIds),
-          columns: { id: true, name: true },
-        }),
-        ctx.drizzle.query.village.findMany({
-          where: inArray(village.id, villageIds),
-          columns: { id: true, name: true },
-        }),
+        bloodlineIds.size > 0
+          ? ctx.drizzle.query.bloodline.findMany({
+              where: inArray(bloodline.id, [...bloodlineIds]),
+              columns: { id: true, name: true },
+            })
+          : [],
+        villageIds.size > 0
+          ? ctx.drizzle.query.village.findMany({
+              where: inArray(village.id, [...villageIds]),
+              columns: { id: true, name: true },
+            })
+          : [],
       ]);
       // If user is not set, or not allowed to see secret data, hide username
       if (!user || !canSeeSecretData(user.role)) {
