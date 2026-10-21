@@ -2381,29 +2381,6 @@ export const fetchClan = async (client: DrizzleClient, clanId: string) => {
   });
 };
 
-/**
- * Fetches the clan details by leader ID.
- * @param client - The Drizzle client instance.
- * @param leaderId - The ID of the clan leader.
- * @returns - A promise that resolves to the clan details.
- */
-export const fetchClanByLeader = async (client: DrizzleClient, leaderId: string) => {
-  return await client.query.clan.findFirst({
-    with: {
-      members: {
-        columns: {
-          userId: true,
-          username: true,
-          level: true,
-          rank: true,
-          avatar: true,
-        },
-      },
-    },
-    where: eq(clan.leaderId, leaderId),
-  });
-};
-
 export type ClanRouter = inferRouterOutputs<typeof clanRouter>;
 
 /**

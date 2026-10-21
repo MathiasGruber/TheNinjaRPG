@@ -2838,20 +2838,6 @@ const fetchRestrictedNewQuestTargets = async (
 };
 
 /**
- * Fetch quest history for a user
- * @param client - The database client
- * @param userId - The id of the user
- * @returns The quest history
- */
-export const fetchUserQuestHistory = async (client: DrizzleClient, userId: string) => {
-  return await client.query.questHistory.findMany({
-    columns: { id: true },
-    where: eq(questHistory.userId, userId),
-    with: { quest: { columns: { id: true, questType: true } } },
-  });
-};
-
-/**
  * Fetch uncompleted quests for a user
  * @param client - The database client
  * @param user - The user
