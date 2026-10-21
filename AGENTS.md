@@ -8,7 +8,7 @@ Repository-wide agent instructions; `CLAUDE.md` imports this file. Paths below a
 - **Combat:** `initiateBattle()` must preload everything combat needs into battle state. `performAction()` gets ONE initial battle-state query, in-memory processing, then ONE `Promise.all` mutation phase. **Never add intermediate fetches**; add missing data at initiation.
 - **Economy:** use atomic WHERE/CAS guards for balances, receipt delivery and reward claims; check `rowsAffected` before granting irreversible rewards. Use SQL increments for counters vulnerable to stale snapshots.
 - **Database latency:** fetch independent queries upfront with `Promise.all()`, then filter in JavaScript. Prefer fewer round-trips over smaller payloads. Defer a query only when it depends on an earlier result, or is expensive and potentially unnecessary.
-- Define all Zod schemas in `app/src/validators/`, never inline in pages or routers.
+- Keep router-only Zod schemas inline in their routers. Use `app/src/validators/` for schemas reused in multiple places or consumed by non-router code (forms, libraries, integrations). Compose endpoint-specific input/output envelopes inline around shared validators; similar ID or pagination shapes alone are not a reason to extract a router-only contract.
 - When refactoring schema, remove deprecated fields and migrate all callers; do not retain legacy fields. Run `make makemigrations` after editing `app/drizzle/schema.ts`. Keep migration SQL free of `--> statement-breakpoint` markers; `app/drizzle.config.ts` disables their generation.
 - React hooks must run unconditionally, in stable order, before early returns. Use query `enabled` for conditional fetching and react-hook-form `useWatch`, never `watch` (React Compiler). Verify hook ordering after frontend changes.
 - Before filtering a Sentry error, verify meaningful user feedback, resolved loading states and no broken/blank UI. Comment how UX is handled; use domain-validating regexes for URL filters, never substring matching.
@@ -62,7 +62,7 @@ Next.js 15 App Router / React 19 / strict TypeScript; Tailwind, Shadcn/Radix; Dr
 | `app/src/app/[shell]/` | Routes, prerendered once per shell variant (`app/src/libs/shell.ts`); the proxy rewrites each request to its variant. Route handlers and metadata files stay at `app/src/app/`. `manual/` is admin content management |
 | `app/src/server/api/` | `root.ts`: router registry; `trpc.ts`: middleware and `baseServerResponse`; `routers/`: endpoints |
 | `app/src/libs/` | Game logic by feature (combat, travel, bounty, etc.) |
-| `app/src/validators/` | Shared Zod schemas |
+| `app/src/validators/` | Shared Zod schemas and schemas consumed outside routers; router-only contracts stay inline |
 | `app/src/layout/` | Reusable game UI; prefer existing components |
 | `app/drizzle/` | `schema.ts`, `constants.ts`, `migrations/` |
 | `app/src/utils/permissions.ts` | Centralized permissions |
