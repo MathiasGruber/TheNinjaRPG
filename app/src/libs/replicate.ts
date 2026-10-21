@@ -1,17 +1,3 @@
-import fs from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { NodeIO } from "@gltf-transform/core";
-import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
-import {
-  dedup,
-  meshopt,
-  prune,
-  resample,
-  textureCompress,
-  weld,
-} from "@gltf-transform/functions";
-import { MeshoptEncoder } from "meshoptimizer";
 import { nanoid } from "nanoid";
 import OpenAI, { toFile } from "openai";
 import type { FileOutput } from "replicate";
@@ -33,41 +19,6 @@ const getReplicateInstance = () => {
     replicateInstance = new Replicate({ auth: env.REPLICATE_API_TOKEN });
   }
   return replicateInstance;
-};
-
-/**
- * Compress a gltf file
- * @param url The URL of the gltf file to compress
- * @returns The compressed gltf file
- */
-export const compressGltf = async (url: string) => {
-  await MeshoptEncoder.ready;
-
-  // 3. Initialize NodeIO (network not needed since binary embedded)
-  const io = new NodeIO(fetch)
-    .registerExtensions(ALL_EXTENSIONS)
-    .registerDependencies({ "meshopt.encoder": MeshoptEncoder })
-    .setAllowNetwork(true);
-
-  // 4. Read, transform with explicit modules, and write
-  const document = await io.read(url);
-  await document.transform(
-    weld(),
-    resample(),
-    prune(),
-    dedup(),
-    meshopt({ encoder: MeshoptEncoder, level: "high" }),
-    textureCompress({
-      encoder: sharp,
-      quality: 80,
-      targetFormat: "webp",
-      resize: [256, 256],
-    }),
-    // Custom transform: backface culling…
-  );
-  const localPath = path.join(tmpdir(), `${nanoid()}-compressed.glb`);
-  await io.write(localPath, document);
-  return { localPath };
 };
 
 /**
@@ -142,25 +93,6 @@ export const getAvatarPrompt = async (client: DrizzleClient, user: UserData) => 
     }
   };
   return `${getPhenotype(user.rank, user.gender)}, ${attributes}, fully clothed, wearing clothes, dressed, anime, rossdraws portrait, stanley artgerm lau, wlop, looking into camera, interesting background, sfw`;
-};
-
-/**
- * Upload file from URL to uploadthing
- */
-export const uploadToUT = async (url: string) => {
-  const utapi = new UTApi();
-  const extension = path.extname(url).replace(/^\./, "") || "bin";
-  const name = `${nanoid()}.${extension}`;
-  if (!url.startsWith("http")) {
-    const fileBuffer = await fs.promises.readFile(url);
-    const uploadedFile = await utapi.uploadFiles(
-      new UTFile([fileBuffer as BlobPart], name, { customId: name }),
-    );
-    return uploadedFile.data ? servedUfsUrl(uploadedFile.data) : null;
-  } else {
-    const uploadedFile = await utapi.uploadFilesFromUrl({ url, name, customId: name });
-    return uploadedFile.data ? servedUfsUrl(uploadedFile.data) : null;
-  }
 };
 
 /**
