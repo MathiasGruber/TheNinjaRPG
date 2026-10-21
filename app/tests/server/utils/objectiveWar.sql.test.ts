@@ -1,4 +1,5 @@
 import { beforeEach, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
 import { eq } from "drizzle-orm";
 import { warKill } from "@/drizzle/schema";
 import { questHistory, sector, userData, village, war, warAlly, warActionReceipt, warCamp, warContribution } from "@/drizzle/schema";
@@ -7,7 +8,7 @@ import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { warRouter } from "@/server/api/routers/war";
 import { defaultWarRules } from "@/validators/war";
 import { insertUsers } from "../../setup/factories";
-import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables, runRawSql } from "../../setup/testDatabase";
 
 const seed = async () => {
   const db = await getTestDatabase();
@@ -64,21 +65,41 @@ describeWithDatabase("objective war atomic strategic actions", () => {
     expect(await db.query.sector.findFirst({ where: eq(sector.sector, 201) })).toBeUndefined();
     const rows = await db.query.warContribution.findMany(); expect(rows.reduce((n, r) => n + r.damage, 0)).toBe(1500);
   });
-  it("deletes a destroyed objective once and ignores a later capture attempt", async () => {
-    const db = await getTestDatabase(); const w = await readWar();
-    expect(await applyObjectiveWarAction(db, w, { id: "first", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 })).toBe(true);
-    // The sector is free again; a new owner must not lose it to a stale capture.
-    await db.insert(sector).values({ sector: 201, villageId: "b" });
-    expect(await applyObjectiveWarAction(db, w, { id: "second", userId: "hero2", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 })).toBe(false);
-    expect((await readWar()).defenderWarHealth).toBe(8500);
-    expect((await db.query.sector.findFirst({ where: eq(sector.sector, 201) }))?.shrineLevel).toBe(1);
-  });
-  it("keeps an objective's sector while its shrine still has HP", async () => {
+  it("keeps ownership and maintenance intact until the shrine is destroyed", async () => {
     const db = await getTestDatabase();
-    await applyObjectiveWarAction(db, await readWar(), { id: "chip", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 100 });
-    expect((await readWar()).objectiveState?.objectives[0]?.hp).toBe(250);
-    const row = (await db.query.sector.findFirst({ where: eq(sector.sector, 201) }))!;
-    expect(row.villageId).toBe("b"); expect(row.shrineLevel).toBe(1);
+    const dueDate = new Date("2030-01-01T00:00:00.000Z");
+    await db.update(sector).set({ shrineLevel: 3, nextMaintainanceDueDate: dueDate }).where(eq(sector.sector, 201));
+    const w = await readWar();
+    await applyObjectiveWarAction(db, w, { id: "partial", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 100 });
+    expect(await db.query.sector.findFirst({ where: eq(sector.sector, 201) })).toMatchObject({ villageId: "b", shrineLevel: 3, nextMaintainanceDueDate: dueDate });
+    expect((await readWar()).objectiveState?.objectives[0]).toMatchObject({ hp: 250, destroyed: false });
+    await applyObjectiveWarAction(db, w, { id: "finish", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 });
+    expect(await db.query.sector.findFirst({ where: eq(sector.sector, 201) })).toBeUndefined();
+  });
+  it("does not remove a rebuilt shrine when an old destruction is replayed", async () => {
+    const db = await getTestDatabase(); const w = await readWar();
+    const action = { id: "destroy", userId: "hero", sideVillageId: "a", objectiveIndex: 0, shrineDamage: 350 };
+    expect(await applyObjectiveWarAction(db, w, action)).toBe(true);
+    await db.insert(sector).values({ sector: 201, villageId: "b", shrineLevel: 2 });
+    expect(await applyObjectiveWarAction(db, w, action)).toBe(false);
+    expect(await applyObjectiveWarAction(db, w, { ...action, id: "stale" })).toBe(false);
+    expect(await db.query.sector.findFirst({ where: eq(sector.sector, 201) })).toMatchObject({ villageId: "b", shrineLevel: 2 });
+    expect((await readWar()).defenderWarHealth).toBe(8500);
+  });
+  it("cleans up old destroyed ownership while retaining standing and reserve shrines", async () => {
+    const db = await getTestDatabase();
+    await db.insert(sector).values([
+      { sector: 501, villageId: "a", shrineLevel: 0 },
+      { sector: 502, villageId: "b", shrineLevel: 3 },
+      { sector: 100, villageId: "a", shrineLevel: 0 },
+      { sector: 227, villageId: "b", shrineLevel: 0 },
+    ]);
+    const migration = readFileSync(new URL("../../../drizzle/migrations/0104_remove_destroyed_war_shrines.sql", import.meta.url), "utf8");
+    await runRawSql(migration);
+    await runRawSql(migration);
+    const remaining = await db.query.sector.findMany();
+    expect(remaining.map((s) => s.sector).sort((a, b) => a - b)).toEqual([100, 201, 202, 227, 502]);
+    expect(remaining.find((s) => s.sector === 502)?.shrineLevel).toBe(3);
   });
   it("locks a reserve shrine's boosts for seven days without transferring it", async () => {
     const db = await getTestDatabase();
