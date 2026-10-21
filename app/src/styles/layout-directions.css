@@ -94,6 +94,7 @@ html[data-game-layout="20-eclipse-observatory"] .tnr-theme-game {
   );
   background-size: 36px 36px;
 }
+/* Keep compact spacing proportional to the player's chosen font scale. */
 html[data-game-layout="20-eclipse-observatory"] .theme-frame {
   gap: 0.65rem;
   padding-top: 0.5rem;
@@ -107,12 +108,14 @@ html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav .theme-help {
   padding: 0;
   font: inherit;
 }
+/* The alert sits above its label without intercepting links when navigation wraps. */
 html[data-game-layout="20-eclipse-observatory"] .theme-help > .absolute {
   top: auto;
   bottom: 100%;
   pointer-events: none;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-main {
+  /* Short pages fit their content instead of reserving an empty viewport. */
   min-height: 0;
   padding: 0.75rem;
   border: 1px solid #8e7db2;
@@ -149,6 +152,7 @@ html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
   padding-block: 0.25rem;
   border-block: 3px double #8e7db2;
 }
+/* Compact mouse menus while preserving the shared touch-target sizing. */
 @media (hover: hover) and (pointer: fine) {
   html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
     min-height: 2.5rem;
