@@ -2076,13 +2076,18 @@ export const consume = (
 ): ActionEffect | undefined => {
   const { power } = getPower(effect);
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
-  const previous = consumeByUser.get(effect.creatorId);
-  consumeByUser.set(effect.creatorId, {
-    ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
-    rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
-    hp: 0,
+  const conversion = consumeByUser.get(effect.creatorId) ?? {
+    ratio: 0,
+    shields: new Map(),
+  };
+  const previous = conversion.shields.get(shieldRounds);
+  conversion.ratio += power / 100;
+  conversion.shields.set(shieldRounds, {
+    ratio: (previous?.ratio ?? 0) + power / 100,
+    hp: previous?.hp ?? 0,
     siphon: previous?.siphon || effect.type === "siphon",
   });
+  consumeByUser.set(effect.creatorId, conversion);
   return undefined;
 };
 

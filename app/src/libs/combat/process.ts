@@ -575,7 +575,9 @@ export const applyEffects = (
   const accumulateConsumeShield = (userId: string, damage: number) => {
     const consume = consumeByUser.get(userId);
     if (!consume || damage <= 0) return;
-    consume.hp += damage * consume.ratio;
+    consume.shields.forEach((shield) => {
+      shield.hp += damage * (shield.ratio / Math.max(1, consume.ratio));
+    });
   };
 
   // Resolve activation and prevention before Final Stand can protect debt repayment.
@@ -1202,19 +1204,25 @@ export const applyEffects = (
       }
     });
 
-  // Grant the accumulated consume shields: one effect and one log line per attacker,
-  // sized off the total pre-shield damage the action dealt across every target.
-  consumeByUser.forEach(({ hp, rounds, siphon }, userId) => {
+  // Preserve each duration while sharing the per-caster shield HP cap proportionally.
+  consumeByUser.forEach(({ shields }, userId) => {
     const user = newUsersState.find((u) => u.userId === userId);
     if (!user || user.curHealth <= 0) return;
-    const shieldHp = Math.min(Math.floor(hp), SHIELD_MAX_HEALTH);
-    if (shieldHp <= 0) return;
-    newUsersEffects.push(
-      createConsumeShieldEffect(user, shieldHp, rounds, battle.round),
+    const totalHp = Array.from(shields.values()).reduce(
+      (total, shield) => total + shield.hp,
+      0,
     );
-    actionEffects.push({
-      txt: `${user.username} ${siphon ? "siphons" : "consumes"} ${shieldHp} damage as a shield for ${rounds} rounds`,
-      color: "blue",
+    const scale = totalHp > SHIELD_MAX_HEALTH ? SHIELD_MAX_HEALTH / totalHp : 1;
+    shields.forEach(({ hp, siphon }, rounds) => {
+      const shieldHp = Math.floor(hp * scale);
+      if (shieldHp <= 0) return;
+      newUsersEffects.push(
+        createConsumeShieldEffect(user, shieldHp, rounds, battle.round),
+      );
+      actionEffects.push({
+        txt: `${user.username} ${siphon ? "siphons" : "consumes"} ${shieldHp} damage as a shield for ${rounds} rounds`,
+        color: "blue",
+      });
     });
   });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { SHIELD_MAX_HEALTH } from "@/drizzle/constants";
 import { applyEffects } from "@/libs/combat/process";
 import type { CombatAction, CompleteBattle, UserEffect } from "@/libs/combat/types";
 import { getTagSchema, isPositiveUserEffect, SiphonTag } from "@/validators/combat";
@@ -28,6 +29,38 @@ const shieldHp = (state: CompleteBattle) => state.usersEffects.reduce(
 );
 
 describe("Siphon", () => {
+  it.each([false, true])("preserves mixed Consume/Siphon durations with reversed order %s", (reverse) => {
+    const contributions = [
+      makeEffect("consume", { power: 25, rounds: 3, shieldRounds: 2 }, { ...runtime, id: "consume-short" }),
+      makeEffect("siphon", { power: 25, rounds: 3, shieldRounds: 2 }, { ...runtime, id: "siphon-short" }),
+      makeEffect("siphon", { power: 75, rounds: 3, shieldRounds: 6 }, { ...runtime, id: "siphon-long" }),
+    ];
+    const initial = battle([hit(), ...(reverse ? contributions.reverse() : contributions)]);
+    const healthBefore = initial.usersState[1]!.curHealth;
+    const result = applyEffects(initial, "attacker", action).newBattle;
+    const damage = healthBefore - result.usersState[1]!.curHealth;
+    const shields = result.usersEffects.filter((effect) => effect.type === "shield");
+    expect(shields).toHaveLength(2);
+    expect(shields.find((effect) => effect.rounds === 2)?.power).toBe(Math.floor(damage * 0.4));
+    expect(shields.find((effect) => effect.rounds === 6)?.power).toBe(Math.floor(damage * 0.6));
+  });
+
+  it("shares the shield HP cap across durations", () => {
+    const initial = battle([
+      { ...hit(), power: 1000000 },
+      siphon(),
+      makeEffect("consume", { power: 50, rounds: 3, shieldRounds: 6 }, { ...runtime, id: "consume-long" }),
+    ]);
+    initial.usersState[1]!.curHealth = 10000000;
+    initial.usersState[1]!.maxHealth = 10000000;
+    const result = applyEffects(initial, "attacker", action).newBattle;
+    const shields = result.usersEffects.filter((effect) => effect.type === "shield");
+    expect(shields).toHaveLength(2);
+    expect(shieldHp(result)).toBe(SHIELD_MAX_HEALTH);
+    expect(shields.find((effect) => effect.rounds === 3)?.power).toBe(SHIELD_MAX_HEALTH / 2);
+    expect(shields.find((effect) => effect.rounds === 6)?.power).toBe(SHIELD_MAX_HEALTH / 2);
+  });
+
   it("is registered and clearable as a positive effect", () => {
     expect(getTagSchema("siphon").parse({}).type).toBe("siphon");
     expect(isPositiveUserEffect(SiphonTag.parse({}))).toBe(true);
