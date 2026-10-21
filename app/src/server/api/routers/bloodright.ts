@@ -1,4 +1,4 @@
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { COST_SKILL_RESET, MAX_BLOODRIGHT_TIERS } from "@/drizzle/constants";
 import { actionLog, skillTree, skillTreeFolder, userData } from "@/drizzle/schema";
@@ -90,7 +90,7 @@ export const bloodrightRouter = createTRPCRouter({
             eq(userData.bloodlineId, tier.bloodlineId),
             // Content may change between loading the card and claiming its purchase.
             sql`EXISTS (SELECT 1 FROM ${skillTree} LEFT JOIN ${skillTreeFolder} ON ${skillTree.folderId} = ${skillTreeFolder.id} WHERE ${skillTree.id} = ${tier.id} AND ${skillTree.updatedAt} = ${tier.updatedAt} AND (${canAccessHiddenSkillTree(user.role)} OR (${skillTree.hidden} = false AND COALESCE(${skillTreeFolder.hidden}, false) = false)))`,
-            sql`${userData.status} <> 'BATTLE'`,
+            ne(userData.status, "BATTLE"),
             sql`${userData.bloodright} = CAST(${JSON.stringify(purchased)} AS JSON)`,
             gte(userData.seichiSilver, tier.seichiSilverCost),
           ),
@@ -149,7 +149,7 @@ export const bloodrightRouter = createTRPCRouter({
         .where(
           and(
             eq(userData.userId, ctx.userId),
-            sql`${userData.status} <> 'BATTLE'`,
+            ne(userData.status, "BATTLE"),
             sql`${userData.bloodright} = CAST(${JSON.stringify(user.bloodright)} AS JSON)`,
           ),
         );
@@ -197,7 +197,7 @@ export const bloodrightRouter = createTRPCRouter({
         .where(
           and(
             eq(userData.userId, ctx.userId),
-            sql`${userData.status} <> 'BATTLE'`,
+            ne(userData.status, "BATTLE"),
             sql`${userData.bloodright} = CAST(${JSON.stringify(user.bloodright)} AS JSON)`,
             sql`${userData.monthlySkillResets} = CAST(${JSON.stringify(user.monthlySkillResets)} AS JSON)`,
             // The confirmed refund delta must equal the SQL expression's committed amount.

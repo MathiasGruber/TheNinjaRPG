@@ -11,6 +11,7 @@ import {
   isNull,
   lt,
   lte,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -1254,7 +1255,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
     lt(userData.travelFinishAt, new Date()),
   );
   // Mirrors `hasEnergyQueue`.
-  const hasQueue = sql`${userData.energyQueueTail} > ${userData.energyQueueHead}`;
+  const hasQueue = gt(userData.energyQueueTail, userData.energyQueueHead);
   const [users, settings] = await Promise.all([
     client.query.userData.findMany({
       where: and(expiredTravel, hasQueue),
@@ -1264,7 +1265,7 @@ export const completeExpiredGlobalTravel = async (client: DrizzleClient) => {
         clan: true,
         village: { with: { structures: true } },
         items: {
-          where: and(sql`${userItem.equipped} <> 'NONE'`, gt(userItem.quantity, 0)),
+          where: and(ne(userItem.equipped, "NONE"), gt(userItem.quantity, 0)),
           with: { item: true, imbuements: { with: { item: true } } },
         },
         titles: true,

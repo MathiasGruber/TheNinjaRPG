@@ -161,9 +161,7 @@ export const dataRouter = createTRPCRouter({
     const rows = await ctx.drizzle
       .selectDistinct({ utmSource: visitorLog.utmSource })
       .from(visitorLog)
-      .where(
-        and(sql`${visitorLog.utmSource} IS NOT NULL`, ne(visitorLog.utmSource, "")),
-      )
+      .where(and(isNotNull(visitorLog.utmSource), ne(visitorLog.utmSource, "")))
       .orderBy(asc(visitorLog.utmSource));
     return rows
       .map((r) => r.utmSource)
