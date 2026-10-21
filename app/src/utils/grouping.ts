@@ -1,13 +1,13 @@
 /**
- * Group objects by key
+ * Group objects by key, preserving first-seen group order and input row order.
  */
 export const groupBy = <T, K extends keyof T>(value: T[], key: K) =>
   value.reduce((acc, curr) => {
-    if (acc.get(curr[key])) return acc;
-    acc.set(
-      curr[key],
-      value.filter((elem) => elem[key] === curr[key]),
-    );
+    const groupKey = curr[key];
+    const group = acc.get(groupKey) ?? [];
+    if (!acc.has(groupKey)) acc.set(groupKey, group);
+    // Preserve strict-equality matching: NaN has a bucket but no matching rows.
+    if (!Number.isNaN(groupKey)) group.push(curr);
     return acc;
   }, new Map<T[K], T[]>());
 
