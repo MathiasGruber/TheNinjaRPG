@@ -13,6 +13,7 @@ import * as LayoutSidebars from "@/components/layout/shared/LayoutSidebars";
 import * as Footer from "@/layout/Footer";
 import { GameSettingsPanel, GlobalAudioProvider } from "@/layout/GameSettings";
 import * as HelpButton from "@/layout/LowerRightHelpBtn";
+import * as Image from "@/layout/Image";
 import { DEFAULT_MOBILE_NAV_CONFIG } from "@/libs/mobileNavConfig";
 import {
   SWAP_SIDEBARS_ATTRIBUTE,
@@ -55,6 +56,11 @@ afterEach(() => {
 });
 
 const mockFrameChrome = () => {
+  // Bun retains other suites' image stubs; preserve the layout markers and CSS classes.
+  vi.spyOn(Image, "default").mockImplementation(({ alt, src, ...props }) => (
+    // biome-ignore lint/performance/noImgElement: isolated sidebar image fixture
+    <img {...props} alt={alt} src={typeof src === "string" ? src : undefined} />
+  ));
   vi.spyOn(Footer, "default").mockImplementation(() => <div>Footer</div>);
   vi.spyOn(HelpButton, "default").mockImplementation(({ children }) => <>{children}</>);
   vi.spyOn(LayoutSidebars, "StrongestUsersBanner").mockImplementation(() => (

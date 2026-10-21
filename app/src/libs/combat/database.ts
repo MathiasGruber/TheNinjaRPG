@@ -46,7 +46,12 @@ import {
 import { stillInBattle } from "@/libs/combat/actions";
 import { settleObjectiveWarCombat } from "@/libs/combat/objectiveWar";
 import { areBattleAllies } from "@/libs/combat/participants";
-import type { ActionEffect, CombatResult, CompleteBattle } from "@/libs/combat/types";
+import type {
+  ActionEffect,
+  BattleWar,
+  CombatResult,
+  CompleteBattle,
+} from "@/libs/combat/types";
 import {
   canCacheCombatCompletion,
   combatCacheDerived,
@@ -938,22 +943,7 @@ export const updateWars = async (
             ) => {
               if (change === 0) return;
 
-              const hpCol =
-                shrineType === "attacker" ? "attackerShrineHp" : "defenderShrineHp";
-              const maxHpCol =
-                shrineType === "attacker"
-                  ? "attackerShrineMaxHp"
-                  : "defenderShrineMaxHp";
-              const statusCol =
-                shrineType === "attacker"
-                  ? "attackerShrineStatus"
-                  : "defenderShrineStatus";
-              const warHealthCol =
-                shrineType === "attacker" ? "attackerWarHealth" : "defenderWarHealth";
-              const warHealthMaxCol =
-                shrineType === "attacker"
-                  ? "attackerWarHealthMax"
-                  : "defenderWarHealthMax";
+              const { hp: hpCol } = shrineColumnsBySide[shrineType];
               const villageName =
                 shrineType === "attacker"
                   ? (w.attackerVillage?.name ?? "Attacker")
@@ -981,50 +971,13 @@ export const updateWars = async (
                   );
                 }
               } else {
-                // Defending/Recovering: increase shrine HP, apply war health heal if crossing recapture threshold
-                // First, try to update only if status is CAPTURED and HP will cross above 25%
-                const recaptureResult = await client
-                  .update(war)
-                  .set({
-                    [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
-                    [statusCol]: "ACTIVE",
-                  })
-                  .where(
-                    and(
-                      eq(war.id, w.id),
-                      isNull(war.endedAt),
-                      warRaidCombatGuard(),
-                      sql`${sql.raw(statusCol)} = 'CAPTURED'`,
-                      sql`${sql.raw(hpCol)} + ${change} > ${sql.raw(maxHpCol)} * ${WAR_RECAPTURE_THRESHOLD}`,
-                    ),
-                  );
-
-                if (recaptureResult.rowsAffected > 0) {
-                  // This battle caused the shrine to be recaptured (CAPTURED -> ACTIVE)
-                  // Apply heal to the shrine owner's war health
-                  await client
-                    .update(war)
-                    .set({
-                      [warHealthCol]: sql`LEAST(${sql.raw(warHealthCol)} + ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL}, ${sql.raw(warHealthMaxCol)})`,
-                    })
-                    .where(
-                      and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
-                    );
-                  result.notifications.push(
-                    `${villageName}'s shrine recaptured! ${villageName} gained ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} war HP!`,
-                  );
-                } else {
-                  // Didn't recapture - either already ACTIVE or didn't cross threshold
-                  // Still update shrine HP
-                  await client
-                    .update(war)
-                    .set({
-                      [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
-                    })
-                    .where(
-                      and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
-                    );
-                }
+                await recoverWarShrine(
+                  client,
+                  w,
+                  shrineType,
+                  change,
+                  result.notifications,
+                );
               }
             };
 
@@ -1091,87 +1044,26 @@ export const updateWars = async (
 
       processedShrineWarIds.add(warId);
 
-      // Process shrine updates for this war
-      shrineUpdatePromises.push(
-        (async () => {
-          const processShrine = async (
-            shrineType: "attacker" | "defender",
-            change: number,
-          ) => {
-            if (change === 0) return;
-
-            const hpCol =
-              shrineType === "attacker" ? "attackerShrineHp" : "defenderShrineHp";
-            const maxHpCol =
-              shrineType === "attacker" ? "attackerShrineMaxHp" : "defenderShrineMaxHp";
-            const statusCol =
-              shrineType === "attacker"
-                ? "attackerShrineStatus"
-                : "defenderShrineStatus";
-            const warHealthCol =
-              shrineType === "attacker" ? "attackerWarHealth" : "defenderWarHealth";
-            const warHealthMaxCol =
-              shrineType === "attacker"
-                ? "attackerWarHealthMax"
-                : "defenderWarHealthMax";
-            const villageName =
-              shrineType === "attacker"
-                ? (w.attackerVillage?.name ?? "Attacker")
-                : (w.defenderVillage?.name ?? "Defender");
-
-            if (change > 0) {
-              // Defending/Recovering: increase shrine HP, apply war health heal if crossing recapture threshold
-              const recaptureResult = await client
-                .update(war)
-                .set({
-                  [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
-                  [statusCol]: "ACTIVE",
-                })
-                .where(
-                  and(
-                    eq(war.id, w.id),
-                    isNull(war.endedAt),
-                    warRaidCombatGuard(),
-                    sql`${sql.raw(statusCol)} = 'CAPTURED'`,
-                    sql`${sql.raw(hpCol)} + ${change} > ${sql.raw(maxHpCol)} * ${WAR_RECAPTURE_THRESHOLD}`,
-                  ),
-                );
-
-              if (recaptureResult.rowsAffected > 0) {
-                // This battle caused the shrine to be recaptured (CAPTURED -> ACTIVE)
-                await client
-                  .update(war)
-                  .set({
-                    [warHealthCol]: sql`LEAST(${sql.raw(warHealthCol)} + ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL}, ${sql.raw(warHealthMaxCol)})`,
-                  })
-                  .where(
-                    and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
-                  );
-                result.notifications.push(
-                  `${villageName}'s shrine recaptured! ${villageName} gained ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} war HP!`,
-                );
-              } else {
-                // Didn't recapture - still update shrine HP
-                await client
-                  .update(war)
-                  .set({
-                    [hpCol]: sql`LEAST(${sql.raw(hpCol)} + ${change}, ${sql.raw(maxHpCol)})`,
-                  })
-                  .where(
-                    and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard()),
-                  );
-              }
-            }
-          };
-
-          if (shrineChanges) {
-            await Promise.all([
-              processShrine("attacker", shrineChanges.attacker),
-              processShrine("defender", shrineChanges.defender),
-            ]);
-          }
-        })(),
-      );
+      if (shrineChanges) {
+        shrineUpdatePromises.push(
+          Promise.all([
+            recoverWarShrine(
+              client,
+              w,
+              "attacker",
+              shrineChanges.attacker,
+              result.notifications,
+            ),
+            recoverWarShrine(
+              client,
+              w,
+              "defender",
+              shrineChanges.defender,
+              result.notifications,
+            ),
+          ]),
+        );
+      }
     }
   }
 
@@ -1211,6 +1103,75 @@ export const updateWars = async (
   await Promise.all(
     sectorsToNotify.map((sector) => broadcastRaidAvailability(pusher, sector)),
   );
+};
+
+const shrineColumnsBySide = {
+  attacker: {
+    hp: "attackerShrineHp",
+    maxHp: "attackerShrineMaxHp",
+    status: "attackerShrineStatus",
+    warHealth: "attackerWarHealth",
+    warHealthMax: "attackerWarHealthMax",
+  },
+  defender: {
+    hp: "defenderShrineHp",
+    maxHp: "defenderShrineMaxHp",
+    status: "defenderShrineStatus",
+    warHealth: "defenderWarHealth",
+    warHealthMax: "defenderWarHealthMax",
+  },
+} as const;
+
+/** Recover shrine HP and award recapture healing only to the battle that claims it. */
+const recoverWarShrine = async (
+  client: DrizzleClient,
+  w: BattleWar,
+  side: keyof typeof shrineColumnsBySide,
+  change: number,
+  notifications: CombatResult["notifications"],
+) => {
+  if (change <= 0) return;
+
+  const columns = shrineColumnsBySide[side];
+  const hp = war[columns.hp];
+  const maxHp = war[columns.maxHp];
+  const status = war[columns.status];
+  const recoveredHp = sql`LEAST(${hp} + ${change}, ${maxHp})`;
+  const activeWar = and(eq(war.id, w.id), isNull(war.endedAt), warRaidCombatGuard());
+
+  // Claim CAPTURED -> ACTIVE atomically using current HP, rather than the battle snapshot.
+  const recaptureResult = await client
+    .update(war)
+    .set({ [columns.hp]: recoveredHp, [columns.status]: "ACTIVE" })
+    .where(
+      and(
+        activeWar,
+        eq(status, "CAPTURED"),
+        sql`${hp} + ${change} > ${maxHp} * ${WAR_RECAPTURE_THRESHOLD}`,
+      ),
+    );
+
+  if (recaptureResult.rowsAffected > 0) {
+    await client
+      .update(war)
+      .set({
+        [columns.warHealth]: sql`LEAST(${war[columns.warHealth]} + ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL}, ${war[columns.warHealthMax]})`,
+      })
+      .where(activeWar);
+    const villageName =
+      side === "attacker"
+        ? (w.attackerVillage?.name ?? "Attacker")
+        : (w.defenderVillage?.name ?? "Defender");
+    notifications.push(
+      `${villageName}'s shrine recaptured! ${villageName} gained ${WAR_SHRINE_RECAPTURE_WARHEALTH_HEAL} war HP!`,
+    );
+  } else {
+    // Active shrines and recovery below the threshold still receive HP, without a reward.
+    await client
+      .update(war)
+      .set({ [columns.hp]: recoveredHp })
+      .where(activeWar);
+  }
 };
 
 /**

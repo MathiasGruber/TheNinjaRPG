@@ -22,6 +22,7 @@ import * as raids from "@/routers/raids";
 import * as grant from "@/server/utils/purchases/grant";
 import * as processor from "@/server/utils/accountDeletion/process";
 import { stubDatabase, resetServerModuleStubs } from "../../../setup/serverModules";
+import { actualGameSettings } from "../../../setup/preload";
 import { GET } from "@/app/api/cleaner/route";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../../setup/factories";
 import {
@@ -174,6 +175,8 @@ describe("account deletion in the existing cleaner", () => {
       }),
       update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
     });
+    // Bun retains other cron suites' module mocks; keep the error response real.
+    vi.spyOn(gamesettings, "handleEndpointError").mockImplementation(actualGameSettings.handleEndpointError);
     vi.spyOn(gamesettings, "lockWithHourlyTimer").mockImplementation(mocks.lock);
     vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
     vi.spyOn(gamesettings, "updateGameSetting").mockImplementation(mocks.reset);
