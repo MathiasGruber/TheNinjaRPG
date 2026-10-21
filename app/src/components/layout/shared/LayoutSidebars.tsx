@@ -234,7 +234,10 @@ export const LayoutRightSidebarContent: React.FC<LayoutRightSidebarContentProps>
         <>
           <SideBannerTitle>Welcome</SideBannerTitle>
           {isSignedInLayout ? (
-            <nav aria-label="Explore Seichi" className="mt-2 grid grid-cols-2 gap-3">
+            <nav
+              aria-label="Explore Seichi"
+              className="theme-menu-grid mt-2 grid grid-cols-2 gap-3"
+            >
               {getMainNavbarLinks().map((link) => (
                 <Link key={link.href} href={link.href}>
                   <Button
@@ -381,7 +384,7 @@ export const LayoutMainMenu: React.FC<LayoutMainMenuProps> = ({
   return (
     <>
       <SideBannerTitle>Main Menu</SideBannerTitle>
-      <div className="mt-1 grid grid-cols-2 gap-3">
+      <div className="theme-menu-grid mt-1 grid grid-cols-2 gap-3">
         {navbarMenuItems.map((system) => {
           return (
             <Link
@@ -431,7 +434,7 @@ export const RightSideBar: React.FC<RightSideBarProps> = ({
       <SideBannerTitle break={userData && notifications && notifications.length > 0}>
         Main Menu
       </SideBannerTitle>
-      <div className="mt-1 grid grid-cols-2 gap-3">
+      <div className="theme-menu-grid mt-1 grid grid-cols-2 gap-3">
         {systems.map((system) => {
           const disabled = system.requireAwake && userData?.status !== "AWAKE";
           return (
