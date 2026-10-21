@@ -37,16 +37,18 @@ if __name__ == '__main__':
 
     # Read the map image
     imagepaths = sorted(glob.glob(os.path.join(args.image_directory, "*.png")))
+    if not imagepaths:
+        parser.error(f"No PNG images found in {args.image_directory}")
     images = [Image.open(file) for file in imagepaths]
 
-    # Get the widest image
-    width, height= max([image.size for image in images])
-    ratio = width / args.sprite_size if width > height else height / args.sprite_size
+    # Use one scale that fits every frame inside its square canvas
+    max_dimension = max(max(image.size) for image in images)
+    ratio = max_dimension / args.sprite_size
     
     # Resize all images based on this ratio
     scaled = []
     for image in images:
-        resized = image.resize((int(image.size[0]/ratio), int(image.size[1]/ratio)))
+        resized = image.resize((max(1, int(image.size[0]/ratio)), max(1, int(image.size[1]/ratio))))
         scaled_image = Image.new('RGBA', (args.sprite_size, args.sprite_size))
         scaled_image.paste(resized, (int((args.sprite_size - resized.size[0]) / 2), int((args.sprite_size - resized.size[1]) / 2)))
         scaled.append(scaled_image)
