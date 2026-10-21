@@ -56,7 +56,6 @@ const UserBlacklistControl: React.FC = () => {
         <UserSearchSelect
           useFormMethods={userSearchMethods}
           label="Search user to blacklist"
-          selectedUsers={[]}
           showYourself={false}
           showAi={false}
           inline={true}

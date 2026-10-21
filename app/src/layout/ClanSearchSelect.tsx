@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
@@ -12,14 +11,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getUnique } from "@/utils/grouping";
 import AvatarImage from "./Avatar";
-
-type SelectedClan = {
-  name: string;
-  image: string | null;
-  clanId: string;
-};
 
 interface ClanSearchSelectProps {
   useFormMethods: UseFormReturn<
@@ -35,15 +29,12 @@ interface ClanSearchSelectProps {
   >;
   showOwn: boolean;
   userClanId?: string | null;
-  selectedClans?: SelectedClan[];
   label?: string;
   inline?: boolean;
   maxClans?: number;
 }
 
 const ClanSearchSelect: React.FC<ClanSearchSelectProps> = (props) => {
-  const [searchTerm, setSearchTerm] = useState("");
-
   const form = props.useFormMethods;
 
   const watchName = useWatch({ control: form.control, name: "name", defaultValue: "" });
@@ -52,18 +43,12 @@ const ClanSearchSelect: React.FC<ClanSearchSelectProps> = (props) => {
     name: "clans",
     defaultValue: [],
   });
+  const searchTerm = useDebouncedValue(watchName);
 
   const { data: searchResults } = api.clan.searchClans.useQuery(
     { name: searchTerm },
     { enabled: searchTerm !== "" },
   );
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setSearchTerm(watchName);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchName, setSearchTerm]);
 
   const selectedVisual = watchClans.map((clan) => (
     <span

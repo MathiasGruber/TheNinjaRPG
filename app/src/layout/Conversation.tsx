@@ -772,7 +772,6 @@ const Conversation: React.FC<ConversationProps> = (props) => {
                   <UserSearchSelect
                     useFormMethods={userSearchMethods}
                     label="Post as (leave empty to post as yourself)"
-                    selectedUsers={[]}
                     showYourself={true}
                     showAi={true}
                     inline={true}

@@ -565,7 +565,6 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                 <Label>Creator</Label>
                 <UserSearchSelect
                   useFormMethods={creatorSearchMethods}
-                  selectedUsers={[]}
                   showYourself={true}
                   inline={true}
                   showAi={false}
@@ -576,7 +575,6 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                 <Label>Buyer</Label>
                 <UserSearchSelect
                   useFormMethods={buyerSearchMethods}
-                  selectedUsers={[]}
                   showYourself={true}
                   inline={true}
                   showAi={false}
@@ -619,7 +617,6 @@ const RyoShop: React.FC<{ userData: NonNullable<UserWithRelations> }> = ({
                     <Label>Restrict Purchase [optional]</Label>
                     <UserSearchSelect
                       useFormMethods={allowedSearchMethods}
-                      selectedUsers={[]}
                       showYourself={true}
                       showAi={false}
                       inline={true}

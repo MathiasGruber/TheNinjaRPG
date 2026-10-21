@@ -597,7 +597,6 @@ const ChallengeUser: React.FC = () => {
       <div className="mb-5 p-2">
         <UserSearchSelect
           useFormMethods={userSearchMethods}
-          selectedUsers={[]}
           showYourself={false}
           inline={true}
           showAi={false}

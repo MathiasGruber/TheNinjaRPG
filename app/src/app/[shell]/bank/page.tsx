@@ -353,7 +353,6 @@ export default function Bank() {
           <UserSearchSelect
             useFormMethods={userSearchMethods}
             label="Search for receiver"
-            selectedUsers={[]}
             showYourself={false}
             inline={true}
             showAi={false}
@@ -412,7 +411,6 @@ export default function Bank() {
           <UserSearchSelect
             useFormMethods={userSearchMethodsFrom}
             label="Search sender"
-            selectedUsers={[]}
             showYourself={true}
             inline={true}
             showAi={false}
@@ -421,7 +419,6 @@ export default function Bank() {
           <UserSearchSelect
             useFormMethods={userSearchMethodsTo}
             label="Search receiver"
-            selectedUsers={[]}
             showYourself={true}
             inline={true}
             showAi={false}

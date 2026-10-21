@@ -222,7 +222,6 @@ export const NewConversationPrompt: React.FC<NewConversationPromptProps> = (prop
                     <UserSearchSelect
                       useFormMethods={senderSearchMethods}
                       label="Post as (leave empty to post as yourself)"
-                      selectedUsers={[]}
                       showYourself={true}
                       showAi={true}
                       inline={true}

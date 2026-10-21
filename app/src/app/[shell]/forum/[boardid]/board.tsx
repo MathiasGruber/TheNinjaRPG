@@ -199,7 +199,6 @@ function Board({ boardId, initialThreads }: BoardProps) {
                         <UserSearchSelect
                           useFormMethods={userSearchMethods}
                           label="Post as (leave empty to post as yourself)"
-                          selectedUsers={[]}
                           showYourself={true}
                           showAi={true}
                           inline={true}

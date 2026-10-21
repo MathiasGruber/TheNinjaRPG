@@ -314,7 +314,6 @@ const NotificationSystem: React.FC = () => {
                 <UserSearchSelect
                   useFormMethods={userSearchMethods}
                   label="Sender (AI, or yourself)"
-                  selectedUsers={[]}
                   showYourself={true}
                   inline={true}
                   maxUsers={maxUsers}

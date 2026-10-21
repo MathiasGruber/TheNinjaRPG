@@ -489,7 +489,6 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
               <p className="pb-2">{reward}</p>
               <UserSearchSelect
                 useFormMethods={userSearchMethods}
-                selectedUsers={[]}
                 showYourself={false}
                 showAi={false}
                 inline={true}
