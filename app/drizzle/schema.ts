@@ -4508,7 +4508,7 @@ export const gameSetting = mysqlTable(
     value: double("value").default(0).notNull(),
   },
   (table) => {
-    return { name: index("name").on(table.name) };
+    return { name: uniqueIndex("GameSetting_name_unique").on(table.name) };
   },
 );
 export type GameSetting = InferSelectModel<typeof gameSetting>;

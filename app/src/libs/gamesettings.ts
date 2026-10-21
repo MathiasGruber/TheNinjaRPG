@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { TRPCError } from "@trpc/server";
 import { getHTTPStatusCodeFromError } from "@trpc/server/http";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   DMG_SETTING_DEFAULTS,
@@ -9,7 +9,7 @@ import {
   PET_ART_PROVIDER_SETTING,
   PetArtProviders,
 } from "@/drizzle/constants";
-import { gameSetting } from "@/drizzle/schema";
+import { type GameSetting, gameSetting } from "@/drizzle/schema";
 import type { DmgConfig } from "@/libs/combat/constants";
 import type { DrizzleClient } from "@/server/db";
 import {
@@ -28,14 +28,31 @@ import {
  * @returns The game setting for the specified timer name.
  */
 export const getGameSetting = async (client: DrizzleClient, name: string) => {
-  let setting = await client.query.gameSetting.findFirst({
+  const setting = await client.query.gameSetting.findFirst({
     where: eq(gameSetting.name, name),
   });
-  if (!setting) {
-    setting = { id: nanoid(), name: name, time: addDays(new Date(), -30), value: 0 };
-    await client.insert(gameSetting).values(setting);
-  }
-  return setting;
+  if (setting) return setting;
+  await initializeGameSettings(client, [
+    { name, time: addDays(new Date(), -30), value: 0 },
+  ]);
+  // A concurrent initializer may own the row; claims must use its persisted id/time.
+  const initialized = await client.query.gameSetting.findFirst({
+    where: eq(gameSetting.name, name),
+  });
+  if (!initialized) throw new Error(`Game setting ${name} could not be initialized`);
+  return initialized;
+};
+
+/** Insert missing named settings together without overwriting an existing value or timer. */
+export const initializeGameSettings = async (
+  client: DrizzleClient,
+  settings: Pick<GameSetting, "name" | "time" | "value">[],
+) => {
+  if (!settings.length) return;
+  await client
+    .insert(gameSetting)
+    .values(settings.map((setting) => ({ ...setting, id: nanoid() })))
+    .onDuplicateKeyUpdate({ set: { id: sql`${gameSetting.id}` } });
 };
 
 /**
@@ -250,7 +267,7 @@ export const fetchPetArtProvider = async (client: DrizzleClient) => {
  * Returns a DmgConfig object ready for use in combat calculations.
  */
 export const fetchDmgConfig = async (client: DrizzleClient): Promise<DmgConfig> => {
-  const settings = await client
+  let settings = await client
     .select()
     .from(gameSetting)
     .where(inArray(gameSetting.name, DMG_SETTING_NAMES));
@@ -260,13 +277,16 @@ export const fetchDmgConfig = async (client: DrizzleClient): Promise<DmgConfig> 
   const missing = DMG_SETTING_NAMES.filter((n) => !existingNames.has(n));
   if (missing.length > 0) {
     const newSettings = missing.map((name) => ({
-      id: nanoid(),
       name,
       time: addDays(new Date(), -30),
       value: DMG_SETTING_DEFAULTS[name] ?? 0,
     }));
-    await client.insert(gameSetting).values(newSettings);
-    settings.push(...newSettings);
+    await initializeGameSettings(client, newSettings);
+    // Return the saved values even if staff updated defaults during initialization.
+    settings = await client
+      .select()
+      .from(gameSetting)
+      .where(inArray(gameSetting.name, DMG_SETTING_NAMES));
   }
 
   // Convert to DmgConfig, falling back to defaults for safety

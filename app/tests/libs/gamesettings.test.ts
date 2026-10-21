@@ -1,9 +1,47 @@
 import { describe, expect, it, vi } from "bun:test";
+import { eq, type SQL } from "drizzle-orm";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
 import { PetArtProviders } from "@/drizzle/constants";
-import { fetchPetArtProvider, lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
+import { type GameSetting, gameSetting } from "@/drizzle/schema";
+import { fetchPetArtProvider, getGameSetting, lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
 import type { DrizzleClient } from "@/server/db";
 
 describe("lockWithDailyTimer", () => {
+  it("initializes one persisted row and admits one caller when the timer is absent", async () => {
+    const rows = new Map<string, GameSetting>();
+    const dialect = new MySqlDialect();
+    const client = {
+      query: { gameSetting: { findFirst: async () => {
+        const row = rows.get("cold-daily");
+        return row ? { ...row } : undefined;
+      } } },
+      insert: () => ({ values: (defaults: GameSetting[]) => ({
+        onDuplicateKeyUpdate: async () => {
+          for (const row of defaults) {
+            if (!rows.has(row.name)) rows.set(row.name, { ...row });
+          }
+        },
+      }) }),
+      update: () => ({ set: (patch: Partial<GameSetting>) => ({
+        where: async (condition: SQL) => {
+          const { params } = dialect.sqlToQuery(condition);
+          const row = [...rows.values()].find((candidate) => candidate.id === params[0]);
+          if (!row || dialect.sqlToQuery(eq(gameSetting.time, row.time)).params[0] !== params[1]) {
+            return { rowsAffected: 0 };
+          }
+          Object.assign(row, patch);
+          return { rowsAffected: 1 };
+        },
+      }) }),
+    } as unknown as DrizzleClient;
+
+    const results = await Promise.all(Array.from({ length: 8 }, () => lockWithDailyTimer(client, "cold-daily")));
+
+    expect(rows.size).toBe(1);
+    expect(results.filter(({ isNewDay }) => isNewDay)).toHaveLength(1);
+    expect(await getGameSetting(client, "cold-daily")).toEqual(rows.get("cold-daily")!);
+  });
+
   it("treats the same day number in a different year as a new day", async () => {
     const now = new Date();
     const previousYear = new Date(now);

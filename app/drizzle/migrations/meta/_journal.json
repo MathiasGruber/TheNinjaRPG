@@ -729,6 +729,13 @@
       "when": 1792574171896,
       "tag": "0104_remove_destroyed_war_shrines",
       "breakpoints": false
+    },
+    {
+      "idx": 105,
+      "version": "5",
+      "when": 1792593407783,
+      "tag": "0105_unique_game_setting_names",
+      "breakpoints": false
     }
   ]
 }

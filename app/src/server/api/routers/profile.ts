@@ -119,7 +119,11 @@ import {
 import { getWorldCyclePosition } from "@/libs/dayNight";
 import { elementalGainRoom } from "@/libs/elementalMastery";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
-import { getGameSetting, updateGameSetting } from "@/libs/gamesettings";
+import {
+  getGameSetting,
+  initializeGameSettings,
+  updateGameSetting,
+} from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
 import {
   effectiveMasteries,
@@ -1185,7 +1189,13 @@ export const profileRouter = createTRPCRouter({
       if (user) {
         // War-time regen boost
         const warRegenName = `war-${user.village?.id}-regen`;
-        const warRegenSetting = settings.find((s) => s.name === warRegenName);
+        const warTrainingName = `war-${user.village?.id}-train`;
+        await initializeGameSettings(
+          ctx.drizzle,
+          [warRegenName, warTrainingName]
+            .filter((name) => !settings.some((setting) => setting.name === name))
+            .map((name) => ({ name, value: 0, time: new Date() })),
+        );
         const warRegenBoost = getGameSettingBoost(warRegenName, settings);
         if (warRegenBoost) {
           notifications.push({
@@ -1195,18 +1205,7 @@ export const profileRouter = createTRPCRouter({
             group: "Active boosts",
           });
         }
-        if (!warRegenSetting) {
-          await ctx.drizzle.insert(gameSetting).values({
-            id: nanoid(),
-            name: warRegenName,
-            value: 0,
-            time: new Date(),
-          });
-        }
-
         // War-time training boost
-        const warTrainingName = `war-${user.village?.id}-train`;
-        const warTrainingSetting = settings.find((s) => s.name === warTrainingName);
         const warTrainingBoost = getGameSettingBoost(warTrainingName, settings);
         if (warTrainingBoost) {
           notifications.push({
@@ -1216,15 +1215,6 @@ export const profileRouter = createTRPCRouter({
             group: "Active boosts",
           });
         }
-        if (!warTrainingSetting) {
-          await ctx.drizzle.insert(gameSetting).values({
-            id: nanoid(),
-            name: warTrainingName,
-            value: 0,
-            time: new Date(),
-          });
-        }
-
         // Shrine boosts
         const shrineBoosts = user.village?.shrineSettings?.activeBoosts;
         if (shrineBoosts) {

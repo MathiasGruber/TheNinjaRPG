@@ -65,6 +65,7 @@ import {
   war,
   warAlly,
 } from "@/drizzle/schema";
+import { initializeGameSettings } from "@/libs/gamesettings";
 import { selectWarObjectives } from "@/libs/objectiveWar";
 import {
   getRaidDeclarationBlock,
@@ -462,20 +463,10 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
         ...winningIds.map((id) => `war-${id}-regen`),
         ...(endedWar.rules ? winningIds : [winnerId]).map((id) => `war-${id}-train`),
       ];
-      const existing = await client.query.gameSetting.findMany({
-        where: inArray(gameSetting.name, names),
-        columns: { name: true },
-      });
-      const missing = names.filter(
-        (name) => !existing.some((row) => row.name === name),
+      await initializeGameSettings(
+        client,
+        names.map((name) => ({ name, value: 0, time: new Date(0) })),
       );
-      if (missing.length)
-        await client
-          .insert(gameSetting)
-          .ignore()
-          .values(
-            missing.map((name) => ({ id: name, name, value: 0, time: new Date(0) })),
-          );
     }
     await Promise.all([
       endedWar.rules
