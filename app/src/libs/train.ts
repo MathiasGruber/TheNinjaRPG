@@ -43,11 +43,16 @@ import type {
   UserQueue,
   UserRank,
 } from "@/drizzle/schema";
+import type { CombatQueryUser } from "@/libs/combat/types";
 import { elementalGainRoom } from "@/libs/elementalMastery";
 import { isEvolution, meetsEvolutionStatRequirements } from "@/libs/evolution";
 import { getGameSettingBoost } from "@/libs/gameSettingBoost";
 import type { MasterySources, MasteryStatSource } from "@/libs/mastery";
-import { effectiveMasteries, hasMasteryRequirements } from "@/libs/mastery";
+import {
+  effectiveMasteries,
+  hasMasteryRequirements,
+  missingMasteryRequirement,
+} from "@/libs/mastery";
 import { masteryGainRoom } from "@/libs/masteryProgression";
 import { getPvpBoost } from "@/libs/pvpExperience";
 import {
@@ -420,6 +425,57 @@ export const canUseJutsu = (
     ignoreSkill,
     masteries,
   }).every(({ ok }) => ok);
+};
+
+/**
+ * Why battle initiation drops an owned jutsu, as "<name>: <reason>", or undefined when
+ * it enters combat. The combat lobby applies the same gates when switching loadouts, so
+ * jutsu combat would strip never fill equip slots. Battle usage (PvE/PvP) stays with the
+ * caller because it depends on the encounter, not the player's build.
+ * @param user - the combatant with `userSkills` and `items` as combat applies them
+ * @param masteries - effectiveMasteries over the sources this battle applies
+ */
+export const battleJutsuGateFailure = (
+  jutsu: Jutsu,
+  user: Omit<CombatQueryUser, "jutsus">,
+  battleType: BattleType,
+  masteries: MasteryStatSource,
+): string | undefined => {
+  // Companion actions are installed separately; even AI loadouts must not inherit them.
+  if (jutsu.jutsuType === "PETS")
+    return `${jutsu.name}: only companions can use this jutsu`;
+  if (user.isAi) return undefined;
+  if (!hasRequiredSkill(jutsu, { userSkills: user.userSkills })) {
+    return `${jutsu.name}: activate the required skill`;
+  }
+  // Ranked battles waive weapon and usability requirements, but not bloodline gates.
+  if (battleType !== "RANKED_PVP" && battleType !== "RANKED_SPARRING") {
+    if (!checkJutsuItems(jutsu, user.items)) {
+      return `${jutsu.name}: no ${jutsu.jutsuWeapon.toLowerCase()} weapon equipped`;
+    }
+    const missing = missingMasteryRequirement(masteries, jutsu);
+    if (missing) return `${jutsu.name}: requires ${missing.required} ${missing.label}`;
+    // Provide defaults for optional fields required by the usability checks; the
+    // bloodline item is enforced below for every battle type.
+    const userForCheck = {
+      ...user,
+      userQuests: user.userQuests ?? [],
+      completedQuests: user.completedQuests ?? [],
+    };
+    const failed = jutsuRequirementChecks(jutsu, userForCheck, {
+      ignoreBloodlineItem: true,
+      masteries,
+    }).find(({ ok }) => !ok);
+    if (failed) return `${jutsu.name}: ${failed.warning}`;
+  }
+  if (!checkJutsuBloodlineItem(jutsu, user.items)) {
+    return `${jutsu.name}: required bloodline item is not equipped`;
+  }
+  // Only bloodline-bound jutsu are restricted; null and empty IDs are general jutsu.
+  if (jutsu.bloodlineId && user.bloodlineId !== jutsu.bloodlineId) {
+    return `${jutsu.name}: requires a different bloodline`;
+  }
+  return undefined;
 };
 
 /**
