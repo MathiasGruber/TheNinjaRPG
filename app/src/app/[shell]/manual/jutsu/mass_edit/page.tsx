@@ -2,16 +2,11 @@
 
 import { useState } from "react";
 import { api } from "@/app/_trpc/client";
-import ContentBox from "@/layout/ContentBox";
-import { EffectFieldSelector, MassEffectEditor } from "@/layout/EditContent";
 import JutsuFiltering, { getFilter, useFiltering } from "@/layout/JutsuFiltering";
-import Loader from "@/layout/Loader";
+import { MassEffectEditorPage } from "@/layout/MassEffectEditorPage";
 import { useInfinitePagination } from "@/libs/pagination";
-import { canChangeContent } from "@/utils/permissions";
-import { useUserData } from "@/utils/UserContext";
 
 export default function JutsuMassEditPage() {
-  const { data: userData } = useUserData();
   const state = useFiltering();
 
   const [lastElement, setLastElement] = useState<HTMLDivElement | null>(null);
@@ -31,50 +26,17 @@ export default function JutsuMassEditPage() {
   const allJutsus = jutsus?.pages.flatMap((p) => p.data) || [];
   useInfinitePagination({ fetchNextPage, hasNextPage, lastElement });
 
-  const [fields, setFields] = useState<string[]>([]);
-  const [isSavingJutsuEffects, setIsSavingJutsuEffects] = useState(false);
-  const canEdit = Boolean(userData && canChangeContent(userData.role));
-
   return (
-    <>
-      <ContentBox title="Mass Edit" subtitle="Jutsu" defaultBackHref="/manual/jutsu">
-        <p>
-          These tools are for efficient mass edit of content effects. Use the filter to
-          find entries, select the effect fields to edit, then apply changes across many
-          entries at once.
-        </p>
-      </ContentBox>
-      <ContentBox
-        title="Editor"
-        subtitle="Select fields and edit"
-        initialBreak
-        topRightContent={
-          <div className="flex items-center gap-2">
-            <JutsuFiltering state={state} disabled={isSavingJutsuEffects} />
-            <EffectFieldSelector
-              selected={fields}
-              setSelected={setFields}
-              disabled={isSavingJutsuEffects}
-            />
-          </div>
-        }
-        padding={false}
-      >
-        {!canEdit && <div className="p-3">Not allowed.</div>}
-        {canEdit && isFetching && <Loader explanation="Loading data" />}
-        {canEdit && (
-          <div ref={setLastElement}>
-            <MassEffectEditor
-              kind="jutsu"
-              entries={allJutsus}
-              selectedFields={fields}
-              onEntriesUpdated={() => refetch()}
-              onPendingChange={setIsSavingJutsuEffects}
-              filterEffectTypes={state.effect}
-            />
-          </div>
-        )}
-      </ContentBox>
-    </>
+    <MassEffectEditorPage
+      kind="jutsu"
+      subtitle="Jutsu"
+      defaultBackHref="/manual/jutsu"
+      entries={allJutsus}
+      isFetching={isFetching}
+      lastElementRef={setLastElement}
+      onEntriesUpdated={() => refetch()}
+      renderFilter={(disabled) => <JutsuFiltering state={state} disabled={disabled} />}
+      filterEffectTypes={state.effect}
+    />
   );
 }
