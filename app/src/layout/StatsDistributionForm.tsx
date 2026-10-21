@@ -655,7 +655,6 @@ const AdvancedDistribution: React.FC<AdvancedDistributionProps> = (props) => {
                         setValue={form.setValue}
                         register={form.register}
                         error={fieldState.error?.message}
-                        preventDebounce={true}
                         disabled={isPending}
                       />
                     )}

@@ -1,6 +1,5 @@
 import { MinusCircle, PlusCircle } from "lucide-react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
-import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 
 interface SliderFieldProps {
   id: string;
@@ -16,26 +15,13 @@ interface SliderFieldProps {
   formatWatchedValue?: (value: number) => string;
   setValue: UseFormSetValue<any>;
   register: UseFormRegister<any>;
-  preventDebounce?: boolean;
   disabled?: boolean;
 }
 
 const SliderField: React.FC<SliderFieldProps> = (props) => {
-  // Debounced setValue
-  const debouncedSetValue = useDebouncedCallback(
-    (id: string, value: number) => props.setValue(id, value),
-    250,
-  );
-
-  // Debounced setValue for slider changes
-  const handleChange = (id: string, value: number) => {
+  const handleChange = (value: number) => {
     if (props.disabled) return;
-
-    if (props.preventDebounce) {
-      props.setValue(id, value);
-    } else {
-      debouncedSetValue(id, value);
-    }
+    props.setValue(props.id, value);
   };
 
   const selectedLabel = props.formatWatchedValue
@@ -57,8 +43,8 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           aria-disabled={props.disabled}
           className={`mr-2 inline-block h-10 w-10 fill-orange-100 text-orange-800 ${props.disabled ? "cursor-not-allowed" : "hover:cursor-pointer hover:fill-orange-600"}`}
           onClick={() =>
-            !props.disabled && props.watchedValue > props.min
-              ? props.setValue(props.id, props.watchedValue - (props.step ?? 1))
+            props.watchedValue > props.min
+              ? handleChange(props.watchedValue - (props.step ?? 1))
               : null
           }
         />
@@ -71,14 +57,14 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           disabled={props.disabled}
           {...props?.register?.(props.id, { valueAsNumber: true })}
           className="h-5 w-full cursor-pointer appearance-none rounded-lg bg-orange-200 accent-orange-800 disabled:cursor-not-allowed"
-          onChange={(e) => handleChange(props.id, Number(e.target.value))}
+          onChange={(e) => handleChange(Number(e.target.value))}
         />
         <PlusCircle
           aria-disabled={props.disabled}
           className={`ml-2 inline-block h-10 w-10 fill-orange-100 text-orange-800 ${props.disabled ? "cursor-not-allowed" : "hover:cursor-pointer hover:fill-orange-600"}`}
           onClick={() =>
-            !props.disabled && props.watchedValue < props.max
-              ? props.setValue(props.id, props.watchedValue + (props.step ?? 1))
+            props.watchedValue < props.max
+              ? handleChange(props.watchedValue + (props.step ?? 1))
               : null
           }
         />
