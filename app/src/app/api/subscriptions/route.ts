@@ -1,8 +1,7 @@
-import { TRPCError } from "@trpc/server";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { paypalSubscription } from "@/drizzle/schema";
+import { handleEndpointError } from "@/libs/gamesettings";
 import {
   getPaypalAccessToken,
   getPaypalSubscription,
@@ -106,11 +105,6 @@ export async function GET(request: Request) {
     if (failedUpdate?.status === "rejected") throw failedUpdate.reason;
     return Response.json(`OK`);
   } catch (cause) {
-    console.error(cause);
-    if (cause instanceof TRPCError) {
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause, { endpoint: "/api/subscriptions" });
   }
 }

@@ -1,8 +1,7 @@
-import { TRPCError } from "@trpc/server";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { nanoid } from "nanoid";
 import { headers } from "next/headers";
 import { paypalWebhookMessage } from "@/drizzle/schema";
+import { handleEndpointError } from "@/libs/gamesettings";
 import { getPaypalAccessToken } from "@/routers/paypal";
 import { drizzleDB } from "@/server/db";
 
@@ -59,14 +58,7 @@ export async function GET(req: Request) {
     });
     return Response.json(`OK`);
   } catch (cause) {
-    console.error(cause);
-    if (cause instanceof TRPCError) {
-      // An error from tRPC occured
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    // Another error occured
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause, { endpoint: "/api/ipn" });
   }
 }
 

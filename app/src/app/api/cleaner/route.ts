@@ -1,5 +1,4 @@
 import { TRPCError } from "@trpc/server";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, eq, isNotNull, isNull, lt, lte, sql } from "drizzle-orm";
 import { MODERATION_SCAN_RETENTION_DAYS } from "@/drizzle/constants";
 import {
@@ -44,6 +43,7 @@ import {
 import { combatEnergyRecoverySql } from "@/libs/combat/database";
 import { cleanupContentProposals } from "@/libs/contentReview/cleanup";
 import {
+  handleEndpointError,
   lockWithDailyTimer,
   lockWithHourlyTimer,
   updateGameSetting,
@@ -565,7 +565,6 @@ export async function GET(request: Request) {
 
     return Response.json(`OK`);
   } catch (cause) {
-    console.error(cause);
     try {
       // The cleaner is invoked every ten minutes. Restore the hourly marker
       // after a failed run so the next invocation can retry the unfinished work.
@@ -573,12 +572,6 @@ export async function GET(request: Request) {
     } catch (rollbackCause) {
       console.error("Failed to restore cleaner hourly timer", rollbackCause);
     }
-    if (cause instanceof TRPCError) {
-      // An error from tRPC occured
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    // Another error occured
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause, { endpoint: "/api/cleaner" });
   }
 }

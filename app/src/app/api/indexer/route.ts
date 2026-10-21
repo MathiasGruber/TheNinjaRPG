@@ -1,8 +1,10 @@
-import { TRPCError } from "@trpc/server";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { userReport } from "@/drizzle/schema";
-import { checkGameTimer, updateGameSetting } from "@/libs/gamesettings";
+import {
+  checkGameTimer,
+  handleEndpointError,
+  updateGameSetting,
+} from "@/libs/gamesettings";
 import { buildModerationEvidence } from "@/libs/moderation/evidence";
 import { indexReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { generateAiSummary } from "@/libs/moderator";
@@ -62,13 +64,6 @@ export async function GET(request: Request) {
 
     return Response.json(`OK`);
   } catch (cause) {
-    console.error(cause);
-    if (cause instanceof TRPCError) {
-      // An error from tRPC occured
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    // Another error occured
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause, { endpoint: "/api/indexer" });
   }
 }

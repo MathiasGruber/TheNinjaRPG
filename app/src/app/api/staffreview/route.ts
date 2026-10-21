@@ -1,12 +1,14 @@
 import { openai } from "@ai-sdk/openai";
-import { TRPCError } from "@trpc/server";
-import { getHTTPStatusCodeFromError } from "@trpc/server/http";
 import { generateText } from "ai";
 import { and, eq, gt, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { OPENAI_REVIEW_MODEL, TERR_BOT_ID } from "@/drizzle/constants";
 import { userData, userReview } from "@/drizzle/schema";
-import { checkGameTimer, updateGameSetting } from "@/libs/gamesettings";
+import {
+  checkGameTimer,
+  handleEndpointError,
+  updateGameSetting,
+} from "@/libs/gamesettings";
 import { createConvo } from "@/routers/comments";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
@@ -88,13 +90,6 @@ export async function GET(request: Request) {
 
     return Response.json(`OK`);
   } catch (cause) {
-    console.error(cause);
-    if (cause instanceof TRPCError) {
-      // An error from tRPC occured
-      const httpCode = getHTTPStatusCodeFromError(cause);
-      return Response.json(cause, { status: httpCode });
-    }
-    // Another error occured
-    return Response.json("Internal server error", { status: 500 });
+    return handleEndpointError(cause, { endpoint: "/api/staffreview" });
   }
 }
