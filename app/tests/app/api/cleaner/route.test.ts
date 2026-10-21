@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { eq, type SQL } from "drizzle-orm";
-import { MySqlDialect } from "drizzle-orm/mysql-core";
+import { MySqlDialect, QueryBuilder } from "drizzle-orm/mysql-core";
 import {
   mpvpBattleUser,
   battle,
@@ -40,6 +40,13 @@ const request = (secret = "test-cron") => new Request("https://example.com/api/c
 });
 
 const dialect = new MySqlDialect();
+const queryBuilder = new QueryBuilder();
+const skipDelete = () => ({
+  where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockResolvedValue(undefined),
+  })),
+});
 const offer = {
   offerId: "expiring-offer",
   warId: "expiry-war",
@@ -66,11 +73,8 @@ const expireRequests = async (db: DrizzleClient) => {
         ? db.execute(query)
         : Promise.resolve({ rowsAffected: 0 });
     },
-    delete: (table: object) => table === userRequest ? db.delete(userRequest) : ({
-      where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
-        limit: vi.fn().mockResolvedValue(undefined),
-      })),
-    }),
+    select: db.select.bind(db),
+    delete: (table: object) => table === userRequest ? db.delete(userRequest) : skipDelete(),
     update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
   });
   vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
@@ -168,11 +172,8 @@ describe("account deletion in the existing cleaner", () => {
     vi.clearAllMocks();
     stubDatabase({
       execute: mocks.execute,
-      delete: () => ({
-        where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
-          limit: vi.fn().mockResolvedValue(undefined),
-        })),
-      }),
+      select: queryBuilder.select.bind(queryBuilder),
+      delete: skipDelete,
       update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
     });
     // Bun retains other cron suites' module mocks; keep the error response real.
@@ -229,18 +230,22 @@ describe("account deletion in the existing cleaner", () => {
         { id: "claimed", userId: "claimed", rankedLp: 1000, hasClaimed: true },
       ]);
       let repairs = 0;
-      const dialect = new MySqlDialect();
-      mocks.execute.mockImplementation(async (query: SQL) => {
-        // Execute the route's queue repair against SQL; unrelated maintenance stays stubbed.
-        if (
-          /^UPDATE `UserData` a SET a.status="AWAKE" WHERE a.status="QUEUED"/.test(
-            dialect.sqlToQuery(query).sql,
-          )
-        ) {
-          repairs += 1;
-          return db.execute(query);
-        }
-        return [];
+      stubDatabase({
+        execute: mocks.execute,
+        select: db.select.bind(db),
+        delete: skipDelete,
+        update: (table: object) => ({
+          set: (values: Record<string, unknown>) => ({
+            // Only the queue repair runs against SQL; unrelated maintenance stays stubbed.
+            where: (condition: SQL) => {
+              if (table === userData && values.status === "AWAKE") {
+                repairs += 1;
+                return db.update(userData).set(values).where(condition);
+              }
+              return Promise.resolve(undefined);
+            },
+          }),
+        }),
       });
       mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
       expect((await GET(request())).status).toBe(200);
@@ -274,11 +279,8 @@ describe("account deletion in the existing cleaner", () => {
       })));
       stubDatabase({
         execute: mocks.execute,
-        delete: () => ({
-          where: vi.fn(() => Object.assign(Promise.resolve(undefined), {
-            limit: vi.fn().mockResolvedValue(undefined),
-          })),
-        }),
+        select: db.select.bind(db),
+        delete: skipDelete,
         update: (table: object) => ({
           set: (values: Record<string, unknown>) => ({
             // Only the missing-fight repair runs against SQL; other cron work stays stubbed.

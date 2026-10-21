@@ -88,7 +88,12 @@ describe("endpoint error responses", () => {
       const cause = new Error("Cleanup failed");
       const rollbackCause = new Error("Timer restore failed");
       const events: string[] = [];
-      stubDatabase({ execute: vi.fn().mockRejectedValue(cause) });
+      const deletion = {
+        where: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockRejectedValue(cause),
+      };
+      stubDatabase({ delete: vi.fn().mockReturnValue(deletion) });
       vi.spyOn(settings, "updateGameSetting").mockImplementation(async () => {
         events.push("rollback");
         if (rollbackFails) throw rollbackCause;
