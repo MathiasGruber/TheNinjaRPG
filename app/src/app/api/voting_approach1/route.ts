@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { userVote } from "@/drizzle/schema";
 import { handleEndpointError } from "@/libs/gamesettings";
@@ -72,27 +72,19 @@ export async function GET(request: Request) {
 async function handleVote(secret: string, siteId: string) {
   const now = new Date();
 
-  // First try to find existing vote record
-  const existingVote = await drizzleDB.query.userVote.findFirst({
-    where: and(eq(userVote.secret, secret)),
-  });
-
-  if (existingVote) {
-    // Update existing record
-    await drizzleDB
-      .update(userVote)
-      .set({
-        ...(siteId === "topWebGames" ? { topWebGames: true } : {}), // in review
-        ...(siteId === "top100arena" ? { top100Arena: true } : {}),
-        ...(siteId === "mmohub" ? { mmoHub: true } : {}),
-        ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
-        ...(siteId === "bbogd" ? { bbogd: true } : {}),
-        ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}), // No postbacks received
-        ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}), // Cannot register
-        ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}), // Pending approval?
-        ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}), // in review
-        lastVoteAt: now,
-      })
-      .where(eq(userVote.secret, secret));
-  }
+  await drizzleDB
+    .update(userVote)
+    .set({
+      ...(siteId === "topWebGames" ? { topWebGames: true } : {}), // in review
+      ...(siteId === "top100arena" ? { top100Arena: true } : {}),
+      ...(siteId === "mmohub" ? { mmoHub: true } : {}),
+      ...(siteId === "arenaTop100" ? { arenaTop100: true } : {}),
+      ...(siteId === "bbogd" ? { bbogd: true } : {}),
+      ...(siteId === "xtremeTop100" ? { xtremeTop100: true } : {}), // No postbacks received
+      ...(siteId === "topOnlineMmorpg" ? { topOnlineMmorpg: true } : {}), // Cannot register
+      ...(siteId === "browserMmorpg" ? { browserMmorpg: true } : {}), // Pending approval?
+      ...(siteId === "apexWebGaming" ? { apexWebGaming: true } : {}), // in review
+      lastVoteAt: now,
+    })
+    .where(eq(userVote.secret, secret));
 }
