@@ -7,10 +7,21 @@ import argparse
 from botocore.exceptions import ClientError
 from PIL import Image
 
+
+def positive_int(value):
+    try:
+        size = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a positive integer") from None
+    if size <= 0:
+        raise argparse.ArgumentTypeError("must be a positive integer")
+    return size
+
+
 # Command-line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("-image_directory", help="Directory with image files to use", default="../assets/animations/ice1")
-parser.add_argument("-sprite_size", help="Size of each sprite in pixels", default=64)
+parser.add_argument("-sprite_size", help="Positive size of each sprite in pixels", type=positive_int, default=64)
 
 # python spritePacker.py -image_directory ../app/public/animations/smoke
 # python spritePacker.py -image_directory ../app/public/animations/rising_smoke
