@@ -181,12 +181,7 @@ import { activeTrainedElement } from "@/libs/elementalMastery";
 import { fetchDmgConfig } from "@/libs/gamesettings";
 import { computeJutsuLoadoutCapAssignments } from "@/libs/jutsu";
 import { resolveSelectableLoadout } from "@/libs/loadout";
-import {
-  effectiveMasteries,
-  isWornGear,
-  isWornGearDisabled,
-  missingMasteryRequirement,
-} from "@/libs/mastery";
+import { effectiveMasteries, isWornGear, isWornGearDisabled } from "@/libs/mastery";
 import {
   areWarObjectivesRevealed,
   getWarSide,
@@ -229,10 +224,8 @@ import { regenerationBuffs, titleCombatTag } from "@/libs/titles";
 import { isActiveEventEntrant } from "@/libs/tournament/events";
 import {
   applyMasteryTrainingGains,
+  battleJutsuGateFailure,
   calcJutsuEquipLimit,
-  canUseJutsu,
-  checkJutsuBloodlineItem,
-  checkJutsuItems,
   settleQueuedTraining,
 } from "@/libs/train";
 import { calcIsInVillage, getBiomeFromGlobalTile } from "@/libs/travel";
@@ -285,6 +278,7 @@ import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
 import { getKageEligibility } from "@/utils/kage";
 import { fedItemLoadouts, fedJutsuLoadouts } from "@/utils/paypal";
+import { canChangeContent } from "@/utils/permissions";
 import { secondsFromDate, secondsFromNow, secondsPassed } from "@/utils/time";
 import { canAccessStructure } from "@/utils/village";
 import type { AssignableUserStats, ZodAllTags } from "@/validators/combat";
@@ -1258,17 +1252,36 @@ export const combatRouter = createTRPCRouter({
         items: useritems,
         titles,
       });
+      const village = user.villageId
+        ? userBattle.extraState.villages?.[user.villageId]
+        : null;
+      const questData = userBattle.extraState.questData?.[user.controllerId];
+      const aiProfile =
+        user.aiProfileId && user.aiProfileId !== "Default"
+          ? userBattle.extraState.aiProfiles?.[user.aiProfileId]
+          : userBattle.extraState.aiProfiles?.Default;
+      // The combatant as battle initiation sees it after the item switch.
+      const gateUser = {
+        ...user,
+        bloodline: bloodline ?? null,
+        village: village ?? null,
+        userSkills: activatedSkills,
+        items: useritems,
+        aiProfile: aiProfile ?? null,
+        questData: questData ?? [],
+        titles,
+      };
+      // Skip jutsu combat would strip, plus hidden jutsu as the Jutsu page does, so
+      // they neither fill equip slots nor persist as equipped.
       const validateLobbyJutsu = (jutsu: Jutsu) => {
-        if (!hasRequiredSkill(jutsu, { userSkills: activatedSkills })) {
-          return `${jutsu.name}: activate the required skill`;
-        }
-        if (!checkJutsuBloodlineItem(jutsu, useritems)) {
-          return `${jutsu.name}: required bloodline item is not equipped`;
-        }
-        const missing = missingMasteryRequirement(gateMasteries, jutsu);
-        return missing
-          ? `${jutsu.name}: requires ${missing.required} ${missing.label}`
-          : undefined;
+        if (jutsu.hidden && !canChangeContent(user.role))
+          return `${jutsu.name} is hidden`;
+        return battleJutsuGateFailure(
+          jutsu,
+          gateUser,
+          userBattle.battleType,
+          gateMasteries,
+        );
       };
       // Reapply the active jutsu loadout after changing items so newly satisfied
       // equipment or mastery requirements restore jutsu skipped by an earlier selection.
@@ -1431,17 +1444,9 @@ export const combatRouter = createTRPCRouter({
 
       // Build raw user for processing - hydrate from existing battle staticData and merge new data
       // We need to add back the village, bloodline, and aiProfile from extraState since CombatQueryUser requires them
-      const village = user.villageId
-        ? userBattle.extraState.villages?.[user.villageId]
-        : null;
       const equippedSageMode = user.sageModeId
         ? userBattle.extraState.sageModes?.[user.sageModeId]
         : null;
-      const questData = userBattle.extraState.questData?.[user.controllerId];
-      const aiProfile =
-        user.aiProfileId && user.aiProfileId !== "Default"
-          ? userBattle.extraState.aiProfiles?.[user.aiProfileId]
-          : userBattle.extraState.aiProfiles?.Default;
       // Build rawUserForProcessing from BattleUserState + extraState data
       // The jutsus/items are reconstructed from refs + static data with all required fields
       const rawUserForProcessing = {
@@ -4682,7 +4687,9 @@ export const processUsersForBattle = async (
     }
 
     // Filter and process jutsus - DO NOT apply reskins here, they are applied dynamically
-    // in userJutsuToAction to ensure each user sees their own reskin
+    // in userJutsuToAction to ensure each user sees their own reskin.
+    // user.userSkills was cleared for storage above; gates read the captured skills.
+    const gateUser = { ...user, userSkills: requirementSkills };
     const processedJutsus = user.jutsus
       .map((userjutsu) => ({
         ...userjutsu,
@@ -4694,47 +4701,12 @@ export const processUsersForBattle = async (
         if (!userjutsu.jutsu) {
           return false;
         }
-        // Companion actions are installed separately after participant processing;
-        // even ranked and AI loadouts must not inherit their independent balance.
-        if (userjutsu.jutsu.jutsuType === "PETS") return false;
-        if (
-          !user.isAi &&
-          !hasRequiredSkill(userjutsu.jutsu, { userSkills: requirementSkills })
-        )
-          return false;
         if (!fitsBattle(userjutsu.jutsu.battleUsageType)) {
           return false;
         }
-        // Not if cannot train jutsu
-        if (battleType !== "RANKED_PVP" && battleType !== "RANKED_SPARRING") {
-          if (!checkJutsuItems(userjutsu.jutsu, user.items) && !user.isAi) {
-            return false;
-          }
-          // Provide defaults for optional fields required by canUseJutsu
-          const userForCheck = {
-            ...user,
-            userSkills: requirementSkills,
-            userQuests: user.userQuests ?? [],
-            completedQuests: user.completedQuests ?? [],
-          };
-          // Bloodline item is enforced separately below (all battle types), so skip it here
-          if (
-            !canUseJutsu(userjutsu.jutsu, userForCheck, true, gateMasteries) &&
-            !user.isAi
-          ) {
-            return false;
-          }
-        }
-        // Bloodline item enforcement applies to all battle types including ranked,
-        // mirroring bloodline check behavior (unlike checkJutsuItems which is waived in ranked).
-        if (!checkJutsuBloodlineItem(userjutsu.jutsu, user.items) && !user.isAi) {
-          return false;
-        }
-        // Only bloodline-bound jutsu are restricted; null and empty IDs are general jutsu.
+        // Shared with the combat lobby so loadout switches never keep jutsu dropped here.
         if (
-          userjutsu.jutsu.bloodlineId &&
-          !user.isAi &&
-          user.bloodlineId !== userjutsu.jutsu.bloodlineId
+          battleJutsuGateFailure(userjutsu.jutsu, gateUser, battleType, gateMasteries)
         ) {
           return false;
         }
