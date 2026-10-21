@@ -101,9 +101,6 @@ html[data-game-layout="20-eclipse-observatory"] .theme-frame {
 html[data-game-layout="20-eclipse-observatory"] .theme-brand {
   min-height: 3.5rem;
 }
-html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
-  padding-block: 0.25rem;
-}
 /* The Help trigger owns the spacing; its inner label must not add a second button box. */
 html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav .theme-help {
   min-height: 0;
@@ -149,6 +146,7 @@ html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
   background: #302c4e;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
+  padding-block: 0.25rem;
   border-block: 3px double #8e7db2;
 }
 @media (hover: hover) and (pointer: fine) {
