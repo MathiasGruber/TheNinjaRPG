@@ -94,10 +94,31 @@ html[data-game-layout="20-eclipse-observatory"] .tnr-theme-game {
   );
   background-size: 36px 36px;
 }
+html[data-game-layout="20-eclipse-observatory"] .theme-frame {
+  gap: 0.65rem;
+  padding-top: 0.5rem;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-brand {
+  min-height: 3.5rem;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
+  padding-block: 0.25rem;
+}
+/* The Help trigger owns the spacing; its inner label must not add a second button box. */
+html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav .theme-help {
+  min-height: 0;
+  padding: 0;
+  font: inherit;
+}
 html[data-game-layout="20-eclipse-observatory"] .theme-main {
+  min-height: 0;
+  padding: 0.75rem;
   border: 1px solid #8e7db2;
   border-radius: 28px 3px 28px 3px;
   background: #252440;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-main [data-content-box] h1 {
+  font-size: 1.5rem;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-main [data-content-box-inner] {
   border: 1px solid #625784;
@@ -105,10 +126,17 @@ html[data-game-layout="20-eclipse-observatory"] .theme-main [data-content-box-in
   background: #302c4e;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-side-panel {
+  padding: 0.75rem;
   border: 1px solid #8e7db2;
   border-top: 3px double #c5afe9;
   border-radius: 30px 30px 3px 3px;
   background: #252440;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-player-avatar {
+  max-width: 9rem;
+}
+html[data-game-layout="20-eclipse-observatory"] .theme-menu-grid {
+  gap: 0.5rem;
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
   border: 1px solid #8e7db2;
@@ -117,6 +145,12 @@ html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
 }
 html[data-game-layout="20-eclipse-observatory"] .theme-primary-nav {
   border-block: 3px double #8e7db2;
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-game-layout="20-eclipse-observatory"] .theme-menu-button {
+    min-height: 2.5rem;
+    padding-block: 0.35rem;
+  }
 }
 html[data-game-frame="panel"] :is(button, a).bg-primary:not(.theme-menu-button):hover {
   background-color: color-mix(in srgb, hsl(var(--primary)), #000 8%);

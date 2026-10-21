@@ -243,6 +243,7 @@ const MenuBoxProfile: React.FC = () => {
               href={userData?.avatar}
               userId={userData?.userId}
               alt={userData?.username}
+              className="theme-player-avatar"
               refetchUserData={true}
               size={100}
               hover_effect={true}
