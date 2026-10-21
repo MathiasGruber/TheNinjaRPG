@@ -49,10 +49,8 @@ export const bunnyImageUrl = (src: string, width: number) => {
 
 /**
  * Three.js texture URL: host rewrite plus an optional Bunny width.
- * Never sends `optimizer=image`. That hint was added in PR 1427 for HTML
- * `<img>` tags; on extensionless UploadThing keys it makes Bunny process a
- * file it previously passed through as the original, and those cached
- * renditions are what broke travel-map portraits.
+ * Omit `optimizer=image`: forcing optimization of extensionless UploadThing keys
+ * can cache renditions incompatible with travel-map portraits.
  */
 export const textureImageUrl = (src: string, width = 50) => {
   const transformed = transformImageUrl(src);

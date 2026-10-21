@@ -754,9 +754,6 @@ function CreatePollForm({ onSuccess }: { onSuccess: () => void }) {
     // Update both the local state and the form state
     setOptions(newOptions);
     form.setValue("options", newOptions);
-
-    // Log for debugging
-    console.log("Added new option, updated options:", newOptions);
   };
 
   const removeOption = (index: number) => {

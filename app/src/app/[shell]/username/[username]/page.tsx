@@ -39,7 +39,7 @@ export async function generateMetadata(props: {
 }): Promise<Metadata> {
   const params = await props.params;
   const user = await fetchProfile(params.username);
-  // Google was classifying unresolvable profiles as soft 404s; keep those out of the index.
+  // Unresolvable profiles must stay out of the search index.
   if (!user) return noindexMetadata("Player Not Found");
   const rank = showUserRank(user);
   const village = user.village?.name;
@@ -65,8 +65,7 @@ export default async function PublicProfile(props: {
 }) {
   const params = await props.params;
   const user = await fetchProfile(params.username);
-  // Unresolvable profiles previously rendered a "does not exist" body under HTTP 200,
-  // which Google indexes as a soft 404. Answering with a real 404 keeps them out.
+  // Return a real 404 for unresolvable profiles to avoid indexing a soft-404 page.
   if (!user) notFound();
   return (
     <PublicUserComponent

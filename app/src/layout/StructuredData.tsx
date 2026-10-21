@@ -60,9 +60,8 @@ const GRAPH = {
 };
 
 /**
- * StructuredData
- * - Emits the site-wide schema.org graph. The site previously had no structured data at
- *   all, so Google had nothing to build a knowledge panel or rich result from.
+ * Emits the shared schema.org graph so search engines can identify the game,
+ * publisher and website for knowledge panels and rich results.
  */
 export const StructuredData: React.FC = () => {
   return (

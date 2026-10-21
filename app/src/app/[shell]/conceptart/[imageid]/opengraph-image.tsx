@@ -14,10 +14,9 @@ export const alt = "TheNinja-RPG Concept Art";
 export const contentType = "image/png";
 
 /**
- * Fixed 1200x630 to match the `summary_large_image` card the page declares. The card
- * previously took the artwork's own dimensions (576x768 portrait, or 512x130 for the
- * fallback), which every platform then letterboxed or cropped. The artwork keeps its
- * portrait ratio inside the card instead.
+ * Keep a fixed 1200x630 canvas to match the page's `summary_large_image` card,
+ * with portrait artwork inside it, so social platforms do not crop or letterbox
+ * the card to accommodate the source image's dimensions.
  */
 export const size = { width: 1200, height: 630 };
 
@@ -94,9 +93,9 @@ export default async function Image({
 }
 
 /**
- * Concept art is stored as WebP, which satori cannot decode reliably — the artwork
- * silently never appeared on these cards. Decode the bytes here and hand satori a PNG
- * data URI regardless of the stored URL's extension or CDN optimizer configuration.
+ * Concept art is stored as WebP, which satori cannot decode reliably. Decode the
+ * bytes here and hand satori a PNG data URI regardless of the stored URL's extension
+ * or CDN optimizer configuration.
  *
  * Returns null on any failure so a broken source degrades to the branded card rather
  * than failing the whole image response.
