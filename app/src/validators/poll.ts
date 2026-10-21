@@ -4,12 +4,12 @@ import { z } from "zod";
 export const pollOptionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("text"),
-    text: z.string(),
+    text: z.string().trim().max(255),
   }),
   z.object({
     type: z.literal("user"),
-    userId: z.string(),
-    username: z.string(),
+    userId: z.string().trim().min(1, "Select a user"),
+    username: z.string().trim().min(1, "Select a user").max(255),
   }),
 ]);
 
@@ -19,7 +19,12 @@ export type PollOptionSchema = z.infer<typeof pollOptionSchema>;
 export const createPollSchema = z.object({
   title: z.string().min(3).max(255),
   description: z.string().min(3).max(10000),
-  options: z.array(pollOptionSchema).min(2),
+  options: z
+    .array(pollOptionSchema)
+    .transform((options) =>
+      options.filter((option) => option.type === "user" || option.text.length > 0),
+    )
+    .pipe(z.array(pollOptionSchema).min(2, "Add at least two non-empty poll options")),
   allowCustomOptions: z.boolean().prefault(false),
   endDate: z.date().optional(),
 });
