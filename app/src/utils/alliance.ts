@@ -1,5 +1,5 @@
 import { VILLAGE_SYNDICATE_ID, WAR_FUNDS_COST } from "@/drizzle/constants";
-import type { UserRequest, Village, VillageAlliance } from "@/drizzle/schema";
+import type { Village, VillageAlliance } from "@/drizzle/schema";
 
 /**
  * Retrieves the relationship between two villages from the given array of VillageAlliance objects.
@@ -81,29 +81,6 @@ export const getAllyStatus = (
     userVillageId,
   );
   return relationship?.status ?? "NEUTRAL";
-};
-
-/**
- * Finds a user request in the given array of requests based on the sender and receiver IDs.
- * @param requests - The array of user requests to search in.
- * @param senderId - The ID of the sender.
- * @param receiverId - The ID of the receiver.
- * @returns The user request if found, otherwise undefined.
- */
-export const findAllianceRequest = (
-  requests: UserRequest[],
-  senderId: string,
-  receiverId: string,
-) => {
-  const request = requests
-    .filter((r) => ["ALLIANCE", "SURRENDER"].includes(r.type))
-    .filter((r) => r.status === "PENDING")
-    .find(
-      (r) =>
-        (r.senderId === senderId && r.receiverId === receiverId) ||
-        (r.senderId === receiverId && r.receiverId === senderId),
-    );
-  return request;
 };
 
 /**

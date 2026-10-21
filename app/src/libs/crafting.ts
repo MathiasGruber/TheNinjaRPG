@@ -41,15 +41,6 @@ export const getNextCraftingRank = (craftingRank: CRAFTING_RANK) => {
 };
 
 /**
- * Get the experience required for a crafting rank
- * @param craftingRank - The crafting rank
- * @returns The experience required for the crafting rank
- */
-export const getRankExperienceRequirement = (craftingRank: CRAFTING_RANK) => {
-  return CRAFTING_REQUIRED_EXP[craftingRank];
-};
-
-/**
  * Get the experience required for the next rank
  * @param craftingRank - The current crafting rank
  * @returns The experience required for the next rank

@@ -2,11 +2,7 @@
  * Audio utility functions for handling browser compatibility and user interactions
  */
 
-import {
-  safeLocalStorageGetItem,
-  safeSessionStorageGetItem,
-  safeSessionStorageSetItem,
-} from "@/hooks/localstorage";
+import { safeLocalStorageGetItem } from "@/hooks/localstorage";
 
 /** Sound effect volume the player chose in the game settings; 0.8 until they change it. */
 export const savedSfxVolume = () => {
@@ -45,21 +41,6 @@ export const isMobile = (): boolean => {
 };
 
 /**
- * Check if user interaction has occurred (needed for audio playback on some browsers)
- */
-export const hasUserInteracted = (): boolean => {
-  // Check if we've stored user interaction flag using safe accessor
-  return safeSessionStorageGetItem("userInteracted") === "true";
-};
-
-/**
- * Mark that user interaction has occurred
- */
-export const markUserInteraction = (): void => {
-  safeSessionStorageSetItem("userInteracted", "true");
-};
-
-/**
  * Add event listeners to detect user interaction
  */
 export const addUserInteractionListeners = (callback?: () => void): (() => void) => {
@@ -68,7 +49,6 @@ export const addUserInteractionListeners = (callback?: () => void): (() => void)
   const events = ["click", "touchstart", "keydown"];
 
   const handleInteraction = () => {
-    markUserInteraction();
     if (callback) callback();
 
     // Remove listeners after first interaction
@@ -87,32 +67,6 @@ export const addUserInteractionListeners = (callback?: () => void): (() => void)
       document.removeEventListener(event, handleInteraction);
     });
   };
-};
-
-/**
- * Get audio-specific error messages for better user feedback
- */
-export const getAudioErrorMessage = (error: unknown): string => {
-  if (error instanceof DOMException) {
-    switch (error.name) {
-      case "NotAllowedError":
-        return "Audio playback requires user interaction. Please click anywhere to enable audio.";
-      case "NotSupportedError":
-        return "Audio format not supported by your browser.";
-      case "AbortError":
-        return "Audio playback was interrupted.";
-      case "NetworkError":
-        return "Network error while loading audio.";
-      default:
-        return "An error occurred while playing audio.";
-    }
-  }
-
-  if (typeof error === "string") {
-    return error;
-  }
-
-  return "Unknown audio error occurred.";
 };
 
 /**

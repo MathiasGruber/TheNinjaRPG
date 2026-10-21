@@ -194,11 +194,6 @@ export const availableRanks = (letterRank?: LetterRank | UserRank): UserRank[] =
   }
 };
 
-export const getAvailableLetterRanks = (rank: LetterRank) => {
-  const ranks = LetterRanks.slice(0, LetterRanks.indexOf(rank) + 1);
-  return ranks;
-};
-
 export const checkJutsuRank = (rank: JutsuRank | undefined, userrank: UserRank) => {
   if (!rank) return false;
   return availableJutsuLetterRanks(userrank).includes(rank);

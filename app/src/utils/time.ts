@@ -274,20 +274,6 @@ export const formatTimeAgo = (date: Date) => {
 };
 
 /**
- * Combine a date and time string (HH:MM) into a single Date object
- *
- * @param date - The date to use
- * @param timeHHMM - The time string in "HH:MM" format
- * @returns A new Date with the combined date and time
- */
-export const combineLocalDateTime = (date: Date, timeHHMM: string): Date => {
-  const [hhStr = "00", mmStr = "00"] = timeHHMM.split(":");
-  const out = new Date(date);
-  out.setHours(parseInt(hhStr, 10), parseInt(mmStr, 10), 0, 0);
-  return out;
-};
-
-/**
  * Combines a calendar date with a UTC HH:MM time string into a Date object.
  * The date components are taken from the **local** representation of `date`
  * (year/month/day as the user sees them), and the time is interpreted as UTC
@@ -342,15 +328,6 @@ export const isWithinDateRange = (start: Date | null, end: Date | null): boolean
   if (start && now < start) return false;
   if (end && now > end) return false;
   return true;
-};
-
-/**
- * Number of hours elapsed since a given date
- */
-export const hoursSince = (date: Date | null): number => {
-  if (!date) return Infinity;
-  const now = new Date();
-  return (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 };
 
 /**

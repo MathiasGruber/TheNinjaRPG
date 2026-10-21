@@ -342,8 +342,6 @@ export const overworldAiPlacementQuestRelations = relations(
   }),
 );
 
-export const insertOverworldAiPlacementSchema = createInsertSchema(overworldAiPlacement);
-
 export const anbuSquad = mysqlTable(
   "AnbuSquad",
   {

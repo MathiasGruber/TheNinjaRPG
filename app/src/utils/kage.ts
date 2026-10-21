@@ -1,7 +1,6 @@
 import {
   KAGE_DEFENSE_SLOT_MINUTES,
   KAGE_DEFENSE_WINDOW_HOURS,
-  KAGE_ELDER_MIN_DAYS,
   KAGE_MIN_DAYS_IN_VILLAGE,
   KAGE_PRESTIGE_REQUIREMENT,
   KAGE_RANK_REQUIREMENT,
@@ -50,16 +49,6 @@ const getDaysInVillage = (user: UserData) => {
   } catch {
     return 0;
   }
-};
-
-/**
- * Checks if a user can be an elder.
- * @param user - The user data.
- * @returns True if the user can be an elder, false otherwise.
- */
-export const canBeElder = (user: UserData) => {
-  const daysInVillage = getDaysInVillage(user);
-  return daysInVillage >= KAGE_ELDER_MIN_DAYS;
 };
 
 /**

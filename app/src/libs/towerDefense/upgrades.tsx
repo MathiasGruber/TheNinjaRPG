@@ -167,47 +167,6 @@ export const getUpgradeColor = (type: string): string => {
   }
 };
 
-export const getUpgradeBorderColor = (type: string): string => {
-  switch (type) {
-    // Attack
-    case "DAMAGE":
-      return "border-red-500/30 hover:border-red-500/60";
-    case "ATTACK_SPEED":
-      return "border-yellow-500/30 hover:border-yellow-500/60";
-    case "RANGE":
-      return "border-blue-500/30 hover:border-blue-500/60";
-    case "CRIT_CHANCE":
-      return "border-purple-500/30 hover:border-purple-500/60";
-    case "DAMAGE_PER_TILE":
-      return "border-cyan-500/30 hover:border-cyan-500/60";
-    // Defense
-    case "HEALTH":
-      return "border-green-500/30 hover:border-green-500/60";
-    case "HEALTH_REGEN":
-      return "border-emerald-400/30 hover:border-emerald-400/60";
-    case "DEFENSE_PERCENT":
-      return "border-teal-500/30 hover:border-teal-500/60";
-    case "DEFENSE_FLAT":
-      return "border-teal-400/30 hover:border-teal-400/60";
-    case "LIFESTEAL":
-      return "border-rose-400/30 hover:border-rose-400/60";
-    case "KNOCKBACK_CHANCE":
-    case "KNOCKBACK_FORCE":
-      return "border-sky-400/30 hover:border-sky-400/60";
-    // Utility
-    case "TOKENS_PER_WAVE":
-      return "border-amber-500/30 hover:border-amber-500/60";
-    case "TOKENS_PER_KILL":
-      return "border-amber-400/30 hover:border-amber-400/60";
-    case "INTEREST_PER_WAVE":
-      return "border-lime-500/30 hover:border-lime-500/60";
-    case "SKIP_ENEMY_CHANCE":
-      return "border-violet-400/30 hover:border-violet-400/60";
-    default:
-      return "border-gray-500/30 hover:border-gray-500/60";
-  }
-};
-
 // ============================================
 // Labels
 // ============================================

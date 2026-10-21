@@ -148,18 +148,6 @@ const getCharacterShadowMaterial = (): SpriteMaterial => {
   return cachedShadowMaterial;
 };
 
-/** Reset cached shadow when game ends (to free memory if needed) */
-export const resetCachedShadow = (): void => {
-  if (cachedShadowTexture) {
-    cachedShadowTexture.dispose();
-    cachedShadowTexture = null;
-  }
-  if (cachedShadowMaterial) {
-    cachedShadowMaterial.dispose();
-    cachedShadowMaterial = null;
-  }
-};
-
 /**
  * Create a hexagonal grid for tower defense.
  */

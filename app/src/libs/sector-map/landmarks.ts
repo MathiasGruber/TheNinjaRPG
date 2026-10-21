@@ -74,10 +74,6 @@ export const WORLD_LANDMARKS = [
   },
 ] as const;
 
-export const WORLD_LANDMARK_SECTORS = WORLD_LANDMARKS.map(
-  (landmark) => landmark.sector,
-);
-
 /** Coastal/island landmarks intentionally keep their natural water footprint. */
 export const WORLD_PROTECTED_LAND_SECTORS = WORLD_LANDMARKS.filter(
   (landmark) =>

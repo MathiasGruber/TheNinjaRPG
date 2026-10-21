@@ -516,23 +516,6 @@ export const canClearUserNindo = (user: UserData) => {
   );
 };
 
-export const canEditPublicUser = (user: UserData) => {
-  return [
-    "CONTENT-ADMIN",
-    "EVENT-ADMIN",
-    "OWNER",
-    "CODING-ADMIN",
-    "CONTENT",
-    "BALANCE",
-    "HEAD_CONTENT",
-    "HEAD_BALANCE",
-    "EVENT",
-    "HEAD_EVENT",
-    "MODERATOR-ADMIN",
-    "CODER",
-  ].includes(user.role);
-};
-
 export const canOnlyEditSelf = (userRole: UserRole) => {
   return ["CONTENT", "BALANCE", "EVENT", "CODER"].includes(userRole);
 };
@@ -998,10 +981,6 @@ export function canEscalateToGithub(userRole?: UserRole | null): boolean {
     "CODING-ADMIN",
   ].includes(userRole);
 }
-
-export const canMergeSupportTickets = (userRole?: UserRole | null) => {
-  return isStaffRole(userRole);
-};
 
 export const canViewSupportStatistics = (userRole?: UserRole | null) => {
   return isStaffRole(userRole);
