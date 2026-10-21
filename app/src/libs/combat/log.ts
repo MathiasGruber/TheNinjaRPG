@@ -1,7 +1,17 @@
+import type { SuperJSONResult } from "superjson";
 import type { RouterInputs } from "@/app/_trpc/client";
 import type { BattleAction } from "@/drizzle/schema";
 
-/** Reuse a complete action delta; gaps or missing history fall back to a query. */
+/** Committed public log rows; oversized batches carry only a version/settlement signal. */
+export type BattleUpdate = {
+  version: number;
+  /** Absent for state-only events; null when the delta exceeds the payload limit. */
+  logEntries?: SuperJSONResult | null;
+  /** A participant settled; other participants may still be fighting. */
+  finished?: boolean;
+};
+
+/** Reuse a provably complete page, including overlapping or reordered action deltas. */
 export const mergeBattleEntries = (
   previous: BattleAction[] | undefined,
   incoming: BattleAction[],
@@ -10,7 +20,7 @@ export const mergeBattleEntries = (
 ): BattleAction[] | undefined => {
   const version = input.refreshKey;
   const limit = input.limit ?? 30;
-  const ordered = [...incoming].sort((a, b) => a.battleVersion - b.battleVersion);
+  const targetVersion = Math.max(version ?? 0, nextVersion);
   if (
     !previous ||
     version === undefined ||
@@ -18,21 +28,29 @@ export const mergeBattleEntries = (
     (input.userFilter !== undefined && input.userFilter !== "all") ||
     input.showBasicActions === false ||
     input.offset ||
-    !ordered.length ||
-    nextVersion - version !== ordered.length ||
-    ordered.some(
-      (entry, i) =>
-        entry.battleId !== input.battleId || entry.battleVersion !== version + i,
-    ) ||
-    // Battle state is committed before logs. Only a complete, unfiltered page
-    // proves that a racing fetch did not miss an insert; otherwise refetch.
-    previous.length !== Math.min(version - 1, limit) ||
-    previous.some(
-      (entry, i) =>
-        entry.battleId !== input.battleId || entry.battleVersion !== version - 1 - i,
-    )
+    !incoming.length ||
+    incoming.some((entry) => entry.battleId !== input.battleId) ||
+    previous.some((entry) => entry.battleId !== input.battleId)
   )
     return undefined;
 
-  return [...ordered.reverse(), ...previous].slice(0, limit);
+  // The DB's unique key includes round: duplicate delivery must not duplicate rows.
+  const entries = [
+    ...new Map(
+      [...previous, ...incoming].map((entry) => [
+        `${entry.battleVersion}:${entry.battleRound}`,
+        entry,
+      ]),
+    ).values(),
+  ]
+    .sort((a, b) => b.battleRound - a.battleRound || b.battleVersion - a.battleVersion)
+    .slice(0, limit);
+  // A claimed version alone cannot prove its log insert finished. Only a full,
+  // contiguous page is safe to reuse; filtered pages and genuine gaps still read.
+  if (
+    entries.length !== Math.min(targetVersion - 1, limit) ||
+    entries.some((entry, i) => entry.battleVersion !== targetVersion - 1 - i)
+  )
+    return undefined;
+  return entries;
 };

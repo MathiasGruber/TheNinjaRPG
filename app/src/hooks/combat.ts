@@ -1,8 +1,13 @@
-import { useCallback, useMemo } from "react";
-import { api } from "@/app/_trpc/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { getQueryKey } from "@trpc/react-query";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import superjson from "superjson";
+import { api, type RouterInputs } from "@/app/_trpc/client";
+import type { BattleAction } from "@/drizzle/schema";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { type BattleMaps, computeBattleMaps } from "@/libs/combat/battleMaps";
-import type { ReturnedBattle } from "@/libs/combat/types";
+import { type BattleUpdate, mergeBattleEntries } from "@/libs/combat/log";
+import type { BattleState, ReturnedBattle } from "@/libs/combat/types";
 import { showMutationToast } from "@/libs/toast";
 import { useUserData } from "@/utils/UserContext";
 
@@ -19,6 +24,109 @@ export {
  */
 export const useBattleMaps = (battle: ReturnedBattle | null): BattleMaps => {
   return useMemo(() => computeBattleMaps(battle), [battle?.id, battle?.version]);
+};
+
+/**
+ * Apply committed deltas to actor and observer history caches.
+ * Only settlement and unversioned saved logs force recovery reads. Ordinary
+ * version changes use their normal query keys; newer events refresh active
+ * battle state.
+ */
+export const useCombatUpdates = (state: BattleState) => {
+  const { pusher } = useUserData();
+  const utils = api.useUtils();
+  const queryClient = useQueryClient();
+  // Keep the subscription stable while its handler reads the latest battle/result.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const battleId = state.battle?.id;
+
+  const updateLogs = useCallback(
+    async (
+      id: string,
+      version: number,
+      logEntries: BattleAction[] | null,
+      finished = false,
+    ) => {
+      if (logEntries?.length === 0) return;
+      const queries = queryClient.getQueryCache().findAll({
+        queryKey: getQueryKey(api.combat.getBattleEntries, { battleId: id }, "query"),
+      });
+      for (const query of queries) {
+        const { input } = query.queryKey[1] as {
+          input: RouterInputs["combat"]["getBattleEntries"];
+        };
+        const entries =
+          logEntries &&
+          mergeBattleEntries(
+            utils.combat.getBattleEntries.getData(input),
+            logEntries,
+            input,
+            version,
+          );
+        if (entries) {
+          const target = {
+            ...input,
+            refreshKey: Math.max(input.refreshKey ?? 0, version),
+          };
+          // refreshKey is a cache key, not a SQL cutoff: this page may already
+          // contain later committed rows. Never replace them with an older delta.
+          const isNewer = (rows: BattleAction[] | undefined) =>
+            rows?.some((row) => row.battleVersion >= target.refreshKey);
+          // An ended observer may keep this older key after battle deletion.
+          const keys =
+            finished && target.refreshKey !== input.refreshKey
+              ? [target, input]
+              : [target];
+          for (const key of keys) {
+            if (isNewer(utils.combat.getBattleEntries.getData(key))) continue;
+            // A pre-insert response must not overwrite the committed delta.
+            await utils.combat.getBattleEntries.cancel(key);
+            utils.combat.getBattleEntries.setData(key, (current) =>
+              isNewer(current) ? current : entries,
+            );
+          }
+        } else if (!input.refreshKey || finished) {
+          // Ordinary version changes load their new history key naturally. At
+          // settlement the battle may be deleted, leaving an older key mounted.
+          await utils.combat.getBattleEntries.cancel(input);
+          void utils.combat.getBattleEntries.invalidate(input);
+        }
+      }
+    },
+    [queryClient, utils],
+  );
+
+  useEffect(() => {
+    if (!battleId || !pusher) return;
+    const channel = pusher.subscribe(battleId);
+    const onUpdate = async (data: BattleUpdate) => {
+      if (data.logEntries !== undefined) {
+        await updateLogs(
+          battleId,
+          data.version,
+          data.logEntries === null
+            ? null
+            : superjson.deserialize<BattleAction[]>(data.logEntries),
+          // Repair this viewer's own settlement, without refetching their held
+          // result on every later ordinary turn in a multi-person battle.
+          !!data.finished ||
+            (!!stateRef.current.result &&
+              data.version <= (stateRef.current.battle?.version ?? 0)),
+        );
+      }
+      const { battle, result } = stateRef.current;
+      if (battle && data.version > battle.version && !result) {
+        void utils.combat.getBattle.invalidate();
+      }
+    };
+    channel.bind("event", onUpdate);
+    return () => {
+      channel.unbind("event", onUpdate);
+      pusher.unsubscribe(battleId);
+    };
+  }, [battleId, pusher, utils, updateLogs]);
+  return updateLogs;
 };
 
 /**

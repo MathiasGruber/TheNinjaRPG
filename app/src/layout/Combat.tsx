@@ -1,5 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
 import alea from "alea";
 import type { Grid } from "honeycomb-grid";
 import { useSetAtom } from "jotai";
@@ -8,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Clock, Group, OrthographicCamera, Vector2 } from "three";
-import { api, type RouterInputs, useGlobalOnMutateProtect } from "@/app/_trpc/client";
+import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import {
   AutoBattleTypes,
@@ -20,6 +18,7 @@ import {
   shouldInvalidateEndedBattleCaches,
   useAutoCombatSetting,
   useBattleMaps,
+  useCombatUpdates,
 } from "@/hooks/combat";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { usePerformanceMonitor } from "@/hooks/performance-monitor";
@@ -44,7 +43,6 @@ import {
 } from "@/libs/combat/actions";
 import { getAggroDisplay } from "@/libs/combat/aggroDisplay";
 import { COMBAT_LOBBY_SECONDS, COMBAT_SECONDS } from "@/libs/combat/constants";
-import { mergeBattleEntries } from "@/libs/combat/log";
 import type {
   BattleState,
   CachedIntersections,
@@ -108,7 +106,6 @@ interface CombatProps {
 const Combat: React.FC<CombatProps> = (props) => {
   // Destructure props
   const { battleState, setBattleState, config } = props;
-  const queryClient = useQueryClient();
   const router = useRouter();
   const result = battleState.result;
   const utils = api.useUtils();
@@ -199,11 +196,11 @@ const Combat: React.FC<CombatProps> = (props) => {
   const setCombatActionId = useSetAtom(combatActionIdAtom);
   const {
     data: userData,
-    pusher,
     timeDiff,
     updateUser,
     prepareUserUpdate,
   } = useRequiredUserData();
+  const updateLogs = useCombatUpdates(battleState);
   const [statDistribution] = useLocalStorage<StatSchemaType | undefined>(
     "statDistribution",
     undefined,
@@ -556,30 +553,14 @@ const Combat: React.FC<CombatProps> = (props) => {
           });
         }
       }
-      // Seed the exact history/timeline keys, including their filters and limits.
+      // Reuse the same committed-delta path as PvP websocket observers.
       if (data.logEntries && data.battleUpdate) {
-        const queries = queryClient.getQueryCache().findAll({
-          queryKey: getQueryKey(api.combat.getBattleEntries, undefined, "query"),
-        });
-        for (const query of queries) {
-          if (query.state.isInvalidated) continue;
-          const { input } = query.queryKey[1] as {
-            input: RouterInputs["combat"]["getBattleEntries"];
-          };
-          const previous = utils.combat.getBattleEntries.getData(input);
-          const entries = mergeBattleEntries(
-            previous,
-            data.logEntries,
-            input,
-            data.battleUpdate.version,
-          );
-          if (entries) {
-            utils.combat.getBattleEntries.setData(
-              { ...input, refreshKey: data.battleUpdate.version },
-              entries,
-            );
-          }
-        }
+        await updateLogs(
+          data.battleUpdate.id,
+          data.battleUpdate.version,
+          data.logEntries,
+          !!data.result,
+        );
       }
       // Check if tutorial should progress
       if (data.result) {
@@ -975,20 +956,6 @@ const Combat: React.FC<CombatProps> = (props) => {
         : []),
     ]);
   }, [props.battleState.result, props.battleState.battle?.id]);
-
-  useEffect(() => {
-    if (battleId && pusher) {
-      const channel = pusher.subscribe(battleId);
-      channel.bind("event", (data: { version: number }) => {
-        if (battleRef.current && data.version > battleRef.current.version && !result) {
-          void utils.combat.getBattle.invalidate();
-        }
-      });
-      return () => {
-        pusher.unsubscribe(battleId);
-      };
-    }
-  }, [battleId]);
 
   // Lobby for non-arena battles, letting both oppoenents join
   useEffect(() => {

@@ -44,6 +44,11 @@ const CombatHistory: React.FC<CombatHistoryProps> = (props) => {
     {
       enabled: !!battleId && !!userData,
       placeholderData: (previousData) => previousData,
+      // Unversioned saved logs may predate the final insert. Live keys are seeded
+      // from committed deltas and must keep their cache across layout/tab remounts.
+      // Abort abandoned reads so reopening cannot reuse their incomplete response.
+      refetchOnMount: battleVersion === undefined ? "always" : true,
+      trpc: { abortOnUnmount: true },
     },
   );
   const groups = allEntries && groupBy(allEntries, "battleRound");

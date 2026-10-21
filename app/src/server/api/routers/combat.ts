@@ -22,6 +22,7 @@ import {
 import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import { after } from "next/server";
+import superjson from "superjson";
 import { z } from "zod";
 import * as mapData from "@/data/hexasphere.json";
 import type { BattleType, BattleUsageType } from "@/drizzle/constants";
@@ -60,6 +61,7 @@ import {
 } from "@/drizzle/constants";
 import type {
   AiProfile,
+  BattleAction,
   GameSetting,
   Jutsu,
   RankedLoadout,
@@ -435,11 +437,9 @@ export const combatRouter = createTRPCRouter({
             if (!claim && attempts < 3) continue;
             if (!claim) throw new Error("Battle version changed");
             const { finishBattle } = claim;
-            await Promise.all([
+            const [logEntries] = await Promise.all([
+              createAction(ctx.drizzle, settledBattle, history),
               finishBattle(),
-              ...(history.length
-                ? [createAction(ctx.drizzle, settledBattle, history)]
-                : []),
               ...(result &&
               !settledBattle.extraState.dungeon &&
               !settledBattle.extraState.hunting
@@ -469,6 +469,14 @@ export const combatRouter = createTRPCRouter({
                   ]
                 : []),
             ]);
+            // Idle effects can land a killing blow here too. Announce only after
+            // their log insert finishes so clients can refresh an earlier read.
+            if (
+              history.length &&
+              settledBattle.usersState.filter((user) => !user.isAi).length > 1
+            ) {
+              notifyBattleLogs(pusher, settledBattle, logEntries, !!result);
+            }
           }
 
           // Hide private state of non-session user
@@ -974,16 +982,11 @@ export const combatRouter = createTRPCRouter({
             ]);
             const newMaskedBattle = maskBattle(newBattle, suid);
 
-            // Ping users on websocket
-            if (!battleOver) {
-              // Only push websocket data if there is more than one non-AI in battle
-              const nUsers = battle.usersState.filter((u) => !u.isAi).length;
-              if (nUsers > 1) {
-                void pusher.trigger(battle.id, "event", {
-                  // Every persisted update advances the version, including timeouts.
-                  version: newBattle.version,
-                });
-              }
+            // Notify after logs are persisted, including the terminal action.
+            // Polling clients may have read the claimed state before its log insert.
+            const nUsers = battle.usersState.filter((u) => !u.isAi).length;
+            if (nUsers > 1) {
+              notifyBattleLogs(pusher, newBattle, logEntries, !!result);
             }
 
             // Stop profiling. Flush after the response so the client is not
@@ -1968,6 +1971,30 @@ export const combatRouter = createTRPCRouter({
 /***********************************************
  * CONVENIENCE FUNCTIONS USED ON COMBAT ENDPOINTS
  ***********************************************/
+/** Send only committed public log rows; oversized batches retain a small version notification. */
+const notifyBattleLogs = (
+  pusher: ReturnType<typeof getServerPusher>,
+  battle: { id: string; version: number },
+  logEntries: BattleAction[],
+  finished: boolean,
+) => {
+  const state = { version: battle.version, ...(finished ? { finished: true } : {}) };
+  const update = {
+    ...state,
+    logEntries: superjson.serialize(logEntries),
+  };
+  // Keep the Pusher-compatible event below its payload limit; never truncate a log.
+  void pusher.trigger(
+    battle.id,
+    "event",
+    logEntries.length === 0
+      ? state
+      : Buffer.byteLength(JSON.stringify(update)) <= 10_000
+        ? update
+        : { ...state, logEntries: null },
+  );
+};
+
 export const fetchBattle = async (client: DrizzleClient, battleId: string) => {
   const result = await client.query.battle.findFirst({
     where: eq(battle.id, battleId),

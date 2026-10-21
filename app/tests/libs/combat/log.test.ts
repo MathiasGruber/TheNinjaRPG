@@ -26,8 +26,6 @@ describe("mergeBattleEntries", () => {
     [[{ ...entry(2), battleId: "other" }, entry(1)], incoming, input, 5],
     [[], [entry(0)], { ...input, refreshKey: 0 }, 1],
     [[entry(1)], incoming, input, 5],
-    [[entry(2)], incoming, input, 5],
-    [[entry(2), entry(0)], incoming, input, 5],
     [previous, incoming, { ...input, userFilter: "user" as const }, 5],
     [previous, incoming, { ...input, userFilter: "opponents" as const }, 5],
     [previous, incoming, { ...input, showBasicActions: false }, 5],
@@ -45,5 +43,14 @@ describe("mergeBattleEntries", () => {
   it("can extend an empty, fully fetched history", () => {
     expect(mergeBattleEntries([], [entry(1)], { ...input, refreshKey: 1 }, 2))
       .toEqual([entry(1)]);
+  });
+
+  it("repairs a claimed version from overlapping rows and ignores duplicate or older delivery", () => {
+    const key = { ...input, refreshKey: 5 };
+    const repaired = mergeBattleEntries([entry(3), entry(2)], [entry(4)], key, 5);
+    expect(repaired?.map((row) => row.battleVersion)).toEqual([4, 3, 2]);
+    expect(mergeBattleEntries(repaired, [entry(4)], key, 5)).toEqual(repaired);
+    expect(mergeBattleEntries(repaired, [entry(1)], key, 2)).toEqual(repaired);
+    expect(mergeBattleEntries([entry(2)], incoming, input, 5)?.map((row) => row.battleVersion)).toEqual([4, 3, 2]);
   });
 });
