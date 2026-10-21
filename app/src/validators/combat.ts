@@ -205,6 +205,7 @@ export const PotencyTagTypes = [
   "vamp",
   "absorb",
   "consume",
+  "siphon",
   "shield",
   "pierce",
   "drain",
@@ -667,6 +668,14 @@ export const ConsumeTag = z.object({
 });
 export type ConsumeTagType = z.infer<typeof ConsumeTag>;
 
+export const SiphonTag = ConsumeTag.extend({
+  type: z.literal("siphon").prefault("siphon"),
+  description: msg(
+    "Immediately convert a percentage of all damage you deal while active into stacking temporary shields on yourself. Can be cleared. Not affected by heal modifiers.",
+  ),
+});
+export type SiphonTagType = z.infer<typeof SiphonTag>;
+
 export const DisarmTag = z.object({
   ...BaseAttributes,
   ...PowerAttributes,
@@ -1075,6 +1084,7 @@ export const AllTags = z.union([
   ClearTag.prefault({}),
   CloneTag.prefault({}),
   ConsumeTag.prefault({}),
+  SiphonTag.prefault({}),
   CopyTag.prefault({}),
   DamageTag.prefault({}),
   DebuffPreventTag.prefault({}),
@@ -1249,6 +1259,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "absorb",
       // "clearprevent",
       "consume",
+      "siphon",
       "debuffprevent",
       "increaseaggro",
       "decreaseaggro",

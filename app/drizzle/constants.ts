@@ -266,6 +266,7 @@ export const SHARED_COOLDOWN_TAGS = [
   "clear",
   "clearprevent",
   "consume",
+  "siphon",
   "debuffprevent",
   "drain",
   "increasepoolcost",
@@ -1947,6 +1948,7 @@ export const SHIELD_MAX_HEALTH = 100000;
  * These must be processed AFTER damage modifiers and pierce have been applied.
  */
 export const POST_DAMAGE_MODIFIER_TYPES: string[] = [
+  "siphon",
   "wound",
   "afterburn",
   "reflect",

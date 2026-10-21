@@ -2081,6 +2081,7 @@ export const consume = (
     ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
     rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
     hp: 0,
+    siphon: previous?.siphon || effect.type === "siphon",
   });
   return undefined;
 };
