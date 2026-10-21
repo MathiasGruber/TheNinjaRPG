@@ -794,7 +794,7 @@ export const auctionRouter = createTRPCRouter({
         return errorResponse("Listing is not active");
       }
 
-      // Single statement: cancel listing and clear isInAuction together (PlanetScale has no transactions).
+      // One guarded statement cancels the listing and clears isInAuction atomically.
       const cancelRes = await ctx.drizzle.execute(sql`
         UPDATE \`AuctionListing\` AS al
         INNER JOIN \`UserItem\` AS ui ON ui.\`id\` = al.\`userItemId\`

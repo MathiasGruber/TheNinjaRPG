@@ -244,10 +244,9 @@ export const worldMapRouter = createTRPCRouter({
   /**
    * Normalize a Tiled JSON upload and insert it as a NEW versioned row, either
    * as a draft or published immediately. When publishing, the new row is
-   * inserted before older published rows are archived (PlanetScale has no
-   * transactions), so the sector never has zero published maps; only
-   * strictly-older versions are archived so concurrent publishes cannot
-   * archive each other.
+   * inserted before older published rows are archived, so a failed insert
+   * leaves the existing map live. Only strictly-older versions are archived
+   * so concurrent publishes cannot archive each other.
    */
   saveTiledSectorMap: protectedProcedure
     .input(
@@ -304,10 +303,10 @@ export const worldMapRouter = createTRPCRouter({
       const id = nanoid();
       const now = new Date();
 
-      // Mutation: PlanetScale has no transactions, so insert the new version
-      // FIRST, then (if publishing) archive the previously-published rows for this
-      // sector. This ordering never leaves the sector with zero published maps, and
-      // readers pick the highest version if two briefly overlap (fetchPublishedSectorMaps).
+      // Mutation: insert the new version FIRST, then (if publishing) archive the
+      // previously-published rows for this sector. A failed insert leaves the
+      // existing map live; readers pick the highest version if two briefly overlap
+      // (fetchPublishedSectorMaps).
       // A same-version race collides on the unique index and is caught below.
       try {
         await ctx.drizzle.insert(sectorMap).values({
@@ -365,8 +364,7 @@ export const worldMapRouter = createTRPCRouter({
    * version). The row's raw Tiled JSON is re-normalized through the current
    * importer first, so republishing also picks up importer improvements.
    * Promotes to a new highest version before archiving strictly-older
-   * published rows, guaranteeing the sector never ends up with zero published
-   * rows despite PlanetScale having no transactions.
+   * published rows, so a failed promotion leaves the existing published map live.
    */
   publishSectorMap: protectedProcedure
     .input(z.object({ id: z.string().min(1) }))
@@ -477,8 +475,8 @@ export const worldMapRouter = createTRPCRouter({
    * Admin drag-and-drop relocation of a village structure. Validates the
    * target tile is inside the sector's published map bounds and unoccupied,
    * then guards the UPDATE on the structure's previously-read position
-   * (compare-and-swap, since PlanetScale has no transactions) and only writes
-   * the actionLog audit entry if the move actually happened.
+   * (compare-and-swap) to reject stale moves, and only writes the actionLog
+   * audit entry if the move actually happened.
    */
   moveStructure: protectedProcedure
     .input(
@@ -538,10 +536,9 @@ export const worldMapRouter = createTRPCRouter({
 
       const from = `(${structure.longitude}, ${structure.latitude})`;
       const to = `(${input.longitude}, ${input.latitude})`;
-      // Mutation (CAS on the structure's current position, since PlanetScale has
-      // no transactions): if the row was deleted or moved since we read it, the
-      // update matches nothing and we skip the audit log rather than record a
-      // move that never happened.
+      // CAS on the previously-read position rejects a stale move: if the row was
+      // deleted or moved since we read it, the update matches nothing and we skip
+      // the audit log rather than record a move that never happened.
       const moved = await ctx.drizzle
         .update(villageStructure)
         .set({ longitude: input.longitude, latitude: input.latitude })
@@ -650,10 +647,10 @@ const hashTiledJson = (json: unknown) => {
 };
 
 /**
- * Next monotonic version for a sector: max(version) + 1. The read-then-insert
- * is not atomic (PlanetScale has no transactions), which is acceptable because
- * readers break ties between briefly-overlapping published rows by picking the
- * highest version.
+ * Next candidate version for a sector: max(version) + 1. The read and subsequent
+ * write are separate; the unique (sector, version) index rejects a same-version
+ * race, which callers report as a retryable conflict. Readers select the highest
+ * version when different published versions briefly overlap.
  */
 const getNextSectorMapVersion = async (client: DrizzleClient, sector: number) => {
   const latest = await client.query.sectorMap.findFirst({

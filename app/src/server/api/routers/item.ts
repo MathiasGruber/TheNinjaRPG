@@ -4758,7 +4758,7 @@ const mergeStackRowGuard = (
  * Merges stacks only within the same inventory bucket (`storedAtHome` + `equipped`) so
  * merge never deletes an equipped row while keeping a backpack copy (or mixes home vs carried).
  *
- * Protocol (PlanetScale has no transactions): claim every row in the bucket by negating its
+ * Recoverable merge protocol: claim every row in the bucket by negating its
  * quantity with CAS guards, then atomically publish every keeper target and zero-quantity
  * tombstone in one UPDATE. The negative value preserves the original quantity if the process
  * crashes before publish; a crash after publish leaves the correct positive inventory and only

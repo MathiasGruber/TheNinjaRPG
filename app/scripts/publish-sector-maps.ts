@@ -92,8 +92,8 @@ const main = async () => {
    * JSON is round-tripped through normalizeTiledSectorMap so only known-good
    * maps are stored, with user-occupied and village-structure tiles forced
    * walkable. The new PUBLISHED row is inserted with a bumped version BEFORE
-   * the prior published rows are archived - PlanetScale has no transactions,
-   * so this ordering guarantees a failed insert leaves the old map live.
+   * the prior published rows are archived, so a failed insert leaves the old
+   * map live.
    */
   const publishSector = async (sector: number) => {
     const village = villageBySector.get(sector);
@@ -121,8 +121,8 @@ const main = async () => {
     const now = new Date();
     const id = nanoid();
     // Insert the new PUBLISHED version FIRST, then archive the sector's prior
-    // published rows (PlanetScale has no transactions). If the insert fails the
-    // sector keeps its existing published map instead of being left all-archived.
+    // published rows. If the insert fails the sector keeps its existing published
+    // map instead of being left all-archived.
     await drizzleDB.insert(sectorMap).values({
       id,
       sector,
