@@ -9,13 +9,11 @@ import {
   errorResponse,
   protectedProcedure,
 } from "@/server/api/trpc";
-import { secondsFromNow } from "@/utils/time";
 
 const pusher = getServerPusher();
 
 import type { CovertTrainingType } from "@/drizzle/constants";
 import {
-  STEALTH_POST_COMBAT_COOLDOWN_SECONDS,
   STEALTH_SENSORY_CAP,
   STEALTH_TRAIN_GAIN_PER_MINUTE,
 } from "@/drizzle/constants";
@@ -519,25 +517,4 @@ export const breakStealth = async (
     .set({ stealthActive: false, stealthActivatedAt: null })
     .where(eq(userData.userId, userId));
   return true;
-};
-
-/**
- * Set stealth cooldown after combat ends.
- * Prevents users from immediately re-entering stealth after a battle.
- *
- * @param drizzle - Database client instance
- * @param userId - The user ID to apply the cooldown to
- */
-export const setStealthCooldown = async (
-  drizzle: Parameters<typeof fetchUpdatedUser>[0]["client"],
-  userId: string,
-): Promise<void> => {
-  await drizzle
-    .update(userData)
-    .set({
-      stealthActive: false,
-      stealthActivatedAt: null,
-      stealthCooldownAt: secondsFromNow(STEALTH_POST_COMBAT_COOLDOWN_SECONDS),
-    })
-    .where(eq(userData.userId, userId));
 };

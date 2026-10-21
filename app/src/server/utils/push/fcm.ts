@@ -30,12 +30,6 @@ let accessTokenPromise: Promise<string> | null = null;
 export const isConfigured = (): boolean =>
   Boolean(env.FCM_PROJECT_ID && env.FCM_CLIENT_EMAIL && env.FCM_PRIVATE_KEY);
 
-/** Drop the cached access token. Used by tests and after a 401. */
-export const resetAccessToken = (): void => {
-  cachedAccessToken = null;
-  accessTokenPromise = null;
-};
-
 const buildAssertion = (): string => {
   const issuedAt = Math.floor(Date.now() / 1000);
   return signJwt({

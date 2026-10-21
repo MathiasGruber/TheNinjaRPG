@@ -931,18 +931,6 @@ export const fetchStructures = async (
 };
 
 /**
- * Fetches a village structure from the database.
- * @param client - The DrizzleClient instance used to query the database.
- * @param structureId - The ID of the structure to fetch.
- * @returns A Promise that resolves to the fetched village structure.
- */
-export const fetchStructure = async (client: DrizzleClient, structureId: string) => {
-  return await client.query.villageStructure.findFirst({
-    where: eq(villageStructure.id, structureId),
-  });
-};
-
-/**
  * Counts the number of sectors a village has.
  * @param client - The DrizzleClient instance used to query the database.
  * @param villageId - The ID of the village to count sectors for.
