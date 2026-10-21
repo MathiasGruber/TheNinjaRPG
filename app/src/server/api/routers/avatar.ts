@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { ContentTypes } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
@@ -17,6 +17,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { canChangeContent } from "@/utils/permissions";
+import { mediaHistoryQuerySchema } from "@/validators/mediaHistory";
 import { userDeltaResponseSchema } from "@/validators/userCache";
 
 export const avatarRouter = createTRPCRouter({
@@ -78,13 +79,7 @@ export const avatarRouter = createTRPCRouter({
     }),
   getHistoricalAvatars: protectedProcedure
     .meta({ mcp: { description: "Get user's historical avatars" } })
-    .input(
-      z.object({
-        relationId: z.string().nullish(),
-        limit: z.number().min(1).max(100).nullish(),
-        cursor: z.number().nullish(),
-      }),
-    )
+    .input(mediaHistoryQuerySchema)
     .query(async ({ ctx, input }) => {
       const relationId = input.relationId ?? ctx.userId;
       const limit = input.limit ?? 50;
@@ -94,12 +89,12 @@ export const avatarRouter = createTRPCRouter({
           eq(historicalAvatar.userId, relationId),
           eq(historicalAvatar.done, true),
           isNotNull(historicalAvatar.avatar),
+          cursor != null ? lte(historicalAvatar.id, cursor) : undefined,
         ),
-        offset: cursor ? cursor : 0,
         limit: limit + 1,
         orderBy: [desc(historicalAvatar.id)],
       });
-      let nextCursor: typeof cursor | undefined;
+      let nextCursor: number | undefined;
       if (avatars.length > limit) {
         const nextItem = avatars.pop();
         nextCursor = nextItem?.id;

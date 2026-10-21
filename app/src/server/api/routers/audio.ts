@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, lte } from "drizzle-orm";
 import { z } from "zod";
 import { historicalSoundEffect, userData } from "@/drizzle/schema";
 import { generateAndUploadAudio } from "@/libs/replicate";
@@ -12,6 +12,7 @@ import type { DrizzleClient } from "@/server/db";
 import { canChangeContent } from "@/utils/permissions";
 import type { GenerateAudioInput } from "@/validators/audio";
 import { generateAudioSchema } from "@/validators/audio";
+import { mediaHistoryQuerySchema } from "@/validators/mediaHistory";
 
 export const audioRouter = createTRPCRouter({
   generate: protectedProcedure
@@ -36,13 +37,7 @@ export const audioRouter = createTRPCRouter({
     }),
 
   getHistorical: protectedProcedure
-    .input(
-      z.object({
-        relationId: z.string().optional(),
-        limit: z.number().min(1).max(100).optional(),
-        cursor: z.number().optional(),
-      }),
-    )
+    .input(mediaHistoryQuerySchema)
     .query(async ({ ctx, input }) => {
       // Query
       const relationId = input.relationId ?? ctx.userId;
@@ -56,13 +51,13 @@ export const audioRouter = createTRPCRouter({
             eq(historicalSoundEffect.relationId, relationId),
             eq(historicalSoundEffect.done, true),
             isNotNull(historicalSoundEffect.url),
+            cursor != null ? lte(historicalSoundEffect.id, cursor) : undefined,
           ),
         )
         .orderBy(desc(historicalSoundEffect.id))
-        .offset(cursor ? cursor : 0)
         .limit(limit + 1);
 
-      let nextCursor: typeof cursor | undefined;
+      let nextCursor: number | undefined;
       if (rows.length > limit) {
         const nextItem = rows.pop();
         nextCursor = nextItem?.id;
