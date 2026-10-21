@@ -340,6 +340,23 @@ export const syncLockedKageDefense = async (
   }
   state.paused = hall.paused;
   state.observedAt = now.toISOString();
+  // Revoke an invitation when its appointment or mode changes. Expiry never changes
+  // attendance, queue priority or the original match's reschedule allowance.
+  const invitation = state.instantChallenge;
+  if (
+    invitation &&
+    (hall.resetAssignments ||
+      now >= new Date(invitation.expiresAt) ||
+      !hall.rows.some(
+        ({ match }) =>
+          match.id === invitation.matchId &&
+          match.status === "SCHEDULED" &&
+          !match.hospitalDeferred &&
+          match.scheduledAt?.toISOString() === invitation.scheduledAt &&
+          (match.aiRequested && match.aiAccepted) === invitation.ai,
+      ))
+  )
+    delete state.instantChallenge;
   if (!hall.paused && state.windows.length && v.kageId)
     await assignKageMatches(client, hall);
   await saveKageSchedule(client, hall);

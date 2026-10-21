@@ -12,6 +12,7 @@ import {
   KAGE_CHALLENGER_WEEKLY_LIMIT,
   KAGE_DEFENSE_CHECK_IN_MINUTES,
   KAGE_DEFENSE_GRACE_MINUTES,
+  KAGE_DEFENSE_INSTANT_REQUEST_MINUTES,
   KAGE_DEFENSE_MAX_NO_SHOWS,
   KAGE_DEFENSE_MIN_DAYS,
   KAGE_DEFENSE_NOTICE_HOURS,
@@ -31,7 +32,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { type KageWindow, kageScheduleSchema } from "@/validators/kage";
 import type { UserSearchResult } from "@/validators/register";
 
-/** Public UTC schedule and queue with role-specific publication, attendance and vacancy actions. */
+/** Public UTC defenses with role-specific scheduling, attendance and optional early-fight consent. */
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const router = useRouter();
@@ -86,6 +87,14 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   const ai = api.kage.setDefenseAi.useMutation({ onSuccess, onError });
   const checkIn = api.kage.checkInDefense.useMutation({ onSuccess, onError });
   const start = api.kage.startDefense.useMutation({ onSuccess, onError });
+  const requestInstant = api.kage.requestInstantDefense.useMutation({
+    onSuccess,
+    onError,
+  });
+  const dismissInstant = api.kage.dismissInstantDefense.useMutation({
+    onSuccess,
+    onError,
+  });
   const pending = [
     nominate,
     publish,
@@ -95,6 +104,8 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
     ai,
     checkIn,
     start,
+    requestInstant,
+    dismissInstant,
   ].some((m) => m.isPending);
   const hall = data?.hall;
   const isKage = hall?.kageId === user.userId;
@@ -111,6 +122,12 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
     ["SCHEDULED", "STARTING", "BATTLE"].includes(m.status),
   );
   const paused = hall?.schedule?.paused;
+  const invitation = hall?.schedule?.instantChallenge;
+  // Hide expired consent immediately instead of waiting for the next schedule poll.
+  const activeInvitation =
+    invitation && new Date(invitation.expiresAt).getTime() > now
+      ? invitation
+      : undefined;
   const setWindow = (index: number, field: "day" | "hour", value: number) =>
     setDraft(windows.map((w, i) => (i === index ? { ...w, [field]: value } : w)));
   /** Validate with the server's schema so publication failures preserve an editable draft. */
@@ -358,6 +375,8 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                 now <= at + KAGE_DEFENSE_GRACE_MINUTES * 60_000 &&
                 !paused &&
                 !m.hospitalDeferred;
+              const invited =
+                activeInvitation?.matchId === m.id ? activeInvitation : undefined;
               return (
                 <div key={m.id} className="space-y-2 rounded-lg border p-3">
                   <p className="font-semibold">
@@ -384,6 +403,48 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                       ? "Challenger checked in"
                       : "Challenger not checked in"}
                   </p>
+                  {participant && invited && !paused && m.status === "SCHEDULED" && (
+                    <div
+                      className="space-y-2 rounded border border-amber-500 bg-amber-500/10 p-3"
+                      role="status"
+                    >
+                      <p className="font-semibold">
+                        {isKage
+                          ? "Instant challenge pending"
+                          : "Your Kage invites you to fight now"}
+                      </p>
+                      <p className="text-sm">
+                        {invited.ai ? "AI vs AI" : "Manual PvP"} · Expires{" "}
+                        {utc(new Date(invited.expiresAt))}. Declining or ignoring this
+                        invitation has no penalty. Your scheduled match stays unchanged
+                        until accepted.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {!isKage && (
+                          <Button
+                            disabled={pending}
+                            onClick={() =>
+                              start.mutate({ id: m.id, instantRequestId: invited.id })
+                            }
+                          >
+                            Accept and fight now
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() =>
+                            dismissInstant.mutate({
+                              id: m.id,
+                              instantRequestId: invited.id,
+                            })
+                          }
+                        >
+                          {isKage ? "Cancel invitation" : "Decline invitation"}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   {participant && m.status !== "BATTLE" && (
                     <div className="flex flex-wrap gap-2">
                       {m.challengerId === user.userId && (
@@ -423,6 +484,23 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                           onClick={() => start.mutate({ id: m.id })}
                         >
                           Start title fight
+                        </Button>
+                      )}
+                      {isKage && m.status === "SCHEDULED" && (
+                        <Button
+                          variant="outline"
+                          disabled={
+                            pending ||
+                            paused ||
+                            m.hospitalDeferred ||
+                            !!activeInvitation ||
+                            hall.queue.some((entry) =>
+                              ["STARTING", "BATTLE"].includes(entry.status),
+                            )
+                          }
+                          onClick={() => requestInstant.mutate({ id: m.id })}
+                        >
+                          Challenge now
                         </Button>
                       )}
                       {isKage && m.aiRequested && (
@@ -469,6 +547,12 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
               {KAGE_DEFENSE_MAX_NO_SHOWS} missed attended starts remove the Kage;
               strikes reset with each tenure. Service interruptions and wars cause no
               attendance penalty.
+            </p>
+            <p>
+              The Kage can invite a scheduled challenger to fight immediately.
+              Invitations expire after {KAGE_DEFENSE_INSTANT_REQUEST_MINUTES} minutes
+              without penalty; accepting starts the title fight with the usual combat
+              rules and challenge limits.
             </p>
             <p>
               Both fighters begin with full health, chakra and stamina. A losing

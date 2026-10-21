@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
-import { battle, kageDefendedChallenges, userData, village, villageElderVote, war } from "@/drizzle/schema";
+import { KAGE_DEFENSE_INSTANT_REQUEST_MINUTES, KAGE_PRESTIGE_REQUIREMENT } from "@/drizzle/constants";
+import { Pusher } from "@/libs/pusher";
+import * as pusherModule from "@/libs/pusher";
+import { aiProfile, battle, battleHistory, kageDefendedChallenges, userData, village, villageElderVote, war } from "@/drizzle/schema";
 import * as combat from "@/server/api/routers/combat";
 import { updateBattle, updateKage } from "@/libs/combat/database";
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
@@ -21,9 +23,13 @@ const villageId = "defense-home";
 
 describeWithDatabase("scheduled Kage defenses", () => {
   beforeEach(async () => {
+    // Bun retains other suites' Pusher factories; keep notification spies local to this suite.
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    vi.spyOn(pusherModule, "getServerPusher").mockReturnValue(new Pusher("", "", "", ""));
     setSystemTime(now);
-    await resetTables(battle, kageDefendedChallenges, userData, village, villageElderVote, war);
+    await resetTables(aiProfile, battleHistory, battle, kageDefendedChallenges, userData, village, villageElderVote, war);
     const db = await getTestDatabase();
+    await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
     await db.insert(village).values({ id: villageId, name: "Defense home", kageId: "defender", leaderUpdatedAt: now, kageScheduleAvailableAt: now });
     await insertUsers(["defender", "first", "second", "third"].map((id) => ({ userId: id, username: id, villageId, rank: "JONIN", status: "AWAKE", villagePrestige: KAGE_PRESTIGE_REQUIREMENT, joinedVillageAt: new Date("2026-01-01") })));
     expect((await (await callerFor(kageRouter, "defender")).publishSchedule({ villageId, windows })).success).toBe(true);
@@ -45,6 +51,161 @@ describeWithDatabase("scheduled Kage defenses", () => {
     await db.update(village).set({ kageSchedule: { ...v!.kageSchedule!, observedAt: new Date().toISOString() } }).where(eq(village.id, villageId));
     return m;
   };
+
+  /** Send an invitation for a future appointment without entering its check-in window. */
+  const invite = async () => {
+    const m = await join();
+    const defender = await callerFor(kageRouter, "defender");
+    expect((await defender.requestInstantDefense({ id: m.id })).success).toBe(true);
+    const invitation = (await defender.getDefenses({ villageId })).hall!.schedule!.instantChallenge!;
+    return { m, invitation, defender, input: { id: m.id, instantRequestId: invitation.id } };
+  };
+  it("restricts instant invitations to the current Kage and leaves the appointment untouched", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    const first = await callerFor(kageRouter, "first");
+    expect((await first.requestInstantDefense({ id: m.id })).success).toBe(false);
+    const defender = await callerFor(kageRouter, "defender");
+    const results = await Promise.all([defender.requestInstantDefense({ id: m.id }), defender.requestInstantDefense({ id: m.id })]);
+    expect(results.filter((r) => r.success)).toHaveLength(1);
+    expect((await db.query.kageDefendedChallenges.findFirst())).toMatchObject({ scheduledAt: m.scheduledAt, checkedInAt: null, status: "SCHEDULED", startedAt: null, rescheduled: false });
+    expect(Pusher.prototype.trigger).toHaveBeenCalledWith("first", "event", expect.objectContaining({ route: "/townhall#Kage" }));
+  });
+  it("sends and dismisses invitations with one guarded write each and no transactions", async () => {
+    const m = await join(); const db = await getTestDatabase();
+    const defender = await callerFor(kageRouter, "defender");
+    const sent = await recordQueries(() => defender.requestInstantDefense({ id: m.id }));
+    expect(sent.result.success).toBe(true);
+    const home = (await db.query.village.findFirst())!;
+    const dismissed = await recordQueries(() => defender.dismissInstantDefense({ id: m.id, instantRequestId: home.kageSchedule!.instantChallenge!.id }));
+    expect(dismissed.result.success).toBe(true);
+    for (const result of [sent, dismissed]) {
+      expect(result.statements.filter((statement) => /^\s*update /i.test(statement))).toHaveLength(1);
+      expect(result.statements.some((statement) => /begin|start transaction|commit/i.test(statement))).toBe(false);
+    }
+    const after = (await db.query.village.findFirst())!;
+    expect(after.kageSchedule!.instantChallenge).toBeUndefined();
+    expect({ ...after.kageSchedule, instantChallenge: undefined }).toEqual({ ...home.kageSchedule, instantChallenge: undefined });
+  });
+  it.each(["leadership", "war", "withdraw", "reschedule", "mode", "hospital", "busy"])("rejects an invitation when %s changes before its guarded write", async (change) => {
+    const m = await join(); const db = await getTestDatabase();
+    const defender = await callerFor(kageRouter, "defender");
+    const challenger = await callerFor(kageRouter, "first");
+    const racing = callerForDatabase(kageRouter, "defender", beforeStatements(db, village, [async () => {
+      if (change === "leadership") await db.update(village).set({ kageId: "third", leaderUpdatedAt: new Date(now.getTime() + 1) }).where(eq(village.id, villageId));
+      if (change === "war") await db.insert(war).values({ id: "invite-write-war", attackerVillageId: villageId, defenderVillageId: "enemy", type: "VILLAGE_WAR", status: "ACTIVE" });
+      if (change === "withdraw") await challenger.withdrawDefense({ id: m.id });
+      if (change === "reschedule") await defender.rescheduleDefense({ id: m.id });
+      if (change === "mode") await challenger.setDefenseAi({ id: m.id, consent: true });
+      if (change === "hospital") await db.update(kageDefendedChallenges).set({ hospitalDeferred: true }).where(eq(kageDefendedChallenges.id, m.id));
+      if (change === "busy") await db.update(userData).set({ status: "ASLEEP" }).where(eq(userData.userId, "defender"));
+    }]));
+    expect((await racing.requestInstantDefense({ id: m.id })).success).toBe(false);
+    expect((await db.query.village.findFirst())!.kageSchedule!.instantChallenge).toBeUndefined();
+    expect(Pusher.prototype.trigger).not.toHaveBeenCalled();
+  });
+  it.each(["send", "dismiss"])("serializes invitation %s behind an existing schedule snapshot without a transaction", async (action) => {
+    const m = await join(); const db = await getTestDatabase();
+    const defender = await callerFor(kageRouter, "defender");
+    if (action === "dismiss") expect((await defender.requestInstantDefense({ id: m.id })).success).toBe(true);
+    const invitation = (await db.query.village.findFirst())!.kageSchedule!.instantChallenge;
+    let markLoaded = () => {}; let resumeSync = () => {}; let markSubmitted = () => {};
+    const loaded = new Promise<void>((resolve) => { markLoaded = resolve; });
+    const resume = new Promise<void>((resolve) => { resumeSync = resolve; });
+    const submitted = new Promise<void>((resolve) => { markSubmitted = resolve; });
+    const syncing = withKageDefense(db, villageId, async (tx, hall) => {
+      markLoaded(); await resume;
+      return syncLockedKageDefense(tx, hall);
+    });
+    await loaded;
+    const caller = callerForDatabase(kageRouter, "defender", beforeStatements(db, village, [async () => { markSubmitted(); }]));
+    const changing = action === "send"
+      ? caller.requestInstantDefense({ id: m.id })
+      : caller.dismissInstantDefense({ id: m.id, instantRequestId: invitation!.id });
+    try {
+      await submitted;
+      const blocked = await Promise.race([changing.then(() => false), new Promise<true>((resolve) => setTimeout(() => resolve(true), 50))]);
+      expect(blocked).toBe(true);
+    } finally {
+      resumeSync(); await syncing; await changing;
+    }
+    expect((await changing).success).toBe(true);
+    const saved = (await db.query.village.findFirst())!.kageSchedule!.instantChallenge;
+    if (action === "send") expect(saved?.matchId).toBe(m.id);
+    else expect(saved).toBeUndefined();
+  });
+  it("replaces an expired invitation without reconciling or changing the appointment", async () => {
+    const { m, input, defender } = await invite(); const db = await getTestDatabase();
+    setSystemTime(new Date(now.getTime() + KAGE_DEFENSE_INSTANT_REQUEST_MINUTES * 60_000));
+    expect((await defender.requestInstantDefense({ id: m.id })).success).toBe(true);
+    expect((await db.query.village.findFirst())!.kageSchedule!.instantChallenge!.id).not.toBe(input.instantRequestId);
+    expect((await db.query.kageDefendedChallenges.findFirst())).toMatchObject({ scheduledAt: m.scheduledAt, checkedInAt: null, status: "SCHEDULED", rescheduled: false });
+  });
+  it("expires an unanswered invitation without attendance, prestige or scheduling penalties", async () => {
+    const { m, input } = await invite(); const db = await getTestDatabase();
+    setSystemTime(new Date(now.getTime() + KAGE_DEFENSE_INSTANT_REQUEST_MINUTES * 60_000));
+    const challenger = await callerFor(kageRouter, "first");
+    expect((await challenger.startDefense(input)).success).toBe(false);
+    const home = (await db.query.village.findFirst())!;
+    expect(home.kageSchedule!.instantChallenge).toBeUndefined(); expect(home.kageSchedule!.missedStarts).toBe(0);
+    expect((await db.query.kageDefendedChallenges.findFirst())).toMatchObject({ scheduledAt: m.scheduledAt, checkedInAt: null, status: "SCHEDULED", startedAt: null, rescheduled: false });
+    expect((await db.query.userData.findMany()).every((user) => user.villagePrestige === KAGE_PRESTIGE_REQUIREMENT)).toBe(true);
+  });
+  it.each(["defender", "first"])("lets %s dismiss an invitation while stale and outsider responses cannot affect a new one", async (actor) => {
+    const { m, input, defender } = await invite();
+    expect((await (await callerFor(kageRouter, "second")).dismissInstantDefense(input)).success).toBe(false);
+    expect((await (await callerFor(kageRouter, actor)).dismissInstantDefense(input)).success).toBe(true);
+    expect((await defender.requestInstantDefense({ id: m.id })).success).toBe(true);
+    expect((await (await callerFor(kageRouter, actor)).dismissInstantDefense(input)).success).toBe(false);
+    expect((await (await callerFor(kageRouter, "first")).startDefense(input)).success).toBe(false);
+    expect((await defender.getDefenses({ villageId })).hall!.schedule!.instantChallenge?.id).not.toBe(input.instantRequestId);
+  });
+  it.each(["defender", "second"])("rejects acceptance by %s", async (actor) => {
+    const { input } = await invite();
+    expect((await (await callerFor(kageRouter, actor)).startDefense(input)).success).toBe(false);
+    expect(await (await getTestDatabase()).query.battle.findMany()).toHaveLength(0);
+  });
+  it.each(["war", "leadership", "reschedule", "withdraw", "mode"])("revokes instant acceptance after %s changes", async (change) => {
+    const { m, input, defender } = await invite(); const db = await getTestDatabase();
+    const challenger = await callerFor(kageRouter, "first");
+    if (change === "war") await db.insert(war).values({ id: "instant-war", attackerVillageId: villageId, defenderVillageId: "enemy", type: "VILLAGE_WAR", status: "ACTIVE" });
+    if (change === "leadership") await db.update(village).set({ kageId: "third", leaderUpdatedAt: new Date(now.getTime() + 1) }).where(eq(village.id, villageId));
+    if (change === "reschedule") await defender.rescheduleDefense({ id: m.id });
+    if (change === "withdraw") await challenger.withdrawDefense({ id: m.id });
+    if (change === "mode") { await challenger.setDefenseAi({ id: m.id, consent: true }); await defender.setDefenseAi({ id: m.id, consent: true }); }
+    expect((await challenger.startDefense(input)).success).toBe(false);
+    expect(await db.query.battle.findMany()).toHaveLength(0);
+  });
+  it("starts exactly one immediate title battle without check-in and retains the scheduled timestamp", async () => {
+    const { m, input } = await invite(); const db = await getTestDatabase();
+    const challenger = await callerFor(kageRouter, "first");
+    const results = await Promise.all([challenger.startDefense(input), challenger.startDefense(input)]);
+    expect(results.filter((r) => r.success)).toHaveLength(1);
+    const fights = await db.query.battle.findMany(); expect(fights).toHaveLength(1);
+    expect(fights[0]?.battleType).toBe("KAGE_PVP");
+    expect((await db.query.kageDefendedChallenges.findFirst())).toMatchObject({ scheduledAt: m.scheduledAt, status: "BATTLE", startedAt: now });
+    expect((await db.query.village.findFirst())!.kageSchedule!.instantChallenge).toBeUndefined();
+    expect((await db.query.userData.findMany()).filter((u) => ["first", "defender"].includes(u.userId)).every((u) => u.status === "BATTLE" && u.battleId === fights[0]!.id)).toBe(true);
+  });
+  it.each(["cancel", "expire", "busy"])("rolls back immediate combat when %s wins after preload", async (change) => {
+    const { m, input, defender } = await invite(); const db = await getTestDatabase();
+    // Admission reconciles first; the second transaction is the atomic launch after
+    // combat preload. Interleave here to exercise the final guards rather than preflight.
+    let transactionCalls = 0;
+    const wrapped = new Proxy(db, { get(target, key, receiver) {
+      if (key !== "transaction") return Reflect.get(target, key, receiver);
+      return async (callback: Parameters<typeof db.transaction>[0]) => {
+        if (++transactionCalls === 2) {
+          if (change === "cancel") await defender.dismissInstantDefense(input);
+          if (change === "expire") setSystemTime(new Date(now.getTime() + KAGE_DEFENSE_INSTANT_REQUEST_MINUTES * 60_000));
+          if (change === "busy") await db.update(userData).set({ status: "ASLEEP" }).where(eq(userData.userId, "defender"));
+        }
+        return db.transaction(callback);
+      };
+    } });
+    expect((await callerForDatabase(kageRouter, "first", wrapped).startDefense(input)).success).toBe(false);
+    expect(await db.query.battle.findMany()).toHaveLength(0);
+    expect((await db.query.kageDefendedChallenges.findFirst())).toMatchObject({ scheduledAt: m.scheduledAt, status: "SCHEDULED", startedAt: null });
+  });
 
   it("reads completed defense history while waiting challengers retain no result", async () => {
     const realFetch = globalThis.fetch;

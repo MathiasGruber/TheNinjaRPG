@@ -152,7 +152,25 @@ export const usePusherHandler = (
             title: "Notification!",
             action: (
               <ToastAction altText="To Arena">
-                <Link href={data.route ?? "/battlearena"}>
+                <Link
+                  href={data.route ?? "/battlearena"}
+                  onNavigate={(event) => {
+                    const url = new URL(
+                      data.route ?? "/battlearena",
+                      window.location.href,
+                    );
+                    if (
+                      url.hash &&
+                      url.origin === window.location.origin &&
+                      url.pathname === window.location.pathname &&
+                      url.search === window.location.search
+                    ) {
+                      // Fragment tabs need the native hashchange event to select their panel.
+                      event.preventDefault();
+                      window.location.assign(url.href);
+                    }
+                  }}
+                >
                   {data.routeText ?? "To Profile"}
                 </Link>
               </ToastAction>
