@@ -2143,12 +2143,3 @@ const getVillageMemberCount = async (
     .where(eq(village.id, villageId));
   return result[0]?.count || 0;
 };
-
-// Elder vote utilities live in @/libs/elder — re-exported here for backward compatibility
-export {
-  castElderVoteEntry,
-  fetchElderVote,
-  fetchElderVotes,
-  fetchExpiredElderVotes,
-  resolveElderVote,
-} from "@/libs/elder";
