@@ -3,6 +3,7 @@ package com.capacitorjs.plugins.browser;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +32,7 @@ import org.robolectric.util.ReflectionHelpers;
 public class BrowserTest {
     private Browser browser;
     private ShadowActivity activity;
+    private String browserPackage = "com.android.chrome";
     private final List<CustomTabsCallback> callbacks = new ArrayList<>();
     private final List<Integer> events = new ArrayList<>();
 
@@ -50,13 +52,42 @@ public class BrowserTest {
                     case "getBinder":
                         return token;
                     case "getComponentName":
-                        return new ComponentName("com.android.chrome", "CustomTabsService");
+                        return new ComponentName(browserPackage, "CustomTabsService");
                     default:
                         return Answers.RETURNS_DEFAULTS.answer(call);
                 }
             });
         });
         ReflectionHelpers.setField(browser, "customTabsClient", client);
+    }
+
+    @Test
+    public void firstLaunchWithoutBoundServiceStillTargetsBrowser() {
+        ReflectionHelpers.setField(browser, "customTabsClient", null);
+        Uri signIn = Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=cold");
+        browser.open(signIn);
+        Intent launch = activity.getNextStartedActivity();
+
+        // An implicit game-origin intent can resolve back to the app's verified link.
+        assertEquals("com.android.chrome", launch.getPackage());
+        assertEquals(signIn, launch.getData());
+    }
+
+    @Test
+    public void unavailableSessionStillTargetsBrowser() {
+        CustomTabsClient client = ReflectionHelpers.getField(browser, "customTabsClient");
+        doReturn(null).when(client).newSession(any(CustomTabsCallback.class));
+        browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=unavailable"));
+
+        assertEquals("com.android.chrome", activity.getNextStartedActivity().getPackage());
+    }
+
+    @Test
+    public void boundNonChromeSessionKeepsItsBrowser() {
+        browserPackage = "org.mozilla.firefox";
+        browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=bound"));
+
+        assertEquals(browserPackage, activity.getNextStartedActivity().getPackage());
     }
 
     @Test

@@ -1,5 +1,5 @@
 diff --git a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
-index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..3246a4cd7a41bff7ce490d9dd496bc5059e04cd3 100644
+index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc49845102c133 100644
 --- a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
 +++ b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
 @@ -41,7 +41,7 @@ public class Browser {
@@ -21,7 +21,41 @@ index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..3246a4cd7a41bff7ce490d9dd496bc50
          CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder(getCustomTabsSession());
  
          builder.setShareState(SHARE_STATE_ON);
-@@ -167,17 +170,16 @@ public class Browser {
+@@ -105,6 +108,11 @@ public class Browser {
+         }
+ 
+         CustomTabsIntent tabsIntent = builder.build();
++        // A cold or disconnected service has no session to pin the browser package.
++        // Keep verified game links out of the app's own Android intent handler.
++        if (tabsIntent.intent.getPackage() == null) {
++            tabsIntent.intent.setPackage(getCustomTabPackageName());
++        }
+         tabsIntent.intent.putExtra(Intent.EXTRA_REFERRER, Uri.parse(Intent.URI_ANDROID_APP_SCHEME + "//" + context.getPackageName()));
+ 
+         isInitialLoad = true;
+@@ -116,15 +124,16 @@ public class Browser {
+      * Bind to the custom tabs service, required to be called in the `onResume` lifecycle event.
+      */
+     public boolean bindService() {
+-        String customTabPackageName = CustomTabsClient.getPackageName(context, null);
+-        if (null == customTabPackageName) {
+-            customTabPackageName = FALLBACK_CUSTOM_TAB_PACKAGE_NAME;
+-        }
+-        boolean result = CustomTabsClient.bindCustomTabsService(context, customTabPackageName, connection);
++        boolean result = CustomTabsClient.bindCustomTabsService(context, getCustomTabPackageName(), connection);
+         group.leave();
+         return result;
+     }
+ 
++    private String getCustomTabPackageName() {
++        String packageName = CustomTabsClient.getPackageName(context, null);
++        return packageName != null ? packageName : FALLBACK_CUSTOM_TAB_PACKAGE_NAME;
++    }
++
+     /**
+      * Unbind the custom tabs service, required to be called in the `onPause` lifecycle event.
+      */
+@@ -167,17 +176,16 @@ public class Browser {
              return null;
          }
  
