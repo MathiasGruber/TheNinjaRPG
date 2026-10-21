@@ -1,8 +1,10 @@
 import { nanoid } from "nanoid";
+import type { Item } from "@/drizzle/schema";
 import {
   safeSessionStorageGetItem,
   safeSessionStorageSetItem,
 } from "@/hooks/localstorage";
+import { isRetryableTrpcError } from "@/utils/error";
 
 // Memory retains retries when browser storage is unavailable; session storage survives reloads.
 const pending = new Map<string, string>();
@@ -46,3 +48,19 @@ export const getItemConsumeInput = (
         expectedQuantity: useritem.quantity,
         requestId: getItemConsumeRequestId(userId, useritem.id),
       };
+
+/** Transport failures leave consumption uncertain; server rejections use the global toast. */
+export const getItemConsumeErrorMessage = (
+  error: Parameters<typeof isRetryableTrpcError>[0],
+  item?: Pick<Item, "effects">,
+): string | undefined => {
+  if (!isRetryableTrpcError(error)) return;
+  const isCache = item?.effects.some(
+    (effect) =>
+      effect.type === "noncombatconsumereward" &&
+      (effect.rewardMode === "weightedCache" || (effect.reward_pets?.length ?? 0) > 0),
+  );
+  return isCache
+    ? "Could not confirm item use. Try Consume again to check the opening."
+    : "Could not confirm item use. Refresh your inventory to check the result.";
+};
