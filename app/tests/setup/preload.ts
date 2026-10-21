@@ -6,12 +6,13 @@
  * and truncates every table, so a leftover database makes the next run cheaper without letting
  * its rows leak into it.
  */
-import { afterAll, beforeAll } from "bun:test";
+import { afterAll, beforeAll, beforeEach } from "bun:test";
 import * as dialog from "@/components/ui/dialog";
 import Modal from "@/layout/Modal";
 import ContentImageSelector from "@/layout/ContentImageSelector";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import * as gamesettings from "@/libs/gamesettings";
+import { resetPvpExperienceAverageCache } from "@/server/utils/pvpExperience";
 import {
   closeTestDatabase,
   hasTestDatabase,
@@ -30,6 +31,11 @@ export const actualShowMutationToast = toast.showMutationToast;
 
 // Cron SQL suites restore real timers after unit suites replace the module exports.
 export const actualGameSettings = { ...gamesettings };
+
+// Suites seed their own player populations, so none may read another suite's cached average.
+beforeEach(() => {
+  resetPvpExperienceAverageCache();
+});
 
 if (hasTestDatabase) {
   // Reconciling the schema is slower than a unit test's default budget.

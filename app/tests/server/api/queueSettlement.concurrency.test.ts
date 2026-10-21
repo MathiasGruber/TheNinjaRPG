@@ -17,6 +17,7 @@ import { jutsuRouter } from "@/server/api/routers/jutsu";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { trainRouter } from "@/server/api/routers/train";
 import type { DrizzleClient } from "@/server/db";
+import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import {
   fetchJutsuTrainingQueue,
   settleCraftingQueue,
@@ -348,6 +349,9 @@ describeWithDatabase("Queue settlement concurrency and caps", () => {
         finishesAt: new Date(now.getTime() + (index + 1) * minute),
       })),
     );
+    // Warm the instance-wide average so the delayed client's held read is not the
+    // in-flight query the undelayed settlement shares.
+    await fetchPvpExperienceAverage(database);
     const delayed = delayQueueRead(database);
     const second = settleCraftingQueue(delayed.client, userId, now);
     await delayed.activeRead;
