@@ -201,7 +201,6 @@ export default function ANBU() {
                     <UserSearchSelect
                       useFormMethods={userSearchMethods}
                       label="Select Leader"
-                      selectedUsers={[]}
                       showYourself={false}
                       inline={true}
                       maxUsers={maxUsers}

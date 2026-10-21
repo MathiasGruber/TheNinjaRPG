@@ -1061,7 +1061,6 @@ const Marriage: React.FC = () => {
             <UserSearchSelect
               useFormMethods={userSearchMethods}
               label="Search user you'd like to propose to"
-              selectedUsers={[]}
               showYourself={false}
               inline={true}
               maxUsers={maxUsers}

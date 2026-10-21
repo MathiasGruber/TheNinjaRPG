@@ -318,7 +318,6 @@ const ReputationStore = (props: { currency: string }) => {
       {userData && (
         <UserSearchSelect
           useFormMethods={userSearchMethods}
-          selectedUsers={[userData]}
           showYourself={true}
           showAi={false}
           inline={true}
@@ -777,7 +776,6 @@ const FederalStore = () => {
       {userData && (
         <UserSearchSelect
           useFormMethods={userSearchMethods}
-          selectedUsers={[userData]}
           showYourself={true}
           showAi={false}
           inline={true}

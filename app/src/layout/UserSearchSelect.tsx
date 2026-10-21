@@ -1,6 +1,5 @@
 import { X } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
@@ -12,17 +11,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import type { FederalStatus } from "@/drizzle/schema";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { getUnique } from "@/utils/grouping";
 import type { UserSearchResult } from "@/validators/register";
 import AvatarImage from "./Avatar";
-
-type SelectedUser = {
-  username: string;
-  avatar: string | null;
-  federalStatus: FederalStatus;
-  userId: string;
-};
 
 interface UserSearchSelectProps {
   useFormMethods: UseFormReturn<
@@ -32,7 +24,6 @@ interface UserSearchSelectProps {
     },
     any
   >;
-  selectedUsers?: SelectedUser[];
   showYourself: boolean;
   label?: string;
   inline?: boolean;
@@ -41,8 +32,6 @@ interface UserSearchSelectProps {
 }
 
 const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
-  const [searchTerm, setSearchTerm] = useState("");
-
   const form = props.useFormMethods;
 
   const watchUsername = useWatch({
@@ -55,6 +44,7 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     name: "users",
     defaultValue: [],
   });
+  const searchTerm = useDebouncedValue(watchUsername);
 
   const { data: searchResults } = api.profile.searchUsers.useQuery(
     {
@@ -64,13 +54,6 @@ const UserSearchSelect: React.FC<UserSearchSelectProps> = (props) => {
     },
     { enabled: searchTerm !== "" },
   );
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setSearchTerm(watchUsername);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchUsername, setSearchTerm]);
 
   const filteredUsers = watchUsers.filter((u) => u?.userId);
 

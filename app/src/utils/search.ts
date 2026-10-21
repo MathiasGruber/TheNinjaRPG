@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { UserSearchSchema } from "@/validators/register";
 import { userSearchSchema } from "@/validators/register";
 
@@ -10,8 +10,6 @@ import { userSearchSchema } from "@/validators/register";
  * delay after the user has stopped typing.
  */
 export const useUserSearch = () => {
-  // Search term
-  const [searchTerm, setSearchTerm] = useState<string>("");
   // Use form for field
   const form = useForm<UserSearchSchema>({
     resolver: zodResolver(userSearchSchema),
@@ -24,12 +22,6 @@ export const useUserSearch = () => {
     name: "username",
     defaultValue: "",
   });
-  // Update search term with delay
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setSearchTerm(watchUsername);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchUsername, setSearchTerm]);
+  const searchTerm = useDebouncedValue(watchUsername);
   return { form, searchTerm };
 };
