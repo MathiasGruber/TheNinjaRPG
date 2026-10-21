@@ -8,7 +8,6 @@ import {
   type TimedMasteryName,
 } from "@/drizzle/constants";
 import { trainingLog, userData } from "@/drizzle/schema";
-import { showTrainingCapcha } from "@/libs/captcha";
 import { activeTrainedElement } from "@/libs/elementalMastery";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { filterQuestTrackersForDbPersist, getNewTrackers } from "@/libs/quest";
@@ -33,7 +32,7 @@ import {
   trainingBoost,
   trainingEnergyMessage,
 } from "@/libs/train";
-import { validateCaptcha } from "@/routers/misc";
+import { trainingCaptchaMessage } from "@/routers/misc";
 import type { UserWithRelations } from "@/routers/profile";
 import { fetchUpdatedUser, getUserProgressionUpdate } from "@/routers/profile";
 import {
@@ -118,12 +117,7 @@ export const trainRouter = createTRPCRouter({
             return "Training queue is full";
           if (input.entries.some((entry) => entry.energy > user.maxEnergy))
             return "Queued Energy cannot exceed your capacity";
-          if (showTrainingCapcha(user)) {
-            if (!input.guess) return "Captcha required";
-            if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess)))
-              return "Invalid captcha";
-          }
-          return null;
+          return await trainingCaptchaMessage(ctx.drizzle, user, input.guess);
         },
         where: [eq(userData.status, user.status)],
         messages: {
@@ -224,11 +218,8 @@ export const trainRouter = createTRPCRouter({
         statTrainingBlockMessage(user) ??
         trainingEnergyMessage(input.energy, user.curEnergy);
       if (block) return errorResponse(block);
-      if (showTrainingCapcha(user)) {
-        if (!input.guess) return errorResponse("Captcha required");
-        if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess)))
-          return errorResponse("Invalid captcha");
-      }
+      const captchaBlock = await trainingCaptchaMessage(ctx.drizzle, user, input.guess);
+      if (captchaBlock) return errorResponse(captchaBlock);
       const { stats_cap, gens_cap } = getUserCaps(user.rank);
       const cap =
         input.stat === "offence" || input.stat === "defence" ? stats_cap : gens_cap;
@@ -373,12 +364,8 @@ export const trainRouter = createTRPCRouter({
           `Your ${kind === "ELEMENT" ? "elemental" : "mastery"} training changed. Please refresh and try again`,
         );
       }
-      if (showTrainingCapcha(user)) {
-        if (!input.guess) return errorResponse("Captcha required");
-        if (!(await validateCaptcha(ctx.drizzle, ctx.userId, input.guess))) {
-          return errorResponse("Invalid captcha");
-        }
-      }
+      const captchaBlock = await trainingCaptchaMessage(ctx.drizzle, user, input.guess);
+      if (captchaBlock) return errorResponse(captchaBlock);
       const { trainingAmount } = calcTrainingAmount(
         { ...user, trainingSpeed: speed },
         settings,

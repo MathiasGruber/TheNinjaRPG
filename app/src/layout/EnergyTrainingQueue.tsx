@@ -156,13 +156,16 @@ export const useEnergyTrainingQueue = (refreshCaptcha: () => Promise<void>) => {
       },
       onError: (cause) => setError(cause.message),
       onSettled: async (result, _error, variables, context) => {
-        // Validation consumes a captcha even when the guess or a later write fails.
+        // Validation consumes a captcha even when the guess or a later write fails, and a
+        // rejected edit without a guess may need the challenge the page is not showing yet.
         await Promise.all([
           updateUser(result?.success ? result.userPatch : undefined, {
             revision: context?.revision,
             achievementProgress: result?.achievementProgress,
           }),
-          ...(variables.entries.length && variables.guess ? [refreshCaptcha()] : []),
+          ...(variables.entries.length && (variables.guess || !result?.success)
+            ? [refreshCaptcha()]
+            : []),
         ]);
       },
     });

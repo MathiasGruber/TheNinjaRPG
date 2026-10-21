@@ -570,6 +570,8 @@ const StatsTraining: React.FC<
     staleTime: 5000,
     enabled: showCaptcha,
   });
+  // A recent solve covers training for a while; the server then returns no image.
+  const needsCaptcha = showCaptcha && captcha?.svg !== null;
 
   // Tutorial management hook
   const { currentStep, handleNextStep } = useTutorialStep();
@@ -710,7 +712,7 @@ const StatsTraining: React.FC<
   });
 
   const renderCaptchaStop = () => {
-    if (!showCaptcha) {
+    if (!needsCaptcha) {
       return (
         <Button
           size="icon"
@@ -723,7 +725,7 @@ const StatsTraining: React.FC<
         </Button>
       );
     }
-    if (!captcha) return <Loader explanation="Loading captcha" />;
+    if (!captcha?.svg) return <Loader explanation="Loading captcha" />;
     return (
       <Popover>
         <PopoverTrigger
@@ -749,7 +751,14 @@ const StatsTraining: React.FC<
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input placeholder="Enter captcha" {...field} />
+                      <Input
+                        placeholder="Enter captcha"
+                        autoCapitalize="none"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -856,14 +865,21 @@ const StatsTraining: React.FC<
               Wake up to add training. Existing queues continue while asleep.
             </p>
           )}
-          {showCaptcha && captcha && (
+          {needsCaptcha && captcha?.svg && (
             <div className="mb-4">
               {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element */}
               <img
                 alt="captcha"
                 src={`data:image/svg+xml;utf8,${encodeURIComponent(captcha.svg)}`}
               />
-              <Input placeholder="Enter captcha" {...captchaForm.register("guess")} />
+              <Input
+                placeholder="Enter captcha"
+                autoCapitalize="none"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                {...captchaForm.register("guess")}
+              />
             </div>
           )}
           {/* Inert while pending: the overlay hides the controls from pointers only */}

@@ -1,9 +1,10 @@
 import {eq} from "drizzle-orm";
 import {afterEach, beforeEach, expect, it, vi} from "bun:test";
 import {CombatStatNames, getUserCaps, MAX_MASTERY_CAP} from "@/drizzle/constants";
-import {bloodline, gameSetting, item, userItem, quest, questHistory, trainingLog, userData, userQueue, userVote} from "@/drizzle/schema";
+import {bloodline, captcha, gameSetting, item, userItem, quest, questHistory, trainingLog, userData, userQueue, userVote} from "@/drizzle/schema";
 import {getEnergyQueue} from "@/libs/queue";
 import {fetchUpdatedUser} from "@/server/api/routers/profile";
+import {generateCaptcha} from "@/server/api/routers/misc";
 import {trainRouter} from "@/server/api/routers/train";
 import {InstantNewQuestObjective, SimpleObjective} from "@/validators/objectives";
 import {ObjectiveReward} from "@/validators/rewards";
@@ -14,6 +15,7 @@ import type {EnergyTrainingQueueEntry} from "@/validators/train";
 const USER_ID = "trainee";
 const SESSION_GAIN = 100;
 const MINUTE = 60 * 1000;
+const DAY = 24 * 60 * MINUTE;
 
 const caller = () => callerFor(trainRouter, USER_ID);
 const masterySession = async () => ({
@@ -74,7 +76,7 @@ const backdate = async (patch: Partial<typeof userData.$inferInsert>) => {
 };
 
 describeWithDatabase("Energy and mastery training against a real MySQL", () => {
-  beforeEach(async () => { await resetTables(userQueue, trainingLog, questHistory, quest, userVote, userItem, item, userData, bloodline, gameSetting); });
+  beforeEach(async () => { await resetTables(userQueue, trainingLog, questHistory, quest, userVote, userItem, item, userData, bloodline, gameSetting, captcha); });
   afterEach(() => vi.restoreAllMocks());
 
   it.each(["AWAKE", "ASLEEP"] as const)(
@@ -559,6 +561,35 @@ describeWithDatabase("Energy and mastery training against a real MySQL", () => {
     const after = await readUser();
     expect(after.offence - before.offence).toBeCloseTo(4.25);
     expect(after.curEnergy).toBe(0);
+  });
+
+  it("asks once at a captcha count instead of on every Energy action", async () => {
+    // 12 daily trainings is a captcha count for NONE; Energy actions never advance it.
+    await trainee({curEnergy: 100, regeneration: 0, dailyTrainings: 12});
+    const api = await caller();
+    const database = await getTestDatabase();
+    expect((await api.startTraining({stat: "offence", energy: 10})).message).toBe("Captcha required");
+    expect((await generateCaptcha(database, USER_ID)).svg).toContain("<path");
+    const [pending] = await database.select().from(captcha).where(eq(captcha.userId, USER_ID));
+    // Case and surrounding spaces are ignored, as phone keyboards capitalize the first letter.
+    const guess = ` ${pending!.value.toUpperCase()} `;
+    expect((await api.startTraining({stat: "offence", energy: 10, guess})).success).toBe(true);
+    expect((await api.startTraining({stat: "defence", energy: 10})).success).toBe(true);
+    expect((await api.updateEnergyTrainingQueue({expectedEntries: [], entries: [{stat: "offence", energy: 10}]})).success).toBe(true);
+    expect((await generateCaptcha(database, USER_ID)).svg).toBeNull();
+    expect(await database.select().from(captcha).where(eq(captcha.userId, USER_ID))).toHaveLength(1);
+  });
+
+  it("asks again once the solved captcha is older than the grace window", async () => {
+    await trainee({curEnergy: 100, regeneration: 0, dailyTrainings: 12});
+    const database = await getTestDatabase();
+    // createdAt keeps the column's one-day-ahead convention.
+    await database.insert(captcha).values({userId: USER_ID, value: "AbCdEf", used: true, success: true, createdAt: new Date(Date.now() + DAY - 11 * MINUTE)});
+    const api = await caller();
+    expect((await api.startTraining({stat: "offence", energy: 10})).message).toBe("Captcha required");
+    await generateCaptcha(database, USER_ID);
+    expect((await api.startTraining({stat: "offence", energy: 10, guess: "wrong!"})).message).toBe("Invalid captcha");
+    expect((await api.startTraining({stat: "offence", energy: 10})).message).toBe("Captcha required");
   });
 
   it("rejects overspending without granting stats", async () => {

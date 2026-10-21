@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { FederalStatus } from "@/drizzle/constants";
-import { showTrainingCapcha } from "@/libs/captcha";
+import { captchaAnswerMatches, showTrainingCapcha } from "@/libs/captcha";
 
 const user = (federalStatus: FederalStatus, dailyTrainings: number, staffAccount = false) => ({
   federalStatus,
@@ -65,5 +65,18 @@ describe("showTrainingCapcha", () => {
   it("uses the GOLD cadence for staff accounts", () => {
     expect(showTrainingCapcha(user("NONE", 12, true))).toBe(false);
     expect(showTrainingCapcha(user("NONE", 15, true))).toBe(true);
+  });
+});
+
+describe("captchaAnswerMatches", () => {
+  it.each([
+    ["aBcD5x", "aBcD5x", true],
+    ["aBcD5x", "AbCd5X", true],
+    ["aBcD5x", " abcd5x ", true],
+    ["Oo0abc", "0OoABC", true],
+    ["aBcD5x", "aBcD5", false],
+    ["aBcD5x", "aBcDSx", false],
+  ])("%s vs %p -> %p", (value, guess, expected) => {
+    expect(captchaAnswerMatches(value, guess)).toBe(expected);
   });
 });
