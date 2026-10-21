@@ -31,6 +31,8 @@ import {
   FONT_SCALE_VALUES,
   LIGHT_LAYOUT_ATTRIBUTE,
   LIGHT_LAYOUT_STORAGE_KEY,
+  SWAP_SIDEBARS_ATTRIBUTE,
+  SWAP_SIDEBARS_STORAGE_KEY,
 } from "@/libs/layoutPreference";
 import {
   READING_ATTRIBUTES,
@@ -83,6 +85,14 @@ const FONT_SCALE_SCRIPT = `(function(){try{var m=document.cookie.match(/(?:^|; )
  */
 const LIGHT_LAYOUT_SCRIPT = `(function(){try{if(localStorage.getItem(${JSON.stringify(LIGHT_LAYOUT_STORAGE_KEY)})==="true")document.documentElement.setAttribute(${JSON.stringify(LIGHT_LAYOUT_ATTRIBUTE)},"")}catch(e){}})()`;
 
+/**
+ * Swapped sidebars exchange the player and world columns. Applied after hydration, the
+ * whole frame would jump sideways, so like the light layout this marks <html> from the
+ * stored preference before first paint and the layout stylesheets place the columns.
+ * GameLayoutController keeps the attribute in step afterwards.
+ */
+const SWAP_SIDEBARS_SCRIPT = `(function(){try{if(localStorage.getItem(${JSON.stringify(SWAP_SIDEBARS_STORAGE_KEY)})==="true")document.documentElement.setAttribute(${JSON.stringify(SWAP_SIDEBARS_ATTRIBUTE)},"")}catch(e){}})()`;
+
 export default async function RootLayout({
   children,
   params,
@@ -115,6 +125,8 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: FONT_SCALE_SCRIPT }} />
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}
         <script dangerouslySetInnerHTML={{ __html: LIGHT_LAYOUT_SCRIPT }} />
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: the script is a module-level constant assembled from two other constants, with no input from anywhere. */}
+        <script dangerouslySetInnerHTML={{ __html: SWAP_SIDEBARS_SCRIPT }} />
         <script
           data-storage-key={READING_PREFERENCES_STORAGE_KEY}
           data-options={JSON.stringify(READING_OPTIONS)}

@@ -272,6 +272,7 @@ export const PixelGameLayout: React.FC<GameLayoutRenderProps> = ({
                 ? "top-[100px]"
                 : "top-[70px]"),
           )}
+          data-sidebar-row
         >
           <div
             className={cn(

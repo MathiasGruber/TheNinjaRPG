@@ -24,6 +24,15 @@ export const LIGHT_LAYOUT_STORAGE_KEY = "lightLayout";
 export const LIGHT_LAYOUT_ATTRIBUTE = "data-light-layout";
 
 /**
+ * Swapping the sidebars exchanges the sides of the player and world columns in every
+ * layout. The preference lives in localStorage under this key; the root layout's <head>
+ * script mirrors it onto <html> as this attribute before first paint, and the layout
+ * stylesheets place the columns from it, so no layout renders with the wrong sides first.
+ */
+export const SWAP_SIDEBARS_STORAGE_KEY = "swapSidebars";
+export const SWAP_SIDEBARS_ATTRIBUTE = "data-swap-sidebars";
+
+/**
  * toFontScale
  * - Validates an unknown stored value against the supported scales
  * @param value - Raw cookie or localStorage value
