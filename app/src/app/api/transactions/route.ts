@@ -22,7 +22,11 @@ export async function GET(request: Request) {
   await cookies();
 
   // Check timer
-  const response = await lockWithGameTimer(drizzleDB, 1, "h", "transaction-sync");
+  const response = await lockWithGameTimer(
+    drizzleDB,
+    "transaction-sync-1h",
+    60 * 60_000,
+  );
   if (response) return response;
 
   try {

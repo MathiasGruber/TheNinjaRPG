@@ -11,18 +11,19 @@ import { generateAiSummary } from "@/libs/moderator";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
+const TIMER_NAME = "indexer-1m";
+
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
 
   // Check timer
-  const frequency = 1;
-  const response = await checkGameTimer(drizzleDB, frequency, "m", "indexer");
+  const response = await checkGameTimer(drizzleDB, TIMER_NAME, 60_000);
   if (response) return response;
 
   try {
     // Update timer
-    await updateGameSetting(drizzleDB, `indexer-${frequency}m`, 0, new Date());
+    await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
 
     // Fetch reports without a summary
     const reports = await drizzleDB.query.userReport.findMany({
