@@ -1,13 +1,11 @@
 import { COOKING_RANKS } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
 import { getStatTypeLabels } from "@/libs/combat/util";
-import { getFarmingLevel, getFarmingLevelProgress } from "@/libs/farming";
+import { getFarmingLevel } from "@/libs/farming";
 import { calcLevelRequirements } from "@/libs/profile";
 
 /** Cooking levels use the existing Farming experience curve. */
 export const getCookingLevel = getFarmingLevel;
-/** Progress to the next Cooking level on the shared Farming curve. */
-export const getCookingLevelProgress = getFarmingLevelProgress;
 /** Highest Cooking title unlocked on the shared Farming experience curve. */
 export const getCookingRank = (experience: number) => {
   const level = getCookingLevel(experience);

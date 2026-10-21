@@ -94,57 +94,6 @@ export const applyWindShader = (
 };
 
 /**
- * Applies a blur effect shader to a SpriteMaterial
- * This modifies the fragment shader to blur the texture
- *
- * @param material - The SpriteMaterial to apply the blur effect to
- * @param blurAmount - The amount of blur (default: 0.003, higher = more blur)
- */
-export const applyBlurShader = (material: SpriteMaterial, blurAmount = 0.003) => {
-  material.onBeforeCompile = (shader) => {
-    // Add uniform for blur amount
-    shader.uniforms.blurAmount = { value: blurAmount };
-
-    // Declare uniform in fragment shader
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "void main() {",
-      `
-      uniform float blurAmount;
-      
-      void main() {
-      `,
-    );
-
-    // Replace the texture sampling with a blur kernel
-    shader.fragmentShader = shader.fragmentShader.replace(
-      "#include <map_fragment>",
-      `
-      #ifdef USE_MAP
-        // 9-tap blur kernel
-        vec4 texelColor = vec4(0.0);
-        vec2 uv = vMapUv;
-        
-        // Sample in a 3x3 grid around the current pixel
-        texelColor += texture2D(map, uv + vec2(-blurAmount, -blurAmount)) * 0.077;
-        texelColor += texture2D(map, uv + vec2(0.0, -blurAmount)) * 0.123;
-        texelColor += texture2D(map, uv + vec2(blurAmount, -blurAmount)) * 0.077;
-        
-        texelColor += texture2D(map, uv + vec2(-blurAmount, 0.0)) * 0.123;
-        texelColor += texture2D(map, uv) * 0.195;
-        texelColor += texture2D(map, uv + vec2(blurAmount, 0.0)) * 0.123;
-        
-        texelColor += texture2D(map, uv + vec2(-blurAmount, blurAmount)) * 0.077;
-        texelColor += texture2D(map, uv + vec2(0.0, blurAmount)) * 0.123;
-        texelColor += texture2D(map, uv + vec2(blurAmount, blurAmount)) * 0.077;
-        
-        diffuseColor *= texelColor;
-      #endif
-      `,
-    );
-  };
-};
-
-/**
  * Applies a wave effect shader to a MeshBasicMaterial
  * This modifies the fragment shader to create a wiggling/rippling water texture effect
  *

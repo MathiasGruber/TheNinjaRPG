@@ -184,18 +184,6 @@ export const getJutsu = (battle: CompleteBattle | ReturnedBattle, jutsuId: strin
 };
 
 /**
- * Get full Jutsu data - throws if not found (use when jutsu MUST exist)
- */
-export const getJutsuOrThrow = (
-  battle: CompleteBattle | ReturnedBattle,
-  jutsuId: string,
-) => {
-  const jutsu = getJutsu(battle, jutsuId);
-  if (!jutsu) throw new Error(`Jutsu not found in staticData: ${jutsuId}`);
-  return jutsu;
-};
-
-/**
  * Get jutsu reskin data from extraState by reskinId
  */
 export const getJutsuReskin = (
@@ -214,18 +202,6 @@ export const getItem = (battle: CompleteBattle | ReturnedBattle, itemId: string)
 };
 
 /**
- * Get full Item data - throws if not found
- */
-export const getItemOrThrow = (
-  battle: CompleteBattle | ReturnedBattle,
-  itemId: string,
-) => {
-  const item = getItem(battle, itemId);
-  if (!item) throw new Error(`Item not found in staticData: ${itemId}`);
-  return item;
-};
-
-/**
  * Get full Village data from extraState by villageId
  */
 export const getVillage = <T extends CompleteBattle | ReturnedBattle>(
@@ -236,17 +212,6 @@ export const getVillage = <T extends CompleteBattle | ReturnedBattle>(
   return battle.extraState.villages?.[villageId] as
     | T["extraState"]["villages"][string]
     | undefined;
-};
-
-/**
- * Get AnbuSquad data from extraState by anbuId
- */
-export const getAnbuSquad = (
-  battle: CompleteBattle | ReturnedBattle,
-  anbuId: string | null | undefined,
-) => {
-  if (!anbuId) return undefined;
-  return battle.extraState.anbuSquads?.[anbuId];
 };
 
 /**
@@ -271,13 +236,6 @@ export const getBloodline = (
 ) => {
   if (!bloodlineId) return undefined;
   return battle.extraState.bloodlines?.[bloodlineId];
-};
-
-/**
- * Get War data from extraState by warId
- */
-export const getWar = (battle: CompleteBattle | ReturnedBattle, warId: string) => {
-  return battle.extraState.wars?.[warId];
 };
 
 /**
@@ -342,16 +300,6 @@ export const getOpposingBattleWars = (
         other.war.id === entry.war.id && other.sideVillageId !== entry.sideVillageId,
     ),
   );
-};
-
-/**
- * Get VillageAlliance (relation) from extraState by relationId
- */
-export const getRelation = (
-  battle: CompleteBattle | ReturnedBattle,
-  relationId: string,
-) => {
-  return battle.extraState.relations?.[relationId];
 };
 
 /**

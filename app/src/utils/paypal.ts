@@ -128,19 +128,6 @@ export const plan2FedStatus = (planId: string) => {
   }
 };
 
-export const fedStatusToPlan = (status: FederalStatus) => {
-  switch (status) {
-    case "NORMAL":
-      return process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_NORMAL;
-    case "SILVER":
-      return process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_SILVER;
-    case "GOLD":
-      return process.env.NEXT_PUBLIC_PAYPAL_PLAN_ID_GOLD;
-    default:
-      return null;
-  }
-};
-
 export const fedStatusRepsCost = (status: FederalStatus) => {
   switch (status) {
     case "NORMAL":

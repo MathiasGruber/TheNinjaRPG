@@ -1,11 +1,4 @@
-import {
-  BufferAttribute,
-  BufferGeometry,
-  Line,
-  type LineBasicMaterial,
-  type Material,
-  Mesh,
-} from "three";
+import { BufferAttribute, BufferGeometry, Line, type LineBasicMaterial } from "three";
 import { HEX_ASPECT_RATIO, HEX_STACKING_DISPLACEMENT } from "@/drizzle/constants";
 import type { TerrainHex } from "../hexgrid";
 
@@ -248,48 +241,6 @@ export const createGroundEdges = (info: {
   });
 
   return edgeMeshes;
-};
-
-/**
- * Creates a complete tile mesh with geometry and material
- */
-export const createTileMesh = (info: {
-  tile: TerrainHex;
-  geometry: BufferGeometry;
-  material: Material | undefined;
-  originalColor?: number;
-}) => {
-  const { tile, geometry, material, originalColor } = info;
-  const mesh = new Mesh(geometry, material);
-  mesh.name = `${tile.row},${tile.col}`;
-  mesh.userData.type = "tile";
-  mesh.userData.tile = tile;
-  if (originalColor !== undefined) {
-    mesh.userData.hex = originalColor;
-  }
-  mesh.userData.highlight = false;
-  mesh.userData.selected = false;
-  mesh.userData.canClick = false;
-  mesh.matrixAutoUpdate = false;
-  return mesh;
-};
-
-/**
- * Creates a ground mesh
- */
-export const createGroundMesh = (info: {
-  tile: TerrainHex;
-  geometry: BufferGeometry;
-  material: Material | undefined;
-}) => {
-  const { tile, geometry, material } = info;
-  const groundMesh = new Mesh(geometry, material);
-  groundMesh.userData.type = "tile";
-  groundMesh.userData.tile = tile;
-  groundMesh.userData.highlight = false;
-  groundMesh.userData.selected = false;
-  groundMesh.userData.canClick = false;
-  return groundMesh;
 };
 
 /**

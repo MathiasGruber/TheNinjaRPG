@@ -43,31 +43,6 @@ export const isInArray = <T, A extends T>(
 };
 
 /**
- * Get most common element out of an array
- * @param arr
- * @returns
- */
-export const getMostCommonElement = <T extends string>(arr: T[]) => {
-  const counts: Record<T, number> = {} as Record<T, number>;
-
-  for (const item of arr) {
-    counts[item] = (counts[item] || 0) + 1;
-  }
-
-  let maxCount = 0;
-  let mostCommon: T | undefined;
-
-  for (const item of arr) {
-    if (counts[item] > maxCount) {
-      maxCount = counts[item];
-      mostCommon = item;
-    }
-  }
-
-  return mostCommon;
-};
-
-/**
  * Collapses repeated names into one entry with a count, keeping first-seen order,
  * e.g. ["Sickle", "Sickle", "Bow"] -> ["Sickle ×2", "Bow"].
  */

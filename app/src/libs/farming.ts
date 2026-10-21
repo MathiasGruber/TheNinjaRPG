@@ -162,15 +162,6 @@ export const canWaterPlot = (
   return getWorldDayCycleIndex(now) > getWorldDayCycleIndex(lastWateredAt);
 };
 
-export const getWaterCooldownRemainingSeconds = (
-  lastWateredAt: Date | null | undefined,
-  now = new Date(),
-) => {
-  const nextWateringAt = getNextWateringAt(lastWateredAt, now);
-  if (!nextWateringAt) return 0;
-  return Math.max(0, (nextWateringAt.getTime() - now.getTime()) / 1000);
-};
-
 export const isPlotReady = (finishAt: Date | null | undefined, now = new Date()) =>
   !!finishAt && finishAt.getTime() <= now.getTime();
 
