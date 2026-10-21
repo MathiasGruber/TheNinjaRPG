@@ -15,7 +15,7 @@ import {
   splitLink,
   TRPCClientError,
 } from "@trpc/client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import superjson from "superjson";
 import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/components/ui/use-toast";
@@ -24,9 +24,10 @@ import { BUILD_ID_HEADER, noteServerBuild } from "@/libs/buildVersion";
 import { showMutationToast } from "@/libs/toast";
 import { shouldLogTrpcOperation } from "@/libs/trpcLogging";
 import {
-  createTrpcSessionHeaders,
+  createTrpcSession,
   SESSION_CHANGED_MESSAGE,
   SESSION_EXPIRED_MESSAGE,
+  trpcSessionLink,
 } from "@/libs/trpcSession";
 import { isRetryableTrpcError } from "@/utils/error";
 import {
@@ -46,6 +47,18 @@ const TrpcClientProvider = (props: {
   children: React.ReactNode;
 }) => {
   const clerk = useClerk();
+  const [session] = useState(() => createTrpcSession(clerk));
+  useEffect(() => {
+    const unsubscribe = clerk.addListener(({ session: active }) =>
+      session.observeSession(active === undefined ? undefined : (active?.id ?? null)),
+    );
+    return () => {
+      // The boundary can unmount this provider before its Clerk listener runs.
+      const active = clerk.session;
+      session.observeSession(active === undefined ? undefined : (active?.id ?? null));
+      unsubscribe();
+    };
+  }, [clerk, session]);
   const onMutateCheck = useGlobalOnMutateProtect();
   const [queryClient] = useState(
     () =>
@@ -63,6 +76,8 @@ const TrpcClientProvider = (props: {
         }),
         mutationCache: new MutationCache({
           onMutate: (_variables, mutation) => {
+            // Reject before a local onMutate callback can apply optimistic changes.
+            session.assertCurrent();
             // Extract tRPC mutation path from mutation key (e.g., [["towerDefense", "initiateGuestSession"]])
             const key = mutation.options.mutationKey;
             const mutationPath =
@@ -78,6 +93,7 @@ const TrpcClientProvider = (props: {
     const cdnCachedQueries = new Set(props.cdnCachedQueryPaths);
     return api.createClient({
       links: [
+        trpcSessionLink(session),
         retryLink({
           retry(options) {
             if (
@@ -122,7 +138,7 @@ const TrpcClientProvider = (props: {
             url: `${getBaseUrl()}/api/trpc`,
             transformer: superjson,
             // Cookies are shared by tabs; the token belongs to this tab's active session.
-            headers: createTrpcSessionHeaders(clerk),
+            headers: session.headers,
             // Only uncached responses name the current deploy; a CDN copy can predate it.
             fetch: async (input, init) => {
               const response = await fetch(input, init);
@@ -149,8 +165,8 @@ const handleTrpcError = (error: unknown) => {
       ? (error.data as { code?: string } | undefined)?.code
       : undefined;
 
-  // A session can change while a batch obtains its token. The request never leaves
-  // the client, pending state settles, and the rebuilt account tree permits retrying.
+  // A switch rejects queued requests and stale successes. Pending state settles,
+  // and the rebuilt account tree permits retrying without applying the old response.
   if (
     error instanceof Error &&
     (error.message === SESSION_CHANGED_MESSAGE ||

@@ -15,6 +15,7 @@ import {
   ensureParticleOverlayCanvas,
 } from "@/libs/particleOverlay";
 import { registerParticlePlugins } from "@/libs/particlePlugins";
+import { getSessionErrorToastId } from "@/libs/trpcSession";
 import { countNames } from "@/utils/array";
 import { playPreloadedAudio, savedSfxVolume } from "@/utils/audio";
 import { parseHtml } from "@/utils/parse";
@@ -165,7 +166,7 @@ export const showMutationToast = (data: {
         title: data?.title ?? "Error",
         description: data.message,
         duration: data.duration,
-        id: data.id,
+        id: data.id ?? getSessionErrorToastId(data.message),
         variant: data.variant ?? "default",
         action: data.action ?? (
           <ToastAction

@@ -14,7 +14,6 @@ import {
   Users,
 } from "lucide-react";
 import { use, useRef, useState } from "react";
-import { toast } from "sonner";
 import { api } from "@/app/_trpc/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -117,7 +116,12 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
       }
     },
     onError: (error) => {
-      toast.error(error.message || "Could not update the ticket. Please try again.");
+      // Shared feedback keeps the recovery text in descriptions visible on mobile.
+      showMutationToast({
+        success: false,
+        message: error.message || "Could not update the ticket. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 

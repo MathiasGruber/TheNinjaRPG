@@ -1,6 +1,12 @@
+import type { Clerk } from "@clerk/shared/types";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import superjson from "superjson";
+import type { AppRouter } from "@/api/root";
+import { createTrpcSession, trpcSessionLink } from "@/libs/trpcSession";
 import type { UserWithRelations } from "@/routers/profile";
+import type { RegisterDeviceInput } from "@/validators/push";
 import { ensureDom } from "../setup-dom.mjs";
 
 ensureDom();
@@ -175,6 +181,119 @@ afterEach(() => {
 });
 
 describe("native push ownership", () => {
+  it("detaches a registration whose response arrives after the account tree unmounts", async () => {
+    const clerk: Pick<Clerk, "session"> = {
+      session: {
+        id: "account-a",
+        getToken: async () => "account-a",
+      } as NonNullable<Clerk["session"]>,
+    };
+    const credential = "w".repeat(32);
+    let device: { token: string; widgetToken: string } | undefined;
+    let finishRegistration!: () => void;
+    let started!: () => void;
+    const dispatched = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const responseReady = new Promise<void>((resolve) => {
+      finishRegistration = resolve;
+    });
+    const requests: { path: string; authorization: string | null }[] = [];
+    let exposedWidgetToken: string | null | undefined;
+    const createClient = () => {
+      const scope = createTrpcSession(clerk);
+      return createTRPCClient<AppRouter>({
+        links: [
+          trpcSessionLink(scope),
+          httpBatchLink({
+            url: "http://localhost/api/trpc",
+            transformer: superjson,
+            headers: scope.headers,
+            fetch: async (url, init) => {
+              const path = new URL(String(url)).pathname.slice("/api/trpc/".length);
+              requests.push({
+                path,
+                authorization: new Headers(init?.headers).get("Authorization"),
+              });
+              const input = superjson.deserialize<{
+                token: string;
+                widgetToken?: string;
+              }>(JSON.parse(String(init?.body))["0"]);
+              if (path === "push.registerDevice") {
+                device = { token: input.token, widgetToken: credential };
+                started();
+                await responseReady;
+                return Response.json([{
+                  result: {
+                    data: superjson.serialize({ success: true, widgetToken: credential }),
+                  },
+                }]);
+              }
+              exposedWidgetToken = localStorage.getItem("native-widget-token");
+              if (
+                device?.token === input.token &&
+                device?.widgetToken === input.widgetToken
+              ) {
+                device = undefined;
+              }
+              return Response.json([{
+                result: { data: superjson.serialize({ success: true }) },
+              }]);
+            },
+          }),
+        ],
+      });
+    };
+    const firstClient = createClient();
+    mocks.sendToken.mockImplementation((input: RegisterDeviceInput) =>
+      firstClient.push.registerDevice.mutate(input),
+    );
+    const first = renderHook(() =>
+      useNativePush({ enabled: true, accountId: "account-a" }),
+    );
+    await waitFor(() => expect(mocks.registrationListeners).toHaveLength(1));
+    act(() => mocks.registrationListeners[0]?.({ value: TOKEN }));
+    await dispatched;
+    expect(device).toEqual({ token: TOKEN, widgetToken: credential });
+
+    first.unmount();
+    clerk.session = null;
+    const anonymousClient = createClient();
+    mocks.detachToken.mockImplementation(
+      (input: { token: string; widgetToken: string }) =>
+        anonymousClient.push.unregisterDevice.mutate(input),
+    );
+    const signedOut = renderHook(() =>
+      useNativePush({ enabled: false, accountId: null }),
+    );
+    await act(async () => {
+      const pending = signedOut.result.current.unregister();
+      finishRegistration();
+      await pending;
+    });
+
+    expect(mocks.detachToken).toHaveBeenCalledWith({
+      token: TOKEN,
+      widgetToken: credential,
+    });
+    expect(device).toBeUndefined();
+    expect(requests).toEqual([
+      { path: "push.registerDevice", authorization: "Bearer account-a" },
+      { path: "push.unregisterDevice", authorization: null },
+    ]);
+    expect(exposedWidgetToken).toBeNull();
+    expect(signedOut.result.current.widgetToken).toBeUndefined();
+    for (const key of [
+      "native-push-token",
+      "native-push-owner-token",
+      "native-push-pending-detach",
+      "native-widget-token",
+      "native-widget-token-owner",
+    ]) {
+      expect(localStorage.getItem(key)).toBeNull();
+    }
+  });
+
   it("waits for both native listeners before requesting a push token", async () => {
     const plugin = capacitorWindow.Capacitor?.Plugins.PushNotifications;
     if (!plugin) throw new Error("PushNotifications mock is missing");
