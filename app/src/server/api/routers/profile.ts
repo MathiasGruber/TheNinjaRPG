@@ -4394,7 +4394,7 @@ const fetchHasUnvotedPolls = (client: DrizzleClient, userId: string, now: Date) 
         and(
           eq(poll.isActive, true),
           // Either endDate is null or endDate is in the future
-          or(isNull(poll.endDate), sql`${poll.endDate} > ${now}`),
+          or(isNull(poll.endDate), gt(poll.endDate, now)),
           // User hasn't voted on this poll
           isNull(userPollVote.id),
         ),

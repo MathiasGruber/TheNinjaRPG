@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { userData, villageAlliance } from "@/drizzle/schema";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { getPvpBoost } from "@/libs/pvpExperience";
@@ -478,10 +478,7 @@ export const stealthRouter = createTRPCRouter({
           covertTrainingMinutes: null,
         })
         .where(
-          and(
-            eq(userData.userId, ctx.userId),
-            sql`${userData.covertTrainingType} IS NOT NULL`,
-          ),
+          and(eq(userData.userId, ctx.userId), isNotNull(userData.covertTrainingType)),
         );
 
       if (result.rowsAffected === 0) {
