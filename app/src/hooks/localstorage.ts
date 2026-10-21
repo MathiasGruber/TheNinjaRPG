@@ -108,10 +108,14 @@ export const useLocalStorage = <T>(
     if (typeof window !== "undefined" && checkUrlAnchor) {
       const hash = window.location.hash;
       if (hash) {
-        // Remove the # and decode the URL component
-        const decodedAnchor = decodeURIComponent(hash.substring(1));
-        if (decodedAnchor) {
-          return decodedAnchor as unknown as T;
+        try {
+          // Remove the # and decode the URL component
+          const decodedAnchor = decodeURIComponent(hash.substring(1));
+          if (decodedAnchor) {
+            return decodedAnchor as unknown as T;
+          }
+        } catch {
+          // Ignore malformed URL fragments, retaining the stored or current value.
         }
       }
     }
