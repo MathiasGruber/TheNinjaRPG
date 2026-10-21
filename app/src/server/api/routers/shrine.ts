@@ -741,33 +741,18 @@ export const shrineRouter = createTRPCRouter({
         fetchActiveUserMpvpBattles(ctx.drizzle, ctx.userId),
       ]);
 
-      // Helper to check if user is on attacker side (including allies)
-      const isUserOnAttackerSide = (w: (typeof activeWars)[number]) =>
-        w.attackerVillageId === user?.villageId ||
-        w.warAllies?.some(
-          (ally) =>
-            ally.villageId === user?.villageId &&
-            ally.supportVillageId === w.attackerVillageId,
-        );
-
-      // Helper to check if user is on defender side (including allies)
-      const isUserOnDefenderSide = (w: (typeof activeWars)[number]) =>
-        w.defenderVillageId === user?.villageId ||
-        w.warAllies?.some(
-          (ally) =>
-            ally.villageId === user?.villageId &&
-            ally.supportVillageId === w.defenderVillageId,
-        );
-
       // Get the war the user is involved with
       // For SECTOR_WAR: check war.sector matches and user is attacker
       // For VILLAGE_WAR/WAR_RAID: check village sectors
       const userWar = activeWars.find((w) => {
         if (w.status !== "ACTIVE") return false;
+        const side = getWarSide(w, user?.villageId ?? null);
+        const isUserOnAttackerSide = side === w.attackerVillageId;
+        const isUserOnDefenderSide = side === w.defenderVillageId;
 
         if (w.type === "SECTOR_WAR") {
           // Sector wars use war.sector and only attackers can attack
-          return w.sector === input.sectorNumber && isUserOnAttackerSide(w);
+          return w.sector === input.sectorNumber && isUserOnAttackerSide;
         }
 
         if (["VILLAGE_WAR", "WAR_RAID"].includes(w.type)) {
@@ -778,8 +763,8 @@ export const shrineRouter = createTRPCRouter({
           const atAttackerVillage = w.attackerVillage?.sector === input.sectorNumber;
 
           return (
-            (atDefenderVillage && isUserOnAttackerSide(w)) ||
-            (atAttackerVillage && isUserOnDefenderSide(w))
+            (atDefenderVillage && isUserOnAttackerSide) ||
+            (atAttackerVillage && isUserOnDefenderSide)
           );
         }
 

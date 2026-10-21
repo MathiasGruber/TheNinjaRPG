@@ -1784,32 +1784,16 @@ export const combatRouter = createTRPCRouter({
         }),
       ]);
 
-      // Helper to check if user is on attacker side (including allies)
-      const isUserOnAttackerSide = (w: (typeof activeWars)[number]) =>
-        w.attackerVillageId === user?.villageId ||
-        w.warAllies?.some(
-          (ally) =>
-            ally.villageId === user?.villageId &&
-            ally.supportVillageId === w.attackerVillageId,
-        );
-
-      // Helper to check if user is on defender side (including allies)
-      const isUserOnDefenderSide = (w: (typeof activeWars)[number]) =>
-        w.defenderVillageId === user?.villageId ||
-        w.warAllies?.some(
-          (ally) =>
-            ally.villageId === user?.villageId &&
-            ally.supportVillageId === w.defenderVillageId,
-        );
-
       // Find the war the user is involved with
       // For SECTOR_WAR: check war.sector matches and user is attacker
       // For VILLAGE_WAR/WAR_RAID: check village sectors for attack OR defend scenarios
       const userWar = activeWars.find((w) => {
         if (w.status !== "ACTIVE") return false;
+        const side = getWarSide(w, user?.villageId ?? null);
+        const isUserOnAttackerSide = side === w.attackerVillageId;
+        const isUserOnDefenderSide = side === w.defenderVillageId;
 
         if (w.rules) {
-          const side = getWarSide(w, user?.villageId ?? null);
           return (
             !!side &&
             isObjectiveWarActive(w) &&
@@ -1821,7 +1805,7 @@ export const combatRouter = createTRPCRouter({
         }
         if (w.type === "SECTOR_WAR") {
           // Sector wars use war.sector and only attackers can attack
-          return w.sector === input.sector && isUserOnAttackerSide(w);
+          return w.sector === input.sector && isUserOnAttackerSide;
         }
 
         if (["VILLAGE_WAR", "WAR_RAID"].includes(w.type)) {
@@ -1830,16 +1814,16 @@ export const combatRouter = createTRPCRouter({
 
           // Attack scenarios: at enemy's village (reduce their shrine HP)
           const canAttack =
-            (atDefenderVillage && isUserOnAttackerSide(w)) ||
-            (atAttackerVillage && isUserOnDefenderSide(w));
+            (atDefenderVillage && isUserOnAttackerSide) ||
+            (atAttackerVillage && isUserOnDefenderSide);
 
           // Defend scenarios: at own village when shrine is damaged (restore shrine HP)
           const canDefend =
             (atAttackerVillage &&
-              isUserOnAttackerSide(w) &&
+              isUserOnAttackerSide &&
               w.attackerShrineHp < w.attackerShrineMaxHp) ||
             (atDefenderVillage &&
-              isUserOnDefenderSide(w) &&
+              isUserOnDefenderSide &&
               w.defenderShrineHp < w.defenderShrineMaxHp);
 
           return canAttack || canDefend;
