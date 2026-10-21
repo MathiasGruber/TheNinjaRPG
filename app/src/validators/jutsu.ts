@@ -78,6 +78,12 @@ export const jutsuFilteringSchema = z.object({
 
 export type JutsuFilteringSchema = z.infer<typeof jutsuFilteringSchema>;
 
+/** Keep the active loadout visible while filtering the rest of the owned inventory. */
+export const userJutsuFilteringSchema = jutsuFilteringSchema.extend({
+  includeEquipped: z.boolean().optional(),
+});
+export type UserJutsuFilteringSchema = z.infer<typeof userJutsuFilteringSchema>;
+
 /**
  * Base schema for reskins
  */

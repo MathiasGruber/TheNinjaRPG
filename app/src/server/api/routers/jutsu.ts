@@ -143,7 +143,10 @@ import {
 import { DAY_S, secondsFromDate } from "@/utils/time";
 import type { ZodAllTags, ZodJutsuType } from "@/validators/combat";
 import { JutsuValidator } from "@/validators/combat";
-import type { JutsuFilteringSchema } from "@/validators/jutsu";
+import type {
+  JutsuFilteringSchema,
+  UserJutsuFilteringSchema,
+} from "@/validators/jutsu";
 import {
   createLinkedJutsuSchema,
   evolveJutsuSchema,
@@ -153,6 +156,7 @@ import {
   jutsuReskinCreateSchema,
   updateJutsuReskinSchema,
   updateJutsuSchema,
+  userJutsuFilteringSchema,
 } from "@/validators/jutsu";
 import {
   importJutsuLoadoutSchema,
@@ -1256,7 +1260,7 @@ export const jutsuRouter = createTRPCRouter({
 
   getUserJutsus: protectedProcedure
     .meta({ mcp: { description: "Get current user's jutsus" } })
-    .input(jutsuFilteringSchema)
+    .input(userJutsuFilteringSchema)
     .query(async ({ ctx, input }) => {
       return await fetchUserJutsus(ctx.drizzle, ctx.userId, input);
     }),
@@ -2766,7 +2770,7 @@ export const fetchUserReskins = async (client: DrizzleClient, userId: string) =>
 export const fetchUserJutsus = async (
   client: DrizzleClient,
   userId: string,
-  input?: JutsuFilteringSchema,
+  input?: UserJutsuFilteringSchema,
   options: { applyReskins?: boolean } = {},
 ) => {
   // Self-join alias to get the parent jutsu's parentJutsuId (grandparent)
@@ -2792,6 +2796,12 @@ export const fetchUserJutsus = async (
     )
     .orderBy(desc(linkedReskinAlias.updatedAt), asc(linkedReskinAlias.id))
     .limit(1);
+  const filters = jutsuDatabaseFilter(input, true, sql`(${linkedReskinName})`);
+  // Equipped slots stay visible; only the unequipped categories follow search filters.
+  const inventoryFilter =
+    input?.includeEquipped && filters.length > 0
+      ? or(eq(userJutsu.equipped, true), and(...filters))
+      : and(...filters);
   // Grab all userJutsus with Jutsu data and reskin data
   const [linkedReskins, userjutsus] = await Promise.all([
     fetchBloodlineJutsuReskins(client, [userId]),
@@ -2803,11 +2813,7 @@ export const fetchUserJutsus = async (
       .leftJoin(jutsuReskin, eq(userJutsu.reskinId, jutsuReskin.id))
       .leftJoin(parentJutsuAlias, eq(jutsu.parentJutsuId, parentJutsuAlias.id))
       .where(
-        and(
-          eq(userJutsu.userId, userId),
-          ne(jutsu.jutsuType, "AI"),
-          ...jutsuDatabaseFilter(input, true, sql`(${linkedReskinName})`),
-        ),
+        and(eq(userJutsu.userId, userId), ne(jutsu.jutsuType, "AI"), inventoryFilter),
       )
       .orderBy(desc(userJutsu.level)),
   ]);

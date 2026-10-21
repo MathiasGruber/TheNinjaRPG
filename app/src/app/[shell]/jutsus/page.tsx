@@ -142,7 +142,7 @@ export default function MyJutsu() {
 
   // User Jutsus & items
   const { data: userJutsus, isFetching: l1 } = api.jutsu.getUserJutsus.useQuery(
-    getFilter(state),
+    { ...getFilter(state), includeEquipped: true },
     { enabled: !!userData },
   );
   const { data: userItems, isFetching: l2 } = api.item.getUserItems.useQuery(
