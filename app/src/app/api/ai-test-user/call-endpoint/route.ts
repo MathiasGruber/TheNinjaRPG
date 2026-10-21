@@ -8,50 +8,21 @@
  */
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { userData } from "@/drizzle/schema";
 import { appRouter } from "@/server/api/root";
 import { drizzleDB } from "@/server/db";
+import { authenticateAiTestUserRequest } from "@/server/utils/aiTestUser";
 import { aiTestUserCallEndpointRequestSchema } from "@/validators/ai-test-user";
-
-const PREVIEW_ENV_VALUE = "preview";
-const MACHINE_TOKEN_HEADER = "x-tnr-reviewer-token";
 
 export const dynamic = "force-dynamic";
 
-const getMachineToken = async () => {
-  const requestHeaders = await headers();
-  return requestHeaders.get(MACHINE_TOKEN_HEADER);
-};
-
-const isPreviewDeployment = () =>
-  process.env.VERCEL_ENV === PREVIEW_ENV_VALUE ||
-  process.env.NODE_ENV === "development";
-
 export async function POST(request: Request) {
-  if (!isPreviewDeployment()) {
-    return NextResponse.json(
-      { success: false, message: "Call-endpoint broker is only available in preview" },
-      { status: 403 },
-    );
-  }
-
-  const expectedToken = process.env.AI_TEST_USER_BROKER_TOKEN;
-  if (!expectedToken) {
-    return NextResponse.json(
-      { success: false, message: "AI test-user broker token is not configured" },
-      { status: 500 },
-    );
-  }
-
-  const providedToken = await getMachineToken();
-  if (!providedToken || providedToken !== expectedToken) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 },
-    );
-  }
+  const authError = authenticateAiTestUserRequest(
+    request,
+    "Call-endpoint broker is only available in preview",
+  );
+  if (authError) return authError;
 
   let payload: unknown;
   try {
