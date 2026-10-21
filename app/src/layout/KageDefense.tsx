@@ -32,7 +32,7 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import { type KageWindow, kageScheduleSchema } from "@/validators/kage";
 import type { UserSearchResult } from "@/validators/register";
 
-/** Public UTC schedule and queue with role-specific publication, attendance and vacancy actions. */
+/** Public UTC defenses with role-specific scheduling, attendance and optional early-fight consent. */
 export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) => {
   const utils = api.useUtils();
   const router = useRouter();
@@ -123,6 +123,7 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
   );
   const paused = hall?.schedule?.paused;
   const invitation = hall?.schedule?.instantChallenge;
+  // Hide expired consent immediately instead of waiting for the next schedule poll.
   const activeInvitation =
     invitation && new Date(invitation.expiresAt).getTime() > now
       ? invitation

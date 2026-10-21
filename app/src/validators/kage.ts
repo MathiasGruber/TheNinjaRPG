@@ -23,9 +23,11 @@ export const kageScheduleSchema = kageVillageSchema.extend({
     ),
 });
 export const kageMatchSchema = z.object({ id: z.string().min(1) });
+/** Omit the invitation ID for an ordinary scheduled start; include it to accept early. */
 export const kageStartSchema = kageMatchSchema.extend({
   instantRequestId: z.string().min(1).optional(),
 });
+/** Bind dismissal to the exact invitation shown, so stale responses cannot revoke a new one. */
 export const kageInstantResponseSchema = kageMatchSchema.extend({
   instantRequestId: z.string().min(1),
 });

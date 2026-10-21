@@ -3933,6 +3933,7 @@ export const KAGE_DEFENSE_NOTICE_HOURS = 24;
 export const KAGE_DEFENSE_SETUP_HOURS = 24;
 export const KAGE_DEFENSE_CHECK_IN_MINUTES = 5;
 export const KAGE_DEFENSE_GRACE_MINUTES = 5;
+/** Optional early-fight invitations expire independently of scheduled attendance. */
 export const KAGE_DEFENSE_INSTANT_REQUEST_MINUTES = 5;
 export const KAGE_DEFENSE_MAX_NO_SHOWS = 3;
 export const KAGE_DEFENSE_PUBLIC_SYNC_SECONDS = 30;

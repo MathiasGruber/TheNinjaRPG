@@ -2033,6 +2033,7 @@ export const initiateBattle = async (
       tenure: string;
       battleId: string;
       ai: boolean;
+      /** The viewed invitation and original appointment must still match at atomic launch. */
       instantRequest?: { id: string; scheduledAt: string };
     };
   },
@@ -3928,6 +3929,8 @@ export const initiateBattle = async (
         client.transaction(async (transaction) => {
           const tx = transaction as unknown as DrizzleClient;
           const launchAt = new Date();
+          // Consume consent with the receipt and participant claims so a rejected
+          // launch restores the invitation rather than publishing half a fight.
           const leader = await tx
             .update(village)
             .set({

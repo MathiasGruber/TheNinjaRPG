@@ -340,6 +340,8 @@ export const syncLockedKageDefense = async (
   }
   state.paused = hall.paused;
   state.observedAt = now.toISOString();
+  // Revoke an invitation when its appointment or mode changes. Expiry never changes
+  // attendance, queue priority or the original match's reschedule allowance.
   const invitation = state.instantChallenge;
   if (
     invitation &&
