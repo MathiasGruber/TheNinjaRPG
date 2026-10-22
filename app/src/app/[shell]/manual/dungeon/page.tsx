@@ -43,6 +43,7 @@ export default function DungeonEditor() {
   const [floor, setFloor] = useState(0);
   const [message, setMessage] = useState("");
   const [panel, setPanel] = useState("details");
+  const [draftVersion, setDraftVersion] = useState(0);
   const formRef = useRef<HTMLDivElement>(null);
   // Validate before navigation or row re-keying can discard a local quantity draft.
   const roomsRef = useRef<HTMLDivElement>(null);
@@ -141,6 +142,8 @@ export default function DungeonEditor() {
           onClick={() => {
             setId(undefined);
             setContent(newDungeon());
+            // Reset local input drafts even when their default quantity is unchanged.
+            setDraftVersion((version) => version + 1);
             setTier(0);
             setFloor(0);
             setMessage("");
@@ -199,7 +202,7 @@ export default function DungeonEditor() {
           </Button>
         </p>
       )}
-      <div ref={formRef} className="space-y-4">
+      <div key={draftVersion} ref={formRef} className="space-y-4">
         <fieldset disabled={save.isPending}>
           <Tabs value={panel} onValueChange={setPanel}>
             <TabsList className="mb-4 grid grid-cols-3">
