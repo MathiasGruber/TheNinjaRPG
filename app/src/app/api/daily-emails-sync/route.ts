@@ -6,6 +6,7 @@ import { env } from "@/env/server.mjs";
 import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { MONTH_S, secondsFromNow } from "@/utils/time";
 
 const ENDPOINT_NAME = "daily-emails-sync";
@@ -158,13 +159,18 @@ export async function GET(request: Request) {
       await drizzleDB.insert(emailReminder).values(newReminders);
     }
 
-    // Update emailReminder's lastActivity with userData's updatedAt for matching userIds
-    await drizzleDB.execute(sql`
-      UPDATE EmailReminder er
-      INNER JOIN UserData ud ON er.userId = ud.userId
-      SET er.lastActivity = ud.updatedAt
-      WHERE er.userId IS NOT NULL
-    `);
+    // Update emailReminder's lastActivity with userData's updatedAt for matching userIds.
+    // Only rows whose value changed are written. Idempotent, so a deadlock with the other
+    // midnight crons writing UserData just reruns it.
+    await retryOnDeadlock(() =>
+      drizzleDB.execute(sql`
+        UPDATE EmailReminder er
+        INNER JOIN UserData ud ON er.userId = ud.userId
+        SET er.lastActivity = ud.updatedAt
+        WHERE er.userId IS NOT NULL
+          AND NOT (er.lastActivity <=> ud.updatedAt)
+      `),
+    );
 
     console.log(`Total Clerk users fetched: ${allClerkUsers.length}`);
 

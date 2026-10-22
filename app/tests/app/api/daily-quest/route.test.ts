@@ -175,6 +175,31 @@ describe("daily-quest cron", () => {
     expect(mocks.updateSets[0]).toMatchObject({ completed: 0 });
   });
 
+  it("closes only dailies that are still open, leaving earlier days' rows untouched", async () => {
+    // Every closed attempt already has an endAt; rewriting it each night rewrote the whole
+    // daily history and misdated when those attempts ended.
+    seedHappyPath();
+    const wheres: SQL[] = [];
+    mocks.update.mockImplementation(() => ({
+      set: (value: Record<string, unknown>) => {
+        mocks.updateSets.push(value);
+        return {
+          where: vi.fn(async (where: SQL) => {
+            wheres.push(where);
+            return { rowsAffected: 1 };
+          }),
+        };
+      },
+    }));
+
+    await GET(cronRequest());
+
+    const close = new MySqlDialect().sqlToQuery(wheres[0]!);
+    expect(close.sql).toContain("`QuestHistory`.`questType` = ?");
+    expect(close.sql).toContain("`QuestHistory`.`completed` = ?");
+    expect(close.sql).toContain("`QuestHistory`.`endedAt` is null");
+  });
+
   it("assigns one daily per rank/village/level combo without changing tutorial preferences", async () => {
     seedHappyPath();
 
