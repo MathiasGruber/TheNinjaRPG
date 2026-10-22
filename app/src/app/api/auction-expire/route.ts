@@ -15,6 +15,8 @@ import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
 const ENDPOINT_NAME = "auction-expire";
+// Keep the persisted timer key stable across interval changes.
+const TIMER_NAME = `${ENDPOINT_NAME}-0.083m`;
 
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
@@ -24,12 +26,11 @@ export async function GET(request: Request) {
   await cookies();
 
   // Check 5-minute timer lock to prevent abuse
-  const frequency = 0.083; // Using a decimal so it can work in minutes rather than hours
-  const response = await checkGameTimer(drizzleDB, frequency, "m", ENDPOINT_NAME);
+  const response = await checkGameTimer(drizzleDB, TIMER_NAME, 5 * 60_000);
   if (response) return response;
 
   // Update timer
-  await updateGameSetting(drizzleDB, `${ENDPOINT_NAME}-${frequency}m`, 0, new Date());
+  await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
 
   try {
     // Find auctions that are ACTIVE and have expired

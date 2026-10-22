@@ -60,24 +60,21 @@ export const updateGameSetting = async (
 };
 
 /**
- * Locks the game with a timer based on the specified frequency and unit.
+ * Locks the game for an explicit duration using a stable persisted timer name.
  *
  * @param client - The DrizzleClient instance to interact with the game settings.
- * @param frequency - The frequency value for the timer.
- * @param unit - The unit of time for the frequency (default is "h" for hours).
- * @param prefix - The prefix to use for the timer identifier (default is "timer").
+ * @param timerName - Stable game-setting name, independent of the duration.
+ * @param durationMs - The timer duration in milliseconds.
  * @returns A promise that resolves to the response from the checkGameTimer function.
  */
 export const lockWithGameTimer = async (
   client: DrizzleClient,
-  frequency: number,
-  unit = "h",
-  prefix = "timer",
+  timerName: string,
+  durationMs: number,
 ) => {
-  const response = await checkGameTimer(client, frequency, unit, prefix);
-  const idx = `${prefix}-${frequency}${unit}`;
+  const response = await checkGameTimer(client, timerName, durationMs);
   if (!response) {
-    await updateGameSetting(client, idx, 0, new Date());
+    await updateGameSetting(client, timerName, 0, new Date());
   }
   return response;
 };
@@ -214,25 +211,11 @@ export const lockWithMonthlyTimer = async (client: DrizzleClient, name: string) 
 /**
  * Checks the game timer and returns a response indicating how much time is left before the game can be run again.
  * @param client - The database client used to read or initialize the timer.
- * @param hours - The number of hours for the game timer.
- * @param unit - The label used in the timer's persisted name.
- * @param prefix - The prefix used in the timer's persisted name.
+ * @param timerName - Stable game-setting name, independent of the duration.
+ * @param durationMs - The timer duration in milliseconds.
  * @returns A JSON response indicating the time left before the game can be run again.
  */
 export const checkGameTimer = async (
-  client: DrizzleClient,
-  hours: number,
-  unit = "h",
-  prefix = "timer",
-) => {
-  return checkGameTimerDuration(
-    client,
-    `${prefix}-${hours}${unit}`,
-    1000 * 60 * 60 * hours,
-  );
-};
-
-const checkGameTimerDuration = async (
   client: DrizzleClient,
   timerName: string,
   durationMs: number,

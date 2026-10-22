@@ -14,6 +14,8 @@ import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { secondsFromNow } from "@/utils/time";
 
+const TIMER_NAME = "timer-720h";
+
 /**
  * DANGER ZONE
  * This function is responsible for the daily update of the game state.
@@ -29,11 +31,15 @@ export async function GET(request: Request) {
 
   // Check timer
   const frequency = 24 * 30;
-  const response = await checkGameTimer(drizzleDB, frequency);
+  const response = await checkGameTimer(
+    drizzleDB,
+    TIMER_NAME,
+    frequency * 60 * 60 * 1000,
+  );
   if (response) return response;
 
   // Update timer
-  await updateGameSetting(drizzleDB, `timer-${frequency}h`, 0, new Date());
+  await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
 
   try {
     // Get all staff
