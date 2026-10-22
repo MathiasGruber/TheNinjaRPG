@@ -16,7 +16,7 @@ const profileSnapshot = (isOutlaw: boolean, anbuId: string | null = null) => ({
 
 const profileClient = (snapshots: ReturnType<typeof profileSnapshot>[], failCleanup = false, maxReads = Infinity) => {
   const selection = Object.assign(Promise.resolve([]), {
-    from: () => selection, where: () => selection, leftJoin: () => selection,
+    from: () => selection, where: () => selection, leftJoin: () => selection, innerJoin: () => selection,
     limit: () => selection, orderBy: () => selection,
   });
   let reads = 0;
