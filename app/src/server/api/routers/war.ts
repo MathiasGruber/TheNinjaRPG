@@ -1883,18 +1883,41 @@ export const warRouter = createTRPCRouter({
     .meta({ mcp: { description: "Get war kill records" } })
     .input(z.object({ warId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const results = await ctx.drizzle.query.warKill.findMany({
-        where: eq(warKill.warId, input.warId),
-        with: {
-          killer: { columns: { userId: true, avatar: true, username: true } },
-          victim: { columns: { userId: true, avatar: true, username: true } },
-          killerVillage: { columns: { id: true, name: true } },
-          victimVillage: { columns: { id: true, name: true } },
-        },
-        orderBy: [desc(warKill.killedAt)],
-      });
-      // Ensure killer and victim are not null
-      return results.filter((kill) => kill.killer && kill.victim);
+      const [results, mercenaryHistory] = await Promise.all([
+        ctx.drizzle.query.warKill.findMany({
+          where: eq(warKill.warId, input.warId),
+          with: {
+            killer: { columns: { userId: true, avatar: true, username: true } },
+            victim: { columns: { userId: true, avatar: true, username: true } },
+            killerVillage: { columns: { id: true, name: true } },
+            victimVillage: { columns: { id: true, name: true } },
+          },
+          orderBy: [desc(warKill.killedAt)],
+        }),
+        ctx.drizzle.query.warMercenary.findMany({
+          columns: { userId: true },
+          where: and(
+            eq(warMercenary.warId, input.warId),
+            sql`${warMercenary.acceptedAt} IS NOT NULL`,
+          ),
+        }),
+      ]);
+      // Accepted contracts keep identities private after dismissal; recorded villages
+      // are credited war sides and remain visible alongside the kill records.
+      const maskedIds = new Set(
+        mercenaryHistory.filter((m) => m.userId !== ctx.userId).map((m) => m.userId),
+      );
+      return results
+        .filter((kill) => kill.killer && kill.victim)
+        .map((kill) => ({
+          ...kill,
+          killer: maskedIds.has(kill.killerId)
+            ? { ...kill.killer, username: "Mercenary", avatar: IMG_AVATAR_DEFAULT }
+            : kill.killer,
+          victim: maskedIds.has(kill.victimId)
+            ? { ...kill.victim, username: "Mercenary", avatar: IMG_AVATAR_DEFAULT }
+            : kill.victim,
+        }));
     }),
 
   getWarKillStats: protectedProcedure
@@ -1908,47 +1931,53 @@ export const warRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      // If total kills
-      if (input.aggregateBy === "totalKills") {
-        return await ctx.drizzle
+      // Damage contributions count positive values only; negative values are losses.
+      const aggregateField =
+        input.aggregateBy === "townhallHpChange"
+          ? warKill.townhallHpChange
+          : warKill.shrineHpChange;
+      const aggregate =
+        input.aggregateBy === "totalKills"
+          ? count()
+          : sql<number>`sum(GREATEST(${aggregateField}, 0))`;
+      const [results, mercenaryHistory] = await Promise.all([
+        ctx.drizzle
           .select({
             killerId: warKill.killerId,
             killerUsername: userData.username,
             villageId: userData.villageId,
             villageName: village.name,
             killerAvatar: userData.avatar,
-            count: count(),
+            count: aggregate,
           })
           .from(warKill)
           .leftJoin(userData, eq(warKill.killerId, userData.userId))
           .leftJoin(village, eq(userData.villageId, village.id))
           .where(eq(warKill.warId, input.warId))
           .groupBy(warKill.killerId)
-          .orderBy(desc(count()));
-      }
-
-      // Other aggregate fields - only sum positive values (actual damage contribution)
-      // Negative values represent losses, which shouldn't count as "damage dealt"
-      const aggregateField =
-        input.aggregateBy === "townhallHpChange"
-          ? warKill.townhallHpChange
-          : warKill.shrineHpChange;
-
-      return await ctx.drizzle
-        .select({
-          killerId: warKill.killerId,
-          killerUsername: userData.username,
-          villageId: userData.villageId,
-          villageName: village.name,
-          killerAvatar: userData.avatar,
-          count: sql<number>`sum(GREATEST(${aggregateField}, 0))`,
-        })
-        .from(warKill)
-        .leftJoin(userData, eq(warKill.killerId, userData.userId))
-        .leftJoin(village, eq(userData.villageId, village.id))
-        .where(eq(warKill.warId, input.warId))
-        .groupBy(warKill.killerId)
-        .orderBy(desc(sql<number>`sum(GREATEST(${aggregateField}, 0))`));
+          .orderBy(desc(aggregate)),
+        ctx.drizzle.query.warMercenary.findMany({
+          columns: { userId: true },
+          where: and(
+            eq(warMercenary.warId, input.warId),
+            sql`${warMercenary.acceptedAt} IS NOT NULL`,
+          ),
+        }),
+      ]);
+      const maskedIds = new Set(
+        mercenaryHistory.filter((m) => m.userId !== ctx.userId).map((m) => m.userId),
+      );
+      return results.map((row) =>
+        maskedIds.has(row.killerId)
+          ? {
+              ...row,
+              killerUsername: "Mercenary",
+              killerAvatar: IMG_AVATAR_DEFAULT,
+              villageId: null,
+              villageName: null,
+            }
+          : row,
+      );
     }),
 
   // Get pending elder votes for a village

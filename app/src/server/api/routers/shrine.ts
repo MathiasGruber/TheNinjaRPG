@@ -697,12 +697,11 @@ export const shrineRouter = createTRPCRouter({
           : viewer.villageId;
         return {
           ...entry,
-          viewerSide:
-            activeWar && !side
-              ? null
-              : side === entry.defenderEntityId
-                ? ("DEFENDER" as const)
-                : ("ATTACKER" as const),
+          viewerSide: !side
+            ? null
+            : side === entry.defenderEntityId
+              ? ("DEFENDER" as const)
+              : ("ATTACKER" as const),
           queue: entry.queue.map((member) => ({
             ...member,
             user:
@@ -1016,9 +1015,10 @@ export const shrineRouter = createTRPCRouter({
         )
           return errorResponse("You cannot join this shrine party on that war side.");
       } else if (
-        input.side === "ATTACKER"
+        !user.villageId ||
+        (input.side === "ATTACKER"
           ? user.villageId === shrineBattle.defenderEntityId
-          : user.villageId !== shrineBattle.defenderEntityId
+          : user.villageId !== shrineBattle.defenderEntityId)
       ) {
         return errorResponse("You cannot join this shrine party on that side.");
       }

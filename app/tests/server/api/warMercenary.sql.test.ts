@@ -4,7 +4,7 @@ import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { SHRINE_BATTLE_LOBBY_SECONDS, VILLAGE_SYNDICATE_ID, WAR_ESPIONAGE_TARGET } from "@/drizzle/constants";
+import { IMG_AVATAR_DEFAULT, SHRINE_BATTLE_LOBBY_SECONDS, VILLAGE_SYNDICATE_ID, WAR_ESPIONAGE_TARGET } from "@/drizzle/constants";
 import { aiProfile, battle, battleHistory, jutsuLoadout, mpvpBattleQueue, mpvpBattleUser, quest, sector, warActionReceipt, warContribution, warKill, userData, village, villageAlliance, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
 import { updateWars } from "@/libs/combat/database";
 import { calcBattleResult, getBattleTeamWars } from "@/libs/combat/util";
@@ -97,6 +97,46 @@ describeWithDatabase("war mercenary contracts", () => {
     await kage.leaveMercenary({ contractId: "contract" });
     expect((await kage.getObjectiveWarInfo({ warId: "w" }))!.contributions.find((row) => row.userId === "merc")!.isMasked).toBe(true);
   });
+  it("masks accepted mercenary kill history while preserving self, ordinary players and credited sides", async () => {
+    const db = await getTestDatabase();
+    for (const userId of ["merc", "merc2", "merc3", "kage", "enemy"]) {
+      await db.update(userData).set({ username: `Real_${userId}`, avatar: `https://example.com/${userId}.png` }).where(eq(userData.userId, userId));
+    }
+    await db.insert(warMercenary).values([
+      { id: "killer-contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() },
+      { id: "victim-contract", warId: "w", sideVillageId: "b", userId: "merc2", invitedById: "enemy", tokens: 1, slot: 0, acceptedAt: new Date() },
+      { id: "pending-contract", warId: "w", sideVillageId: "a", userId: "merc3", invitedById: "kage", tokens: 1, slot: 1 },
+    ]);
+    await db.insert(warKill).values([
+      { id: "merc-kill", warId: "w", killerId: "merc", victimId: "merc2", killerVillageId: "a", victimVillageId: "b", townhallHpChange: 15, shrineHpChange: 8, killedAt: new Date(3000) },
+      { id: "native-kill", warId: "w", killerId: "kage", victimId: "enemy", killerVillageId: "a", victimVillageId: "b", townhallHpChange: -5, shrineHpChange: -5, killedAt: new Date(2000) },
+      { id: "pending-kill", warId: "w", killerId: "merc3", victimId: "enemy", killerVillageId: "c", victimVillageId: "b", killedAt: new Date(1000) },
+    ]);
+    for (const dismissed of [false, true]) {
+      if (dismissed) await db.update(warMercenary).set({ endedAt: new Date() });
+      for (const viewer of ["kage", "merc4", "merc", "merc2"]) {
+        const caller = callerForDatabase(warRouter, viewer, db);
+        const kills = await caller.getWarKills({ warId: "w" });
+        expect(kills.map((kill) => kill.id)).toEqual(["merc-kill", "native-kill", "pending-kill"]);
+        const kill = kills[0]!;
+        expect(kill.killer).toEqual({ userId: "merc", username: viewer === "merc" ? "Real_merc" : "Mercenary", avatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT });
+        expect(kill.victim).toEqual({ userId: "merc2", username: viewer === "merc2" ? "Real_merc2" : "Mercenary", avatar: viewer === "merc2" ? "https://example.com/merc2.png" : IMG_AVATAR_DEFAULT });
+        expect(kill.killerVillage).toEqual({ id: "a", name: "A" });
+        expect(kill.victimVillage).toEqual({ id: "b", name: "B" });
+        expect(kills[1]!.killer.username).toBe("Real_kage");
+        expect(kills[1]!.killer.avatar).toBe("https://example.com/kage.png");
+        expect(kills[2]!.killer.username).toBe("Real_merc3");
+        for (const aggregateBy of ["totalKills", "townhallHpChange", "shrineHpChange"] as const) {
+          const stats = await caller.getWarKillStats({ warId: "w", aggregateBy });
+          const row = stats.find((entry) => entry.killerId === "merc")!;
+          expect(row).toMatchObject({ killerUsername: viewer === "merc" ? "Real_merc" : "Mercenary", killerAvatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT, villageId: viewer === "merc" ? "c" : null, villageName: viewer === "merc" ? "C" : null });
+          expect(Number(row.count)).toBe(aggregateBy === "totalKills" ? 1 : aggregateBy === "townhallHpChange" ? 15 : 8);
+          expect(stats.find((entry) => entry.killerId === "kage")).toMatchObject({ killerUsername: "Real_kage", killerAvatar: "https://example.com/kage.png", villageId: "a", villageName: "A" });
+          expect(stats.find((entry) => entry.killerId === "merc3")).toMatchObject({ killerUsername: "Real_merc3", villageId: "c", villageName: "C" });
+        }
+      }
+    }
+  });
   it("rechecks funds, leadership, war lifetime and enemy eligibility before payment", async () => {
     const db = await getTestDatabase();
     const kage = callerForDatabase(warRouter, "kage", db);
@@ -166,6 +206,41 @@ describeWithDatabase("mercenary strategic participation", () => {
     expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.status).toBe(isObjective ? "QUEUED" : "AWAKE");
     expect((await db.query.mpvpBattleQueue.findFirst())?.attackerEntityId).toBe(isObjective ? "a" : undefined);
     expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(isObjective ? 1 : 0);
+  });
+  it.each([false, true])("restricts village-less mercenary joins to their objective war and preserves village joins (objective: %s)", async (isObjective) => {
+    const db = await getTestDatabase();
+    await resetTables(mpvpBattleUser, mpvpBattleQueue, sector, villageAlliance);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    await db.update(userData).set({ status: "AWAKE", sector: 101 });
+    await db.update(userData).set({ villageId: null }).where(eq(userData.userId, "merc"));
+    await db.update(userData).set({ villageId: null }).where(eq(userData.userId, "merc2"));
+    await db.update(userData).set({ villageId: "a" }).where(eq(userData.userId, "merc3"));
+    await db.insert(warMercenary).values([
+      { id: "attacker-contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() },
+      { id: "defender-contract", warId: "w", sideVillageId: "b", userId: "merc2", invitedById: "enemy", tokens: 1, slot: 0, acceptedAt: new Date() },
+    ]);
+    await db.update(war).set({ objectiveState: {
+      attackerEspionage: WAR_ESPIONAGE_TARGET, defenderEspionage: WAR_ESPIONAGE_TARGET,
+      objectives: [{ sector: isObjective ? 101 : 102, villageId: "b", hp: 100, maxHp: 100, destroyed: false, isReserve: false }],
+    } }).where(eq(war.id, "w"));
+    await db.insert(villageAlliance).values({ id: "enemy", villageIdA: "a", villageIdB: "b", status: "ENEMY" });
+    await db.insert(sector).values({ sector: 101, villageId: "b", shrineLevel: 1 });
+    const hero = callerForDatabase(shrineRouter, "kage", db);
+    expect((await hero.challengeShrine({ sectorNumber: 101 })).success).toBe(true);
+    const lobby = (await db.query.mpvpBattleQueue.findFirst())!;
+    for (const [userId, side] of [["merc", "ATTACKER"], ["merc2", "DEFENDER"]] as const) {
+      const caller = callerForDatabase(shrineRouter, userId, db);
+      expect((await caller.getShrineBattles({ sectorNumber: 101 }))[0]!.viewerSide).toBe(isObjective ? side : null);
+      const joined = await caller.joinShrineBattle({ shrineBattleId: lobby.id, side });
+      expect(joined.success, joined.message).toBe(isObjective);
+      expect((await db.query.userData.findFirst({ where: eq(userData.userId, userId) }))!.status).toBe(isObjective ? "QUEUED" : "AWAKE");
+      expect(!!(await db.query.mpvpBattleUser.findFirst({ where: eq(mpvpBattleUser.userId, userId) }))).toBe(isObjective);
+    }
+    for (const [userId, side] of [["merc3", "ATTACKER"], ["enemy", "DEFENDER"]] as const) {
+      const caller = callerForDatabase(shrineRouter, userId, db);
+      expect((await caller.getShrineBattles({ sectorNumber: 101 }))[0]!.viewerSide).toBe(side);
+      expect((await caller.joinShrineBattle({ shrineBattleId: lobby.id, side })).success).toBe(true);
+    }
   });
   it("completes a village-less mercenary mission and retains battle credit after dismissal", async () => {
     const db = await getTestDatabase();
