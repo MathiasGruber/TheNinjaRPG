@@ -394,6 +394,10 @@ export const paypalRouter = createTRPCRouter({
         input.transactionId,
       );
       const msgs = await syncTransactions(ctx.drizzle, transactions, token);
+      if (!msgs.length)
+        return errorResponse(
+          "No completed transaction found. PayPal may not have reported this payment yet. Check the transaction ID and date, then retry later.",
+        );
 
       return { success: true, message: msgs.join(", ") };
     }),

@@ -90,6 +90,31 @@ describeWithDatabase("web store payments", () => {
     expect((await db.query.webStoreOrder.findFirst())?.grantedAt).toBeNull();
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
   });
+  it("explains when a transaction lookup has no completed payment without granting rewards", async () => {
+    const buyer = await callerFor(paypalRouter, "buyer");
+    const db = await getTestDatabase();
+    const order = await reserve();
+    const pending = reportingTransaction(order.id);
+    pending.transaction_info.transaction_status = "P";
+    let transactions: Parameters<typeof syncTransactions>[1] = [];
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(async url => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({ access_token: "test-only" });
+      return Response.json({ transaction_details: transactions });
+    });
+    try {
+      for (const report of [[], [pending]]) {
+        transactions = report;
+        expect(await buyer.resolveTransaction({ transactionId: capture(order.id).captureId, transactionDate: new Date() })).toEqual({
+          success: false,
+          message: "No completed transaction found. PayPal may not have reported this payment yet. Check the transaction ID and date, then retry later.",
+        });
+      }
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+      expect(await db.query.userItem.findMany()).toHaveLength(0);
+      expect(await db.query.webStoreOrder.findFirst()).toMatchObject({ grantedAt: null });
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({ reputationPoints: 0, reputationPointsTotal: 0, money: 0 });
+    } finally { fetchMock.mockRestore(); }
+  });
   it("skips store refunds while reconciling valid captures and retries", async () => {
     const db = await getTestDatabase();
     const refunded = await reserve();
