@@ -1,4 +1,16 @@
-import { and, desc, eq, gt, gte, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -1642,14 +1654,14 @@ export const warRouter = createTRPCRouter({
             villageId: userData.villageId,
             villageName: village.name,
             killerAvatar: userData.avatar,
-            count: sql<number>`count(*)`,
+            count: count(),
           })
           .from(warKill)
           .leftJoin(userData, eq(warKill.killerId, userData.userId))
           .leftJoin(village, eq(userData.villageId, village.id))
           .where(eq(warKill.warId, input.warId))
           .groupBy(warKill.killerId)
-          .orderBy(desc(sql<number>`count(*)`));
+          .orderBy(desc(count()));
       }
 
       // Other aggregate fields - only sum positive values (actual damage contribution)
@@ -1804,7 +1816,7 @@ export const warRouter = createTRPCRouter({
         fetchElderVote(ctx.drizzle, input.voteId),
         fetchVillage(ctx.drizzle, input.userVillageId),
         ctx.drizzle
-          .select({ count: sql<number>`count(*)` })
+          .select({ count: count() })
           .from(userData)
           .where(
             and(
@@ -2127,17 +2139,20 @@ const getVillageMemberCount = async (
   villageId: string,
 ): Promise<number> => {
   const factionMembers = client
-    .select({ count: sql<number>`COUNT(*)` })
+    .select({ count: count() })
     .from(userData)
     .innerJoin(clan, eq(clan.id, userData.clanId))
     .where(and(eq(clan.villageId, villageId), eq(userData.isAi, false)));
   const residents = client
-    .select({ count: sql<number>`COUNT(*)` })
+    .select({ count: count() })
     .from(userData)
     .where(eq(userData.villageId, villageId));
   const result = await client
     .select({
-      count: sql<number>`CASE WHEN ${village.type} IN ('HIDEOUT', 'STRONGHOLD') THEN (${factionMembers}) ELSE (${residents}) END`,
+      count:
+        sql`CASE WHEN ${village.type} IN ('HIDEOUT', 'STRONGHOLD') THEN (${factionMembers}) ELSE (${residents}) END`.mapWith(
+          Number,
+        ),
     })
     .from(village)
     .where(eq(village.id, villageId));

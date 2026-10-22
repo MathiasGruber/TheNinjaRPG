@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { Poll, PollOption } from "@/drizzle/schema";
@@ -580,7 +580,7 @@ async function getVoteCountsForPolls(client: DrizzleClient, pollIds: string[]) {
       .select({
         pollId: userPollVote.pollId,
         optionId: userPollVote.optionId,
-        count: sql<number>`count(*)`,
+        count: count(),
       })
       .from(userPollVote)
       .where(inArray(userPollVote.pollId, pollIds))
@@ -590,7 +590,7 @@ async function getVoteCountsForPolls(client: DrizzleClient, pollIds: string[]) {
     client
       .select({
         pollId: userPollVote.pollId,
-        count: sql<number>`count(*)`,
+        count: count(),
       })
       .from(userPollVote)
       .where(inArray(userPollVote.pollId, pollIds))

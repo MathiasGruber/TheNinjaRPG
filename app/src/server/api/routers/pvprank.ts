@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import {
   and,
   asc,
+  count,
   eq,
   gt,
   gte,
@@ -402,7 +403,7 @@ export const pvpRankRouter = createTRPCRouter({
       }
       // Get the queue count
       const queueCount = await ctx.drizzle
-        .select({ count: sql<number>`count(*)` })
+        .select({ count: count() })
         .from(rankedPvpQueue)
         .where(eq(rankedPvpQueue.hasClaimed, true))
         .then((result) => result[0]?.count ?? 0);

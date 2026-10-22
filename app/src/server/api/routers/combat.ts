@@ -2,6 +2,7 @@ import { randomInt as secureRandomInt } from "node:crypto";
 import * as Sentry from "@sentry/nextjs";
 import {
   and,
+  count,
   desc,
   eq,
   exists,
@@ -555,7 +556,7 @@ export const combatRouter = createTRPCRouter({
           defenderUsername: defender.username,
           attackerAvatar: attacker.avatar,
           defenderAvatar: defender.avatar,
-          total: sql<number>`COUNT(*)`,
+          total: count(),
         })
         .from(battleHistory)
         .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
@@ -582,7 +583,7 @@ export const combatRouter = createTRPCRouter({
             defenderUsername: defender.username,
             attackerAvatar: attacker.avatar,
             defenderAvatar: defender.avatar,
-            total: sql<number>`COUNT(*)`,
+            total: count(),
           })
           .from(battleHistory)
           .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
