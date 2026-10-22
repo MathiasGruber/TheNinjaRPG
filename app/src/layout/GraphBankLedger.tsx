@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import type React from "react";
 import { api } from "@/app/_trpc/client";
+import { Button } from "@/components/ui/button";
 import Loader from "@/layout/Loader";
 import { getUnique } from "@/utils/grouping";
 
@@ -16,9 +17,21 @@ const GraphUsersGeneric = dynamic(() => import("@/layout/GraphUsersGeneric"), {
 
 const GraphBankLedger: React.FC = () => {
   // Queries
-  const { data, isPending } = api.bank.getGraph.useQuery(undefined);
+  const { data, isPending, isFetching, refetch } =
+    api.bank.getGraph.useQuery(undefined);
 
-  if (!data || isPending) return <Loader explanation="Loading bank ledger graph" />;
+  if (!data) {
+    if (isPending) return <Loader explanation="Loading bank ledger graph" />;
+    return (
+      <div role="alert" className="space-y-2 py-2">
+        <p>Could not load the bank ledger graph.</p>
+        <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  if (data.length === 0) return <p role="status">No bank transfers to display.</p>;
 
   // Wrangling a bit
   const users =
