@@ -2145,6 +2145,7 @@ export const VillageWar: React.FC<{
                 columns={killColumns}
                 linkColumn="killerId"
                 linkPrefix="/userid/"
+                linkDisabled={(row) => !row.killerId}
               />
             </div>
           ) : (
@@ -2189,6 +2190,7 @@ export const VillageWar: React.FC<{
                 columns={statsColumns}
                 linkColumn="killerId"
                 linkPrefix="/userid/"
+                linkDisabled={(row) => !row.killerId}
               />
             ) : (
               <p className="text-center text-muted-foreground">

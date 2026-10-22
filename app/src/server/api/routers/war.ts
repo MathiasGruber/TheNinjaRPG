@@ -472,15 +472,21 @@ export const warRouter = createTRPCRouter({
         camps,
         contributions: contributions.map((row) => ({
           ...row,
+          userId: isMasked(row.userId) ? null : row.userId,
           username: displayName(row.userId, row.username),
           isMasked: isMasked(row.userId),
         })),
-        combatContributions: [...combatContributions.values()].sort(
-          (a, b) =>
-            b.kills - a.kills ||
-            a.losses - b.losses ||
-            a.username.localeCompare(b.username),
-        ),
+        combatContributions: [...combatContributions.values()]
+          .map((row) => ({
+            ...row,
+            userId: row.isMasked ? null : row.userId,
+          }))
+          .sort(
+            (a, b) =>
+              b.kills - a.kills ||
+              a.losses - b.losses ||
+              a.username.localeCompare(b.username),
+          ),
         attempt: user.warMission,
       };
     }),
@@ -1911,11 +1917,23 @@ export const warRouter = createTRPCRouter({
         .filter((kill) => kill.killer && kill.victim)
         .map((kill) => ({
           ...kill,
+          killerId: maskedIds.has(kill.killerId) ? null : kill.killerId,
+          victimId: maskedIds.has(kill.victimId) ? null : kill.victimId,
           killer: maskedIds.has(kill.killerId)
-            ? { ...kill.killer, username: "Mercenary", avatar: IMG_AVATAR_DEFAULT }
+            ? {
+                ...kill.killer,
+                userId: null,
+                username: "Mercenary",
+                avatar: IMG_AVATAR_DEFAULT,
+              }
             : kill.killer,
           victim: maskedIds.has(kill.victimId)
-            ? { ...kill.victim, username: "Mercenary", avatar: IMG_AVATAR_DEFAULT }
+            ? {
+                ...kill.victim,
+                userId: null,
+                username: "Mercenary",
+                avatar: IMG_AVATAR_DEFAULT,
+              }
             : kill.victim,
         }));
     }),
@@ -1971,6 +1989,7 @@ export const warRouter = createTRPCRouter({
         maskedIds.has(row.killerId)
           ? {
               ...row,
+              killerId: null,
               killerUsername: "Mercenary",
               killerAvatar: IMG_AVATAR_DEFAULT,
               villageId: null,

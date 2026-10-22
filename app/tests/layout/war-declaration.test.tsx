@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dynamic from "next/dynamic";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -559,6 +559,55 @@ describe("objective war townhall health", () => {
     ["defender", false],
     ["defender-ally", false],
   ] as const;
+
+  it("keeps masked kill history and statistics readable while preserving ordinary and self navigation", () => {
+    const push = vi.fn();
+    const identities = [
+      { userId: null, username: "Mercenary" },
+      { userId: "ordinary", username: "Ordinary" },
+      { userId: user.userId, username: "Self" },
+    ];
+    Object.assign(client.api.war, {
+      getWarKills: {
+        useQuery: () => ({ data: identities.map((identity, index) => ({
+          id: `kill-${index}`, killerId: identity.userId,
+          killer: { ...identity, avatar: "" },
+          victim: { userId: "victim", username: "Victim", avatar: "" },
+          killerVillage: { name: "Attacker" }, victimVillage: { name: "Defender" },
+          killedAt: new Date(), sector: 1, shrineHpChange: 0, townhallHpChange: 0,
+        })) }),
+      },
+      getWarKillStats: {
+        useQuery: () => ({ data: identities.map((identity) => ({
+          killerId: identity.userId, killerUsername: identity.username,
+          killerAvatar: "", villageName: null, count: 1,
+        })) }),
+      },
+    });
+    const view = render(
+      <AppRouterContext.Provider value={{
+        back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push,
+        replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-history",
+      }}>
+        <VillageWar war={{ ...war, rules: null }} user={user} isKage={false} />
+      </AppRouterContext.Provider>,
+    );
+    for (const icon of ["swords", "trophy"]) {
+      fireEvent.click(view.container.querySelector(`.lucide-${icon}`)!.closest("button")!);
+      const rows = within(view.getByRole("dialog")).getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(3);
+      expect(rows[0]!.textContent).toContain("Mercenary");
+      expect(rows[0]!.classList.contains("cursor-pointer")).toBe(false);
+      fireEvent.click(rows[0]!);
+      expect(push).not.toHaveBeenCalled();
+      for (const index of [1, 2]) {
+        fireEvent.click(rows[index]!);
+        expect(push).toHaveBeenLastCalledWith(`/userid/${identities[index]!.userId}`);
+      }
+      push.mockClear();
+      fireEvent.click(within(view.getByRole("dialog")).getAllByRole("button", { name: "Close" })[0]!);
+    }
+  });
 
   it.each(viewers)(
     "shows the latest initial snapshot to %s",

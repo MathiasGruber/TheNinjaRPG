@@ -75,17 +75,23 @@ describeWithDatabase("war mercenary contracts", () => {
   });
   it("carries the existing identity mask into contributions and sector profiles, except for self", async () => {
     const db = await getTestDatabase();
-    await db.insert(warMercenary).values({ id: "contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() });
-    await db.insert(warContribution).values([{ warId: "w", userId: "merc", damage: 100 }, { warId: "w", userId: "kage", damage: 50 }]);
-    await db.insert(warKill).values({ id: "kill", warId: "w", killerId: "merc", victimId: "enemy", killerVillageId: "a", victimVillageId: "b" });
+    await db.insert(warMercenary).values([
+      { id: "contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() },
+      { id: "contract2", warId: "w", sideVillageId: "a", userId: "merc2", invitedById: "kage", tokens: 1, slot: 1, acceptedAt: new Date() },
+    ]);
+    await db.insert(warContribution).values([{ warId: "w", userId: "merc", damage: 100 }, { warId: "w", userId: "merc2", damage: 75 }, { warId: "w", userId: "kage", damage: 50 }]);
+    await db.insert(warKill).values(["merc", "merc", "merc2"].map((killerId, index) => ({ id: `kill-${index}`, warId: "w", killerId, victimId: "enemy", killerVillageId: "a", victimVillageId: "b" })));
     await db.update(userData).set({ status: "AWAKE", sector: 1, updatedAt: new Date() });
     for (const viewer of ["kage", "enemy", "merc"]) {
       const info = (await callerForDatabase(warRouter, viewer, db).getObjectiveWarInfo({ warId: "w" }))!;
       for (const rows of [info.contributions, info.combatContributions]) {
-        const mercenary = rows.find((row) => row.userId === "merc")!;
+        expect(rows).toHaveLength(3);
+        expect(rows.filter((row) => row.userId === null)).toHaveLength(viewer === "merc" ? 1 : 2);
+        const mercenary = rows.find((row) => "damage" in row ? row.damage === 100 : row.kills === 2)!;
+        expect(mercenary.userId).toBe(viewer === "merc" ? "merc" : null);
         expect(mercenary.isMasked).toBe(viewer !== "merc");
         expect(mercenary.username === "Mercenary").toBe(viewer !== "merc");
-        expect(rows.find((row) => row.userId !== "merc")!.isMasked).toBe(false);
+        expect(rows.find((row) => row.userId === ("damage" in mercenary ? "kage" : "enemy"))).toMatchObject({ isMasked: false, userId: "damage" in mercenary ? "kage" : "enemy" });
       }
       const sectorData = await callerForDatabase(travelRouter, viewer, db).getSectorData({ sector: 1 });
       const mercenary = sectorData.users.find((row) => row.userId === "merc")!;
@@ -95,7 +101,7 @@ describeWithDatabase("war mercenary contracts", () => {
     const kage = callerForDatabase(warRouter, "kage", db);
     expect((await kage.getMercenaries({ warId: "w" })).roster[0]!.user?.username).not.toBe("Mercenary");
     await kage.leaveMercenary({ contractId: "contract" });
-    expect((await kage.getObjectiveWarInfo({ warId: "w" }))!.contributions.find((row) => row.userId === "merc")!.isMasked).toBe(true);
+    expect((await kage.getObjectiveWarInfo({ warId: "w" }))!.contributions.find((row) => row.damage === 100)).toMatchObject({ isMasked: true, username: "Mercenary", userId: null });
   });
   it("masks accepted mercenary kill history while preserving self, ordinary players and credited sides", async () => {
     const db = await getTestDatabase();
@@ -119,17 +125,20 @@ describeWithDatabase("war mercenary contracts", () => {
         const kills = await caller.getWarKills({ warId: "w" });
         expect(kills.map((kill) => kill.id)).toEqual(["merc-kill", "native-kill", "pending-kill"]);
         const kill = kills[0]!;
-        expect(kill.killer).toEqual({ userId: "merc", username: viewer === "merc" ? "Real_merc" : "Mercenary", avatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT });
-        expect(kill.victim).toEqual({ userId: "merc2", username: viewer === "merc2" ? "Real_merc2" : "Mercenary", avatar: viewer === "merc2" ? "https://example.com/merc2.png" : IMG_AVATAR_DEFAULT });
+        expect(kill.killer).toEqual({ userId: viewer === "merc" ? "merc" : null, username: viewer === "merc" ? "Real_merc" : "Mercenary", avatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT });
+        expect(kill.victim).toEqual({ userId: viewer === "merc2" ? "merc2" : null, username: viewer === "merc2" ? "Real_merc2" : "Mercenary", avatar: viewer === "merc2" ? "https://example.com/merc2.png" : IMG_AVATAR_DEFAULT });
+        expect(kill.killerId).toBe(viewer === "merc" ? "merc" : null);
+        expect(kill.victimId).toBe(viewer === "merc2" ? "merc2" : null);
         expect(kill.killerVillage).toEqual({ id: "a", name: "A" });
         expect(kill.victimVillage).toEqual({ id: "b", name: "B" });
+        expect(kills[1]!).toMatchObject({ killerId: "kage", victimId: "enemy", killer: { userId: "kage" }, victim: { userId: "enemy" } });
         expect(kills[1]!.killer.username).toBe("Real_kage");
         expect(kills[1]!.killer.avatar).toBe("https://example.com/kage.png");
-        expect(kills[2]!.killer.username).toBe("Real_merc3");
+        expect(kills[2]!).toMatchObject({ killerId: "merc3", killer: { userId: "merc3", username: "Real_merc3" } });
         for (const aggregateBy of ["totalKills", "townhallHpChange", "shrineHpChange"] as const) {
           const stats = await caller.getWarKillStats({ warId: "w", aggregateBy });
-          const row = stats.find((entry) => entry.killerId === "merc")!;
-          expect(row).toMatchObject({ killerUsername: viewer === "merc" ? "Real_merc" : "Mercenary", killerAvatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT, villageId: viewer === "merc" ? "c" : null, villageName: viewer === "merc" ? "C" : null });
+          const row = stats.find((entry) => entry.killerId === (viewer === "merc" ? "merc" : null))!;
+          expect(row).toMatchObject({ killerId: viewer === "merc" ? "merc" : null, killerUsername: viewer === "merc" ? "Real_merc" : "Mercenary", killerAvatar: viewer === "merc" ? "https://example.com/merc.png" : IMG_AVATAR_DEFAULT, villageId: viewer === "merc" ? "c" : null, villageName: viewer === "merc" ? "C" : null });
           expect(Number(row.count)).toBe(aggregateBy === "totalKills" ? 1 : aggregateBy === "townhallHpChange" ? 15 : 8);
           expect(stats.find((entry) => entry.killerId === "kage")).toMatchObject({ killerUsername: "Real_kage", killerAvatar: "https://example.com/kage.png", villageId: "a", villageName: "A" });
           expect(stats.find((entry) => entry.killerId === "merc3")).toMatchObject({ killerUsername: "Real_merc3", villageId: "c", villageName: "C" });

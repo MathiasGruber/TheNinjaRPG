@@ -380,7 +380,7 @@ describe("war mercenary management", () => {
 describe("war field objectives", () => {
   it("keeps masked contributions readable without profile navigation in either table", () => {
     const identities = [
-      { userId: "hidden", username: "Mercenary", isMasked: true },
+      { userId: null, username: "Mercenary", isMasked: true },
       { userId: user.userId, username: "Mercenary", isMasked: false },
     ];
     info!.contributions = identities.map((identity) => ({
