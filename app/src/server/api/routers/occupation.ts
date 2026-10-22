@@ -21,8 +21,10 @@ import { getCookingLevel, getCookingSeconds } from "@/libs/cooking";
 import {
   calculateItemConsumption,
   craftingStartBlockMessage,
+  formatCraftingRank,
   getCraftingRank,
   getEffectiveMaxImbuements,
+  getMissingCraftingRank,
   getTotalItemQuantity,
 } from "@/libs/crafting";
 import {
@@ -265,17 +267,13 @@ export const occupationRouter = createTRPCRouter({
           ? CONSUMABLE_CRAFTING_TIMES_MINS[userCraftingRank]
           : rankCraftingTime;
       // Guards - check rank eligibility regardless of item type
-      if (!isMeal && rankCraftingTime === 0) {
-        const requiredRank =
-          itemWithRequirements.rarity === "RARE"
-            ? "Apprentice"
-            : itemWithRequirements.rarity === "EPIC"
-              ? "Master"
-              : itemWithRequirements.rarity === "LEGENDARY"
-                ? "Forgemaster"
-                : "Unknown";
+      const missingCraftingRank = getMissingCraftingRank(
+        itemWithRequirements,
+        userCraftingRank,
+      );
+      if (missingCraftingRank) {
         return errorResponse(
-          `You need to be at least ${requiredRank} rank to craft ${itemWithRequirements.rarity} items`,
+          `You need to be at least ${formatCraftingRank(missingCraftingRank)} rank to craft ${itemWithRequirements.rarity} items`,
         );
       }
       // Validate user has enough materials using collapsed quantities

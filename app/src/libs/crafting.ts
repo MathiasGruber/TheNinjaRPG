@@ -3,9 +3,11 @@ import {
   CRAFTING_MAX_IMBUED_ITEMS,
   CRAFTING_RANKS,
   CRAFTING_REQUIRED_EXP,
+  CRAFTING_TIMES_MINS,
   MAP_WAKE_ISLAND_SECTOR,
 } from "@/drizzle/constants";
 import type { Item, UserData, UserItem } from "@/drizzle/schema";
+import { capitalizeFirstLetter } from "@/utils/string";
 
 /** Shared state and location gates for starting a craft. */
 export const craftingStartBlockMessage = (
@@ -28,6 +30,35 @@ export const getCraftingRank = (experience: number): CRAFTING_RANK => {
   if (experience >= CRAFTING_REQUIRED_EXP.APPRENTICE) return "APPRENTICE";
   return "NOVICE";
 };
+
+/**
+ * Crafting rank a user still needs before crafting an item, or null when the
+ * current rank is enough. A zero entry in `CRAFTING_TIMES_MINS` marks a rarity
+ * the rank cannot craft; this applies to every item type except meals, which
+ * follow the cooking rules instead.
+ * @param item - The item to craft
+ * @param craftingRank - The user's current crafting rank
+ * @returns The lowest rank able to craft the item, or null when allowed
+ */
+export const getMissingCraftingRank = (
+  item: Pick<Item, "itemType" | "rarity">,
+  craftingRank: CRAFTING_RANK,
+): CRAFTING_RANK | "UNKNOWN" | null => {
+  if (item.itemType === "MEAL") return null;
+  if (CRAFTING_TIMES_MINS[craftingRank][item.rarity] !== 0) return null;
+  return (
+    CRAFTING_RANKS.find((rank) => CRAFTING_TIMES_MINS[rank][item.rarity] !== 0) ??
+    "UNKNOWN"
+  );
+};
+
+/**
+ * Display name for a crafting rank, e.g. "FORGEMASTER" -> "Forgemaster"
+ * @param craftingRank - The crafting rank
+ * @returns The rank name for display
+ */
+export const formatCraftingRank = (craftingRank: CRAFTING_RANK | "UNKNOWN") =>
+  capitalizeFirstLetter(craftingRank);
 
 /**
  * Get the next crafting rank
