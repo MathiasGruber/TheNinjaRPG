@@ -31,6 +31,7 @@ const reportingTransaction = (id: string): Parameters<typeof syncTransactions>[1
   cart_info: { item_details: [] },
 });
 
+/** Reserve the shared offer for the default buyer and recipient. */
 async function reserve() {
   const result = await reserveStoreOrder(await getTestDatabase(), "buyer", "recipient", offer);
   if (!result.success) throw new Error(result.message);
@@ -140,6 +141,44 @@ describeWithDatabase("web store payments", () => {
     expect(await db.query.recruitmentRewards.findMany()).toHaveLength(0);
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
       reputationPoints: 0, reputationPointsTotal: 0, money: 0,
+    });
+  });
+  it("reports failed store deliveries while reconciling valid store and legacy payments once", async () => {
+    const db = await getTestDatabase();
+    await insertUsers([{ userId: "deleted-recipient", username: "DeletedRecipient" }]);
+    const failed = await reserveStoreOrder(db, "buyer", "deleted-recipient", offer);
+    if (!failed.success) throw new Error(failed.message);
+    const paid = await reserve();
+    await db.delete(userData).where(eq(userData.userId, "deleted-recipient"));
+    const legacy = reportingTransaction("legacy-payment");
+    legacy.transaction_info.custom_field = "buyer-buyer";
+    const batch = [reportingTransaction(failed.order.id), reportingTransaction(paid.id), legacy];
+    const failure = `Transaction ID ${capture(failed.order.id).captureId}: Recipient unavailable. Contact support with your payment receipt.`;
+    expect(await syncTransactions(db, batch, "test-only")).toEqual([
+      failure,
+      `${offer.name} delivered`,
+      "Transaction ID capture-legacy-payment synced!",
+    ]);
+    const buyer = await db.query.userData.findFirst({ where: eq(userData.userId, "buyer") });
+    expect(buyer!.reputationPoints).toBeGreaterThan(0);
+    expect(await syncTransactions(db, batch, "test-only")).toEqual([
+      failure,
+      "Purchase already delivered",
+      "Transaction ID capture-legacy-payment already processed",
+    ]);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "buyer") })).toMatchObject({
+      reputationPoints: buyer!.reputationPoints,
+      reputationPointsTotal: buyer!.reputationPointsTotal,
+    });
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
+      reputationPoints: 20, reputationPointsTotal: 20, money: 500,
+    });
+    expect((await db.query.paypalTransaction.findMany()).map(receipt => receipt.transactionId).sort()).toEqual([
+      capture(paid.id).captureId, "capture-legacy-payment",
+    ].sort());
+    expect(await db.query.userItem.findMany()).toHaveLength(3);
+    expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, failed.order.id) })).toMatchObject({
+      grantedAt: null, captureId: null,
     });
   });
   it("rolls back the claim when a recipient disappears, allowing retry", async () => {
@@ -325,6 +364,62 @@ describeWithDatabase("web store payments", () => {
       return Response.json({id:"TESTORDER123456789",status:"APPROVED",purchase_units:[{custom_id:`store:${order.id}`,invoice_id:order.id,amount:{currency_code:"USD",value:"0.01"}}]});
     });
     try {expect((await owner.captureStoreOrder({orderId:"TESTORDER123456789"})).success).toBe(false);expect(captures).toBe(0);} finally {fetchMock.mockRestore();}
+  });
+  it.each(["CREATED", "VOIDED", "PAYER_ACTION_REQUIRED", undefined, "UNKNOWN"])("does not refresh expired allowance or capture an unapproved order (%s)", async status => {
+    const owner = await callerFor(paypalRouter, "buyer");
+    const db = await getTestDatabase();
+    const order = await reserve();
+    const expiresAt = new Date(0);
+    await db.update(webStoreOrder).set({ expiresAt }).where(eq(webStoreOrder.id, order.id));
+    let captures = 0;
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(async url => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({ access_token: "test-only" });
+      if (String(url).endsWith("/capture")) captures++;
+      return Response.json({
+        id: "TESTORDER123456789", status,
+        purchase_units: [{ custom_id: `store:${order.id}`, invoice_id: order.id, amount: { currency_code: "USD", value: "12.50" } }],
+      });
+    });
+    try {
+      const result = await owner.captureStoreOrder({ orderId: "TESTORDER123456789" });
+      expect(result.success).toBe(false);
+      expect(captures).toBe(0);
+      expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, order.id) })).toMatchObject({
+        expiresAt, grantedAt: null, captureId: null,
+      });
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+      expect(result.message).toContain("Approve this checkout");
+    } finally { fetchMock.mockRestore(); }
+  });
+  it("delivers a completed payment after its reservation expires without recapturing", async () => {
+    const owner = await callerFor(paypalRouter, "buyer");
+    const db = await getTestDatabase();
+    const order = await reserve();
+    const expiresAt = new Date(0);
+    await db.update(webStoreOrder).set({ expiresAt }).where(eq(webStoreOrder.id, order.id));
+    let captures = 0;
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(async url => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({ access_token: "test-only" });
+      if (String(url).endsWith("/capture")) captures++;
+      return Response.json({
+        id: "TESTORDER123456789", status: "COMPLETED",
+        purchase_units: [{
+          custom_id: `store:${order.id}`, invoice_id: order.id, amount: { currency_code: "USD", value: "12.50" },
+          payments: { captures: [{ id: "EXPIREDPAIDCAPTURE", status: "COMPLETED", amount: { currency_code: "USD", value: "12.50" } }] },
+        }],
+      });
+    });
+    try {
+      expect((await owner.captureStoreOrder({ orderId: "TESTORDER123456789" })).success).toBe(true);
+      expect((await owner.captureStoreOrder({ orderId: "TESTORDER123456789" })).success).toBe(true);
+      expect(captures).toBe(0);
+      expect((await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, order.id) }))?.expiresAt).toEqual(expiresAt);
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
+        reputationPoints: 20, reputationPointsTotal: 20, money: 500,
+      });
+      expect(await db.query.userItem.findMany()).toHaveLength(3);
+    } finally { fetchMock.mockRestore(); }
   });
   it("refuses to capture after the recipient or bundle items disappear", async () => {
     const owner=await callerFor(paypalRouter,"buyer");const db=await getTestDatabase();const order=await reserve();let captures=0;

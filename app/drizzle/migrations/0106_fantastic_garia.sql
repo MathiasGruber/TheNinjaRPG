@@ -25,3 +25,4 @@ CREATE TABLE `WebStoreOrder` (
 );
 
 CREATE INDEX `WebStoreOrder_buyerId_idx` ON `WebStoreOrder` (`buyerId`);
+CREATE INDEX `WebStoreOrder_recipientId_idx` ON `WebStoreOrder` (`recipientId`);

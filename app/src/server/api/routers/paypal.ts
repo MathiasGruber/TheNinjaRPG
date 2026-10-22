@@ -271,6 +271,10 @@ export const paypalRouter = createTRPCRouter({
           "Payment does not match this checkout. No payment was captured.",
         );
       if (order?.status !== "COMPLETED") {
+        if (order?.status !== "APPROVED")
+          return errorResponse(
+            "Approve this checkout with PayPal before capturing payment. No payment was captured.",
+          );
         const allowanceError = await authorizeStoreCapture(
           ctx.drizzle,
           snapshotId,
@@ -845,16 +849,21 @@ export const syncTransactions = async (
           if (parseFloat(info.transaction_amount.value ?? "") < 0) {
             return `Transaction ID ${info.transaction_id} invalid value`;
           }
-          const result = await deliverStoreOrder(client, {
-            snapshotId,
-            captureId: info.transaction_id,
-            orderId: info.paypal_reference_id,
-            currency: info.transaction_amount.currency_code ?? "",
-            value: info.transaction_amount.value ?? "",
-            invoiceId: info.invoice_id,
-            raw: t,
-          });
-          return result.message;
+          try {
+            const result = await deliverStoreOrder(client, {
+              snapshotId,
+              captureId: info.transaction_id,
+              orderId: info.paypal_reference_id,
+              currency: info.transaction_amount.currency_code ?? "",
+              value: info.transaction_amount.value ?? "",
+              invoiceId: info.invoice_id,
+              raw: t,
+            });
+            return result.message;
+          } catch (error) {
+            // A blocked delivery must not stop other payments or the hourly referral pass.
+            return `Transaction ID ${info.transaction_id}: ${error instanceof Error ? error.message : "Store delivery failed"}`;
+          }
         }
         const createdByUserId = info.custom_field?.split("-")?.[0];
         const affectedUserId = info.custom_field?.split("-")?.[1];

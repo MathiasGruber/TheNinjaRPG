@@ -13,6 +13,7 @@ import {
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
+/** Reconcile PayPal payments and award outstanding referral reputation on the hourly schedule. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;

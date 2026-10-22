@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "1ec70fc8-0f11-4f39-a32c-64588c61ff27",
+  "id": "a864d283-6782-49d4-a477-4654bb3ce5fd",
   "prevId": "152c6d2d-3268-4066-b514-f22543b0cd13",
   "tables": {
     "AbEvent": {
@@ -21825,6 +21825,13 @@
           "name": "WebStoreOrder_buyerId_idx",
           "columns": [
             "buyerId"
+          ],
+          "isUnique": false
+        },
+        "WebStoreOrder_recipientId_idx": {
+          "name": "WebStoreOrder_recipientId_idx",
+          "columns": [
+            "recipientId"
           ],
           "isUnique": false
         },

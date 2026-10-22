@@ -6954,4 +6954,4 @@ export const webStoreOrder = mysqlTable("WebStoreOrder", {
   expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }).notNull(),
   grantedAt: datetime("grantedAt", { mode: "date", fsp: 3 }),
   captureId: varchar("captureId", { length: 191 }),
-}, table => [index("WebStoreOrder_buyerId_idx").on(table.buyerId), uniqueIndex("WebStoreOrder_captureId_key").on(table.captureId)]);
+}, table => [index("WebStoreOrder_buyerId_idx").on(table.buyerId), index("WebStoreOrder_recipientId_idx").on(table.recipientId), uniqueIndex("WebStoreOrder_captureId_key").on(table.captureId)]);
