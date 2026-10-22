@@ -6,7 +6,7 @@ import type { DrizzleClient } from "@/server/db";
 import * as nativePush from "@/server/utils/push/defer";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { beforeStatements, failStatements } from "../../setup/statements";
-import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("auction settlement", () => {
   const queuePush = vi.fn();
@@ -58,6 +58,75 @@ describeWithDatabase("auction settlement", () => {
       expect(queuePush).toHaveBeenCalledTimes(1);
       expect((await completeAuctionInternal(db, "auction")).success).toBe(false);
       expect(await balances(balance)).toEqual({ seller: 1100, winner: 900, loser: 1000 });
+    });
+
+    it(`settles a single bid using one guarded statement in ${currency}`, async () => {
+      await seedAuction(currency);
+      const db = await getTestDatabase();
+      await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+      const recorded = await recordQueries(() => completeAuctionInternal(db, "auction"));
+      expect(recorded.result.success).toBe(true);
+      expect(recorded.statements.filter((statement) => /^\s*UPDATE/i.test(statement))).toHaveLength(1);
+      expect(recorded.statements.some((statement) => /^(begin|start transaction)/i.test(statement.trim()))).toBe(false);
+      expect(await balances(balance)).toEqual({ seller: 1100, winner: 900, loser: 930 });
+      expect((await db.select().from(userItem))[0]).toMatchObject({ userId: "winner", isInAuction: false, activeVariantId: null, storedAtHome: false });
+      expect(queuePush).toHaveBeenCalledTimes(1);
+    });
+
+    it(`rolls back a first-bid buyout INSERT, debit and log when ${currency} delivery fails`, async () => {
+      await seedAuction(currency, false, false);
+      const db = await getTestDatabase();
+      const failed = wrapTransactions(db, (tx) => failStatements(tx, userItem));
+      const buyer = callerForDatabase(auctionRouter, "winner", failed);
+      await expect(buyer.placeBid({ auctionId: "auction", amount: 150 })).rejects.toThrow("Statement failed on purpose");
+      expect(await balances(balance)).toEqual({ seller: 1000, winner: 900, loser: 930 });
+      expect((await db.select().from(auctionListing))[0]).toMatchObject({ status: "ACTIVE", currentPrice: 1 });
+      expect(await db.select().from(auctionBid)).toHaveLength(0);
+      expect(await db.select().from(actionLog)).toHaveLength(0);
+      expect((await db.select().from(userItem))[0]).toMatchObject({ userId: "seller", isInAuction: true });
+      expect(queuePush).not.toHaveBeenCalled();
+    });
+
+    it(`keeps a first-bid buyout transactional for the INSERT in ${currency}`, async () => {
+      await seedAuction(currency, false, false);
+      const db = await getTestDatabase();
+      const buyer = await callerFor(auctionRouter, "winner");
+      const recorded = await recordQueries(() => buyer.placeBid({ auctionId: "auction", amount: 150 }));
+      expect(recorded.result.success).toBe(true);
+      expect(recorded.statements.some((statement) => /^(begin|start transaction)/i.test(statement.trim()))).toBe(true);
+      expect(await balances(balance)).toEqual({ seller: 1150, winner: 750, loser: 930 });
+      expect((await db.select().from(auctionListing))[0]).toMatchObject({ status: "SOLD", buyerId: "winner" });
+      expect((await db.select().from(auctionBid))[0]).toMatchObject({ amount: 150, status: "WON" });
+      expect(queuePush).toHaveBeenCalledTimes(1);
+    });
+
+    it(`claims a concurrent single-bid buyout raise only once in ${currency}`, async () => {
+      await seedAuction(currency, true, false);
+      const db = await getTestDatabase();
+      await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+      let arrivals = 0;
+      let release!: () => void;
+      const ready = new Promise<void>((resolve) => { release = resolve; });
+      const synchronized = new Proxy(db, {
+        get(target, key, receiver) {
+          if (key !== "execute") return Reflect.get(target, key, receiver);
+          return async (query: Parameters<DrizzleClient["execute"]>[0]) => {
+            if (++arrivals === 2) release();
+            await ready;
+            return target.execute(query);
+          };
+        },
+      });
+      const buyer = callerForDatabase(auctionRouter, "winner", synchronized);
+      const results = await Promise.all([
+        buyer.placeBid({ auctionId: "auction", amount: 150 }),
+        buyer.placeBid({ auctionId: "auction", amount: 175 }),
+      ]);
+      expect(results.filter((result) => result.success)).toHaveLength(1);
+      const [listing] = await db.select().from(auctionListing);
+      expect(listing?.status).toBe("SOLD");
+      expect(await balances(balance)).toEqual({ seller: 1000 + listing!.currentPrice, winner: 1000 - listing!.currentPrice, loser: 930 });
+      expect(queuePush).toHaveBeenCalledTimes(1);
     });
 
     it(`rolls back delivery, credits and the listing claim if a later ${currency} write fails`, async () => {
@@ -149,15 +218,110 @@ describeWithDatabase("auction settlement", () => {
     expect(await balances("bank")).toEqual({ seller: 1000, winner: 900, loser: 930 });
   });
 
+  it("expires an empty auction without opening a transaction", async () => {
+    await seedAuction("MONEY", false);
+    const db = await getTestDatabase();
+    const recorded = await recordQueries(() => completeAuctionInternal(db, "auction"));
+    expect(recorded.result.success).toBe(true);
+    expect(recorded.statements.filter((statement) => /^\s*UPDATE/i.test(statement))).toHaveLength(1);
+    expect(recorded.statements.some((statement) => /^(begin|start transaction)/i.test(statement.trim()))).toBe(false);
+  });
+
+  it("does not expire an empty snapshot after a bid appears", async () => {
+    await seedAuction("MONEY", false);
+    const db = await getTestDatabase();
+    const changed = beforeStatements(db, auctionListing, [async () => {
+      await db.insert(auctionBid).values({ id: "late-bid", auctionId: "auction", bidderId: "winner", amount: 100 });
+    }]);
+    expect((await completeAuctionInternal(changed, "auction")).success).toBe(false);
+    expect((await db.select().from(auctionListing))[0]?.status).toBe("ACTIVE");
+    expect((await db.select().from(userItem))[0]?.isInAuction).toBe(true);
+    expect(queuePush).not.toHaveBeenCalled();
+  });
+
+  it("does not settle a single-bid snapshot after another bid appears", async () => {
+    await seedAuction("MONEY");
+    const db = await getTestDatabase();
+    await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+    const changed = beforeStatements(db, auctionListing, [async () => {
+      await db.insert(auctionBid).values({ id: "late-bid", auctionId: "auction", bidderId: "loser", amount: 70 });
+    }]);
+    expect((await completeAuctionInternal(changed, "auction")).success).toBe(false);
+    expect((await db.select().from(auctionListing))[0]?.status).toBe("ACTIVE");
+    expect((await db.select().from(userItem))[0]?.isInAuction).toBe(true);
+    expect(await balances("bank")).toEqual({ seller: 1000, winner: 900, loser: 930 });
+  });
+
+  it("rejects a single-bid buyout if the balance changes before its guarded statement", async () => {
+    await seedAuction("MONEY", true, false);
+    const db = await getTestDatabase();
+    await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+    const changed = beforeStatements(db, auctionListing, [async () => {
+      await db.update(userData).set({ bank: 0 }).where(eq(userData.userId, "winner"));
+    }]);
+    const buyer = callerForDatabase(auctionRouter, "winner", changed);
+    expect((await buyer.placeBid({ auctionId: "auction", amount: 150 })).success).toBe(false);
+    expect((await db.select().from(auctionListing))[0]).toMatchObject({ status: "ACTIVE", currentPrice: 100 });
+    expect((await db.select().from(auctionBid))[0]).toMatchObject({ amount: 100, status: "ACTIVE" });
+    expect((await db.select().from(userItem))[0]?.isInAuction).toBe(true);
+    expect((await balances("bank")).seller).toBe(1000);
+    expect(queuePush).not.toHaveBeenCalled();
+  });
+
+  it("rejects a single-bid buyout if its deadline passes before the guarded statement", async () => {
+    await seedAuction("MONEY", true, false);
+    const db = await getTestDatabase();
+    await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+    const changed = beforeStatements(db, auctionListing, [async () => {
+      await db.update(auctionListing).set({ expiresAt: new Date(0) }).where(eq(auctionListing.id, "auction"));
+    }]);
+    const buyer = callerForDatabase(auctionRouter, "winner", changed);
+    expect((await buyer.placeBid({ auctionId: "auction", amount: 150 })).success).toBe(false);
+    expect((await db.select().from(auctionListing))[0]).toMatchObject({ status: "ACTIVE", currentPrice: 100 });
+    expect(await balances("bank")).toEqual({ seller: 1000, winner: 900, loser: 930 });
+    expect(queuePush).not.toHaveBeenCalled();
+  });
+
+  it.each(["seller", "winner"])("rejects single-bid settlement when the %s account disappears after preload", async (userId) => {
+    await seedAuction("MONEY");
+    const db = await getTestDatabase();
+    await db.delete(auctionBid).where(eq(auctionBid.id, "losing-bid"));
+    const changed = beforeStatements(db, auctionListing, [async () => {
+      await db.delete(userData).where(eq(userData.userId, userId));
+    }]);
+    expect((await completeAuctionInternal(changed, "auction")).success).toBe(false);
+    expect((await db.select().from(auctionListing))[0]?.status).toBe("ACTIVE");
+    expect((await db.select().from(auctionBid))[0]?.status).toBe("ACTIVE");
+    expect((await db.select().from(userItem))[0]).toMatchObject({ userId: "seller", isInAuction: true });
+    expect(queuePush).not.toHaveBeenCalled();
+  });
+
+  it("rolls back every payment when one of 75 refund recipients is missing", async () => {
+    await seedAuction("MONEY");
+    const db = await getTestDatabase();
+    const recipients = Array.from({ length: 75 }, (_, index) => ({ userId: `refund-${index}`, username: `Refund${index}`, bank: 0 }));
+    await insertUsers(recipients);
+    await db.insert(auctionBid).values(recipients.map((user, index) => ({ id: `extra-${index}`, auctionId: "auction", bidderId: user.userId, amount: index + 1 })));
+    await db.delete(userData).where(eq(userData.userId, "refund-74"));
+    expect((await completeAuctionInternal(db, "auction")).success).toBe(false);
+    const pending = await balances("bank");
+    expect(pending.seller).toBe(1000);
+    for (let index = 0; index < 74; index++) expect(pending[`refund-${index}`]).toBe(0);
+    expect((await db.select().from(auctionListing))[0]?.status).toBe("ACTIVE");
+    expect((await db.select().from(userItem))[0]?.isInAuction).toBe(true);
+    expect(queuePush).not.toHaveBeenCalled();
+    await insertUsers([{ userId: "refund-74", username: "Refund74", bank: 0 }]);
+    expect((await completeAuctionInternal(db, "auction")).success).toBe(true);
+    const delivered = await balances("bank");
+    expect(delivered.seller).toBe(1100);
+    for (let index = 0; index < 75; index++) expect(delivered[`refund-${index}`]).toBe(index + 1);
+    expect(queuePush).toHaveBeenCalledTimes(1);
+  });
+
   it("rolls back a no-bid expiration when releasing the item fails", async () => {
     await seedAuction("MONEY", false);
     const db = await getTestDatabase();
-    const failed = new Proxy(db, {
-      get(target, key, receiver) {
-        if (key === "transaction") return (work: Parameters<DrizzleClient["transaction"]>[0]) => target.transaction((tx) => work(failStatements(tx as DrizzleClient, userItem) as typeof tx));
-        return Reflect.get(target, key, receiver);
-      },
-    });
+    const failed = failStatements(db, userItem);
     await expect(completeAuctionInternal(failed, "auction")).rejects.toThrow("Statement failed on purpose");
     expect((await db.select().from(auctionListing))[0]?.status).toBe("ACTIVE");
     expect((await db.select().from(userItem))[0]?.isInAuction).toBe(true);

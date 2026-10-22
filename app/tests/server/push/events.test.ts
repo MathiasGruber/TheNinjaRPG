@@ -55,7 +55,7 @@ describe("war native alerts", () => {
 
 describe("auction result native alerts", () => {
   const auction = {
-    id: "auction-one", sellerId: "seller", userItemId: "item-one", currencyType: "MONEY",
+    id: "auction-one", sellerId: "seller", userItemId: "item-one", currencyType: "MONEY", currentPrice: 200,
     bids: [
       { id: "bid-one", bidderId: "winner", amount: 200, status: "ACTIVE", createdAt: new Date(0) },
       { id: "bid-two", bidderId: "refunded", amount: 100, status: "ACTIVE", createdAt: new Date(0) },
@@ -73,7 +73,8 @@ describe("auction result native alerts", () => {
       ...tx,
       update: (table: unknown) => table === userData ? payment() : update(),
     }));
-    return { client: { transaction } as unknown as DrizzleClient, transaction };
+    const execute = vi.fn(async () => ({ rowsAffected: 2 }));
+    return { client: { transaction, execute, query: tx.query } as unknown as DrizzleClient, transaction, execute };
   };
   it("waits for the settlement commit before notifying participants", async () => {
     const { client, transaction } = settlementClient();
@@ -101,6 +102,22 @@ describe("auction result native alerts", () => {
     expect(await completeAuctionInternal(client, auction.id)).toMatchObject({ success: true, winningBid: null });
     await deferred[0]?.();
     expect(send.mock.calls[0]?.[1]).toEqual(["seller"]);
+  });
+  it("waits for a no-bid statement before notifying its seller", async () => {
+    const { client, execute, transaction } = settlementClient([]);
+    let finish!: () => void;
+    const statement = new Promise<void>((resolve) => { finish = resolve; });
+    execute.mockImplementation(async () => {
+      expect(deferred).toHaveLength(0);
+      await statement;
+      return { rowsAffected: 2 };
+    });
+    const finishing = completeAuctionInternal(client, auction.id);
+    expect(deferred).toHaveLength(0);
+    finish();
+    expect((await finishing).success).toBe(true);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(deferred).toHaveLength(1);
   });
   it("does not announce completion when the transaction fails", async () => {
     const { client, transaction } = settlementClient();

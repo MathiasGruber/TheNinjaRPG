@@ -697,8 +697,23 @@ export const auctionRouter = createTRPCRouter({
       }
 
       try {
-        // A first bid needs an INSERT alongside the guarded debit and listing update.
-        // Buyouts keep escrow on the transaction path for atomic delivery and refunds.
+        if (isBuyoutBid && existingBid && auction.bids.length === 1) {
+          // With no losing bids, the claim, debit, delivery and seller payment are one joined row.
+          const settlement = await retryOnDeadlock(() =>
+            settleAuctionWithoutRefunds(ctx.drizzle, auction, ctx.userId, {
+              amount,
+              amountToDeduct,
+              listingGuard,
+              bidderGuard,
+            }),
+          );
+          await recordBidActivity(ctx.drizzle, bidLog, outbidNotification, true);
+          notifyAuctionSettlement(ctx.drizzle, settlement);
+          return { success: true, message: "Buyout successful - auction completed" };
+        }
+        // A first bid must INSERT AuctionBid and UPDATE its balance/listing together;
+        // MySQL cannot combine that INSERT and those UPDATEs in one statement.
+        // A buyout with losing bids also needs the complete-refund checks in settleAuction.
         const settlement = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
             if (raiseStatement) {
@@ -889,8 +904,12 @@ export const completeAuctionInternal = async (
   winnerId?: string,
 ) => {
   try {
+    const auction = await fetchAuctionListing(drizzle, auctionId);
+    if (!auction) return throwAuctionSettlementConflict("Auction not found");
     const settlement = await retryOnDeadlock(() =>
-      drizzle.transaction((tx) => settleAuction(tx, auctionId, winnerId)),
+      auction.bids.length < 2
+        ? settleAuctionWithoutRefunds(drizzle, auction, winnerId)
+        : drizzle.transaction((tx) => settleAuction(tx, auctionId, winnerId)),
     );
     notifyAuctionSettlement(drizzle, settlement);
     return settlement;
@@ -901,6 +920,118 @@ export const completeAuctionInternal = async (
   }
 };
 
+/** Existing rows without refunds form one guarded join; no transaction is needed. */
+const settleAuctionWithoutRefunds = async (
+  database: Pick<DrizzleClient, "execute">,
+  auction: AuctionSettlementSnapshot,
+  winnerId?: string,
+  raise?: {
+    amount: number;
+    amountToDeduct: number;
+    listingGuard: QueryCondition;
+    bidderGuard: QueryCondition;
+  },
+) => {
+  const [bid] = auction.bids;
+  if (auction.bids.length > 1 || (bid && (bid.status !== "ACTIVE" || bid.amount <= 0)))
+    return throwAuctionSettlementConflict("Auction escrow changed; please refresh");
+  const winningBid = bid ? { ...bid, amount: raise?.amount ?? bid.amount } : null;
+  if (
+    winnerId &&
+    (!winningBid ||
+      winningBid.bidderId !== winnerId ||
+      auction.buyoutPrice === null ||
+      winningBid.amount < auction.buyoutPrice)
+  )
+    return throwAuctionSettlementConflict(
+      "Buyout bid is no longer available; please refresh",
+    );
+  const listingGuard = and(
+    eq(auctionListing.id, auction.id),
+    eq(auctionListing.status, "ACTIVE"),
+    eq(auctionListing.currentPrice, auction.currentPrice),
+    eq(auctionListing.currencyType, auction.currencyType),
+    eq(auctionListing.sellerId, auction.sellerId),
+    eq(auctionListing.userItemId, auction.userItemId),
+    winnerId
+      ? eq(auctionListing.buyoutPrice, auction.buyoutPrice ?? 0)
+      : lte(auctionListing.expiresAt, sql`CURRENT_TIMESTAMP(3)`),
+    raise?.listingGuard,
+  );
+  const itemGuard = and(
+    eq(userItem.userId, auction.sellerId),
+    eq(userItem.isInAuction, true),
+    gt(userItem.quantity, 0),
+  );
+  let rowsAffected: number;
+  if (!bid || !winningBid) {
+    const result = await database.execute(sql`
+      UPDATE ${auctionListing}
+      STRAIGHT_JOIN ${userItem} ON ${userItem.id} = ${auctionListing.userItemId}
+      SET ${auctionListing.status} = 'EXPIRED', ${auctionListing.buyerId} = NULL,
+          ${auctionListing.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${userItem.isInAuction} = 0, ${userItem.updatedAt} = CURRENT_TIMESTAMP(3)
+      WHERE ${and(listingGuard, itemGuard)}
+        AND NOT EXISTS (SELECT 1 FROM ${auctionBid} WHERE ${auctionBid.auctionId} = ${auctionListing.id})
+    `);
+    rowsAffected = result.rowsAffected;
+  } else {
+    const seller = alias(userData, "auctionSettlementSeller");
+    const otherBid = alias(auctionBid, "auctionSettlementOtherBid");
+    const sellerBalance =
+      auction.currencyType === "MONEY" ? seller.bank : seller.reputationPoints;
+    const buyerBalance =
+      auction.currencyType === "MONEY" ? userData.bank : userData.reputationPoints;
+    // Separate seller and buyer aliases yield exactly one match. Constant prices avoid
+    // depending on MySQL's unspecified multi-table assignment order during a bid raise.
+    const result = await database.execute(sql`
+      UPDATE ${auctionListing}
+      STRAIGHT_JOIN ${userItem} ON ${userItem.id} = ${auctionListing.userItemId}
+      STRAIGHT_JOIN ${auctionBid} ON ${auctionBid.auctionId} = ${auctionListing.id}
+      STRAIGHT_JOIN ${userData} AS ${seller} ON ${seller.userId} = ${auctionListing.sellerId}
+      STRAIGHT_JOIN ${userData} ON ${userData.userId} = ${auctionBid.bidderId}
+      LEFT JOIN ${auctionBid} AS ${otherBid} ON ${otherBid.auctionId} = ${auctionListing.id} AND ${otherBid.id} <> ${auctionBid.id}
+      SET ${auctionListing.status} = 'SOLD', ${auctionListing.buyerId} = ${winningBid.bidderId},
+          ${auctionListing.currentPrice} = ${winningBid.amount},
+          ${auctionListing.expiresAt} = CURRENT_TIMESTAMP(3), ${auctionListing.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${userItem.userId} = ${winningBid.bidderId}, ${userItem.isInAuction} = 0,
+          ${userItem.activeVariantId} = NULL, ${userItem.storedAtHome} = 0,
+          ${userItem.homeX} = NULL, ${userItem.homeY} = NULL, ${userItem.homeRotation} = 0,
+          ${userItem.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${auctionBid.amount} = ${winningBid.amount}, ${auctionBid.status} = 'WON',
+          ${sellerBalance} = ${sellerBalance} + ${winningBid.amount},
+          ${seller.updatedAt} = GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${seller.updatedAt})),
+          ${buyerBalance} = ${buyerBalance} - ${raise?.amountToDeduct ?? 0},
+          ${userData.updatedAt} = GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))
+      WHERE ${and(
+        listingGuard,
+        itemGuard,
+        raise?.bidderGuard,
+        eq(auctionBid.id, bid.id),
+        eq(auctionBid.bidderId, bid.bidderId),
+        eq(auctionBid.amount, bid.amount),
+        eq(auctionBid.status, "ACTIVE"),
+        ne(userData.userId, seller.userId),
+        isNull(otherBid.id),
+      )}
+    `);
+    rowsAffected = result.rowsAffected;
+  }
+  if (rowsAffected === 0)
+    return throwAuctionSettlementConflict(
+      "Auction, bids, balance or reserved item changed; please refresh",
+    );
+  return {
+    success: true,
+    message: winningBid
+      ? "Auction completed successfully"
+      : "Auction expired with no bids",
+    winningBid,
+    auctionId: auction.id,
+    participantIds: [auction.sellerId, ...(winningBid ? [winningBid.bidderId] : [])],
+  };
+};
+
 /** Shares the bid transaction so a buyout debit and settlement commit together. */
 const settleAuction = async (
   tx: AuctionTransaction,
@@ -908,11 +1039,16 @@ const settleAuction = async (
   winnerId?: string,
 ) => {
   const now = new Date();
-  // All bid writers must claim this listing before publishing their bid. The status
-  // transition holds its row lock until delivery and every escrow payment commit.
+  // Refunds span a variable set of recipient matches. A joined UPDATE can change its
+  // ACTIVE/reservation predicates before visiting every match; assignment order is
+  // unspecified, so it cannot safely claim once and verify every refund in that form.
+  // One alias per recipient would hit MySQL's 61-table join limit; bid counts are unbounded.
+  // Claim once here, then check all credit/bid row counts and roll back any missing recipient.
   const claim = await tx
     .update(auctionListing)
-    .set({ status: "SOLD", updatedAt: now })
+    .set({
+      updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${auctionListing.updatedAt}))`,
+    })
     .where(
       and(
         eq(auctionListing.id, auctionId),
@@ -928,6 +1064,8 @@ const settleAuction = async (
   // Read only after claiming: callers may have fetched before another bid committed.
   const auction = await fetchAuctionListing(tx, auctionId);
   if (!auction) return throwAuctionSettlementConflict("Auction not found");
+  if (auction.bids.length < 2)
+    return settleAuctionWithoutRefunds(tx, auction, winnerId);
   if (auction.bids.some((bid) => bid.status !== "ACTIVE" || bid.amount <= 0))
     throwAuctionSettlementConflict("Auction escrow is inconsistent; contact support");
   const [winningBid] = [...auction.bids].sort(
@@ -1120,3 +1258,7 @@ const requireAuctionSettlementWrite = (rowsAffected: number, message: string) =>
 };
 
 type AuctionTransaction = Parameters<Parameters<DrizzleClient["transaction"]>[0]>[0];
+
+type AuctionSettlementSnapshot = NonNullable<
+  Awaited<ReturnType<typeof fetchAuctionListing>>
+>;
