@@ -67,6 +67,11 @@ it("uses server-assigned contract IDs when saving the habitat draft again", asyn
     fireEvent.change(view.getByRole("combobox", { name: `Search ${label!.toLowerCase()}` }), { target: { value: search } });
     const selectedOption = await view.findByRole("option", { name: option });
     await act(async () => fireEvent.click(selectedOption));
+    const trigger = view.getByRole("combobox", { name: label });
+    expect(trigger.textContent).toContain(option!);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    // Radix restores focus after closing; finish that before opening the next picker.
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   }
   const button = view.getByRole("button", { name: "Save habitat" }) as HTMLButtonElement;
   fireEvent.click(button);
