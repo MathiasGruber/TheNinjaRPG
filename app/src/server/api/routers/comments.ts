@@ -15,6 +15,7 @@ import {
   forumPost,
   forumThread,
   supportTicket,
+  supportTicketActivity,
   user2conversation,
   userBlackList,
   userData,
@@ -29,6 +30,7 @@ import {
 } from "@/libs/parentalControls";
 import { getServerPusher } from "@/libs/pusher";
 import { isRaidChatConversationId } from "@/libs/raids";
+import { getStatusAfterComment } from "@/libs/support";
 import { fetchThread } from "@/routers/forum";
 import { fetchUser } from "@/routers/profile";
 import { fetchUserReport } from "@/routers/reports";
@@ -58,6 +60,7 @@ import {
   canSeeSecretData,
   canViewConversation,
   getMessagingRestriction,
+  isStaffRole,
   RESTRICTED_STAFF_CONVERSATION_MESSAGE,
   RESTRICTED_SUPPORT_TICKET_REPLY_MESSAGE,
 } from "@/utils/permissions";
@@ -863,6 +866,15 @@ export const commentsRouter = createTRPCRouter({
           : []),
       ]);
 
+      // A reply on a support ticket moves it along the staff/creator workflow
+      if (convo.isStaffAvailable) {
+        await updateSupportTicketStatusAfterComment(ctx.drizzle, {
+          conversationId: convo.id,
+          userId: ctx.userId,
+          isStaff: isStaffRole(user.role),
+        });
+      }
+
       // Pusher notifications (fire after DB commit, don't await)
       notifyPrivateConversation(ctx.drizzle, {
         conversationId: convo.id,
@@ -1156,6 +1168,44 @@ export const fetchConversation = async (params: FetchConvoOptions) => {
     sendRestriction,
     supportTicketCreatorId: linkedSupportTicket?.createdByUserId ?? null,
   };
+};
+
+/**
+ * Sets the status of the support ticket on a conversation after a comment; see
+ * `getStatusAfterComment`. Done here rather than by the client because the creator
+ * may not edit a ticket staff has picked up.
+ */
+const updateSupportTicketStatusAfterComment = async (
+  client: DrizzleClient,
+  input: { conversationId: string; userId: string; isStaff: boolean },
+) => {
+  const ticket = await client.query.supportTicket.findFirst({
+    where: eq(supportTicket.conversationId, input.conversationId),
+    columns: { id: true, status: true, createdByUserId: true },
+  });
+  if (!ticket) return;
+  const nextStatus = getStatusAfterComment(ticket.status, {
+    isCreator: ticket.createdByUserId === input.userId,
+    isStaff: input.isStaff,
+  });
+  if (!nextStatus) return;
+  // Guard on the status read so a concurrent staff change is not overwritten
+  const result = await client
+    .update(supportTicket)
+    .set({ status: nextStatus, updatedAt: new Date() })
+    .where(
+      and(eq(supportTicket.id, ticket.id), eq(supportTicket.status, ticket.status)),
+    );
+  if (result.rowsAffected === 0) return;
+  await client.insert(supportTicketActivity).values({
+    id: nanoid(),
+    ticketId: ticket.id,
+    authorId: input.userId,
+    action: "STATUS_CHANGED",
+    oldValue: ticket.status,
+    newValue: nextStatus,
+    metadata: {},
+  });
 };
 
 /**
