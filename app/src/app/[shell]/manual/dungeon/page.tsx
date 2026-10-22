@@ -590,7 +590,7 @@ export default function DungeonEditor() {
                 </p>
                 {content.rewards.drops.map((drop, i) => (
                   <div
-                    className="grid grid-cols-[7rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]"
+                    className="grid grid-cols-[7rem_minmax(0,1fr)_auto] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]"
                     key={i}
                   >
                     <select
@@ -615,35 +615,37 @@ export default function DungeonEditor() {
                       <option value="package">Reward package</option>
                       <option value="cache">Cache</option>
                     </select>
-                    <SearchSelect
-                      label={`Drop ${i + 1} reward`}
-                      value={drop.id}
-                      placeholder="Select reward"
-                      disabled={
-                        save.isPending ||
-                        (drop.type === "package"
-                          ? packages.isPending
-                          : drop.type === "jutsu"
-                            ? jutsus.isPending
-                            : items.isPending)
-                      }
-                      options={
-                        (drop.type === "package"
-                          ? packages.data?.packages
-                          : drop.type === "jutsu"
-                            ? jutsus.data
-                            : drop.type === "cache"
-                              ? items.data?.filter((item) => item.isCache)
-                              : items.data
-                        )?.map((entry) => ({ value: entry.id, label: entry.name })) ??
-                        []
-                      }
-                      onChange={(value) => {
-                        const drops = [...content.rewards.drops];
-                        drops[i] = { ...drop, id: value, package: undefined };
-                        patch({ rewards: { ...content.rewards, drops } });
-                      }}
-                    />
+                    <div className="col-span-2 min-w-0 sm:col-span-1">
+                      <SearchSelect
+                        label={`Drop ${i + 1} reward`}
+                        value={drop.id}
+                        placeholder="Select reward"
+                        disabled={
+                          save.isPending ||
+                          (drop.type === "package"
+                            ? packages.isPending
+                            : drop.type === "jutsu"
+                              ? jutsus.isPending
+                              : items.isPending)
+                        }
+                        options={
+                          (drop.type === "package"
+                            ? packages.data?.packages
+                            : drop.type === "jutsu"
+                              ? jutsus.data
+                              : drop.type === "cache"
+                                ? items.data?.filter((item) => item.isCache)
+                                : items.data
+                          )?.map((entry) => ({ value: entry.id, label: entry.name })) ??
+                          []
+                        }
+                        onChange={(value) => {
+                          const drops = [...content.rewards.drops];
+                          drops[i] = { ...drop, id: value, package: undefined };
+                          patch({ rewards: { ...content.rewards, drops } });
+                        }}
+                      />
+                    </div>
                     <Field label="Chance (%)">
                       <NumberInput
                         aria-label={`Drop ${i + 1} chance (%)`}
