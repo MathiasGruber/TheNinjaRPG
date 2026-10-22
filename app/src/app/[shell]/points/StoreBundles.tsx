@@ -250,6 +250,7 @@ export function StoreBundles() {
   );
 }
 
+/** Edit one offer in the shared modal, with field errors and focus returned to its trigger. */
 function StoreBundleEditor({
   draft,
   isEditing,

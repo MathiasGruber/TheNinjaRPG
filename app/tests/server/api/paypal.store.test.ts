@@ -9,7 +9,7 @@ import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
 import { dynamicMonthlyRepCap } from "@/utils/paypal";
 import { insertItems, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
-import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 const contents = {reputationPoints:20, money:500, items:[{id:"store-item",quantity:7}]};
 const offer = {name:"Seichi supplies", priceCents:1250, contents};
@@ -152,6 +152,119 @@ describeWithDatabase("web store payments", () => {
     const large = {...offer,contents:{...contents,reputationPoints:Math.floor(cap*0.6)}};
     const results = await Promise.all(Array.from({length:3},()=>reserveStoreOrder(db,"buyer","recipient",large)));
     expect(results.filter(result => result.success)).toHaveLength(1);
+  });
+  it("reserves and authorizes zero-reputation offers without transactions or buyer locks", async () => {
+    const db = await getTestDatabase();
+    const withoutTransactions = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property === "transaction") return () => { throw new Error("Unexpected transaction"); };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const recorded = await recordQueries(async () => {
+      for (const contents of [
+        {reputationPoints:0,money:500,items:[]},
+        {reputationPoints:0,money:0,items:[{id:"store-item",quantity:1}]},
+      ]) {
+        const result = await reserveStoreOrder(withoutTransactions,"buyer","recipient",{...offer,contents});
+        if (!result.success) throw new Error(result.message);
+        expect(await authorizeStoreCapture(withoutTransactions,result.order.id,"buyer")).toBeNull();
+      }
+    });
+    expect(recorded.statements.some(statement => /for update|start transaction|begin/i.test(statement))).toBe(false);
+    expect(await db.query.webStoreOrder.findMany()).toHaveLength(2);
+  });
+  it("keeps allowance checks for zero-reputation offers", async () => {
+    const db = await getTestDatabase();
+    const zeroOffer = {...offer,contents:{reputationPoints:0,money:500,items:[]}};
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",zeroOffer);
+    if (!reserved.success) throw new Error(reserved.message);
+    const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    await db.insert(paypalTransaction).values({id:"over-cap",createdById:"buyer",affectedUserId:"recipient",transactionId:"legacy-over-cap",transactionUpdatedDate:new Date().toISOString(),amount:1,reputationPoints:dynamicMonthlyRepCap(buyer)+1,status:"COMPLETED",rawData:{}});
+    expect((await reserveStoreOrder(db,"buyer","recipient",zeroOffer)).success).toBe(false);
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("monthly reputation allowance");
+  });
+  it("keeps buyer, recipient, item and deletion checks for zero-reputation capture", async () => {
+    const db = await getTestDatabase();
+    const zeroOffer = {...offer,contents:{...contents,reputationPoints:0}};
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",zeroOffer);
+    if (!reserved.success) throw new Error(reserved.message);
+    await db.update(userData).set({isBanned:true}).where(eq(userData.userId,"buyer"));
+    expect((await reserveStoreOrder(db,"buyer","recipient",zeroOffer)).success).toBe(false);
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("not available for your account");
+    await db.update(userData).set({isBanned:false}).where(eq(userData.userId,"buyer"));
+    for (const restriction of [{isAi:true,isBanned:false},{isAi:false,isBanned:true}]) {
+      await db.update(userData).set(restriction).where(eq(userData.userId,"recipient"));
+      expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("recipient account is no longer available");
+    }
+    await db.update(userData).set({isAi:false,isBanned:false}).where(eq(userData.userId,"recipient"));
+    await db.update(item).set({hidden:true}).where(eq(item.id,"store-item"));
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("item in this checkout is no longer available");
+    await db.update(item).set({hidden:false}).where(eq(item.id,"store-item"));
+    await db.insert(storeUserIdAlias).values({oldUserId:"recipient",newUserId:"__tnr_deleted_store_user__:recipient"});
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("recipient account is no longer available");
+  });
+  it("rechecks a live positive-reputation reservation after a legacy payment reconciles", async () => {
+    const db = await getTestDatabase();
+    const order = await reserve();
+    const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    await db.insert(paypalTransaction).values({id:"paid-cap",createdById:"buyer",affectedUserId:"recipient",transactionId:"legacy-paid-cap",transactionUpdatedDate:new Date().toISOString(),amount:1,reputationPoints:dynamicMonthlyRepCap(buyer),status:"COMPLETED",rawData:{}});
+    expect(await authorizeStoreCapture(db,order.id,"buyer")).toContain("monthly reputation allowance");
+    expect((await db.query.webStoreOrder.findFirst({where:eq(webStoreOrder.id,order.id)}))?.grantedAt).toBeNull();
+  });
+  it("serializes concurrent positive-reputation authorization of expired reservations", async () => {
+    const db = await getTestDatabase();
+    const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    const large = {...offer,contents:{...contents,reputationPoints:Math.floor(dynamicMonthlyRepCap(buyer)*0.6)}};
+    for (const id of ["expired-first","expired-second","expired-third"]) {
+      await db.insert(webStoreOrder).values({id,buyerId:"buyer",recipientId:"recipient",...large,expiresAt:new Date(0)});
+    }
+    const results = await Promise.all(["expired-first","expired-second","expired-third"].map(id => authorizeStoreCapture(db,id,"buyer")));
+    expect(results.filter(result => result === null)).toHaveLength(1);
+    expect(results.filter(result => result?.includes("monthly reputation allowance"))).toHaveLength(2);
+  });
+  it("rejects a zero-reputation capture racing recipient repair and authorizes the repaired identity on retry", async () => {
+    const db = await getTestDatabase();
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",{...offer,contents:{reputationPoints:0,money:500,items:[]}});
+    if (!reserved.success) throw new Error(reserved.message);
+    await db.update(userData).set({username:"Terriator"}).where(eq(userData.userId,"buyer"));
+    const staff = await callerFor(staffRouter,"buyer");
+    const repairing = beforeStatements(db,webStoreOrder,[async () => {
+      expect((await staff.updateUserId({userId:"recipient",newUserId:"recipient-repaired"})).success).toBe(true);
+    }]);
+    expect(await authorizeStoreCapture(repairing,reserved.order.id,"buyer")).toContain("checkout account changed");
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toBeNull();
+    expect((await deliverStoreOrder(db,capture(reserved.order.id))).success).toBe(true);
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient-repaired")})).toMatchObject({reputationPoints:0,money:500});
+  });
+  it("rejects a zero-reputation capture racing buyer repair until the repaired buyer retries", async () => {
+    const db = await getTestDatabase();
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",{...offer,contents:{reputationPoints:0,money:500,items:[]}});
+    if (!reserved.success) throw new Error(reserved.message);
+    await db.update(userData).set({role:"USER"}).where(eq(userData.userId,"buyer"));
+    await insertUsers([{userId:"operator",username:"Terriator",role:"OWNER"}]);
+    const staff = await callerFor(staffRouter,"operator");
+    const repairing = beforeStatements(db,webStoreOrder,[async () => {
+      expect((await staff.updateUserId({userId:"buyer",newUserId:"buyer-repaired"})).success).toBe(true);
+    }]);
+    expect(await authorizeStoreCapture(repairing,reserved.order.id,"buyer")).toContain("checkout account changed");
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("not available for your account");
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer-repaired")).toBeNull();
+    expect((await deliverStoreOrder(db,capture(reserved.order.id))).success).toBe(true);
+    expect(await db.query.paypalTransaction.findFirst()).toMatchObject({createdById:"buyer-repaired",affectedUserId:"recipient",reputationPoints:0});
+  });
+  it("rejects a zero-reputation capture racing deletion and a recreated recipient", async () => {
+    const db = await getTestDatabase();
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",{...offer,contents:{reputationPoints:0,money:500,items:[]}});
+    if (!reserved.success) throw new Error(reserved.message);
+    const deleting = beforeStatements(db,webStoreOrder,[async () => {
+      await deleteUser(db,"recipient");
+      await insertUsers([{userId:"recipient",username:"Recreated",reputationPoints:0,money:0}]);
+    }]);
+    expect(await authorizeStoreCapture(deleting,reserved.order.id,"buyer")).toContain("checkout account changed");
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toContain("recipient account was deleted");
+    await expect(deliverStoreOrder(db,capture(reserved.order.id))).rejects.toThrow("Recipient unavailable");
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:0,money:0});
   });
   it("accepts an expired reservation's verified payment and respects paid history", async () => {
     const db = await getTestDatabase(); const order = await reserve();

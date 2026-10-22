@@ -58,6 +58,7 @@ export const storeContentsSchema = z
       contents.reputationPoints > 0 || contents.money > 0 || contents.items.length > 0,
     "Add reputation, ryo or items",
   );
+/** Shared contract for the owner editor and catalog writes; prices are integer USD cents. */
 export const storeBundleSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1000),
@@ -69,6 +70,7 @@ export const storeBundleSchema = z.object({
   isActive: z.boolean(),
   contents: storeContentsSchema,
 });
+/** Clients select an offer and recipient; the server supplies its price and reward snapshot. */
 export const storeCheckoutSchema = z.object({
   recipientId: z.string().min(1).max(191),
   selection: z.discriminatedUnion("type", [

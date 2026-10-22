@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 /**
  * Select one catalog ID with searchable labels, closing the popover on selection.
  * Values remain stable IDs; an empty value can represent the caller's reset option.
+ * Trigger attributes let FormControl connect field errors and focus to the button.
  */
 export function SearchSelect({
   label,

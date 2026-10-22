@@ -78,6 +78,7 @@ export async function GET(request: Request) {
       );
     for (const transaction of unawardedTransactions) {
       if (transaction.createdById && transaction.recruiterId) {
+        // Bundles can include ryo/items, so referral rewards use the reputation actually purchased.
         const referralBonus = Math.floor(transaction.reputationPoints * 0.1);
         msgs.push(`Add ${referralBonus} ref reps - invoiceId ${transaction.invoiceId}`);
         await updateReps({

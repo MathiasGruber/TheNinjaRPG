@@ -114,6 +114,7 @@ type PaypalTransaction = {
 };
 
 export const paypalRouter = createTRPCRouter({
+  /** List published offers; only the owner may request unpublished drafts. */
   getStoreBundles: protectedProcedure
     .input(z.object({ includeInactive: z.boolean().optional() }).nullish())
     .query(async ({ ctx, input }) => {
@@ -133,6 +134,7 @@ export const paypalRouter = createTRPCRouter({
       ]);
       return { bundles, items };
     }),
+  /** Save a validated offer and its content diff using the content-editor audit convention. */
   saveStoreBundle: protectedProcedure
     .input(z.object({ id: z.string().optional(), data: storeBundleSchema }))
     .output(baseServerResponse)
@@ -156,25 +158,25 @@ export const paypalRouter = createTRPCRouter({
       )
         return errorResponse("Select existing items for the bundle");
       const id = input.id ?? nanoid();
-      // Bundle changes must roll back if their new audit INSERT fails; these writes need separate statements.
-      await ctx.drizzle.transaction(async (tx) => {
-        if (existing)
-          await tx
-            .update(webStoreBundle)
-            .set({ ...input.data, updatedAt: new Date() })
-            .where(eq(webStoreBundle.id, id));
-        else await tx.insert(webStoreBundle).values({ id, ...input.data });
-        await tx.insert(actionLog).values({
+      await Promise.all([
+        existing
+          ? ctx.drizzle
+              .update(webStoreBundle)
+              .set({ ...input.data, updatedAt: new Date() })
+              .where(eq(webStoreBundle.id, id))
+          : ctx.drizzle.insert(webStoreBundle).values({ id, ...input.data }),
+        ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
           tableName: "webStoreBundle",
           relatedId: id,
           relatedMsg: `${existing ? "Update" : "Create"}: ${input.data.name}`,
           changes: calculateContentDiff(existing ?? {}, input.data),
-        });
-      });
+        }),
+      ]);
       return { success: true, message: "Store bundle saved" };
     }),
+  /** Freeze the server-priced contents and reserve allowance before creating PayPal checkout. */
   createStoreOrder: protectedProcedure
     .input(storeCheckoutSchema)
     .mutation(async ({ ctx, input }) => {
@@ -216,6 +218,7 @@ export const paypalRouter = createTRPCRouter({
         throw error;
       }
     }),
+  /** Revalidate an unpaid checkout before capture, or safely finish delivery of a paid one. */
   captureStoreOrder: protectedProcedure
     .input(z.object({ orderId: z.string().min(15).max(20) }))
     .output(
@@ -1081,6 +1084,7 @@ const prepareWebCheckout = async (
   return reserveStoreOrder(ctx.drizzle, ctx.userId, recipient.userId, offer);
 };
 
+/** Use a stable provider request ID so a retried create/capture cannot charge twice. */
 const requestStorePaypalOrder = async (
   token: string,
   path: string,
