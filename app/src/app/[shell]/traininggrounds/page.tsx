@@ -1934,7 +1934,10 @@ const TrainingCaptchaImage: React.FC<{
   const utils = api.useUtils();
   const { mutate: refreshCaptcha, isPending } = api.misc.refreshCaptcha.useMutation({
     onSuccess: async (result) => {
-      if (!result.success) showMutationToast(result);
+      if (!result.success) {
+        showMutationToast(result);
+        return;
+      }
       await utils.misc.getCaptcha.invalidate();
       onRefreshed();
     },
@@ -1944,13 +1947,14 @@ const TrainingCaptchaImage: React.FC<{
       {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element for data URI */}
       <img
         alt="Captcha: type these characters into the field below"
-        className="h-auto max-w-full"
+        className="h-auto min-w-0 max-w-full rounded-lg border"
         src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`}
       />
       <Button
         type="button"
         size="icon"
         variant="outline"
+        className="shrink-0"
         aria-label="New captcha"
         title="New captcha"
         disabled={isPending}
