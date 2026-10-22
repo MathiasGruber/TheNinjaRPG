@@ -36,6 +36,7 @@ import { LogbookEntry } from "@/layout/Logbook";
 import { VisualizeEffects, VisualizeGroundEffects } from "@/layout/MenuBoxProfile";
 import Modal from "@/layout/Modal";
 import WebGlError from "@/layout/WebGLError";
+import { getAudioPreference } from "@/libs/audioPreferences";
 import {
   availableUserActions,
   calcActiveUser,
@@ -1223,7 +1224,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             userData: userData,
             battle: battleRef.current,
             group_assets: group_assets,
-            sfxEnabled: Boolean(userData?.sfxOn ?? true),
+            sfxEnabled: getAudioPreference("sfxOn", userData?.sfxOn),
             sfxVolume: sfxVolume,
             gameAssets: gameAssetsRef.current.assets,
             aggro: aggroRef.current,
@@ -1259,7 +1260,7 @@ const Combat: React.FC<CombatProps> = (props) => {
               animationId: hasRenderedFrame ? 1 : 0,
               spriteMixer,
               gameAssets: gameAssetsRef.current.assets,
-              sfxEnabled: Boolean(userData?.sfxOn ?? true),
+              sfxEnabled: getAudioPreference("sfxOn", userData?.sfxOn),
               sfxVolume: sfxVolume,
               isAnyUserMoving,
             });

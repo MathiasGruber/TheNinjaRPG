@@ -43,6 +43,17 @@ afterEach(() => {
 const soundtrack = "https://example.com/soundtrack.mp3";
 
 describe("soundtrack preference and transport lifecycle", () => {
+  it("does not probe autoplay or play a disabled soundtrack", async () => {
+    vi.spyOn(audioUtils, "isSafariOrIOS").mockReturnValue(false);
+    const { result } = renderHook(() => useAudio({ src: soundtrack, enabled: false }));
+    await act(async () => audio.dispatchEvent(new window.Event("canplay")));
+    expect(play).not.toHaveBeenCalled();
+    expect(result.current.enabled).toBe(false);
+
+    await act(() => result.current.setEnabled(true, true));
+    expect(play).toHaveBeenCalled();
+  });
+
   it("yields background Android playback until the player explicitly resumes", async () => {
     vi.spyOn(audioUtils, "isSafariOrIOS").mockReturnValue(false);
     vi.spyOn(native, "platform").mockReturnValue("android");
