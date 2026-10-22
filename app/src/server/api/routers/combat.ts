@@ -1430,6 +1430,7 @@ export const combatRouter = createTRPCRouter({
               ...ref,
               item,
               imbuements: [],
+              imbuementEffects: ref.imbuementEffects ?? [],
               userId: user.controllerId,
               createdAt: now,
               updatedAt: now,
@@ -4826,17 +4827,22 @@ export const processUsersForBattle = async (
       })
       .forEach((ui) => {
         // Add imbuement effects only when the item still allows imbuing
-        // (legacy crystals on canBeImbued=false items stay in inventory but not combat)
+        // (legacy crystals on canBeImbued=false items stay in inventory but not combat).
+        // Rows rebuilt from battle state carry them as imbuementEffects.
         const imbuementEffects = ui.item.canBeImbued
-          ? (ui.imbuements?.flatMap(
+          ? (ui.imbuementEffects ??
+            ui.imbuements?.flatMap(
               (imbuement) => imbuement.item.effects as UserEffect[],
-            ) ?? [])
+            ) ??
+            [])
           : [];
+        // Imbuements belong to this user item, not to the shared item template in
+        // extraState.items, so they are stored on the row rather than merged into it.
+        ui.imbuementEffects = structuredClone(imbuementEffects);
+        ui.imbuements = []; // Reset to avoid storing in battle table
         // Parse item
         const effects = [...(ui.item.effects as UserEffect[]), ...imbuementEffects];
         const itemType = ui.item.itemType;
-        ui.item.effects = effects;
-        ui.imbuements = []; // Reset to avoid storing in battle table
         // Parse the effects
         effects
           .filter((e) => e.type === "summon")
@@ -5179,6 +5185,7 @@ export const processUsersForBattle = async (
         lastUsedRound: ui.lastUsedRound ?? -(ui.item?.cooldown ?? 0),
         originalCooldown: ui.originalCooldown ?? ui.item?.cooldown ?? 0,
         dropChancePerc: ui.dropChancePerc,
+        imbuementEffects: ui.imbuementEffects ?? [],
         activeVariantId: ui.activeVariantId ?? null,
         variantBattleDescription,
         variantImage,
