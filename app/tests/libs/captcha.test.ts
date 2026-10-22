@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import type { FederalStatus } from "@/drizzle/constants";
-import { captchaAnswerMatches, showTrainingCapcha } from "@/libs/captcha";
+import {
+  CAPTCHA_ALPHABET,
+  CAPTCHA_LENGTH,
+  captchaAnswerMatches,
+  randomCaptchaValue,
+  showTrainingCapcha,
+} from "@/libs/captcha";
 
 const user = (federalStatus: FederalStatus, dailyTrainings: number, staffAccount = false) => ({
   federalStatus,
@@ -78,5 +84,21 @@ describe("captchaAnswerMatches", () => {
     ["aBcD5x", "aBcDSx", false],
   ])("%s vs %p -> %p", (value, guess, expected) => {
     expect(captchaAnswerMatches(value, guess)).toBe(expected);
+  });
+});
+
+describe("randomCaptchaValue", () => {
+  it("uses upper case glyphs without look-alikes", () => {
+    for (const glyph of "BGIOQSZ0125815abcdefghijklmnopqrstuvwxyz") {
+      expect(CAPTCHA_ALPHABET).not.toContain(glyph);
+    }
+  });
+
+  it("draws fixed-length values from the alphabet", () => {
+    for (let i = 0; i < 200; i++) {
+      const value = randomCaptchaValue();
+      expect(value).toHaveLength(CAPTCHA_LENGTH);
+      for (const glyph of value) expect(CAPTCHA_ALPHABET).toContain(glyph);
+    }
   });
 });

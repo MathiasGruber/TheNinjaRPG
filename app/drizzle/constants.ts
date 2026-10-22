@@ -1230,6 +1230,8 @@ export const TRAINING_CAPTCHA_COUNT_INTERVALS = [
 // Energy training and queue edits do not advance `dailyTrainings`, so without this window
 // every Energy action asks again while the counter rests on a captcha count.
 export const TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES = 10;
+// New training captchas (requested or after a wrong answer) a user can get per minute.
+export const TRAINING_CAPTCHA_REFRESHES_PER_MINUTE = 5;
 export const TRAINING_CAPTCHA_INTERVAL = {
   NONE: 2,
   NORMAL: 3,

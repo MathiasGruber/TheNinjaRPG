@@ -1,10 +1,10 @@
-import {eq} from "drizzle-orm";
+import {and, eq} from "drizzle-orm";
 import {afterEach, beforeEach, expect, it, vi} from "bun:test";
-import {CombatStatNames, getUserCaps, MAX_MASTERY_CAP} from "@/drizzle/constants";
+import {CombatStatNames, getUserCaps, MAX_MASTERY_CAP, TRAINING_CAPTCHA_REFRESHES_PER_MINUTE} from "@/drizzle/constants";
 import {bloodline, captcha, gameSetting, item, userItem, quest, questHistory, trainingLog, userData, userQueue, userVote} from "@/drizzle/schema";
 import {getEnergyQueue} from "@/libs/queue";
 import {fetchUpdatedUser} from "@/server/api/routers/profile";
-import {generateCaptcha} from "@/server/api/routers/misc";
+import {generateCaptcha, refreshCaptcha, validateCaptcha} from "@/server/api/routers/misc";
 import {trainRouter} from "@/server/api/routers/train";
 import {InstantNewQuestObjective, SimpleObjective} from "@/validators/objectives";
 import {ObjectiveReward} from "@/validators/rewards";
@@ -590,6 +590,50 @@ describeWithDatabase("Energy and mastery training against a real MySQL", () => {
     await generateCaptcha(database, USER_ID);
     expect((await api.startTraining({stat: "offence", energy: 10, guess: "wrong!"})).message).toBe("Invalid captcha");
     expect((await api.startTraining({stat: "offence", energy: 10})).message).toBe("Captcha required");
+  });
+
+  it("replaces the pending captcha on request and consumes the old one", async () => {
+    await trainee({curEnergy: 100, regeneration: 0, dailyTrainings: 12});
+    const database = await getTestDatabase();
+    await generateCaptcha(database, USER_ID);
+    const [old] = await database.select().from(captcha).where(eq(captcha.userId, USER_ID));
+    expect((await refreshCaptcha(database, USER_ID)).success).toBe(true);
+    const rows = await database.select().from(captcha).where(eq(captcha.userId, USER_ID));
+    expect(rows.find(row => row.id === old!.id)).toMatchObject({used: true, success: false});
+    const pending = rows.filter(row => !row.used);
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.id).not.toBe(old!.id);
+    // The old answer no longer passes; the new one does.
+    const api = await caller();
+    expect((await api.startTraining({stat: "offence", energy: 10, guess: old!.value})).message).toBe("Invalid captcha");
+    await generateCaptcha(database, USER_ID);
+    const [next] = await database.select().from(captcha).where(and(eq(captcha.userId, USER_ID), eq(captcha.used, false)));
+    expect((await api.startTraining({stat: "offence", energy: 10, guess: next!.value})).success).toBe(true);
+  });
+
+  it("lets a standalone captcha answer cover the following training actions", async () => {
+    // The training page verifies first (misc.verifyCaptcha) and then trains without a guess.
+    await trainee({curEnergy: 100, regeneration: 0, dailyTrainings: 12});
+    const database = await getTestDatabase();
+    const api = await caller();
+    await generateCaptcha(database, USER_ID);
+    expect(await validateCaptcha(database, USER_ID, "wrong!")).toBe(false);
+    expect((await api.startTraining({stat: "offence", energy: 10})).message).toBe("Captcha required");
+    await generateCaptcha(database, USER_ID);
+    const [next] = await database.select().from(captcha).where(and(eq(captcha.userId, USER_ID), eq(captcha.used, false)));
+    expect(await validateCaptcha(database, USER_ID, next!.value.toLowerCase())).toBe(true);
+    expect((await api.startTraining({stat: "offence", energy: 10})).success).toBe(true);
+    expect((await generateCaptcha(database, USER_ID)).svg).toBeNull();
+  });
+
+  it("limits how many new captchas a user can request per minute", async () => {
+    await trainee({dailyTrainings: 12});
+    const database = await getTestDatabase();
+    for (let i = 0; i < TRAINING_CAPTCHA_REFRESHES_PER_MINUTE; i++) {
+      expect((await refreshCaptcha(database, USER_ID)).success).toBe(true);
+    }
+    expect((await refreshCaptcha(database, USER_ID)).success).toBe(false);
+    expect(await database.select().from(captcha).where(eq(captcha.userId, USER_ID))).toHaveLength(TRAINING_CAPTCHA_REFRESHES_PER_MINUTE);
   });
 
   it("rejects overspending without granting stats", async () => {

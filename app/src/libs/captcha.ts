@@ -24,6 +24,20 @@ export const showTrainingCapcha = (
   return trainings % Math.max(countInterval, tierInterval) === 0;
 };
 
+/**
+ * Captcha glyphs: upper case only, without look-alikes (B/8, G/6, I/1, O/0/Q/D, S/5,
+ * Z/2), so the rendered value reads the same in any font and to dyslexic players.
+ */
+export const CAPTCHA_ALPHABET = "ACDEFHJKLMNPRTUVWXY34679";
+export const CAPTCHA_LENGTH = 5;
+
+/** Random training captcha value drawn from `CAPTCHA_ALPHABET`. */
+export const randomCaptchaValue = () =>
+  Array.from(
+    { length: CAPTCHA_LENGTH },
+    () => CAPTCHA_ALPHABET[Math.floor(Math.random() * CAPTCHA_ALPHABET.length)],
+  ).join("");
+
 /** Fold case, surrounding spaces and the O/0 look-alikes so only misread glyphs fail. */
 const normalizeCaptcha = (text: string) =>
   text.trim().toLowerCase().replaceAll("0", "o");
