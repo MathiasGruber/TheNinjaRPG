@@ -8,6 +8,7 @@ import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/s
 import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
 import { dynamicMonthlyRepCap } from "@/utils/paypal";
 import { insertItems, insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 const contents = {reputationPoints:20, money:500, items:[{id:"store-item",quantity:7}]};
@@ -308,6 +309,38 @@ describeWithDatabase("web store payments", () => {
     await insertUsers([{userId:"recipient",username:"Recreated",reputationPoints:0,money:0}]);
     await expect(deliverStoreOrder(db,capture(order.id))).rejects.toThrow("Recipient unavailable");
     expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:0,money:0});
+  });
+  it("prevents paid recovery from restoring inventory during character deletion", async () => {
+    const db = await getTestDatabase();
+    const order = await reserve();
+    const buyer = await callerFor(paypalRouter,"buyer");
+    await db.insert(userItem).values({id:"existing-item",userId:"recipient",itemId:"store-item",quantity:1});
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async url => {
+      if(String(url).endsWith("/v1/oauth2/token"))return Response.json({access_token:"test-only"});
+      return Response.json({id:"TESTORDER123456789",status:"COMPLETED",purchase_units:[{custom_id:`store:${order.id}`,invoice_id:order.id,amount:{currency_code:"USD",value:"12.50"},payments:{captures:[{id:"DELETIONCAPTURE",status:"COMPLETED",amount:{currency_code:"USD",value:"12.50"}}]}}]});
+    });
+    let attemptedRecovery = false;
+    // History cleanup follows inventory cleanup, while the recipient row still exists.
+    const deleting = beforeStatements(db, actionLog, [async () => {
+      attemptedRecovery = true;
+      expect((await db.query.storeUserIdAlias.findFirst())?.newUserId).toMatch(/^__tnr_deleted_store_user__:/);
+      expect(await db.query.userItem.findMany()).toHaveLength(0);
+      expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toBeDefined();
+      await expect(buyer.resolveOrder({orderId:"TESTORDER123456789"})).rejects.toThrow("Recipient unavailable");
+    }]);
+    try {
+      await deleteUser(deleting,"recipient");
+      expect(attemptedRecovery).toBe(true);
+      expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toBeUndefined();
+      await insertUsers([{userId:"recipient",username:"Recreated",reputationPoints:0,money:0}]);
+      await expect(buyer.resolveOrder({orderId:"TESTORDER123456789"})).rejects.toThrow("Recipient unavailable");
+      const inventory = await callerFor(itemRouter,"recipient");
+      expect(await inventory.getUserItems()).toHaveLength(0);
+      expect(await db.query.userItem.findMany()).toHaveLength(0);
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+      expect((await db.query.webStoreOrder.findFirst())?.grantedAt).toBeNull();
+      expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:0,money:0});
+    } finally {fetchMock.mockRestore();}
   });
   it("delivers item-only packs and rep-only packs", async () => {
     const db = await getTestDatabase();
