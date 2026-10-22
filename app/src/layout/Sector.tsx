@@ -3390,7 +3390,7 @@ interface SorroundingUsersProps {
   move: (longitude: number, latitude: number) => void;
 }
 
-const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
+export const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Destructure props
   const { userData, timeDiff, storedBracket, setStoredBracket } = props;
 
@@ -3444,7 +3444,10 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
           const isAlly =
-            user.villageId === userData.villageId || relationship?.status === "ALLY";
+            user.allianceStatus === "ALLY" ||
+            (user.allianceStatus !== "ENEMY" &&
+              (user.villageId === userData.villageId ||
+                relationship?.status === "ALLY"));
           const isPvpRestrictedRank = RANKS_RESTRICTED_FROM_PVP.includes(user.rank);
           const showAttack = !isPvpRestrictedRank && (props.allyAttack || !isAlly);
           const showRob = !isPvpRestrictedRank && sameHex && userData.isOutlaw;

@@ -285,7 +285,8 @@ export const warRouter = createTRPCRouter({
       UPDATE WarMercenary m INNER JOIN Village v ON v.id = m.sideVillageId
       INNER JOIN UserData participant ON participant.userId = m.userId
       SET m.endedAt = SYSDATE(3), participant.warMission = CASE
-        WHEN JSON_UNQUOTE(JSON_EXTRACT(participant.warMission, '$.warId')) = m.warId
+        WHEN m.acceptedAt IS NOT NULL
+          AND JSON_UNQUOTE(JSON_EXTRACT(participant.warMission, '$.warId')) = m.warId
           AND JSON_UNQUOTE(JSON_EXTRACT(participant.warMission, '$.sideVillageId')) = m.sideVillageId
         THEN NULL ELSE participant.warMission END
       WHERE m.id = ${input.contractId} AND m.endedAt IS NULL

@@ -1,0 +1,121 @@
+import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { Group, Raycaster, Sprite, Vector3 } from "three";
+import * as client from "@/app/_trpc/client";
+import type { VillageAlliance } from "@/drizzle/schema";
+import * as modal from "@/layout/Modal";
+import { SorroundingUsers } from "@/layout/Sector";
+import type { TerrainHex } from "@/libs/hexgrid";
+import { intersectUsers } from "@/libs/threejs/sector";
+import type { SectorUser } from "@/libs/threejs/types";
+import type { UserWithRelations } from "@/routers/profile";
+import { ensureDom } from "../setup-dom.mjs";
+
+beforeEach(() => {
+  ensureDom();
+  Object.assign(vi.spyOn(client, "api" as never), {
+    village: { getAll: { useQuery: () => ({ data: [] }) } },
+  });
+  vi.spyOn(modal, "default").mockImplementation(({ children }) => <>{children}</>);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("sector attack controls", () => {
+  for (const control of ["scouting", "hover"])
+    it.each([
+      ["ENEMY", "home", false, true],
+      ["ENEMY", "permanent-ally", true, true],
+      ["ALLY", "other", false, false],
+      ["NEUTRAL", "home", false, false],
+      ["NEUTRAL", "permanent-ally", true, false],
+      ["NEUTRAL", "other", false, true],
+    ] as const)(
+      `${control} uses %s over village %s (permanent ally: %s)`,
+      (allianceStatus, villageId, permanentAlly, canAttack) => {
+        const userData = {
+          userId: "viewer",
+          villageId: "home",
+          rank: "JONIN",
+          village: {
+            id: "home",
+            relationshipA: permanentAlly
+              ? [
+                  {
+                    villageIdA: "home",
+                    villageIdB: villageId,
+                    status: "ALLY",
+                  } as VillageAlliance,
+                ]
+              : [],
+            relationshipB: [],
+          },
+        } as unknown as NonNullable<UserWithRelations>;
+        const target = {
+          userId: "target",
+          username: "Target",
+          villageId,
+          allianceStatus,
+          latitude: 5,
+          longitude: 5,
+          status: "AWAKE",
+          rank: "JONIN",
+          curHealth: 100,
+          maxHealth: 100,
+        } as SectorUser;
+        if (control === "scouting") {
+          const attackUser = vi.fn();
+          const view = render(
+            <SorroundingUsers
+              userData={userData}
+              users={[target]}
+              hex={{ col: 5, row: 5 } as TerrainHex}
+              allyAttack={false}
+              storedBracket={-1}
+              timeDiff={0}
+              setIsOpen={vi.fn()}
+              setAllyAttack={vi.fn()}
+              setStoredBracket={vi.fn()}
+              attackUser={attackUser}
+              robUser={vi.fn()}
+              move={vi.fn()}
+            />,
+          );
+          const attack = view.queryByAltText("Attack-target");
+          expect(Boolean(attack)).toBe(canAttack);
+          if (attack) {
+            fireEvent.click(attack);
+            expect(attackUser).toHaveBeenCalledWith("target");
+          }
+        } else {
+          const group = new Group();
+          const userMesh = new Group();
+          userMesh.userData = {
+            type: "user",
+            userId: target.userId,
+            tile: { row: 5, col: 5 },
+          };
+          const sprites = Array.from({ length: 6 }, () => new Sprite());
+          userMesh.add(...sprites);
+          group.add(userMesh);
+          sprites[3]!.visible = false;
+          const raycaster = new Raycaster();
+          vi.spyOn(raycaster, "intersectObjects").mockReturnValue([
+            { object: sprites[0]!, distance: 1, point: new Vector3() },
+          ]);
+          intersectUsers({
+            group_users: group,
+            raycaster,
+            users: [target],
+            userData,
+            allyAttack: false,
+            currentTooltips: new Set(),
+          });
+          expect(sprites[3]!.visible).toBe(canAttack);
+        }
+      },
+    );
+});

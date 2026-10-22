@@ -1559,7 +1559,10 @@ export const intersectUsers = (info: {
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
           const isAlly =
-            user.villageId === userData.villageId || relationship?.status === "ALLY";
+            user.allianceStatus === "ALLY" ||
+            (user.allianceStatus !== "ENEMY" &&
+              (user.villageId === userData.villageId ||
+                relationship?.status === "ALLY"));
           const showAttack =
             !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
           const showHeal =

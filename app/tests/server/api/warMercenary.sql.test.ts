@@ -43,6 +43,21 @@ describeWithDatabase("war mercenary contracts", () => {
     expect((await db.query.warMercenary.findFirst())?.activeUserId).toBeNull();
     expect(await merc.getObjectiveWarInfo({ warId: "w" })).toBeNull();
   });
+  it.each(["kage", "merc"])("preserves an ally mission when %s closes an unaccepted invitation", async (actor) => {
+    const db = await getTestDatabase();
+    await db.insert(warAlly).values({ id: "ally", warId: "w", villageId: "c", supportVillageId: "a", tokensPaid: 1, acceptedAt: new Date() });
+    await db.update(userData).set({ rank: "JONIN", sector: 2 }).where(eq(userData.userId, "merc"));
+    await db.insert(quest).values({ id: "espionage", name: "Spy", questType: "war", questRank: "C", hidden: false, content: { objectives: [SimpleObjective.parse({ id: "spy", task: "espionage", durationSeconds: 1, value: 10 })], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } });
+    const merc = callerForDatabase(warRouter, "merc", db);
+    expect((await merc.startWarMission({ warId: "w", questId: "espionage", objectiveId: "spy" })).success).toBe(true);
+    const mission = (await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))!.warMission;
+    expect((await callerForDatabase(warRouter, "kage", db).inviteMercenary({ warId: "w", userId: "merc", tokens: 1 })).success).toBe(true);
+    const offer = (await db.query.warMercenary.findFirst())!;
+    expect(offer.acceptedAt).toBeNull();
+    expect((await callerForDatabase(warRouter, actor, db).leaveMercenary({ contractId: offer.id })).success).toBe(true);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.warMission).toEqual(mission);
+    expect((await db.query.warMercenary.findFirst())?.endedAt).not.toBeNull();
+  });
   it("reserves at most three slots even when invitations race", async () => {
     const db = await getTestDatabase();
     const kage = callerForDatabase(warRouter, "kage", db);
