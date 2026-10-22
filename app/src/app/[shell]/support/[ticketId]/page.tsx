@@ -48,14 +48,7 @@ import {
 import { useRequiredUserData } from "@/utils/UserContext";
 
 type TicketUpdateAction = {
-  kind:
-    | "status"
-    | "priority"
-    | "category"
-    | "assignment"
-    | "visibility"
-    | "tag"
-    | "comment-status";
+  kind: "status" | "priority" | "category" | "assignment" | "visibility" | "tag";
   label: string;
 };
 
@@ -74,7 +67,6 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
   const [tagOpen, setTagOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<TicketUpdateAction | null>(null);
   const ticketUpdateInFlightRef = useRef(false);
-  const queuedCommentStatusRef = useRef(false);
 
   // Canned responses state
   const [isManagementOpen, setIsManagementOpen] = useState(false);
@@ -143,19 +135,6 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
       .finally(() => {
         ticketUpdateInFlightRef.current = false;
         setPendingAction(null);
-
-        if (queuedCommentStatusRef.current) {
-          queuedCommentStatusRef.current = false;
-          void Promise.resolve().then(() => {
-            startTicketUpdate(
-              { ticketId: params.ticketId, status: "IN_PROGRESS" },
-              {
-                kind: "comment-status",
-                label: "Updating",
-              },
-            );
-          });
-        }
       });
 
     return true;
@@ -659,14 +638,11 @@ export default function TicketDetail(props: { params: Promise<{ ticketId: string
         subtitle="Talk with staff"
         supportTicketCreatedByUserId={ticket.createdByUserId}
         onCommentPosted={() => {
-          const accepted = startTicketUpdate(
-            { ticketId: params.ticketId, status: "IN_PROGRESS" },
-            {
-              kind: "comment-status",
-              label: "Updating",
-            },
-          );
-          if (!accepted) queuedCommentStatusRef.current = true;
+          // The server moves the ticket's status on a reply; show the new one
+          void Promise.all([
+            utils.support.getTicket.invalidate({ ticketId: params.ticketId }),
+            utils.support.getTickets.invalidate(),
+          ]);
         }}
       />
 

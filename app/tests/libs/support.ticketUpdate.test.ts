@@ -1,5 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { getNextClosedAt, getTicketUpdateActivities } from "@/libs/support";
+import {
+  getNextClosedAt,
+  getStatusAfterComment,
+  getTicketUpdateActivities,
+} from "@/libs/support";
 
 const now = new Date("2026-10-08T10:00:00Z");
 const earlier = new Date("2026-10-01T10:00:00Z");
@@ -85,5 +89,41 @@ describe("getTicketUpdateActivities", () => {
         assignedToUserId: "staff-1",
       }).map((activity) => activity.action),
     ).toEqual(["STATUS_CHANGED", "PRIORITY_CHANGED", "CATEGORY_CHANGED", "ASSIGNED"]);
+  });
+});
+
+describe("getStatusAfterComment", () => {
+  const creator = { isCreator: true, isStaff: false };
+  const staff = { isCreator: false, isStaff: true };
+  const otherPlayer = { isCreator: false, isStaff: false };
+
+  it("keeps an unanswered ticket open when its creator replies", () => {
+    expect(getStatusAfterComment("OPEN", creator)).toBeUndefined();
+  });
+
+  it("hands a ticket staff picked up back to them when its creator replies", () => {
+    expect(getStatusAfterComment("IN_PROGRESS", creator)).toBe("WAITING_FOR_STAFF");
+    expect(getStatusAfterComment("WAITING_FOR_USER", creator)).toBe("WAITING_FOR_STAFF");
+    expect(getStatusAfterComment("WAITING_FOR_STAFF", creator)).toBeUndefined();
+  });
+
+  it("treats a staff member replying on their own ticket as the creator", () => {
+    expect(getStatusAfterComment("OPEN", { isCreator: true, isStaff: true })).toBeUndefined();
+  });
+
+  it("puts an active ticket in progress when staff reply", () => {
+    expect(getStatusAfterComment("OPEN", staff)).toBe("IN_PROGRESS");
+    expect(getStatusAfterComment("WAITING_FOR_STAFF", staff)).toBe("IN_PROGRESS");
+    expect(getStatusAfterComment("WAITING_FOR_USER", staff)).toBe("IN_PROGRESS");
+    expect(getStatusAfterComment("IN_PROGRESS", staff)).toBeUndefined();
+  });
+
+  it("leaves the status alone for other players and closed tickets", () => {
+    expect(getStatusAfterComment("OPEN", otherPlayer)).toBeUndefined();
+    expect(getStatusAfterComment("IN_PROGRESS", otherPlayer)).toBeUndefined();
+    for (const status of ["RESOLVED", "CLOSED"] as const) {
+      expect(getStatusAfterComment(status, creator)).toBeUndefined();
+      expect(getStatusAfterComment(status, staff)).toBeUndefined();
+    }
   });
 });

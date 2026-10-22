@@ -80,6 +80,26 @@ export const getNextClosedAt = (
   return CLOSED_TICKET_STATUSES.includes(fromStatus) && closedAt ? closedAt : now;
 };
 
+/**
+ * The status a support ticket moves to after a comment, or undefined to keep it.
+ * A staff reply (from anyone but the creator) puts an active ticket in progress. A
+ * creator reply hands a ticket staff already picked up back to them; an OPEN ticket
+ * stays OPEN so it still reads as unanswered. Resolved and closed tickets never move.
+ */
+export const getStatusAfterComment = (
+  status: SupportTicketStatus,
+  commenter: { isCreator: boolean; isStaff: boolean },
+): SupportTicketStatus | undefined => {
+  if (CLOSED_TICKET_STATUSES.includes(status)) return undefined;
+  if (commenter.isCreator) {
+    return status === "IN_PROGRESS" || status === "WAITING_FOR_USER"
+      ? "WAITING_FOR_STAFF"
+      : undefined;
+  }
+  if (commenter.isStaff && status !== "IN_PROGRESS") return "IN_PROGRESS";
+  return undefined;
+};
+
 export type SupportTicketActivityEntry = {
   action: SupportTicketActivityAction;
   oldValue?: string;
