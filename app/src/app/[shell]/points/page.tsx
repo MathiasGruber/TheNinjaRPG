@@ -302,7 +302,7 @@ const ReputationStore = () => {
           {PAYPAL_DISCOUNT_PERCENT}% discount applied
         </p>
       )}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Choose your reputation</CardTitle>
@@ -324,11 +324,12 @@ const ReputationStore = () => {
                 repFormMethods.setValue("reputationPoints", value)
               }
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-5 gap-1">
               {WEB_REP_PRESETS.map((points) => (
                 <Button
                   key={points}
                   variant={watchedPoints === points ? "default" : "outline"}
+                  className="min-w-0 px-1 text-xs"
                   disabled={points > maxPoints || isLoadingLimit || isError}
                   onClick={() => repFormMethods.setValue("reputationPoints", points)}
                 >
