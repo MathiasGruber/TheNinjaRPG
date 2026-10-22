@@ -130,6 +130,7 @@ describeWithDatabase("Hunting lifecycle", () => {
     await insertItems([
       {
         id: "hunt-gear",
+        name: "Hunting bonus armor",
         itemType: "ARMOR",
         maxDurability: 100,
         effects: [IncreaseHuntingYield.parse({ power: 2 })],

@@ -164,6 +164,9 @@ describeWithDatabase("farming router guards against a real MySQL", () => {
     async (mode) => {
       await farmer({ federalStatus: "GOLD" });
       await giveItem("ui-seed", "seed-1", 10);
+      const db = await getTestDatabase();
+      // Farm-shop seeds are excluded from the regular item shop.
+      await db.update(item).set({ inShop: false }).where(eq(item.id, "seed-1"));
       await insertItems([
         {
           id: "farm-gear",
@@ -184,7 +187,6 @@ describeWithDatabase("farming router guards against a real MySQL", () => {
       const api = await caller("farm-user");
       const preview = await api.getFarmState();
       if ("success" in preview) throw Error("Missing farm state");
-      const db = await getTestDatabase();
       const player = await db.query.userData.findFirst({
         where: eq(userData.userId, "farm-user"),
       });
