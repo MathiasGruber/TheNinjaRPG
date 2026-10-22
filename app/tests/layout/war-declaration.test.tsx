@@ -14,6 +14,7 @@ import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import * as map from "@/hooks/map";
 import * as building from "@/layout/Building";
+import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as panel from "@/layout/ObjectiveWarPanel";
 import * as toast from "@/libs/toast";
@@ -223,6 +224,11 @@ const mount = () =>
 
 describe("war room participation", () => {
   it("loads active wars without village membership and keeps village history unavailable", () => {
+    vi.spyOn(ContentBox, "default").mockImplementation(
+      ({ title, children, topRightContent }) => (
+        <><h1>{title}</h1>{topRightContent}{children}</>
+      ),
+    );
     user = { ...user, villageId: null, village: null };
     const activeWars = vi.fn(() => ({ data: [] }));
     const endedWars = vi.fn(() => ({ data: undefined }));
@@ -254,6 +260,7 @@ describe("war room participation", () => {
       expect.objectContaining({ enabled: false }),
     );
     expect(view.getByRole("heading", { name: "Active Wars" })).toBeDefined();
+    expect(view.getByRole("button", { name: "Active" })).toBeDefined();
     expect(view.getByText("No active wars")).toBeDefined();
     expect(view.queryByText("Join a village first")).toBeNull();
     expect(view.queryByRole("button", { name: "Ended" })).toBeNull();
