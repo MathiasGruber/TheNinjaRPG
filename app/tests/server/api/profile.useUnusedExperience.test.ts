@@ -58,6 +58,16 @@ describeWithDatabase("profile useUnusedExperiencePoints against a real MySQL", (
     await resetTables(userData);
   });
 
+  it("rejects Elite Jonin assignment without spending XP or changing stats", async () => {
+    await assigner({ rank: "ELITE JONIN", level: 101 });
+    const before = await readUser();
+    const result = await (await callerFor(profileRouter, USER_ID)).useUnusedExperiencePoints({ offence: 10, ninjutsuMastery: 10, Wind: 10 });
+    expect(result.success).toBe(false);
+    expect(result.message).toContain("Elite Jonin cannot assign experience");
+    expect(result.userPatch).toBeUndefined();
+    expect(await readUser()).toEqual(before);
+  });
+
   it("assigns unused points to the four jutsu masteries without granting level XP", async () => {
     await assigner({ ninjutsuMastery: 10, genjutsuMastery: 10, taijutsuMastery: 10, bukijutsuMastery: 10 });
     const api = await callerFor(profileRouter, USER_ID);

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { type UserRank, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { quest, questHistory, userData } from "@/drizzle/schema";
 import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
+import { getQuestMaxLevel } from "@/libs/quest";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { upsertQuestEntries } from "@/routers/quests";
 import { drizzleDB } from "@/server/db";
@@ -138,7 +139,7 @@ export async function GET(request: Request) {
               questRanks.includes(q.questRank) &&
               (!q.requiredVillage || q.requiredVillage === requiredVillage) &&
               q.requiredLevel <= level &&
-              q.maxLevel >= level,
+              getQuestMaxLevel(q) >= level,
           );
         if (newDaily) {
           const entry = memory.find((m) => m.questId === newDaily.id);

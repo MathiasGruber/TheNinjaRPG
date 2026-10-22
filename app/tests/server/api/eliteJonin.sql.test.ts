@@ -2,19 +2,44 @@ import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { quest, questHistory, userData } from "@/drizzle/schema";
 import { calcHP } from "@/libs/profile";
+import { isAvailableUserQuests } from "@/libs/quest";
+import { canBootstrapQuestType, fetchQuestBootstrap } from "@/server/api/routers/profile";
+import { fetchUncompletedQuests, questsRouter } from "@/server/api/routers/quests";
 import { commitQuestObjectiveRewards } from "@/server/api/routers/quests";
+import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
 import { QuestReward } from "@/validators/rewardPackages";
 import { AllObjectives, QuestTracker } from "@/validators/objectives";
 import { PostProcessedRewardSchema } from "@/validators/rewards";
 import { insertQuestHistory, insertQuests, insertUsers } from "../../setup/factories";
-import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("Elite Jonin milestone claims", () => {
   beforeEach(async () => resetTables(questHistory, quest, userData));
 
+  it("discovers legacy level-100 content at 110 without reopening earlier milestones", async () => {
+    const client = await getTestDatabase();
+    await insertUsers([{ userId: "elite", rank: "ELITE JONIN", level: 110 }]);
+    const user = await client.query.userData.findFirst({ where: eq(userData.userId, "elite") });
+    if (!user) throw new Error("Missing Elite Jonin");
+    await insertQuests([
+      { id: "legacy", questType: "starter", requiredLevel: 100, maxLevel: 100 },
+      { id: "legacy-tier", questType: "tier", requiredLevel: 100, maxLevel: 100 },
+      { id: "bounded", questType: "starter", requiredLevel: 100, maxLevel: 101 },
+      { id: "milestone", questType: "starter", requiredLevel: 100, maxLevel: 100,
+        content: { objectives: [], reward: QuestReward.parse({ reward_level: 101, reward_stats: 20_000 }), sceneBackground: "", sceneCharacters: [] } },
+    ]);
+    const candidates = await fetchQuestDiscoveryCandidates(client, user.userId, { questTypes: ["starter"], level: 110 });
+    expect(candidates.filter(q => isAvailableUserQuests(q, { ...user, completedQuests: [] }).check).map(q => q.id)).toEqual(["legacy"]);
+    expect(canBootstrapQuestType(await fetchQuestBootstrap(client, user.userId), "tier", user.level)).toBe(true);
+    expect((await fetchUncompletedQuests(client, user, "tier")).map(q => q.id)).toEqual(["legacy-tier"]);
+    const catalogue = await (await callerFor(questsRouter, user.userId)).getAll({ limit: 100, userLevel: 110 });
+    expect(catalogue.data.map(q => q.id)).toContain("legacy");
+    expect(catalogue.data.map(q => q.id)).not.toContain("bounded");
+  });
+
   it("awards one level and one stat gain when two different milestones race for the same level", async () => {
     const client = await getTestDatabase();
-    await insertUsers([{ userId: "elite", rank: "ELITE JONIN", level: 100,
+    await insertUsers([{ userId: "elite", rank: "ELITE JONIN", level: 100, skillPoints: 7,
       offence: 1_300_000, defence: 1_300_000, strength: 400_000, intelligence: 400_000, speed: 400_000, willpower: 400_000 }]);
     await insertQuests(["first", "second"].map(id => ({ id, questType: "starter", requiredLevel: 100, maxLevel: 100,
       content: { objectives: [], reward: QuestReward.parse({ reward_level: 101, reward_stats: 20_000 }), sceneBackground: "", sceneCharacters: [] } })));
@@ -29,7 +54,7 @@ describeWithDatabase("Elite Jonin milestone claims", () => {
     })));
     expect(results.map(result => result.outcome).sort()).toEqual(["claimed", "state_changed"]);
     expect(await client.query.userData.findFirst({ where: eq(userData.userId, "elite") })).toMatchObject({
-      level: 101, offence: 1_320_000, defence: 1_320_000, strength: 420_000,
+      level: 101, skillPoints: 7, offence: 1_320_000, defence: 1_320_000, strength: 420_000,
       intelligence: 420_000, speed: 420_000, willpower: 420_000, maxHealth: calcHP(101),
     });
     const histories = await client.query.questHistory.findMany();

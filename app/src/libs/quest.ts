@@ -15,6 +15,8 @@ import {
   IMG_MISSION_PVP,
   IMG_MISSION_S,
   type LetterRank,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
   type MasteryType,
   MEDICAL_MISSIONS_PER_DAY,
   type MEDNIN_RANK,
@@ -2219,6 +2221,15 @@ export const controlShownQuestLocationInformation = (
   });
 };
 
+/** Legacy endgame quests remain available above the XP level cap; milestones retain exact levels. */
+export const getQuestMaxLevel = (quest: {
+  maxLevel: number;
+  content?: { reward?: { reward_level?: number } } | null;
+}) =>
+  quest.maxLevel === MAX_EXPERIENCE_LEVEL && !quest.content?.reward?.reward_level
+    ? MAX_PLAYER_LEVEL
+    : quest.maxLevel;
+
 /**
  * Checks whether a quest is currently available to a user, including sage mode
  * (`requiredSageModeId`) and minimum sage mastery rank (`requiredSageRank`).
@@ -2394,7 +2405,12 @@ export const isAvailableUserQuests = (
   const levelCheck =
     (!questAndUserQuestInfo.requiredLevel ||
       userLevel >= questAndUserQuestInfo.requiredLevel) &&
-    (!questAndUserQuestInfo.maxLevel || userLevel <= questAndUserQuestInfo.maxLevel);
+    (!questAndUserQuestInfo.maxLevel ||
+      userLevel <=
+        getQuestMaxLevel({
+          maxLevel: questAndUserQuestInfo.maxLevel,
+          content: questAndUserQuestInfo.content,
+        }));
 
   // Lifetime completion cap. Period-capped quests (retryDelay != "none") are gated solely by
   // periodCapCheck below; applying the lifetime cap to them as well would permanently block a

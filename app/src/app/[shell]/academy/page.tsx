@@ -44,7 +44,7 @@ export default function Academy() {
             <p className="p-3">
               Complete milestones to reach level {MAX_PLAYER_LEVEL}. Each milestone
               grants a level, combat stats and larger health, chakra, stamina and energy
-              pools. Assigned experience does not increase your level. Rank caps:{" "}
+              pools. Elite Jonin cannot assign experience to stats. Rank caps:{" "}
               {caps.gens_cap.toLocaleString()} per general and{" "}
               {caps.stats_cap.toLocaleString()} offence and defence.
             </p>

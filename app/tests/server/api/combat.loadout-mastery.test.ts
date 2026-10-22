@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { type BattleType, RANKED_PVP_STATS, REGEN_SECONDS } from "@/drizzle/constants";
+import { type BattleType, MAX_PLAYER_LEVEL, RANKED_PVP_STATS, REGEN_SECONDS } from "@/drizzle/constants";
 import { userJutsuToAction } from "@/libs/combat/actions";
 import { applyEffects } from "@/libs/combat/process";
 import { refreshMasteries } from "@/libs/combat/util";
@@ -7,7 +7,7 @@ import { captureCombatCacheSnapshot } from "@/libs/combat/userCache";
 import { effectiveMasteries } from "@/libs/mastery";
 import { jutsuRequirementWarning } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
-import { manuallyAssignUserStats } from "@/libs/profile";
+import { calcCP, calcHP, calcSP, manuallyAssignUserStats } from "@/libs/profile";
 import { validateItemLoadout } from "@/libs/ranked_pvp";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import {
@@ -436,6 +436,14 @@ describeWithDatabase("combat lobby mastery loadouts", () => {
         isSummon: false,
         width: 13,
         height: 9,
+      });
+      expect(result.usersState[0]).toMatchObject({
+        level: MAX_PLAYER_LEVEL,
+        offence: RANKED_PVP_STATS.offence,
+        strength: RANKED_PVP_STATS.strength,
+        maxHealth: calcHP(MAX_PLAYER_LEVEL), curHealth: calcHP(MAX_PLAYER_LEVEL),
+        maxChakra: calcCP(MAX_PLAYER_LEVEL), curChakra: calcCP(MAX_PLAYER_LEVEL),
+        maxStamina: calcSP(MAX_PLAYER_LEVEL), curStamina: calcSP(MAX_PLAYER_LEVEL),
       });
       const equipped = result.usersState[0]!.items;
       expect(equipped.find((ui) => ui.id === gated.id)?.equipped).toBe("ITEM_1");

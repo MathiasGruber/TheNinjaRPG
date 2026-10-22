@@ -130,7 +130,7 @@ export const eliteJoninExamBlockMessage = (
     | "willpower"
   >,
 ): string | null => {
-  if (!["JONIN", "ELDER"].includes(user.rank) || user.level < MAX_EXPERIENCE_LEVEL)
+  if (user.rank !== "JONIN" || user.level !== MAX_EXPERIENCE_LEVEL)
     return `The Elite Jonin exam requires level ${MAX_EXPERIENCE_LEVEL} and Jonin rank.`;
   const caps = getUserCaps("JONIN");
   if (
@@ -376,6 +376,7 @@ export const canAssignExperience = (
   > &
     ElementalMasterySource,
 ) => {
+  if (experienceAssignmentBlockMessage(user)) return false;
   const { stats_cap, gens_cap } = getUserCaps(user.rank);
   return (
     CombatStatNames.some(
@@ -387,6 +388,12 @@ export const canAssignExperience = (
       BasicElementName.some((element) => elementalGainRoom(user, element) > 0))
   );
 };
+
+/** Elite progression awards fixed stats; unused XP remains stored until its use is defined. */
+export const experienceAssignmentBlockMessage = (user: Pick<UserData, "rank">) =>
+  user.rank === "ELITE JONIN"
+    ? "Elite Jonin cannot assign experience. Complete academy milestones to increase your combat stats and level."
+    : null;
 
 /** Assign stats of user, meant for the training dummy and ranked equalization */
 export function manuallyAssignUserStats(user: UserData, stats: AssignableUserStats) {

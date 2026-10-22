@@ -189,7 +189,10 @@ import {
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
-import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
+import {
+  fetchQuestDiscoveryCandidates,
+  questLevelFilters,
+} from "@/server/utils/questDiscovery";
 import {
   fetchQuestEntryInventory,
   getQuestEntryCharges,
@@ -311,12 +314,7 @@ export const questsRouter = createTRPCRouter({
               ? [eq(quest.requiredBloodlineId, input.bloodline)]
               : []),
             ...(input?.sageMode ? [eq(quest.requiredSageModeId, input.sageMode)] : []),
-            ...(input?.userLevel
-              ? [
-                  gte(quest.maxLevel, input.userLevel),
-                  lte(quest.requiredLevel, input.userLevel),
-                ]
-              : []),
+            ...(input?.userLevel ? [...questLevelFilters(input.userLevel)] : []),
             ...(input?.hidden !== undefined ? [eq(quest.hidden, !!input.hidden)] : []),
           ),
           offset: skip,
@@ -550,9 +548,8 @@ export const questsRouter = createTRPCRouter({
             and(
               eq(quest.questType, input.type),
               eq(quest.questRank, input.rank),
-              lte(quest.requiredLevel, input.userLevel),
+              ...questLevelFilters(input.userLevel),
               lte(quest.requiredFarmingLevel, getFarmingLevel(user.farmingExperience)),
-              gte(quest.maxLevel, input.userLevel),
               or(isNull(quest.startsAt), lte(quest.startsAt, new Date().toISOString())),
               or(isNull(quest.endsAt), gte(quest.endsAt, new Date().toISOString())),
               or(
@@ -2873,8 +2870,7 @@ export const fetchUncompletedQuests = async (
     .where(
       and(
         eq(quest.questType, type),
-        gte(quest.maxLevel, user.level),
-        lte(quest.requiredLevel, user.level),
+        ...questLevelFilters(user.level),
         ...(type === "daily"
           ? []
           : [lte(quest.requiredFarmingLevel, getFarmingLevel(user.farmingExperience))]),

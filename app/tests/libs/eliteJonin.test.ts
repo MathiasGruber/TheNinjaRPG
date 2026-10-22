@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { getUserCaps, MAX_PLAYER_LEVEL } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
 import { eliteJoninMilestoneBlockMessage, eliteJoninMilestoneUpdate } from "@/libs/eliteJonin";
-import { calcHP, canAttackBracket, eliteJoninExamBlockMessage, getEffectiveLevel, getExpBracket, levelUpBlockMessage, passesBracketFilter } from "@/libs/profile";
+import { calcHP, canAttackBracket, canAssignExperience, eliteJoninExamBlockMessage, experienceAssignmentBlockMessage, getEffectiveLevel, getExpBracket, levelUpBlockMessage, passesBracketFilter } from "@/libs/profile";
 import { getReward, isAvailableUserQuests } from "@/libs/quest";
 import { calcJutsuEquipLimit } from "@/libs/train";
 import { ItemValidator, JutsuValidator } from "@/validators/combat";
@@ -35,7 +35,22 @@ describe("Elite Jonin progression", () => {
     for (const stat of ["offence", "defence", "strength", "speed", "intelligence", "willpower"] as const)
       expect(eliteJoninExamBlockMessage({ ...cappedJonin, [stat]: cappedJonin[stat] - 1 })).not.toBeNull();
     expect(eliteJoninExamBlockMessage({ ...cappedJonin, rank: "CHUNIN" })).not.toBeNull();
+    expect(eliteJoninExamBlockMessage({ ...cappedJonin, rank: "ELDER" })).not.toBeNull();
     expect(eliteJoninExamBlockMessage({ ...cappedJonin, level: 99 })).not.toBeNull();
+    expect(eliteJoninExamBlockMessage({ ...cappedJonin, level: 101 })).not.toBeNull();
+  });
+  it("blocks all unused XP assignment for Elite Jonin even with stat capacity", () => {
+    const elite = { ...cappedJonin, rank: "ELITE JONIN" as const };
+    expect(canAssignExperience(elite)).toBe(false);
+    expect(experienceAssignmentBlockMessage(elite)).toContain("cannot assign experience");
+    expect(experienceAssignmentBlockMessage(cappedJonin)).toBeNull();
+  });
+  it("keeps ordinary level-100 quests available throughout Elite progression", () => {
+    const quest = { ...milestone(), content: { objectives: [], reward: {} } };
+    for (const level of [100, 101, 110])
+      expect(isAvailableUserQuests(quest as never, { ...cappedJonin, completedQuests: [], rank: "ELITE JONIN", level }).check).toBe(true);
+    for (const maxLevel of [99, 101])
+      expect(isAvailableUserQuests({ ...quest, maxLevel } as never, { ...cappedJonin, completedQuests: [], rank: "ELITE JONIN", level: 110 }).check).toBe(false);
   });
   it("never derives Elite Jonin levels from assigned XP", () => {
     for (const level of [100, 101, 105, 110]) {

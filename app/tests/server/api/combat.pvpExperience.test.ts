@@ -25,8 +25,12 @@ const participant = (userId: string, villageId: string, isAi = false) => ({
   regenAt: new Date(), joinedVillageAt: new Date(),
 });
 
-const startBattle = async (battleType: BattleType, repeats: number, defenderAi = false) => {
-  const users = [participant("attacker", "a"), participant("defender", "b", defenderAi)];
+const startBattle = async (battleType: BattleType, repeats: number, defenderAi = false, team?: {
+  users: ReturnType<typeof participant>[];
+  userIds: string[];
+  targetIds: string[];
+}) => {
+  const users = team?.users ?? [participant("attacker", "a"), participant("defender", "b", defenderAi)];
   let saved: CompleteBattle | undefined;
   const historyReads: SQL[] = [];
   const phases: string[] = [];
@@ -54,7 +58,7 @@ const startBattle = async (battleType: BattleType, repeats: number, defenderAi =
     } }),
     update: () => ({ set: () => ({ where: async () => ({ rowsAffected: users.filter((user) => !user.isAi).length }) }) }),
   } as unknown as DrizzleClient;
-  expect((await initiateBattle({ client, userIds: ["attacker"], targetIds: ["defender"], biome: "default" }, battleType)).success).toBe(true);
+  expect((await initiateBattle({ client, userIds: team?.userIds ?? ["attacker"], targetIds: team?.targetIds ?? ["defender"], biome: "default" }, battleType)).success).toBe(true);
   if (!saved) throw new Error("Battle was not inserted");
   saved.groundEffects = [];
   return { saved, historyReads, phases };
@@ -66,6 +70,22 @@ describe("repeat-opponent PvP XP at battle initiation", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("allows a bracket-7 initiator to attack Elite Jonin with a lower-bracket ally", async () => {
+    const result = await startBattle("COMBAT", 0, false, {
+      users: [participant("attacker", "a"), { ...participant("ally", "a"), experience: 2_000_000 }, { ...participant("defender", "b"), rank: "ELITE JONIN" }],
+      userIds: ["attacker", "ally"], targetIds: ["defender"],
+    });
+    expect(result.saved.usersState.filter(user => !user.isAi)).toHaveLength(3);
+  });
+
+  it("uses the initiator's ordinary bracket even when an Elite Jonin ally joins", async () => {
+    const result = await startBattle("COMBAT", 0, false, {
+      users: [{ ...participant("attacker", "a"), experience: 2_000_000 }, { ...participant("ally", "a"), rank: "ELITE JONIN" }, { ...participant("defender", "b"), experience: 2_000_000 }],
+      userIds: ["attacker", "ally"], targetIds: ["defender"],
+    });
+    expect(result.saved.usersState.filter(user => !user.isAi)).toHaveLength(3);
+  });
 
   it.each([
     ["COMBAT", 2, false, "Won", 83.33, 1 / 3],

@@ -33,6 +33,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   BATTLE_ARENA_DAILY_LIMIT,
   IMG_AVATAR_DEFAULT,
+  MAX_PLAYER_LEVEL,
   TUTORIAL_ARENA_DUMMY_ID,
 } from "@/drizzle/constants";
 import { useAutoCombatSetting } from "@/hooks/combat";
@@ -609,7 +610,8 @@ const ChallengeUser: React.FC = () => {
             onCheckedChange={(checked) => setUseRankedRules(checked === true)}
           />
           <label htmlFor="useRankedRules" className="text-sm">
-            Use ranked rules (ranked loadouts, level 100 stats, no LP rewards)
+            Use ranked rules (ranked loadouts, level {MAX_PLAYER_LEVEL} stats, no LP
+            rewards)
           </label>
         </div>
         <div className="mt-2 mb-2 flex items-center space-x-2">

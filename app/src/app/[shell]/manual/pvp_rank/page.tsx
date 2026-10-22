@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  MAX_PLAYER_LEVEL,
   RANKED_BLOODLINE_EFFECT_MULT,
   RANKED_LOADOUT_MAX_CONSUMABLES,
   RANKED_LOADOUT_MAX_HEAL_JUTSUS,
@@ -85,7 +86,7 @@ export default function RankedManualPage() {
                     fair competition:
                   </p>
                   <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground text-sm">
-                    <li>Level 100 with maximum experience</li>
+                    <li>Level {MAX_PLAYER_LEVEL} with maximum stats</li>
                     <li>Equalized health, chakra, and stamina pools</li>
                     <li>Balanced combat stats for all players</li>
                     <li>

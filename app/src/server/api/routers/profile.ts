@@ -141,6 +141,7 @@ import {
   calcMaxEnergy,
   calcSP,
   canAssignExperience,
+  experienceAssignmentBlockMessage,
   getAssignedCombatStatTotal,
   levelUpBlockMessage,
   scaleUserStats,
@@ -151,6 +152,7 @@ import {
   filterQuestTrackersForDbPersist,
   getNewTrackers,
   getPublicQuestUser,
+  getQuestMaxLevel,
   getQuestTargetSectorsToCheck,
   isAvailableUserQuests,
   mockAchievementHistoryEntries,
@@ -2125,6 +2127,8 @@ export const profileRouter = createTRPCRouter({
         },
       });
       if (!user) return errorResponse("User not found");
+      const assignmentBlock = experienceAssignmentBlockMessage(user);
+      if (assignmentBlock) return errorResponse(assignmentBlock);
       // Derived
       const inputSum = Object.values(input).reduce(
         (a, b) => Math.floor(a) + Math.floor(b),
@@ -4506,7 +4510,7 @@ export const canBootstrapQuestType = (
       candidate.questType === questType &&
       candidate.completed === null &&
       candidate.requiredLevel <= level &&
-      candidate.maxLevel >= level,
+      getQuestMaxLevel(candidate) >= level,
   );
 
 /**
