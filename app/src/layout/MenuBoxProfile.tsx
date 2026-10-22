@@ -48,11 +48,13 @@ import {
   IMG_ICON_TIKTOK,
   IMG_ICON_TWITTER,
   IMG_ICON_YOUTUBE,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
+  MAX_PVP_BRACKET,
   MasteryQueueKinds,
   MEDICAL_MISSIONS_PER_DAY,
   MISSIONS_PER_DAY,
   PVP_MISSIONS_PER_DAY,
-  XP_BRACKETS,
 } from "@/drizzle/constants";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useEffectivePools } from "@/hooks/useEffectivePools";
@@ -329,11 +331,16 @@ const MenuBoxProfile: React.FC = () => {
               total={userData?.maxEnergy}
               timeDiff={timeDiff}
             />
-            {expRequired &&
-            expForNextLevel &&
-            expTowardsNextLevel &&
-            expNeededForNextLevel &&
-            expTowardsNextLevel >= expNeededForNextLevel ? (
+            {userData?.rank === "ELITE JONIN" ? (
+              <Link href="/academy" className="block text-center text-sm underline">
+                Milestones: {Math.max(0, userData.level - MAX_EXPERIENCE_LEVEL)}/
+                {MAX_PLAYER_LEVEL - MAX_EXPERIENCE_LEVEL}
+              </Link>
+            ) : expRequired &&
+              expForNextLevel &&
+              expTowardsNextLevel &&
+              expNeededForNextLevel &&
+              expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
@@ -373,7 +380,7 @@ const MenuBoxProfile: React.FC = () => {
                   <p className="cursor-default">
                     <b>Bracket: </b>
                     {getExpBracket(userData.experience, userData.rank)}/
-                    {XP_BRACKETS.length}
+                    {MAX_PVP_BRACKET}
                   </p>
                 </TooltipTrigger>
                 <TooltipContent>

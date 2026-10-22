@@ -44,6 +44,7 @@ import type {
   UserQuest,
 } from "@/drizzle/schema";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
+import { eliteJoninMilestoneBlockMessage } from "@/libs/eliteJonin";
 import { getFarmingLevel } from "@/libs/farming";
 import { getGatheringRank } from "@/libs/gathering";
 import { calcMedninRank } from "@/libs/hospital";
@@ -64,6 +65,7 @@ import {
   isSupportedOverworldBindingTask,
   pickPlaceableSector,
 } from "@/libs/overworldAi";
+import { eliteJoninExamBlockMessage } from "@/libs/profile";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import { recordPartyContributions } from "@/libs/questParty";
 import {
@@ -108,7 +110,6 @@ import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import type { ObjectiveRewardType, PendingRewardChoice } from "@/validators/rewards";
 import {
   MASTERY_EXPERIENCE_FIELDS,
-  ObjectiveReward,
   type PostProcessedRewards,
   REWARD_CHOICE_AMOUNT_FIELDS,
 } from "@/validators/rewards";
@@ -391,7 +392,7 @@ export const getReward = (
   completionOnly = false,
 ) => {
   // Derived
-  let rawRewards = ObjectiveReward.parse({});
+  let rawRewards: QuestRewardType = QuestReward.parse({});
   // Completion reward of a "choose" quest, offered as cards instead of granted outright.
   let choiceRewards: QuestRewardType | null = null;
   let rewardChoice: PendingRewardChoice | null = null;
@@ -632,6 +633,13 @@ export const getReward = (
         };
       }
     }
+  }
+  if (resolved && userQuest && !isCompletedHelper) {
+    rawRewards = {
+      ...rawRewards,
+      reward_level: userQuest.quest.content.reward.reward_level,
+      reward_stats: userQuest.quest.content.reward.reward_stats,
+    };
   }
   // Final rewards (some need a bit pose-processing)
   const rewards = postProcessRewards(rawRewards);
@@ -2325,6 +2333,24 @@ export const isAvailableUserQuests = (
       promotion.reward_mastery_stat,
       promotion.reward_mastery_rank,
     );
+  const hasEliteExamReward =
+    promotion?.reward_rank === "ELITE JONIN" ||
+    completionReward?.reward_packages?.some(
+      (pack) => pack.rewards.reward_rank === "ELITE JONIN",
+    ) ||
+    questAndUserQuestInfo.content?.objectives?.some(
+      (objective) =>
+        objective.reward_rank === "ELITE JONIN" ||
+        objective.reward_packages?.some(
+          (pack) => pack.rewards.reward_rank === "ELITE JONIN",
+        ),
+    );
+  const examBlock = hasEliteExamReward
+    ? eliteJoninExamBlockMessage(baseMasteries)
+    : null;
+  const milestoneBlock = completionReward?.reward_level
+    ? eliteJoninMilestoneBlockMessage(user, completionReward.reward_level)
+    : null;
   // Checks
   const now = new Date();
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -2418,6 +2444,8 @@ export const isAvailableUserQuests = (
     sageRankCheck &&
     masteryCheck &&
     promotionCheck &&
+    !examBlock &&
+    !milestoneBlock &&
     prerequisiteCheck &&
     medicalRankCheck &&
     huntingRankCheck &&
@@ -2441,6 +2469,8 @@ export const isAvailableUserQuests = (
     message +=
       "Quest requires more earned mastery (equipment and bloodline bonuses do not count)\n";
   if (!promotionCheck) message += "Quest requires the previous mastery rank\n";
+  if (examBlock) message += `${examBlock}\n`;
+  if (milestoneBlock) message += `${milestoneBlock}\n`;
   if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
   if (!medicalRankCheck)
     message += `Quest requires medical rank ${capitalizeFirstLetter(questMedRank ?? "NONE")}\n`;

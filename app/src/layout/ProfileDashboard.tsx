@@ -33,7 +33,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { COST_STREAK_CATCHUP_DAY, MasteryQueueKinds } from "@/drizzle/constants";
+import {
+  COST_STREAK_CATCHUP_DAY,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
+  MasteryQueueKinds,
+} from "@/drizzle/constants";
 import { safeLocalStorageGetItem, safeLocalStorageSetItem } from "@/hooks/localstorage";
 import { useActivityStreaks, useClaimStreakDay } from "@/hooks/useActivityStreaks";
 import { useClaimBankInterest, usePendingBankInterest } from "@/hooks/useBankInterest";
@@ -272,8 +277,17 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
     (timer) => !(timer.kind === "crafting" && occupationLine.craftTimer),
   );
   const levelRequirement = calcLevelRequirements(userData.level);
-  const levelProgress =
-    levelRequirement > 0
+  const isMilestoneProgression = userData.rank === "ELITE JONIN";
+  const levelProgress = isMilestoneProgression
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          (100 * (userData.level - MAX_EXPERIENCE_LEVEL)) /
+            (MAX_PLAYER_LEVEL - MAX_EXPERIENCE_LEVEL),
+        ),
+      )
+    : levelRequirement > 0
       ? Math.min(100, (userData.experience / levelRequirement) * 100)
       : 100;
   const claimsLoading = streaks.isLoading || interest.isLoading || dashboard.isLoading;
@@ -673,7 +687,7 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                 <div className="min-w-0 flex-1">
                   <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
                     <span className="font-semibold text-amber-900 uppercase tracking-wide dark:text-amber-200">
-                      XP
+                      {isMilestoneProgression ? "Milestones" : "XP"}
                     </span>
                     {levelStatus.reason ? (
                       <RestrictionBadge
@@ -688,7 +702,11 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                   <div className="relative">
                     <Progress
                       value={levelProgress}
-                      aria-label={`Experience toward leveling up from level ${userData.level}`}
+                      aria-label={
+                        isMilestoneProgression
+                          ? "Elite Jonin milestone progression"
+                          : `Experience toward leveling up from level ${userData.level}`
+                      }
                       aria-valuenow={levelProgress}
                       aria-valuemin={0}
                       aria-valuemax={100}
@@ -703,6 +721,11 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
                 </div>
               </div>
               <LevelUpBtn id="tutorial-level-up-dashboard" />
+              {isMilestoneProgression && (
+                <Link href="/academy" className="mt-2 inline-block text-sm underline">
+                  View milestones at the academy
+                </Link>
+              )}
             </div>
             {!claimsLoading && !claimsFailed && !hasCollectible && (
               <p className="border-t py-3 text-muted-foreground text-sm">

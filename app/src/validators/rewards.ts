@@ -1,6 +1,9 @@
 import { z } from "zod";
 import {
   MASTERY_RANKS,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
+  MAX_STATS_CAP,
   MasteryNames,
   QUEST_REWARD_MODES,
   QUEST_REWARD_PICK_MAX,
@@ -80,6 +83,20 @@ export const ObjectiveReward = z.object(rewardFields);
 export type ObjectiveRewardType = z.infer<typeof ObjectiveReward>;
 export type ObjectiveRewardInputType = z.input<typeof ObjectiveReward>;
 
+/** Final academy milestone rewards; these cannot be packaged or selected as loot. */
+export const milestoneRewardFields = {
+  reward_level: z.coerce
+    .number()
+    .int()
+    .refine(
+      (value) =>
+        value === 0 || (value > MAX_EXPERIENCE_LEVEL && value <= MAX_PLAYER_LEVEL),
+      `Milestone level must be ${MAX_EXPERIENCE_LEVEL + 1}–${MAX_PLAYER_LEVEL}, or 0 to disable`,
+    )
+    .optional(),
+  reward_stats: z.coerce.number().int().min(0).max(MAX_STATS_CAP).optional(),
+};
+
 /**
  * Schema for post-processed rewards where item/jutsu/bloodline/badge IDs
  * have been resolved to names (simple string arrays).
@@ -91,6 +108,7 @@ export type ObjectiveRewardInputType = z.input<typeof ObjectiveReward>;
  */
 export const PostProcessedRewardSchema = z.object({
   ...rewardFields,
+  ...milestoneRewardFields,
   // Override fields that get resolved to names after processing
   reward_items: z.array(z.string()).prefault([]),
   reward_jutsus: z.array(z.string()).prefault([]),

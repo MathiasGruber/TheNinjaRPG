@@ -25,6 +25,7 @@ import type {
 import {
   BattleDataEntryType,
   BattleTypes,
+  MAX_PLAYER_LEVEL,
   QuestRewardMetrics,
   QuestTypes,
   RANKED_RANKS,
@@ -1812,7 +1813,7 @@ export const dataRouter = createTRPCRouter({
         userRanks: z.array(z.string()).optional(),
         villages: z.array(z.string()).optional(),
         minLevel: z.number().min(1).default(1),
-        maxLevel: z.number().max(100).default(100),
+        maxLevel: z.number().max(MAX_PLAYER_LEVEL).default(MAX_PLAYER_LEVEL),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -1873,10 +1874,10 @@ export const dataRouter = createTRPCRouter({
       z.object({
         battleTypes: z.array(z.enum(BattleTypes)).optional(),
         minCount: z.number().min(1).default(1),
-        minWinnerLevel: z.number().min(1).max(100).optional(),
-        maxWinnerLevel: z.number().min(1).max(100).optional(),
-        minLoserLevel: z.number().min(1).max(100).optional(),
-        maxLoserLevel: z.number().min(1).max(100).optional(),
+        minWinnerLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
+        maxWinnerLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
+        minLoserLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
+        maxLoserLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -2124,8 +2125,8 @@ export const dataRouter = createTRPCRouter({
     .input(
       z.object({
         minCount: z.number().min(1).default(1),
-        minLevel: z.number().min(1).max(100).optional(),
-        maxLevel: z.number().min(1).max(100).optional(),
+        minLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
+        maxLevel: z.number().min(1).max(MAX_PLAYER_LEVEL).optional(),
       }),
     )
     .query(async ({ ctx, input }) => {

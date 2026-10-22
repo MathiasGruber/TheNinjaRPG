@@ -195,12 +195,12 @@ import {
   calcActiveUserRegen,
   calcCP,
   calcHP,
-  calcLevel,
   calcLevelRequirements,
   calcMaxEnergy,
   calcSP,
   canAttackBracket,
   capUserStats,
+  getEffectiveLevel,
   getExpBracket,
   manuallyAssignUserStats,
   scaleUserStats,
@@ -2940,7 +2940,20 @@ export const initiateBattle = async (
 
     // XP Bracket restrictions — same bracket, higher, or one below; immunity lift and war exemptions
     if (battleType === "COMBAT" && userIds.includes(user.userId)) {
-      // War-Torn sector is a free-for-all — skip all village and bracket restrictions
+      const eliteMismatch = nonAiTargets.find(
+        (target) =>
+          (user.rank === "ELITE JONIN" || target.rank === "ELITE JONIN") &&
+          !canAttackBracket(
+            getExpBracket(user.experience, user.rank),
+            getExpBracket(target.experience, target.rank),
+          ),
+      );
+      if (eliteMismatch)
+        return {
+          success: false,
+          message: "Elite Jonin can only fight players in brackets 7 and 8.",
+        };
+      // War-Torn sectors skip ordinary village and XP bracket restrictions.
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
       if (!isInWarTornSector) {
         // Guard 1: Cannot attack members of your own village
@@ -4459,7 +4472,7 @@ export const processUsersForBattle = async (
     // Update user level to the effective level if he had leveled up (to combat level-holding, as some things are scaled based on level)
     // Skip for ranked battles as they have their level set to 100 in initiateBattle
     if (battleType !== "RANKED_SPARRING" && battleType !== "RANKED_PVP") {
-      user.level = calcLevel(user.experience);
+      user.level = getEffectiveLevel(user);
     }
 
     // Store original location

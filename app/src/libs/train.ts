@@ -597,7 +597,7 @@ export const calcJutsuEquipLimit = (userdata: JutsuEquipLimitUser) => {
       case "ELDER":
         return 7 + 2;
       case "ELITE JONIN":
-        return 7 + 2;
+        return 8 + 2;
     }
     return 4 + 2;
   };

@@ -49,7 +49,7 @@ import {
 import { getQuestMapLocations } from "@/libs/mapLocations";
 import { maskWarObjectives } from "@/libs/objectiveWar";
 import { placementToSectorUser } from "@/libs/overworldAi";
-import { calcActiveUserRegen, calcLevel, calcMaxEnergy } from "@/libs/profile";
+import { calcActiveUserRegen, calcMaxEnergy, getEffectiveLevel } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
 import { boostPvpGain, getPvpBoost } from "@/libs/pvpExperience";
 import { getUserQuests } from "@/libs/quest";
@@ -179,8 +179,8 @@ export const travelRouter = createTRPCRouter({
       // Level restrictions - prevent robbing users more than 15 levels under or above (skip if in war-torn sector)
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
       if (!isInWarTornSector) {
-        const robberLevel = calcLevel(user.experience);
-        const targetLevel = calcLevel(target.experience);
+        const robberLevel = getEffectiveLevel(user);
+        const targetLevel = getEffectiveLevel(target);
         const levelDifference = robberLevel - targetLevel;
 
         if (levelDifference > 15) {

@@ -51,6 +51,7 @@ import {
   IMG_BADGE_WIN_QUEST,
   IMG_FARM_PLOT_SOIL,
   LetterRanks,
+  MAX_PLAYER_LEVEL,
   MasteryTypes,
   MEDNIN_RANKS,
   QUEST_PARTY_TYPES,
@@ -819,9 +820,9 @@ export const QuestValidatorRawSchema = z.object({
   huntingRank: z.enum(HUNTING_RANKS).optional().nullish(),
   gatheringRank: z.enum(GATHERING_RANKS).optional().nullish(),
   petTaskMinutes: petTaskMinutesSchema,
-  requiredLevel: z.coerce.number().min(0).max(100).optional(),
+  requiredLevel: z.coerce.number().int().min(0).max(MAX_PLAYER_LEVEL).optional(),
   requiredFarmingLevel: z.coerce.number().min(0).max(FARMING_MAX_LEVEL).optional(),
-  maxLevel: z.coerce.number().min(0).max(100).optional(),
+  maxLevel: z.coerce.number().int().min(0).max(MAX_PLAYER_LEVEL).optional(),
   maxAttempts: z.coerce.number().min(0).max(100).prefault(1),
   maxCompletes: z.coerce.number().min(0).max(100).prefault(1),
   requiredVillage: z.string().min(0).max(30).optional().nullish(),
@@ -994,6 +995,50 @@ const questSuperRefine = (
     });
   }
   const reward = val.content.reward;
+  if (reward.reward_level) {
+    if (
+      val.questType !== "starter" ||
+      val.teamEnabled ||
+      val.requiredLevel !== reward.reward_level - 1 ||
+      val.maxLevel !== reward.reward_level - 1 ||
+      val.maxCompletes !== 1 ||
+      (val.retryDelay && val.retryDelay !== "none") ||
+      val.content.rewardMode !== "all" ||
+      [
+        reward,
+        ...(reward.reward_packages ?? []).map((pack) => pack.rewards),
+        ...val.content.objectives.flatMap((objective) => [
+          objective,
+          ...(objective.reward_packages ?? []).map((pack) => pack.rewards),
+        ]),
+      ].some((part) => part.reward_rank !== "NONE") ||
+      !(reward.reward_stats && reward.reward_stats > 0)
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["content", "reward", "reward_level"],
+        message:
+          "Elite Jonin milestones must be solo academy quests, grant positive combat stats, require exactly the preceding level, complete once without a reset, grant all rewards and have no rank reward.",
+      });
+    }
+  } else if (reward.reward_stats) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "reward", "reward_stats"],
+      message: "Combat stat rewards require an Elite Jonin milestone level.",
+    });
+  }
+  if (
+    val.content.objectives.some(
+      (objective) => objective.reward_level || objective.reward_stats,
+    )
+  )
+    ctx.addIssue({
+      code: "custom",
+      path: ["content", "objectives"],
+      message:
+        "Milestone levels and combat stats belong on the completed quest, not individual objectives.",
+    });
   const hasPromotionStat =
     !!reward.reward_mastery_stat && reward.reward_mastery_stat !== "None";
   const hasPromotionRank =
@@ -1142,6 +1187,12 @@ export const QuestFormSchema = QuestFormRawSchema.transform((val) => ({
     : null,
   content: {
     ...val.content,
+    reward: {
+      ...val.content.reward,
+      reward_level: val.reward_level,
+      reward_stats: val.reward_stats,
+    },
+    rewardMode: val.rewardMode,
     entryItems: ["raid", "village_mission", "achievement"].includes(val.questType)
       ? []
       : val.entryItems,

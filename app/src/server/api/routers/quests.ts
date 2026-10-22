@@ -23,6 +23,7 @@ import type { QuestType, UserRole } from "@/drizzle/constants";
 import {
   ENERGY_QUEST_REWARDS,
   FARM_ACTIVITY_REWARD_TIME_REDUCTION_SECONDS,
+  getUserCaps,
   IMG_AVATAR_DEFAULT,
   LetterRanks,
   MAX_SKILL_POINTS,
@@ -77,6 +78,10 @@ import {
   editedReason,
   outdateProposalsFor,
 } from "@/libs/contentReview/outdate";
+import {
+  eliteJoninMilestoneBlockMessage,
+  eliteJoninMilestoneUpdate,
+} from "@/libs/eliteJonin";
 import { getFarmingLevel, qualifiesForFarmActivityReward } from "@/libs/farming";
 import { getGatheringItemDrops } from "@/libs/gathering";
 import { getHuntingItemDrops } from "@/libs/hunting";
@@ -94,6 +99,7 @@ import {
   isPetTaskContract,
   petTaskDispatchBlockMessage,
 } from "@/libs/pets/tasks";
+import { eliteJoninExamBlockMessage } from "@/libs/profile";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
@@ -1782,6 +1788,12 @@ export const questsRouter = createTRPCRouter({
       const unavailable = getUnavailableRewardCards(offer.data.cards, ownership);
       const picks = validateRewardPicks(offer.data, input.cardIds, unavailable);
       if (!picks.success) return errorResponse(picks.message);
+      const pickedRewards = rewardFromChoiceCards(picks.cards);
+      const examBlock =
+        pickedRewards.reward_rank === "ELITE JONIN"
+          ? eliteJoninExamBlockMessage(user)
+          : null;
+      if (examBlock) return errorResponse(examBlock);
       // Consume exactly the offer that was validated; a parallel claim or a newer offer
       // leaves zero rows affected, so the picked rewards are granted at most once.
       const consumed = await ctx.drizzle
@@ -4022,6 +4034,18 @@ export const commitQuestObjectiveRewards = async (info: {
     consequences,
   } = info;
   const petTask = info.petTask;
+  const milestoneLevel = resolved ? rewards.reward_level : undefined;
+  // Validate before claiming history or delivering any objective or completion rewards.
+  if (
+    (milestoneLevel &&
+      (eliteJoninMilestoneBlockMessage(user, milestoneLevel) ||
+        !(rewards.reward_stats && rewards.reward_stats > 0))) ||
+    (rewards.reward_rank === "ELITE JONIN" && eliteJoninExamBlockMessage(user))
+  )
+    return { outcome: "state_changed" };
+  const milestonePatch = milestoneLevel
+    ? eliteJoninMilestoneUpdate(user, milestoneLevel, rewards.reward_stats ?? 0)
+    : undefined;
   if (user.petTask && user.petTask.questId === userQuest?.questId && !petTask)
     return { outcome: "state_changed" };
   if (
@@ -4098,9 +4122,20 @@ export const commitQuestObjectiveRewards = async (info: {
       getPvpBoost(sensei ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
     ),
   );
+  if (milestonePatch) {
+    const progress = getNewTrackers(
+      { ...user, ...milestonePatch, questData: trackers },
+      [{ task: "user_level", value: milestonePatch.level }],
+    );
+    trackers.length = 0;
+    trackers.push(...progress.trackers);
+    consequences.push(...progress.consequences);
+    notifications.push(...progress.notifications);
+  }
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
+    !milestonePatch &&
     !rewards.reward_titles?.length &&
     consequences.every((entry) => entry.type === "update_user") &&
     // Terminal isolation release is conditional on the current run at payout time.
@@ -4256,9 +4291,25 @@ export const commitQuestObjectiveRewards = async (info: {
       alwaysClaimUserState: true,
       claimUserState: claimManagedCompletion,
       partyTrackers: trackers,
+      progressionUpdate: milestonePatch,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
         liveQuestCondition,
+        ...(milestonePatch || rewards.reward_rank === "ELITE JONIN"
+          ? [
+              eq(userData.level, user.level),
+              eq(userData.rank, user.rank),
+              ...(rewards.reward_rank === "ELITE JONIN"
+                ? [
+                    gte(userData.offence, getUserCaps("JONIN").stats_cap),
+                    gte(userData.defence, getUserCaps("JONIN").stats_cap),
+                    ...(
+                      ["strength", "speed", "intelligence", "willpower"] as const
+                    ).map((stat) => gte(userData[stat], getUserCaps("JONIN").gens_cap)),
+                  ]
+                : []),
+            ]
+          : []),
         ...(isolatedRun && !petTask
           ? [
               eq(userData.status, "BATTLE"),
@@ -4296,6 +4347,11 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "state_changed" };
   }
   if (petTask) user.petTask = null;
+  if (milestonePatch) {
+    postNotifications.push(
+      `Milestone complete: level ${milestonePatch.level}, +${rewards.reward_stats} to each combat stat (up to rank caps).`,
+    );
+  }
 
   const changedQuestAssignments = await runCheckRewardsPrepInParallel(
     client,
@@ -4759,6 +4815,8 @@ export const handleQuestConsequences = async (
     /** Isolated terminal runs claim history and the account in one joined statement. */
     claimUserState?: typeof claimUserSnapshot;
     partyTrackers?: QuestTrackerType[];
+    /** Progression fields committed in the same CAS as the completed objectives. */
+    progressionUpdate?: ReturnType<typeof eliteJoninMilestoneUpdate>;
     /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
     claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
@@ -4876,11 +4934,14 @@ export const handleQuestConsequences = async (
         ...(user.questParty ? [eq(userData.questPartyId, user.questParty.id)] : []),
       ],
       set: {
+        ...options?.progressionUpdate,
         questData: filterQuestTrackersForDbPersist(user.questData ?? [], user),
       },
     });
 
     if (claimResult.success) {
+      // Consequences may unlock a quest or start combat that needs the committed level.
+      if (options?.progressionUpdate) Object.assign(user, options.progressionUpdate);
       try {
         if (
           resetQuests.some((reset) =>

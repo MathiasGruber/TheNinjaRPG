@@ -44,6 +44,7 @@ export const dashboardLevelProgress = (
   if (user.level >= getUserCaps(user.rank).lvl_cap) {
     return { label: "Rank level cap reached", reason };
   }
+  if (user.rank === "ELITE JONIN") return { label: "Milestone required", reason };
   const remaining = Math.max(calcLevelRequirements(user.level) - user.experience, 0);
   if (remaining > 0) {
     return {

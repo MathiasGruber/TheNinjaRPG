@@ -329,7 +329,11 @@ function CharacterProfile() {
           <div className="flex flex-col items-start">
             <b>Activity</b>
             <p>Exp: {userData.experience?.toLocaleString()}</p>
-            <p>Exp for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
+            {userData.rank === "ELITE JONIN" ? (
+              <p>Level progression: Academy milestones</p>
+            ) : (
+              <p>Exp for lvl: {expRequired ? expRequired.toFixed(2) : "--"}</p>
+            )}
             <p>PvE Fights: {userData.pveFights}</p>
             <p>PvP Fights: {userData.pvpFights}</p>
             <p>PvP Streak: {userData.pvpStreak}</p>

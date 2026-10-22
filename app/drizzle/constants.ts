@@ -201,6 +201,10 @@ export type SectorMapStatus = (typeof SectorMapStatuses)[number];
 
 // XP Bracket system — maps experience to protection tiers for PvP eligibility.
 // Bracket 0 is reserved for Academy students & Genin (RANKS_RESTRICTED_FROM_PVP).
+export const MAX_PLAYER_LEVEL = 110;
+export const MAX_EXPERIENCE_LEVEL = 100;
+export const ELITE_JONIN_BRACKET = 8;
+export const MAX_PVP_BRACKET = ELITE_JONIN_BRACKET;
 export const XP_BRACKETS = [
   { bracket: 1, min: 0,         max: 500_000 },
   { bracket: 2, min: 500_001,   max: 1_000_000 },
@@ -1242,8 +1246,10 @@ export const MAX_ATTRIBUTES = 5;
 export const BANK_INTEREST_CLAIM_DAYS = 8;
 export const RYO_CAP = 3000000000;
 // Independent base progression caps. Effective mastery buffs may exceed these caps.
-export const MAX_STATS_CAP = 1300000;
-export const MAX_GENS_CAP = 400000;
+export const MAX_STATS_CAP = 1500000;
+export const MAX_GENS_CAP = 600000;
+export const JONIN_STATS_CAP = 1300000;
+export const JONIN_GENS_CAP = 400000;
 export const MAX_MASTERY_CAP = 1500000;
 /** Shared ceiling for earned mastery; equipment and bloodline modifiers are excluded. */
 export const TOTAL_MASTERY_CAP = 4200000;
@@ -1457,29 +1463,29 @@ export const USER_CAPS: Record<
   STUDENT: { GENS_CAP: 20000, STATS_CAP: 20000, LVL_CAP: 10 },
   GENIN: { GENS_CAP: 60000, STATS_CAP: 60000, LVL_CAP: 30 },
   CHUNIN: {
-    GENS_CAP: MAX_GENS_CAP,
-    STATS_CAP: MAX_STATS_CAP,
-    LVL_CAP: 100,
+    GENS_CAP: JONIN_GENS_CAP,
+    STATS_CAP: JONIN_STATS_CAP,
+    LVL_CAP: MAX_EXPERIENCE_LEVEL,
   },
   JONIN: {
-    GENS_CAP: MAX_GENS_CAP,
-    STATS_CAP: MAX_STATS_CAP,
-    LVL_CAP: 100,
+    GENS_CAP: JONIN_GENS_CAP,
+    STATS_CAP: JONIN_STATS_CAP,
+    LVL_CAP: MAX_EXPERIENCE_LEVEL,
   },
   "ELITE JONIN": {
     GENS_CAP: MAX_GENS_CAP,
     STATS_CAP: MAX_STATS_CAP,
-    LVL_CAP: 100,
+    LVL_CAP: MAX_PLAYER_LEVEL,
   },
   ELDER: {
-    GENS_CAP: MAX_GENS_CAP,
-    STATS_CAP: MAX_STATS_CAP,
-    LVL_CAP: 100,
+    GENS_CAP: JONIN_GENS_CAP,
+    STATS_CAP: JONIN_STATS_CAP,
+    LVL_CAP: MAX_EXPERIENCE_LEVEL,
   },
   NONE: {
-    GENS_CAP: MAX_GENS_CAP,
-    STATS_CAP: MAX_STATS_CAP,
-    LVL_CAP: 100,
+    GENS_CAP: JONIN_GENS_CAP,
+    STATS_CAP: JONIN_STATS_CAP,
+    LVL_CAP: MAX_EXPERIENCE_LEVEL,
   },
 } as const;
 
@@ -3335,7 +3341,7 @@ export const AUCTION_OFFER_MAX_RYO = 4_294_967_295;
 
 /** Allowed bidder character level range for open auctions (absolute bounds). */
 export const AUCTION_BIDDER_LEVEL_MIN = 1;
-export const AUCTION_BIDDER_LEVEL_MAX = 100;
+export const AUCTION_BIDDER_LEVEL_MAX = MAX_PLAYER_LEVEL;
 
 export const AUCTION_BID_STATES = ["ACTIVE", "REFUNDED", "WON"] as const;
 export type AuctionBidState = (typeof AUCTION_BID_STATES)[number];
@@ -3511,7 +3517,7 @@ export function getUserCaps(rank?: UserRank | null) {
     return {
       stats_cap: MAX_STATS_CAP,
       gens_cap: MAX_GENS_CAP,
-      lvl_cap: 100,
+      lvl_cap: MAX_PLAYER_LEVEL,
     };
   return {
     stats_cap: caps.STATS_CAP,

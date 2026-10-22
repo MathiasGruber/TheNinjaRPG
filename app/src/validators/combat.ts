@@ -24,6 +24,7 @@ import {
   MAX_ITEM_STACK_SIZE,
   MAX_MASTERY_CAP,
   MAX_MEAL_DURATION_SECONDS,
+  MAX_PLAYER_LEVEL,
   MasteryTypes,
   MaxPoolTypes,
   NonActionItemTypes,
@@ -1803,7 +1804,7 @@ export const JutsuValidatorRawSchema = z.object({
     .transform((value) => value || null),
   jutsuRank: z.enum(LetterRanks),
   requiredRank: z.enum(UserRanks),
-  requiredLevel: z.coerce.number().min(1).max(100),
+  requiredLevel: z.coerce.number().min(1).max(MAX_PLAYER_LEVEL),
   method: z.enum(AttackMethods),
   coordinateTargeting: coordinateTargetingSchema.nullish(),
   methodSize: methodSizeSchema.nullish(),
@@ -2025,7 +2026,7 @@ export const ItemValidatorRawSchema = z.object({
   weaponType: z.enum(WeaponTypes),
   rarity: z.enum(ItemRarities),
   slot: z.enum(ItemSlotTypes),
-  requiredLevel: z.coerce.number().int().min(1).max(100).prefault(1),
+  requiredLevel: z.coerce.number().int().min(1).max(MAX_PLAYER_LEVEL).prefault(1),
   xpToLevel: z.coerce.number().int().min(1).max(100000).prefault(ITEM_XP_TO_LEVEL),
   parentItemId: z
     .string()

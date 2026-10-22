@@ -3,6 +3,7 @@ import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect, QueryBuilder } from "drizzle-orm/mysql-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { bankTransfers, quest, questHistory, userData, village } from "@/drizzle/schema";
+import { calcHP } from "@/libs/profile";
 import { getNewTrackers } from "@/libs/quest";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import {
@@ -181,6 +182,37 @@ const makeGatheringClient = () => {
 };
 
 describe("commitQuestObjectiveRewards compatibility", () => {
+  it.each([true, false])("commits a milestone level and all six stats only if the snapshot claim wins (%s)", async (wins) => {
+    const fixture = makeUser();
+    const history = { ...fixture.missionHistory, quest: { ...fixture.missionHistory.quest, questType: "starter", content: {
+      ...fixture.missionHistory.quest.content, reward: { reward_level: 101, reward_stats: 20_000 }
+    } } };
+    const user = { ...fixture.user, rank: "ELITE JONIN", level: 100,
+      offence: 1_300_000, defence: 1_300_000, strength: 400_000, speed: 400_000, intelligence: 400_000, willpower: 400_000,
+      userQuests: [history, ...fixture.user.userQuests.slice(1)] };
+    const { client, sets } = makeClient([
+      { rowsAffected: 1 }, { rowsAffected: wins ? 1 : 0 }, { rowsAffected: 1 }
+    ]);
+    const result = await commitQuestObjectiveRewards({ client, userId: user.userId, user: user as never,
+      rewards: { ...rewards(), reward_level: 101, reward_stats: 20_000 }, trackers: [], userQuest: history as never,
+      resolved: true, notifications: [], consequences: [], existingHistory: history });
+    expect(result.outcome).toBe(wins ? "claimed" : "state_changed");
+    expect(sets[1]).toMatchObject({ level: 101, offence: 1_320_000, strength: 420_000, maxHealth: calcHP(101) });
+    expect(user.level).toBe(wins ? 101 : 100);
+    if (wins) expect(result).toMatchObject({ userCacheEligible: false });
+    else expect(sets.at(-1)).toMatchObject({ completed: 0 });
+  });
+  it("rejects a stale milestone before consuming history or delivering any rewards", async () => {
+    const { user, missionHistory } = makeUser();
+    const { client, update } = makeClient([]);
+    const result = await commitQuestObjectiveRewards({ client, userId: user.userId,
+      user: { ...user, rank: "ELITE JONIN", level: 101 } as never,
+      rewards: { ...rewards(), reward_level: 101, reward_stats: 20_000 }, trackers: [], userQuest: missionHistory as never,
+      resolved: true, notifications: [], consequences: [], existingHistory: missionHistory });
+    expect(result.outcome).toBe("state_changed");
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it("pays the weekly-only PvP boost without reading the population average", async () => {
     const { user } = makeUser();
     const { client, sets, select } = makeClient([{ rowsAffected: 1 }]);

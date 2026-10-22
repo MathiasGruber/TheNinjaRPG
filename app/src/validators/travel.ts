@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { MAP_SECTOR_ID_MAX, MAP_SECTOR_ID_MIN, XP_BRACKETS } from "@/drizzle/constants";
+import {
+  MAP_SECTOR_ID_MAX,
+  MAP_SECTOR_ID_MIN,
+  MAX_PVP_BRACKET,
+} from "@/drizzle/constants";
 
 export const sectorIdSchema = z.coerce
   .number()
@@ -30,8 +34,8 @@ export type FindSectorSchemaInput = z.input<typeof findSectorSchema>;
 export type FindSectorSchema = z.infer<typeof findSectorSchema>;
 
 export const bracketSliderSchema = z.object({
-  // -1 disables the bracket filter; 0–7 select an exact bracket
-  value: z.number().min(-1).max(XP_BRACKETS.length),
+  // -1 disables the bracket filter; 0–8 select an exact bracket
+  value: z.number().min(-1).max(MAX_PVP_BRACKET),
 });
 export type BracketSliderSchema = z.infer<typeof bracketSliderSchema>;
 

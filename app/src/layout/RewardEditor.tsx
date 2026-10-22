@@ -59,6 +59,15 @@ export const RewardEditor = ({
   // Custom groups replace standard field placement; uncovered fields keep their fallback group.
   const customFields = new Set(customNodes.flatMap((node) => node.fields));
   const groups = [
+    ...(!isObjectiveReward && type === "quest"
+      ? [
+          {
+            id: "milestone",
+            name: "Elite Jonin Milestone",
+            fields: ["reward_level", "reward_stats"],
+          },
+        ]
+      : []),
     ...customNodes,
     ...DEFAULT_REWARD_NODES.map((node) => ({
       ...node,
@@ -262,7 +271,7 @@ export const RewardEditor = ({
           {groups
             .filter(
               (node) =>
-                (allowPackages && packages.length < 50) ||
+                (node.id !== "milestone" && allowPackages && packages.length < 50) ||
                 !activeNodes.some((active) => active.id === node.id),
             )
             .map((node) => (
@@ -287,7 +296,7 @@ export const RewardEditor = ({
             fieldsOnly
             allowMaterialRewards={!allowPackages}
           />
-          {allowPackages && (
+          {allowPackages && node.id !== "milestone" && (
             <Button
               type="button"
               size="sm"
