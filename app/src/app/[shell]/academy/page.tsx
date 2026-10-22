@@ -15,17 +15,20 @@ import { useRequiredUserData } from "@/utils/UserContext";
 export default function Academy() {
   const { data: userData } = useRequiredUserData();
   const isElite = userData?.rank === "ELITE JONIN";
+  const hasCompletedMilestones = isElite && userData.level >= MAX_PLAYER_LEVEL;
   const caps = getUserCaps("ELITE JONIN");
-  const subtitle = isElite ? "Elite Jonin milestones" : "Learning the ropes";
+  const subtitle = isElite
+    ? hasCompletedMilestones
+      ? "Elite Jonin milestones complete"
+      : "Elite Jonin milestones"
+    : "Learning the ropes";
   // State
   const [activeElement, setActiveElement] = useState<string>("");
 
   // Show board
   return (
     <>
-      {(activeElement === "" ||
-        isElite ||
-        (userData && ["JONIN", "ELDER"].includes(userData.rank))) && (
+      {activeElement === "" && (
         <ContentBox
           title="Academy"
           subtitle={subtitle}
@@ -40,7 +43,11 @@ export default function Academy() {
             className="w-full"
             priority={true}
           />
-          {isElite ? (
+          {hasCompletedMilestones ? (
+            <p className="p-3">
+              You have reached the maximum level of {MAX_PLAYER_LEVEL}.
+            </p>
+          ) : isElite ? (
             <p className="p-3">
               Complete milestones to reach level {MAX_PLAYER_LEVEL}. Each milestone
               grants a level, combat stats and larger health, chakra, stamina and energy
@@ -60,6 +67,11 @@ export default function Academy() {
         questType="starter"
         title={activeElement === "" ? (isElite ? "Milestones" : "Lessons") : "Academy"}
         subtitle={subtitle}
+        unavailableText={
+          hasCompletedMilestones
+            ? "All Elite Jonin milestones are complete. No lessons available."
+            : undefined
+        }
         initialBreak={activeElement === ""}
         activeQuestId={activeElement}
         setActiveQuestId={setActiveElement}
