@@ -60,6 +60,9 @@ export const useItemEditForm = (
     defaultValues: item as ZodItemInput,
     resolver: zodResolver(ItemValidator),
   });
+  // Keep parent-owned objects registered while their conditional editors are hidden.
+  form.register("coordinateTargeting");
+  form.register("methodSize");
 
   // Mutation for updating item
   const { mutateAsync: updateItem, isPending: isUpdating } =

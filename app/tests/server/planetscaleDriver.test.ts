@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { Client, type Config } from "@planetscale/database";
+import type { Config } from "@planetscale/database";
 import { eq, sql } from "drizzle-orm";
 import { mysqlTable, varchar } from "drizzle-orm/mysql-core";
 import { drizzle } from "drizzle-orm/planetscale-serverless";
+import { createPlanetScaleClient } from "@/server/dbClient";
 
 const records = mysqlTable("DriverRecord", {
   id: varchar("id", { length: 191 }).primaryKey(),
@@ -24,9 +25,11 @@ const createDatabase = () => {
       }),
     );
   };
+  const client = createPlanetScaleClient({ url: "https://user:password@database.test", fetch });
   return {
+    client,
     queries,
-    db: drizzle(new Client({ url: "https://user:password@database.test", fetch })),
+    db: drizzle(client),
   };
 };
 
@@ -67,6 +70,28 @@ describe("PlanetScale driver SQL binding", () => {
       "BEGIN",
       "delete from `DriverRecord` where `DriverRecord`.`id` = 'owner\\'s row'",
       "ROLLBACK",
+    ]);
+  });
+
+  it("retains the driver's SQL-only calls and result options", async () => {
+    const { client, queries } = createDatabase();
+    const result = await client.execute("select '?' as id", { as: "array" });
+    expect(queries).toEqual(["select '?' as id"]);
+    expect(result.rows).toEqual([["hello"]]);
+    expect(result.rowsAffected).toBe(1);
+  });
+
+  it("commits nested transactions using the same bound connection", async () => {
+    const { db, queries } = createDatabase();
+    await db.transaction(async (tx) => {
+      await tx.transaction(async (nested) => {
+        await nested.delete(records).where(eq(records.id, "owner's row"));
+      });
+    });
+    expect(queries).toEqual([
+      "BEGIN", "savepoint sp1",
+      "delete from `DriverRecord` where `DriverRecord`.`id` = 'owner\\'s row'",
+      "release savepoint sp1", "COMMIT",
     ]);
   });
 });

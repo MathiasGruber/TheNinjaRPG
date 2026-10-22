@@ -52,6 +52,9 @@ export const useJutsuEditForm = (data: Jutsu, refetch: () => void) => {
     defaultValues: jutsu as ZodJutsuInput,
     resolver: zodResolver(JutsuValidator),
   });
+  // Keep parent-owned objects registered while their conditional editors are hidden.
+  form.register("coordinateTargeting");
+  form.register("methodSize");
 
   // Query for bloodlines, villages, and jutsus (for evolution parent selection)
   const { data: bloodlines, isPending: l1 } =

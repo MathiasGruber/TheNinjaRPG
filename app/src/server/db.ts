@@ -1,9 +1,9 @@
-import { Client } from "@planetscale/database";
 import {
   drizzle as createDrizzle,
   type PlanetScaleDatabase,
 } from "drizzle-orm/planetscale-serverless";
 import { env } from "@/env/server.mjs";
+import { createPlanetScaleClient } from "@/server/dbClient";
 import { createRetryingFetch } from "@/server/dbRetry";
 import * as schema from "../../drizzle/schema";
 
@@ -23,7 +23,7 @@ export const drizzleDB =
   global.drizzleClient && global.drizzleSchemaKeys === schemaKeys
     ? global.drizzleClient
     : createDrizzle(
-        new Client({
+        createPlanetScaleClient({
           url: env.DATABASE_URL,
           // Vitess drops pooled connections under load; re-issue reads rather than
           // surfacing "vttablet: rpc error: code = Unavailable" to the player.

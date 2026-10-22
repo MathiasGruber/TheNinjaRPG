@@ -151,10 +151,6 @@
       },
     },
   },
-  "patchedDependencies": {
-    "drizzle-orm@0.45.4": "patches/drizzle-orm@0.45.4.patch",
-    "react-hook-form@7.90.0": "patches/react-hook-form@7.90.0.patch",
-  },
   "overrides": {
     "@modelcontextprotocol/sdk": "1.32.1",
     "@types/cytoscape-edgehandles": {

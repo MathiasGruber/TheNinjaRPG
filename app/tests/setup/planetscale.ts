@@ -1,6 +1,7 @@
-import { Client, type Field } from "@planetscale/database";
+import type { Field } from "@planetscale/database";
 import { drizzle } from "drizzle-orm/planetscale-serverless";
 import * as schema from "@/drizzle/schema";
+import { createPlanetScaleClient } from "@/server/dbClient";
 
 type Result = {
   fields?: Field[];
@@ -11,7 +12,7 @@ type Result = {
 /** Exercise the real PlanetScale wire decoding and Drizzle mapping without a database. */
 export const planetScaleFixture = (respond: (query: string) => Result) => {
   const statements: string[] = [];
-  const client = new Client({
+  const client = createPlanetScaleClient({
     host: "fixture.invalid",
     username: "fixture",
     password: "fixture",
