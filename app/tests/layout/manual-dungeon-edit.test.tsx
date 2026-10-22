@@ -117,6 +117,9 @@ it.each(["success", "error"])("keeps the saved draft selected until a pending sa
 it("searches enemies and rewards, preserves invalid quantity drafts, and saves grouped wave quantities", async () => {
   const content = dungeonContent();
   content.tiers[0]![0]!.waves[0]!.aiIds = ["enemy", "enemy"];
+  content.tiers.push(structuredClone(content.tiers[0]!));
+  content.tiers[0]!.at(-1)!.kind = "mini-boss";
+  content.tiers[0]![0]!.waves.push({aiIds: ["enemy"], delayRounds: 1});
   const save = vi.fn(async (_input: SaveInput): Promise<SaveResult> => ({success: true, message: "Dungeon saved.", id: "A"}));
   Object.assign(vi.spyOn(client, "api" as never), {
     useUtils: () => ({coop: {dungeon: {getAvailable: {invalidate: async () => undefined}}}}),
@@ -144,8 +147,37 @@ it("searches enemies and rewards, preserves invalid quantity drafts, and saves g
     expect(quantity.value).toBe(value);
     fireEvent.click(view.getByRole("button", {name: "Save dungeon"}));
     expect(save).not.toHaveBeenCalled();
+    fireEvent.click(view.getByRole("button", {name: "Floor 2"}));
+    expect(view.getByText("Tier 1 · Floor 1")).toBeTruthy();
+    fireEvent.change(view.getByRole("combobox", {name: "Tier"}), {target: {value: "1"}});
+    expect((view.getByRole("combobox", {name: "Tier"}) as HTMLSelectElement).value).toBe("0");
+    fireEvent.click(view.getByRole("button", {name: "Remove last tier"}));
+    expect(view.getByRole("option", {name: "Tier 2 of 2"})).toBeTruthy();
+    fireEvent.click(view.getByRole("combobox", {name: "Wave 1 enemy 1"}));
+    fireEvent.click(await view.findByRole("option", {name: "Snow Wolf"}));
+    expect(view.getByRole("combobox", {name: "Wave 1 enemy 1"}).textContent).toContain("Enemy");
+    expect((view.getByLabelText("Wave 1 enemy 1 quantity") as HTMLInputElement).value).toBe(value);
+    fireEvent.click(view.getByRole("button", {name: "Save dungeon"}));
+    expect(save).not.toHaveBeenCalled();
   }
   fireEvent.input(quantity, {target: {value: "3"}});
+  const laterQuantity = view.getByLabelText("Wave 2 enemy 1 quantity") as HTMLInputElement;
+  fireEvent.input(laterQuantity, {target: {value: ""}});
+  fireEvent.click(view.getByRole("button", {name: "Remove wave 1"}));
+  expect(view.getByLabelText("Wave 2 enemy 1 quantity")).toBe(laterQuantity);
+  expect(laterQuantity.value).toBe("");
+  fireEvent.click(view.getByRole("button", {name: "Save dungeon"}));
+  expect(save).not.toHaveBeenCalled();
+  fireEvent.input(laterQuantity, {target: {value: "1"}});
+  fireEvent.click(view.getByRole("button", {name: "Remove wave 2"}));
+  expect(view.queryByLabelText("Wave 2 enemy 1 quantity")).toBeNull();
+  fireEvent.click(view.getByRole("button", {name: "Floor 2"}));
+  expect(view.getByText("Tier 1 · Floor 2")).toBeTruthy();
+  fireEvent.change(view.getByRole("combobox", {name: "Tier"}), {target: {value: "1"}});
+  expect(view.getByText("Tier 2 · Floor 1")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", {name: "Remove last tier"}));
+  expect(view.getByText("Tier 1 · Floor 1")).toBeTruthy();
+  expect((view.getByLabelText("Wave 1 enemy 1 quantity") as HTMLInputElement).value).toBe("3");
   fireEvent.click(view.getByRole("combobox", {name: "Wave 1 enemy 1"}));
   fireEvent.change(view.getByRole("combobox", {name: "Search wave 1 enemy 1"}), {target: {value: "snow"}});
   expect(view.queryByRole("option", {name: "Enemy"})).toBeNull();

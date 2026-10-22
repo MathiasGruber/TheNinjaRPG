@@ -44,6 +44,8 @@ export default function DungeonEditor() {
   const [message, setMessage] = useState("");
   const [panel, setPanel] = useState("details");
   const formRef = useRef<HTMLDivElement>(null);
+  // Validate before navigation or row re-keying can discard a local quantity draft.
+  const roomsRef = useRef<HTMLDivElement>(null);
   const definitions = api.coop.dungeon.getAll.useQuery(undefined, { enabled: allowed });
   const assets = api.mapAsset.getAll.useQuery(undefined, { enabled: allowed });
   const ais = api.profile.getAllAiNames.useQuery(undefined, { enabled: allowed });
@@ -324,6 +326,7 @@ export default function DungeonEditor() {
               </div>
             </TabsContent>
             <TabsContent
+              ref={roomsRef}
               value="rooms"
               forceMount
               data-editor-panel="rooms"
@@ -336,6 +339,7 @@ export default function DungeonEditor() {
                     className="min-w-0 flex-1 rounded border bg-background p-2"
                     value={tier}
                     onChange={(e) => {
+                      if (!validateNumberInputs(roomsRef.current)) return;
                       setTier(Number(e.target.value));
                       setFloor(0);
                     }}
@@ -363,6 +367,7 @@ export default function DungeonEditor() {
                     hoverText="Remove last tier"
                     disabled={content.tiers.length <= 1}
                     onClick={() => {
+                      if (!validateNumberInputs(roomsRef.current)) return;
                       patch({ tiers: normalizeRooms(content.tiers.slice(0, -1)) });
                       setTier(0);
                       setFloor(0);
@@ -378,7 +383,9 @@ export default function DungeonEditor() {
                       variant={floor === i ? "default" : "secondary"}
                       size="sm"
                       className="min-w-0 px-1"
-                      onClick={() => setFloor(i)}
+                      onClick={() => {
+                        if (validateNumberInputs(roomsRef.current)) setFloor(i);
+                      }}
                     >
                       Floor {i + 1}
                       {f.kind !== "floor" && (
@@ -409,12 +416,13 @@ export default function DungeonEditor() {
                         aria-label={`Remove wave ${wi + 1}`}
                         hoverText="Remove wave"
                         disabled={room.waves.length === 1}
-                        onClick={() =>
+                        onClick={() => {
+                          if (!validateNumberInputs(roomsRef.current)) return;
                           editRoom((r) => {
                             r.waves.splice(wi, 1);
                             if (r.waves[0]) r.waves[0].delayRounds = 0;
-                          })
-                        }
+                          });
+                        }}
                       >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
@@ -450,15 +458,16 @@ export default function DungeonEditor() {
                                 value: a.userId,
                                 label: a.username,
                               }))}
-                              onChange={(value) =>
+                              onChange={(value) => {
+                                if (!validateNumberInputs(roomsRef.current)) return;
                                 editRoom((r) => {
                                   const w = r.waves[wi];
                                   if (w)
                                     w.aiIds = w.aiIds.map((id) =>
                                       id === ai ? value : id,
                                     );
-                                })
-                              }
+                                });
+                              }}
                             />
                           </div>
                           <Field label="Quantity">
