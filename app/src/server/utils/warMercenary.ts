@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { WAR_MERCENARY_RYO_PER_TOKEN } from "@/drizzle/constants";
 import { userData, war, warCamp, warMercenary } from "@/drizzle/schema";
 import { getWarSide, isObjectiveWarActive } from "@/libs/objectiveWar";
@@ -98,27 +98,28 @@ export const canEnterWarCampSector = async (
   destination: number,
 ) => {
   if (destination === user.sector) return true;
-  const [camps, mercenaryWarId] = await Promise.all([
-    client.query.warCamp.findMany({
-      where: and(
-        eq(warCamp.sector, destination),
-        isNull(warCamp.resolvedAt),
-        sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
+  const [wars, mercenaryWarId] = await Promise.all([
+    client.query.war.findMany({
+      where: inArray(
+        war.id,
+        client
+          .select({ warId: warCamp.warId })
+          .from(warCamp)
+          .where(
+            and(
+              eq(warCamp.sector, destination),
+              isNull(warCamp.resolvedAt),
+              sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
+            ),
+          ),
       ),
+      with: {
+        warAllies: { where: activeWarAllyWhere() },
+        warMercenaries: { where: activeWarMercenaryWhere() },
+      },
     }),
     fetchMercenaryWarId(client, user.userId),
   ]);
-  if (!camps.length) return true;
-  const wars = await client.query.war.findMany({
-    where: sql`${war.id} IN (${sql.join(
-      camps.map((camp) => sql`${camp.warId}`),
-      sql`, `,
-    )})`,
-    with: {
-      warAllies: { where: activeWarAllyWhere() },
-      warMercenaries: { where: activeWarMercenaryWhere() },
-    },
-  });
   return wars
     .filter((w) => isObjectiveWarActive(w))
     .every((w) => !!getWarSide(w, user.villageId, user.userId, mercenaryWarId));
