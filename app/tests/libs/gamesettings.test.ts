@@ -3,8 +3,23 @@ import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
 import { PetArtProviders } from "@/drizzle/constants";
 import { type GameSetting, gameSetting } from "@/drizzle/schema";
-import { fetchPetArtProvider, getGameSetting, lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
+import { fetchPetArtProvider, getGameSetting, initializeGameSettings, lockWithDailyTimer, lockWithHourlyTimer } from "@/libs/gamesettings";
 import type { DrizzleClient } from "@/server/db";
+
+describe("initializeGameSettings", () => {
+  it("retries a safely restartable insert after an index deadlock", async () => {
+    const onDuplicateKeyUpdate = vi.fn()
+      .mockRejectedValueOnce(new Error("Deadlock found when trying to get lock"))
+      .mockResolvedValue({ rowsAffected: 1 });
+    const client = {
+      insert: () => ({ values: () => ({ onDuplicateKeyUpdate }) }),
+    } as unknown as DrizzleClient;
+
+    await initializeGameSettings(client, [{ name: "cold-setting", value: 0, time: new Date(0) }]);
+
+    expect(onDuplicateKeyUpdate).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe("lockWithDailyTimer", () => {
   it("initializes one persisted row and admits one caller when the timer is absent", async () => {

@@ -12,6 +12,7 @@ import {
 import { type GameSetting, gameSetting } from "@/drizzle/schema";
 import type { DmgConfig } from "@/libs/combat/constants";
 import type { DrizzleClient } from "@/server/db";
+import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import {
   addDays,
   getDaysHoursMinutesSeconds,
@@ -49,10 +50,14 @@ export const initializeGameSettings = async (
   settings: Pick<GameSetting, "name" | "time" | "value">[],
 ) => {
   if (!settings.length) return;
-  await client
-    .insert(gameSetting)
-    .values(settings.map((setting) => ({ ...setting, id: nanoid() })))
-    .onDuplicateKeyUpdate({ set: { id: sql`${gameSetting.id}` } });
+  // Concurrent cold starts can deadlock on the primary and unique name indexes.
+  // The no-op conflict update makes the whole insert safe to retry.
+  await retryOnDeadlock(async () =>
+    client
+      .insert(gameSetting)
+      .values(settings.map((setting) => ({ ...setting, id: nanoid() })))
+      .onDuplicateKeyUpdate({ set: { id: sql`${gameSetting.id}` } }),
+  );
 };
 
 /**
