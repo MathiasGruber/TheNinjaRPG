@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.2/schema.json",
   "root": false,
   "vcs": {
     "enabled": true,
@@ -27,7 +27,7 @@
       "project": "recommended"
     },
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "style": {
         "useImportType": "warn",
         "noRestrictedImports": {
@@ -74,18 +74,11 @@
         "noArrayIndexKey": "off"
       },
       "nursery": {
-        "useSortedClasses": {
-          "level": "warn",
-          "options": {
-            "functions": [
-              "clsx",
-              "cn",
-              "cva"
-            ]
-          }
-        },
         "noFloatingPromises": "error",
-        "noMisusedPromises": "error"
+        "noMisusedPromises": "error",
+        "useTailwindSortedClasses": {
+          "level": "warn"
+        }
       }
     }
   },
@@ -110,5 +103,14 @@
         }
       }
     }
-  ]
+  ],
+  "tailwind": {
+    "mergeFunctions": [
+      "clsx",
+      "cn"
+    ],
+    "variantFunctions": [
+      "cva"
+    ]
+  }
 }

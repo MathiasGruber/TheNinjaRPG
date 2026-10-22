@@ -12,6 +12,8 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
+import android.os.Bundle;
 import androidx.browser.customtabs.CustomTabsCallback;
 import androidx.browser.customtabs.CustomTabsClient;
 import androidx.browser.customtabs.CustomTabsSession;
@@ -114,12 +116,21 @@ public class BrowserTest {
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first&step=callback"));
         callbacks.get(0).onNavigationEvent(CustomTabsCallback.NAVIGATION_FINISHED, null);
         callbacks.get(0).onNavigationEvent(CustomTabsCallback.TAB_HIDDEN, null);
+        callbacks.get(0).onMinimized(new Bundle());
         assertEquals(List.of(), events);
 
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.TAB_SHOWN, null);
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.NAVIGATION_FINISHED, null);
         assertEquals(List.of(Browser.BROWSER_LOADED), events);
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.TAB_HIDDEN, null);
+        // A hidden tab can still be open. Closure arrives through ActivityResult,
+        // with the plugin's PiP fallback on Android versions before API 34.
+        assertEquals(List.of(Browser.BROWSER_LOADED), events);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            callbacks.get(1).onMinimized(new Bundle());
+        } else {
+            browser.notifyBrowserFinished();
+        }
         assertEquals(List.of(Browser.BROWSER_LOADED, Browser.BROWSER_FINISHED), events);
     }
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setDefaultTimeout, vi } from "bun:test";
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCReact } from "@trpc/react-query";
@@ -23,6 +23,9 @@ import { IncreaseStatTag } from "@/validators/combat";
 import { PET_RANK_APPEARANCES } from "@/libs/pets/catalogue";
 import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { ensureDom } from "../setup-dom.mjs";
+
+// These workflows render multiple dialogs and large forms in one interaction.
+setDefaultTimeout(20_000);
 
 const testApi = createTRPCReact<AppRouter>();
 const usePetSpeciesEditForm = petSpecies.usePetSpeciesEditForm;

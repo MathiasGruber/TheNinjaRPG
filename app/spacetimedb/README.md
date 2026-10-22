@@ -34,6 +34,13 @@ reads the result from `completed_run` itself and verifies the session signature.
 - [Rust](https://rustup.rs/) (for building the module)
 - [SpacetimeDB CLI](https://spacetimedb.com/install)
 
+The CLI, server, Rust module and TypeScript SDK must use the same SpacetimeDB
+release. The Make targets select the CLI version from `app/package.json` without
+changing the machine's global default. `make spacetime-install` installs that
+version; override `SPACETIME_BIN` for a different installation location. Existing
+1.x servers must be upgraded before deploying the 2.x client and module together;
+follow the [upstream migration guide](https://spacetimedb.com/docs/upgrade/).
+
 ## Local Development
 
 ### First-time Setup

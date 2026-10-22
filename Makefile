@@ -28,6 +28,9 @@ endif
 PORT ?=
 export PORT REQUEST USER_KEY ENDPOINT INPUT_FILE
 
+SPACETIME_VERSION := $(shell node -p "require('./app/package.json').dependencies.spacetimedb")
+SPACETIME_BIN ?= $(HOME)/.local/share/spacetime/bin/$(SPACETIME_VERSION)/spacetimedb-cli
+
 ## List of available commands:
 ---------------General------------------: # -------------------------------------------------------
 .PHONY: help
@@ -207,9 +210,9 @@ typecheck: # Run TypeScript type checking
 
 -------------DEPENDENCIES---------------: # -------------------------------------------------------
 .PHONY: deps-upgrade
-deps-upgrade: # Upgrade all dependencies to their latest version
+deps-upgrade: install # Upgrade npm manifests and lockfiles across the app, mobile shells and tower defense
 	@echo "${YELLOW}Upgrading all dependencies ${RESET}"
-	cd app && npx npm-check-updates -u
+	node scripts/deps-upgrade.mjs
 
 ---------------Mobile-----------------: # -------------------------------------------------------
 .PHONY: mobile-install
@@ -247,48 +250,44 @@ mobile-android: mobile-sync # Build and run the Android shell in an emulator
 spacetime-install: # Install SpacetimeDB CLI
 	@echo "${YELLOW}Installing SpacetimeDB CLI${RESET}"
 	curl -sSf https://install.spacetimedb.com | bash -s -- --yes
+	~/.local/bin/spacetime version install $(SPACETIME_VERSION) --yes
 
 .PHONY: spacetime-start
 spacetime-start: # Start local SpacetimeDB server on port 3001
 	@echo "${GREEN}Starting local SpacetimeDB server on port 3001${RESET}"
-	~/.local/bin/spacetime start --listen-addr 127.0.0.1:3001
+	$(SPACETIME_BIN) start --listen-addr 127.0.0.1:3001
 
 .PHONY: spacetime-build
 spacetime-build: # Build SpacetimeDB Rust module
 	@echo "${GREEN}Building SpacetimeDB module (Rust)${RESET}"
-	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && ~/.local/bin/spacetime build
+	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && $(SPACETIME_BIN) build
 
 .PHONY: spacetime-publish-local
 spacetime-publish-local: # Build, publish, and generate TypeScript bindings
 	@echo "${GREEN}Publishing SpacetimeDB module to local server${RESET}"
-	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && ~/.local/bin/spacetime build && echo "y" | ~/.local/bin/spacetime publish --server local3001 --delete-data towerdefense
-	@echo "${GREEN}Generating TypeScript bindings${RESET}"
-	rm -rf app/src/libs/spacetimedb/bindings/*.ts
-	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && ~/.local/bin/spacetime generate --lang typescript --out-dir ../src/libs/spacetimedb/bindings
-	@echo "${GREEN}Patching imports for SDK compatibility${RESET}"
-	cd app/src/libs/spacetimedb/bindings && for f in *.ts; do \
-		if [[ "$OSTYPE" == "darwin"* ]]; then \
-			sed -i '' 's/from "spacetimedb";/from "spacetimedb\/sdk";/g' "$f"; \
-		else \
-			sed -i 's/from "spacetimedb";/from "spacetimedb\/sdk";/g' "$f"; \
-		fi \
-	done 2>/dev/null || true
+	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && $(SPACETIME_BIN) build && echo "y" | $(SPACETIME_BIN) publish --server local3001 --delete-data towerdefense
+	$(MAKE) spacetime-generate
 	@echo "${GREEN}Done! Module published and bindings generated${RESET}"
+
+.PHONY: spacetime-generate
+spacetime-generate: install # Generate TypeScript bindings with the CLI matching the app SDK
+	export PATH="$$HOME/.cargo/bin:$$PATH" && $(SPACETIME_BIN) generate --lang typescript --module-path app/spacetimedb --out-dir app/src/libs/spacetimedb/bindings --yes
+	cd app && ./node_modules/.bin/biome check --write --no-errors-on-unmatched src/libs/spacetimedb/bindings
 
 .PHONY: spacetime-publish-prod
 spacetime-publish-prod: spacetime-build # Publish SpacetimeDB module to production (SaaS)
 	@echo "${GREEN}Publishing SpacetimeDB module to production SaaS${RESET}"
-	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && ~/.local/bin/spacetime publish --delete-data $(or $(NEXT_PUBLIC_SPACETIMEDB_MODULE), towerdefense)
+	export PATH="$$HOME/.cargo/bin:$$PATH" && cd app/spacetimedb && $(SPACETIME_BIN) publish --delete-data $(or $(NEXT_PUBLIC_SPACETIMEDB_MODULE), towerdefense)
 
 .PHONY: spacetime-logs
 spacetime-logs: # View SpacetimeDB module logs
 	@echo "${GREEN}Viewing SpacetimeDB logs${RESET}"
-	~/.local/bin/spacetime logs --server local3001 towerdefense
+	$(SPACETIME_BIN) logs --server local3001 towerdefense
 
 .PHONY: spacetime-logs-follow
 spacetime-logs-follow: # Follow SpacetimeDB module logs in real-time
 	@echo "${GREEN}Following SpacetimeDB logs${RESET}"
-	~/.local/bin/spacetime logs --server local3001 -f towerdefense
+	$(SPACETIME_BIN) logs --server local3001 -f towerdefense
 
 ---------------Git--------------------: # -------------------------------------------------------
 .PHONY: uncommit

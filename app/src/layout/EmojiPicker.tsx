@@ -32,19 +32,7 @@ const PICKER_HEIGHT = 435;
  * page downloaded and parsed the entire emoji set for a popover most players never open.
  */
 const EmojiMartPicker = dynamic(
-  async () => {
-    const [picker, emojiData] = await Promise.all([
-      import("@emoji-mart/react"),
-      import("@emoji-mart/data"),
-    ]);
-    const Picker = picker.default;
-    // The picker wants the parsed dataset, not the module namespace around it
-    const data = emojiData.default;
-    const WithData = (props: Record<string, unknown>) => (
-      <Picker {...props} data={data} />
-    );
-    return { default: WithData };
-  },
+  () => import("./EmojiPickerImpl").then((module) => module.EmojiPickerImpl),
   {
     ssr: false,
     // Reserves the popover's shape for the one fetch it now takes to open

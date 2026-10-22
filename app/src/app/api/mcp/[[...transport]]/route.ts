@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { verifyToken as clerkVerifyToken } from "@clerk/backend";
-import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { AuthInfo } from "@modelcontextprotocol/server";
 import * as Sentry from "@sentry/nextjs";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { withMcpAuth } from "@vercel/mcp-adapter";
+import { withMcpAuth } from "mcp-handler";
 import { NextResponse } from "next/server";
 import { trpcToModelContextProtocolHandler } from "@/libs/mcp";
 import { appRouter } from "@/server/api/root";
@@ -319,7 +319,6 @@ const verifyToken = async (
 
 const mcpHandler = trpcToModelContextProtocolHandler(appRouter, createMcpContext, {
   config: {
-    basePath: "/api",
     verboseLogs: process.env.NODE_ENV === "development",
   },
   serverOptions: {

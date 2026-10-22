@@ -169,7 +169,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                 ) : (
                   <Users className="h-6 w-6" />
                 )}
-                <span className="... ml-3 truncate font-bold">Chats</span>
+                <span className="ml-3 truncate font-bold">Chats</span>
               </button>
             </li>
 
@@ -210,7 +210,7 @@ const ShowConversations: React.FC<ShowConversationsProps> = (props) => {
                       );
                     })}
                   <span
-                    className="... grow truncate text-sm"
+                    className="grow truncate text-sm"
                     style={{
                       marginLeft: `${(convo.users.length * 2 + 1.5).toString()}rem`,
                     }}

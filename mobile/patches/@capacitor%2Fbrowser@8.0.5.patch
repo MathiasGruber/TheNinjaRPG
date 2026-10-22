@@ -1,17 +1,17 @@
 diff --git a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
-index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc49845102c133 100644
+index 99626d7133a3d4d3cb29efae7fc195083ccf3944..97af804bdb0d0036b8af5e27734e3e89e1e05857 100644
 --- a/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
 +++ b/android/src/main/java/com/capacitorjs/plugins/browser/Browser.java
-@@ -41,7 +41,7 @@ public class Browser {
+@@ -44,7 +44,7 @@ public class Browser {
      private Context context;
      private static final String FALLBACK_CUSTOM_TAB_PACKAGE_NAME = "com.android.chrome";
      private CustomTabsClient customTabsClient;
 -    private CustomTabsSession browserSession;
 +    private Object sessionOwner = new Object();
      private boolean isInitialLoad = false;
-     private EventGroup group;
-     private CustomTabsServiceConnection connection = new CustomTabsServiceConnection() {
-@@ -95,6 +95,9 @@ public class Browser {
+     private final AtomicBoolean browserFinishedFired = new AtomicBoolean(false);
+ 
+@@ -111,6 +111,9 @@ public class Browser {
       * @param toolbarColor
       */
      public void open(Uri url, @Nullable Integer toolbarColor) {
@@ -21,7 +21,7 @@ index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc4984
          CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder(getCustomTabsSession());
  
          builder.setShareState(SHARE_STATE_ON);
-@@ -105,6 +108,11 @@ public class Browser {
+@@ -121,6 +124,11 @@ public class Browser {
          }
  
          CustomTabsIntent tabsIntent = builder.build();
@@ -33,7 +33,7 @@ index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc4984
          tabsIntent.intent.putExtra(Intent.EXTRA_REFERRER, Uri.parse(Intent.URI_ANDROID_APP_SCHEME + "//" + context.getPackageName()));
  
          isInitialLoad = true;
-@@ -116,15 +124,16 @@ public class Browser {
+@@ -137,11 +145,12 @@ public class Browser {
       * Bind to the custom tabs service, required to be called in the `onResume` lifecycle event.
       */
      public boolean bindService() {
@@ -41,21 +41,17 @@ index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc4984
 -        if (null == customTabPackageName) {
 -            customTabPackageName = FALLBACK_CUSTOM_TAB_PACKAGE_NAME;
 -        }
--        boolean result = CustomTabsClient.bindCustomTabsService(context, customTabPackageName, connection);
-+        boolean result = CustomTabsClient.bindCustomTabsService(context, getCustomTabPackageName(), connection);
-         group.leave();
-         return result;
-     }
- 
+-        return CustomTabsClient.bindCustomTabsService(context, customTabPackageName, connection);
++        return CustomTabsClient.bindCustomTabsService(context, getCustomTabPackageName(), connection);
++    }
++
 +    private String getCustomTabPackageName() {
 +        String packageName = CustomTabsClient.getPackageName(context, null);
 +        return packageName != null ? packageName : FALLBACK_CUSTOM_TAB_PACKAGE_NAME;
-+    }
-+
+     }
+ 
      /**
-      * Unbind the custom tabs service, required to be called in the `onPause` lifecycle event.
-      */
-@@ -167,17 +176,16 @@ public class Browser {
+@@ -179,29 +188,23 @@ public class Browser {
              return null;
          }
  
@@ -71,6 +67,23 @@ index fff0ddc43fa3bb3e20d1b9d356bdfbd483a6fc3a..2aa877a6c2982aed4ad0b498b5bc4984
 +                public void onNavigationEvent(int navigationEvent, Bundle extras) {
 +                    if (sessionOwner == owner) {
                          handledNavigationEvent(navigationEvent);
+                     }
++                }
+ 
+-                    @Override
+-                    public void onMinimized(@NonNull Bundle extras) {
+-                        // On Android <14 the ActivityResult callback is not
+-                        // reliably delivered when the Custom Tab is dismissed from PiP,
+-                        // so we notify listeners as the Custom Tab enters PiP as a
+-                        // compromise. Skipped on 14+ where the ActivityResult
+-                        // callback handles it correctly.
+-                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+-                            notifyBrowserFinished();
+-                        }
++                @Override
++                public void onMinimized(@NonNull Bundle extras) {
++                    if (sessionOwner == owner && Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
++                        notifyBrowserFinished();
                      }
                  }
 -            );

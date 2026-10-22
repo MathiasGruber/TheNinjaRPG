@@ -17,6 +17,13 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SPACETIME_VERSION=$(sed -n 's/^spacetimedb = "=\([^"]*\)"/\1/p' "$SCRIPT_DIR/Cargo.toml")
+if [ -z "$SPACETIME_VERSION" ]; then
+    echo "Cargo.toml must pin the SpacetimeDB module version" >&2
+    exit 1
+fi
+
 echo "=========================================="
 echo "SpacetimeDB EC2 Setup Script"
 echo "=========================================="
@@ -81,7 +88,7 @@ rustup target add wasm32-unknown-unknown
 # Install SpacetimeDB CLI
 echo "[5/9] Installing SpacetimeDB CLI..."
 if command -v spacetime &> /dev/null; then
-    echo "SpacetimeDB CLI already installed: $(spacetime version)"
+    echo "SpacetimeDB CLI already installed: $(spacetime --version)"
 else
     # Use curl-minimal or wget for the SpacetimeDB installer
     if command -v curl &> /dev/null; then
@@ -92,7 +99,7 @@ else
 fi
 
 # Ensure spacetime is in PATH
-export PATH="$HOME/.spacetime/bin:$PATH"
+export PATH="$HOME/.local/bin:$HOME/.spacetime/bin:$PATH"
 source "$HOME/.bashrc" 2>/dev/null || true
 
 # Create SpacetimeDB data directory
@@ -102,7 +109,8 @@ sudo mkdir -p $INSTALL_DIR/logs
 sudo chown -R $USER:$USER $INSTALL_DIR
 
 # Find the actual spacetime binary path
-SPACETIME_BIN=$(which spacetime 2>/dev/null || echo "$HOME/.spacetime/bin/spacetime")
+spacetime version install "$SPACETIME_VERSION" --yes
+SPACETIME_BIN="${XDG_DATA_HOME:-$HOME/.local/share}/spacetime/bin/$SPACETIME_VERSION/spacetimedb-cli"
 echo "SpacetimeDB binary: $SPACETIME_BIN"
 
 # Create systemd service for SpacetimeDB
@@ -152,7 +160,6 @@ done
 
 # Build and publish the module
 echo "[8/9] Building and publishing Tower Defense module..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Ensure we have the source files

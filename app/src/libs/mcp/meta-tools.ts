@@ -1,3 +1,4 @@
+import type { CallToolResult, ContentBlock, Tool } from "@modelcontextprotocol/server";
 import * as Sentry from "@sentry/nextjs";
 import { TRPCError } from "@trpc/server";
 import type { z } from "zod";
@@ -103,7 +104,7 @@ export function buildToolRegistry(tools: ModelContextProtocolTool[]): ToolRegist
 /**
  * Meta-tool definitions for MCP discovery and invocation.
  */
-export const metaTools = [
+export const metaTools: Tool[] = [
   {
     name: "listGameRouters",
     description: META_TOOL_DESC_LIST_ROUTERS,
@@ -177,7 +178,7 @@ export const metaTools = [
 /**
  * Handle listGameRouters meta-tool call.
  */
-export const handleListRouters = (registry: ToolRegistry) => {
+export const handleListRouters = (registry: ToolRegistry): CallToolResult => {
   const routers: RouterInfo[] = [];
 
   for (const [name, endpoints] of registry.routers) {
@@ -198,7 +199,10 @@ export const handleListRouters = (registry: ToolRegistry) => {
 /**
  * Handle listRouterEndpoints meta-tool call.
  */
-export const handleListEndpoints = (registry: ToolRegistry, routerName: string) => {
+export const handleListEndpoints = (
+  registry: ToolRegistry,
+  routerName: string,
+): CallToolResult => {
   const routerEndpoints = registry.routers.get(routerName);
 
   if (!routerEndpoints) {
@@ -248,7 +252,10 @@ const findEndpoint = (
 /**
  * Handle getEndpointSchema meta-tool call.
  */
-export const handleGetSchema = (registry: ToolRegistry, endpointName: string) => {
+export const handleGetSchema = (
+  registry: ToolRegistry,
+  endpointName: string,
+): CallToolResult => {
   const endpoint = findEndpoint(registry, endpointName);
 
   if (!endpoint) {
@@ -562,11 +569,11 @@ function searchObject(value: unknown, pattern: string): unknown {
  * response size stays within maxLength.
  */
 function applyLengthBudgetToBlocks(
-  responseBlocks: Array<{ type: string; text?: string }>,
+  responseBlocks: ContentBlock[],
   maxLength: number,
-): Array<{ type: string; text?: string }> {
+): ContentBlock[] {
   let remainingBudget = maxLength;
-  const truncatedBlocks: Array<{ type: string; text?: string }> = [];
+  const truncatedBlocks: ContentBlock[] = [];
 
   for (const block of responseBlocks) {
     if (remainingBudget <= 0) {

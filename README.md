@@ -34,6 +34,22 @@ Application Make commands select a compatible Bun from PATH or `~/.bun/bin/bun` 
 the minimum version in `app/package.json`. Installation uses the committed lockfile
 with `--frozen-lockfile`; dependency changes go through `make bun add <package>`.
 
+`make deps-upgrade` uses the pinned `npm-check-updates` to query the registry's
+`latest` releases for all three npm manifests, including overrides and resolutions,
+then refreshes their Bun lockfiles. `node scripts/deps-upgrade.mjs --check` checks
+the manifests without changing files. Review upstream migration guides and rebase
+versioned patches before running `make check` and `make test`. Native dependencies
+also require `make mobile-sync` and the checks documented in `mobile/README.md`.
+
+The Drizzle PlanetScale adapter is patched for driver 2's SQL-only `execute` API:
+it binds values with `sql-escaper` in UTC and retains Drizzle's result modes and
+transaction handling. Keep the patch and `tests/server/planetscaleDriver.test.ts`
+together until the upstream adapter supports the driver directly.
+
+React Hook Form is patched to treat a nullable object as an empty container when
+comparing dirty fields; clearing nested combat targeting drafts exercises this case
+in `tests/hooks/coordinate-targeting.test.tsx`.
+
 The [dev-server skill](.agents/skills/tnr-dev-server/SKILL.md) documents disposable users,
 authenticated endpoint calls and Chrome coordination. For parallel tests with different
 accounts, use Chrome DevTools MCP with `--isolated` and a unique named `isolatedContext`

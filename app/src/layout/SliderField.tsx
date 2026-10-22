@@ -69,6 +69,7 @@ const SliderField: React.FC<SliderFieldProps> = (props) => {
           max={props.max}
           step={props.step ?? 1}
           disabled={props.disabled}
+          defaultValue={props.default}
           {...props?.register?.(props.id, { valueAsNumber: true })}
           className="h-5 w-full cursor-pointer appearance-none rounded-lg bg-orange-200 accent-orange-800 disabled:cursor-not-allowed"
           onChange={(e) => handleChange(props.id, Number(e.target.value))}

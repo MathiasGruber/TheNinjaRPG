@@ -167,7 +167,7 @@ export default function Reports() {
                       title={reportCommentExplain(report.status)}
                       color={reportCommentColor(report.status)}
                       image={
-                        <div className="... mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
+                        <div className="mr-3 basis-2/12 truncate text-center sm:basis-3/12 sm:text-base">
                           <AvatarImage
                             href={reportedUser.avatar}
                             userId={reportedUser.userId}

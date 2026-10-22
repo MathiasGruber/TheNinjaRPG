@@ -1,5 +1,5 @@
 diff --git a/capacitor/src/main/java/com/getcapacitor/Bridge.java b/capacitor/src/main/java/com/getcapacitor/Bridge.java
-index d4995fbbc9e4d3f0db7ac0330ef78e2f3547b055..8b0fe0ecf508688fe444cbdef9a8d7048a35d23a 100644
+index 9a3c6e0739682c9ff3b1254324ef59bb4fb2f4bd..0d2f6f9cb45a140980e9023fc291ea2687c0bdc0 100644
 --- a/capacitor/src/main/java/com/getcapacitor/Bridge.java
 +++ b/capacitor/src/main/java/com/getcapacitor/Bridge.java
 @@ -264,9 +264,9 @@ public class Bridge {

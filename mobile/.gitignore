@@ -23,6 +23,7 @@ ios/capacitor-cordova-ios-plugins/
 android/app/build/
 android/build/
 android/.gradle/
+android/.kotlin/
 android/app/src/main/assets/public/
 android/local.properties
 
