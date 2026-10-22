@@ -1055,6 +1055,7 @@ const Backpack: React.FC<BackpackProps> = (props) => {
 
   return (
     <>
+      {/* Match equipment's pixel sizing across theme and user font scales. */}
       <ActionSelector
         className="pt-3"
         gridClassNameOverwrite="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))]"
