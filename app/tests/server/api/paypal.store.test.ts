@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, spyOn } from "bun:test";
-import { eq } from "drizzle-orm";
+import { DrizzleQueryError, eq } from "drizzle-orm";
 import { actionLog, item, paypalTransaction, recruitmentRewards, userData, userItem, webStoreBundle, webStoreOrder, storeUserIdAlias } from "@/drizzle/schema";
 import { staffRouter, deleteUser } from "@/server/api/routers/staff";
 import { paypalRouter, syncTransactions } from "@/server/api/routers/paypal";
 import { itemRouter } from "@/server/api/routers/item";
 import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
+import * as sentry from "@/server/utils/sentry";
 import { buyRepsSchema, storeBundleSchema, storeBundleSchemaForItems } from "@/validators/points";
 import { dynamicMonthlyRepCap, getStoreBundleMinimumPriceCents, reps2dollars } from "@/utils/paypal";
 import { insertItems, insertUsers } from "../../setup/factories";
@@ -180,6 +181,39 @@ describeWithDatabase("web store payments", () => {
     expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, failed.order.id) })).toMatchObject({
       grantedAt: null, captureId: null,
     });
+  });
+  it.each([
+    new DrizzleQueryError("SELECT sql-sentinel FROM WebStoreOrder WHERE id = ?", ["parameter-sentinel"]),
+    { message: "non-error-sentinel", details: "parameter-sentinel" },
+  ])("sanitizes unexpected delivery failures and continues the batch (%p)", async error => {
+    const db = await getTestDatabase();
+    const failed = await reserve();
+    const paid = await reserve();
+    let lookups = 0;
+    const failingClient = new Proxy(db, {
+      get(target, property, receiver) {
+        if (property !== "query") return Reflect.get(target, property, receiver);
+        const findFirst = (async (...args: Parameters<typeof target.query.webStoreOrder.findFirst>) => {
+          if (lookups++ === 0) throw error;
+          return target.query.webStoreOrder.findFirst(...args);
+        }) as unknown as typeof target.query.webStoreOrder.findFirst;
+        return { ...target.query, webStoreOrder: { findFirst } };
+      },
+    });
+    const report = spyOn(sentry, "logError").mockImplementation(() => {});
+    try {
+      const messages = await syncTransactions(failingClient, [reportingTransaction(failed.id), reportingTransaction(paid.id)], "test-only");
+      expect(messages).toEqual([
+        `Transaction ID ${capture(failed.id).captureId}: Store delivery failed. Retry later or contact support.`,
+        `${offer.name} delivered`,
+      ]);
+      expect(messages.join(" ")).not.toMatch(/sql-sentinel|parameter-sentinel|non-error-sentinel/);
+      expect(report).toHaveBeenCalledTimes(1);
+      expect(report).toHaveBeenCalledWith(error, "Store delivery failed", { transactionId: capture(failed.id).captureId });
+      expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, failed.id) })).toMatchObject({ grantedAt: null, captureId: null });
+      expect((await db.query.paypalTransaction.findMany()).map(receipt => receipt.transactionId)).toEqual([capture(paid.id).captureId]);
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({ reputationPoints: 20, reputationPointsTotal: 20, money: 500 });
+    } finally { report.mockRestore(); }
   });
   it("rolls back the claim when a recipient disappears, allowing retry", async () => {
     const order = await reserve(); const db = await getTestDatabase();

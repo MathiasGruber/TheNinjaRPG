@@ -28,6 +28,7 @@ import {
   isDeletedStoreUserId,
   setFederalStatusWithStoreFloor,
 } from "@/server/utils/purchases/grant";
+import { logError } from "@/server/utils/sentry";
 import {
   authorizeStoreCapture,
   deliverStoreOrder,
@@ -862,7 +863,20 @@ export const syncTransactions = async (
             return result.message;
           } catch (error) {
             // A blocked delivery must not stop other payments or the hourly referral pass.
-            return `Transaction ID ${info.transaction_id}: ${error instanceof Error ? error.message : "Store delivery failed"}`;
+            const known =
+              error instanceof Error &&
+              [
+                "Checkout snapshot not found. Contact support with your payment receipt.",
+                "Payment does not match this checkout. Contact support with your payment receipt.",
+                "A purchased item is unavailable. Contact support; your payment can be retried.",
+                "Recipient unavailable. Contact support with your payment receipt.",
+              ].includes(error.message);
+            if (!known) {
+              logError(error, "Store delivery failed", {
+                transactionId: info.transaction_id,
+              });
+            }
+            return `Transaction ID ${info.transaction_id}: ${known ? error.message : "Store delivery failed. Retry later or contact support."}`;
           }
         }
         const createdByUserId = info.custom_field?.split("-")?.[0];
