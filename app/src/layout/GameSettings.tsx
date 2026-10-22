@@ -30,6 +30,11 @@ import { GameLayoutPicker } from "@/layout/GameLayoutPicker";
 import Link from "@/layout/Link";
 import { UncontrolledSliderField } from "@/layout/SliderField";
 import {
+  getAudioPreference,
+  isLocalAudioSession,
+  setLocalAudioPreference,
+} from "@/libs/audioPreferences";
+import {
   LIGHT_LAYOUT_STORAGE_KEY,
   SWAP_SIDEBARS_STORAGE_KEY,
 } from "@/libs/layoutPreference";
@@ -130,19 +135,11 @@ export const GlobalAudioProvider: React.FC<{
 
   // Get initial audio preference from user data or localStorage
   const getInitialMusicState = (): boolean => {
-    if (userData) return userData.musicOn;
-    const saved = safeLocalStorageGetItem("musicOn");
-    if (saved !== null) return JSON.parse(saved) as boolean;
-    return true;
+    return getAudioPreference("musicOn", userData?.musicOn);
   };
 
   const getInitialButtonSfxState = (): boolean => {
-    if (userData && typeof userData.buttonSfxOn === "boolean") {
-      return userData.buttonSfxOn;
-    }
-    const saved = safeLocalStorageGetItem("buttonSfxOn");
-    if (saved !== null) return JSON.parse(saved) as boolean;
-    return true;
+    return getAudioPreference("buttonSfxOn", userData?.buttonSfxOn);
   };
 
   const getInitialSfxVolumeState = (): number => {
@@ -193,7 +190,7 @@ export const GlobalAudioProvider: React.FC<{
   // the local play/pause state they selected.
   useEffect(() => {
     if (!isClient) return;
-    const shouldPlay = savedMusicOn ?? getInitialMusicState();
+    const shouldPlay = getInitialMusicState();
     isRemotePaused.current = false;
     isMusicTurnedOff.current = !shouldPlay;
     if (!shouldPlay) {
@@ -205,11 +202,7 @@ export const GlobalAudioProvider: React.FC<{
 
   useEffect(() => {
     if (!isClient) return;
-    if (savedButtonSfxOn !== undefined) {
-      setButtonSfxOn(savedButtonSfxOn);
-    } else {
-      setButtonSfxOn(getInitialButtonSfxState());
-    }
+    setButtonSfxOn(getInitialButtonSfxState());
   }, [isClient, savedButtonSfxOn]);
 
   // Claim the native media session once playback starts. iOS keeps it through incidental
@@ -332,6 +325,7 @@ export const GlobalAudioProvider: React.FC<{
   }, [isClient, buttonSfxOn, sfxVolume]);
 
   const setMusicEnabled = (enabled: boolean) => {
+    setLocalAudioPreference("musicOn", enabled);
     // The in-game switch is a preference change, not a transport pause.
     isRemotePaused.current = false;
     isMusicTurnedOff.current = !enabled;
@@ -392,10 +386,7 @@ export const useGameSettings = (
 
   // SFX preference state
   const getInitialSfxState = (): boolean => {
-    if (userData && typeof userData.sfxOn === "boolean") return userData.sfxOn;
-    const saved = safeLocalStorageGetItem("sfxOn");
-    if (saved !== null) return JSON.parse(saved) as boolean;
-    return true;
+    return getAudioPreference("sfxOn", userData?.sfxOn);
   };
   const [sfxOn, setSfxOn] = useState<boolean>(() =>
     isClient ? getInitialSfxState() : true,
@@ -424,6 +415,10 @@ export const useGameSettings = (
   const savedSfxOn = userData?.sfxOn;
   useEffect(() => {
     if (!isClient) return;
+    if (isLocalAudioSession()) {
+      setSfxOn(getInitialSfxState());
+      return;
+    }
     if (typeof savedSfxOn === "boolean") {
       setSfxOn(savedSfxOn);
       // Non-React celebration playback reads the current account preference from storage.
@@ -443,9 +438,12 @@ export const useGameSettings = (
   });
 
   const setSfxEnabled = (enabled: boolean) => {
-    safeLocalStorageSetItem("sfxOn", JSON.stringify(enabled));
+    const isLocalPreference = setLocalAudioPreference("sfxOn", enabled);
+    if (!isLocalPreference) {
+      safeLocalStorageSetItem("sfxOn", JSON.stringify(enabled));
+    }
     setSfxOn(enabled);
-    if (userData) {
+    if (userData && !isLocalPreference) {
       updatePreferences({
         preferredGeneral1: userData.preferredGeneral1 ?? null,
         preferredGeneral2: userData.preferredGeneral2 ?? null,
@@ -534,6 +532,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
   const handleMusicToggle = async (checked: boolean) => {
     // iOS can leave audio.play() pending; preference saving must not wait for it.
     void setAudioEnabled(checked);
+    if (isLocalAudioSession()) return;
     if (userData) {
       updatePreferences({
         preferredGeneral1: userData.preferredGeneral1 ?? null,
@@ -550,6 +549,7 @@ const GameSettingsContent: React.FC<GameSettingsContentProps> = ({
 
   const handleButtonSfxToggle = (checked: boolean) => {
     setButtonSfxOn(checked);
+    if (setLocalAudioPreference("buttonSfxOn", checked)) return;
     if (userData) {
       updatePreferences({
         preferredGeneral1: userData.preferredGeneral1 ?? null,

@@ -175,7 +175,8 @@ export const useAudio = (options: UseAudioOptions): UseAudioReturn => {
     // Safari/iOS always requires interaction
     if (isSafariOrIOS()) {
       setRequiresInteraction(true);
-    } else {
+    } else if (enabled && autoPlay) {
+      // Probing autoplay starts real playback, so respect the disabled preference here too.
       void testAutoplay();
     }
 

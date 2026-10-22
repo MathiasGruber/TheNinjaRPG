@@ -5,6 +5,7 @@ import { MUSIC_HALLOWEEN_THEME, MUSIC_WELCOME_TO_SEICHI } from "@/drizzle/consta
 import * as audioHook from "@/hooks/useAudio";
 import * as iframeHook from "@/hooks/useIframeMute";
 import { GlobalAudioProvider, useGameSettings } from "@/layout/GameSettings";
+import * as audioPreferences from "@/libs/audioPreferences";
 import type { UserWithRelations } from "@/routers/profile";
 import * as audioUtils from "@/utils/audio";
 import * as timeUtils from "@/utils/time";
@@ -67,6 +68,7 @@ const user = (level: number, musicOn = true) =>
 ensureDom();
 
 beforeEach(() => {
+  vi.spyOn(audioPreferences, "isLocalAudioSession").mockReturnValue(false);
   // Restore hook and utility exports between suites sharing Bun's module cache.
   vi.spyOn(audioHook, "useAudio").mockImplementation(() => ({
     isPlaying: getAudioTestMocks().isPlaying,
@@ -417,5 +419,45 @@ describe("shared SFX preference action", () => {
     });
     expect(nextUpdateUser).toHaveBeenCalledWith({ sfxOn: true });
     expect(updateUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts localhost muted despite saved preferences and keeps opt-ins local", () => {
+    vi.spyOn(audioPreferences, "isLocalAudioSession").mockReturnValue(true);
+    const keys = ["musicOn", "sfxOn", "buttonSfxOn"] as const;
+    keys.forEach((key) => {
+      audioPreferences.setLocalAudioPreference(key, false);
+      localStorage.setItem(key, "true");
+    });
+    const account = { ...user(1), sfxOn: true };
+    const updateUser = vi.fn(async () => undefined);
+    const localWrapper = ({ children }: { children: React.ReactNode }) => (
+      <GlobalAudioProvider userData={account}>{children}</GlobalAudioProvider>
+    );
+    try {
+      const view = renderHook(() => useGameSettings(account, updateUser), {
+        wrapper: localWrapper,
+      });
+      expect(audioHook.useAudio).toHaveBeenLastCalledWith(
+        expect.objectContaining({ enabled: false }),
+      );
+      expect(getAudioTestMocks().setEnabled).toHaveBeenCalledWith(false, true);
+      expect(view.result.current.buttonSfxOn).toBe(false);
+      expect(view.result.current.sfxOn).toBe(false);
+
+      act(() => view.result.current.setSfxEnabled(true));
+      expect(view.result.current.sfxOn).toBe(true);
+      expect(audioPreferences.getAudioPreference("sfxOn", false)).toBe(true);
+      act(() => { void view.result.current.setAudioEnabled(true); });
+      expect(audioPreferences.getAudioPreference("musicOn", false)).toBe(true);
+      expect(updatePreferences).not.toHaveBeenCalled();
+      expect(updateUser).not.toHaveBeenCalled();
+      expect(localStorage.getItem("sfxOn")).toBe("true");
+      view.unmount();
+    } finally {
+      keys.forEach((key) => {
+        audioPreferences.setLocalAudioPreference(key, false);
+        localStorage.removeItem(key);
+      });
+    }
   });
 });

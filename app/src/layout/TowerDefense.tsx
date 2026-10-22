@@ -19,9 +19,9 @@ import type {
 import { Clock, Group, OrthographicCamera } from "three";
 import { TD_HEX_SIZE } from "@/drizzle/constants";
 import type { GameAsset } from "@/drizzle/schema";
-import { safeLocalStorageGetItem } from "@/hooks/localstorage";
 import { usePerformanceMonitor } from "@/hooks/performance-monitor";
 import WebGlError from "@/layout/WebGLError";
+import { getAudioPreference } from "@/libs/audioPreferences";
 import type { TerrainHex } from "@/libs/hexgrid";
 import { FrameAnimator } from "@/libs/threejs/FrameAnimator";
 import { calculateWidth2Height } from "@/libs/threejs/hexgrid";
@@ -640,10 +640,7 @@ const TowerDefenseInner = ({
                 });
               }
 
-              if (
-                cachedSfxUrl &&
-                (sfxEnabledRef.current ?? safeLocalStorageGetItem("sfxOn") !== "false")
-              ) {
+              if (cachedSfxUrl && getAudioPreference("sfxOn", sfxEnabledRef.current)) {
                 void playPreloadedAudio(cachedSfxUrl, 0.8);
               }
 
@@ -791,10 +788,7 @@ const TowerDefenseInner = ({
                 });
               }
 
-              if (
-                cachedSfxUrl &&
-                (sfxEnabledRef.current ?? safeLocalStorageGetItem("sfxOn") !== "false")
-              ) {
+              if (cachedSfxUrl && getAudioPreference("sfxOn", sfxEnabledRef.current)) {
                 void playPreloadedAudio(cachedSfxUrl, 0.8);
               }
 
