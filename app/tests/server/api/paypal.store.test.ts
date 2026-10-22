@@ -1,0 +1,198 @@
+import { beforeEach, describe, expect, it, spyOn } from "bun:test";
+import { eq } from "drizzle-orm";
+import { actionLog, item, paypalTransaction, userData, userItem, webStoreBundle, webStoreOrder, storeUserIdAlias } from "@/drizzle/schema";
+import { staffRouter, deleteUser } from "@/server/api/routers/staff";
+import { paypalRouter } from "@/server/api/routers/paypal";
+import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
+import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
+import { dynamicMonthlyRepCap } from "@/utils/paypal";
+import { insertItems, insertUsers } from "../../setup/factories";
+import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+const contents = {reputationPoints:20, money:500, items:[{id:"store-item",quantity:7}]};
+const offer = {name:"Seichi supplies", priceCents:1250, contents};
+const capture = (id:string) => ({snapshotId:id, captureId:`capture-${id}`, orderId:`provider-${id}`, invoiceId:id, currency:"USD", value:"12.50", raw:{status:"COMPLETED"}});
+
+async function reserve() {
+  const result = await reserveStoreOrder(await getTestDatabase(), "buyer", "recipient", offer);
+  if (!result.success) throw new Error(result.message);
+  return result.order;
+}
+
+describe("web store validation", () => {
+  it("requires whole custom quantities within checkout bounds", () => {
+    for (const value of [NaN, Infinity, 4, 5.5, 1001]) expect(buyRepsSchema.safeParse({reputationPoints:value}).success).toBe(false);
+    expect(buyRepsSchema.parse({reputationPoints:73}).reputationPoints).toBe(73);
+  });
+  it("rejects empty bundles, fractional prices and duplicate items", () => {
+    const input = {...offer, description:"Supplies", isActive:false};
+    expect(storeBundleSchema.safeParse(input).success).toBe(true);
+    expect(storeBundleSchema.safeParse({...input, priceCents:1250.5}).success).toBe(false);
+    expect(storeBundleSchema.safeParse({...input, contents:{reputationPoints:0,money:0,items:[]}}).success).toBe(false);
+    expect(storeBundleSchema.safeParse({...input, contents:{...contents,items:[...contents.items,...contents.items]}}).success).toBe(false);
+  });
+});
+
+describeWithDatabase("web store payments", () => {
+  beforeEach(async () => {
+    await resetTables(webStoreOrder, webStoreBundle, paypalTransaction, userItem, item, userData, actionLog, storeUserIdAlias);
+    await insertUsers([{userId:"buyer",username:"Buyer",role:"OWNER", reputationPoints:0, money:0}, {userId:"recipient",username:"Recipient",reputationPoints:0,reputationPointsTotal:0,money:0}]);
+    await insertItems([{id:"store-item",name:"Supplies",canStack:true,stackSize:3}]);
+  });
+  it("delivers the saved snapshot once under concurrent capture retries", async () => {
+    const order = await reserve();
+    const db = await getTestDatabase();
+    await db.insert(webStoreBundle).values({id:"edited", ...offer, description:"changed", isActive:true, contents:{...contents,reputationPoints:999}});
+    const results = await Promise.all(Array.from({length:5},() => deliverStoreOrder(db,capture(order.id))));
+    expect(results.every(result => result.success)).toBe(true);
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:20,reputationPointsTotal:20,money:500});
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+    const items = await db.query.userItem.findMany();
+    expect(items.map(item => item.quantity).sort()).toEqual([1,3,3]);
+    expect((await db.query.webStoreOrder.findFirst())?.grantedAt).not.toBeNull();
+  });
+  it("rejects changed amount, currency and invoice without consuming the receipt", async () => {
+    const order = await reserve(); const db = await getTestDatabase();
+    for (const patch of [{value:"0.01"},{currency:"EUR"},{invoiceId:"another"},{value:"12.50junk"}]) await expect(deliverStoreOrder(db,{...capture(order.id), ...patch})).rejects.toThrow("does not match");
+    expect((await db.query.webStoreOrder.findFirst())?.grantedAt).toBeNull();
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+  });
+  it("rolls back the claim when a recipient disappears, allowing retry", async () => {
+    const order = await reserve(); const db = await getTestDatabase();
+    await db.delete(userData).where(eq(userData.userId,"recipient"));
+    await expect(deliverStoreOrder(db,capture(order.id))).rejects.toThrow("Recipient unavailable");
+    expect((await db.query.webStoreOrder.findFirst())?.grantedAt).toBeNull();
+    expect(await db.query.userItem.findMany()).toHaveLength(0);
+    await insertUsers([{userId:"recipient",username:"Recipient",reputationPoints:0,money:0}]);
+    expect((await deliverStoreOrder(db,capture(order.id))).success).toBe(true);
+  });
+  it("rolls back balances and items if the provider receipt conflicts", async () => {
+    const first = await reserve(); const second = await reserve(); const db = await getTestDatabase();
+    await deliverStoreOrder(db,capture(first.id));
+    await expect(deliverStoreOrder(db,{...capture(second.id),orderId:capture(first.id).orderId})).rejects.toThrow();
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:20,money:500});
+    expect((await db.query.webStoreOrder.findFirst({where:eq(webStoreOrder.id,second.id)}))?.grantedAt).toBeNull();
+    expect(await db.query.userItem.findMany()).toHaveLength(3);
+  });
+  it("serializes simultaneous reservations against one monthly allowance", async () => {
+    const db = await getTestDatabase(); const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    const cap = dynamicMonthlyRepCap(buyer);
+    const large = {...offer,contents:{...contents,reputationPoints:Math.floor(cap*0.6)}};
+    const results = await Promise.all(Array.from({length:3},()=>reserveStoreOrder(db,"buyer","recipient",large)));
+    expect(results.filter(result => result.success)).toHaveLength(1);
+  });
+  it("accepts an expired reservation's verified payment and respects paid history", async () => {
+    const db = await getTestDatabase(); const order = await reserve();
+    await db.update(webStoreOrder).set({expiresAt:new Date(0)}).where(eq(webStoreOrder.id,order.id));
+    expect((await deliverStoreOrder(db,capture(order.id))).success).toBe(true);
+    const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    expect((await reserveStoreOrder(db,"buyer","recipient",{...offer,contents:{...contents,reputationPoints:dynamicMonthlyRepCap(buyer)}})).success).toBe(false);
+  });
+  it("rechecks expired allowance before capture without taking payment", async () => {
+    const db = await getTestDatabase(); const old = await reserve();
+    await db.update(webStoreOrder).set({expiresAt:new Date(0)}).where(eq(webStoreOrder.id,old.id));
+    const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
+    await reserveStoreOrder(db,"buyer","recipient",{...offer,contents:{...contents,reputationPoints:dynamicMonthlyRepCap(buyer)}});
+    expect(await authorizeStoreCapture(db,old.id,"buyer")).toContain("No payment was captured");
+    expect((await db.query.webStoreOrder.findFirst({where:eq(webStoreOrder.id,old.id)}))?.grantedAt).toBeNull();
+  });
+  it("creates server-priced provider orders and captures/reconciles exactly once", async () => {
+    const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
+    let provider:any; let captures=0; let requestedRepresentation=false;
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async (url,options) => {
+      const path=String(url);
+      if (path.endsWith("/v1/oauth2/token")) return Response.json({access_token:"test-only"});
+      if (path.endsWith("/v2/checkout/orders")) {provider={...JSON.parse(String(options?.body)),id:"TESTORDER123456789",status:"APPROVED"}; return Response.json(provider);}
+      if (path.endsWith("/capture")) {captures++;requestedRepresentation=new Headers(options?.headers).get("Prefer")==="return=representation";provider.status="COMPLETED";provider.purchase_units[0].payments={captures:[{id:"CAPTURE1",status:"COMPLETED",amount:provider.purchase_units[0].amount}]};return Response.json({id:provider.id,status:provider.status});}
+      return Response.json(provider);
+    });
+    try {
+      const result=await owner.createStoreOrder({recipientId:"recipient",selection:{type:"custom",reputationPoints:73}});
+      expect(result.success).toBe(true); expect(provider.purchase_units[0].amount).toEqual({currency_code:"USD",value:"26.80"});
+      const firstCapture=await owner.captureStoreOrder({orderId:provider.id});
+      expect(firstCapture.success).toBe(true);expect(firstCapture.purchase).toMatchObject({value:26.8,transactionId:"CAPTURE1",currency:"USD"});
+      const repeatCapture=await owner.captureStoreOrder({orderId:provider.id});
+      expect(repeatCapture.success).toBe(true);expect(repeatCapture.purchase).toBeUndefined();expect(requestedRepresentation).toBe(true);
+      expect(captures).toBe(1);
+      expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:73});
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+    } finally {fetchMock.mockRestore();}
+  });
+  it("refuses a mismatched order before calling the provider capture API", async () => {
+    const owner = await callerFor(paypalRouter,"buyer"); const order=await reserve(); let captures=0;
+    const fetchMock=spyOn(globalThis,"fetch").mockImplementation(async (url) => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({access_token:"test-only"});
+      if (String(url).endsWith("/capture")) captures++;
+      return Response.json({id:"TESTORDER123456789",status:"APPROVED",purchase_units:[{custom_id:`store:${order.id}`,invoice_id:order.id,amount:{currency_code:"USD",value:"0.01"}}]});
+    });
+    try {expect((await owner.captureStoreOrder({orderId:"TESTORDER123456789"})).success).toBe(false);expect(captures).toBe(0);} finally {fetchMock.mockRestore();}
+  });
+  it("refuses to capture after the recipient or bundle items disappear", async () => {
+    const owner=await callerFor(paypalRouter,"buyer");const db=await getTestDatabase();const order=await reserve();let captures=0;
+    const fetchMock=spyOn(globalThis,"fetch").mockImplementation(async url=>{
+      if(String(url).endsWith("/v1/oauth2/token"))return Response.json({access_token:"test-only"});
+      if(String(url).endsWith("/capture"))captures++;
+      return Response.json({id:"TESTORDER123456789",status:"APPROVED",purchase_units:[{custom_id:`store:${order.id}`,invoice_id:order.id,amount:{currency_code:"USD",value:"12.50"}}]});
+    });
+    try {
+      await db.delete(item).where(eq(item.id,"store-item"));
+      expect((await owner.captureStoreOrder({orderId:"TESTORDER123456789"})).success).toBe(false);
+      await insertItems([{id:"store-item",name:"Supplies"}]);await db.delete(userData).where(eq(userData.userId,"recipient"));
+      expect((await owner.captureStoreOrder({orderId:"TESTORDER123456789"})).success).toBe(false);
+      expect(captures).toBe(0);
+    }finally{fetchMock.mockRestore();}
+  });
+  it("allows only the owner to author or inspect hidden offers", async () => {
+    const player = await callerFor(paypalRouter,"recipient");
+    expect((await player.saveStoreBundle({data:{...offer,description:"",isActive:false}})).success).toBe(false);
+    await expect(player.getStoreBundles({includeInactive:true})).rejects.toThrow();
+    const owner = await callerFor(paypalRouter,"buyer");
+    expect((await owner.saveStoreBundle({data:{...offer,description:"",isActive:false}})).success).toBe(true);
+    expect((await player.getStoreBundles()).bundles).toHaveLength(0);
+    const catalog = await owner.getStoreBundles({includeInactive:true});
+    expect(catalog.bundles).toHaveLength(1);
+    expect((await player.prepareStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:catalog.bundles[0]!.id}})).success).toBe(false);
+    expect(await dbAuditCount()).toBe(1);
+  });
+  it("assigns fresh checkout identities to repeated purchases of a published bundle", async () => {
+    const owner = await callerFor(paypalRouter,"buyer");
+    await owner.saveStoreBundle({data:{...offer,description:"",isActive:true}});
+    const bundle = (await owner.getStoreBundles()).bundles[0]!;
+    const orders = await Promise.all(Array.from({length:2},()=>owner.prepareStoreOrder({recipientId:"recipient", selection:{type:"bundle",bundleId:bundle.id}})));
+    expect(orders.every(order => order.success)).toBe(true);
+    const rows = await (await getTestDatabase()).query.webStoreOrder.findMany();
+    expect(new Set(rows.map(row => row.id)).size).toBe(2);
+    expect(rows.some(row => row.id === bundle.id)).toBe(false);
+  });
+  it("rejects AI/banned recipients and unavailable items before payment", async () => {
+    const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
+    await db.update(userData).set({isAi:true}).where(eq(userData.userId,"recipient"));
+    expect((await owner.prepareStoreOrder({recipientId:"recipient",selection:{type:"custom",reputationPoints:20}})).success).toBe(false);
+    expect((await owner.saveStoreBundle({data:{...offer,description:"",isActive:true,contents:{...contents,items:[{id:"missing",quantity:1}]}}})).success).toBe(false);
+    expect(await db.query.webStoreOrder.findMany()).toHaveLength(0);
+  });
+  it("keeps pending delivery working after staff repair a recipient's account ID", async () => {
+    const db=await getTestDatabase(); const order=await reserve();
+    await db.update(userData).set({username:"Terriator"}).where(eq(userData.userId,"buyer"));
+    const staff=await callerFor(staffRouter,"buyer");
+    expect((await staff.updateUserId({userId:"recipient",newUserId:"recipient-repaired"})).success).toBe(true);
+    expect((await deliverStoreOrder(db,capture(order.id))).success).toBe(true);
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient-repaired")})).toMatchObject({reputationPoints:20,money:500});
+  });
+  it("does not deliver an old checkout to a recreated character after deletion", async () => {
+    const db=await getTestDatabase(); const order=await reserve();
+    await deleteUser(db,"recipient");
+    await insertUsers([{userId:"recipient",username:"Recreated",reputationPoints:0,money:0}]);
+    await expect(deliverStoreOrder(db,capture(order.id))).rejects.toThrow("Recipient unavailable");
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:0,money:0});
+  });
+  it("delivers item-only packs and rep-only packs", async () => {
+    const db = await getTestDatabase();
+    for (const contents of [{reputationPoints:0,money:0,items:[{id:"store-item",quantity:1}]},{reputationPoints:73,money:0,items:[]}]) {
+      const result = await reserveStoreOrder(db,"buyer","recipient",{...offer,contents});
+      if (!result.success) throw new Error(result.message);
+      expect((await deliverStoreOrder(db,capture(result.order.id))).success).toBe(true);
+    }
+  });
+});
+const dbAuditCount = async () => (await (await getTestDatabase()).query.actionLog.findMany()).length;

@@ -93,6 +93,7 @@ import {
   userVote,
   village,
   warKill,
+  webStoreOrder,
 } from "@/drizzle/schema";
 import { deleteUserReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
@@ -1036,6 +1037,14 @@ export const staffRouter = createTRPCRouter({
           .set({ affectedUserId: input.newUserId })
           .where(eq(paypalSubscription.affectedUserId, input.userId)),
         ctx.drizzle
+          .update(webStoreOrder)
+          .set({ buyerId: input.newUserId })
+          .where(eq(webStoreOrder.buyerId, input.userId)),
+        ctx.drizzle
+          .update(webStoreOrder)
+          .set({ recipientId: input.newUserId })
+          .where(eq(webStoreOrder.recipientId, input.userId)),
+        ctx.drizzle
           .update(paypalTransaction)
           .set({ affectedUserId: input.newUserId })
           .where(eq(paypalTransaction.affectedUserId, input.userId)),
@@ -1497,6 +1506,12 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
 
   // Batch 8: Financial & rewards
   await Promise.all([
+    // Keep paid snapshots for support, but never deliver an old purchase to a recreated character.
+    client
+      .update(webStoreOrder)
+      .set({ recipientId: `__tnr_deleted_store_user__:${nanoid()}` })
+      .where(eq(webStoreOrder.recipientId, userId)),
+
     client.delete(bankTransfers).where(eq(bankTransfers.senderId, userId)),
     client.delete(bankTransfers).where(eq(bankTransfers.receiverId, userId)),
     client.delete(userRewards).where(eq(userRewards.awardedById, userId)),

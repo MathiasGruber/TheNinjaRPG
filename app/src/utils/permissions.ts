@@ -1057,3 +1057,6 @@ export const canManageTournaments = (role: UserRole) =>
     "CODING-ADMIN",
     "OWNER",
   ].includes(role);
+
+/** Store offers set real-money prices and paid rewards. */
+export const canManageStore = (role?: UserRole) => role === "OWNER";

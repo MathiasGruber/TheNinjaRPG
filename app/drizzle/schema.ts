@@ -1,3 +1,4 @@
+import type { StoreContents } from "@/validators/points";
 import type { TitleEffect } from "@/validators/title";
 import type { MethodSize } from "@/validators/methodSize";
 import type { EventTournamentState } from "@/validators/tournament";
@@ -6929,3 +6930,28 @@ export const warCamp = mysqlTable("WarCamp", {
   resolvedAt: datetime("resolvedAt", { mode: "date", fsp: 3 }),
 }, (table) => ({ warIdx: index("WarCamp_warId_idx").on(table.warId), unresolvedIdx: index("WarCamp_unresolved_idx").on(table.resolvedAt, table.endsAt) }));
 export type WarCamp = InferSelectModel<typeof warCamp>;
+
+/** Published web store offers. Orders copy their payload so later edits cannot alter delivery. */
+export const webStoreBundle = mysqlTable("WebStoreBundle", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  priceCents: int("priceCents").notNull(),
+  isActive: boolean("isActive").default(false).notNull(),
+  contents: json("contents").$type<StoreContents>().notNull(),
+  updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+});
+
+/** Immutable checkout snapshot and expiring reputation-cap reservation. */
+export const webStoreOrder = mysqlTable("WebStoreOrder", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  buyerId: varchar("buyerId", { length: 191 }).notNull(),
+  recipientId: varchar("recipientId", { length: 191 }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  priceCents: int("priceCents").notNull(),
+  contents: json("contents").$type<StoreContents>().notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }).notNull(),
+  grantedAt: datetime("grantedAt", { mode: "date", fsp: 3 }),
+  captureId: varchar("captureId", { length: 191 }),
+}, table => [index("WebStoreOrder_buyerId_idx").on(table.buyerId), uniqueIndex("WebStoreOrder_captureId_key").on(table.captureId)]);

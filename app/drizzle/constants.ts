@@ -3989,3 +3989,13 @@ export const IMG_LAYOUT_THEME_ART = {
 export const WAR_MERCENARY_LIMIT = 3;
 export const WAR_MERCENARY_RYO_PER_TOKEN = 1000;
 export const WAR_MERCENARY_MAX_TOKENS = 1_000_000;
+
+/** Web checkout limits and quick selections; prices use the shared reputation curve. */
+export const WEB_REP_MIN = 5;
+export const WEB_REP_MAX = 1000;
+export const WEB_REP_PRESETS = [20, 50, 100, 250, 500] as const;
+export const STORE_BUNDLE_MAX_ITEMS = 20;
+export const STORE_BUNDLE_MAX_QUANTITY = 100;
+export const STORE_BUNDLE_MAX_RYO = 10000000;
+export const STORE_BUNDLE_MAX_PRICE_CENTS = 100000;
+export const STORE_ORDER_RESERVATION_MINUTES = 30;

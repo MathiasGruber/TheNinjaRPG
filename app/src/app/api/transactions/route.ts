@@ -12,7 +12,6 @@ import {
 } from "@/server/api/routers/paypal";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
-import { dollars2reps } from "@/utils/paypal";
 
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
@@ -51,6 +50,7 @@ export async function GET(request: Request) {
         transactionUpdatedDate: mainTransaction.transactionUpdatedDate,
         invoiceId: mainTransaction.invoiceId,
         amount: mainTransaction.amount,
+        reputationPoints: mainTransaction.reputationPoints,
         currency: mainTransaction.currency,
         recruiterId: recruiterUser.userId,
         referalTransactionId: refTransaction.transactionId,
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       );
     for (const transaction of unawardedTransactions) {
       if (transaction.createdById && transaction.recruiterId) {
-        const referralBonus = Math.floor(dollars2reps(transaction.amount) * 0.1);
+        const referralBonus = Math.floor(transaction.reputationPoints * 0.1);
         msgs.push(`Add ${referralBonus} ref reps - invoiceId ${transaction.invoiceId}`);
         await updateReps({
           client: drizzleDB,
