@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FARM_GOLD_FED_TIME_REDUCTION_PERCENT,
   FED_COOKING_GOLD_SLOTS,
@@ -180,7 +180,7 @@ const PaypalShopContent = ({
   const [, dispatch] = usePayPalScriptReducer();
   const currency = "USD";
 
-  const { data: purchasedReps } = api.paypal.getRecentRepsCount.useQuery(
+  const allowance = api.paypal.getRecentRepsCount.useQuery(
     { userId: userData?.userId ?? "-" },
     { enabled: !!userData },
   );
@@ -206,37 +206,43 @@ const PaypalShopContent = ({
   }, []);
 
   return (
-    <>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
       <ContentBox
         title={activeTab}
-        subtitle={`Monthly Reps [${purchasedReps ?? 0} / ${dynamicMonthlyRepCap(userData)}]`}
-        padding={activeTab !== "Log"}
+        subtitle={
+          allowance.isPending
+            ? "Loading monthly allowance…"
+            : allowance.isError
+              ? "Monthly allowance unavailable"
+              : `Monthly Reps [${allowance.data} / ${dynamicMonthlyRepCap(userData)}]`
+        }
         topRightContent={
           <>
             <div className="grow"></div>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="h-auto flex-wrap">
-                {["Reputation", "Bundles", "Federal"].map((tab) => (
-                  <TabsTrigger key={tab} value={tab}>
-                    {tab}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <TabsList className="h-auto flex-wrap" aria-label="Store">
+              {["Reputation", "Bundles", "Federal"].map((tab) => (
+                <TabsTrigger key={tab} value={tab}>
+                  {tab}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </>
         }
       >
-        {isReady && activeTab === "Reputation" && (
-          <ReputationStore currency={currency} />
-        )}
-        {isReady && activeTab === "Bundles" && <StoreBundles />}
-        {isReady && activeTab === "Federal" && <FederalStore />}
-        {!isReady && <Loader explanation="Loading..." />}
+        <TabsContent value="Reputation" className="mt-0">
+          {isReady ? <ReputationStore currency={currency} /> : <Loader />}
+        </TabsContent>
+        <TabsContent value="Bundles" className="mt-0">
+          {isReady ? <StoreBundles /> : <Loader />}
+        </TabsContent>
+        <TabsContent value="Federal" className="mt-0">
+          {isReady ? <FederalStore /> : <Loader />}
+        </TabsContent>
       </ContentBox>
       {activeTab !== "Federal" && <TransactionHistory />}
       {activeTab !== "Federal" && <LookupTransaction />}
       {activeTab === "Federal" && <SubscriptionsOverview />}
-    </>
+    </Tabs>
   );
 };
 
@@ -277,15 +283,14 @@ const ReputationStore = (_props: { currency: string }) => {
     if (userData && watchedUsers.length === 0)
       userSearchMethods.setValue("users", [userData]);
   }, [userData, watchedUsers, userSearchMethods]);
-  const monthlyRemaining = Math.max(
-    0,
-    dynamicMonthlyRepCap(userData) - (purchasedReps ?? 0),
-  );
-  const maxPoints = Math.min(
-    WEB_REP_MAX,
-    Math.max(0, dynamicMonthlyRepCap(userData) - (purchasedReps ?? 0)),
-  );
+  const isAllowanceReady = !isLoadingLimit && !isError;
+  const monthlyRemaining = isAllowanceReady
+    ? Math.max(0, dynamicMonthlyRepCap(userData) - (purchasedReps ?? 0))
+    : undefined;
+  const maxPoints = Math.min(WEB_REP_MAX, monthlyRemaining ?? 0);
+  const canBuy = isAllowanceReady && maxPoints >= WEB_REP_MIN;
   const valid =
+    canBuy &&
     buyRepsSchema.safeParse({ reputationPoints: watchedPoints }).success &&
     watchedPoints <= maxPoints;
   const amount = valid ? reps2dollars(watchedPoints) : undefined;
@@ -312,8 +317,9 @@ const ReputationStore = (_props: { currency: string }) => {
             </label>
             <NumberInput
               id="reputation-amount"
-              min={WEB_REP_MIN}
-              max={maxPoints}
+              min={canBuy ? WEB_REP_MIN : undefined}
+              max={canBuy ? maxPoints : undefined}
+              disabled={!canBuy}
               step={1}
               aria-describedby="reputation-limit"
               value={watchedPoints}
@@ -339,7 +345,7 @@ const ReputationStore = (_props: { currency: string }) => {
                 </Button>
               ))}
             </div>
-            {maxPoints >= WEB_REP_MIN && (
+            {canBuy && (
               <SliderField
                 id="reputationPoints"
                 default={WEB_REP_PRESETS[0]}
@@ -357,13 +363,15 @@ const ReputationStore = (_props: { currency: string }) => {
             <p id="reputation-limit" className="text-muted-foreground text-sm">
               {isLoadingLimit
                 ? "Loading your monthly allowance…"
-                : `${monthlyRemaining} reputation points left this month. Buy ${WEB_REP_MIN}–${maxPoints} per purchase.`}
+                : isError
+                  ? "Your monthly allowance is unavailable."
+                  : !canBuy
+                    ? `${monthlyRemaining} reputation points left this month. The minimum purchase is ${WEB_REP_MIN}.`
+                    : `${monthlyRemaining} reputation points left this month. Buy ${WEB_REP_MIN}–${maxPoints} per purchase.`}
             </p>
-            {!isLoadingLimit && !valid && (
+            {canBuy && !valid && (
               <p role="alert" className="text-destructive text-sm">
-                {maxPoints < WEB_REP_MIN
-                  ? "You have reached your monthly purchase limit."
-                  : `Enter a whole number between ${WEB_REP_MIN} and ${maxPoints}.`}
+                Enter a whole number between {WEB_REP_MIN} and {maxPoints}.
               </p>
             )}
             {isError && (

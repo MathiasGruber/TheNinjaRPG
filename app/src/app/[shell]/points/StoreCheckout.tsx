@@ -2,7 +2,7 @@
 
 import { sendGTMEvent } from "@next/third-parties/google";
 import { PayPalButtons, usePayPalScriptReducer } from "@paypal/react-paypal-js";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { STORE_ORDER_RESERVATION_MINUTES } from "@/drizzle/constants";
@@ -15,10 +15,12 @@ export function StoreCheckout({
   selection,
   recipientId,
   disabled = false,
+  onPendingChange,
 }: {
   selection: z.infer<typeof storeCheckoutSchema>["selection"];
   recipientId?: string;
   disabled?: boolean;
+  onPendingChange?: (isPending: boolean) => void;
 }) {
   const [{ isResolved, isRejected }] = usePayPalScriptReducer();
   const [message, setMessage] = useState<string>();
@@ -62,6 +64,11 @@ export function StoreCheckout({
         `${error.message} Use Lookup Transaction to retry delivery after payment.`,
       ),
   });
+  const isPending = prepare.isPending || resolve.isPending;
+  useEffect(() => {
+    onPendingChange?.(isPending);
+    return () => onPendingChange?.(false);
+  }, [isPending, onPendingChange]);
   return (
     <div className="space-y-2">
       {message && (

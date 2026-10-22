@@ -34,15 +34,24 @@ export const storeContentsSchema = z
     items: z
       .array(
         z.object({
-          id: z.string().min(1).max(191),
+          id: z.string().min(1, "Choose an item").max(191),
           quantity: z.number().int().min(1).max(STORE_BUNDLE_MAX_QUANTITY),
         }),
       )
       .max(STORE_BUNDLE_MAX_ITEMS)
-      .refine(
-        (items) => new Set(items.map((item) => item.id)).size === items.length,
-        "Select each item once",
-      ),
+      .superRefine((items, context) => {
+        const selected = new Set<string>();
+        items.forEach((item, index) => {
+          if (item.id && selected.has(item.id)) {
+            context.addIssue({
+              code: "custom",
+              message: "Select each item once",
+              path: [index, "id"],
+            });
+          }
+          selected.add(item.id);
+        });
+      }),
   })
   .refine(
     (contents) =>

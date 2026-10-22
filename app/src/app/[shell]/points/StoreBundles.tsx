@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { type RefObject, useEffect, useRef, useState } from "react";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   STORE_BUNDLE_MAX_ITEMS,
@@ -34,6 +35,8 @@ import {
 } from "@/drizzle/constants";
 import BanInfo from "@/layout/BanInfo";
 import Loader from "@/layout/Loader";
+import Modal from "@/layout/Modal";
+import { SearchSelect } from "@/layout/SearchSelect";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { canManageStore } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -47,8 +50,10 @@ export function StoreBundles() {
   const canManage = canManageStore(user?.role);
   const query = api.paypal.getStoreBundles.useQuery({ includeInactive: canManage });
   const [selected, setSelected] = useState<string>();
+  const [isCheckoutPending, setIsCheckoutPending] = useState(false);
   const [editing, setEditing] = useState<{ id?: string; data: StoreBundleInput }>();
   const [message, setMessage] = useState<string>();
+  const returnFocusRef = useRef<HTMLButtonElement>(null);
   const userSearchSchema = getSearchValidator({ max: 1 });
   const methods = useForm<z.infer<typeof userSearchSchema>>({
     defaultValues: { username: "", users: [] },
@@ -71,13 +76,6 @@ export function StoreBundles() {
   const offer = query.data?.bundles.find(
     (bundle) => bundle.id === selected && bundle.isActive,
   );
-  const setDraft = (patch: Partial<StoreBundleInput>) =>
-    setEditing((current) =>
-      current ? { ...current, data: { ...current.data, ...patch } } : current,
-    );
-  const setContents = (patch: Partial<StoreBundleInput["contents"]>) => {
-    if (editing) setDraft({ contents: { ...editing.data.contents, ...patch } });
-  };
   if (user?.isBanned) return <BanInfo />;
   if (query.isPending) return <Loader explanation="Loading store bundles" />;
   if (query.isError)
@@ -95,7 +93,8 @@ export function StoreBundles() {
         </p>
         {canManage && (
           <Button
-            onClick={() => {
+            onClick={(event) => {
+              returnFocusRef.current = event.currentTarget;
               setMessage(undefined);
               setEditing({
                 data: {
@@ -112,195 +111,25 @@ export function StoreBundles() {
           </Button>
         )}
       </div>
-      {message && (
+      {message && !editing && (
         <p role="status" className="rounded border p-3">
           {message}
         </p>
       )}
       {canManage && editing && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editing.id ? "Edit bundle" : "Create bundle"}</CardTitle>
-            <CardDescription>
-              Set a price in USD and guaranteed contents. Publish when the offer is
-              ready.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form
-              className="space-y-4"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const parsed = storeBundleSchema.safeParse(editing.data);
-                if (!parsed.success) {
-                  setMessage(
-                    parsed.error.issues.map((issue) => issue.message).join(". "),
-                  );
-                  return;
-                }
-                save.mutate({ id: editing.id, data: parsed.data });
-              }}
-            >
-              <fieldset disabled={save.isPending} className="space-y-4">
-                <label className="block" htmlFor="bundle-name">
-                  Bundle name
-                  <Input
-                    id="bundle-name"
-                    value={editing.data.name}
-                    onChange={(event) => setDraft({ name: event.target.value })}
-                    required
-                    maxLength={100}
-                  />
-                </label>
-                <label className="block" htmlFor="bundle-description">
-                  Description
-                  <Textarea
-                    id="bundle-description"
-                    value={editing.data.description}
-                    onChange={(event) => setDraft({ description: event.target.value })}
-                    maxLength={1000}
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label htmlFor="bundle-price">
-                    Price (USD)
-                    <NumberInput
-                      id="bundle-price"
-                      min={STORE_BUNDLE_MIN_PRICE_CENTS / 100}
-                      max={STORE_BUNDLE_MAX_PRICE_CENTS / 100}
-                      step="0.01"
-                      value={editing.data.priceCents / 100}
-                      onValueChange={(value) =>
-                        setDraft({ priceCents: Math.round(value * 100) })
-                      }
-                      required
-                    />
-                  </label>
-                  <label htmlFor="bundle-reputation">
-                    Reputation points
-                    <NumberInput
-                      id="bundle-reputation"
-                      min={0}
-                      max={WEB_REP_MAX}
-                      step={1}
-                      value={editing.data.contents.reputationPoints}
-                      onValueChange={(value) =>
-                        setContents({ reputationPoints: value })
-                      }
-                      required
-                    />
-                  </label>
-                  <label htmlFor="bundle-ryo">
-                    Ryo
-                    <NumberInput
-                      id="bundle-ryo"
-                      min={0}
-                      max={STORE_BUNDLE_MAX_RYO}
-                      step={1}
-                      value={editing.data.contents.money}
-                      onValueChange={(value) => setContents({ money: value })}
-                      required
-                    />
-                  </label>
-                </div>
-                <div className="space-y-2">
-                  <p className="font-semibold text-sm">Items</p>
-                  {editing.data.contents.items.map((reward, index) => (
-                    <div key={index} className="flex gap-2">
-                      <Select
-                        value={reward.id}
-                        onValueChange={(id) =>
-                          setContents({
-                            items: editing.data.contents.items.map((current, i) =>
-                              i === index ? { ...current, id } : current,
-                            ),
-                          })
-                        }
-                      >
-                        <SelectTrigger aria-label={`Item ${index + 1}`}>
-                          <SelectValue placeholder="Choose an item" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {query.data?.items.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <NumberInput
-                        className="w-24"
-                        aria-label={`Item ${index + 1} quantity`}
-                        min={1}
-                        max={STORE_BUNDLE_MAX_QUANTITY}
-                        step={1}
-                        value={reward.quantity}
-                        onValueChange={(value) =>
-                          setContents({
-                            items: editing.data.contents.items.map((current, i) =>
-                              i === index ? { ...current, quantity: value } : current,
-                            ),
-                          })
-                        }
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() =>
-                          setContents({
-                            items: editing.data.contents.items.filter(
-                              (_, i) => i !== index,
-                            ),
-                          })
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      editing.data.contents.items.length >= STORE_BUNDLE_MAX_ITEMS
-                    }
-                    onClick={() =>
-                      setContents({
-                        items: [
-                          ...editing.data.contents.items,
-                          { id: "", quantity: 1 },
-                        ],
-                      })
-                    }
-                  >
-                    Add item
-                  </Button>
-                </div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={editing.data.isActive}
-                    onChange={(event) => setDraft({ isActive: event.target.checked })}
-                  />
-                  Published in store
-                </label>
-                <div className="flex gap-2">
-                  <Button type="submit">
-                    {save.isPending ? "Saving…" : "Save bundle"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => setEditing(undefined)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </fieldset>
-            </form>
-          </CardContent>
-        </Card>
+        <StoreBundleEditor
+          draft={editing.data}
+          isEditing={!!editing.id}
+          items={query.data?.items ?? []}
+          isPending={save.isPending}
+          message={message}
+          returnFocusRef={returnFocusRef}
+          onSave={(data) => {
+            setMessage(undefined);
+            save.mutate({ id: editing.id, data });
+          }}
+          onClose={() => setEditing(undefined)}
+        />
       )}
       {!query.data?.bundles.length && (
         <p className="rounded border border-dashed p-6 text-center text-muted-foreground">
@@ -350,14 +179,18 @@ export function StoreBundles() {
                 <Button
                   disabled={!bundle.isActive}
                   variant={selected === bundle.id ? "default" : "outline"}
-                  onClick={() => setSelected(bundle.id)}
+                  onClick={(event) => {
+                    returnFocusRef.current = event.currentTarget;
+                    setSelected(bundle.id);
+                  }}
                 >
                   {selected === bundle.id ? "Selected" : "Select bundle"}
                 </Button>
                 {canManage && (
                   <Button
                     variant="outline"
-                    onClick={() => {
+                    onClick={(event) => {
+                      returnFocusRef.current = event.currentTarget;
                       setMessage(undefined);
                       setEditing({
                         id: bundle.id,
@@ -379,16 +212,22 @@ export function StoreBundles() {
           </Card>
         ))}
       </div>
-      {offer && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Purchase {offer.name}</CardTitle>
-            <CardDescription>
+      <Modal
+        title={offer ? `Purchase ${offer.name}` : "Purchase bundle"}
+        isOpen={!!offer}
+        isLoading={isCheckoutPending}
+        setIsOpen={(open) => {
+          if (!open) setSelected(undefined);
+        }}
+        returnFocusRef={returnFocusRef}
+        bodyClassName="space-y-3 py-2"
+      >
+        {offer && (
+          <>
+            <p className="text-muted-foreground text-sm">
               All listed contents go to the selected player. Reputation counts toward
               your monthly allowance.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+            </p>
             <UserSearchSelect
               useFormMethods={methods}
               showYourself
@@ -402,10 +241,256 @@ export function StoreBundles() {
             <StoreCheckout
               selection={{ type: "bundle", bundleId: offer.id }}
               recipientId={users[0]?.userId}
+              onPendingChange={setIsCheckoutPending}
             />
-          </CardContent>
-        </Card>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
+  );
+}
+
+function StoreBundleEditor({
+  draft,
+  isEditing,
+  items,
+  isPending,
+  message,
+  returnFocusRef,
+  onSave,
+  onClose,
+}: {
+  draft: StoreBundleInput;
+  isEditing: boolean;
+  items: { id: string; name: string }[];
+  isPending: boolean;
+  message?: string;
+  returnFocusRef: RefObject<HTMLButtonElement | null>;
+  onSave: (data: StoreBundleInput) => void;
+  onClose: () => void;
+}) {
+  const form = useForm<StoreBundleInput>({
+    defaultValues: draft,
+    resolver: zodResolver(storeBundleSchema),
+  });
+  const rewards = useFieldArray({ control: form.control, name: "contents.items" });
+  const options = items
+    .map((item) => ({ value: item.id, label: item.name }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const errors = form.formState.errors;
+  const contentsError = errors.contents?.message;
+  const itemsError = errors.contents?.items?.root?.message;
+  const hasErrors = Object.keys(errors).length > 0;
+
+  return (
+    <Modal
+      title={isEditing ? "Edit bundle" : "Create bundle"}
+      isOpen
+      setIsOpen={(open) => {
+        if (!open) onClose();
+      }}
+      isLoading={isPending}
+      returnFocusRef={returnFocusRef}
+      className="max-w-2xl"
+      bodyClassName="space-y-3 py-2"
+      footerClassName="flex-row flex-wrap"
+      footerExtra={
+        <>
+          {(message || hasErrors) && (
+            <p role="alert" className="w-full text-destructive text-sm">
+              {message ??
+                contentsError ??
+                itemsError ??
+                "Check the highlighted fields before saving."}
+            </p>
+          )}
+          <Button type="submit" form="store-bundle-form" disabled={isPending}>
+            {isPending ? "Saving…" : "Save bundle"}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-muted-foreground text-sm">
+        Set a price in USD and guaranteed contents. Publish when the offer is ready.
+      </p>
+      <Form {...form}>
+        <form
+          id="store-bundle-form"
+          onSubmit={form.handleSubmit(onSave)}
+          className="space-y-3"
+        >
+          <fieldset disabled={isPending} className="space-y-3">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bundle name</FormLabel>
+                  <FormControl>
+                    <Input {...field} required maxLength={100} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} maxLength={1000} rows={2} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="priceCents"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price (USD)</FormLabel>
+                    <FormControl>
+                      <NumberInput
+                        {...field}
+                        min={STORE_BUNDLE_MIN_PRICE_CENTS / 100}
+                        max={STORE_BUNDLE_MAX_PRICE_CENTS / 100}
+                        step="0.01"
+                        value={field.value / 100}
+                        onValueChange={(value) =>
+                          field.onChange(Math.round(value * 100))
+                        }
+                        required
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="contents.reputationPoints"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reputation points</FormLabel>
+                    <FormControl>
+                      <NumberInput
+                        {...field}
+                        min={0}
+                        max={WEB_REP_MAX}
+                        step={1}
+                        onValueChange={field.onChange}
+                        required
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="contents.money"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ryo</FormLabel>
+                    <FormControl>
+                      <NumberInput
+                        {...field}
+                        min={0}
+                        max={STORE_BUNDLE_MAX_RYO}
+                        step={1}
+                        onValueChange={field.onChange}
+                        required
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="font-semibold text-sm">Items</p>
+              {rewards.fields.map((reward, index) => (
+                <div key={reward.id} className="flex items-start gap-2">
+                  <FormField
+                    control={form.control}
+                    name={`contents.items.${index}.id`}
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 flex-1">
+                        <FormControl>
+                          <SearchSelect
+                            ref={field.ref}
+                            label={`Item ${index + 1}`}
+                            value={field.value}
+                            options={options}
+                            placeholder="Choose an item"
+                            onChange={field.onChange}
+                            disabled={isPending}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`contents.items.${index}.quantity`}
+                    render={({ field }) => (
+                      <FormItem className="w-16 shrink-0 sm:w-24">
+                        <FormControl>
+                          <NumberInput
+                            {...field}
+                            aria-label={`Item ${index + 1} quantity`}
+                            min={1}
+                            max={STORE_BUNDLE_MAX_QUANTITY}
+                            step={1}
+                            onValueChange={field.onChange}
+                            required
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label={`Remove item ${index + 1}`}
+                    onClick={() => rewards.remove(index)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              {itemsError && (
+                <p role="alert" className="text-destructive text-sm">
+                  {itemsError}
+                </p>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={rewards.fields.length >= STORE_BUNDLE_MAX_ITEMS}
+                onClick={() => rewards.append({ id: "", quantity: 1 })}
+              >
+                Add item
+              </Button>
+            </div>
+            {contentsError && (
+              <p role="alert" className="text-destructive text-sm">
+                {contentsError}
+              </p>
+            )}
+            <label className="flex items-center gap-2">
+              <input type="checkbox" {...form.register("isActive")} />
+              Published in store
+            </label>
+          </fieldset>
+        </form>
+      </Form>
+    </Modal>
   );
 }
