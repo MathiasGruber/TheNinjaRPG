@@ -1,11 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NumberInput, validateNumberInputs } from "@/components/ui/number-input";
 import {
   WAR_MERCENARY_LIMIT,
   WAR_MERCENARY_MAX_TOKENS,
@@ -19,6 +19,7 @@ import type { UserSearchResult } from "@/validators/register";
 /** Private hiring controls: identities are returned only to the employing Kage and the player. */
 export const WarMercenaries = ({ warId }: { warId: string }) => {
   const [tokens, setTokens] = useState(1);
+  const controlsRef = useRef<HTMLElement>(null);
   const { feedback, refresh, onError } = useMercenaryFeedback();
   const roster = api.war.getMercenaries.useQuery({ warId }, { refetchInterval: 10000 });
   const form = useForm<{ username: string; users: UserSearchResult[] }>({
@@ -30,6 +31,7 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
   const busy = invite.isPending || leave.isPending;
   return (
     <section
+      ref={controlsRef}
       className="space-y-3 rounded-lg border bg-popover p-3"
       aria-label="War mercenaries"
     >
@@ -92,21 +94,23 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
           />
           <div className="space-y-1">
             <Label htmlFor={`mercenary-tokens-${warId}`}>Village token payment</Label>
-            <Input
+            <NumberInput
               id={`mercenary-tokens-${warId}`}
-              type="number"
               min={1}
               max={WAR_MERCENARY_MAX_TOKENS}
               step={1}
               value={tokens}
-              onChange={(event) => setTokens(Number(event.target.value))}
+              onValueChange={setTokens}
             />
           </div>
           <p className="text-sm">
             1 token = {WAR_MERCENARY_RYO_PER_TOKEN.toLocaleString()} Ryo. The player
             receives{" "}
             <strong>
-              {(Math.max(0, tokens) * WAR_MERCENARY_RYO_PER_TOKEN).toLocaleString()} Ryo
+              {Number.isFinite(tokens)
+                ? (tokens * WAR_MERCENARY_RYO_PER_TOKEN).toLocaleString()
+                : "—"}{" "}
+              Ryo
             </strong>{" "}
             when they accept. Pending invitations reserve a slot; tokens are charged on
             acceptance.
@@ -120,7 +124,9 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
               roster.data.roster.length >= WAR_MERCENARY_LIMIT
             }
             onClick={() =>
-              selected && invite.mutate({ warId, userId: selected.userId, tokens })
+              selected &&
+              validateNumberInputs(controlsRef.current) &&
+              invite.mutate({ warId, userId: selected.userId, tokens })
             }
           >
             {invite.isPending ? "Inviting..." : "Invite mercenary"}
