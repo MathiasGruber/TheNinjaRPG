@@ -6,7 +6,13 @@ import {
 import type { SectorType, War } from "@/drizzle/schema";
 import type { WarObjectiveState, WarRules } from "@/validators/war";
 
-/** Resolve the main village credited for a participant; callers supply active allies only. */
+/**
+ * Resolve the credited village; a mercenary appointment overrides the player's village
+ * and excludes participation in other wars. Callers supply accepted, unended memberships,
+ * with mercenary contracts from open wars only. User-specific checks require the war ID
+ * and complete cross-war assignments from withMercenaryParticipation, or an explicit
+ * fetchMercenaryWarId result for a single-war read.
+ */
 export const getWarSide = (
   activeWar: Pick<War, "attackerVillageId" | "defenderVillageId"> & {
     id?: string;
@@ -64,7 +70,11 @@ export const isObjectiveWarActive = (
   !!activeWar.combatStartedAt &&
   new Date(activeWar.combatStartedAt) <= now;
 
-/** Freeze a player's exclusive appointment across all simultaneously loaded wars. */
+/**
+ * Attach exclusive mercenary assignments and strip contracts from closed wars.
+ * Supply every open war with accepted, unended contracts before filtering by viewer
+ * or village, so appointments in other wars still exclude native participation.
+ */
 export const withMercenaryParticipation = <
   T extends War & { warMercenaries?: { userId: string; sideVillageId: string }[] },
 >(
@@ -137,7 +147,10 @@ export const selectWarObjectives = (
   }));
 };
 
-/** Only authorized leaders or a side whose espionage is complete receive locations. */
+/**
+ * Return only the viewer's mercenary contract and cross-war assignment. Objective
+ * locations require participation and either leader access or completed side espionage.
+ */
 export const maskWarObjectives = <
   T extends War & {
     warAllies: { villageId: string; supportVillageId: string }[];

@@ -17,7 +17,10 @@ import { applyObjectiveWarAction } from "@/server/utils/objectiveWar";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { WarRules } from "@/validators/war";
 
-/** Apply role precedence using only the villages and clans captured at battle initiation. */
+/**
+ * Use battle-initiation snapshots; an open mercenary appointment grants ANBU role
+ * precedence over the player's village and clan roles.
+ */
 export const getObjectiveWarRole = (
   battle: CompleteBattle,
   user: BattleUserState,

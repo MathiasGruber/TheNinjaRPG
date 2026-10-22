@@ -135,6 +135,7 @@ import {
 } from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  /** Return the caller's pending and accepted contracts in open wars, including notice. */
   getMercenaryOffers: protectedProcedure.query(({ ctx }) =>
     ctx.drizzle.query.warMercenary.findMany({
       where: and(
@@ -154,6 +155,7 @@ export const warRouter = createTRPCRouter({
       },
     }),
   ),
+  /** Return a private unended roster; only the player and employing Kage see each entry. */
   getMercenaries: protectedProcedure
     .input(warIdSchema)
     .query(async ({ ctx, input }) => {
@@ -186,6 +188,7 @@ export const warRouter = createTRPCRouter({
         ),
       };
     }),
+  /** Reserve a pending slot for a main village's Kage; tokens are charged on acceptance. */
   inviteMercenary: protectedProcedure
     .input(
       z.object({
@@ -270,12 +273,18 @@ export const warRouter = createTRPCRouter({
         throw error;
       }
     }),
+  /** Accept the caller's invitation, atomically exchanging village tokens for player Ryo. */
   acceptMercenary: protectedProcedure
     .input(z.object({ contractId: z.string() }))
     .output(baseServerResponse)
     .mutation(({ ctx, input }) =>
       acceptWarMercenary(ctx.drizzle, input.contractId, ctx.userId),
     ),
+  /**
+   * Let the player or employing Kage close a contract without refunding payment.
+   * Clear an unfinished mission only when it matches an accepted contract's war and
+   * side; pending cancellations preserve the player's missions.
+   */
   leaveMercenary: protectedProcedure
     .input(z.object({ contractId: z.string() }))
     .output(baseServerResponse)
@@ -752,7 +761,10 @@ export const warRouter = createTRPCRouter({
         "SHRINE_WAR",
       );
     }),
-  /** List open camps for main villages and their accepted, active allies. */
+  /**
+   * List open camps for main villages, accepted allies and mercenaries, respecting
+   * the player's exclusive mercenary appointment.
+   */
   getWarCampNotices: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
     return ctx.drizzle
@@ -851,10 +863,16 @@ export const warRouter = createTRPCRouter({
             : "Faction unavailable"),
       }));
     }),
-  // Get active wars for a village
+  /**
+   * Return the viewer's effective participation for their own or an empty village ID;
+   * other village IDs filter village participation. Mask objectives for the viewer.
+   */
   getActiveWars: protectedProcedure
     .meta({
-      mcp: { description: "Get active wars for a village" },
+      mcp: {
+        description:
+          "Get active wars for your effective participation when villageId is your own or empty; otherwise, get wars involving the requested village. Objectives follow your viewing permissions.",
+      },
     })
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -2262,9 +2280,11 @@ export const warRouter = createTRPCRouter({
 });
 
 /**
- * Fetch active wars for a village
+ * Settle due wars and load accepted, unended allies and mercenaries. Build exclusive
+ * mercenary assignments across all open wars before applying participation filters.
  * @param client - The database client
- * @param villageId - The ID of the village
+ * @param villageId - Optional village participation filter
+ * @param userId - With villageId, filter by the player's effective allegiance instead
  * @returns The active wars
  */
 export const fetchActiveWars = async (
@@ -2272,7 +2292,7 @@ export const fetchActiveWars = async (
   villageId?: string,
   userId?: string,
 ) => {
-  // Fetch from database the active ones
+  // Include pending settlements so ended wars can finish their strategic writes.
   let activeWars: FetchActiveWarsReturnType[] = await client.query.war.findMany({
     where: or(eq(war.status, "ACTIVE"), eq(war.settlementPending, true)),
     with: {
@@ -2291,13 +2311,13 @@ export const fetchActiveWars = async (
       },
     },
   });
-  // Process the wars and end the ones that need to be ended
+  // Settle before filtering so expired appointments no longer exclude other wars.
   activeWars = await Promise.all(
     activeWars
       .filter((war) => war.attackerVillage && war.defenderVillage)
       .map((war) => handleWarEnd(war, client)),
   );
-  // Final active wars
+  // Resolve cross-war exclusivity before narrowing to a village or player.
   activeWars = withMercenaryParticipation(activeWars).filter(
     (war) =>
       war.status === "ACTIVE" &&
@@ -2307,7 +2327,6 @@ export const fetchActiveWars = async (
           : isVillageInvolvedInAnyWar([war], villageId))),
   );
 
-  // Return active wars
   return activeWars;
 };
 

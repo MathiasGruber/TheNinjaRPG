@@ -3024,8 +3024,7 @@ export const initiateBattle = async (
             if (t.bracketImmunityLiftedUntil > now) return false;
 
             // Guard 5 (allow): both are active war participants on opposing sides.
-            // Pass activeWars as both arguments so findWarsWithUser expands war allies
-            // correctly for ally-village players who are not the primary attacker/defender.
+            // Effective allegiance includes allied villages and exclusive mercenary appointments.
             const targetIsWarParticipant = t.warParticipantUntil > now;
             const atWar = getWarRelationship(activeWars, user, t) === "ENEMY";
             if (

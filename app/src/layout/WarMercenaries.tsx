@@ -222,6 +222,7 @@ export const MercenaryOffers = () => {
   );
 };
 
+/** Show local mutation feedback and refresh dependent contracts, allegiance and activity. */
 const useMercenaryFeedback = () => {
   const [feedback, setFeedback] = useState<{
     success: boolean;
