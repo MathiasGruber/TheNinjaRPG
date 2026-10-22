@@ -8,7 +8,7 @@ import {
   RYO_CAP,
 } from "@/drizzle/constants";
 import { dailyBankInterest, userData } from "@/drizzle/schema";
-import { lockWithDailyTimer, updateGameSetting } from "@/libs/gamesettings";
+import { lockWithDailyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { chunkArray } from "@/utils/array";
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
     );
   } catch (cause) {
     // Rollback timer on error
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     console.error(cause);
     return Response.json(
       { error: `Failed to process ${ENDPOINT_NAME}` },

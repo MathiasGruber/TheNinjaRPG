@@ -4,11 +4,7 @@ import { cookies } from "next/headers";
 import { EMAIL_REMINDER_EXPERIENCE_REWARD } from "@/drizzle/constants";
 import { emailReminder, userData } from "@/drizzle/schema";
 import { env } from "@/env/server.mjs";
-import {
-  handleEndpointError,
-  lockWithHourlyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithHourlyTimer } from "@/libs/gamesettings";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
@@ -98,7 +94,7 @@ export async function GET(request: Request) {
 
     return Response.json(`OK. Send emails to ${reminders.length} users`);
   } catch (cause) {
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

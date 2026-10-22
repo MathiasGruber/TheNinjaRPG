@@ -2,11 +2,7 @@ import { and, eq, lt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auctionListing } from "@/drizzle/schema";
-import {
-  checkGameTimer,
-  handleEndpointError,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithGameTimer } from "@/libs/gamesettings";
 import {
   completeAuctionInternal,
   fetchAuctionListing,
@@ -26,11 +22,8 @@ export async function GET(request: Request) {
   await cookies();
 
   // Check 5-minute timer lock to prevent abuse
-  const response = await checkGameTimer(drizzleDB, TIMER_NAME, 5 * 60_000);
+  const response = await lockWithGameTimer(drizzleDB, TIMER_NAME, 5 * 60_000);
   if (response) return response;
-
-  // Update timer
-  await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
 
   try {
     // Find auctions that are ACTIVE and have expired

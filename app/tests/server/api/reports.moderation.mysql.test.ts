@@ -76,7 +76,7 @@ describeWithDatabase("moderation report evidence and dashboard", () => {
   it("backfills a summary without rewriting the historical prediction", async () => {
     const db = await getTestDatabase();
     stubCronAuth(() => null);
-    vi.spyOn(gameSettings, "checkGameTimer").mockResolvedValue(false);
+    vi.spyOn(gameSettings, "lockWithGameTimer").mockResolvedValue(false);
     vi.spyOn(gameSettings, "updateGameSetting").mockResolvedValue(undefined);
     vi.spyOn(reportSearch, "indexReportEmbeddings").mockResolvedValue(undefined);
     vi.spyOn(moderator, "generateAiSummary").mockResolvedValue("Neutral source summary");

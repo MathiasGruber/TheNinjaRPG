@@ -1,11 +1,7 @@
 import { eq, like, or } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { forumPost, userNindo } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithDailyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { isFetchOriginError } from "@/utils/error";
@@ -103,7 +99,7 @@ export const GET = async (request: Request) => {
     // Type-check the error to ensure we're not silently catching programming errors
     if (!(cause instanceof Error)) {
       // Rollback and report all errors (expected and unexpected)
-      await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+      await timerCheck.release();
       return await handleEndpointError(cause);
     }
 
@@ -129,7 +125,7 @@ export const GET = async (request: Request) => {
     }
 
     // Rollback and report all errors (expected and unexpected)
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 };

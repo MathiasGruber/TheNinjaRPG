@@ -2,11 +2,7 @@ import { and, gt, inArray, lt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { userData, userReport } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithDailyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
@@ -219,7 +215,7 @@ export async function GET(request: Request) {
     });
   } catch (cause) {
     // Rollback
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

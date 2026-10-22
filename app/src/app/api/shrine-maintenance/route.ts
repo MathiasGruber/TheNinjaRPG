@@ -29,7 +29,6 @@ import {
   handleEndpointError,
   lockWithDailyTimer,
   lockWithMinuteTimer,
-  updateGameSetting,
 } from "@/libs/gamesettings";
 import { fetchVillages } from "@/server/api/routers/village";
 import { type DrizzleClient, drizzleDB } from "@/server/db";
@@ -90,10 +89,10 @@ export async function GET(request: Request) {
     return new Response(message, { status: 200 });
   } catch (cause) {
     // Rollback minute timer
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, minuteCheck.prevTime);
+    await minuteCheck.release();
     // Rollback daily timer if it was acquired
     if (dailyCheck) {
-      await updateGameSetting(drizzleDB, ENDPOINT_NAME_DAILY, 0, dailyCheck.prevTime);
+      await dailyCheck.release();
     }
     return await handleEndpointError(cause);
   }

@@ -1,11 +1,7 @@
 import { lt } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { anbuSquad, userData } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithWeeklyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithWeeklyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { periodStart } from "@/utils/time";
@@ -44,7 +40,7 @@ export async function GET(request: Request) {
     return Response.json(`OK`);
   } catch (cause) {
     // Rollback
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

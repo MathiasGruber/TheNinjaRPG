@@ -46,7 +46,6 @@ import {
   handleEndpointError,
   lockWithDailyTimer,
   lockWithHourlyTimer,
-  updateGameSetting,
 } from "@/libs/gamesettings";
 import { cleanupExpiredExclusiveRaids } from "@/routers/raids";
 import { completeExpiredGlobalTravel } from "@/routers/travel";
@@ -611,12 +610,7 @@ export async function GET(request: Request) {
           sql`UPDATE ${userData} SET tavernMessages = FLOOR(tavernMessages * 0.95)`,
         );
       } catch (cause) {
-        await updateGameSetting(
-          drizzleDB,
-          "cleaner-daily",
-          0,
-          tavernDecayTimer.prevTime,
-        );
+        await tavernDecayTimer.release();
         throw cause;
       }
     }
@@ -731,7 +725,7 @@ export async function GET(request: Request) {
     try {
       // The cleaner is invoked every ten minutes. Restore the hourly marker
       // after a failed run so the next invocation can retry the unfinished work.
-      await updateGameSetting(drizzleDB, HOURLY_TIMER_NAME, 0, cleanerTimer.prevTime);
+      await cleanerTimer.release();
     } catch (rollbackCause) {
       console.error("Failed to restore cleaner hourly timer", rollbackCause);
     }

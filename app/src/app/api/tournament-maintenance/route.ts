@@ -1,8 +1,4 @@
-import {
-  handleEndpointError,
-  lockWithMinuteTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithMinuteTimer } from "@/libs/gamesettings";
 import { maintainEventTournaments } from "@/routers/tournamentEvents";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
@@ -20,7 +16,7 @@ export async function GET(request: Request) {
     await maintainEventTournaments(drizzleDB);
     return Response.json({ success: true });
   } catch (error) {
-    await updateGameSetting(drizzleDB, TIMER, 0, timer.prevTime);
+    await timer.release();
     return handleEndpointError(error);
   }
 }

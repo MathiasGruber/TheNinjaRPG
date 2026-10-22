@@ -1,11 +1,7 @@
 import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { towerDefenseRun } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithMonthlyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithMonthlyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
@@ -33,7 +29,7 @@ export async function GET(request: Request) {
     );
   } catch (cause) {
     // Rollback timer on error
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

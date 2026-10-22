@@ -1,3 +1,4 @@
+import { timerClaimFixture } from "../../../setup/gameTimers";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import * as headers from "next/headers";
 import { GET } from "@/app/api/shrine-maintenance/route";
@@ -36,6 +37,7 @@ describeWithDatabase("shrine boost template reserve locks", () => {
     spies.push(vi.spyOn(headers, "cookies").mockResolvedValue({} as never));
     spies.push(
       vi.spyOn(gamesettings, "lockWithMinuteTimer").mockImplementation(async () => ({
+        ...timerClaimFixture(),
         isNewMinute: true,
         prevTime: new Date(getCurrentSlotBoundary(new Date()).getTime() - 60_000),
         response: Response.json("Ready"),
@@ -43,6 +45,7 @@ describeWithDatabase("shrine boost template reserve locks", () => {
     );
     spies.push(
       vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({
+        ...timerClaimFixture(),
         isNewDay: false,
         prevTime: new Date(),
         prevValue: 0,

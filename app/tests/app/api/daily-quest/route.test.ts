@@ -44,7 +44,6 @@ const mocks = getDailyQuestTestMocks();
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/libs/gamesettings", () => ({
   lockWithDailyTimer: getDailyQuestTestMocks().lock,
-  updateGameSetting: getDailyQuestTestMocks().rollback,
   handleEndpointError: getDailyQuestTestMocks().handleError,
 }));
 vi.mock("@/routers/quests", () => ({
@@ -158,7 +157,7 @@ describe("daily-quest cron", () => {
     }
     mocks.calls.length = 0;
     mocks.updateSets.length = 0;
-    mocks.lock.mockResolvedValue({ isNewDay: true, prevTime: 1 });
+    mocks.lock.mockResolvedValue({ release: mocks.rollback, update: mocks.rollback, isNewDay: true, prevTime: 1 });
   });
 
   it("closes every open daily before any quest is reassigned", async () => {
@@ -311,8 +310,7 @@ describe("daily-quest cron", () => {
       expect(assignedQuestIds()).toEqual(["band-high"]);
       expect(mocks.calls.filter((c) => c === "update:completed,endAt")).toHaveLength(1);
       expect(mocks.rollback).toHaveBeenCalledTimes(1);
-      const [, name, value, time] = mocks.rollback.mock.calls[0] as [unknown, string, number, Date];
-      expect(name).toBe("daily-quest");
+      const [value, time] = mocks.rollback.mock.calls[0] as [number, Date];
       expect(value).toBe(1);
       expect(time.getTime()).toBe(dayStart(new Date().getTime()) - 1);
 
@@ -323,7 +321,7 @@ describe("daily-quest cron", () => {
       seedHappyPath();
       mocks.findQuests.mockResolvedValue(bandDailies);
       seedCombos(bandCombos);
-      mocks.lock.mockResolvedValue({ isNewDay: true, prevTime: time, prevValue: value });
+      mocks.lock.mockResolvedValue({ release: mocks.rollback, update: mocks.rollback, isNewDay: true, prevTime: time, prevValue: value });
 
       const second = await GET(cronRequest());
 
@@ -345,13 +343,13 @@ describe("daily-quest cron", () => {
 
     expect(response.status).toBe(202);
     expect(mocks.upsertQuestEntries.mock.calls[0]?.[3]).toBeNumber();
-    expect(mocks.rollback.mock.calls[0]?.[2]).toBe(1);
+    expect(mocks.rollback.mock.calls[0]?.[0]).toBe(1);
   });
 
   it("starts over with a full close when the resume marker is from an earlier day", async () => {
     seedHappyPath();
     mocks.lock.mockResolvedValue({
-      isNewDay: true,
+      release: mocks.rollback, update: mocks.rollback, isNewDay: true,
       prevTime: new Date(Date.UTC(2020, 0, 1) - 1),
       prevValue: 1,
     });
@@ -369,7 +367,7 @@ describe("daily-quest cron", () => {
     await GET(new Request("https://example.com/api/daily-quest", { headers: { authorization: "Bearer test-cron" } }));
 
     expect(mocks.rollback).toHaveBeenCalledTimes(1);
-    expect(mocks.rollback.mock.calls[0]?.[3]).toBe(1);
+    expect(mocks.rollback).toHaveBeenCalledWith();
     expect(mocks.handleError).toHaveBeenCalledTimes(1);
   });
 });

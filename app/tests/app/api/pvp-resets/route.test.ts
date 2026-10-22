@@ -34,7 +34,6 @@ vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue(undefined) }
 vi.mock("@/libs/gamesettings", () => ({
   lockWithDailyTimer: getPvpResetTestMocks().dailyLock,
   lockWithWeeklyTimer: getPvpResetTestMocks().weeklyLock,
-  updateGameSetting: getPvpResetTestMocks().rollback,
   handleEndpointError: getPvpResetTestMocks().handleError,
 }));
 import { GET as dailyPvp } from "@/app/api/daily-pvp/route";
@@ -65,8 +64,8 @@ describe("PvP reset crons", () => {
       mock.mockReset();
     }
     mocks.updates.length = 0;
-    mocks.dailyLock.mockResolvedValue({ isNewDay: true, prevTime: 1 });
-    mocks.weeklyLock.mockResolvedValue({ isNewWeek: true, prevTime: 1 });
+    mocks.dailyLock.mockResolvedValue({ release: mocks.rollback, isNewDay: true, prevTime: 1 });
+    mocks.weeklyLock.mockResolvedValue({ release: mocks.rollback, isNewWeek: true, prevTime: 1 });
     // Bulk updates are awaited either directly or after .where().
     mocks.update.mockImplementation((table: unknown) => ({
       set: (set: Record<string, unknown>) => {

@@ -4,11 +4,7 @@ import { and, eq, gt, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { OPENAI_REVIEW_MODEL, TERR_BOT_ID } from "@/drizzle/constants";
 import { userData, userReview } from "@/drizzle/schema";
-import {
-  checkGameTimer,
-  handleEndpointError,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithGameTimer } from "@/libs/gamesettings";
 import { createConvo } from "@/routers/comments";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
@@ -31,15 +27,12 @@ export async function GET(request: Request) {
 
   // Check timer
   const frequency = 24 * 30;
-  const response = await checkGameTimer(
+  const response = await lockWithGameTimer(
     drizzleDB,
     TIMER_NAME,
     frequency * 60 * 60 * 1000,
   );
   if (response) return response;
-
-  // Update timer
-  await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
 
   try {
     // Get all staff
