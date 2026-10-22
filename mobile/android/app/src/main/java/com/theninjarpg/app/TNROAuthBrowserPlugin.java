@@ -75,7 +75,14 @@ public class TNROAuthBrowserPlugin extends Plugin {
     @PluginMethod
     public void close(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (session.controller != null) session.controller.finish();
+            BrowserControllerActivity controller = session.controller;
+            session.controller = null;
+            if (controller != null && !controller.isFinishing() && !controller.isDestroyed()) {
+                // The singleTask controller clears the browser above it before finishing.
+                Intent intent = new Intent(getContext(), BrowserControllerActivity.class);
+                intent.putExtra("close", true);
+                getContext().startActivity(intent);
+            }
             call.resolve();
         });
     }
