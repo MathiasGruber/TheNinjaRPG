@@ -15,7 +15,6 @@ import { isDeletedStoreUserId } from "@/server/utils/purchases/grant";
 import { dynamicMonthlyRepCap } from "@/utils/paypal";
 import { type StoreContents, storeContentsSchema } from "@/validators/points";
 
-export const storeCustomId = (id: string) => `store:${id}`;
 export const readStoreCustomId = (value?: string) =>
   value?.startsWith("store:") ? value.slice(6) : undefined;
 
@@ -28,7 +27,7 @@ export const reserveStoreOrder = async (
 ) =>
   retryOnDeadlock(() =>
     client.transaction(async (tx) => {
-      // The known buyer row serializes checkouts that share one monthly allowance.
+      // The aggregate allowance check and new reservation INSERT must share the buyer lock.
       const [buyer] = await tx
         .select()
         .from(userData)
@@ -115,6 +114,7 @@ export const deliverStoreOrder = async (
         quantity: Math.min(remaining, stackSize),
       });
   }
+  // New receipt and inventory INSERTs cannot share the guarded claim/balance UPDATE.
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       const claim = await tx
@@ -204,6 +204,7 @@ export const authorizeStoreCapture = async (
 ) =>
   retryOnDeadlock(() =>
     client.transaction(async (tx) => {
+      // The aggregate allowance check and reservation refresh must share the buyer lock.
       const [buyer] = await tx
         .select()
         .from(userData)

@@ -156,6 +156,7 @@ export const paypalRouter = createTRPCRouter({
       )
         return errorResponse("Select existing items for the bundle");
       const id = input.id ?? nanoid();
+      // Bundle changes must roll back if their new audit INSERT fails; these writes need separate statements.
       await ctx.drizzle.transaction(async (tx) => {
         if (existing)
           await tx
@@ -174,13 +175,9 @@ export const paypalRouter = createTRPCRouter({
       });
       return { success: true, message: "Store bundle saved" };
     }),
-  prepareStoreOrder: protectedProcedure
-    .input(storeCheckoutSchema)
-    .mutation(async ({ ctx, input }) => prepareWebCheckout(ctx, input)),
   createStoreOrder: protectedProcedure
     .input(storeCheckoutSchema)
     .mutation(async ({ ctx, input }) => {
-      // Use the same guarded quote procedure for API clients and the browser.
       const result = await prepareWebCheckout(ctx, input);
       if (!result.success || !("order" in result)) return result;
       const order = result.order;
@@ -1034,7 +1031,7 @@ const commitRepsSubscription = async (
   }
 };
 
-/** Shared quote validation; only create/capture procedures contact the payment provider. */
+/** Validate the offer and reserve allowance before contacting the payment provider. */
 const prepareWebCheckout = async (
   ctx: { drizzle: DrizzleClient; userId: string; userAgent?: string | null },
   input: z.infer<typeof storeCheckoutSchema>,

@@ -262,8 +262,6 @@ const ReputationStore = (_props: { currency: string }) => {
   );
   const repFormMethods = useForm<BuyRepsSchema>({
     defaultValues: { reputationPoints: WEB_REP_PRESETS[0] },
-    resolver: zodResolver(buyRepsSchema),
-    mode: "onChange",
   });
   const watchedPoints = useWatch({
     control: repFormMethods.control,
@@ -324,9 +322,7 @@ const ReputationStore = (_props: { currency: string }) => {
               aria-describedby="reputation-limit"
               value={watchedPoints}
               onValueChange={(value) =>
-                repFormMethods.setValue("reputationPoints", value, {
-                  shouldValidate: true,
-                })
+                repFormMethods.setValue("reputationPoints", value)
               }
             />
             <div className="flex flex-wrap gap-2">
@@ -335,11 +331,7 @@ const ReputationStore = (_props: { currency: string }) => {
                   key={points}
                   variant={watchedPoints === points ? "default" : "outline"}
                   disabled={points > maxPoints || isLoadingLimit || isError}
-                  onClick={() =>
-                    repFormMethods.setValue("reputationPoints", points, {
-                      shouldValidate: true,
-                    })
-                  }
+                  onClick={() => repFormMethods.setValue("reputationPoints", points)}
                 >
                   {points} rep
                 </Button>
@@ -453,13 +445,7 @@ const PayPalSubscriptionButton = (props: {
     api.paypal.resolveSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await Promise.all([
-          utils.profile.getUser.invalidate(),
-          utils.item.getUserItems.invalidate(),
-          utils.item.getUserItemsWithVariants.invalidate(),
-          utils.paypal.getRecentRepsCount.invalidate(),
-          utils.paypal.getPaypalTransactions.invalidate(),
-        ]);
+        await utils.profile.getUser.invalidate();
         if (props.onSuccess) props.onSuccess();
       },
       onError: (error) => {
@@ -474,13 +460,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await Promise.all([
-            utils.profile.getUser.invalidate(),
-            utils.item.getUserItems.invalidate(),
-            utils.item.getUserItemsWithVariants.invalidate(),
-            utils.paypal.getRecentRepsCount.invalidate(),
-            utils.paypal.getPaypalTransactions.invalidate(),
-          ]);
+          await utils.profile.getUser.invalidate();
           if (props.onSuccess) props.onSuccess();
         }
       },
@@ -496,13 +476,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await Promise.all([
-            utils.profile.getUser.invalidate(),
-            utils.item.getUserItems.invalidate(),
-            utils.item.getUserItemsWithVariants.invalidate(),
-            utils.paypal.getRecentRepsCount.invalidate(),
-            utils.paypal.getPaypalTransactions.invalidate(),
-          ]);
+          await utils.profile.getUser.invalidate();
           if (props.onSuccess) props.onSuccess();
         }
       },

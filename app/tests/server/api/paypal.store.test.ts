@@ -223,7 +223,11 @@ describeWithDatabase("web store payments", () => {
     expect((await player.getStoreBundles()).bundles).toHaveLength(0);
     const catalog = await owner.getStoreBundles({includeInactive:true});
     expect(catalog.bundles).toHaveLength(1);
-    expect((await player.prepareStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:catalog.bundles[0]!.id}})).success).toBe(false);
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({access_token:"test-only",id:"TESTORDER123456789"}));
+    try {
+      expect((await player.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:catalog.bundles[0]!.id}})).success).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {fetchMock.mockRestore();}
     expect(await dbAuditCount()).toBe(1);
   });
   it("rejects published bundles containing hidden items before opening checkout", async () => {
@@ -235,11 +239,9 @@ describeWithDatabase("web store payments", () => {
     const input = {recipientId:"recipient",selection:{type:"bundle" as const,bundleId:bundle.id}};
     const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({access_token:"test-only",id:"TESTORDER123456789"}));
     try {
-      const prepared = await player.prepareStoreOrder(input);
       const created = await player.createStoreOrder(input);
-      expect({prepared:prepared.success,created:created.success,providerCalls:fetchMock.mock.calls.length,orders:(await db.query.webStoreOrder.findMany()).length}).toEqual({prepared:false,created:false,providerCalls:0,orders:0});
-      expect(prepared.message).toBe("This bundle contains an unavailable item. Contact staff.");
-      expect(created.message).toBe(prepared.message);
+      expect({created:created.success,providerCalls:fetchMock.mock.calls.length,orders:(await db.query.webStoreOrder.findMany()).length}).toEqual({created:false,providerCalls:0,orders:0});
+      expect(created.message).toBe("This bundle contains an unavailable item. Contact staff.");
     } finally {fetchMock.mockRestore();}
   });
   it("rechecks hidden items before capture while preserving completed payment recovery", async () => {
@@ -282,16 +284,25 @@ describeWithDatabase("web store payments", () => {
     const owner = await callerFor(paypalRouter,"buyer");
     await owner.saveStoreBundle({data:{...offer,description:"",isActive:true}});
     const bundle = (await owner.getStoreBundles()).bundles[0]!;
-    const orders = await Promise.all(Array.from({length:2},()=>owner.prepareStoreOrder({recipientId:"recipient", selection:{type:"bundle",bundleId:bundle.id}})));
-    expect(orders.every(order => order.success)).toBe(true);
-    const rows = await (await getTestDatabase()).query.webStoreOrder.findMany();
-    expect(new Set(rows.map(row => row.id)).size).toBe(2);
-    expect(rows.some(row => row.id === bundle.id)).toBe(false);
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({access_token:"test-only",id:"TESTORDER123456789"}));
+    try {
+      const orders = await Promise.all(Array.from({length:2},()=>owner.createStoreOrder({recipientId:"recipient", selection:{type:"bundle",bundleId:bundle.id}})));
+      expect(orders.every(order => order.success)).toBe(true);
+      const rows = await (await getTestDatabase()).query.webStoreOrder.findMany();
+      expect(new Set(rows.map(row => row.id)).size).toBe(2);
+      expect(rows.some(row => row.id === bundle.id)).toBe(false);
+    } finally {fetchMock.mockRestore();}
   });
   it("rejects AI/banned recipients and unavailable items before payment", async () => {
     const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
-    await db.update(userData).set({isAi:true}).where(eq(userData.userId,"recipient"));
-    expect((await owner.prepareStoreOrder({recipientId:"recipient",selection:{type:"custom",reputationPoints:20}})).success).toBe(false);
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({access_token:"test-only",id:"TESTORDER123456789"}));
+    try {
+      for (const restriction of [{isAi:true,isBanned:false},{isAi:false,isBanned:true}]) {
+        await db.update(userData).set(restriction).where(eq(userData.userId,"recipient"));
+        expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"custom",reputationPoints:20}})).success).toBe(false);
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {fetchMock.mockRestore();}
     expect((await owner.saveStoreBundle({data:{...offer,description:"",isActive:true,contents:{...contents,items:[{id:"missing",quantity:1}]}}})).success).toBe(false);
     expect(await db.query.webStoreOrder.findMany()).toHaveLength(0);
   });
