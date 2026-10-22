@@ -68,6 +68,8 @@ export const nonCombatConsume = (item: Item, userData: UserData): boolean => {
       return true;
     } else if (effect.type === "noncombatincreasereskins") {
       return true;
+    } else if (effect.type === "increasejutsuslots") {
+      return true;
     } else if (effect.type === "noncombatconsumereward") {
       return true;
     } else if (effect.type === "noncombatgainskill") {

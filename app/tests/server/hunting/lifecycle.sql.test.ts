@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingSession, item, sectorMap, userData, userItem } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import { huntingRouter } from "@/routers/hunting";
-import { insertItems, insertUsers } from "../../setup/factories";
+import { IncreaseHuntingYield } from "@/validators/combat";
+import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { huntingContract, huntingHabitatContent, huntingMap } from "../../setup/hunting";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -113,6 +114,50 @@ describeWithDatabase("Hunting lifecycle", () => {
     expect((await hunter.sessionAction({ id: session.id, version: session.version, action: "prepare" })).success).toBe(false);
     await db.update(userData).set({ occupation: "GATHERING", sector: 1 }).where(eq(userData.userId, "hunter"));
     expect((await hunter.accept({ habitatId: "forest", contractId: "second", version: session.version })).success).toBe(false);
+  });
+  it("snapshots the static yield at battle initiation without creating a combat effect", async () => {
+    const { hunter, session } = await accept();
+    const db = await getTestDatabase();
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    await db
+      .insert(aiProfile)
+      .values({ id: "Default", userId: "default-ai", rules: [] });
+    await db
+      .update(userData)
+      .set({ rank: "JONIN", level: 50, isOutlaw: true, regeneration: 0 })
+      .where(eq(userData.userId, "hunter"));
+    await db.update(huntingSession).set({ readyAt: new Date(0) });
+    await insertItems([
+      {
+        id: "hunt-gear",
+        name: "Hunting bonus armor",
+        itemType: "ARMOR",
+        maxDurability: 100,
+        effects: [IncreaseHuntingYield.parse({ power: 2 })],
+      },
+    ]);
+    await insertUserItems([
+      {
+        id: "hunt-gear-owned",
+        itemId: "hunt-gear",
+        userId: "hunter",
+        equipped: "CHEST",
+        durability: 100,
+      },
+    ]);
+    expect((await hunter.start({ id: session.id })).success).toBe(true);
+    const snapshot = await db.query.battle.findFirst();
+    expect(snapshot?.extraState.hunting?.huntingBonusQuantity).toBe(2);
+    expect(
+      snapshot?.usersEffects.some((effect) => effect.type === "increasehuntingyield"),
+    ).toBe(false);
+    await db
+      .update(userItem)
+      .set({ equipped: "NONE" })
+      .where(eq(userItem.id, "hunt-gear-owned"));
+    expect(
+      (await db.query.battle.findFirst())?.extraState.hunting?.huntingBonusQuantity,
+    ).toBe(2);
   });
   it("rejects an exhausted stale preload and permits a fresh allowance after cooldown", async () => {
     const { hunter, session } = await accept();

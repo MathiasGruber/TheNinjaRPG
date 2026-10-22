@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { z } from "zod";
-import { effectFilters } from "@/validators/combat";
+import { activityBonusTypes, effectFilters } from "@/validators/combat";
 import { OBJECTIVE_TAG_TYPES } from "@/validators/objectives";
 
 // Tag types excluded from OBJECTIVE_TAG_TYPES because they cannot produce a winnable
@@ -14,6 +14,7 @@ const EXCLUDED_TAG_TYPES = new Set([
   // Authoring variants normalize before usage tracking and count as damage.
   "elementaldamage",
   // Non-combat tags
+  ...activityBonusTypes,
   "increaseregeneration",
   "rollbloodline",
   "rollsagemode",
@@ -21,6 +22,7 @@ const EXCLUDED_TAG_TYPES = new Set([
   "repair",
   "marriageslotincrease",
   "noncombatincreasereskins",
+  "increasejutsuslots",
   "noncombatgainskill",
   "noncombatquest",
   "unlockitemvariant",

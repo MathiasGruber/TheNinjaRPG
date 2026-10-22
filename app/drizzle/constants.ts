@@ -3984,3 +3984,7 @@ export const IMG_LAYOUT_THEME_ART = {
   "17-obsidian-council": "https://ui0arpl8sm.ufs.sh/f/Y2FQDnymspxiAsgd1Sz9F.webp",
   "20-eclipse-observatory": "https://ui0arpl8sm.ufs.sh/f/DChv6QwC43mEy6HAEWuq_.webp",
 } as const;
+
+/** Per-effect safety limits; eligible passive effects stack without percentage caps. */
+export const MAX_ACTIVITY_REDUCTION_SECONDS = 86_400;
+export const MAX_HUNTING_BONUS_QUANTITY = 1_000;

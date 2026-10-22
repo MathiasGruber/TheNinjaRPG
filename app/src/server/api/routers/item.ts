@@ -31,6 +31,7 @@ import {
   IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
   ItemSlots,
+  MAX_EXTRA_JUTSU_SLOTS,
   MAX_EXTRA_RESKIN_SLOTS,
   MAX_ITEM_VARIANTS,
   MAX_MARRIAGE_SLOTS,
@@ -102,6 +103,10 @@ import {
   readItemListFilterSlot,
 } from "@/libs/item";
 import { getItemPurchaseAllowance, itemPurchaseLimitMessage } from "@/libs/itemEconomy";
+import {
+  getJutsuSlotIncreaseError,
+  getJutsuSlotIncreaseLimit,
+} from "@/libs/jutsuSlots";
 import {
   buildMissingLoadouts,
   decideRename,
@@ -198,6 +203,7 @@ import { getStrucBoost } from "@/utils/village";
 import type { ZodAllTags } from "@/validators/combat";
 import {
   HealTag,
+  IncreaseJutsuSlots,
   ItemValidator,
   NonCombatConsumeRewardTag,
   NonCombatGainSkill,
@@ -2162,6 +2168,30 @@ export const itemRouter = createTRPCRouter({
         return errorResponse("Not consumable");
       }
 
+      let jutsuSlotIncrease = 0;
+      for (const effect of useritem.item.effects) {
+        if (effect.type !== "increasejutsuslots") continue;
+        const parsed = IncreaseJutsuSlots.safeParse(effect);
+        if (
+          !parsed.success ||
+          !useritem.item.preventBattleUsage ||
+          !useritem.item.destroyOnUse ||
+          useritem.item.target !== "SELF" ||
+          useritem.item.method !== "SINGLE"
+        )
+          return errorResponse(
+            "This item has an invalid jutsu slot grant. Please contact staff.",
+          );
+        jutsuSlotIncrease += parsed.data.power;
+      }
+      if (jutsuSlotIncrease > 0) {
+        const slotError = getJutsuSlotIncreaseError(
+          user.extraJutsuSlots,
+          jutsuSlotIncrease,
+        );
+        if (slotError) return errorResponse(slotError);
+      }
+
       const questEffects = useritem.item.effects.filter(
         (effect) => effect.type === "noncombatquest",
       );
@@ -2529,6 +2559,10 @@ export const itemRouter = createTRPCRouter({
           messages.push(
             `Your number of allowed reskins was increased by ${effect.power}! `,
           );
+        } else if (effect.type === "increasejutsuslots") {
+          messages.push(
+            `You gained ${effect.power} extra jutsu slot${effect.power === 1 ? "" : "s"}!`,
+          );
         } else if (effect.type === "heal") {
           const parsedEffect = HealTag.parse(effect);
           const poolsAffects = parsedEffect.poolsAffected || ["Health"];
@@ -2619,6 +2653,7 @@ export const itemRouter = createTRPCRouter({
               ${userData.curStamina} = ${updates.curStamina},
               ${userData.marriageSlots} = ${updates.marriageSlots},
               ${userData.extraReskinSlots} = ${updates.extraReskinSlots},
+              ${jutsuSlotIncrease > 0 ? sql`${userData.extraJutsuSlots} = ${userData.extraJutsuSlots} + ${jutsuSlotIncrease},` : sql``}
               ${userData.sageModeId} = COALESCE(${userData.sageModeId}, ${grantedSageModeId}),
               ${petReward ? sql`${userData.petAcquisitions} = ${userData.petAcquisitions} + 1,` : sql``}
               ${petReward && !user.activePetId ? sql`${userData.activePetId} = ${petReward.id}, ${userData.petExperience} = 0,` : sql``}
@@ -2632,6 +2667,7 @@ export const itemRouter = createTRPCRouter({
             AND ${userItem.itemId} = ${useritem.itemId}
             AND ${userItem.quantity} > 0
             AND ${userItem.isInAuction} = FALSE
+            ${jutsuSlotIncrease > 0 ? sql`AND ${lte(userData.extraJutsuSlots, getJutsuSlotIncreaseLimit(jutsuSlotIncrease))}` : sql``}
             ${
               grantedQuest
                 ? sql`AND NOT EXISTS (
@@ -2688,7 +2724,9 @@ export const itemRouter = createTRPCRouter({
         const consumeResult = await (inTransaction ? claim() : retryOnDeadlock(claim));
         if (consumeResult.rowsAffected === 0) {
           return errorResponse(
-            "Item no longer available — please refresh and try again",
+            jutsuSlotIncrease > 0
+              ? `Could not add jutsu slots: the item or account changed, or you reached the maximum of ${MAX_EXTRA_JUTSU_SLOTS} extra jutsu slots. Your item was not consumed. Refresh and try again.`
+              : "Item no longer available — please refresh and try again",
           );
         }
         if (grantedQuest) {

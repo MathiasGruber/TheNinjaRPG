@@ -21,6 +21,7 @@ import type { FarmPlot, Item, UserData } from "@/drizzle/schema";
 import { getWorldDayCycleIndex } from "@/libs/dayNight";
 import { calcLevelRequirements } from "@/libs/profile";
 import { getUserFederalStatus } from "@/utils/paypal";
+import { reduceActivitySeconds } from "@/utils/time";
 import type { FarmPlotState } from "@/validators/farming";
 
 export {
@@ -111,12 +112,16 @@ export const getTotalFarmPlots = (farmPlotsPurchased: number) =>
 export const getFarmGrowTimeSeconds = (
   baseGrowTimeSeconds: number,
   user: Pick<UserData, "staffAccount" | "federalStatus">,
+  farmingReductionSeconds = 0,
 ) => {
   const multiplier =
     getUserFederalStatus(user) === "GOLD"
       ? 1 - FARM_GOLD_FED_TIME_REDUCTION_PERCENT / 100
       : 1;
-  return Math.max(1, Math.ceil(baseGrowTimeSeconds * multiplier));
+  return reduceActivitySeconds(
+    Math.max(1, Math.ceil(baseGrowTimeSeconds * multiplier)),
+    farmingReductionSeconds,
+  );
 };
 
 export const qualifiesForFarmActivityReward = (
@@ -319,7 +324,10 @@ export const mapPlotToState = (
     nextWateringAt: canWater ? null : getNextWateringAt(plot.lastWateredAt, now),
     growthProgress: isActive ? getPlotGrowthProgress(plantedAt, finishAt, now) : 0,
     growthStage: isActive ? getPlotGrowthStage(plantedAt, finishAt, now) : 0,
-    growTimeSeconds: plot.seedItem?.farmGrowTimeSeconds ?? 0,
+    growTimeSeconds:
+      plantedAt && finishAt
+        ? (finishAt.getTime() - plantedAt.getTime()) / 1000
+        : (plot.seedItem?.farmGrowTimeSeconds ?? 0),
     yieldQuantity: 1,
     plantExperience: plot.seedItem ? getFarmPlantExperience(plot.seedItem) : 0,
     harvestExperience: plot.yieldItem ? getFarmHarvestExperience(plot.yieldItem) : 0,

@@ -71,7 +71,7 @@ export const huntingVictoryReceipt = (
           .map((r) => ({
             itemId: r.itemId,
             name: meta.materialNames[r.itemId] ?? r.itemId,
-            quantity: r.quantity,
+            quantity: r.quantity + (meta.huntingBonusQuantity ?? 0),
             bonus: r.chance < 100,
           }))
       : [],

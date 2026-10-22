@@ -105,6 +105,7 @@ import {
   villageAlliance,
   war,
 } from "@/drizzle/schema";
+import { getActivityBonuses } from "@/libs/activityBonuses";
 import { getReskinnedBloodline } from "@/libs/bloodline";
 import { matchBloodrightSnapshot } from "@/libs/bloodright";
 import {
@@ -290,6 +291,7 @@ import type { AssignableUserStats, ZodAllTags } from "@/validators/combat";
 import {
   BarrierTag,
   IncreaseDamageGivenTag,
+  isActivityBonus,
   performActionSchema,
   statSchema,
   toggleAutoCombatSchema,
@@ -2434,6 +2436,12 @@ export const initiateBattle = async (
 
   // Hunting settlement writes the battle's item quantities and durability back.
   // Preserve the real equipment before combat processing mutates its snapshot.
+  if (info.hunting) {
+    const hunter = fetchedUsers.find((user) => user.userId === info.hunting?.userId);
+    info.hunting.huntingBonusQuantity = hunter
+      ? getActivityBonuses(hunter).huntingBonusQuantity
+      : 0;
+  }
   const huntingEquipment = info.hunting
     ? (
         fetchedUsers.find((user) => user.userId === info.hunting?.userId)?.items ?? []
@@ -4599,7 +4607,7 @@ export const processUsersForBattle = async (
         ? user.isAi
           ? []
           : [{ ...RANKED_BLOODLINE_DAMAGE_TAG }]
-        : (user.bloodline.effects ?? []);
+        : (user.bloodline.effects ?? []).filter((effect) => !isActivityBonus(effect));
       effects.forEach((effect: unknown) => {
         const realized = realizeTag({
           tag: effect as UserEffect,
@@ -4645,7 +4653,12 @@ export const processUsersForBattle = async (
           skillId: string;
           skill: { target?: string; effects?: unknown[] };
         }) => {
-          const skill = userSkill.skill;
+          const skill = {
+            ...userSkill.skill,
+            effects: (userSkill.skill.effects as UserEffect[] | undefined)?.filter(
+              (effect) => !isActivityBonus(effect),
+            ),
+          };
           if (!skill?.effects || skill.effects.length === 0) return;
 
           // Self-targeted effects can be applied immediately
@@ -4841,7 +4854,10 @@ export const processUsersForBattle = async (
         ui.imbuementEffects = structuredClone(imbuementEffects);
         ui.imbuements = []; // Reset to avoid storing in battle table
         // Parse item
-        const effects = [...(ui.item.effects as UserEffect[]), ...imbuementEffects];
+        const effects = [
+          ...(ui.item.effects as UserEffect[]),
+          ...imbuementEffects,
+        ].filter((effect) => !isActivityBonus(effect));
         const itemType = ui.item.itemType;
         // Parse the effects
         effects

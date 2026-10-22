@@ -1,5 +1,8 @@
 import type { CRAFTING_RANK } from "@/drizzle/constants";
 import {
+  CLAN_BOOST_MAX_LEVEL,
+  CLAN_BOOST_PERCENT_PER_LEVEL,
+  CONSUMABLE_CRAFTING_TIMES_MINS,
   CRAFTING_MAX_IMBUED_ITEMS,
   CRAFTING_RANKS,
   CRAFTING_REQUIRED_EXP,
@@ -8,6 +11,34 @@ import {
 } from "@/drizzle/constants";
 import type { Item, UserData, UserItem } from "@/drizzle/schema";
 import { capitalizeFirstLetter } from "@/utils/string";
+import { reduceActivitySeconds } from "@/utils/time";
+
+/** Complete non-meal job duration; static bonuses apply once after quantity and modifiers. */
+export const getCraftingSeconds = (
+  item: Pick<Item, "itemType" | "rarity">,
+  rank: CRAFTING_RANK,
+  quantity: number,
+  shrineBoost: number,
+  clanBoost = 0,
+  craftingReductionSeconds = 0,
+) => {
+  const minutes =
+    item.itemType === "CONSUMABLE"
+      ? CONSUMABLE_CRAFTING_TIMES_MINS[rank]
+      : CRAFTING_TIMES_MINS[rank][item.rarity];
+  const clanFactor =
+    1 -
+    Math.min(
+      clanBoost / 100,
+      (CLAN_BOOST_MAX_LEVEL * CLAN_BOOST_PERCENT_PER_LEVEL) / 100,
+    );
+  return reduceActivitySeconds(
+    Math.round(
+      minutes * 60 * (shrineBoost ? 1 - shrineBoost : 1) * clanFactor * quantity,
+    ),
+    craftingReductionSeconds,
+  );
+};
 
 /** Shared state and location gates for starting a craft. */
 export const craftingStartBlockMessage = (

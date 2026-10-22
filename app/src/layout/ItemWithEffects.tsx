@@ -41,8 +41,12 @@ import { parseHtml } from "@/utils/parse";
 import { canChangeContent, isStaffRole } from "@/utils/permissions";
 import { capitalizeFirstLetter, formatBattleUsageType } from "@/utils/string";
 import { useUserData } from "@/utils/UserContext";
-import type { ZodAllTags } from "@/validators/combat";
-import { getTagSchema } from "@/validators/combat";
+import {
+  activityBonusPowerLabel,
+  getTagSchema,
+  isActivityBonus,
+  type ZodAllTags,
+} from "@/validators/combat";
 
 export type GenericObject = {
   id: string;
@@ -1456,7 +1460,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                         )}
                         {"power" in parsedEffect && (
                           <span>
-                            <b>Effect Power: </b>
+                            <b>
+                              {isActivityBonus(parsedEffect)
+                                ? activityBonusPowerLabel(parsedEffect)
+                                : parsedEffect.type === "increasejutsuslots"
+                                  ? "Additional jutsu slots"
+                                  : "Effect Power"}
+                              :{" "}
+                            </b>
                             {parsedEffect.power}
                           </span>
                         )}
@@ -1481,12 +1492,14 @@ const ItemWithEffects: React.FC<ItemWithEffectsProps> = (props) => {
                               {parsedEffect.target.toLowerCase()}
                             </span>
                           )}
-                        {"powerPerLevel" in parsedEffect && (
-                          <span>
-                            <b>Effect Power / Lvl: </b>
-                            {parsedEffect.powerPerLevel}
-                          </span>
-                        )}
+                        {"powerPerLevel" in parsedEffect &&
+                          parsedEffect.type !== "increasejutsuslots" &&
+                          !isActivityBonus(parsedEffect) && (
+                            <span>
+                              <b>Effect Power / Lvl: </b>
+                              {parsedEffect.powerPerLevel}
+                            </span>
+                          )}
                         {"residualModifier" in parsedEffect && (
                           <span>
                             <b>Residual Modifier: </b>

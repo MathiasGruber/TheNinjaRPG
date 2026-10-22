@@ -6,6 +6,50 @@ import { huntingHabitatSchema } from "@/validators/hunting";
 import { huntingBattleState, huntingContract, huntingHabitatContent } from "../../setup/hunting";
 
 describe("Hunting contract rules", () => {
+  it("adds whole units to each successful material with no additional rolls", () => {
+    const state = { ...huntingBattleState(), huntingBonusQuantity: 2 };
+    let rolls = 0;
+    const receipt = huntingVictoryReceipt(state, "battle", "Won", new Date(0), () => {
+      rolls++;
+      return 0.1;
+    });
+    expect(receipt.materials.map((m) => m.quantity)).toEqual([4, 3]);
+    expect(rolls).toBe(1);
+    expect(
+      huntingVictoryReceipt(
+        state,
+        "battle",
+        "Won",
+        new Date(0),
+        () => 0.5,
+      ).materials.map((m) => m.quantity),
+    ).toEqual([4]);
+    expect(
+      huntingVictoryReceipt(
+        huntingBattleState(),
+        "battle",
+        "Won",
+        new Date(0),
+        () => 0.1,
+      ).materials.map((m) => m.quantity),
+    ).toEqual([2, 1]);
+  });
+  it.each(["Lost", "Fled", "Draw"] as const)(
+    "ignores the static bonus and performs no rolls on %s",
+    (outcome) => {
+      expect(
+        huntingVictoryReceipt(
+          { ...huntingBattleState(), huntingBonusQuantity: 100 },
+          "battle",
+          outcome,
+          new Date(0),
+          () => {
+            throw Error("Unexpected roll");
+          },
+        ).materials,
+      ).toEqual([]);
+    },
+  );
   it("requires Hunter and unlocks each target using existing hunting experience", () => {
     const c = { ...huntingContract(), rank: "C RANK" as const };
     expect(huntingEligibility("HUNTER", HUNTING_REQUIRED_EXP["C RANK"] - 1, c)).toBe(false);

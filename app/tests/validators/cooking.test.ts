@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { DamageTag, IncreaseRegenerationTag, IncreaseStatTag, ItemValidator } from "@/validators/combat";
+import { DamageTag,
+  DecreaseCookingTime, IncreaseRegenerationTag, IncreaseStatTag, ItemValidator } from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
 
 const validItem = {
@@ -54,6 +55,22 @@ const meal = {
   craftingRequirements: [{ ids: ["rice"], number: 2 }],
 };
 describe("meal configuration", () => {
+  it("rejects activity bonuses on temporary meals and consumable grants", () => {
+    expect(
+      ItemValidator.safeParse({
+        ...meal,
+        effects: [DecreaseCookingTime.parse({ power: 10 })],
+      }).success,
+    ).toBe(false);
+    expect(
+      ItemValidator.safeParse({
+        ...validItem,
+        itemType: "CONSUMABLE",
+        destroyOnUse: true,
+        effects: [DecreaseCookingTime.parse({ power: 10 })],
+      }).success,
+    ).toBe(false);
+  });
   it("accepts other tags and their configurable fields", () => {
     expect(ItemValidator.safeParse({
       ...meal,

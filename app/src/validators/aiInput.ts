@@ -4,6 +4,7 @@ import { ElementNames } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import {
   AllTags,
+  rejectActivityBonuses,
   SuperRefineEffects,
   SuperRefinePassiveEffects,
 } from "@/validators/combat";
@@ -62,7 +63,8 @@ export const insertAiSchema = createInsertSchema(userData)
       effects: z
         .array(AllTags)
         .superRefine(SuperRefineEffects)
-        .superRefine(SuperRefinePassiveEffects),
+        .superRefine(SuperRefinePassiveEffects)
+        .superRefine(rejectActivityBonuses),
     }).shape,
   );
 export type InsertAiSchema = z.infer<typeof insertAiSchema>;

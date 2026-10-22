@@ -1,20 +1,25 @@
-import { REGEN_SECONDS } from "@/drizzle/constants";
-import { combatEnergyRecoverySql } from "@/libs/combat/database";
-import { combatCacheEnergy } from "@/libs/combat/userCache";
-import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
-import { queueEnergy } from "../../setup/queues";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as Sentry from "@sentry/nextjs";
 import { and, eq } from "drizzle-orm";
-import { craftingRequirement, item, userCookingJob, userData, userItem, userQueue, userRaidBuff, userVote } from "@/drizzle/schema";
-import { occupationRouter } from "@/server/api/routers/occupation";
+import { REGEN_SECONDS } from "@/drizzle/constants";
+import {
+  craftingRequirement, item, userCookingJob, userData, userItem, userQueue, userRaidBuff, userVote } from "@/drizzle/schema";
+import { combatEnergyRecoverySql } from "@/libs/combat/database";
+import { combatCacheEnergy } from "@/libs/combat/userCache";
 import { itemRouter } from "@/server/api/routers/item";
+import { occupationRouter } from "@/server/api/routers/occupation";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { consumeMeal, settleCookingExperience } from "@/server/utils/cooking";
 import { settleCraftingQueue } from "@/server/utils/userQueue";
-import { IncreaseStatTag, IncreaseRegenerationTag } from "@/validators/combat";
+import {
+  DecreaseCookingTime,
+  DecreaseCraftingTime, IncreaseRegenerationTag,
+  IncreaseStatTag,
+} from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
-import { insertItems, insertUsers, insertUserItems } from "../../setup/factories";
+import { makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
+import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
+import { queueEnergy } from "../../setup/queues";
 import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -46,6 +51,69 @@ describeWithDatabase("Cooking production and consumption", () => {
     await insertUserItems([{ id: "rice-stack", userId, itemId: "rice", quantity: 20 }]);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("captures the cooking bonus once per queued batch and retains it after equipment changes", async () => {
+    const db = await getTestDatabase();
+    await insertItems([
+      {
+        id: "production-gear",
+        itemType: "ARMOR",
+        maxDurability: 100,
+        effects: [
+          DecreaseCookingTime.parse({ power: 10 }),
+          DecreaseCraftingTime.parse({ power: 100 }),
+        ],
+      },
+    ]);
+    await insertUserItems([
+      {
+        id: "production-gear-owned",
+        userId,
+        itemId: "production-gear",
+        equipped: "CHEST",
+        durability: 100,
+      },
+    ]);
+    const caller = await callerFor(occupationRouter, userId);
+    expect((await caller.craftItem({ itemId: "meal", quantity: 2 })).success).toBe(
+      true,
+    );
+    expect((await caller.craftItem({ itemId: "meal", quantity: 2 })).success).toBe(
+      true,
+    );
+    const queued = (await db.query.userQueue.findMany())[0]!;
+    expect(queued.durationSeconds).toBe(60 * 3 * 2 - 10);
+    expect(queued.finishesAt!.getTime() - queued.startsAt!.getTime()).toBe(
+      queued.durationSeconds! * 1000,
+    );
+    await db
+      .update(userItem)
+      .set({ equipped: "NONE" })
+      .where(eq(userItem.id, "production-gear-owned"));
+    await db
+      .update(userItem)
+      .set({ craftingFinishedAt: past() })
+      .where(eq(userItem.itemId, "meal"));
+    const start = new Date(Date.now() - 1000);
+    await db
+      .update(userQueue)
+      .set({
+        startsAt: start,
+        finishesAt: new Date(start.getTime() + queued.durationSeconds! * 1000),
+      })
+      .where(eq(userQueue.id, queued.id));
+    await fetchUpdatedUser({ client: db, userId });
+    const outputs = await db.query.userItem.findMany({
+      where: eq(userItem.itemId, "meal"),
+    });
+    expect(
+      outputs.some(
+        (entry) =>
+          entry.craftingFinishedAt?.getTime() ===
+          start.getTime() + queued.durationSeconds! * 1000,
+      ),
+    ).toBe(true);
+  });
 
   it("lets every occupation cook, multiplies outputs, and awards XP once at completion", async () => {
     const db = await getTestDatabase();

@@ -3,6 +3,7 @@ import type { Item } from "@/drizzle/schema";
 import { getStatTypeLabels } from "@/libs/combat/util";
 import { getFarmingLevel } from "@/libs/farming";
 import { calcLevelRequirements } from "@/libs/profile";
+import { reduceActivitySeconds } from "@/utils/time";
 
 /** Cooking levels use the existing Farming experience curve. */
 export const getCookingLevel = getFarmingLevel;
@@ -43,15 +44,19 @@ export const getCookingSeconds = (
   meal: Pick<Item, "cookingTimeSeconds" | "cookingOutputQuantity">,
   batches: number,
   shrineBoost: number,
+  cookingReductionSeconds = 0,
 ) =>
-  Math.max(
-    1,
-    Math.round(
-      meal.cookingTimeSeconds *
-        meal.cookingOutputQuantity *
-        batches *
-        (1 + shrineBoost),
+  reduceActivitySeconds(
+    Math.max(
+      1,
+      Math.round(
+        meal.cookingTimeSeconds *
+          meal.cookingOutputQuantity *
+          batches *
+          (1 + shrineBoost),
+      ),
     ),
+    cookingReductionSeconds,
   );
 
 /** Human-readable recipe bonus and duration. */

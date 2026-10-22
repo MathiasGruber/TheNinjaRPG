@@ -13,6 +13,7 @@ import ContentImage from "@/layout/ContentImage";
 import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { TimedQueue } from "@/layout/TimedQueue";
+import { getActivityBonuses } from "@/libs/activityBonuses";
 import {
   describeMealEffect,
   getCookingLevel,
@@ -92,6 +93,9 @@ export default function Kitchen({ image }: { image?: string }) {
     "Crafting",
     user?.village,
   );
+  const cookingReductionSeconds = user
+    ? getActivityBonuses(user).cookingReductionSeconds
+    : 0;
   const blocked =
     user?.status !== "AWAKE"
       ? "You must be awake to cook"
@@ -239,7 +243,7 @@ export default function Kitchen({ image }: { image?: string }) {
                 <p className="mt-1 text-xs">
                   {recipe.cookingOutputQuantity} meals ·{" "}
                   {formatSecondsToTimeDisplay(
-                    getCookingSeconds(recipe, 1, shrineBoost),
+                    getCookingSeconds(recipe, 1, shrineBoost, cookingReductionSeconds),
                   )}{" "}
                   · {recipe.cookingExperience * recipe.cookingOutputQuantity} XP
                 </p>
@@ -319,7 +323,12 @@ export default function Kitchen({ image }: { image?: string }) {
               <p className="text-sm">
                 Output: {batches * selected.cookingOutputQuantity} meals ·{" "}
                 {formatSecondsToTimeDisplay(
-                  getCookingSeconds(selected, batches, shrineBoost),
+                  getCookingSeconds(
+                    selected,
+                    batches,
+                    shrineBoost,
+                    cookingReductionSeconds,
+                  ),
                 )}{" "}
                 ·{" "}
                 {batches * selected.cookingOutputQuantity * selected.cookingExperience}{" "}

@@ -4,6 +4,7 @@ import {
   GATHERING_RANKS,
   GATHERING_REQUIRED_EXP,
 } from "@/drizzle/constants";
+import type { ObjectiveTrackerType } from "@/validators/objectives";
 
 /**
  * Get the gathering rank based on the experience
@@ -100,3 +101,15 @@ export const getGatheringItemDrops = (
   }
   return drops;
 };
+
+/** Saved deadlines are authoritative; legacy timers retain their original full duration. */
+export const getCollectDeadline = (
+  progress: Pick<ObjectiveTrackerType, "timestamp" | "collectDeadline">,
+  configuredMinutes: number,
+) =>
+  progress.timestamp && configuredMinutes > 0
+    ? new Date(
+        progress.collectDeadline ??
+          new Date(Date.parse(progress.timestamp) + configuredMinutes * 60_000),
+      )
+    : null;

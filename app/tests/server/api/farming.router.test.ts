@@ -1,11 +1,12 @@
-
-import { eq } from "drizzle-orm";
 import { beforeEach, expect, it } from "bun:test";
+import { eq } from "drizzle-orm";
 import { FARM_MAX_PLOTS, FARM_PLOT_PURCHASE_COST, FARM_STARTING_PLOTS } from "@/drizzle/constants";
 import { farmCollectionLog, farmExtraction, farmPlot, item, quest, questHistory, userData, userItem } from "@/drizzle/schema";
-import { insertUsers } from "../../setup/factories";
+import { getFarmGrowTimeSeconds } from "@/libs/farming";
 import { farmingRouter } from "@/server/api/routers/farming";
 import { itemRouter } from "@/server/api/routers/item";
+import { DecreaseFarmingTime } from "@/validators/combat";
+import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import {
   callerFor,
   describeWithDatabase,
@@ -156,6 +157,67 @@ describeWithDatabase("farming router guards against a real MySQL", () => {
     expect(planted.every((plot) => plot.seedItemId === null)).toBe(true);
     const [stack] = await database.select().from(userItem).where(eq(userItem.id, "ui-seed"));
     expect(stack?.quantity).toBe(2);
+  });
+
+  it.each(["single", "bulk"] as const)(
+    "snapshots the same per-crop passive reduction for %s planting and previews",
+    async (mode) => {
+      await farmer({ federalStatus: "GOLD" });
+      await giveItem("ui-seed", "seed-1", 10);
+      const db = await getTestDatabase();
+      // Farm-shop seeds are excluded from the regular item shop.
+      await db.update(item).set({ inShop: false }).where(eq(item.id, "seed-1"));
+      await insertItems([
+        {
+          id: "farm-gear",
+          itemType: "ARMOR",
+          maxDurability: 100,
+          effects: [DecreaseFarmingTime.parse({ power: 10 })],
+        },
+      ]);
+      await insertUserItems([
+        {
+          id: "farm-gear-owned",
+          itemId: "farm-gear",
+          userId: "farm-user",
+          equipped: "CHEST",
+          durability: 100,
+        },
+      ]);
+      const api = await caller("farm-user");
+      const preview = await api.getFarmState();
+      if ("success" in preview) throw Error("Missing farm state");
+      const player = await db.query.userData.findFirst({
+        where: eq(userData.userId, "farm-user"),
+      });
+      const seconds = getFarmGrowTimeSeconds(60, player!, 10);
+      expect(preview.availableSeeds[0]?.growTimeSeconds).toBe(seconds);
+      expect(
+        preview.shopEntries.find((entry) => entry.itemId === "seed-1")?.growTimeSeconds,
+      ).toBe(seconds);
+      const result =
+        mode === "single"
+          ? await api.plantSeed({ plotId: preview.plots[0]!.id, seedItemId: "seed-1" })
+          : await api.plantAllEmpty({ seedItemId: "seed-1" });
+      expect(result.success).toBe(true);
+      const planted = (await db.query.farmPlot.findMany()).filter(
+        (plot) => plot.seedItemId,
+      );
+      expect(planted).toHaveLength(mode === "single" ? 1 : FARM_STARTING_PLOTS);
+      for (const plot of planted)
+        expect(plot.finishAt!.getTime() - plot.plantedAt!.getTime()).toBe(
+          seconds * 1000,
+        );
+      await db
+        .update(userItem)
+        .set({ equipped: "NONE" })
+        .where(eq(userItem.id, "farm-gear-owned"));
+      const refreshed = await api.getFarmState();
+      if ("success" in refreshed) throw Error("Missing farm state");
+      for (const plot of planted)
+        expect(refreshed.plots.find((entry) => entry.id === plot.id)?.finishAt).toEqual(
+          plot.finishAt,
+        );
   });
 
   it("plants a seed and returns the prefetched yield on the updated plot", async () => {
@@ -395,7 +457,8 @@ describeWithDatabase("farming router guards against a real MySQL", () => {
       get(target, property) {
         if (property === "query") {
           const query = Reflect.get(target, property) as Record<string, unknown>;
-          const userDataQuery = query.userData as { findFirst: (args: unknown) => unknown };
+          const userDataQuery = query.userData as { findFirst: (args: unknown) => unknown;
+          };
           return {
             ...query,
             userData: {

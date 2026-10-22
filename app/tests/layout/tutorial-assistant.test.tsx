@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dialogComponents from "@/components/ui/dialog";
 import type { TutorialStepConfig } from "@/hooks/tutorial";
+import * as objective from "@/layout/Objective";
 import TutorialAssistant from "@/layout/TutorialAssistant";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 import { type UserPatch, updateUserCache } from "@/utils/userCache";
@@ -56,18 +57,19 @@ vi.mock("@/layout/Logbook", () => ({ useCheckRewards: () => {
   return { checkRewards: vi.fn(), isCheckingRewards: false };
 } }));
 vi.mock("@/layout/Image", () => ({ default: () => null }));
-vi.mock("@/layout/Objective", () => ({ Objective: () => null }));
 vi.mock("@/components/ui/sortable-list", () => ({ SortableList: () => null }));
 const dialogContent = ({ children }: { children: ReactNode }) => <div>{children}</div>;
 const dialogMocks = { Dialog: ({ children, open }: { children: ReactNode; open: boolean }) => open ? <div role="dialog">{children}</div> : null, DialogContent: dialogContent, DialogDescription: dialogContent, DialogHeader: dialogContent, DialogTitle: dialogContent };
-const dialogSpies: { mockRestore: () => void }[] = [];
+const componentSpies: { mockRestore: () => void }[] = [];
 
 let close: (() => void) | undefined;
 const animationFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame");
 beforeEach(() => {
   ensureDom();
+  // Bun shares modules between suites; restore Objective after each test.
+  componentSpies.push(vi.spyOn(objective, "Objective").mockImplementation(() => null));
   for (const [name, implementation] of Object.entries(dialogMocks)) {
-    dialogSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
+    componentSpies.push(vi.spyOn(dialogComponents, name as keyof typeof dialogMocks).mockImplementation(implementation as never));
   }
   vi.clearAllMocks();
   mocks.client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -110,7 +112,7 @@ describe("TutorialAssistant highlight activation", () => {
 });
 afterEach(() => {
   cleanup();
-  for (const spy of dialogSpies.splice(0)) spy.mockRestore();
+  for (const spy of componentSpies.splice(0)) spy.mockRestore();
   close?.();
   close = undefined;
   mocks.client.clear();

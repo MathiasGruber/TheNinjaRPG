@@ -166,6 +166,7 @@ const SingleEditBloodline: React.FC<SingleEditBloodlineProps> = (props) => {
             }
           >
             <EffectFormWrapper
+              allowActivityBonuses
               idx={i}
               type="bloodline"
               tag={tag}
