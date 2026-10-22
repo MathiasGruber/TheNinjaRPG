@@ -828,11 +828,13 @@ export const shrineRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to challenge");
-      if (
-        !user.villageId &&
-        !activeWars.some((w) => w.warMercenaries?.some((m) => m.userId === ctx.userId))
-      )
-        return errorResponse("You must be in a village or serving as a mercenary");
+      const attackerSide = userWar
+        ? getWarSide(userWar, user.villageId, user.userId)
+        : user.villageId;
+      if (!attackerSide)
+        return errorResponse(
+          "You must be in a village or serving as a mercenary for this shrine",
+        );
       if (MAP_RESERVED_SECTORS.includes(input.sectorNumber)) {
         return errorResponse("This sector is reserved and cannot be attacked");
       }
@@ -890,9 +892,7 @@ export const shrineRouter = createTRPCRouter({
           id: shrineBattleId,
           createdAt: new Date(),
           battleType: "SHRINE_BATTLE",
-          attackerEntityId: userWar
-            ? getWarSide(userWar, user.villageId, user.userId)!
-            : user.villageId!,
+          attackerEntityId: attackerSide,
           defenderEntityId: targetSector.villageId,
           sector: input.sectorNumber,
         });

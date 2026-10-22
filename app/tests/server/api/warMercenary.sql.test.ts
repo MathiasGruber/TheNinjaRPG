@@ -4,7 +4,7 @@ import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { SHRINE_BATTLE_LOBBY_SECONDS } from "@/drizzle/constants";
+import { SHRINE_BATTLE_LOBBY_SECONDS, VILLAGE_SYNDICATE_ID, WAR_ESPIONAGE_TARGET } from "@/drizzle/constants";
 import { aiProfile, battle, battleHistory, jutsuLoadout, mpvpBattleQueue, mpvpBattleUser, quest, sector, warActionReceipt, warContribution, warKill, userData, village, villageAlliance, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
 import { updateWars } from "@/libs/combat/database";
 import { calcBattleResult, getBattleTeamWars } from "@/libs/combat/util";
@@ -150,6 +150,23 @@ describeWithDatabase("mercenary strategic participation", () => {
   beforeEach(seed);
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => { await resetTables(warMercenary); });
+  it.each([false, true])("requires village-less shrine parties to belong to the hired war (objective: %s)", async (isObjective) => {
+    const db = await getTestDatabase();
+    await resetTables(mpvpBattleUser, mpvpBattleQueue, sector);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    await db.update(userData).set({ villageId: null, status: "AWAKE", sector: isObjective ? 102 : 101 }).where(eq(userData.userId, "merc"));
+    await db.insert(warMercenary).values({ id: "contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() });
+    await db.update(war).set({ objectiveState: {
+      attackerEspionage: WAR_ESPIONAGE_TARGET, defenderEspionage: 0,
+      objectives: [{ sector: 102, villageId: "b", hp: 100, maxHp: 100, destroyed: false, isReserve: false }],
+    } }).where(eq(war.id, "w"));
+    await db.insert(sector).values({ sector: isObjective ? 102 : 101, villageId: isObjective ? "b" : VILLAGE_SYNDICATE_ID, shrineLevel: 1 });
+    const result = await callerForDatabase(shrineRouter, "merc", db).challengeShrine({ sectorNumber: isObjective ? 102 : 101 });
+    expect(result.success).toBe(isObjective);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.status).toBe(isObjective ? "QUEUED" : "AWAKE");
+    expect((await db.query.mpvpBattleQueue.findFirst())?.attackerEntityId).toBe(isObjective ? "a" : undefined);
+    expect(await db.query.mpvpBattleUser.findMany()).toHaveLength(isObjective ? 1 : 0);
+  });
   it("completes a village-less mercenary mission and retains battle credit after dismissal", async () => {
     const db = await getTestDatabase();
     await db.update(userData).set({ villageId: null, rank: "JONIN", sector: 2 }).where(eq(userData.userId, "merc"));

@@ -4529,6 +4529,7 @@ export const processUsersForBattle = async (
     }
 
     if (
+      (battleType === "COMBAT" || battleType === "SHRINE_WAR") &&
       info.wars.some((w) => w.warMercenaries?.some((m) => m.userId === user.userId))
     ) {
       user.isMasked = true;
@@ -4539,7 +4540,7 @@ export const processUsersForBattle = async (
 
     // Hide ANBU members who are being attacked (defenders)
     if (
-      user.username !== "Mercenary" &&
+      !user.isMasked &&
       user.anbuId &&
       user.anbuSquad &&
       battleType === "COMBAT" &&
