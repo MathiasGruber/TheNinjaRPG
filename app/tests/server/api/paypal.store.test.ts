@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { actionLog, item, paypalTransaction, recruitmentRewards, userData, userItem, webStoreBundle, webStoreOrder, storeUserIdAlias } from "@/drizzle/schema";
 import { staffRouter, deleteUser } from "@/server/api/routers/staff";
 import { paypalRouter, syncTransactions } from "@/server/api/routers/paypal";
+import { itemRouter } from "@/server/api/routers/item";
 import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
 import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
 import { dynamicMonthlyRepCap } from "@/utils/paypal";
@@ -223,6 +224,58 @@ describeWithDatabase("web store payments", () => {
     expect(catalog.bundles).toHaveLength(1);
     expect((await player.prepareStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:catalog.bundles[0]!.id}})).success).toBe(false);
     expect(await dbAuditCount()).toBe(1);
+  });
+  it("rejects published bundles containing hidden items before opening checkout", async () => {
+    const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
+    await db.update(item).set({hidden:true}).where(eq(item.id,"store-item"));
+    expect((await owner.saveStoreBundle({data:{...offer,description:"",isActive:true,contents:{reputationPoints:0,money:0,items:[{id:"store-item",quantity:1}]}}})).success).toBe(true);
+    const bundle = (await owner.getStoreBundles()).bundles[0]!;
+    const player = await callerFor(paypalRouter,"recipient");
+    const input = {recipientId:"recipient",selection:{type:"bundle" as const,bundleId:bundle.id}};
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({access_token:"test-only",id:"TESTORDER123456789"}));
+    try {
+      const prepared = await player.prepareStoreOrder(input);
+      const created = await player.createStoreOrder(input);
+      expect({prepared:prepared.success,created:created.success,providerCalls:fetchMock.mock.calls.length,orders:(await db.query.webStoreOrder.findMany()).length}).toEqual({prepared:false,created:false,providerCalls:0,orders:0});
+      expect(prepared.message).toBe("This bundle contains an unavailable item. Contact staff.");
+      expect(created.message).toBe(prepared.message);
+    } finally {fetchMock.mockRestore();}
+  });
+  it("rechecks hidden items before capture while preserving completed payment recovery", async () => {
+    const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
+    await owner.saveStoreBundle({data:{...offer,description:"",isActive:true,contents:{reputationPoints:0,money:0,items:[{id:"store-item",quantity:1}]}}});
+    const bundle = (await owner.getStoreBundles()).bundles[0]!;
+    const player = await callerFor(paypalRouter,"recipient");
+    const inventory = await callerFor(itemRouter,"recipient");
+    let provider:any; let captures=0;
+    const completePayment = () => {
+      provider.status="COMPLETED";
+      provider.purchase_units[0].payments={captures:[{id:"HIDDENITEMCAPTURE",status:"COMPLETED",amount:provider.purchase_units[0].amount}]};
+    };
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async (url,options) => {
+      const path=String(url);
+      if(path.endsWith("/v1/oauth2/token"))return Response.json({access_token:"test-only"});
+      if(path.endsWith("/v2/checkout/orders")){provider={...JSON.parse(String(options?.body)),id:"TESTORDER123456789",status:"APPROVED"};return Response.json(provider);}
+      if(path.endsWith("/capture")){captures++;completePayment();}
+      return Response.json(provider);
+    });
+    try {
+      expect((await player.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:bundle.id}})).success).toBe(true);
+      await db.update(item).set({hidden:true}).where(eq(item.id,"store-item"));
+      const result=await player.captureStoreOrder({orderId:provider.id});
+      expect({success:result.success,captures,receipts:(await db.query.paypalTransaction.findMany()).length,inventoryRows:(await db.query.userItem.findMany()).length,visibleItems:(await inventory.getUserItems()).length,visibleVariants:(await inventory.getUserItemsWithVariants()).length}).toEqual({success:false,captures:0,receipts:0,inventoryRows:0,visibleItems:0,visibleVariants:0});
+      expect(result.message).toBe("An item in this checkout is no longer available. No payment was captured.");
+      expect(provider.status).toBe("APPROVED");
+      completePayment();
+      expect((await player.captureStoreOrder({orderId:provider.id})).success).toBe(true);
+      expect((await player.captureStoreOrder({orderId:provider.id})).success).toBe(true);
+      expect(captures).toBe(0);
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+      expect(await db.query.userItem.findMany()).toHaveLength(1);
+      await db.update(item).set({hidden:false}).where(eq(item.id,"store-item"));
+      expect(await inventory.getUserItems()).toHaveLength(1);
+      expect(await inventory.getUserItemsWithVariants()).toHaveLength(1);
+    } finally {fetchMock.mockRestore();}
   });
   it("assigns fresh checkout identities to repeated purchases of a published bundle", async () => {
     const owner = await callerFor(paypalRouter,"buyer");

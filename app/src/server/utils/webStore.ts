@@ -234,9 +234,12 @@ export const authorizeStoreCapture = async (
       if (order.contents.items.length) {
         const items = await tx.query.item.findMany({
           columns: { id: true },
-          where: inArray(
-            item.id,
-            order.contents.items.map((reward) => reward.id),
+          where: and(
+            eq(item.hidden, false),
+            inArray(
+              item.id,
+              order.contents.items.map((reward) => reward.id),
+            ),
           ),
         });
         if (items.length !== order.contents.items.length)

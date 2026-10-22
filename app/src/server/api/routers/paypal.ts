@@ -6,6 +6,7 @@ import { FederalStatuses } from "@/drizzle/constants";
 import type { FederalStatus } from "@/drizzle/schema";
 import {
   actionLog,
+  item,
   paypalSubscription,
   paypalTransaction,
   recruitmentRewards,
@@ -1049,7 +1050,10 @@ const prepareWebCheckout = async (
           where: eq(webStoreBundle.id, input.selection.bundleId),
         })
       : undefined,
-    ctx.drizzle.query.item.findMany({ columns: { id: true } }),
+    ctx.drizzle.query.item.findMany({
+      columns: { id: true },
+      where: eq(item.hidden, false),
+    }),
     ctx.drizzle.query.storeUserIdAlias.findMany({
       where: inArray(storeUserIdAlias.oldUserId, [ctx.userId, input.recipientId]),
     }),
