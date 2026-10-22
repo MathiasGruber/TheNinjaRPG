@@ -11,25 +11,27 @@
  * - Tick rate increased to 150ms with client-side interpolation
  */
 
-import type { Infer } from "spacetimedb/sdk";
 import { DbConnection, type ErrorContext, type SubscriptionHandle } from "./bindings";
-import type CompletedRunType from "./bindings/completed_run_type";
-import type EnemySpawnType from "./bindings/enemy_spawn_type";
-import type EnemyType from "./bindings/enemy_type";
-import type GameSessionType from "./bindings/game_session_type";
-import type ProjectileType from "./bindings/projectile_type";
-import type SessionStateType from "./bindings/session_state_type";
-import type SessionUpgradeType from "./bindings/session_upgrade_type";
+import type {
+  CompletedRun,
+  Enemy,
+  EnemySpawn,
+  GameSession,
+  Projectile,
+  SessionState,
+  SessionUpgrade,
+} from "./bindings/types";
 import { getSpacetimeDBConfig, type SpacetimeDBConfig } from "./config";
 
-// Re-export types from bindings for use in useTowerDefense hook
-export type GameSession = Infer<typeof GameSessionType>;
-export type SessionState = Infer<typeof SessionStateType>;
-export type Enemy = Infer<typeof EnemyType>;
-export type EnemySpawn = Infer<typeof EnemySpawnType>;
-export type Projectile = Infer<typeof ProjectileType>;
-export type CompletedRun = Infer<typeof CompletedRunType>;
-export type SessionUpgrade = Infer<typeof SessionUpgradeType>;
+export type {
+  CompletedRun,
+  Enemy,
+  EnemySpawn,
+  GameSession,
+  Projectile,
+  SessionState,
+  SessionUpgrade,
+} from "./bindings/types";
 
 const DEBUG = false;
 
@@ -222,7 +224,7 @@ export class SpacetimeDBConnection {
     try {
       const connection = DbConnection.builder()
         .withUri(this.config.host)
-        .withModuleName(this.config.moduleName)
+        .withDatabaseName(this.config.moduleName)
         .withToken(readStoredToken(this.config))
         .onConnect((_ctx, identity, token) => {
           storeToken(this.config, token);
@@ -658,7 +660,7 @@ export class SpacetimeDBConnection {
     // Wait for WebSocket to be fully ready before sending
     await this.waitForWebSocketReady();
 
-    this.connection.reducers.createSession(params);
+    await this.connection.reducers.createSession(params);
     if (DEBUG) {
       console.log("[SpacetimeDB] createSession called with signed definitions");
     }
@@ -672,7 +674,7 @@ export class SpacetimeDBConnection {
       throw new Error("Not connected to SpacetimeDB");
     }
 
-    this.connection.reducers.startWave({ sessionId });
+    await this.connection.reducers.startWave({ sessionId });
     if (DEBUG) {
       console.log("[SpacetimeDB] startWave called for session:", sessionId);
     }
@@ -690,7 +692,7 @@ export class SpacetimeDBConnection {
       throw new Error("Not connected to SpacetimeDB");
     }
 
-    this.connection.reducers.throwShuriken({ sessionId, targetCol, targetRow });
+    await this.connection.reducers.throwShuriken({ sessionId, targetCol, targetRow });
   }
 
   /**
@@ -704,7 +706,7 @@ export class SpacetimeDBConnection {
       throw new Error("Not connected to SpacetimeDB");
     }
 
-    this.connection.reducers.purchaseUpgrade({ sessionId, upgradeId });
+    await this.connection.reducers.purchaseUpgrade({ sessionId, upgradeId });
     if (DEBUG) {
       console.log("[SpacetimeDB] purchaseUpgrade called:", upgradeId);
     }
@@ -718,7 +720,7 @@ export class SpacetimeDBConnection {
       throw new Error("Not connected to SpacetimeDB");
     }
 
-    this.connection.reducers.deleteCompletedRun({ sessionId });
+    await this.connection.reducers.deleteCompletedRun({ sessionId });
     if (DEBUG) {
       console.log("[SpacetimeDB] deleteCompletedRun called:", sessionId);
     }
@@ -732,7 +734,7 @@ export class SpacetimeDBConnection {
       throw new Error("Not connected to SpacetimeDB");
     }
 
-    this.connection.reducers.abandonSession({ sessionId });
+    await this.connection.reducers.abandonSession({ sessionId });
     if (DEBUG) {
       console.log("[SpacetimeDB] abandonSession called for session:", sessionId);
     }

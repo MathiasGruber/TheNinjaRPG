@@ -28,6 +28,20 @@ Sentry.init({
   // Adjust this value in production, or use tracesSampler for greater control
   tracesSampleRate: 0.001,
 
+  // Keep diagnostics without sending account credentials or request/user data.
+  dataCollection: {
+    userInfo: false,
+    cookies: false,
+    httpHeaders: { request: false, response: false },
+    httpBodies: [],
+    urlQueryParams: false,
+    graphQL: { document: false, variables: false },
+    genAI: { inputs: false, outputs: false },
+    databaseQueryData: false,
+    queues: false,
+    stackFrameVariables: false,
+  },
+
   // Which errors to ignore from frontend
   ignoreErrors: [
     "window.ethereum",

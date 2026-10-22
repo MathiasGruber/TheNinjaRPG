@@ -117,12 +117,13 @@ const editors: {
   useEditor: () => {
     form: {
       setValue: {
-        (name: "coordinateTargeting", value: ZodJutsuInput["coordinateTargeting"]): void;
+        (name: "coordinateTargeting", value: ZodJutsuInput["coordinateTargeting"], options?: SetValueConfig): void;
         (name: "method", value: "SINGLE" | "ALL" | "COORDINATES", options?: SetValueConfig): void;
         (name: "methodSize", value: ZodJutsuInput["methodSize"], options?: SetValueConfig): void;
       };
       getValues: { (name: "coordinateTargeting"): ZodJutsuInput["coordinateTargeting"]; (name: "methodSize"): ZodJutsuInput["methodSize"]; };
-      getFieldState: (name: "coordinateTargeting" | "methodSize") => { error?: unknown };
+      getFieldState: (name: "coordinateTargeting" | "methodSize") => { error?: unknown; isDirty: boolean };
+      formState: { isDirty: boolean };
       trigger: () => Promise<boolean>;
     };
     formData: { id: string }[];
@@ -186,6 +187,7 @@ describe("coordinate method drafts", () => {
       });
       expect(result.current.formData.some((field) => field.id === "coordinateTargeting")).toBe(false);
       expect(result.current.form.getValues("coordinateTargeting")).toBeNull();
+      expect(result.current.form.getFieldState("coordinateTargeting").isDirty).toBe(true);
       expect(result.current.form.getFieldState("coordinateTargeting").error).toBeUndefined();
       await act(async () => {
         await result.current.submit();
@@ -194,6 +196,28 @@ describe("coordinate method drafts", () => {
       expect(save.mock.calls[0]?.[0]).toMatchObject({
         data: { method: "SINGLE", coordinateTargeting: null },
       });
+    });
+
+    it(`keeps ${kind} targeting dirty until the original pattern is restored`, async () => {
+      const { result } = renderHook(() => {
+        const editor = useEditor();
+        return { ...editor, isDirty: editor.form.formState.isDirty };
+      });
+      expect(result.current.isDirty).toBe(false);
+      await act(async () => {
+        result.current.form.setValue("method", "SINGLE", { shouldDirty: true });
+      });
+      expect(result.current.form.getValues("coordinateTargeting")).toBeNull();
+      expect(result.current.form.getFieldState("coordinateTargeting").isDirty).toBe(true);
+      expect(result.current.isDirty).toBe(true);
+      await act(async () => {
+        result.current.form.setValue("method", "COORDINATES", { shouldDirty: true });
+        result.current.form.setValue("coordinateTargeting", coordinateTargeting, { shouldDirty: true });
+      });
+      expect(result.current.form.getFieldState("coordinateTargeting").isDirty).toBe(false);
+      expect(result.current.isDirty).toBe(false);
+      await act(async () => { await result.current.submit(); });
+      expect(save).not.toHaveBeenCalled();
     });
 
     it(`blocks active invalid ${kind} coordinates and saves a corrected draft`, async () => {

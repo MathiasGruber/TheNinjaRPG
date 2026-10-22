@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withBotId } from "botid/next/config";
 import { cdnOrigin, contentSecurityPolicy } from "./src/libs/cdn.mjs";
@@ -186,9 +186,6 @@ export default withSentryConfig(withBotId(withBundleAnalyzer(config)), {
   // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
   // side errors will fail.
   // tunnelRoute: "/monitoring",
-
-  // Hides source maps from generated client bundles
-  hideSourceMaps: true,
 
   // Sourcemaps
   sourcemaps: {

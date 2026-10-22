@@ -13,10 +13,12 @@ immediately, checks `/api/healthcheck`, and only then navigates to the productio
 blank screen on a cold launch with no connectivity, and Ionic documents remote-origin
 loading as a development feature that can attract store rejections.
 `server.allowNavigation` keeps the hand-off inside the WebView so the Capacitor bridge
-survives it. Android's Capacitor dependency is patched to inject the bridge at document
-start for the same allowed origins as native messaging. Without this patch, modern
-Android WebViews inject it only into the bundled origin. Keep the navigation allowlist
-restricted to the configured game origin; never add third-party or wildcard hosts.
+survives it. Android's `TNRRemoteBridge` exports the installed Capacitor runtime and registered
+plugins at document start on the same trusted remote origins as native messaging. Capacitor
+itself handles the bundled origin and older WebViews' HTML injection. The shell uses the
+upstream JavaScript exporter, with one shared list for registering and exporting local plugins.
+Keep the navigation allowlist restricted to the configured game and verified Clerk hosts;
+never add third-party or wildcard hosts.
 
 The origin lives in one place: `TNR_ORIGIN`. `origin.mjs` validates it as a bare HTTPS
 origin and normalizes an optional trailing slash, host casing and the default port.
@@ -70,6 +72,13 @@ Adding a plugin means two steps: install it here, and add a wrapper in
 | `TNRLiveUpdatesPlugin` | The Live Activity counterpart: an ongoing progress notification |
 | `TNRNotificationChannels` | One channel per `PUSH_CATEGORIES` entry |
 | `TNRStatusWidget` | RemoteViews home screen widget |
+| `TNROAuthBrowserPlugin` | Per-open OAuth browser sessions, browser-only launch intents and retired callback isolation |
+
+Android OAuth uses a fresh instance of Capacitor's browser implementation for each open,
+retiring the previous instance's callbacks. The upstream browser controller retains its
+ActivityResult and pre-Android-14 PiP handling. Sessionless intents explicitly target an
+installed external browser so verified game links cannot open the shell recursively.
+The plugin exports the same `Browser` interface, so web callers and iOS remain compatible.
 
 The Android widget uses RemoteViews rather than Glance on purpose: Glance would pull
 Compose and the Kotlin toolchain into a project that needs neither, and a progress bar is
@@ -196,15 +205,14 @@ for an entry marked `Unusable - Duplicate`. A duplicate blocks the good image fr
 mounting, and deleting it removes the shared backing asset, so the fix is to delete every
 iOS image and download once more.
 
-**Android** — **JDK 21**, not the latest. Gradle 8.14.3 supports up to Java 24, and JDK 26
-fails at configuration time with `Unsupported class file major version 70`:
+**Android** — **JDK 21**, matching CI and the native Java compile target:
 
 ```bash
 brew install --cask temurin@21
 export JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home
 ```
 
-The SDK needs `platforms;android-36` to match `compileSdkVersion`, plus a system image for
+The SDK needs `platforms;android-37.0` to match `compileSdkVersion = 37`, plus a system image for
 the emulator. `avdmanager` resolves the SDK root from its own location rather than from
 `ANDROID_HOME`, so the command-line tools have to live *inside* the SDK — a symlink is not
 enough, because the launcher script resolves symlinks before deriving the root:
@@ -212,7 +220,7 @@ enough, because the launcher script resolves symlinks before deriving the root:
 ```bash
 export ANDROID_HOME=~/Library/Android/sdk
 cp -R "$(dirname "$(which sdkmanager)")/.." "$ANDROID_HOME/cmdline-tools/latest"
-sdkmanager "platforms;android-36" "system-images;android-36;google_apis;arm64-v8a"
+sdkmanager "platforms;android-37.0" "system-images;android-36;google_apis;arm64-v8a"
 avdmanager create avd -n TNR-Pixel -k "system-images;android-36;google_apis;arm64-v8a"
 ```
 

@@ -189,6 +189,15 @@ it("searches enemies and rewards, preserves invalid quantity drafts, and saves g
   vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
   const queryClient = new QueryClient({ defaultOptions: {mutations: {retry: false}} });
   const view = render(<QueryClientProvider client={queryClient}><DungeonEditor /></QueryClientProvider>);
+  const selectReward = async (label: string, option: string) => {
+    const selectedOption = await view.findByRole("option", {name: option});
+    await act(async () => fireEvent.click(selectedOption));
+    const trigger = view.getByRole("combobox", {name: label});
+    expect(trigger.textContent).toContain(option);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    // Finish Radix's deferred focus restoration before opening another picker.
+    await waitFor(() => expect(document.activeElement === trigger).toBe(true));
+  };
   fireEvent.change(view.getByRole("combobox", {name: "Edit existing dungeon"}), {target: {value: "A"}});
   fireEvent.click(view.getByRole("tab", {name: "Encounters"}));
   const quantity = view.getByLabelText("Wave 1 enemy 1 quantity") as HTMLInputElement;
@@ -239,13 +248,13 @@ it("searches enemies and rewards, preserves invalid quantity drafts, and saves g
   fireEvent.click(view.getByRole("combobox", {name: "Drop 1 reward"}));
   expect(view.queryByRole("option", {name: "Herb"})).toBeNull();
   fireEvent.change(view.getByRole("combobox", {name: "Search drop 1 reward"}), {target: {value: "forest"}});
-  fireEvent.click(await view.findByRole("option", {name: "Forest Cache"}));
+  await selectReward("Drop 1 reward", "Forest Cache");
   fireEvent.input(view.getByLabelText("Drop 1 quantity"), {target: {value: "4"}});
   fireEvent.click(view.getByRole("button", {name: "Add random drop"}));
   fireEvent.change(view.getByLabelText("Drop 2 type"), {target: {value: "package"}});
   fireEvent.click(view.getByRole("combobox", {name: "Drop 2 reward"}));
   fireEvent.change(view.getByRole("combobox", {name: "Search drop 2 reward"}), {target: {value: "starter"}});
-  fireEvent.click(await view.findByRole("option", {name: "Starter Bundle"}));
+  await selectReward("Drop 2 reward", "Starter Bundle");
   fireEvent.input(view.getByLabelText("Drop 2 quantity"), {target: {value: "2"}});
   fireEvent.click(view.getByRole("button", {name: "Save dungeon"}));
   await waitFor(() => expect(save).toHaveBeenCalledTimes(1));

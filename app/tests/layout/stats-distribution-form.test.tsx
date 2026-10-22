@@ -1,11 +1,14 @@
 import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, setDefaultTimeout, vi } from "bun:test";
 import type { ComponentProps } from "react";
 import { ELEMENTAL_MASTERY_CAP } from "@/drizzle/constants";
 import * as tutorial from "@/hooks/tutorial";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import type { UserWithRelations } from "@/routers/profile";
 import { ensureDom } from "../setup-dom.mjs";
+
+// These workflows render multiple dialogs and large forms in one interaction.
+setDefaultTimeout(20_000);
 
 const inputPreferenceKey = "statsDistributionUseInputBoxes";
 let savedInputPreference: string | null;

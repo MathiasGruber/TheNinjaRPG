@@ -84,7 +84,7 @@ struct EnemyDefinition {
 
 /// Active game session (static data)
 #[derive(Clone)]
-#[table(name = game_session, public)]
+#[table(accessor = game_session, public)]
 pub struct GameSession {
     #[primary_key]
     #[auto_inc]
@@ -126,7 +126,7 @@ pub struct GameSession {
 
 /// Volatile game state (frequent updates)
 #[derive(Clone)]
-#[table(name = session_state, public)]
+#[table(accessor = session_state, public)]
 pub struct SessionState {
     #[primary_key]
     #[index(btree)]
@@ -166,7 +166,7 @@ pub struct SessionState {
 }
 
 /// In-run upgrades purchased during a session
-#[table(name = session_upgrade, public)]
+#[table(accessor = session_upgrade, public)]
 pub struct SessionUpgrade {
     #[primary_key]
     #[auto_inc]
@@ -178,7 +178,7 @@ pub struct SessionUpgrade {
 }
 
 /// Queued enemies to be spawned during a wave
-#[table(name = enemy_queued, public)]
+#[table(accessor = enemy_queued, public)]
 pub struct EnemyQueued {
     #[primary_key]
     #[auto_inc]
@@ -198,7 +198,7 @@ pub struct EnemyQueued {
 /// COST OPTIMIZATION: Static enemy spawn data (path, max_health, etc.)
 /// This is sent ONCE on spawn and never updated, saving ~60-80% bandwidth on enemy updates.
 /// Client uses this for pathfinding visualization while Enemy table handles volatile data.
-#[table(name = enemy_spawn, public)]
+#[table(accessor = enemy_spawn, public)]
 pub struct EnemySpawn {
     #[primary_key]
     pub enemy_id: u64,
@@ -212,7 +212,7 @@ pub struct EnemySpawn {
 
 /// Active enemies in a game session (volatile data only)
 /// COST OPTIMIZATION: Path removed - stored in EnemySpawn table (sent once)
-#[table(name = enemy, public)]
+#[table(accessor = enemy, public)]
 pub struct Enemy {
     #[primary_key]
     #[auto_inc]
@@ -235,7 +235,7 @@ pub struct Enemy {
 /// Active projectiles in a game session
 /// COST OPTIMIZATION: Added spawned_at, progress computed client-side
 /// Server only sends insert/delete, reducing projectile bandwidth by ~90%
-#[table(name = projectile, public)]
+#[table(accessor = projectile, public)]
 pub struct Projectile {
     #[primary_key]
     #[auto_inc]
@@ -254,7 +254,7 @@ pub struct Projectile {
 /// Completed runs - claimed through tRPC with HMAC verification
 /// COST OPTIMIZATION: Uses definitions_hash instead of full JSON strings
 /// This reduces storage by ~40% per completed run
-#[table(name = completed_run, public)]
+#[table(accessor = completed_run, public)]
 pub struct CompletedRun {
     #[primary_key]
     #[auto_inc]
@@ -303,7 +303,7 @@ pub struct CompletedRun {
 }
 
 /// Game loop scheduler
-#[table(name = game_loop_schedule, scheduled(game_loop))]
+#[table(accessor = game_loop_schedule, scheduled(game_loop))]
 pub struct GameLoopSchedule {
     #[primary_key]
     #[auto_inc]
@@ -542,7 +542,7 @@ fn ensure_game_loop_scheduled(ctx: &ReducerContext) {
 /// Every session row is public, so a session ID alone is not a credential: any client
 /// could otherwise start waves, fire, buy upgrades for, or delete someone else's run.
 fn is_session_owner(ctx: &ReducerContext, session: &GameSession) -> bool {
-    session.spacetimedb_identity == ctx.sender.to_hex().to_string()
+    session.spacetimedb_identity == ctx.sender().to_hex().to_string()
 }
 
 /// Loads a session for a mutating reducer, rejecting callers that do not own it.
@@ -670,7 +670,7 @@ pub fn create_session(
     
     let center = get_center_position(initial_grid_size);
     let now = timestamp_to_ms(ctx.timestamp);
-    let identity = ctx.sender.to_hex().to_string();
+    let identity = ctx.sender().to_hex().to_string();
     
     // Mark this connection's existing active sessions for the user as abandoned. The user ID
     // is caller-supplied, so sessions created by other identities are left untouched.

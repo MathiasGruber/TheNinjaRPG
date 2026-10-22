@@ -1,16 +1,11 @@
-import type { ServerOptions } from "@modelcontextprotocol/sdk/server/index.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import type { McpServer, ServerOptions } from "@modelcontextprotocol/server";
 import type {
   AnyRootTypes,
   MaybePromise,
   Router,
   RouterRecord,
 } from "@trpc/server/unstable-core-do-not-import";
-import { createMcpHandler } from "mcp-handler";
+import { createMcpHandler, type McpHandlerOptions } from "mcp-handler";
 import { isPlainObject } from "@/utils/typeutils";
 import {
   buildToolRegistry,
@@ -33,16 +28,7 @@ type ModelContextProtocolServerOptions = ServerOptions & {
 /**
  * Configuration for the MCP handler (from mcp-handler).
  */
-type ModelContextProtocolHandlerConfig = {
-  redisUrl?: string;
-  streamableHttpEndpoint?: string;
-  sseEndpoint?: string;
-  sseMessageEndpoint?: string;
-  maxDuration?: number;
-  verboseLogs?: boolean;
-  basePath?: string;
-  disableSse?: boolean;
-};
+type ModelContextProtocolHandlerConfig = Pick<McpHandlerOptions, "verboseLogs">;
 
 type ModelContextProtocolHandlerOptions = {
   config: ModelContextProtocolHandlerConfig;
@@ -87,13 +73,13 @@ const setRequestHandler = (
   const underlyingServer = modelContextProtocolServer.server;
 
   // Return only the 4 meta-tools
-  underlyingServer.setRequestHandler(ListToolsRequestSchema, () => ({
+  underlyingServer.setRequestHandler("tools/list", () => ({
     tools: metaTools,
   }));
 
   // Handle meta-tool calls
   underlyingServer.setRequestHandler(
-    CallToolRequestSchema,
+    "tools/call",
     async (request: {
       params: { name: string; arguments?: Record<string, unknown> };
     }) => {
@@ -209,9 +195,13 @@ export const trpcToModelContextProtocolHandler = <
       capabilities: {
         tools: {},
       },
+      ...config,
       ...serverOptions,
+      serverInfo: serverOptions?.serverInfo ?? {
+        name: "theninja-rpg",
+        version: "1.0.0",
+      },
     },
-    config,
   );
 
   return handler;

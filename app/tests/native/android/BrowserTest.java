@@ -10,11 +10,16 @@ import static org.mockito.Mockito.when;
 import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.Build;
+import android.os.Bundle;
 import androidx.browser.customtabs.CustomTabsCallback;
 import androidx.browser.customtabs.CustomTabsClient;
 import androidx.browser.customtabs.CustomTabsSession;
+import com.theninjarpg.app.TNROAuthBrowserPlugin.Session;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -31,6 +36,8 @@ import org.robolectric.util.ReflectionHelpers;
 @Config(sdk = {29, 36}, manifest = Config.NONE)
 public class BrowserTest {
     private Browser browser;
+    private Activity context;
+    private CustomTabsClient client;
     private ShadowActivity activity;
     private String browserPackage = "com.android.chrome";
     private final List<CustomTabsCallback> callbacks = new ArrayList<>();
@@ -38,11 +45,10 @@ public class BrowserTest {
 
     @Before
     public void setUp() {
-        Activity context = Robolectric.buildActivity(Activity.class).setup().get();
+        context = Robolectric.buildActivity(Activity.class).setup().get();
         activity = org.robolectric.Shadows.shadowOf(context);
-        browser = new Browser(context);
-        browser.setBrowserEventListener(events::add);
-        CustomTabsClient client = mock(CustomTabsClient.class);
+        installBrowser("com.android.chrome");
+        client = mock(CustomTabsClient.class);
         when(client.newSession(any(CustomTabsCallback.class))).thenAnswer(invocation -> {
             callbacks.add(invocation.getArgument(0));
             Binder token = new Binder();
@@ -58,6 +64,27 @@ public class BrowserTest {
                 }
             });
         });
+        replaceBrowser();
+    }
+
+    private Intent webIntent() {
+        return new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com"))
+            .addCategory(Intent.CATEGORY_BROWSABLE);
+    }
+
+    private void installBrowser(String name) {
+        var info = new ResolveInfo();
+        info.activityInfo = new ActivityInfo();
+        info.activityInfo.packageName = name;
+        info.activityInfo.name = name + ".BrowserActivity";
+        info.isDefault = true;
+        org.robolectric.Shadows.shadowOf(context.getPackageManager()).addResolveInfoForIntent(webIntent(), info);
+    }
+
+    private void replaceBrowser() {
+        if (browser != null) ((Session) browser).retire();
+        browser = new Session(context, ignored -> {});
+        browser.setBrowserEventListener(events::add);
         ReflectionHelpers.setField(browser, "customTabsClient", client);
     }
 
@@ -83,6 +110,23 @@ public class BrowserTest {
     }
 
     @Test
+    public void absentChromeUsesInstalledExternalBrowser() {
+        org.robolectric.Shadows.shadowOf(context.getPackageManager()).removeResolveInfosForIntent(webIntent(), "com.android.chrome");
+        installBrowser("org.mozilla.firefox");
+        ReflectionHelpers.setField(browser, "customTabsClient", null);
+        browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=firefox"));
+        assertEquals("org.mozilla.firefox", activity.getNextStartedActivity().getPackage());
+    }
+
+    @Test(expected = android.content.ActivityNotFoundException.class)
+    public void absentExternalBrowserFailsInsteadOfOpeningTheVerifiedGameHandler() {
+        org.robolectric.Shadows.shadowOf(context.getPackageManager()).removeResolveInfosForIntent(webIntent(), "com.android.chrome");
+        installBrowser(context.getPackageName());
+        ReflectionHelpers.setField(browser, "customTabsClient", null);
+        browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=none"));
+    }
+
+    @Test
     public void boundNonChromeSessionKeepsItsBrowser() {
         browserPackage = "org.mozilla.firefox";
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=bound"));
@@ -95,6 +139,7 @@ public class BrowserTest {
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first"));
         Intent first = activity.getNextStartedActivity();
         Uri continuation = Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first&step=callback");
+        replaceBrowser();
         browser.open(continuation);
         Intent replacement = activity.getNextStartedActivity();
 
@@ -111,21 +156,32 @@ public class BrowserTest {
     @Test
     public void retiredTabCannotFinishOrLoadItsReplacement() {
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first"));
+        replaceBrowser();
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first&step=callback"));
         callbacks.get(0).onNavigationEvent(CustomTabsCallback.NAVIGATION_FINISHED, null);
         callbacks.get(0).onNavigationEvent(CustomTabsCallback.TAB_HIDDEN, null);
+        callbacks.get(0).onMinimized(new Bundle());
         assertEquals(List.of(), events);
 
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.TAB_SHOWN, null);
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.NAVIGATION_FINISHED, null);
         assertEquals(List.of(Browser.BROWSER_LOADED), events);
         callbacks.get(1).onNavigationEvent(CustomTabsCallback.TAB_HIDDEN, null);
+        // A hidden tab can still be open. Closure arrives through ActivityResult,
+        // with the plugin's PiP fallback on Android versions before API 34.
+        assertEquals(List.of(Browser.BROWSER_LOADED), events);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            callbacks.get(1).onMinimized(new Bundle());
+        } else {
+            browser.notifyBrowserFinished();
+        }
         assertEquals(List.of(Browser.BROWSER_LOADED, Browser.BROWSER_FINISHED), events);
     }
 
     @Test
     public void fallbackLaunchStillRetiresThePriorSession() {
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=first"));
+        replaceBrowser();
         ReflectionHelpers.setField(browser, "customTabsClient", null);
         browser.open(Uri.parse("https://www.theninja-rpg.com/native-sign-in?flow=second"));
         callbacks.get(0).onNavigationEvent(CustomTabsCallback.TAB_HIDDEN, null);

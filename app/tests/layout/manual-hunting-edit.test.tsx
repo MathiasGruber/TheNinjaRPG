@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, useMutation, type UseMutationOptions } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import type { ReactNode } from "react";
 import * as client from "@/app/_trpc/client";
@@ -65,7 +65,13 @@ it("uses server-assigned contract IDs when saving the habitat draft again", asyn
   for (const [label, search, option] of [["Creature", "enem", "Enemy"], ["Material", "hide", "Boar hide"]]) {
     fireEvent.click(view.getByRole("combobox", { name: label }));
     fireEvent.change(view.getByRole("combobox", { name: `Search ${label!.toLowerCase()}` }), { target: { value: search } });
-    fireEvent.click(await view.findByRole("option", { name: option }));
+    const selectedOption = await view.findByRole("option", { name: option });
+    await act(async () => fireEvent.click(selectedOption));
+    const trigger = view.getByRole("combobox", { name: label });
+    expect(trigger.textContent).toContain(option!);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    // Radix restores focus after closing; finish that before opening the next picker.
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
   }
   const button = view.getByRole("button", { name: "Save habitat" }) as HTMLButtonElement;
   fireEvent.click(button);
