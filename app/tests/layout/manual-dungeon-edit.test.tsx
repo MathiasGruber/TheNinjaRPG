@@ -15,6 +15,7 @@ import { dungeonContent } from "../setup/dungeon";
 type SaveInput = RouterInputs["coop"]["dungeon"]["save"];
 type SaveResult = RouterOutputs["coop"]["dungeon"]["save"];
 
+// SearchSelect needs browser-native events, measurements and scrolling absent from the DOM shim.
 const browserGlobals = ["Event", "CustomEvent", "ResizeObserver"] as const;
 const originalGlobals = browserGlobals.map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
 const originalScroll = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");

@@ -556,7 +556,11 @@ export default function DungeonPage() {
   );
 }
 
-/** Keep configured rewards readable across discovery, claim cards and completed history. */
+/**
+ * Show the saved reward roll in completion history, including package-only reward types.
+ * Delivered item IDs become guaranteed unit drops for the shared preview formatter.
+ * Discovery, claim cards and older receipts retain the configured reward summary.
+ */
 const DungeonRewards = ({
   rewards,
   receipt,

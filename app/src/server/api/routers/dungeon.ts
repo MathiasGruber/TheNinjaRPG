@@ -176,7 +176,7 @@ export const dungeonRouter = createTRPCRouter({
       ? ctx.drizzle.query.dungeon.findMany()
       : [];
   }),
-  /** Validate referenced enemies and rewards before saving content and its audit entry. */
+  /** Validate sources and grant limits, copying approved package snapshots before saving. */
   save: protectedProcedure
     .use(ratelimitMiddleware)
     .input(saveDungeonSchema)

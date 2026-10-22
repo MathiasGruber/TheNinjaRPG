@@ -7,7 +7,14 @@ import { collapseRewards } from "@/libs/rewards";
 import type { DungeonContent } from "@/validators/dungeon";
 import { ObjectiveReward, REWARD_CHOICE_AMOUNT_FIELDS } from "@/validators/rewards";
 
-/** Roll each authored bundle once; package item odds retain the shared reward semantics. */
+/**
+ * Roll each completion drop once, granting its entire quantity on success.
+ * Package copies retain their nested item chances through the shared reward pipeline;
+ * absent quantities on persisted runs represent one copy.
+ * @param rewards Saved run rewards, checked with dungeonRewardError before rolling.
+ * @returns The shared grant payload, with item quantities expanded into delivered IDs.
+ * @throws When a successful package drop has no saved catalog snapshot.
+ */
 export const rollDungeonRewards = (rewards: DungeonContent["rewards"]) => {
   const drops = rewards.drops.filter((drop) => Math.random() * 100 < drop.chance);
   return postProcessRewards(
@@ -25,6 +32,7 @@ export const rollDungeonRewards = (rewards: DungeonContent["rewards"]) => {
           if (!snapshot) throw new Error("Dungeon reward package snapshot is missing");
           return Array.from({ length: quantity }, () => snapshot.rewards);
         }
+        // Caches remain item IDs; opening them belongs to the inventory flow.
         return [
           ObjectiveReward.parse(
             drop.type === "jutsu"
@@ -37,7 +45,12 @@ export const rollDungeonRewards = (rewards: DungeonContent["rewards"]) => {
   );
 };
 
-/** Bound item expansion before any rolls or grants, including every possible package drop. */
+/**
+ * Bound every possible payout before expanding or rolling package quantities.
+ * Run this on save and claim so persisted snapshots obey the same grant limits.
+ * @param rewards Direct rewards and immutable package snapshots from a definition or run.
+ * @returns A recoverable validation message, or null when all worst-case totals fit.
+ */
 export const dungeonRewardError = (
   rewards: DungeonContent["rewards"],
 ): string | null => {
@@ -53,6 +66,7 @@ export const dungeonRewardError = (
     if (drop.type === "package") {
       if (!drop.package)
         return "A dungeon reward package is missing. Save the dungeon again.";
+      // Assume every drop succeeds; negative package amounts cannot offset payout bounds.
       for (const field of REWARD_CHOICE_AMOUNT_FIELDS) {
         amounts[field] =
           (amounts[field] ?? 0) + Math.abs(drop.package.rewards[field] ?? 0) * quantity;
@@ -62,6 +76,7 @@ export const dungeonRewardError = (
         )
           return `Dungeon rewards can grant at most ${DUNGEON_MAX_REWARD_AMOUNT.toLocaleString("en-US")} per scalar reward, including package contents.`;
       }
+      // Match the shared item pipeline's minimum-one, integer quantity normalization.
       total +=
         quantity *
         drop.package.rewards.reward_items.reduce(

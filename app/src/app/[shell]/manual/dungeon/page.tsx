@@ -736,6 +736,39 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     {children}
   </Label>
 );
+
+/**
+ * Preserve invalid numeric drafts locally; combat's repeated-ID arrays hold valid counts only.
+ * Echo NumberInput's callback value, including NaN, until corrected or the source count changes.
+ * Only valid integers reach onChange, so malformed drafts never allocate enemy arrays.
+ */
+const EnemyQuantity = ({
+  label,
+  quantity,
+  max,
+  onChange,
+}: {
+  label: string;
+  quantity: number;
+  max: number;
+  onChange: (value: number) => void;
+}) => {
+  const [draft, setDraft] = useState({ source: quantity, value: quantity });
+  return (
+    <NumberInput
+      aria-label={label}
+      className="w-20"
+      min={1}
+      max={max}
+      value={draft.source === quantity ? draft.value : quantity}
+      onValueChange={(value) => {
+        setDraft({ source: quantity, value });
+        if (Number.isInteger(value) && value >= 1 && value <= max) onChange(value);
+      }}
+    />
+  );
+};
+
 /** Create the required five room slots; normalizeRooms assigns their boss roles. */
 const newTier = (): DungeonContent["tiers"][number] =>
   Array.from({ length: DUNGEON_FLOORS_PER_TIER }, () => ({
@@ -771,7 +804,10 @@ const newDungeon = (): DungeonContent => ({
   rewards: { money: 0, experience: 0, tokens: 0, prestige: 0, drops: [] },
 });
 
-/** Repeated template IDs are the combat format; quantities are an editor view of those IDs. */
+/**
+ * Count repeated template IDs in first-seen order for compact editor rows.
+ * Combat keeps the repeated-ID format; these groups are only its editable quantity view.
+ */
 const groupEnemies = (ids: string[]) => {
   const groups: { ai: string; quantity: number }[] = [];
   for (const ai of ids) {
@@ -780,32 +816,4 @@ const groupEnemies = (ids: string[]) => {
     else groups.push({ ai, quantity: 1 });
   }
   return groups;
-};
-
-/** Keep invalid number drafts visible without expanding them into combat's ID arrays. */
-const EnemyQuantity = ({
-  label,
-  quantity,
-  max,
-  onChange,
-}: {
-  label: string;
-  quantity: number;
-  max: number;
-  onChange: (value: number) => void;
-}) => {
-  const [draft, setDraft] = useState({ source: quantity, value: quantity });
-  return (
-    <NumberInput
-      aria-label={label}
-      className="w-20"
-      min={1}
-      max={max}
-      value={draft.source === quantity ? draft.value : quantity}
-      onValueChange={(value) => {
-        setDraft({ source: quantity, value });
-        if (Number.isInteger(value) && value >= 1 && value <= max) onChange(value);
-      }}
-    />
-  );
 };
