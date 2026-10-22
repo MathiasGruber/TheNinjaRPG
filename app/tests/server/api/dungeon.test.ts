@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq, inArray } from "drizzle-orm";
-import { actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu } from "@/drizzle/schema";
+import { actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu, rewardPackage } from "@/drizzle/schema";
+import { ObjectiveReward } from "@/validators/rewards";
 import { dungeonRouter } from "@/server/api/routers/dungeon";
 import type { DrizzleClient } from "@/server/db";
 import { settleDungeonBattle, expireDungeonRun, rollbackDungeonStart } from "@/server/utils/dungeon";
@@ -23,7 +24,7 @@ describeWithDatabase("Dungeon parties and settlement", () => {
         ? commands.map((command) => resultFor(command as unknown[]))
         : resultFor(commands));
     });
-    await resetTables(actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu);
+    await resetTables(actionLog, battleHistory, battle, dungeon, dungeonRun, dungeonMember, userData, village, userRewards, item, jutsu, userItem, userJutsu, rewardPackage);
     await insertUsers(["a", "b", "c", "outsider"].map((id) => ({userId: id, username: id, status: "AWAKE", sector: 1, money: 0, experience: 0, earnedExperience: 0, villagePrestige: 0, villageId: "village"})));
     const db = await getTestDatabase();
     await db.insert(village).values({id: "village", name: "Village", sector: 1, kageId: "a"});
@@ -129,6 +130,48 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     expect((await db.query.dungeon.findFirst())?.content.name).toBe(content.name);
     expect(await db.query.actionLog.findMany()).toContainEqual(expect.objectContaining({relatedId: "definition", tableName: "dungeon"}));
   });
+  it("copies approved packages on save, rejects missing sources and validates cache rewards", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ role: "CONTENT" }).where(eq(userData.userId, "a"));
+    await insertUsers([{userId: "enemy", isAi: true}]);
+    await insertItems([{id: "ordinary"}]);
+    const approved = ObjectiveReward.parse({ reward_money: 7, reward_reputation: 2 });
+    await db.insert(rewardPackage).values({ id: "bundle", name: "Approved bundle", description: "", rewards: approved });
+    const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
+    const content = dungeonContent();
+    content.rewards.drops = [{ type: "package", id: "missing", chance: 100, quantity: 2 }];
+    expect((await a.save({ id: "definition", content })).success).toBe(false);
+    content.rewards.drops = [{ type: "cache", id: "ordinary", chance: 100, quantity: 2 }];
+    expect((await a.save({ id: "definition", content })).success).toBe(false);
+    content.rewards.drops = [{ type: "package", id: "bundle", chance: 100, quantity: 2, package: { name: "Forged", description: "", rewards: ObjectiveReward.parse({ reward_reputation: 9999 }) } }];
+    expect((await a.save({ id: "definition", content })).success).toBe(true);
+    expect((await db.query.dungeon.findFirst())?.content.rewards.drops[0]?.package).toMatchObject({ name: "Approved bundle", rewards: { reward_money: 7, reward_reputation: 2 } });
+    await db.update(rewardPackage).set({rewards: ObjectiveReward.parse({reward_items: [{ids: ["ordinary"], number: 100, quantity: 1e9}]})}).where(eq(rewardPackage.id,"bundle"));
+    expect(await a.save({id: "definition", content})).toMatchObject({success:false, message:expect.stringContaining("at most 2000 items")});
+    await db.update(rewardPackage).set({rewards: ObjectiveReward.parse({reward_exp: 600000000})}).where(eq(rewardPackage.id,"bundle"));
+    expect(await a.save({id: "definition", content})).toMatchObject({success:false, message:expect.stringContaining("per scalar reward")});
+    expect((await db.query.dungeon.findFirst())?.content.rewards.drops[0]?.package?.name).toBe("Approved bundle");
+  });
+  it("delivers package quantities and unopened caches from immutable run snapshots exactly once", async () => {
+    const db = await getTestDatabase();
+    await insertItems([{id: "cache", canStack: false}, {id: "material", canStack: false}]);
+    const content = dungeonContent();
+    content.rewards.drops = [
+      { type: "cache", id: "cache", chance: 100, quantity: 2 },
+      { type: "package", id: "deleted-source", chance: 100, quantity: 3, package: { name: "Frozen bundle", description: "", rewards: ObjectiveReward.parse({ reward_money: 7, reward_reputation: 2, reward_items: [{ids: ["material"], number: 100, quantity: 2}] }) } },
+    ];
+    const { a, id } = await lobby();
+    await db.update(dungeonRun).set({ content, status: "COMPLETED", state: {...dungeonBattleState().runState, memberIds: ["a"], floor: 5, clearedFloors: [0,1,2,3,4]} }).where(eq(dungeonRun.id, id));
+    await Promise.all([a.claim({id}), a.claim({id})]);
+    expect((await db.query.userData.findFirst({where:eq(userData.userId,"a")}))?.money).toBe(121);
+    expect((await db.query.userRewards.findMany()).reduce((sum, row) => sum + row.reputationAmount, 0)).toBe(6);
+    const inventory = await db.query.userItem.findMany({where:eq(userItem.userId,"a")});
+    expect(inventory.filter((row) => row.itemId === "cache")).toHaveLength(2);
+    expect(inventory.filter((row) => row.itemId === "material")).toHaveLength(6);
+    const replay = await a.claim({id});
+    expect(replay).toMatchObject({ success: true, reward: { money: 121, rewards: { reward_reputation: 6 } } });
+    expect(await db.query.userItem.findMany({where:eq(userItem.userId,"a")})).toHaveLength(8);
+  });
   it("uses only the run CAS for invitations, readiness and pause controls", async () => {
     const db = await getTestDatabase();
     const a = callerForDatabase(dungeonRouter, "a", withoutTransactions(db));
@@ -190,7 +233,7 @@ describeWithDatabase("Dungeon parties and settlement", () => {
     const {a, id} = await lobby(); const db = await getTestDatabase();
     await insertItems([{id: "drop", canStack: false}]);
     await db.insert(jutsu).values({id: "technique", name: "Technique", description: "Technique", battleDescription: "Technique", image: "/jutsu.png", effects: [], target: "SELF", range: 0, requiredRank: "STUDENT", jutsuType: "NORMAL"});
-    const content = dungeonContent(); content.rewards.drops = [{type: "item", id: "drop", chance: 100}, {type: "jutsu", id: "technique", chance: 100}];
+    const content = dungeonContent(); content.rewards.drops = [{type: "item", id: "drop", chance: 100, quantity: 1}, {type: "jutsu", id: "technique", chance: 100, quantity: 1}];
     await db.update(dungeonRun).set({content, status: "COMPLETED", state: {...dungeonBattleState().runState, memberIds: ["a"], floor: 5, clearedFloors: [0,1,2,3,4]}}).where(eq(dungeonRun.id, id));
     // Fail after scalar and jutsu grants, so the receipt cannot hide a partial reward.
     const failing = new Proxy(db, {

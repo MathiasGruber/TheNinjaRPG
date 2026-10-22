@@ -130,6 +130,15 @@ describe("dungeon combat rules", () => {
     expect(dungeonNextState({...state, floor: 9}, "wipe", "mini-boss").floor).toBe(9);
     expect(dungeonNextState({...state, floor: 19}, "wipe", "boss").floor).toBe(15);
   });
+  it("defaults existing drop quantities to one and rejects invalid quantities", () => {
+    const content = dungeonContent();
+    const raw = { ...content, rewards: { ...content.rewards, drops: [{type: "item", id: "loot", chance: 100}] } };
+    expect(dungeonContentSchema.parse(raw).rewards.drops[0]?.quantity).toBe(1);
+    for (const quantity of [0, -1, 1.5, 101, Number.NaN]) {
+      expect(dungeonContentSchema.safeParse({ ...raw, rewards: { ...raw.rewards, drops: [{type: "item", id: "loot", chance: 100, quantity}] } }).success).toBe(false);
+    }
+    expect(dungeonContentSchema.safeParse({ ...raw, rewards: { ...raw.rewards, drops: [{type: "jutsu", id: "technique", chance: 100, quantity: 2}] } }).success).toBe(false);
+  });
   it("rejects a sixth room, more than ten enemies and delayed initial waves", () => {
     const content = dungeonContent();
     content.tiers[0]!.push(content.tiers[0]![0]!);

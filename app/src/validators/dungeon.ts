@@ -2,7 +2,10 @@ import { z } from "zod";
 import {
   COMBAT_BIOMES,
   DUNGEON_FLOORS_PER_TIER,
+  DUNGEON_MAX_DROPS,
   DUNGEON_MAX_MOBS,
+  DUNGEON_MAX_REWARD_AMOUNT,
+  DUNGEON_MAX_REWARD_QUANTITY,
   DUNGEON_MAX_TIERS,
   DUNGEON_MAX_WAVES,
   MAP_SECTOR_ID_MAX,
@@ -12,13 +15,23 @@ import {
 } from "@/drizzle/constants";
 import { type CoopRoster, encounterWaveSchema } from "@/validators/coop";
 import { mapLocationFields } from "@/validators/mapLocation";
+import { RewardPackageValidator } from "@/validators/rewardPackages";
+import type { PostProcessedRewards } from "@/validators/rewards";
 
-/** Each member rolls each authored item or jutsu drop independently at completion. */
-const dungeonDropSchema = z.object({
-  type: z.enum(["item", "jutsu"]),
-  id: z.string().min(1, "Choose a reward for each drop."),
-  chance: z.number().min(1).max(100),
-});
+/** Each member rolls once per drop, receiving its full quantity on success. */
+const dungeonDropSchema = z
+  .object({
+    type: z.enum(["item", "jutsu", "cache", "package"]),
+    id: z.string().min(1, "Choose a reward for each drop."),
+    chance: z.number().min(1).max(100),
+    quantity: z.number().int().min(1).max(DUNGEON_MAX_REWARD_QUANTITY).prefault(1),
+    /** Server copies the approved catalog source at save; clients cannot author this payload. */
+    package: RewardPackageValidator.optional(),
+  })
+  .refine((drop) => drop.type !== "jutsu" || drop.quantity === 1, {
+    path: ["quantity"],
+    message: "Jutsu rewards can only be learned once.",
+  });
 /** Enemy templates and the minimum rounds elapsed since the preceding wave began. */
 export const dungeonFloorSchema = z.object({
   kind: z.enum(["floor", "mini-boss", "boss"]),
@@ -58,11 +71,11 @@ export const dungeonContentSchema = z
       .min(1)
       .max(DUNGEON_MAX_TIERS),
     rewards: z.object({
-      money: z.number().min(0).max(1e9).prefault(0),
-      experience: z.number().min(0).max(1e9).prefault(0),
-      tokens: z.number().int().min(0).max(1e9).prefault(0),
-      prestige: z.number().int().min(0).max(1e9).prefault(0),
-      drops: z.array(dungeonDropSchema).max(100).prefault([]),
+      money: z.number().min(0).max(DUNGEON_MAX_REWARD_AMOUNT).prefault(0),
+      experience: z.number().min(0).max(DUNGEON_MAX_REWARD_AMOUNT).prefault(0),
+      tokens: z.number().int().min(0).max(DUNGEON_MAX_REWARD_AMOUNT).prefault(0),
+      prestige: z.number().int().min(0).max(DUNGEON_MAX_REWARD_AMOUNT).prefault(0),
+      drops: z.array(dungeonDropSchema).max(DUNGEON_MAX_DROPS).prefault([]),
     }),
   })
   .superRefine((content, ctx) => {
@@ -139,4 +152,6 @@ export type DungeonRewardReceipt = {
   prestige: number;
   items: string[];
   jutsus: string[];
+  /** Complete roll, including package-only reward types; absent on older receipts. */
+  rewards?: PostProcessedRewards;
 };

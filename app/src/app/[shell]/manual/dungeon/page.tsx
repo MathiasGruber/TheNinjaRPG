@@ -14,7 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   COMBAT_BIOMES,
   DUNGEON_FLOORS_PER_TIER,
+  DUNGEON_MAX_DROPS,
   DUNGEON_MAX_MOBS,
+  DUNGEON_MAX_REWARD_QUANTITY,
   DUNGEON_MAX_TIERS,
   DUNGEON_MAX_WAVES,
   ENCOUNTER_MAX_WAVE_DELAY_ROUNDS,
@@ -22,6 +24,8 @@ import {
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { MapLocationPreview } from "@/layout/MapLocationPreview";
+import { SearchSelect } from "@/layout/SearchSelect";
+import { getRewardPreview } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
 import { canChangeContent } from "@/utils/permissions";
 import { formatLocalDateTimeInput } from "@/utils/time";
@@ -45,6 +49,9 @@ export default function DungeonEditor() {
   const ais = api.profile.getAllAiNames.useQuery(undefined, { enabled: allowed });
   const items = api.item.getAllNames.useQuery(undefined, { enabled: allowed });
   const jutsus = api.jutsu.getAllNames.useQuery(undefined, { enabled: allowed });
+  const packages = api.rewardPackages.getCatalog.useQuery(undefined, {
+    enabled: allowed,
+  });
   const save = api.coop.dungeon.save.useMutation({
     onSuccess: async (result) => {
       setMessage(result.message);
@@ -170,6 +177,24 @@ export default function DungeonEditor() {
       {(message || definitions.error) && (
         <p role="status" className="mb-4 whitespace-pre-wrap rounded border p-3">
           {message || definitions.error?.message}
+        </p>
+      )}
+      {[ais, items, jutsus, packages].some((query) => query.isError) && (
+        <p role="alert" className="mb-4 rounded border p-3">
+          Could not load enemy or reward choices.{" "}
+          <Button
+            variant="outline"
+            onClick={() =>
+              void Promise.all([
+                ais.refetch(),
+                items.refetch(),
+                jutsus.refetch(),
+                packages.refetch(),
+              ])
+            }
+          >
+            Retry choices
+          </Button>
         </p>
       )}
       <div ref={formRef} className="space-y-4">
@@ -409,35 +434,63 @@ export default function DungeonEditor() {
                         />
                       </Field>
                     )}
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {wave.aiIds.map((ai, aiIndex) => (
-                        <div className="flex gap-2" key={aiIndex}>
-                          <select
-                            aria-label={`Wave ${wi + 1} enemy ${aiIndex + 1}`}
-                            className="min-w-0 flex-1 rounded border bg-background p-2"
-                            value={ai}
-                            onChange={(e) =>
-                              editRoom((r) => {
-                                const w = r.waves[wi];
-                                if (w) w.aiIds[aiIndex] = e.target.value;
-                              })
-                            }
-                          >
-                            <option value="">Select enemy</option>
-                            {ais.data?.map((a) => (
-                              <option key={a.userId} value={a.userId}>
-                                {a.username}
-                              </option>
-                            ))}
-                          </select>
+                    <div className="space-y-2">
+                      {groupEnemies(wave.aiIds).map(({ ai, quantity }, aiIndex) => (
+                        <div
+                          className="flex flex-wrap items-end gap-2"
+                          key={`${id ?? "new"}:${tier}:${floor}:${wi}:${ai}`}
+                        >
+                          <div className="min-w-0 flex-1 basis-40">
+                            <SearchSelect
+                              label={`Wave ${wi + 1} enemy ${aiIndex + 1}`}
+                              value={ai}
+                              placeholder="Select enemy"
+                              disabled={save.isPending || ais.isPending}
+                              options={(ais.data ?? []).map((a) => ({
+                                value: a.userId,
+                                label: a.username,
+                              }))}
+                              onChange={(value) =>
+                                editRoom((r) => {
+                                  const w = r.waves[wi];
+                                  if (w)
+                                    w.aiIds = w.aiIds.map((id) =>
+                                      id === ai ? value : id,
+                                    );
+                                })
+                              }
+                            />
+                          </div>
+                          <Field label="Quantity">
+                            <EnemyQuantity
+                              label={`Wave ${wi + 1} enemy ${aiIndex + 1} quantity`}
+                              max={DUNGEON_MAX_MOBS - wave.aiIds.length + quantity}
+                              quantity={quantity}
+                              onChange={(value) =>
+                                editRoom((r) => {
+                                  const w = r.waves[wi];
+                                  if (!w) return;
+                                  const groups = groupEnemies(w.aiIds);
+                                  const group = groups[aiIndex];
+                                  if (group) group.quantity = value;
+                                  w.aiIds = groups.flatMap((g) =>
+                                    Array<string>(g.quantity).fill(g.ai),
+                                  );
+                                })
+                              }
+                            />
+                          </Field>
                           <Button
                             variant="secondary"
                             size="icon"
                             aria-label={`Remove enemy ${aiIndex + 1} from wave ${wi + 1}`}
                             hoverText="Remove enemy"
-                            disabled={wave.aiIds.length === 1}
+                            disabled={groupEnemies(wave.aiIds).length === 1}
                             onClick={() =>
-                              editRoom((r) => r.waves[wi]?.aiIds.splice(aiIndex, 1))
+                              editRoom((r) => {
+                                const w = r.waves[wi];
+                                if (w) w.aiIds = w.aiIds.filter((id) => id !== ai);
+                              })
                             }
                           >
                             <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -445,11 +498,17 @@ export default function DungeonEditor() {
                         </div>
                       ))}
                     </div>
+                    <p className="text-muted-foreground text-xs">
+                      {wave.aiIds.length} / {DUNGEON_MAX_MOBS} enemies in this wave
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         variant="secondary"
                         size="sm"
-                        disabled={wave.aiIds.length >= DUNGEON_MAX_MOBS}
+                        disabled={
+                          wave.aiIds.length >= DUNGEON_MAX_MOBS ||
+                          wave.aiIds.includes("")
+                        }
                         onClick={() => editRoom((r) => r.waves[wi]?.aiIds.push(""))}
                       >
                         <Plus className="mr-1 h-4 w-4" aria-hidden="true" />
@@ -511,9 +570,15 @@ export default function DungeonEditor() {
                     ),
                   )}
                 </div>
+                <p className="text-muted-foreground text-sm">
+                  Each drop rolls once per player; a successful roll grants the full
+                  quantity. Jutsu can only be learned once. Caches are delivered
+                  unopened to inventory. Reward packages copy their current catalog
+                  contents when the dungeon is saved.
+                </p>
                 {content.rewards.drops.map((drop, i) => (
                   <div
-                    className="grid grid-cols-[7rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_1fr_auto_auto]"
+                    className="grid grid-cols-[7rem_1fr] items-end gap-2 rounded-lg border bg-popover p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]"
                     key={i}
                   >
                     <select
@@ -524,32 +589,49 @@ export default function DungeonEditor() {
                         const drops = [...content.rewards.drops];
                         drops[i] = {
                           ...drop,
-                          type: e.target.value as "item" | "jutsu",
+                          type: e.target
+                            .value as DungeonContent["rewards"]["drops"][number]["type"],
                           id: "",
+                          package: undefined,
+                          quantity: e.target.value === "jutsu" ? 1 : drop.quantity,
                         };
                         patch({ rewards: { ...content.rewards, drops } });
                       }}
                     >
                       <option value="item">Item</option>
                       <option value="jutsu">Jutsu</option>
+                      <option value="package">Reward package</option>
+                      <option value="cache">Cache</option>
                     </select>
-                    <select
-                      aria-label={`Drop ${i + 1} reward`}
-                      className="min-w-0 flex-1 rounded border bg-background p-2"
+                    <SearchSelect
+                      label={`Drop ${i + 1} reward`}
                       value={drop.id}
-                      onChange={(e) => {
+                      placeholder="Select reward"
+                      disabled={
+                        save.isPending ||
+                        (drop.type === "package"
+                          ? packages.isPending
+                          : drop.type === "jutsu"
+                            ? jutsus.isPending
+                            : items.isPending)
+                      }
+                      options={
+                        (drop.type === "package"
+                          ? packages.data?.packages
+                          : drop.type === "jutsu"
+                            ? jutsus.data
+                            : drop.type === "cache"
+                              ? items.data?.filter((item) => item.isCache)
+                              : items.data
+                        )?.map((entry) => ({ value: entry.id, label: entry.name })) ??
+                        []
+                      }
+                      onChange={(value) => {
                         const drops = [...content.rewards.drops];
-                        drops[i] = { ...drop, id: e.target.value };
+                        drops[i] = { ...drop, id: value, package: undefined };
                         patch({ rewards: { ...content.rewards, drops } });
                       }}
-                    >
-                      <option value="">Select reward</option>
-                      {(drop.type === "item" ? items.data : jutsus.data)?.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                     <Field label="Chance (%)">
                       <NumberInput
                         aria-label={`Drop ${i + 1} chance (%)`}
@@ -560,6 +642,21 @@ export default function DungeonEditor() {
                         onValueChange={(value) => {
                           const drops = [...content.rewards.drops];
                           drops[i] = { ...drop, chance: value };
+                          patch({ rewards: { ...content.rewards, drops } });
+                        }}
+                      />
+                    </Field>
+                    <Field label="Quantity">
+                      <NumberInput
+                        aria-label={`Drop ${i + 1} quantity`}
+                        className="w-20"
+                        min={1}
+                        max={drop.type === "jutsu" ? 1 : DUNGEON_MAX_REWARD_QUANTITY}
+                        disabled={drop.type === "jutsu"}
+                        value={drop.quantity}
+                        onValueChange={(value) => {
+                          const drops = [...content.rewards.drops];
+                          drops[i] = { ...drop, quantity: value };
                           patch({ rewards: { ...content.rewards, drops } });
                         }}
                       />
@@ -580,17 +677,27 @@ export default function DungeonEditor() {
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </Button>
+                    {drop.type === "package" && drop.id && (
+                      <p className="col-span-full text-muted-foreground text-xs">
+                        Per package:{" "}
+                        {getRewardPreview(
+                          packages.data?.packages.find((pack) => pack.id === drop.id)
+                            ?.rewards ?? drop.package?.rewards,
+                        )}
+                      </p>
+                    )}
                   </div>
                 ))}
                 <Button
                   variant="secondary"
+                  disabled={content.rewards.drops.length >= DUNGEON_MAX_DROPS}
                   onClick={() =>
                     patch({
                       rewards: {
                         ...content.rewards,
                         drops: [
                           ...content.rewards.drops,
-                          { type: "item", id: "", chance: 100 },
+                          { type: "item", id: "", chance: 100, quantity: 1 },
                         ],
                       },
                     })
@@ -649,3 +756,42 @@ const newDungeon = (): DungeonContent => ({
   tiers: normalizeRooms([newTier()]),
   rewards: { money: 0, experience: 0, tokens: 0, prestige: 0, drops: [] },
 });
+
+/** Repeated template IDs are the combat format; quantities are an editor view of those IDs. */
+const groupEnemies = (ids: string[]) => {
+  const groups: { ai: string; quantity: number }[] = [];
+  for (const ai of ids) {
+    const group = groups.find((entry) => entry.ai === ai);
+    if (group) group.quantity++;
+    else groups.push({ ai, quantity: 1 });
+  }
+  return groups;
+};
+
+/** Keep invalid number drafts visible without expanding them into combat's ID arrays. */
+const EnemyQuantity = ({
+  label,
+  quantity,
+  max,
+  onChange,
+}: {
+  label: string;
+  quantity: number;
+  max: number;
+  onChange: (value: number) => void;
+}) => {
+  const [draft, setDraft] = useState({ source: quantity, value: quantity });
+  return (
+    <NumberInput
+      aria-label={label}
+      className="w-20"
+      min={1}
+      max={max}
+      value={draft.source === quantity ? draft.value : quantity}
+      onValueChange={(value) => {
+        setDraft({ source: quantity, value });
+        if (Number.isInteger(value) && value >= 1 && value <= max) onChange(value);
+      }}
+    />
+  );
+};

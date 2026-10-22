@@ -322,6 +322,11 @@ export const itemRouter = createTRPCRouter({
       });
       return items.map(({ bloodlineId, effects, ...entry }) => ({
         ...entry,
+        isCache: effects.some(
+          (effect) =>
+            effect.type === "noncombatconsumereward" &&
+            effect.rewardMode === "weightedCache",
+        ),
         isRestrictedCacheReward: isRestrictedCacheReward({ bloodlineId, effects }),
       }));
     }),
