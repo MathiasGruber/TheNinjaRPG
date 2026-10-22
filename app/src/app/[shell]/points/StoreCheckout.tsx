@@ -5,6 +5,7 @@ import { PayPalButtons, usePayPalScriptReducer } from "@paypal/react-paypal-js";
 import { useState } from "react";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
+import { STORE_ORDER_RESERVATION_MINUTES } from "@/drizzle/constants";
 import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
 import type { storeCheckoutSchema } from "@/validators/points";
@@ -92,7 +93,7 @@ export function StoreCheckout({
           }}
           onCancel={() =>
             setMessage(
-              "Checkout cancelled. No purchase was delivered. Any reserved monthly allowance is released within 30 minutes.",
+              `Checkout cancelled. No purchase was delivered. Any reserved monthly allowance is released within ${STORE_ORDER_RESERVATION_MINUTES} minutes.`,
             )
           }
           onError={() =>

@@ -4,6 +4,7 @@ import {
   STORE_BUNDLE_MAX_PRICE_CENTS,
   STORE_BUNDLE_MAX_QUANTITY,
   STORE_BUNDLE_MAX_RYO,
+  STORE_BUNDLE_MIN_PRICE_CENTS,
   WEB_REP_MAX,
   WEB_REP_MIN,
 } from "@/drizzle/constants";
@@ -51,7 +52,11 @@ export const storeContentsSchema = z
 export const storeBundleSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1000),
-  priceCents: z.number().int().min(100).max(STORE_BUNDLE_MAX_PRICE_CENTS),
+  priceCents: z
+    .number()
+    .int()
+    .min(STORE_BUNDLE_MIN_PRICE_CENTS)
+    .max(STORE_BUNDLE_MAX_PRICE_CENTS),
   isActive: z.boolean(),
   contents: storeContentsSchema,
 });

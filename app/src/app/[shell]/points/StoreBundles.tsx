@@ -29,6 +29,7 @@ import {
   STORE_BUNDLE_MAX_PRICE_CENTS,
   STORE_BUNDLE_MAX_QUANTITY,
   STORE_BUNDLE_MAX_RYO,
+  STORE_BUNDLE_MIN_PRICE_CENTS,
   WEB_REP_MAX,
 } from "@/drizzle/constants";
 import BanInfo from "@/layout/BanInfo";
@@ -100,7 +101,7 @@ export function StoreBundles() {
                 data: {
                   name: "",
                   description: "",
-                  priceCents: 100,
+                  priceCents: STORE_BUNDLE_MIN_PRICE_CENTS,
                   isActive: false,
                   contents: { reputationPoints: 0, money: 0, items: [] },
                 },
@@ -165,7 +166,7 @@ export function StoreBundles() {
                     Price (USD)
                     <NumberInput
                       id="bundle-price"
-                      min={1}
+                      min={STORE_BUNDLE_MIN_PRICE_CENTS / 100}
                       max={STORE_BUNDLE_MAX_PRICE_CENTS / 100}
                       step="0.01"
                       value={editing.data.priceCents / 100}
