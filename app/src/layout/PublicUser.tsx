@@ -72,14 +72,15 @@ import {
 import {
   type BattleType,
   BattleTypes,
+  ELITE_JONIN_BRACKET,
   IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
+  MAX_PVP_BRACKET,
   PET_MAX_GENERATION_ATTEMPTS,
   RANKS_RESTRICTED_FROM_PVP,
   SEICHI_SILVER_ADJUST_LIMIT,
   TrainingSpeeds,
   type UserStatus,
-  XP_BRACKETS,
 } from "@/drizzle/constants";
 import type { Badge, Jutsu, UserBadge, UserRank } from "@/drizzle/schema";
 import { useUserEditForm } from "@/hooks/profile";
@@ -1528,7 +1529,7 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
             <p>Experience: {profile.experience}</p>
             <p>
               PvP Bracket: {getExpBracket(profile.experience, profile.rank)}/
-              {XP_BRACKETS.length}
+              {MAX_PVP_BRACKET}
             </p>
             {canSeeSecrets && <p>Unclaimed Exp: {visibleEarnedExperience}</p>}
             <p>Experience for lvl: ---</p>
@@ -4825,6 +4826,14 @@ const BracketEligibilityBadge: React.FC<BracketEligibilityBadgeProps> = ({
       <p className="font-medium text-green-600 text-sm">
         ✓ Bracket-eligible (they are in your bracket, one below, or higher — server-side
         checks still apply)
+      </p>
+    );
+  }
+  if (viewerRank === "ELITE JONIN" || targetRank === "ELITE JONIN") {
+    return (
+      <p className="font-medium text-red-500 text-sm">
+        ✗ Protected (Elite Jonin can only fight brackets {ELITE_JONIN_BRACKET - 1} and{" "}
+        {ELITE_JONIN_BRACKET})
       </p>
     );
   }

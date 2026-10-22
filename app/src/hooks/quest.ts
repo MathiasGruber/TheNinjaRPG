@@ -175,6 +175,8 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
           reward_clanpoints: data.reward_clanpoints,
           reward_anbupoints: data.reward_anbupoints,
           reward_exp: data.reward_exp,
+          reward_level: data.reward_level,
+          reward_stats: data.reward_stats,
           reward_medical_experience: data.reward_medical_experience,
           reward_hunting_experience: data.reward_hunting_experience,
           reward_crafting_experience: data.reward_crafting_experience,
@@ -467,6 +469,16 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   formData.push({ id: "reward_clanpoints", type: "number" });
   formData.push({ id: "reward_anbupoints", type: "number" });
   formData.push({ id: "reward_exp", type: "number" });
+  formData.push({
+    id: "reward_level",
+    type: "number",
+    label: "Elite Jonin Milestone Level (0 disables)",
+  });
+  formData.push({
+    id: "reward_stats",
+    type: "number",
+    label: "Milestone Gain per Combat Stat",
+  });
   formData.push({ id: "reward_tokens", type: "number" });
   formData.push({ id: "reward_prestige", type: "number" });
   formData.push({

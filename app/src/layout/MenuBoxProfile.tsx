@@ -40,6 +40,7 @@ import type {
 import {
   DIFFUSE_MAX_PERCENTAGE,
   DISCORD_INVITE_URL,
+  ELITE_JONIN_BRACKET,
   ERRANDS_PER_DAY,
   IMG_ICON_DISCORD,
   IMG_ICON_FACEBOOK,
@@ -48,11 +49,13 @@ import {
   IMG_ICON_TIKTOK,
   IMG_ICON_TWITTER,
   IMG_ICON_YOUTUBE,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
+  MAX_PVP_BRACKET,
   MasteryQueueKinds,
   MEDICAL_MISSIONS_PER_DAY,
   MISSIONS_PER_DAY,
   PVP_MISSIONS_PER_DAY,
-  XP_BRACKETS,
 } from "@/drizzle/constants";
 import { useLocalStorage } from "@/hooks/localstorage";
 import { useEffectivePools } from "@/hooks/useEffectivePools";
@@ -329,11 +332,16 @@ const MenuBoxProfile: React.FC = () => {
               total={userData?.maxEnergy}
               timeDiff={timeDiff}
             />
-            {expRequired &&
-            expForNextLevel &&
-            expTowardsNextLevel &&
-            expNeededForNextLevel &&
-            expTowardsNextLevel >= expNeededForNextLevel ? (
+            {userData?.rank === "ELITE JONIN" ? (
+              <Link href="/academy" className="block text-center text-sm underline">
+                Milestones: {Math.max(0, userData.level - MAX_EXPERIENCE_LEVEL)}/
+                {MAX_PLAYER_LEVEL - MAX_EXPERIENCE_LEVEL}
+              </Link>
+            ) : expRequired &&
+              expForNextLevel &&
+              expTowardsNextLevel &&
+              expNeededForNextLevel &&
+              expTowardsNextLevel >= expNeededForNextLevel ? (
               <LevelUpBtn />
             ) : (
               <StatusBar
@@ -373,14 +381,27 @@ const MenuBoxProfile: React.FC = () => {
                   <p className="cursor-default">
                     <b>Bracket: </b>
                     {getExpBracket(userData.experience, userData.rank)}/
-                    {XP_BRACKETS.length}
+                    {MAX_PVP_BRACKET}
                   </p>
                 </TooltipTrigger>
                 <TooltipContent>
-                  PvP bracket based on experience (Academy & Genin are bracket 0). You
-                  can freely attack players in your bracket, one bracket below, or
-                  higher. Players more than one bracket below are protected unless their
-                  immunity is lifted or both sides are active war participants.
+                  {userData.rank === "ELITE JONIN" ? (
+                    <>
+                      Elite Jonin use bracket {ELITE_JONIN_BRACKET}. Your fights are
+                      limited to brackets {ELITE_JONIN_BRACKET - 1} and{" "}
+                      {ELITE_JONIN_BRACKET}, including during wars or when immunity is
+                      lifted.
+                    </>
+                  ) : (
+                    <>
+                      PvP bracket based on experience (Academy & Genin are bracket 0).
+                      You can freely attack players in your bracket, one bracket below,
+                      or higher. Attacking Elite Jonin requires bracket{" "}
+                      {ELITE_JONIN_BRACKET - 1} or {ELITE_JONIN_BRACKET}. Other players
+                      more than one bracket below are protected unless their immunity is
+                      lifted or both sides are active war participants.
+                    </>
+                  )}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

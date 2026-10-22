@@ -31,12 +31,12 @@ import {
   IMG_SECTOR_ATTACK,
   IMG_SECTOR_INFO,
   IMG_SECTOR_ROB,
+  MAX_PVP_BRACKET,
   MEDNIN_MIN_RANK,
   RANKS_RESTRICTED_FROM_PVP,
   STRUCTURE_ADJACENTS,
   TERMINAL_DIALOG_PREFIX,
   WAR_SHRINE_IMAGE_BY_BIOME,
-  XP_BRACKETS,
 } from "@/drizzle/constants";
 import type { UserData, VillageStructure } from "@/drizzle/schema";
 import { useDayNightMapOverlays } from "@/hooks/day-night-overlay";
@@ -67,7 +67,7 @@ import {
   isArrivalPromptStale,
   resolveArrivalPromptCta,
 } from "@/libs/overworldAi";
-import { calcLevel, getExpBracket, getScoutingUsers } from "@/libs/profile";
+import { getEffectiveLevel, getExpBracket, getScoutingUsers } from "@/libs/profile";
 import {
   GATHERING_CANCEL_PREFIX,
   getBoundObjectiveCandidates,
@@ -3439,9 +3439,19 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           const isPvpRestrictedRank = RANKS_RESTRICTED_FROM_PVP.includes(user.rank);
           const showAttack = !isPvpRestrictedRank && (props.allyAttack || !isAlly);
           const showRob = !isPvpRestrictedRank && sameHex && userData.isOutlaw;
+          // Elite rank/level remain known when a partial map update omits experience.
           const userBracket =
-            user.experience == null ? null : getExpBracket(user.experience, user.rank);
-          const userLevel = user.experience == null ? null : calcLevel(user.experience);
+            user.rank === "ELITE JONIN"
+              ? MAX_PVP_BRACKET
+              : user.experience == null
+                ? null
+                : getExpBracket(user.experience, user.rank);
+          const userLevel =
+            user.rank === "ELITE JONIN"
+              ? user.level
+              : user.experience == null
+                ? null
+                : getEffectiveLevel({ ...user, experience: user.experience });
 
           // Show user
           return (
@@ -3526,7 +3536,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
               <p>{user.username}</p>
               <p className="text-xs">
                 Lvl. {userLevel ?? "?"} · Bracket{" "}
-                {userBracket == null ? "?" : `${userBracket}/${XP_BRACKETS.length}`} [
+                {userBracket == null ? "?" : `${userBracket}/${MAX_PVP_BRACKET}`} [
                 {user.longitude}, {user.latitude}]
               </p>
               <p style={{ color: villageColor }} className="font-bold">
@@ -3542,7 +3552,7 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
           id="value"
           default={-1}
           min={-1}
-          max={XP_BRACKETS.length}
+          max={MAX_PVP_BRACKET}
           unit="bracket"
           label="Select bracket to show"
           register={register}

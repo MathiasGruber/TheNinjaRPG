@@ -274,6 +274,10 @@ export const Reward: React.FC<RewardProps> = (props) => {
   if (info?.reward_anbupoints) {
     rewards += `${rewards ? ", " : ""} ${info.reward_anbupoints} Anbu Points`;
   }
+  if (info?.reward_level)
+    rewards += `${rewards ? ", " : ""} Level ${info.reward_level}`;
+  if (info?.reward_stats)
+    rewards += `${rewards ? ", " : ""} +${info.reward_stats} to each combat stat (up to rank caps)`;
   if (info?.reward_exp) {
     rewards += `${rewards ? ", " : ""} ${info.reward_exp} Exp`;
   }

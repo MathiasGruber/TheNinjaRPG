@@ -15,6 +15,8 @@ import {
   IMG_MISSION_PVP,
   IMG_MISSION_S,
   type LetterRank,
+  MAX_EXPERIENCE_LEVEL,
+  MAX_PLAYER_LEVEL,
   type MasteryType,
   MEDICAL_MISSIONS_PER_DAY,
   type MEDNIN_RANK,
@@ -44,6 +46,7 @@ import type {
   UserQuest,
 } from "@/drizzle/schema";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
+import { eliteJoninMilestoneBlockMessage } from "@/libs/eliteJonin";
 import { getFarmingLevel } from "@/libs/farming";
 import { getGatheringRank } from "@/libs/gathering";
 import { calcMedninRank } from "@/libs/hospital";
@@ -64,6 +67,7 @@ import {
   isSupportedOverworldBindingTask,
   pickPlaceableSector,
 } from "@/libs/overworldAi";
+import { eliteJoninExamBlockMessage } from "@/libs/profile";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import { recordPartyContributions } from "@/libs/questParty";
 import {
@@ -108,7 +112,6 @@ import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import type { ObjectiveRewardType, PendingRewardChoice } from "@/validators/rewards";
 import {
   MASTERY_EXPERIENCE_FIELDS,
-  ObjectiveReward,
   type PostProcessedRewards,
   REWARD_CHOICE_AMOUNT_FIELDS,
 } from "@/validators/rewards";
@@ -391,7 +394,7 @@ export const getReward = (
   completionOnly = false,
 ) => {
   // Derived
-  let rawRewards = ObjectiveReward.parse({});
+  let rawRewards: QuestRewardType = QuestReward.parse({});
   // Completion reward of a "choose" quest, offered as cards instead of granted outright.
   let choiceRewards: QuestRewardType | null = null;
   let rewardChoice: PendingRewardChoice | null = null;
@@ -632,6 +635,14 @@ export const getReward = (
         };
       }
     }
+  }
+  // Milestone fields are completion-only and must survive ordinary package aggregation.
+  if (resolved && userQuest && !isCompletedHelper) {
+    rawRewards = {
+      ...rawRewards,
+      reward_level: userQuest.quest.content.reward.reward_level,
+      reward_stats: userQuest.quest.content.reward.reward_stats,
+    };
   }
   // Final rewards (some need a bit pose-processing)
   const rewards = postProcessRewards(rawRewards);
@@ -2212,6 +2223,18 @@ export const controlShownQuestLocationInformation = (
 };
 
 /**
+ * Extend only legacy quests capped at the XP ceiling; milestone and other explicit caps
+ * retain their authored level bounds.
+ */
+export const getQuestMaxLevel = (quest: {
+  maxLevel: number;
+  content?: { reward?: { reward_level?: number } } | null;
+}) =>
+  quest.maxLevel === MAX_EXPERIENCE_LEVEL && !quest.content?.reward?.reward_level
+    ? MAX_PLAYER_LEVEL
+    : quest.maxLevel;
+
+/**
  * Checks whether a quest is currently available to a user, including sage mode
  * (`requiredSageModeId`) and minimum sage mastery rank (`requiredSageRank`).
  *
@@ -2325,6 +2348,25 @@ export const isAvailableUserQuests = (
       promotion.reward_mastery_stat,
       promotion.reward_mastery_rank,
     );
+  // Any possible promotion path must satisfy the exam, including objectives and choices.
+  const hasEliteExamReward =
+    promotion?.reward_rank === "ELITE JONIN" ||
+    completionReward?.reward_packages?.some(
+      (pack) => pack.rewards.reward_rank === "ELITE JONIN",
+    ) ||
+    questAndUserQuestInfo.content?.objectives?.some(
+      (objective) =>
+        objective.reward_rank === "ELITE JONIN" ||
+        objective.reward_packages?.some(
+          (pack) => pack.rewards.reward_rank === "ELITE JONIN",
+        ),
+    );
+  const examBlock = hasEliteExamReward
+    ? eliteJoninExamBlockMessage(baseMasteries)
+    : null;
+  const milestoneBlock = completionReward?.reward_level
+    ? eliteJoninMilestoneBlockMessage(user, completionReward.reward_level)
+    : null;
   // Checks
   const now = new Date();
   const hideCheck = !questAndUserQuestInfo.hidden || canPlayHiddenQuests(user.role);
@@ -2368,7 +2410,12 @@ export const isAvailableUserQuests = (
   const levelCheck =
     (!questAndUserQuestInfo.requiredLevel ||
       userLevel >= questAndUserQuestInfo.requiredLevel) &&
-    (!questAndUserQuestInfo.maxLevel || userLevel <= questAndUserQuestInfo.maxLevel);
+    (!questAndUserQuestInfo.maxLevel ||
+      userLevel <=
+        getQuestMaxLevel({
+          maxLevel: questAndUserQuestInfo.maxLevel,
+          content: questAndUserQuestInfo.content,
+        }));
 
   // Lifetime completion cap. Period-capped quests (retryDelay != "none") are gated solely by
   // periodCapCheck below; applying the lifetime cap to them as well would permanently block a
@@ -2418,6 +2465,8 @@ export const isAvailableUserQuests = (
     sageRankCheck &&
     masteryCheck &&
     promotionCheck &&
+    !examBlock &&
+    !milestoneBlock &&
     prerequisiteCheck &&
     medicalRankCheck &&
     huntingRankCheck &&
@@ -2441,6 +2490,8 @@ export const isAvailableUserQuests = (
     message +=
       "Quest requires more earned mastery (equipment and bloodline bonuses do not count)\n";
   if (!promotionCheck) message += "Quest requires the previous mastery rank\n";
+  if (examBlock) message += `${examBlock}\n`;
+  if (milestoneBlock) message += `${milestoneBlock}\n`;
   if (!prerequisiteCheck) message += "You must complete the prerequisite quest first\n";
   if (!medicalRankCheck)
     message += `Quest requires medical rank ${capitalizeFirstLetter(questMedRank ?? "NONE")}\n`;

@@ -6,6 +6,7 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  MAX_PLAYER_LEVEL,
   RANKED_DIVISIONS,
   RANKED_ENTRY_COST,
   RANKED_LOADOUT_MAX_CONSUMABLES,
@@ -220,7 +221,7 @@ export const RankedArenaMain: React.FC = () => {
     <div className="flex flex-col items-center gap-4 p-3">
       <p className="text-muted-foreground text-sm">
         Queue for ranked PvP battles! You will be matched with players of similar LP.
-        All battles are fought with level 100 characters with max stats.
+        All battles are fought with level {MAX_PLAYER_LEVEL} characters with max stats.
       </p>
       <div className="text-muted-foreground text-sm">
         <p className="mb-1 font-medium">Rank Requirements:</p>

@@ -313,6 +313,9 @@ export const buildObjectiveEdges = (
 export const getRewardArray = (reward?: QuestRewardType) => {
   const rewards: string[] = [];
   if (!reward) return rewards;
+  if (reward.reward_level) rewards.push(`level ${reward.reward_level}`);
+  if (reward.reward_stats)
+    rewards.push(`+${reward.reward_stats} to each combat stat (up to rank caps)`);
   const questReward = collapseRewards([
     ObjectiveReward.parse(reward),
     ...(reward.reward_packages ?? []).map((pack) => pack.rewards),

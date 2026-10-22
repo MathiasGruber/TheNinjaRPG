@@ -23,6 +23,7 @@ import type { QuestType, UserRole } from "@/drizzle/constants";
 import {
   ENERGY_QUEST_REWARDS,
   FARM_ACTIVITY_REWARD_TIME_REDUCTION_SECONDS,
+  getUserCaps,
   IMG_AVATAR_DEFAULT,
   LetterRanks,
   MAX_SKILL_POINTS,
@@ -77,6 +78,10 @@ import {
   editedReason,
   outdateProposalsFor,
 } from "@/libs/contentReview/outdate";
+import {
+  eliteJoninMilestoneBlockMessage,
+  eliteJoninMilestoneUpdate,
+} from "@/libs/eliteJonin";
 import { getFarmingLevel, qualifiesForFarmActivityReward } from "@/libs/farming";
 import { getGatheringItemDrops } from "@/libs/gathering";
 import { getHuntingItemDrops } from "@/libs/hunting";
@@ -94,6 +99,7 @@ import {
   isPetTaskContract,
   petTaskDispatchBlockMessage,
 } from "@/libs/pets/tasks";
+import { eliteJoninExamBlockMessage } from "@/libs/profile";
 import { boostPvpGain, boostPvpRewards, getPvpBoost } from "@/libs/pvpExperience";
 import type { GetRewardResult, QuestConsequence } from "@/libs/quest";
 import {
@@ -183,7 +189,10 @@ import {
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
 import { hydrateQuestCollections } from "@/server/utils/questCollections";
-import { fetchQuestDiscoveryCandidates } from "@/server/utils/questDiscovery";
+import {
+  fetchQuestDiscoveryCandidates,
+  questLevelFilters,
+} from "@/server/utils/questDiscovery";
 import {
   fetchQuestEntryInventory,
   getQuestEntryCharges,
@@ -305,12 +314,7 @@ export const questsRouter = createTRPCRouter({
               ? [eq(quest.requiredBloodlineId, input.bloodline)]
               : []),
             ...(input?.sageMode ? [eq(quest.requiredSageModeId, input.sageMode)] : []),
-            ...(input?.userLevel
-              ? [
-                  gte(quest.maxLevel, input.userLevel),
-                  lte(quest.requiredLevel, input.userLevel),
-                ]
-              : []),
+            ...(input?.userLevel ? [...questLevelFilters(input.userLevel)] : []),
             ...(input?.hidden !== undefined ? [eq(quest.hidden, !!input.hidden)] : []),
           ),
           offset: skip,
@@ -544,9 +548,8 @@ export const questsRouter = createTRPCRouter({
             and(
               eq(quest.questType, input.type),
               eq(quest.questRank, input.rank),
-              lte(quest.requiredLevel, input.userLevel),
+              ...questLevelFilters(input.userLevel),
               lte(quest.requiredFarmingLevel, getFarmingLevel(user.farmingExperience)),
-              gte(quest.maxLevel, input.userLevel),
               or(isNull(quest.startsAt), lte(quest.startsAt, new Date().toISOString())),
               or(isNull(quest.endsAt), gte(quest.endsAt, new Date().toISOString())),
               or(
@@ -1782,6 +1785,12 @@ export const questsRouter = createTRPCRouter({
       const unavailable = getUnavailableRewardCards(offer.data.cards, ownership);
       const picks = validateRewardPicks(offer.data, input.cardIds, unavailable);
       if (!picks.success) return errorResponse(picks.message);
+      const pickedRewards = rewardFromChoiceCards(picks.cards);
+      const examBlock =
+        pickedRewards.reward_rank === "ELITE JONIN"
+          ? eliteJoninExamBlockMessage(user)
+          : null;
+      if (examBlock) return errorResponse(examBlock);
       // Consume exactly the offer that was validated; a parallel claim or a newer offer
       // leaves zero rows affected, so the picked rewards are granted at most once.
       const consumed = await ctx.drizzle
@@ -2861,8 +2870,7 @@ export const fetchUncompletedQuests = async (
     .where(
       and(
         eq(quest.questType, type),
-        gte(quest.maxLevel, user.level),
-        lte(quest.requiredLevel, user.level),
+        ...questLevelFilters(user.level),
         ...(type === "daily"
           ? []
           : [lte(quest.requiredFarmingLevel, getFarmingLevel(user.farmingExperience))]),
@@ -3979,6 +3987,8 @@ type CommitQuestObjectiveRewardsResult =
  *      CAS if its account snapshot claim loses.
  *   3. Restoring the full trackers, the sensei +ryo mission bonus, the tier-bootstrap /
  *      repeatable-achievement re-arm prep, and `updateRewards` (run together).
+ * Milestone fields join the guarded account UPDATE so competing quests cannot grant the
+ * same level. They are not delivered separately in the ordinary post-claim reward payout.
  * Returns a discriminated outcome; the raw bytes of the reward names are mapped onto
  * `rewards` so callers can render them directly.
  */
@@ -4022,6 +4032,18 @@ export const commitQuestObjectiveRewards = async (info: {
     consequences,
   } = info;
   const petTask = info.petTask;
+  const milestoneLevel = resolved ? rewards.reward_level : undefined;
+  // Validate before claiming history or delivering any objective or completion rewards.
+  if (
+    (milestoneLevel &&
+      (eliteJoninMilestoneBlockMessage(user, milestoneLevel) ||
+        !(rewards.reward_stats && rewards.reward_stats > 0))) ||
+    (rewards.reward_rank === "ELITE JONIN" && eliteJoninExamBlockMessage(user))
+  )
+    return { outcome: "state_changed" };
+  const milestonePatch = milestoneLevel
+    ? eliteJoninMilestoneUpdate(user, milestoneLevel, rewards.reward_stats ?? 0)
+    : undefined;
   if (user.petTask && user.petTask.questId === userQuest?.questId && !petTask)
     return { outcome: "state_changed" };
   if (
@@ -4098,9 +4120,22 @@ export const commitQuestObjectiveRewards = async (info: {
       getPvpBoost(sensei ?? {}, pvpAverage ? [pvpAverage] : []).totalPercent,
     ),
   );
+  if (milestonePatch) {
+    // Evaluate level-driven trackers against pending progression, then commit them together.
+    const progress = getNewTrackers(
+      { ...user, ...milestonePatch, questData: trackers },
+      [{ task: "user_level", value: milestonePatch.level }],
+    );
+    trackers.length = 0;
+    trackers.push(...progress.trackers);
+    consequences.push(...progress.consequences);
+    notifications.push(...progress.notifications);
+  }
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
+    // Progression changes pools/stats that ordinary reward deltas do not represent.
+    !milestonePatch &&
     !rewards.reward_titles?.length &&
     consequences.every((entry) => entry.type === "update_user") &&
     // Terminal isolation release is conditional on the current run at payout time.
@@ -4256,9 +4291,26 @@ export const commitQuestObjectiveRewards = async (info: {
       alwaysClaimUserState: true,
       claimUserState: claimManagedCompletion,
       partyTrackers: trackers,
+      progressionUpdate: milestonePatch,
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
         liveQuestCondition,
+        // Recheck earned progression and exam caps at the guarded account write.
+        ...(milestonePatch || rewards.reward_rank === "ELITE JONIN"
+          ? [
+              eq(userData.level, user.level),
+              eq(userData.rank, user.rank),
+              ...(rewards.reward_rank === "ELITE JONIN"
+                ? [
+                    gte(userData.offence, getUserCaps("JONIN").stats_cap),
+                    gte(userData.defence, getUserCaps("JONIN").stats_cap),
+                    ...(
+                      ["strength", "speed", "intelligence", "willpower"] as const
+                    ).map((stat) => gte(userData[stat], getUserCaps("JONIN").gens_cap)),
+                  ]
+                : []),
+            ]
+          : []),
         ...(isolatedRun && !petTask
           ? [
               eq(userData.status, "BATTLE"),
@@ -4296,6 +4348,11 @@ export const commitQuestObjectiveRewards = async (info: {
     return { outcome: "state_changed" };
   }
   if (petTask) user.petTask = null;
+  if (milestonePatch) {
+    postNotifications.push(
+      `Milestone complete: level ${milestonePatch.level}, +${rewards.reward_stats} to each combat stat (up to rank caps).`,
+    );
+  }
 
   const changedQuestAssignments = await runCheckRewardsPrepInParallel(
     client,
@@ -4759,6 +4816,8 @@ export const handleQuestConsequences = async (
     /** Isolated terminal runs claim history and the account in one joined statement. */
     claimUserState?: typeof claimUserSnapshot;
     partyTrackers?: QuestTrackerType[];
+    /** Progression fields committed in the same CAS as the completed objectives. */
+    progressionUpdate?: ReturnType<typeof eliteJoninMilestoneUpdate>;
     /** Conditions that must still hold when the reward/consequence snapshot is claimed. */
     claimConditions?: QueryCondition[];
     /** Roll the active objectives' ambush attackers; only the travel movement check sets it. */
@@ -4876,11 +4935,14 @@ export const handleQuestConsequences = async (
         ...(user.questParty ? [eq(userData.questPartyId, user.questParty.id)] : []),
       ],
       set: {
+        ...options?.progressionUpdate,
         questData: filterQuestTrackersForDbPersist(user.questData ?? [], user),
       },
     });
 
     if (claimResult.success) {
+      // Consequences may unlock a quest or start combat that needs the committed level.
+      if (options?.progressionUpdate) Object.assign(user, options.progressionUpdate);
       try {
         if (
           resetQuests.some((reset) =>

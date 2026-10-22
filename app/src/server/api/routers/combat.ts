@@ -39,6 +39,7 @@ import {
   CombatStatNames,
   DUNGEON_PARTY_SIZE,
   ELEMENTAL_MASTERY_BOOST,
+  ELITE_JONIN_BRACKET,
   HUNTING_REQUIRED_EXP,
   KAGE_DEFENSE_GRACE_MINUTES,
   KAGE_MIN_DAYS_IN_VILLAGE,
@@ -46,6 +47,7 @@ import {
   MAP_RESERVED_SECTORS,
   MAP_WAKE_ISLAND_SECTOR,
   MAP_WAR_TORN_BATTLEGROUND_SECTOR,
+  MAX_PLAYER_LEVEL,
   ManualStartBattleTypes,
   MasteryNames,
   NonActionItemTypes,
@@ -195,12 +197,12 @@ import {
   calcActiveUserRegen,
   calcCP,
   calcHP,
-  calcLevel,
   calcLevelRequirements,
   calcMaxEnergy,
   calcSP,
   canAttackBracket,
   capUserStats,
+  getEffectiveLevel,
   getExpBracket,
   manuallyAssignUserStats,
   scaleUserStats,
@@ -2853,8 +2855,7 @@ export const initiateBattle = async (
     }
   }
 
-  // Battle-global setup for the per-attacker XP bracket guard below. These do not depend on which
-  // attacker is being evaluated, so they are derived once instead of re-derived per loop iteration.
+  // Team bracket eligibility uses the initiating player; village and activity guards still apply to every member.
   const now = new Date();
   const nonAiTargets = users.filter((u) => targetIds.includes(u.userId) && !u.isAi);
 
@@ -2940,7 +2941,23 @@ export const initiateBattle = async (
 
     // XP Bracket restrictions — same bracket, higher, or one below; immunity lift and war exemptions
     if (battleType === "COMBAT" && userIds.includes(user.userId)) {
-      // War-Torn sector is a free-for-all — skip all village and bracket restrictions
+      // Elite bracket limits remain absolute before war-zone, war and immunity exemptions.
+      const eliteMismatch =
+        user.userId === userIds[0] &&
+        nonAiTargets.find(
+          (target) =>
+            (user.rank === "ELITE JONIN" || target.rank === "ELITE JONIN") &&
+            !canAttackBracket(
+              getExpBracket(user.experience, user.rank),
+              getExpBracket(target.experience, target.rank),
+            ),
+        );
+      if (eliteMismatch)
+        return {
+          success: false,
+          message: `Elite Jonin can only fight players in brackets ${ELITE_JONIN_BRACKET - 1} and ${ELITE_JONIN_BRACKET}.`,
+        };
+      // War-Torn sectors skip ordinary village and XP bracket restrictions.
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
       if (!isInWarTornSector) {
         // Guard 1: Cannot attack members of your own village
@@ -2973,10 +2990,16 @@ export const initiateBattle = async (
         // attackers may hit same bracket, higher, or one below (without exemption).
         // Lower-bracket players may freely attack higher-bracket players.
         // Academy/Genin remain blocked by the rank restrictions above.
-        const crossBracketTargets = nonAiTargets.filter(
-          (t) =>
-            !canAttackBracket(attackerBracket, getExpBracket(t.experience, t.rank)),
-        );
+        const crossBracketTargets =
+          user.userId === userIds[0]
+            ? nonAiTargets.filter(
+                (t) =>
+                  !canAttackBracket(
+                    attackerBracket,
+                    getExpBracket(t.experience, t.rank),
+                  ),
+              )
+            : [];
 
         if (crossBracketTargets.length > 0) {
           const attackerIsWarParticipant = user.warParticipantUntil > now;
@@ -4204,6 +4227,7 @@ export const initiateBattle = async (
  * callers may use `leftSideUserIds` instead. Spawn cells are allocated without reuse;
  * initiation validates capacity before calling this function.
  * Companion species summons join initiation's preload so their effect dispatch needs no reads.
+ * Ranked players normalize to endgame levels; other Elite players retain earned milestone levels.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.
@@ -4399,19 +4423,19 @@ export const processUsersForBattle = async (
       user.curStamina = user.maxStamina;
     }
 
-    // For ranked battles, set level to 100 and normalize stats (skip for AI opponents)
+    // Ranked players use the endgame level and pools regardless of their progression.
     if (
       (battleType === "RANKED_PVP" || battleType === "RANKED_SPARRING") &&
       !user.isAi
     ) {
-      user.maxHealth = calcHP(100);
-      user.maxChakra = calcSP(100);
-      user.maxStamina = calcCP(100);
+      user.maxHealth = calcHP(MAX_PLAYER_LEVEL);
+      user.maxChakra = calcCP(MAX_PLAYER_LEVEL);
+      user.maxStamina = calcSP(MAX_PLAYER_LEVEL);
       user.curHealth = user.maxHealth;
       user.curChakra = user.maxChakra;
       user.curStamina = user.maxStamina;
-      user.level = 100;
-      user.experience = calcLevelRequirements(100);
+      user.level = MAX_PLAYER_LEVEL;
+      user.experience = calcLevelRequirements(MAX_PLAYER_LEVEL);
       user.rank = "ELITE JONIN";
       user.medicalExperience = 100000;
     }
@@ -4457,9 +4481,9 @@ export const processUsersForBattle = async (
     }
 
     // Update user level to the effective level if he had leveled up (to combat level-holding, as some things are scaled based on level)
-    // Skip for ranked battles as they have their level set to 100 in initiateBattle
+    // Ranked battles keep their normalized level.
     if (battleType !== "RANKED_SPARRING" && battleType !== "RANKED_PVP") {
-      user.level = calcLevel(user.experience);
+      user.level = getEffectiveLevel(user);
     }
 
     // Store original location

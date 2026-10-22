@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { hasReward, ObjectiveReward, rewardFields } from "@/validators/rewards";
+import {
+  hasReward,
+  milestoneRewardFields,
+  ObjectiveReward,
+  rewardFields,
+} from "@/validators/rewards";
 
 /** Existing reward keys available to custom editor groups; nodes cannot invent payout fields. */
 export const RewardField = z.enum(
@@ -40,6 +45,7 @@ export const RewardPackageSnapshot = RewardPackageValidator.extend({
 /** Quest and objective rewards share direct fields plus optional independent or catalog snapshots. */
 export const questRewardFields = {
   ...rewardFields,
+  ...milestoneRewardFields,
   reward_packages: z.array(RewardPackageSnapshot).max(50).optional(),
 };
 /** Normalize quest rewards while retaining their package snapshots. */

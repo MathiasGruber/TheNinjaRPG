@@ -2,8 +2,11 @@
 
 import { useRef } from "react";
 import { api } from "@/app/_trpc/client";
+import ContentBox from "@/layout/ContentBox";
+import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
+import { experienceAssignmentBlockMessage } from "@/libs/profile";
 import { showMutationToast } from "@/libs/toast";
 import { useRequiredUserData } from "@/utils/UserContext";
 
@@ -44,6 +47,20 @@ export default function AssignExperience() {
 
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
+  const assignmentBlock = experienceAssignmentBlockMessage(userData);
+  if (assignmentBlock)
+    return (
+      <ContentBox
+        title="Elite Jonin progression"
+        subtitle="Academy milestones"
+        defaultBackHref="/profile"
+      >
+        <p>{assignmentBlock}</p>
+        <Link href="/academy" className="underline">
+          View milestones at the academy
+        </Link>
+      </ContentBox>
+    );
 
   // Show component
   return (

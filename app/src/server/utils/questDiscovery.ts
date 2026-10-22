@@ -10,7 +10,12 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { type LetterRank, type QuestType, UserRoles } from "@/drizzle/constants";
+import {
+  type LetterRank,
+  MAX_EXPERIENCE_LEVEL,
+  type QuestType,
+  UserRoles,
+} from "@/drizzle/constants";
 import { quest, questHistory, userData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { canPlayHiddenQuests } from "@/utils/permissions";
@@ -129,6 +134,17 @@ const buildQuestDiscoveryWhere = (options: QuestDiscoveryOptions) =>
       ? or(isNull(quest.requiredVillage), eq(quest.requiredVillage, options.villageId))
       : undefined,
     options.ranks?.length ? inArray(quest.questRank, options.ranks) : undefined,
-    options.level !== undefined ? lte(quest.requiredLevel, options.level) : undefined,
-    options.level !== undefined ? gte(quest.maxLevel, options.level) : undefined,
+    ...(options.level !== undefined ? questLevelFilters(options.level) : []),
   );
+
+/**
+ * Include legacy endgame content in SQL candidates above the XP cap. The availability
+ * layer still enforces each milestone's exact level and rank requirements.
+ */
+export const questLevelFilters = (level: number) => [
+  lte(quest.requiredLevel, level),
+  or(
+    gte(quest.maxLevel, level),
+    level > MAX_EXPERIENCE_LEVEL ? eq(quest.maxLevel, MAX_EXPERIENCE_LEVEL) : undefined,
+  ),
+];

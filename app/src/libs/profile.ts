@@ -5,10 +5,12 @@ import {
   CLAN_BOOST_PERCENT_PER_LEVEL,
   CombatStatNames,
   CP_PER_LVL,
+  ELITE_JONIN_BRACKET,
   ENERGY_PER_LVL,
   getUserCaps,
   HomeTypeDetails,
   HP_PER_LVL,
+  MAX_EXPERIENCE_LEVEL,
   MAX_MASTERY_CAP,
   MasteryNames,
   PLAYER_LEVEL_XP_BASE_FACTOR,
@@ -76,6 +78,8 @@ export const levelUpBlockMessage = (
 ): string | null => {
   if (user.level >= getUserCaps(user.rank).lvl_cap)
     return "User at max level for this rank!";
+  if (user.rank === "ELITE JONIN")
+    return "Complete an Elite Jonin milestone at the academy to level up. Assigned experience cannot increase your level.";
   if (user.experience < calcLevelRequirements(user.level))
     return "Not enough experience for level";
   if (user.village?.name === "Horizon" && user.level > 9) {
@@ -87,7 +91,7 @@ export const levelUpBlockMessage = (
 /**
  * Calculate the level for a given experience
  * @param experience - the experience to calculate the level for
- * @returns the level for the given experience
+ * @returns The XP-derived level, capped at MAX_EXPERIENCE_LEVEL.
  */
 export const calcLevel = (experience: number) => {
   let level = 1;
@@ -102,15 +106,51 @@ export const calcLevel = (experience: number) => {
       level += 1;
     }
   }
-  return Math.min(level, 100);
+  return Math.min(level, MAX_EXPERIENCE_LEVEL);
+};
+
+/** Elite Jonin levels come from milestones; XP still prevents level holding for other ranks. */
+export const getEffectiveLevel = (user: {
+  level: number;
+  experience: number;
+  rank: UserRank;
+}) => (user.rank === "ELITE JONIN" ? user.level : calcLevel(user.experience));
+
+/** Exams require all six stored combat stats at the Jonin caps, without equipment bonuses. */
+export const eliteJoninExamBlockMessage = (
+  user: Pick<
+    UserData,
+    | "rank"
+    | "level"
+    | "offence"
+    | "defence"
+    | "strength"
+    | "speed"
+    | "intelligence"
+    | "willpower"
+  >,
+): string | null => {
+  if (user.rank !== "JONIN" || user.level !== MAX_EXPERIENCE_LEVEL)
+    return `The Elite Jonin exam requires level ${MAX_EXPERIENCE_LEVEL} and Jonin rank.`;
+  const caps = getUserCaps("JONIN");
+  if (
+    user.offence < caps.stats_cap ||
+    user.defence < caps.stats_cap ||
+    [user.strength, user.speed, user.intelligence, user.willpower].some(
+      (value) => value < caps.gens_cap,
+    )
+  )
+    return "Cap your offence, defence and all four generals before taking the Elite Jonin exam.";
+  return null;
 };
 
 /**
- * Returns the PvP bracket number (0–7) for a given experience value and optional rank.
+ * Returns the PvP bracket number (0–8) for a given experience value and optional rank.
  * Academy students and Genin are always bracket 0 (PvP-restricted ranks).
- * Bracket 1 covers 0–500,000 XP; Bracket 7 covers 3,000,001+ XP.
+ * Bracket 1 covers 0–500,000 XP; Bracket 7 covers 3,000,001+ XP. Elite Jonin always use 8.
  */
 export const getExpBracket = (experience: number, rank?: UserRank): number => {
+  if (rank === "ELITE JONIN") return ELITE_JONIN_BRACKET;
   if (rank && RANKS_RESTRICTED_FROM_PVP.includes(rank)) return 0;
   const xp = Math.max(0, experience);
   for (const b of XP_BRACKETS) {
@@ -120,26 +160,30 @@ export const getExpBracket = (experience: number, rank?: UserRank): number => {
 };
 
 /**
- * Whether an attacker may initiate PvP against a target based on XP brackets alone.
+ * Whether an attacker may initiate PvP against a target based on combat brackets.
  * Allowed: same bracket, higher brackets, or exactly one bracket below.
- * Academy/Genin rank locks are enforced separately via RANKS_RESTRICTED_FROM_PVP.
+ * Elite Jonin pairs require brackets 7–8. Academy/Genin locks are enforced separately.
  */
 export const canAttackBracket = (
   attackerBracket: number,
   targetBracket: number,
-): boolean => targetBracket >= attackerBracket - 1;
+): boolean =>
+  attackerBracket === ELITE_JONIN_BRACKET || targetBracket === ELITE_JONIN_BRACKET
+    ? Math.min(attackerBracket, targetBracket) >= ELITE_JONIN_BRACKET - 1
+    : targetBracket >= attackerBracket - 1;
 
 /**
  * Whether a user passes a scout/map bracket filter.
  * Matches the exact selected bracket when filterBracket >= 0;
  * use filterBracket < 0 to disable filtering entirely.
- * Unknown experience fails closed when a filter is active.
+ * Unknown XP fails closed unless Elite rank already determines the bracket.
  */
 export const passesBracketFilter = (
   user: { experience?: number | null; rank?: UserRank },
   filterBracket: number,
 ): boolean => {
   if (filterBracket < 0) return true;
+  if (user.rank === "ELITE JONIN") return filterBracket === ELITE_JONIN_BRACKET;
   if (user.experience == null) return false;
   return getExpBracket(user.experience, user.rank) === filterBracket;
 };
@@ -148,7 +192,7 @@ export const passesBracketFilter = (
 export const getScoutingUsers = <
   T extends Pick<
     SectorUser,
-    "userId" | "username" | "experience" | "rank" | "status" | "isNpc"
+    "userId" | "username" | "level" | "experience" | "rank" | "status" | "isNpc"
   >,
 >(
   users: readonly T[],
@@ -165,8 +209,18 @@ export const getScoutingUsers = <
     )
     .sort((a, b) => {
       // Partial map updates can omit XP; keep unknown levels after known levels.
-      const aLevel = a.experience == null ? Infinity : calcLevel(a.experience);
-      const bLevel = b.experience == null ? Infinity : calcLevel(b.experience);
+      const aLevel =
+        a.rank === "ELITE JONIN"
+          ? a.level
+          : a.experience == null
+            ? Infinity
+            : calcLevel(a.experience);
+      const bLevel =
+        b.rank === "ELITE JONIN"
+          ? b.level
+          : b.experience == null
+            ? Infinity
+            : calcLevel(b.experience);
       return aLevel - bLevel || a.username.localeCompare(b.username);
     });
 
@@ -311,6 +365,7 @@ export const getRedistributableStatTotal = (
  * Whether unused experience can still go anywhere on /profile/experience: one of the six
  * combat stats has rank capacity, or an assignable mastery has room under both its
  * discipline-rank cap and the shared earned total, or an eligible elemental track.
+ * Elite Jonin cannot assign XP even when their stats or masteries have capacity.
  */
 export const canAssignExperience = (
   user: Pick<
@@ -322,6 +377,7 @@ export const canAssignExperience = (
   > &
     ElementalMasterySource,
 ) => {
+  if (experienceAssignmentBlockMessage(user)) return false;
   const { stats_cap, gens_cap } = getUserCaps(user.rank);
   return (
     CombatStatNames.some(
@@ -333,6 +389,12 @@ export const canAssignExperience = (
       BasicElementName.some((element) => elementalGainRoom(user, element) > 0))
   );
 };
+
+/** Elite milestone progression forbids XP assignment while preserving earned XP. */
+export const experienceAssignmentBlockMessage = (user: Pick<UserData, "rank">) =>
+  user.rank === "ELITE JONIN"
+    ? "Elite Jonin cannot assign experience. Complete academy milestones to increase your combat stats and level."
+    : null;
 
 /** Assign stats of user, meant for the training dummy and ranked equalization */
 export function manuallyAssignUserStats(user: UserData, stats: AssignableUserStats) {

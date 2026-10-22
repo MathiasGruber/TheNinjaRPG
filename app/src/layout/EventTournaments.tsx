@@ -15,7 +15,7 @@ import {
   EVENT_TOURNAMENT_MIN_CAPACITY,
   EVENT_TOURNAMENT_READY_SECONDS,
   EVENT_TOURNAMENT_RETENTION_DAYS,
-  XP_BRACKETS,
+  MAX_PVP_BRACKET,
 } from "@/drizzle/constants";
 import { useLiveCountdown } from "@/hooks/useLiveCountdown";
 import ContentBox from "@/layout/ContentBox";
@@ -1009,7 +1009,7 @@ const defaultConfig = (): EventTournamentConfig => ({
   bestOf: 1,
   roundBestOf: [],
   minBracket: 0,
-  maxBracket: XP_BRACKETS.length,
+  maxBracket: MAX_PVP_BRACKET,
   minPvpWins: 0,
   minWinRate: 0,
   minMasteredJutsu: 0,
