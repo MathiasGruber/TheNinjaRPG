@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, item, paypalTransaction, userData, userItem, webStoreBundle, webStoreOrder, storeUserIdAlias } from "@/drizzle/schema";
+import { actionLog, item, paypalTransaction, recruitmentRewards, userData, userItem, webStoreBundle, webStoreOrder, storeUserIdAlias } from "@/drizzle/schema";
 import { staffRouter, deleteUser } from "@/server/api/routers/staff";
-import { paypalRouter } from "@/server/api/routers/paypal";
+import { paypalRouter, syncTransactions } from "@/server/api/routers/paypal";
 import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
 import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
 import { dynamicMonthlyRepCap } from "@/utils/paypal";
@@ -12,6 +12,22 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 const contents = {reputationPoints:20, money:500, items:[{id:"store-item",quantity:7}]};
 const offer = {name:"Seichi supplies", priceCents:1250, contents};
 const capture = (id:string) => ({snapshotId:id, captureId:`capture-${id}`, orderId:`provider-${id}`, invoiceId:id, currency:"USD", value:"12.50", raw:{status:"COMPLETED"}});
+const reportingTransaction = (id: string): Parameters<typeof syncTransactions>[1][number] => ({
+  transaction_info: {
+    transaction_id: capture(id).captureId,
+    transaction_initiation_date: new Date().toISOString(),
+    transaction_updated_date: new Date().toISOString(),
+    paypal_reference_id: capture(id).orderId,
+    paypal_reference_id_type: "ODR",
+    transaction_event_code: "T0006",
+    transaction_subject: offer.name,
+    transaction_amount: { currency_code: "USD", value: "12.50" },
+    transaction_status: "S",
+    custom_field: `store:${id}`,
+    invoice_id: id,
+  },
+  cart_info: { item_details: [] },
+});
 
 async function reserve() {
   const result = await reserveStoreOrder(await getTestDatabase(), "buyer", "recipient", offer);
@@ -35,7 +51,7 @@ describe("web store validation", () => {
 
 describeWithDatabase("web store payments", () => {
   beforeEach(async () => {
-    await resetTables(webStoreOrder, webStoreBundle, paypalTransaction, userItem, item, userData, actionLog, storeUserIdAlias);
+    await resetTables(webStoreOrder, webStoreBundle, paypalTransaction, recruitmentRewards, userItem, item, userData, actionLog, storeUserIdAlias);
     await insertUsers([{userId:"buyer",username:"Buyer",role:"OWNER", reputationPoints:0, money:0}, {userId:"recipient",username:"Recipient",reputationPoints:0,reputationPointsTotal:0,money:0}]);
     await insertItems([{id:"store-item",name:"Supplies",canStack:true,stackSize:3}]);
   });
@@ -56,6 +72,60 @@ describeWithDatabase("web store payments", () => {
     for (const patch of [{value:"0.01"},{currency:"EUR"},{invoiceId:"another"},{value:"12.50junk"}]) await expect(deliverStoreOrder(db,{...capture(order.id), ...patch})).rejects.toThrow("does not match");
     expect((await db.query.webStoreOrder.findFirst())?.grantedAt).toBeNull();
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+  });
+  it("skips store refunds while reconciling valid captures and retries", async () => {
+    const db = await getTestDatabase();
+    const refunded = await reserve();
+    await deliverStoreOrder(db, capture(refunded.id));
+    const paid = await reserve();
+    const pending = await reserve();
+    const refund = reportingTransaction(refunded.id);
+    Object.assign(refund.transaction_info, {
+      transaction_id: "store-refund",
+      paypal_reference_id: capture(refunded.id).captureId,
+      paypal_reference_id_type: "TXN",
+      transaction_event_code: "T1107",
+      transaction_amount: { currency_code: "USD", value: "-12.50" },
+    });
+    const incomplete = reportingTransaction(pending.id);
+    incomplete.transaction_info.transaction_status = "P";
+    const batch = [refund, reportingTransaction(paid.id), incomplete];
+    expect(await syncTransactions(db, batch, "test-only")).toEqual([
+      "Transaction ID store-refund invalid value",
+      `${offer.name} delivered`,
+    ]);
+    expect(await syncTransactions(db, batch, "test-only")).toEqual([
+      "Transaction ID store-refund invalid value",
+      "Purchase already delivered",
+    ]);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
+      reputationPoints: 40, reputationPointsTotal: 40, money: 1000,
+    });
+    const receipts = await db.query.paypalTransaction.findMany();
+    expect(receipts.map(receipt => receipt.transactionId).sort()).toEqual([
+      capture(refunded.id).captureId, capture(paid.id).captureId,
+    ].sort());
+    expect(await db.query.userItem.findMany()).toHaveLength(6);
+    expect(await db.query.recruitmentRewards.findMany()).toHaveLength(0);
+    expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, pending.id) })).toMatchObject({ grantedAt: null });
+  });
+  it("continues to skip negative legacy payments without granting rewards", async () => {
+    const db = await getTestDatabase();
+    const refund = reportingTransaction("legacy-refund");
+    Object.assign(refund.transaction_info, {
+      custom_field: "buyer-recipient",
+      transaction_event_code: "T1107",
+      transaction_amount: { currency_code: "USD", value: "-12.50" },
+    });
+    await expect(syncTransactions(db, [refund], "test-only")).resolves.toEqual([
+      "Transaction ID capture-legacy-refund invalid value",
+    ]);
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+    expect(await db.query.userItem.findMany()).toHaveLength(0);
+    expect(await db.query.recruitmentRewards.findMany()).toHaveLength(0);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
+      reputationPoints: 0, reputationPointsTotal: 0, money: 0,
+    });
   });
   it("rolls back the claim when a recipient disappears, allowing retry", async () => {
     const order = await reserve(); const db = await getTestDatabase();

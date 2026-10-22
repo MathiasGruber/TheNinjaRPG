@@ -828,6 +828,10 @@ export const syncTransactions = async (
         const info = t.transaction_info;
         const snapshotId = readStoreCustomId(info.custom_field);
         if (snapshotId) {
+          // Successful reporting events also include refunds and reversals.
+          if (parseFloat(info.transaction_amount.value ?? "") < 0) {
+            return `Transaction ID ${info.transaction_id} invalid value`;
+          }
           const result = await deliverStoreOrder(client, {
             snapshotId,
             captureId: info.transaction_id,
