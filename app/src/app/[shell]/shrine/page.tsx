@@ -234,12 +234,12 @@ export default function Shrine() {
 
   return (
     <div className="space-y-8">
-      <WarFieldActions />
       {hasNoActiveWars && (
         <ContentBox
           title={`Lvl. ${sectorData.sectorData?.shrineLevel || 1} Shrine`}
           subtitle={sectorData.sectorData ? "Sector is Claimed" : "Unclaimed Sector"}
           defaultBackHref="/travel"
+          topRightContent={<WarFieldActions />}
         >
           {canShowMpvpOption || isUserQueuedForThisSector ? (
             <Tabs defaultValue="team" className="w-full">
@@ -354,6 +354,7 @@ export default function Shrine() {
           title="Your Wars"
           subtitle={`Sector ${userData.sector}`}
           defaultBackHref="/travel"
+          topRightContent={<WarFieldActions />}
         >
           <Tabs defaultValue="solo" className="w-full">
             <TabsList className="mb-4 grid w-full grid-cols-2">
@@ -455,6 +456,7 @@ export default function Shrine() {
         <ContentBox
           title="Competing Wars"
           subtitle="Other villages trying to claim sector"
+          topRightContent={userWars.length === 0 ? <WarFieldActions /> : undefined}
         >
           <div className="divide-y">
             {competingWars.map((war) => (
