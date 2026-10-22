@@ -10,10 +10,12 @@ import {
   item,
   jutsu,
   mapAsset,
+  rewardPackage,
   userData,
 } from "@/drizzle/schema";
 import { transitionCoopParty } from "@/libs/coop";
 import { dungeonFloorAt } from "@/libs/dungeon";
+import { dungeonRewardError, rollDungeonRewards } from "@/libs/dungeonRewards";
 import { initiateBattle } from "@/routers/combat";
 import { updateRewards } from "@/routers/quests";
 import {
@@ -36,7 +38,6 @@ import {
   dungeonSectorSchema,
   saveDungeonSchema,
 } from "@/validators/dungeon";
-import { ObjectiveReward } from "@/validators/rewards";
 
 /** Party state is versioned; active membership and completion receipts guard cross-run effects. */
 export const dungeonRouter = createTRPCRouter({
@@ -175,7 +176,7 @@ export const dungeonRouter = createTRPCRouter({
       ? ctx.drizzle.query.dungeon.findMany()
       : [];
   }),
-  /** Validate referenced enemies and rewards before saving content and its audit entry. */
+  /** Validate sources and grant limits, copying approved package snapshots before saving. */
   save: protectedProcedure
     .use(ratelimitMiddleware)
     .input(saveDungeonSchema)
@@ -188,7 +189,7 @@ export const dungeonRouter = createTRPCRouter({
         ),
       ];
       const drops = input.content.rewards.drops;
-      const [user, ais, items, jutsus, entranceAsset] = await Promise.all([
+      const [user, ais, items, jutsus, entranceAsset, packages] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
           columns: { role: true },
@@ -197,13 +198,15 @@ export const dungeonRouter = createTRPCRouter({
           where: and(inArray(userData.userId, aiIds), eq(userData.isAi, true)),
           columns: { userId: true },
         }),
-        drops.some((d) => d.type === "item")
+        drops.some((d) => d.type === "item" || d.type === "cache")
           ? ctx.drizzle.query.item.findMany({
               where: inArray(
                 item.id,
-                drops.filter((d) => d.type === "item").map((d) => d.id),
+                drops
+                  .filter((d) => d.type === "item" || d.type === "cache")
+                  .map((d) => d.id),
               ),
-              columns: { id: true },
+              columns: { id: true, effects: true },
             })
           : [],
         drops.some((d) => d.type === "jutsu")
@@ -221,6 +224,14 @@ export const dungeonRouter = createTRPCRouter({
               where: eq(mapAsset.id, input.content.structureAssetId),
             })
           : null,
+        drops.some((d) => d.type === "package")
+          ? ctx.drizzle.query.rewardPackage.findMany({
+              where: inArray(
+                rewardPackage.id,
+                drops.filter((d) => d.type === "package").map((d) => d.id),
+              ),
+            })
+          : [],
       ]);
       if (!user || !canChangeContent(user.role))
         return errorResponse("You cannot edit dungeons.");
@@ -231,17 +242,59 @@ export const dungeonRouter = createTRPCRouter({
       if (
         ais.length !== aiIds.length ||
         drops.some(
-          (d) => !(d.type === "item" ? items : jutsus).some((row) => row.id === d.id),
+          (d) =>
+            !(
+              d.type === "package" ? packages : d.type === "jutsu" ? jutsus : items
+            ).some((row) => row.id === d.id),
         )
       )
         return errorResponse("An enemy or reward no longer exists.");
+      if (
+        drops.some(
+          (drop) =>
+            drop.type === "cache" &&
+            !items
+              .find((entry) => entry.id === drop.id)
+              ?.effects.some(
+                (effect) =>
+                  effect.type === "noncombatconsumereward" &&
+                  effect.rewardMode === "weightedCache",
+              ),
+        )
+      )
+        return errorResponse("Choose a weighted cache for each cache reward.");
+      // Only approved catalog data enters the snapshot, regardless of the client's payload.
+      const content = {
+        ...input.content,
+        rewards: {
+          ...input.content.rewards,
+          drops: drops.map(({ package: _snapshot, ...drop }) => {
+            const source =
+              drop.type === "package"
+                ? packages.find((entry) => entry.id === drop.id)
+                : undefined;
+            return source
+              ? {
+                  ...drop,
+                  package: {
+                    name: source.name,
+                    description: source.description,
+                    rewards: source.rewards,
+                  },
+                }
+              : drop;
+          }),
+        },
+      };
+      const rewardError = dungeonRewardError(content.rewards);
+      if (rewardError) return errorResponse(rewardError);
       const id = input.id ?? nanoid();
       await Promise.all([
         ctx.drizzle
           .insert(dungeon)
-          .values({ id, content: input.content, updatedAt: new Date() })
+          .values({ id, content, updatedAt: new Date() })
           .onDuplicateKeyUpdate({
-            set: { content: input.content, updatedAt: new Date() },
+            set: { content, updatedAt: new Date() },
           }),
         ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
@@ -249,7 +302,7 @@ export const dungeonRouter = createTRPCRouter({
           relatedId: id,
           tableName: "dungeon",
           relatedMsg: "Updated dungeon",
-          changes: [JSON.stringify(input.content)],
+          changes: [JSON.stringify(content)],
         }),
       ]);
       await notifyMapLocationsChanged();
@@ -527,24 +580,17 @@ export const dungeonRouter = createTRPCRouter({
       )
         return errorResponse("Clear the entire dungeon to collect rewards.");
       const rewards = run.content.rewards;
-      const drops = rewards.drops.filter((d) => Math.random() * 100 < d.chance);
-      const rolled = {
-        ...ObjectiveReward.parse({
-          reward_money: rewards.money,
-          reward_exp: rewards.experience,
-          reward_tokens: rewards.tokens,
-          reward_prestige: rewards.prestige,
-        }),
-        reward_items: drops.filter((d) => d.type === "item").map((d) => d.id),
-        reward_jutsus: drops.filter((d) => d.type === "jutsu").map((d) => d.id),
-      };
+      const rewardError = dungeonRewardError(rewards);
+      if (rewardError) return errorResponse(rewardError);
+      const rolled = rollDungeonRewards(rewards);
       const receipt = {
-        money: rewards.money,
-        experience: rewards.experience,
-        tokens: rewards.tokens,
-        prestige: rewards.prestige,
+        money: rolled.reward_money,
+        experience: rolled.reward_exp,
+        tokens: rolled.reward_tokens,
+        prestige: rolled.reward_prestige,
         items: rolled.reward_items,
         jutsus: rolled.reward_jutsus,
+        rewards: rolled,
       };
       // A single guarded update cannot include item/jutsu inserts and village token grants.
       // Keep them atomic with the personal receipt: recording it first can lose rewards,

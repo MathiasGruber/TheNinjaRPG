@@ -495,6 +495,14 @@ export const DUNGEON_FLOORS_PER_TIER = 5;
 export const DUNGEON_MAX_WAVES = 5;
 export const ENCOUNTER_MAX_WAVE_DELAY_ROUNDS = 20;
 export const DUNGEON_MAX_MOBS = 10;
+/** Maximum authored completion-drop entries per definition. */
+export const DUNGEON_MAX_DROPS = 100;
+/** Maximum copies granted by one successful completion drop. */
+export const DUNGEON_MAX_REWARD_QUANTITY = 100;
+/** Worst-case inventory delivery per member, including multiplied package contents. */
+export const DUNGEON_MAX_GRANTED_ITEMS = 2_000;
+/** Scalar payout ceiling shared by direct and multiplied package rewards. */
+export const DUNGEON_MAX_REWARD_AMOUNT = 1e9;
 export const DUNGEON_INACTIVE_ROUNDS = 3;
 
 export const ItemSlots = [

@@ -32,11 +32,12 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { PartyRoster } from "@/layout/PartyRoster";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { getRewardArray } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
 import { pushToCombat } from "@/utils/routing";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
-import type { DungeonContent } from "@/validators/dungeon";
+import type { DungeonContent, DungeonRewardReceipt } from "@/validators/dungeon";
 import { getSearchValidator } from "@/validators/register";
 
 /** Show invitations, party readiness and completion claims through the authenticated dungeon router. */
@@ -513,7 +514,7 @@ export default function DungeonPage() {
                       Rewards delivered · {receipt?.items.length} item drops ·{" "}
                       {receipt?.jutsus.length} jutsu drops
                     </p>
-                    <DungeonRewards rewards={run.content.rewards} />
+                    <DungeonRewards rewards={run.content.rewards} receipt={receipt} />
                   </div>
                 );
               })}
@@ -555,19 +556,49 @@ export default function DungeonPage() {
   );
 }
 
-/** Keep configured rewards readable across discovery, claim cards and completed history. */
-const DungeonRewards = ({ rewards }: { rewards: DungeonContent["rewards"] }) => (
-  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-    <Gift className="h-3.5 w-3.5" aria-label="Completion rewards" />
-    {rewards.money > 0 && <span>{rewards.money.toLocaleString()} Ryo</span>}
-    {rewards.experience > 0 && <span>{rewards.experience.toLocaleString()} Exp</span>}
-    {rewards.tokens > 0 && <span>{rewards.tokens.toLocaleString()} tokens</span>}
-    {rewards.prestige > 0 && <span>{rewards.prestige.toLocaleString()} prestige</span>}
-    {rewards.drops.length > 0 && <span>{rewards.drops.length} possible drops</span>}
-    {!rewards.money &&
-      !rewards.experience &&
-      !rewards.tokens &&
-      !rewards.prestige &&
-      rewards.drops.length === 0 && <span>No completion rewards</span>}
-  </div>
-);
+/**
+ * Show the saved reward roll in completion history, including package-only reward types.
+ * Delivered item IDs become guaranteed unit drops for the shared preview formatter.
+ * Discovery, claim cards and older receipts retain the configured reward summary.
+ */
+const DungeonRewards = ({
+  rewards,
+  receipt,
+}: {
+  rewards: DungeonContent["rewards"];
+  receipt?: DungeonRewardReceipt | null;
+}) => {
+  if (receipt?.rewards)
+    return (
+      <section
+        className="text-muted-foreground text-xs"
+        aria-label="Completion reward roll"
+      >
+        {getRewardArray({
+          ...receipt.rewards,
+          reward_items: receipt.rewards.reward_items.map((id) => ({
+            ids: [id],
+            number: 100,
+            quantity: 1,
+          })),
+        }).join(", ") || "No completion rewards"}
+      </section>
+    );
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+      <Gift className="h-3.5 w-3.5" aria-label="Completion rewards" />
+      {rewards.money > 0 && <span>{rewards.money.toLocaleString()} Ryo</span>}
+      {rewards.experience > 0 && <span>{rewards.experience.toLocaleString()} Exp</span>}
+      {rewards.tokens > 0 && <span>{rewards.tokens.toLocaleString()} tokens</span>}
+      {rewards.prestige > 0 && (
+        <span>{rewards.prestige.toLocaleString()} prestige</span>
+      )}
+      {rewards.drops.length > 0 && <span>{rewards.drops.length} possible drops</span>}
+      {!rewards.money &&
+        !rewards.experience &&
+        !rewards.tokens &&
+        !rewards.prestige &&
+        rewards.drops.length === 0 && <span>No completion rewards</span>}
+    </div>
+  );
+};

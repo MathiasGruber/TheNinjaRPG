@@ -322,6 +322,12 @@ export const itemRouter = createTRPCRouter({
       });
       return items.map(({ bloodlineId, effects, ...entry }) => ({
         ...entry,
+        /** Distinguish weighted caches from other reward consumables in content selectors. */
+        isCache: effects.some(
+          (effect) =>
+            effect.type === "noncombatconsumereward" &&
+            effect.rewardMode === "weightedCache",
+        ),
         isRestrictedCacheReward: isRestrictedCacheReward({ bloodlineId, effects }),
       }));
     }),
