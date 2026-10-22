@@ -178,7 +178,6 @@ const PaypalShopContent = ({
   const [activeTab, setActiveTab] = useState<string>("Reputation");
   const [isReady, setIsReady] = useState(true);
   const [, dispatch] = usePayPalScriptReducer();
-  const currency = "USD";
 
   const allowance = api.paypal.getRecentRepsCount.useQuery(
     { userId: userData?.userId ?? "-" },
@@ -230,7 +229,7 @@ const PaypalShopContent = ({
         }
       >
         <TabsContent value="Reputation" className="mt-0">
-          {isReady ? <ReputationStore currency={currency} /> : <Loader />}
+          {isReady ? <ReputationStore /> : <Loader />}
         </TabsContent>
         <TabsContent value="Bundles" className="mt-0">
           {isReady ? <StoreBundles /> : <Loader />}
@@ -249,7 +248,7 @@ const PaypalShopContent = ({
 /**
  * Reputation Store component
  */
-const ReputationStore = (_props: { currency: string }) => {
+const ReputationStore = () => {
   const { data: userData } = useRequiredUserData();
   const {
     data: purchasedReps,

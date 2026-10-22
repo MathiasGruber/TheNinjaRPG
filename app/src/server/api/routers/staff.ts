@@ -111,6 +111,7 @@ import { isMysqlDeadlockError, retryOnDeadlock } from "@/server/utils/mysqlError
 import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { renameParentalContact } from "@/server/utils/parentalControls";
 import {
+  DELETED_STORE_USER_PREFIX,
   isDeletedStoreUserId,
   migrateStoreEntitlementRevocations,
   migrateStoreEntitlementStates,
@@ -1404,7 +1405,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
   // Delivery claims the same rows, so any in-flight grant finishes before cleanup.
   await client
     .update(webStoreOrder)
-    .set({ recipientId: `__tnr_deleted_store_user__:${nanoid()}` })
+    .set({ recipientId: `${DELETED_STORE_USER_PREFIX}${nanoid()}` })
     .where(eq(webStoreOrder.recipientId, userId));
 
   // Close permanent offers before removing their escrow inventory. The status CAS
