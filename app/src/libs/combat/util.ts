@@ -1204,6 +1204,7 @@ export const calcApplyRatio = (
     "absorb",
     "afterburn",
     "consume",
+    "siphon",
     "diffuse",
     "buffprevent",
     "cleanseprevent",

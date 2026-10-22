@@ -205,6 +205,7 @@ export const PotencyTagTypes = [
   "vamp",
   "absorb",
   "consume",
+  "siphon",
   "shield",
   "pierce",
   "drain",
@@ -658,7 +659,7 @@ export const ConsumeTag = z.object({
   ...PowerAttributes,
   type: z.literal("consume").prefault("consume"),
   description: msg(
-    "While active, convert a percentage of all damage you deal into stacking temporary shields on yourself. Not affected by heal modifiers.",
+    "While active, convert a percentage of all damage you deal into stacking temporary shields on yourself. Shares conversion and shield HP caps with Siphon. Not affected by heal modifiers.",
   ),
   calculation: z.enum(["percentage"]).prefault("percentage"),
   rounds: z.coerce.number().int().min(0).max(100).prefault(3),
@@ -666,6 +667,15 @@ export const ConsumeTag = z.object({
   target: z.enum(BaseTagTargets).optional().prefault("SELF"),
 });
 export type ConsumeTagType = z.infer<typeof ConsumeTag>;
+
+export const SiphonTag = ConsumeTag.extend({
+  type: z.literal("siphon").prefault("siphon"),
+  description: msg(
+    "While active, convert a percentage of damage you take after existing shields absorb it into stacking temporary shields. New shields are granted after damage resolves. Excludes self-inflicted damage and recoil. Shares conversion and shield HP caps with Consume. Can be cleared. Not affected by heal modifiers.",
+  ),
+  rounds: z.coerce.number().int().min(1).max(100).prefault(3),
+});
+export type SiphonTagType = z.infer<typeof SiphonTag>;
 
 export const DisarmTag = z.object({
   ...BaseAttributes,
@@ -1075,6 +1085,7 @@ export const AllTags = z.union([
   ClearTag.prefault({}),
   CloneTag.prefault({}),
   ConsumeTag.prefault({}),
+  SiphonTag.prefault({}),
   CopyTag.prefault({}),
   DamageTag.prefault({}),
   DebuffPreventTag.prefault({}),
@@ -1249,6 +1260,7 @@ export const isPositiveUserEffect = (tag: ZodAllTags) => {
       "absorb",
       // "clearprevent",
       "consume",
+      "siphon",
       "debuffprevent",
       "increaseaggro",
       "decreaseaggro",

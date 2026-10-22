@@ -672,8 +672,19 @@ export type Consequence = {
   types?: (GeneralType | StatType | ElementName | PoolType | ZodAllTags["type"])[];
 };
 
-/** Active damage conversion and accumulated shield HP and duration, keyed by caster. */
-export type ConsumeByUser = Map<string, { ratio: number; rounds: number; hp: number }>;
+/** Outgoing Consume and incoming Siphon share conversion and per-action shield HP caps. */
+export type ShieldConversionsByUser = Map<
+  string,
+  {
+    ratio: number;
+    shields: {
+      type: "consume" | "siphon";
+      ratio: number;
+      hp: number;
+      rounds: number;
+    }[];
+  }
+>;
 
 /**
  * Realized tag, i.e. these are the tags that are actually inserted in battle, with

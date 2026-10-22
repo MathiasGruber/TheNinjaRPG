@@ -65,10 +65,10 @@ import type {
   BattleEffect,
   BattleUserState,
   Consequence,
-  ConsumeByUser,
   GroundEffect,
   ReturnedBattle,
   ReturnedUserState,
+  ShieldConversionsByUser,
   UserEffect,
 } from "./types";
 
@@ -2067,21 +2067,45 @@ export const vamp = (
 };
 
 /**
- * Register active conversion of all damage dealt by the caster, capped at 100%.
- * process.ts resolves shield HP before incoming shields and grants it after damage.
+ * Register outgoing Consume or incoming Siphon with a shared 100% conversion budget.
+ * Consume retains its longest-duration aggregation; Siphon durations stay separate.
  */
-export const consume = (
+export const registerShieldConversion = (
   effect: UserEffect,
-  consumeByUser: ConsumeByUser,
+  shieldConversionsByUser: ShieldConversionsByUser,
+  usersEffects: UserEffect[],
+  target: BattleUserState,
 ): ActionEffect | undefined => {
+  if (effect.type === "siphon") {
+    const { pass } = preventCheck(usersEffects, "buffprevent", target, effect);
+    if (!pass) return preventResponse(effect, target, "cannot siphon damage");
+  }
   const { power } = getPower(effect);
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
-  const previous = consumeByUser.get(effect.creatorId);
-  consumeByUser.set(effect.creatorId, {
-    ratio: Math.min(1, (previous?.ratio ?? 0) + power / 100),
-    rounds: Math.max(previous?.rounds ?? 0, shieldRounds),
-    hp: 0,
-  });
+  if (effect.type !== "consume" && effect.type !== "siphon") return;
+  const userId = effect.type === "siphon" ? effect.targetId : effect.creatorId;
+  const conversion = shieldConversionsByUser.get(userId) ?? {
+    ratio: 0,
+    shields: [],
+  };
+  const previous = conversion.shields.find(
+    (shield) =>
+      shield.type === effect.type &&
+      (effect.type === "consume" || shield.rounds === shieldRounds),
+  );
+  conversion.ratio += power / 100;
+  if (previous) {
+    previous.ratio += power / 100;
+    previous.rounds = Math.max(previous.rounds, shieldRounds);
+  } else {
+    conversion.shields.push({
+      type: effect.type,
+      ratio: power / 100,
+      hp: 0,
+      rounds: shieldRounds,
+    });
+  }
+  shieldConversionsByUser.set(userId, conversion);
   return undefined;
 };
 
