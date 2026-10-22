@@ -1,3 +1,4 @@
+import type { SQL } from "drizzle-orm";
 import {
   and,
   asc,
@@ -358,7 +359,7 @@ export const supportRouter = createTRPCRouter({
             .where(whereClause)
             .groupBy(supportTicket.assignedToUserId),
           // Metrics (average response etc.)
-          calculateSupportMetrics(ctx.drizzle, dateFrom, dateTo),
+          calculateSupportMetrics(ctx.drizzle, whereClause),
         ]);
 
       /* Transform results */
@@ -894,20 +895,15 @@ export const createSupportTicketActivity = async (
 /**
  * Calculate support metrics
  * @param client - The database client
- * @param dateFrom - The start date
- * @param dateTo - The end date
+ * @param whereClause - The same ticket cohort used by the statistics aggregates
  * @returns The support metrics
  */
 export const calculateSupportMetrics = async (
   client: DrizzleClient,
-  dateFrom: Date,
-  dateTo: Date,
+  whereClause: SQL | undefined,
 ) => {
   const tickets = await client.query.supportTicket.findMany({
-    where: and(
-      gte(supportTicket.createdAt, dateFrom),
-      lte(supportTicket.createdAt, dateTo),
-    ),
+    where: whereClause,
     with: {
       conversation: {
         columns: { id: true },
