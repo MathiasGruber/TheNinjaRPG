@@ -363,7 +363,7 @@ function StoreBundleEditor({
                     <FormControl>
                       <NumberInput
                         {...field}
-                        min={minimumPrice ?? STORE_BUNDLE_MIN_PRICE_CENTS / 100}
+                        min={STORE_BUNDLE_MIN_PRICE_CENTS / 100}
                         max={STORE_BUNDLE_MAX_PRICE_CENTS / 100}
                         step="0.01"
                         value={field.value / 100}
