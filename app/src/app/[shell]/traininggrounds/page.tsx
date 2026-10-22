@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { sendGTMEvent } from "@next/third-parties/google";
 import {
-  CheckCheck,
   DoorOpen,
   Eye,
   Fingerprint,
@@ -14,6 +13,7 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Star,
   Swords,
   Timer,
@@ -32,13 +32,6 @@ import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { NumberInput } from "@/components/ui/number-input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -77,6 +70,7 @@ import {
   STEALTH_SENSORY_DEFAULT,
   STEALTH_TRAIN_GAIN_PER_MINUTE,
   TOTAL_MASTERY_CAP,
+  TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES,
   TrainingSpeeds,
   TUTORIAL_JUTSU_ID,
 } from "@/drizzle/constants";
@@ -149,8 +143,6 @@ import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { getDaysHoursMinutesSeconds, getTimeLeftStr } from "@/utils/time";
 import { useRequiredUserData, useRequireInVillage } from "@/utils/UserContext";
-import type { CaptchaVerifySchema } from "@/validators/misc";
-import { captchaVerifySchema } from "@/validators/misc";
 import { getSearchValidator } from "@/validators/register";
 
 const getJutsuLevelCap = (_jutsu: { parentJutsuId?: string | null }) => JUTSU_LEVEL_CAP;
@@ -589,7 +581,6 @@ const StatsTraining: React.FC<
             achievementProgress: result?.achievementProgress,
           }),
         ]);
-        captchaForm.reset();
         if (result.success) {
           sendGTMEvent({ event: "stats_training" });
           if (currentStep?.title === "Training") {
@@ -611,7 +602,6 @@ const StatsTraining: React.FC<
     error: energyQueueError,
   } = useEnergyTrainingQueue(async () => {
     await utils.misc.getCaptcha.invalidate();
-    captchaForm.reset();
   });
 
   const { mutate: startMasteryTraining, isPending: isStartingMastery } =
@@ -672,21 +662,12 @@ const StatsTraining: React.FC<
       },
     });
 
-  // The same captcha verifies Energy spending and mastery collection.
-  const captchaForm = useForm<CaptchaVerifySchema>({
-    resolver: zodResolver(captchaVerifySchema),
-    defaultValues: { guess: "" },
-  });
-
-  const collectMasteryTraining = (guess?: string) => {
+  // A solved captcha covers stat, Energy queue and mastery actions for the grace window,
+  // so the training actions themselves no longer send a guess.
+  const collectMasteryTraining = () => {
     const { stat, startedAt } = session;
-    if (stat && startedAt) stopMasteryTraining({ stat, startedAt, guess });
+    if (stat && startedAt) stopMasteryTraining({ stat, startedAt });
   };
-
-  // Form handlers
-  const onSubmit = captchaForm.handleSubmit((data) => {
-    collectMasteryTraining(data.guess);
-  });
 
   const isPending =
     isStarting ||
@@ -735,39 +716,12 @@ const StatsTraining: React.FC<
         >
           <XCircle className="h-4 w-4 text-red-600" />
         </PopoverTrigger>
-        <PopoverContent>
-          <p className="font-bold text-lg">Verify Humanity</p>
-          <TrainingCaptchaImage
-            className="mb-2"
+        <PopoverContent className="w-72">
+          <TrainingCaptchaGate
+            className="border-0 bg-transparent p-0 shadow-none"
             svg={captcha.svg}
-            onRefreshed={() => captchaForm.reset()}
+            onVerified={collectMasteryTraining}
           />
-          <Form {...captchaForm}>
-            <form className="relative" onSubmit={onSubmit}>
-              <FormField
-                control={captchaForm.control}
-                name="guess"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter captcha"
-                        autoCapitalize="none"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button className="absolute top-0 right-0" type="submit">
-                <CheckCheck className="h-5 w-5" />
-              </Button>
-            </form>
-          </Form>
         </PopoverContent>
       </Popover>
     );
@@ -786,10 +740,9 @@ const StatsTraining: React.FC<
         <EnergyTrainingQueue
           user={userData}
           availableEnergy={availableEnergy}
-          getGuess={() => captchaForm.getValues("guess")}
+          getGuess={() => ""}
           refreshCaptcha={async () => {
             await utils.misc.getCaptcha.invalidate();
-            captchaForm.reset();
           }}
         />
       )}
@@ -800,63 +753,66 @@ const StatsTraining: React.FC<
           subtitle={isQueueingStats ? "Train as Energy recovers" : "Instant training"}
           initialBreak={props.initialBreak}
           topRightContent={
-            <div className="my-2 ml-2 flex flex-col gap-1">
-              <div className="flex items-center justify-end gap-1">
-                <Popover>
-                  <PopoverTrigger
-                    aria-label="About Energy training"
-                    className="flex h-9 w-9 items-center justify-center text-violet-500"
-                  >
-                    <Zap className="h-5 w-5" />
-                  </PopoverTrigger>
-                  <PopoverContent className="max-w-64 text-sm">
-                    Custom trains immediately with the entered Energy amount. Max keeps
-                    the amount synced with available Energy. Queue adds training for
-                    when the entered Energy threshold recovers, starting with your
-                    capacity. Select a stat image to train or add a queue entry. Each
-                    Energy gives {STATS_PER_ENERGY} stats before training bonuses.
-                  </PopoverContent>
-                </Popover>
-                <div className="flex">
-                  <NumberInput
-                    id="training-energy"
-                    aria-label={isQueueingStats ? "Queued Energy" : "Energy to spend"}
-                    min={1}
-                    step={1}
-                    value={trainingEnergy}
-                    disabled={isPending}
-                    onValueChange={(value) => {
-                      setEnergy(value);
-                      if (statTrainingMode === "Max") setStatTrainingMode("Custom");
-                    }}
-                    className="w-20 rounded-r-none"
-                  />
-                  <fieldset aria-label="Energy training mode" className="flex">
-                    {(["Custom", "Max", "Queue"] as const).map((mode, index) => (
-                      <Button
-                        key={mode}
-                        variant={statTrainingMode === mode ? "default" : "outline"}
-                        size="sm"
-                        className={cn(
-                          "h-9 rounded-none border-l-0 px-2 sm:px-3",
-                          index === 2 && "rounded-r-md",
-                        )}
-                        aria-pressed={statTrainingMode === mode}
-                        disabled={isPending}
-                        onClick={() => {
-                          if (statTrainingMode === mode) return;
-                          if (mode === "Custom") setEnergy(trainingEnergy);
-                          else if (mode === "Queue") setEnergy(userData.maxEnergy);
-                          setStatTrainingMode(mode);
-                        }}
-                      >
-                        {mode}
-                      </Button>
-                    ))}
-                  </fieldset>
+            // The Energy controls only matter once the captcha check is out of the way
+            needsCaptcha ? undefined : (
+              <div className="my-2 ml-2 flex flex-col gap-1">
+                <div className="flex items-center justify-end gap-1">
+                  <Popover>
+                    <PopoverTrigger
+                      aria-label="About Energy training"
+                      className="flex h-9 w-9 items-center justify-center text-violet-500"
+                    >
+                      <Zap className="h-5 w-5" />
+                    </PopoverTrigger>
+                    <PopoverContent className="max-w-64 text-sm">
+                      Custom trains immediately with the entered Energy amount. Max
+                      keeps the amount synced with available Energy. Queue adds training
+                      for when the entered Energy threshold recovers, starting with your
+                      capacity. Select a stat image to train or add a queue entry. Each
+                      Energy gives {STATS_PER_ENERGY} stats before training bonuses.
+                    </PopoverContent>
+                  </Popover>
+                  <div className="flex">
+                    <NumberInput
+                      id="training-energy"
+                      aria-label={isQueueingStats ? "Queued Energy" : "Energy to spend"}
+                      min={1}
+                      step={1}
+                      value={trainingEnergy}
+                      disabled={isPending}
+                      onValueChange={(value) => {
+                        setEnergy(value);
+                        if (statTrainingMode === "Max") setStatTrainingMode("Custom");
+                      }}
+                      className="w-20 rounded-r-none"
+                    />
+                    <fieldset aria-label="Energy training mode" className="flex">
+                      {(["Custom", "Max", "Queue"] as const).map((mode, index) => (
+                        <Button
+                          key={mode}
+                          variant={statTrainingMode === mode ? "default" : "outline"}
+                          size="sm"
+                          className={cn(
+                            "h-9 rounded-none border-l-0 px-2 sm:px-3",
+                            index === 2 && "rounded-r-md",
+                          )}
+                          aria-pressed={statTrainingMode === mode}
+                          disabled={isPending}
+                          onClick={() => {
+                            if (statTrainingMode === mode) return;
+                            if (mode === "Custom") setEnergy(trainingEnergy);
+                            else if (mode === "Queue") setEnergy(userData.maxEnergy);
+                            setStatTrainingMode(mode);
+                          }}
+                        >
+                          {mode}
+                        </Button>
+                      ))}
+                    </fieldset>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           }
         >
           {userData.status === "ASLEEP" && (
@@ -864,95 +820,88 @@ const StatsTraining: React.FC<
               Wake up to add training. Existing queues continue while asleep.
             </p>
           )}
-          {needsCaptcha && captcha?.svg && (
-            <div className="mb-4">
-              <TrainingCaptchaImage
-                className="mb-2"
+          {needsCaptcha ? (
+            captcha?.svg ? (
+              <TrainingCaptchaGate
+                className="mx-auto my-6 max-w-sm"
                 svg={captcha.svg}
-                onRefreshed={() => captchaForm.reset()}
               />
-              <Input
-                placeholder="Enter captcha"
-                autoCapitalize="none"
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                {...captchaForm.register("guess")}
-              />
+            ) : (
+              <Loader explanation="Loading captcha" />
+            )
+          ) : (
+            /* Inert while pending: the overlay hides the controls from pointers only */
+            <div inert={isPending}>
+              <div className="grid grid-cols-3 text-center font-bold">
+                {CombatStatNames.map((stat, i) => {
+                  const label = getTrainingLabel(stat);
+                  const overCap = isStatTrainingCapped(userData, stat);
+                  const icon =
+                    stat === "offence" ? (
+                      <Swords className={iconClassName} />
+                    ) : stat === "defence" ? (
+                      <ShieldAlert className={iconClassName} />
+                    ) : (
+                      <Fingerprint className={iconClassName} />
+                    );
+                  return (
+                    <button
+                      type="button"
+                      id={`tutorial-traininggrounds-${stat.toLowerCase()}`}
+                      key={`${stat}-${i}`}
+                      onClick={() => {
+                        const block =
+                          statTrainingBlockMessage(userData) ??
+                          (overCap ? "Already capped" : null) ??
+                          (isQueueingStats
+                            ? energyQueueLength >= getQueueTotalCapacity(userData)
+                              ? "Energy queue is full"
+                              : !Number.isInteger(trainingEnergy) ||
+                                  trainingEnergy <= 0 ||
+                                  trainingEnergy > userData.maxEnergy
+                                ? "Enter a whole Energy amount between 1 and your capacity."
+                                : null
+                            : trainingEnergyMessage(trainingEnergy, availableEnergy));
+                        if (block)
+                          showMutationToast({ success: false, message: block });
+                        else if (isQueueingStats) {
+                          const entries = getEnergyQueue(userData);
+                          queueStatTraining({
+                            expectedEntries: entries,
+                            entries: [...entries, { stat, energy: trainingEnergy }],
+                          });
+                        } else
+                          startTraining({
+                            stat,
+                            energy: trainingEnergy,
+                          });
+                      }}
+                      className="relative"
+                    >
+                      <div
+                        className={cn(
+                          trainItemClassName,
+                          overCap ? "opacity-50 grayscale" : "",
+                        )}
+                      >
+                        <Image
+                          src={getTrainingImage(stat)}
+                          alt={label}
+                          width={256}
+                          height={256}
+                        />
+                        {icon}
+                        {label}
+                      </div>
+                      {overCap && (
+                        <UserRoundCheck className="absolute top-[50%] left-[50%] h-10 w-10 translate-x-[-50%] translate-y-[-50%] text-slate-100 hover:cursor-pointer" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
-          {/* Inert while pending: the overlay hides the controls from pointers only */}
-          <div inert={isPending}>
-            <div className="grid grid-cols-3 text-center font-bold">
-              {CombatStatNames.map((stat, i) => {
-                const label = getTrainingLabel(stat);
-                const overCap = isStatTrainingCapped(userData, stat);
-                const icon =
-                  stat === "offence" ? (
-                    <Swords className={iconClassName} />
-                  ) : stat === "defence" ? (
-                    <ShieldAlert className={iconClassName} />
-                  ) : (
-                    <Fingerprint className={iconClassName} />
-                  );
-                return (
-                  <button
-                    type="button"
-                    id={`tutorial-traininggrounds-${stat.toLowerCase()}`}
-                    key={`${stat}-${i}`}
-                    onClick={() => {
-                      const block =
-                        statTrainingBlockMessage(userData) ??
-                        (overCap ? "Already capped" : null) ??
-                        (isQueueingStats
-                          ? energyQueueLength >= getQueueTotalCapacity(userData)
-                            ? "Energy queue is full"
-                            : !Number.isInteger(trainingEnergy) ||
-                                trainingEnergy <= 0 ||
-                                trainingEnergy > userData.maxEnergy
-                              ? "Enter a whole Energy amount between 1 and your capacity."
-                              : null
-                          : trainingEnergyMessage(trainingEnergy, availableEnergy));
-                      if (block) showMutationToast({ success: false, message: block });
-                      else if (isQueueingStats) {
-                        const entries = getEnergyQueue(userData);
-                        queueStatTraining({
-                          expectedEntries: entries,
-                          entries: [...entries, { stat, energy: trainingEnergy }],
-                          guess: captchaForm.getValues("guess"),
-                        });
-                      } else
-                        startTraining({
-                          stat,
-                          energy: trainingEnergy,
-                          guess: captchaForm.getValues("guess"),
-                        });
-                    }}
-                    className="relative"
-                  >
-                    <div
-                      className={cn(
-                        trainItemClassName,
-                        overCap ? "opacity-50 grayscale" : "",
-                      )}
-                    >
-                      <Image
-                        src={getTrainingImage(stat)}
-                        alt={label}
-                        width={256}
-                        height={256}
-                      />
-                      {icon}
-                      {label}
-                    </div>
-                    {overCap && (
-                      <UserRoundCheck className="absolute top-[50%] left-[50%] h-10 w-10 translate-x-[-50%] translate-y-[-50%] text-slate-100 hover:cursor-pointer" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
           {energyQueueError && (
             <p role="alert" className="mt-2 text-destructive text-sm">
               {energyQueueError}
@@ -1925,43 +1874,96 @@ const CovertTraining: React.FC<TrainingProps> = (props) => {
   );
 };
 
-/** Server-rendered captcha image with a control that swaps it for a new one. */
-const TrainingCaptchaImage: React.FC<{
+/**
+ * Training captcha check: the server-rendered image, a control that swaps it for a new
+ * one, and an answer field. A correct answer covers training for the grace window.
+ */
+const TrainingCaptchaGate: React.FC<{
   svg: string;
   className?: string;
-  onRefreshed: () => void;
-}> = ({ svg, className, onRefreshed }) => {
+  onVerified?: () => void;
+}> = ({ svg, className, onVerified }) => {
   const utils = api.useUtils();
-  const { mutate: refreshCaptcha, isPending } = api.misc.refreshCaptcha.useMutation({
-    onSuccess: async (result) => {
-      if (!result.success) {
-        showMutationToast(result);
-        return;
-      }
-      await utils.misc.getCaptcha.invalidate();
-      onRefreshed();
-    },
-  });
+  const [guess, setGuess] = useState("");
+  const { mutate: refreshCaptcha, isPending: isRefreshing } =
+    api.misc.refreshCaptcha.useMutation({
+      onSuccess: async (result) => {
+        if (!result.success) {
+          showMutationToast(result);
+          return;
+        }
+        await utils.misc.getCaptcha.invalidate();
+        setGuess("");
+      },
+    });
+  const { mutate: verifyCaptcha, isPending: isVerifying } =
+    api.misc.verifyCaptcha.useMutation({
+      onSuccess: async (result) => {
+        // A wrong answer consumes the captcha, so either way a fresh state is fetched
+        await utils.misc.getCaptcha.invalidate();
+        setGuess("");
+        if (!result.success) {
+          showMutationToast(result);
+          return;
+        }
+        onVerified?.();
+      },
+    });
   return (
-    <div className={cn("flex items-center gap-2", className)}>
-      {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element for data URI */}
-      <img
-        alt="Captcha: type these characters into the field below"
-        className="h-auto min-w-0 max-w-full rounded-lg border"
-        src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`}
-      />
-      <Button
-        type="button"
-        size="icon"
-        variant="outline"
-        className="shrink-0"
-        aria-label="New captcha"
-        title="New captcha"
-        disabled={isPending}
-        onClick={() => refreshCaptcha()}
+    <div
+      className={cn("rounded-xl border bg-card p-4 text-center shadow-sm", className)}
+    >
+      <div className="flex items-center justify-center gap-2">
+        <ShieldCheck className="h-5 w-5 text-primary" />
+        <p className="font-semibold">Quick check</p>
+      </div>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Type the characters below to keep training. One check covers the next{" "}
+        {TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES} minutes.
+      </p>
+      <div className="mt-3 flex items-center justify-center gap-2">
+        {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element for data URI */}
+        <img
+          alt="Captcha: type these characters into the field below"
+          className="h-auto min-w-0 max-w-full rounded-lg border"
+          src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`}
+        />
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="shrink-0"
+          aria-label="New captcha"
+          title="New captcha"
+          disabled={isRefreshing || isVerifying}
+          onClick={() => refreshCaptcha()}
+        >
+          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+        </Button>
+      </div>
+      <form
+        className="mt-3 flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (guess.trim()) verifyCaptcha({ guess });
+        }}
       >
-        <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
-      </Button>
+        <Input
+          aria-label="Captcha answer"
+          placeholder="Your answer"
+          className="text-center font-mono uppercase tracking-[0.3em] placeholder:font-sans placeholder:normal-case placeholder:tracking-normal"
+          autoCapitalize="none"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={20}
+          value={guess}
+          onChange={(e) => setGuess(e.target.value)}
+        />
+        <Button type="submit" disabled={!guess.trim() || isVerifying}>
+          {isVerifying ? "Checking…" : "Verify"}
+        </Button>
+      </form>
     </div>
   );
 };

@@ -126,6 +126,18 @@ export const miscRouter = createTRPCRouter({
     .mutation(async ({ ctx }) => {
       return await refreshCaptcha(ctx.drizzle, ctx.userId);
     }),
+  verifyCaptcha: protectedProcedure
+    .meta({ mcp: { description: "Answer the pending training captcha" } })
+    .use(ratelimitMiddleware)
+    .input(z.object({ guess: z.string().trim().min(1).max(20) }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      // A correct answer starts the grace window that every training action checks
+      if (await validateCaptcha(ctx.drizzle, ctx.userId, input.guess)) {
+        return { success: true, message: "Verified" };
+      }
+      return errorResponse("That wasn't right, try this new one");
+    }),
   submitNotification: protectedProcedure
     .input(z.object({ content: z.string().min(2).max(10000), senderId: z.string() }))
     .output(baseServerResponse)
