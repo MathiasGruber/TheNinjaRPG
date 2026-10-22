@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dynamic from "next/dynamic";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as navigation from "next/navigation";
 import {
   type ComponentProps,
   type Dispatch,
@@ -562,6 +563,12 @@ describe("objective war townhall health", () => {
 
   it("keeps masked kill history and statistics readable while preserving ordinary and self navigation", () => {
     const push = vi.fn();
+    const router = {
+      back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push,
+      replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-history",
+    };
+    // Bun preserves module mocks across files, so bind the hook to this test's router.
+    vi.spyOn(navigation, "useRouter").mockReturnValue(router);
     const identities = [
       { userId: null, username: "Mercenary" },
       { userId: "ordinary", username: "Ordinary" },
@@ -585,10 +592,7 @@ describe("objective war townhall health", () => {
       },
     });
     const view = render(
-      <AppRouterContext.Provider value={{
-        back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push,
-        replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-history",
-      }}>
+      <AppRouterContext.Provider value={router}>
         <VillageWar war={{ ...war, rules: null }} user={user} isKage={false} />
       </AppRouterContext.Provider>,
     );
