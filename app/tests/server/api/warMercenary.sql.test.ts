@@ -1,15 +1,16 @@
 import { settleObjectiveWarCombat } from "@/libs/combat/objectiveWar";
-import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
+import type { CompleteBattle, CombatQueryUser, CombatResult } from "@/libs/combat/types";
 import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { SHRINE_BATTLE_LOBBY_SECONDS } from "@/drizzle/constants";
-import { aiProfile, battle, battleHistory, mpvpBattleQueue, mpvpBattleUser, quest, sector, warActionReceipt, warContribution, warKill, userData, village, villageAlliance, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
+import { aiProfile, battle, battleHistory, jutsuLoadout, mpvpBattleQueue, mpvpBattleUser, quest, sector, warActionReceipt, warContribution, warKill, userData, village, villageAlliance, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
 import { updateWars } from "@/libs/combat/database";
 import { calcBattleResult, getBattleTeamWars } from "@/libs/combat/util";
 import { getWarSide } from "@/libs/objectiveWar";
 import { Pusher } from "@/libs/pusher";
+import { combatRouter, fetchBattleEssentials, processUsersForBattle } from "@/server/api/routers/combat";
 import { shrineRouter } from "@/server/api/routers/shrine";
 import { fetchUpdatedUser, type UserWithRelations } from "@/server/api/routers/profile";
 import { updateRewards } from "@/server/api/routers/quests";
@@ -170,6 +171,57 @@ describeWithDatabase("mercenary strategic participation", () => {
     expect(hiredWar.defenderWarHealth).toBe(w.defenderWarHealth - 10);
     await db.insert(warCamp).values({ id: "home-camp", warId: "home-war", sector: 22, guardianId: "guardian", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 3600000) });
     expect(await canEnterWarCampSector(db, { userId: "merc", villageId: "c", sector: 11 }, 22)).toBe(false);
+  });
+  it.each(["none", "merc", "enemy"])("preserves dismissed mercenary allegiance and ANBU credit with loadout switch by %s", async (switchingUserId) => {
+    const db = await getTestDatabase();
+    await resetTables(battle, aiProfile, jutsuLoadout);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    await db.update(userData).set({ rank: "JONIN", level: 20, experience: 1000, sector: 10, curHealth: 100, maxHealth: 100, curChakra: 100, maxChakra: 100, curStamina: 100, maxStamina: 100 });
+    await db.update(war).set({ attackerWarHealth: 9000 }).where(eq(war.id, "w"));
+    await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 1 })).success).toBe(true);
+    const offer = (await db.query.warMercenary.findFirst())!;
+    expect((await callerForDatabase(warRouter, "merc", db).acceptMercenary({ contractId: offer.id })).success).toBe(true);
+    const essentials = await fetchBattleEssentials(db);
+    const users = await db.query.userData.findMany();
+    const processed = await processUsersForBattle(db, {
+      users: users.filter((user) => ["merc", "enemy"].includes(user.userId)).map((user) => ({
+        ...user, items: [], jutsus: [], userSkills: [], bloodline: null,
+        village: essentials.villages.find((village) => village.id === user.villageId) ?? null,
+        aiProfile: essentials.defaultProfile,
+      })) as CombatQueryUser[],
+      ...essentials, wars: essentials.activeWars, battleType: "COMBAT",
+      leftSideUserIds: ["merc"], hide: false, isSummon: false, width: 13, height: 9,
+    });
+    await db.insert(battle).values({
+      id: "lobby", background: "default", battleType: "COMBAT", roundStartAt: new Date(Date.now() + 60_000),
+      usersState: processed.usersState, usersEffects: processed.userEffects, extraState: processed.extraState, groundEffects: [],
+    });
+    const before = (await db.query.battle.findFirst({ where: eq(battle.id, "lobby") }))!;
+    expect(getWarSide(before.extraState.wars.w!, "c", "merc")).toBe("a");
+    expect((await kage.leaveMercenary({ contractId: offer.id })).success).toBe(true);
+    expect((await fetchBattleEssentials(db)).activeWars[0]?.warMercenaries).toEqual([]);
+    if (switchingUserId !== "none") {
+      await db.insert(jutsuLoadout).values({ id: "new-loadout", userId: switchingUserId, jutsuIds: [] });
+      const switched = await callerForDatabase(combatRouter, switchingUserId, db).updateCombatLoadout({ battleId: "lobby", jutsuLoadoutId: "new-loadout" });
+      expect(switched.success, switched.message).toBe(true);
+    }
+    const snapshot = (await db.query.battle.findFirst({ where: eq(battle.id, "lobby") }))!;
+    if (switchingUserId !== "none") {
+      expect(snapshot.usersState.find((user) => user.userId === switchingUserId)?.jutsuLoadout).toBe("new-loadout");
+    }
+    const mercenary = snapshot.usersState.find((user) => user.userId === "merc")!;
+    expect(mercenary.username).toBe("Mercenary");
+    expect(snapshot.extraState.wars).toEqual(before.extraState.wars);
+    expect(getWarSide(snapshot.extraState.wars.w!, mercenary.villageId, mercenary.userId)).toBe("a");
+    expect(getBattleTeamWars(snapshot, mercenary).map(({ war }) => war.id)).toEqual(["w"]);
+    snapshot.usersState.find((user) => user.userId === "enemy")!.curHealth = 0;
+    await settleObjectiveWarCombat(db, snapshot, { didWin: 1 } as CombatResult, mercenary);
+    const contribution = (await db.query.warContribution.findFirst())!;
+    expect(contribution.damage).toBe(defaultWarRules.anbuDamage);
+    expect(contribution.recovery).toBe(defaultWarRules.anbuRecovery);
+    expect((await db.query.warKill.findFirst())?.killerVillageId).toBe("a");
   });
   it("keeps a native shrine teammate from granting mercenary credit in another war after dismissal", async () => {
     const db = await getTestDatabase();

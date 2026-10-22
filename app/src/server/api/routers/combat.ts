@@ -1481,7 +1481,8 @@ export const combatRouter = createTRPCRouter({
           users: [rawUserForProcessing],
           settings: data.settings,
           relations: data.relations,
-          wars: data.activeWars,
+          // Loadout changes retain the allegiance and contribution roles captured at initiation.
+          wars: Object.values(userBattle.extraState.wars),
           villages: data.villages,
           defaultProfile: data.defaultProfile,
           battleType: userBattle.battleType,
