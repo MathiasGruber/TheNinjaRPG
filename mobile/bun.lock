@@ -25,10 +25,6 @@
       },
     },
   },
-  "patchedDependencies": {
-    "@capacitor/android@8.5.3": "patches/@capacitor%2Fandroid@8.5.3.patch",
-    "@capacitor/browser@8.0.5": "patches/@capacitor%2Fbrowser@8.0.5.patch",
-  },
   "packages": {
     "@capacitor/android": ["@capacitor/android@8.5.3", "", { "peerDependencies": { "@capacitor/core": "^8.5.0" } }, "sha512-ilH4gSSz3DrketMkzDVAvY9JsWJ//rCQnECLTdcFRO7xXDogwAbUvQAnIAbiqefwV/D1xfjEL4Gw1MJXEcaA9g=="],
 

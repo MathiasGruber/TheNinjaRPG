@@ -35,9 +35,5 @@
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.3",
     "typescript": "^7.0.2"
-  },
-  "patchedDependencies": {
-    "@capacitor/android@8.5.3": "patches/@capacitor%2Fandroid@8.5.3.patch",
-    "@capacitor/browser@8.0.5": "patches/@capacitor%2Fbrowser@8.0.5.patch"
   }
 }

@@ -6,16 +6,22 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
+import com.getcapacitor.Plugin;
+import java.util.List;
 
 public class MainActivity extends BridgeActivity {
+    private static final List<Class<? extends Plugin>> APP_PLUGINS = List.of(
+        TNRWidgetSyncPlugin.class, TNRAudioSessionPlugin.class, TNRLiveUpdatesPlugin.class
+    );
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Plugins have to be registered before super.onCreate builds the bridge.
-        registerPlugin(TNRWidgetSyncPlugin.class);
-        registerPlugin(TNRAudioSessionPlugin.class);
-        registerPlugin(TNRLiveUpdatesPlugin.class);
+        for (var plugin : APP_PLUGINS) registerPlugin(plugin);
+        // App instances are registered after discovered classes, retaining the Browser API.
+        bridgeBuilder.addPluginInstance(new TNROAuthBrowserPlugin());
         super.onCreate(savedInstanceState);
+        TNRRemoteBridge.install(bridge, APP_PLUGINS);
 
         // The bundled entry point handles cold-start outages. If a later navigation fails,
         // return to that same retry screen instead of leaving Android's raw WebView error.
