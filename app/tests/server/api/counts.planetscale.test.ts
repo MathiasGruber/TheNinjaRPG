@@ -4,6 +4,7 @@ import { bloodlineRolls } from "@/drizzle/schema";
 import { bloodlineRouter } from "@/server/api/routers/bloodline";
 import { shrineRouter } from "@/server/api/routers/shrine";
 import { supportRouter } from "@/server/api/routers/support";
+import type { DrizzleClient } from "@/server/db";
 import { planetScaleFixture } from "../../setup/planetscale";
 import { resetServerModuleStubs, stubProfile } from "../../setup/serverModules";
 import { callerForDatabase } from "../../setup/testDatabase";
@@ -28,7 +29,7 @@ describe("PlanetScale aggregate counts", () => {
           {
             column: "category",
             values: [
-              ["BUG", "3"],
+              ["BUG_REPORT", "3"],
               ["OTHER", "1"],
             ],
           },
@@ -72,7 +73,7 @@ describe("PlanetScale aggregate counts", () => {
       openTickets: 3,
       resolvedTickets: 1,
       assignedToCurrentUser: 1,
-      ticketsByCategory: { BUG: 3, OTHER: 1 },
+      ticketsByCategory: { BUG_REPORT: 3, OTHER: 1 },
       ticketsByPriority: { HIGH: 2, LOW: 2 },
       ticketsByStatus: { OPEN: 3, RESOLVED: 1 },
       ticketsByAssignee: { [userId]: 1, "N/A": 3 },
@@ -125,12 +126,16 @@ describe("PlanetScale aggregate counts", () => {
       if (query.includes("QuestHistory")) return {};
       throw new Error(`Unexpected query: ${query}`);
     });
+    // Public-query middleware uses external Redis; this fixture exercises the resolver's counts.
+    const { resolver } = bloodlineRouter._def.procedures.getNaturalRollStatistics
+      ._def as unknown as {
+      resolver: (args: {
+        ctx: { drizzle: DrizzleClient; userId: string };
+        input: undefined;
+      }) => Promise<Record<string, number>>;
+    };
     expect(
-      await callerForDatabase(
-        bloodlineRouter,
-        userId,
-        database,
-      ).getNaturalRollStatistics(),
+      await resolver({ ctx: { drizzle: database, userId }, input: undefined }),
     ).toEqual({ D: 0, C: 0, B: 0, A: 0, S: 2, H: 0, none: 3 });
   });
 
