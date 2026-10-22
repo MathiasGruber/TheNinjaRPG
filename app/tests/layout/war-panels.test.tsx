@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as navigation from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import * as client from "@/app/_trpc/client";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -209,6 +210,7 @@ const readyAttempt = (endsAt = new Date(NOW - 1000).toISOString()) => ({
 
 beforeEach(() => {
   ensureDom();
+  vi.spyOn(navigation, "useRouter").mockReturnValue(router);
   globalThis.Event = window.Event;
   globalThis.CustomEvent = window.CustomEvent;
   vi.clearAllMocks();
