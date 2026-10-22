@@ -376,6 +376,31 @@ describe("war mercenary management", () => {
 });
 
 describe("war field objectives", () => {
+  it("keeps masked contributions readable without profile navigation in either table", () => {
+    const identities = [
+      { userId: "hidden", username: "Mercenary", isMasked: true },
+      { userId: user.userId, username: "Mercenary", isMasked: false },
+    ];
+    info!.contributions = identities.map((identity) => ({
+      ...identity, damage: 100, recovery: 50, convertedAt: null, expiredAt: null,
+    }));
+    info!.combatContributions = identities.map((identity) => ({
+      ...identity, kills: 1, losses: 0,
+    }));
+    const view = mount(<ObjectiveWarPanel warId="war-1" />);
+    openTab(view, "Contributions");
+    for (const table of view.getAllByRole("table")) {
+      const [masked, own] = within(table).getAllByRole("row").slice(1);
+      expect(masked!.textContent).toContain("Mercenary");
+      expect(masked!.classList.contains("cursor-pointer")).toBe(false);
+      fireEvent.click(masked!);
+      expect(router.push).not.toHaveBeenCalled();
+      fireEvent.click(own!);
+      expect(router.push).toHaveBeenCalledWith(`/userid/${user.userId}`);
+      router.push.mockClear();
+    }
+  });
+
   it("mounts one field panel only while its toolbar dialog is open", () => {
     const view = mount(<WarFieldActions />);
     const query = client.api.war.getObjectiveWarInfo.useQuery;

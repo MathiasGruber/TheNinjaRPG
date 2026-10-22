@@ -32,15 +32,16 @@ afterEach(() => {
 describe("sector attack controls", () => {
   for (const control of ["scouting", "hover"])
     it.each([
-      ["ENEMY", "home", false, true],
-      ["ENEMY", "permanent-ally", true, true],
-      ["ALLY", "other", false, false],
-      ["NEUTRAL", "home", false, false],
-      ["NEUTRAL", "permanent-ally", true, false],
-      ["NEUTRAL", "other", false, true],
+      ["ENEMY", "home", false, true, false],
+      ["ENEMY", "permanent-ally", true, true, false],
+      ["ALLY", "other", false, false, false],
+      ["NEUTRAL", "home", false, false, false],
+      ["NEUTRAL", "permanent-ally", true, false, false],
+      ["NEUTRAL", "other", false, true, false],
+      ["ENEMY", "other", false, true, true],
     ] as const)(
-      `${control} uses %s over village %s (permanent ally: %s)`,
-      (allianceStatus, villageId, permanentAlly, canAttack) => {
+      `${control} preserves allegiance and profile masking (%s, village %s)`,
+      (allianceStatus, villageId, permanentAlly, canAttack, isMasked) => {
         const userData = {
           userId: "viewer",
           villageId: "home",
@@ -61,7 +62,8 @@ describe("sector attack controls", () => {
         } as unknown as NonNullable<UserWithRelations>;
         const target = {
           userId: "target",
-          username: "Target",
+          username: "Mercenary",
+          isMasked,
           villageId,
           allianceStatus,
           latitude: 5,
@@ -91,6 +93,7 @@ describe("sector attack controls", () => {
           );
           const attack = view.queryByAltText("Attack-target");
           expect(Boolean(attack)).toBe(canAttack);
+          expect(Boolean(view.queryByAltText("Info-target"))).toBe(!isMasked);
           if (attack) {
             fireEvent.click(attack);
             expect(attackUser).toHaveBeenCalledWith("target");
@@ -107,6 +110,7 @@ describe("sector attack controls", () => {
           userMesh.add(...sprites);
           group.add(userMesh);
           sprites[3]!.visible = false;
+          sprites[5]!.visible = false;
           const raycaster = new Raycaster();
           vi.spyOn(raycaster, "intersectObjects").mockReturnValue([
             { object: sprites[0]!, distance: 1, point: new Vector3() },
@@ -120,6 +124,7 @@ describe("sector attack controls", () => {
             currentTooltips: new Set(),
           });
           expect(sprites[3]!.visible).toBe(canAttack);
+          expect(sprites[5]!.visible).toBe(!isMasked);
         }
       },
     );

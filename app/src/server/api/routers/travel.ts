@@ -556,8 +556,9 @@ export const travelRouter = createTRPCRouter({
             user,
             u,
           );
-          const participant = { ...u, warRelationship };
-          if (contract && u.userId !== ctx.userId)
+          const isMasked = !!contract && u.userId !== ctx.userId;
+          const participant = { ...u, warRelationship, isMasked };
+          if (isMasked)
             return {
               ...participant,
               username: "Mercenary",

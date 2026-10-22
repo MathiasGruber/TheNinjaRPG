@@ -4531,6 +4531,7 @@ export const processUsersForBattle = async (
     if (
       info.wars.some((w) => w.warMercenaries?.some((m) => m.userId === user.userId))
     ) {
+      user.isMasked = true;
       user.username = "Mercenary";
       user.avatar = IMG_AVATAR_DEFAULT;
       user.avatarLight = IMG_AVATAR_DEFAULT;

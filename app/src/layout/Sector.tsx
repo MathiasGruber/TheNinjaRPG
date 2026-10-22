@@ -3490,16 +3490,18 @@ export const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                     />
                   )}
                 </div>
-                <div className="absolute top-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
-                  <Link href={`/userid/${user.userId}`}>
-                    <Image
-                      src={IMG_SECTOR_INFO}
-                      width={40}
-                      height={40}
-                      alt={`Info-${user.userId}`}
-                    />
-                  </Link>
-                </div>
+                {!user.isMasked && (
+                  <div className="absolute top-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
+                    <Link href={`/userid/${user.userId}`}>
+                      <Image
+                        src={IMG_SECTOR_INFO}
+                        width={40}
+                        height={40}
+                        alt={`Info-${user.userId}`}
+                      />
+                    </Link>
+                  </div>
+                )}
                 <div className="absolute bottom-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
                   {user.curHealth < user.maxHealth &&
                     hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (

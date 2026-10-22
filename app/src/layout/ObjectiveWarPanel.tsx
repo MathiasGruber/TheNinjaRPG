@@ -564,6 +564,7 @@ export const ObjectiveWarPanel = ({
                 ]}
                 linkColumn="userId"
                 linkPrefix="/userid/"
+                linkDisabled={(row) => row.isMasked}
                 compact
               />
             ) : (
@@ -585,6 +586,7 @@ export const ObjectiveWarPanel = ({
                 ]}
                 linkColumn="userId"
                 linkPrefix="/userid/"
+                linkDisabled={(row) => row.isMasked}
                 compact
               />
             ) : (

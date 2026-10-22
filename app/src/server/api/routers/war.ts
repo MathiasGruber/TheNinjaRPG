@@ -408,13 +408,18 @@ export const warRouter = createTRPCRouter({
         return null;
       const side = getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId)!;
       const mercenaryIds = new Set(mercenaryHistory.map((m) => m.userId));
+      const isMasked = (id: string) => mercenaryIds.has(id) && id !== ctx.userId;
       const displayName = (id: string, name: string | null | undefined) =>
-        mercenaryIds.has(id) && id !== ctx.userId
-          ? "Mercenary"
-          : (name ?? "Unknown ninja");
+        isMasked(id) ? "Mercenary" : (name ?? "Unknown ninja");
       const combatContributions = new Map<
         string,
-        { userId: string; username: string; kills: number; losses: number }
+        {
+          userId: string;
+          username: string;
+          isMasked: boolean;
+          kills: number;
+          losses: number;
+        }
       >();
       for (const kill of kills) {
         for (const participant of [
@@ -424,6 +429,7 @@ export const warRouter = createTRPCRouter({
           const contribution = combatContributions.get(participant.userId) ?? {
             userId: participant.userId,
             username: displayName(participant.userId, participant.user?.username),
+            isMasked: isMasked(participant.userId),
             kills: 0,
             losses: 0,
           };
@@ -458,6 +464,7 @@ export const warRouter = createTRPCRouter({
         contributions: contributions.map((row) => ({
           ...row,
           username: displayName(row.userId, row.username),
+          isMasked: isMasked(row.userId),
         })),
         combatContributions: [...combatContributions.values()].sort(
           (a, b) =>

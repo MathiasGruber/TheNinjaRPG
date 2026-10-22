@@ -12,6 +12,7 @@ import { getWarSide } from "@/libs/objectiveWar";
 import { Pusher } from "@/libs/pusher";
 import { combatRouter, fetchBattleEssentials, processUsersForBattle } from "@/server/api/routers/combat";
 import { shrineRouter } from "@/server/api/routers/shrine";
+import { travelRouter } from "@/server/api/routers/travel";
 import { fetchUpdatedUser, type UserWithRelations } from "@/server/api/routers/profile";
 import { updateRewards } from "@/server/api/routers/quests";
 import { isWarMissionAvailable } from "@/libs/quest";
@@ -71,6 +72,30 @@ describeWithDatabase("war mercenary contracts", () => {
     await Promise.all(["merc", "merc2", "merc3", "merc4"].map((userId) => kage.inviteMercenary({ warId: "w", userId, tokens: 1 })));
     for (const userId of ["merc", "merc2", "merc3", "merc4"]) await kage.inviteMercenary({ warId: "w", userId, tokens: 1 });
     expect(await db.query.warMercenary.findMany()).toHaveLength(3);
+  });
+  it("carries the existing identity mask into contributions and sector profiles, except for self", async () => {
+    const db = await getTestDatabase();
+    await db.insert(warMercenary).values({ id: "contract", warId: "w", sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 1, slot: 0, acceptedAt: new Date() });
+    await db.insert(warContribution).values([{ warId: "w", userId: "merc", damage: 100 }, { warId: "w", userId: "kage", damage: 50 }]);
+    await db.insert(warKill).values({ id: "kill", warId: "w", killerId: "merc", victimId: "enemy", killerVillageId: "a", victimVillageId: "b" });
+    await db.update(userData).set({ status: "AWAKE", sector: 1, updatedAt: new Date() });
+    for (const viewer of ["kage", "enemy", "merc"]) {
+      const info = (await callerForDatabase(warRouter, viewer, db).getObjectiveWarInfo({ warId: "w" }))!;
+      for (const rows of [info.contributions, info.combatContributions]) {
+        const mercenary = rows.find((row) => row.userId === "merc")!;
+        expect(mercenary.isMasked).toBe(viewer !== "merc");
+        expect(mercenary.username === "Mercenary").toBe(viewer !== "merc");
+        expect(rows.find((row) => row.userId !== "merc")!.isMasked).toBe(false);
+      }
+      const sectorData = await callerForDatabase(travelRouter, viewer, db).getSectorData({ sector: 1 });
+      const mercenary = sectorData.users.find((row) => row.userId === "merc")!;
+      expect(mercenary.isMasked).toBe(viewer !== "merc");
+      expect(mercenary.username === "Mercenary").toBe(viewer !== "merc");
+    }
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.getMercenaries({ warId: "w" })).roster[0]!.user?.username).not.toBe("Mercenary");
+    await kage.leaveMercenary({ contractId: "contract" });
+    expect((await kage.getObjectiveWarInfo({ warId: "w" }))!.contributions.find((row) => row.userId === "merc")!.isMasked).toBe(true);
   });
   it("rechecks funds, leadership, war lifetime and enemy eligibility before payment", async () => {
     const db = await getTestDatabase();
@@ -213,6 +238,7 @@ describeWithDatabase("mercenary strategic participation", () => {
     }
     const mercenary = snapshot.usersState.find((user) => user.userId === "merc")!;
     expect(mercenary.username).toBe("Mercenary");
+    expect(mercenary.isMasked).toBe(true);
     expect(snapshot.extraState.wars).toEqual(before.extraState.wars);
     expect(getWarSide(snapshot.extraState.wars.w!, mercenary.villageId, mercenary.userId)).toBe("a");
     expect(getBattleTeamWars(snapshot, mercenary).map(({ war }) => war.id)).toEqual(["w"]);

@@ -1575,7 +1575,7 @@ export const intersectUsers = (info: {
           if (heal && userData.userId !== userId && showHeal) {
             heal.visible = true;
           }
-          if (details) details.visible = true;
+          if (details) details.visible = !user.isMasked;
           if (document.body.style.cursor !== "wait") {
             document.body.style.cursor = "pointer";
           }
