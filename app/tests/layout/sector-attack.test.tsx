@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { Group, Raycaster, Sprite, Vector3 } from "three";
 import * as client from "@/app/_trpc/client";
 import type { VillageAlliance } from "@/drizzle/schema";
+import * as Image from "@/layout/Image";
 import * as modal from "@/layout/Modal";
 import { SorroundingUsers } from "@/layout/Sector";
 import type { TerrainHex } from "@/libs/hexgrid";
@@ -13,6 +14,10 @@ import { ensureDom } from "../setup-dom.mjs";
 
 beforeEach(() => {
   ensureDom();
+  vi.spyOn(Image, "default").mockImplementation(({ alt, src, ...props }) => (
+    // biome-ignore lint/performance/noImgElement: isolated scouting image fixture
+    <img {...props} alt={alt} src={typeof src === "string" ? src : undefined} />
+  ));
   Object.assign(vi.spyOn(client, "api" as never), {
     village: { getAll: { useQuery: () => ({ data: [] }) } },
   });

@@ -2,9 +2,15 @@ import { settleObjectiveWarCombat } from "@/libs/combat/objectiveWar";
 import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
 import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
-import { afterAll, beforeEach, expect, it } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { quest, warActionReceipt, warContribution, warKill, userData, village, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
+import { SHRINE_BATTLE_LOBBY_SECONDS } from "@/drizzle/constants";
+import { aiProfile, battle, battleHistory, mpvpBattleQueue, mpvpBattleUser, quest, sector, warActionReceipt, warContribution, warKill, userData, village, villageAlliance, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
+import { updateWars } from "@/libs/combat/database";
+import { calcBattleResult, getBattleTeamWars } from "@/libs/combat/util";
+import { getWarSide } from "@/libs/objectiveWar";
+import { Pusher } from "@/libs/pusher";
+import { shrineRouter } from "@/server/api/routers/shrine";
 import { fetchUpdatedUser, type UserWithRelations } from "@/server/api/routers/profile";
 import { updateRewards } from "@/server/api/routers/quests";
 import { isWarMissionAvailable } from "@/libs/quest";
@@ -116,6 +122,7 @@ describeWithDatabase("mercenary exclusivity", () => {
 
 describeWithDatabase("mercenary strategic participation", () => {
   beforeEach(seed);
+  afterEach(() => vi.restoreAllMocks());
   afterAll(async () => { await resetTables(warMercenary); });
   it("completes a village-less mercenary mission and retains battle credit after dismissal", async () => {
     const db = await getTestDatabase();
@@ -163,5 +170,49 @@ describeWithDatabase("mercenary strategic participation", () => {
     expect(hiredWar.defenderWarHealth).toBe(w.defenderWarHealth - 10);
     await db.insert(warCamp).values({ id: "home-camp", warId: "home-war", sector: 22, guardianId: "guardian", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 3600000) });
     expect(await canEnterWarCampSector(db, { userId: "merc", villageId: "c", sector: 11 }, 22)).toBe(false);
+  });
+  it("keeps a native shrine teammate from granting mercenary credit in another war after dismissal", async () => {
+    const db = await getTestDatabase();
+    await resetTables(battleHistory, battle, mpvpBattleUser, mpvpBattleQueue, aiProfile, sector, villageAlliance);
+    vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => Response.json(
+      String(url).endsWith("/pipeline") ? [{ result: [59, 60] }] : { result: [59, 60] },
+    ));
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 1 })).success).toBe(true);
+    const offer = (await db.query.warMercenary.findFirst())!;
+    expect((await callerForDatabase(warRouter, "merc", db).acceptMercenary({ contractId: offer.id })).success).toBe(true);
+    await db.insert(village).values({ id: "d", name: "D", sector: 4, kageId: "d-kage", tokens: 1000 });
+    await db.update(village).set({ tokens: 1000 }).where(eq(village.id, "c"));
+    await db.update(userData).set({ status: "AWAKE", rank: "JONIN", experience: 1000, curHealth: 100, maxHealth: 100, curStamina: 100, maxStamina: 100, curChakra: 100, maxChakra: 100, sector: 101 });
+    await db.update(userData).set({ villageId: "d" }).where(eq(userData.userId, "enemy"));
+    await db.insert(war).values({ id: "home-war", type: "SECTOR_WAR", status: "ACTIVE", attackerVillageId: "c", defenderVillageId: "d", sector: 101, defenderShrineHp: 100, defenderShrineMaxHp: 100 });
+    await db.insert(sector).values({ sector: 101, villageId: "d", shrineLevel: 1 });
+    await db.insert(villageAlliance).values({ id: "enemies", villageIdA: "c", villageIdB: "d", status: "ENEMY" });
+    await db.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
+    const shrineMerc = callerForDatabase(shrineRouter, "merc", db);
+    expect((await shrineMerc.challengeShrine({ sectorNumber: 101 })).success).toBe(true);
+    const queue = (await db.query.mpvpBattleQueue.findFirst())!;
+    for (const [userId, side] of [["merc2", "ATTACKER"], ["enemy", "DEFENDER"]] as const) {
+      expect((await callerForDatabase(shrineRouter, userId, db).joinShrineBattle({ shrineBattleId: queue.id, side })).success).toBe(true);
+    }
+    await db.update(mpvpBattleQueue).set({ createdAt: new Date(Date.now() - (SHRINE_BATTLE_LOBBY_SECONDS + 1) * 1000) }).where(eq(mpvpBattleQueue.id, queue.id));
+    const started = await shrineMerc.initiateShrineBattle({ shrineBattleId: queue.id });
+    expect(started.success, started.message).toBe(true);
+    const snapshot = (await db.query.battle.findFirst({ where: eq(battle.id, started.battleId!) }))!;
+    expect((await kage.leaveMercenary({ contractId: offer.id })).success).toBe(true);
+    const merc = snapshot.usersState.find((u) => u.userId === "merc")!;
+    const native = snapshot.usersState.find((u) => u.userId === "merc2")!;
+    snapshot.usersState.find((u) => u.userId === "enemy")!.curHealth = 0;
+    expect(getWarSide(snapshot.extraState.wars["home-war"]!, merc.villageId, merc.userId)).toBeNull();
+    expect(getBattleTeamWars(snapshot, merc).map(({ war }) => war.id)).toEqual(["w"]);
+    const result = calcBattleResult(snapshot, merc.userId)!;
+    expect(result.shrineChangeHp).toBe(0);
+    await updateWars(db, {} as never, snapshot, result, merc.userId);
+    expect((await db.query.war.findFirst({ where: eq(war.id, "home-war") }))?.defenderShrineHp).toBe(100);
+    const nativeResult = calcBattleResult(snapshot, native.userId)!;
+    expect(nativeResult.shrineChangeHp).toBeLessThan(0);
+    await updateWars(db, {} as never, snapshot, nativeResult, native.userId);
+    expect((await db.query.war.findFirst({ where: eq(war.id, "home-war") }))?.defenderShrineHp).toBe(100 + nativeResult.shrineChangeHp);
   });
 });

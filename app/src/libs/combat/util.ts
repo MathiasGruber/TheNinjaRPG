@@ -257,11 +257,14 @@ const getBattleTeamMembers = (battle: CompleteBattle, user: BattleUserState) =>
  * Resolve preloaded wars and their sponsored sides for the user's battle team.
  * The first matching member in sponsorship order chooses each war's side,
  * including registered supporters. Persistent village/war membership is unchanged.
+ * Mercenary appointments frozen in battle state restrict credit to the assigned war.
  */
 export const getBattleTeamWars = (battle: CompleteBattle, user: BattleUserState) => {
   const wars = new Map<string, { war: BattleWar; sideVillageId: string }>();
   for (const member of getBattleTeamMembers(battle, user)) {
     for (const war of Object.values(battle.extraState.wars ?? {})) {
+      const assignedWarId = war.mercenaryWarIds?.[user.userId];
+      if (assignedWarId && war.id !== assignedWarId) continue;
       const sideVillageId = getWarSide(war, member.villageId, member.userId);
       if (sideVillageId && !wars.has(war.id)) wars.set(war.id, { war, sideVillageId });
     }
