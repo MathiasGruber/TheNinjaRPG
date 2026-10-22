@@ -255,3 +255,42 @@ it("searches enemies and rewards, preserves invalid quantity drafts, and saves g
   ]);
   queryClient.clear();
 });
+
+it("saves displayed enemy quantities after making room in a full wave", async () => {
+  const content = dungeonContent();
+  content.tiers[0]![0]!.waves[0]!.aiIds = [...Array<string>(7).fill("enemy"), ...Array<string>(3).fill("wolf")];
+  const save = vi.fn(async (_input: SaveInput): Promise<SaveResult> => ({ success: true, message: "Dungeon saved.", id: "A" }));
+  Object.assign(vi.spyOn(client, "api" as never), {
+    useUtils: () => ({ coop: { dungeon: { getAvailable: { invalidate: async () => undefined } } } }),
+    coop: { dungeon: {
+      getAll: { useQuery: () => ({ data: [{ id: "A", content }], refetch: async () => undefined }) },
+      save: { useMutation: (options: UseMutationOptions<SaveResult, Error, SaveInput>) => useMutation({ ...options, mutationFn: save }) },
+    } },
+    mapAsset: { getAll: { useQuery: () => ({ data: [] }) } },
+    profile: { getAllAiNames: { useQuery: () => ({ data: [{ userId: "enemy", username: "Enemy" }, { userId: "wolf", username: "Snow Wolf" }] }) } },
+    item: { getAllNames: { useQuery: () => ({ data: [] }) } },
+    jutsu: { getAllNames: { useQuery: () => ({ data: [] }) } },
+    rewardPackages: { getCatalog: { useQuery: () => ({ data: { packages: [], nodes: [] } }) } },
+  });
+  vi.spyOn(UserContext, "useUserData").mockReturnValue({ data: { role: "CONTENT-ADMIN" } } as never);
+  vi.spyOn(ContentBox, "default").mockImplementation(({ children }: { children: ReactNode }) => <div>{children}</div>);
+  vi.spyOn(toast, "showMutationToast").mockImplementation(() => undefined);
+  const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const view = render(<QueryClientProvider client={queryClient}><DungeonEditor /></QueryClientProvider>);
+  fireEvent.change(view.getByRole("combobox", { name: "Edit existing dungeon" }), { target: { value: "A" } });
+  fireEvent.click(view.getByRole("tab", { name: "Encounters" }));
+  const quantity = view.getByLabelText("Wave 1 enemy 1 quantity") as HTMLInputElement;
+  fireEvent.input(quantity, { target: { value: "9" } });
+  expect(quantity.checkValidity()).toBe(true);
+  expect(view.getByText("12 / 10 enemies in this wave")).toBeTruthy();
+  fireEvent.click(view.getByRole("button", { name: "Save dungeon" }));
+  expect(save).not.toHaveBeenCalled();
+  expect(view.getByRole("status").textContent).toContain("Tier 1, floor 1:");
+  fireEvent.input(view.getByLabelText("Wave 1 enemy 2 quantity"), { target: { value: "1" } });
+  expect(quantity.value).toBe("9");
+  expect(quantity.checkValidity()).toBe(true);
+  fireEvent.click(view.getByRole("button", { name: "Save dungeon" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  expect(save.mock.calls[0]![0].content.tiers[0]![0]!.waves[0]!.aiIds).toEqual([...Array<string>(9).fill("enemy"), "wolf"]);
+  queryClient.clear();
+});

@@ -476,7 +476,7 @@ export default function DungeonEditor() {
                           <Field label="Quantity">
                             <EnemyQuantity
                               label={`Wave ${wi + 1} enemy ${aiIndex + 1} quantity`}
-                              max={DUNGEON_MAX_MOBS - wave.aiIds.length + quantity}
+                              max={DUNGEON_MAX_MOBS}
                               quantity={quantity}
                               onChange={(value) =>
                                 editRoom((r) => {
