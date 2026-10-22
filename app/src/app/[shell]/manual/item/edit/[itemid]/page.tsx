@@ -193,22 +193,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
                           shouldDirty: true,
                           shouldValidate: true,
                         });
-                      if (change.width !== undefined)
-                        form.setValue("furnitureData.width", change.width, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        });
-                      if (change.groundAnchor !== undefined)
+                      const { image: _image, ...framing } = change;
+                      if (Object.keys(framing).length > 0)
                         form.setValue(
-                          "furnitureData.groundAnchor",
-                          change.groundAnchor,
+                          "furnitureData",
+                          { ...form.getValues("furnitureData"), ...framing },
                           { shouldDirty: true, shouldValidate: true },
                         );
-                      if ("geometry" in change)
-                        form.setValue("furnitureData.geometry", change.geometry, {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        });
                     }}
                     canEdit={props.canSave}
                     disabled={isUpdating}
