@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
+import { getTableConfig } from "drizzle-orm/mysql-core";
 import { PVP_EXPERIENCE_AVERAGE_SETTING } from "@/drizzle/constants";
+import { userData } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import {
   fetchPvpExperienceAverage,
@@ -76,5 +78,25 @@ describe("fetchPvpExperienceAverage instance cache", () => {
     await expect(fetchPvpExperienceAverage(client)).rejects.toThrow("connection dropped");
     expect((await fetchPvpExperienceAverage(client)).value).toBe(1500);
     expect(calls).toBe(2);
+  });
+
+  it("forces the covering (isAi, pvpExperience) index", async () => {
+    let hint: unknown;
+    const client = {
+      select: () => ({
+        from: (_table: unknown, config: unknown) => {
+          hint = config;
+          return { where: async () => [{ average: 1000 }] };
+        },
+      }),
+    } as unknown as Pick<DrizzleClient, "select">;
+    await fetchPvpExperienceAverage(client);
+    const covering = getTableConfig(userData).indexes.find(
+      (index) => index.config.name === "UserData_pvpExperienceAverage_idx",
+    );
+    expect(covering?.config.columns.map((column) => "name" in column && column.name)).toEqual(
+      ["isAi", "pvpExperience"],
+    );
+    expect(hint).toEqual({ forceIndex: covering?.config.name });
   });
 });
