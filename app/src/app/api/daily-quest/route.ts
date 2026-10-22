@@ -1,4 +1,4 @@
-import { and, eq, gte, isNotNull, or, sql } from "drizzle-orm";
+import { and, eq, gte, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { type UserRank, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { quest, questHistory, userData } from "@/drizzle/schema";
@@ -93,6 +93,7 @@ export async function GET(request: Request) {
         .where(and(eq(userData.isAi, false), gte(userData.updatedAt, activeSince)))
         .groupBy(userData.rank, userData.villageId, userData.level),
       // Guarded and idempotent, so a deadlock with the other midnight crons just reruns it.
+      // Only open attempts (no endAt) are closed; earlier days' closed rows keep their endAt.
       isResume
         ? undefined
         : retryOnDeadlock(() =>
@@ -100,7 +101,11 @@ export async function GET(request: Request) {
               .update(questHistory)
               .set({ completed: 0, endAt: new Date() })
               .where(
-                and(eq(questHistory.questType, "daily"), eq(questHistory.completed, 0)),
+                and(
+                  eq(questHistory.questType, "daily"),
+                  eq(questHistory.completed, 0),
+                  isNull(questHistory.endAt),
+                ),
               ),
           ),
     ]);
