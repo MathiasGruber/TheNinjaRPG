@@ -116,7 +116,7 @@ type PaypalTransaction = {
 };
 
 export const paypalRouter = createTRPCRouter({
-  /** List published offers; only the owner may request unpublished drafts. */
+  /** List published offers; store managers may also request unpublished drafts. */
   getStoreBundles: protectedProcedure
     .input(z.object({ includeInactive: z.boolean().optional() }).nullish())
     .query(async ({ ctx, input }) => {
@@ -124,7 +124,10 @@ export const paypalRouter = createTRPCRouter({
         ? await fetchUser(ctx.drizzle, ctx.userId)
         : undefined;
       if (input?.includeInactive && !canManageStore(user?.role))
-        throw serverError("FORBIDDEN", "Only the owner can manage store bundles");
+        throw serverError(
+          "FORBIDDEN",
+          "Only the owner and content administrators can manage store bundles",
+        );
       const [bundles, items] = await Promise.all([
         ctx.drizzle.query.webStoreBundle.findMany({
           where: input?.includeInactive ? undefined : eq(webStoreBundle.isActive, true),
@@ -151,7 +154,9 @@ export const paypalRouter = createTRPCRouter({
         ctx.drizzle.query.item.findMany({ columns: { id: true, repsCost: true } }),
       ]);
       if (user.isBanned || !canManageStore(user.role))
-        return errorResponse("Only the owner can manage store bundles");
+        return errorResponse(
+          "Only the owner and content administrators can manage store bundles",
+        );
       if (input.id && !existing) return errorResponse("Bundle no longer exists");
       if (
         input.data.contents.items.some(

@@ -45,7 +45,7 @@ import { type StoreBundleInput, storeBundleSchemaForItems } from "@/validators/p
 import { getSearchValidator } from "@/validators/register";
 import { StoreCheckout } from "./StoreCheckout";
 
-/** The public catalog and owner editor share the same validated offer payload. */
+/** The public catalog and staff editor share the same validated offer payload. */
 export function StoreBundles() {
   const { data: user } = useRequiredUserData();
   const canManage = canManageStore(user?.role);

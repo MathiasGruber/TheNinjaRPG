@@ -60,7 +60,7 @@ export const storeContentsSchema = z
       contents.reputationPoints > 0 || contents.money > 0 || contents.items.length > 0,
     "Add reputation, ryo or items",
   );
-/** Shared contract for the owner editor and catalog writes; prices are integer USD cents. */
+/** Shared contract for the bundle editor and catalog writes; prices are integer USD cents. */
 export const storeBundleSchema = z.object({
   name: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1000),

@@ -341,7 +341,7 @@ describeWithDatabase("web store payments", () => {
       expect(captures).toBe(0);
     }finally{fetchMock.mockRestore();}
   });
-  it("allows only the owner to author or inspect hidden offers", async () => {
+  it("keeps hidden bundle management unavailable to players", async () => {
     const player = await callerFor(paypalRouter,"recipient");
     expect((await player.saveStoreBundle({data:{...offer,description:"",isActive:false}})).success).toBe(false);
     await expect(player.getStoreBundles({includeInactive:true})).rejects.toThrow();
@@ -356,6 +356,36 @@ describeWithDatabase("web store payments", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {fetchMock.mockRestore();}
     expect(await dbAuditCount()).toBe(1);
+  });
+  it("lets content administrators manage bundles while enforcing price floors and bans", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({role:"CONTENT-ADMIN"}).where(eq(userData.userId,"buyer"));
+    const manager = await callerFor(paypalRouter,"buyer");
+    const data = {...offer,description:"",isActive:false};
+    expect((await manager.saveStoreBundle({data})).success).toBe(true);
+    const draft = (await manager.getStoreBundles({includeInactive:true})).bundles[0]!;
+    expect(draft.isActive).toBe(false);
+    expect((await manager.saveStoreBundle({id:draft.id,data:{...data,name:"Content bundle",isActive:true}})).success).toBe(true);
+    expect((await manager.getStoreBundles()).bundles).toHaveLength(1);
+    expect((await manager.saveStoreBundle({id:draft.id,data:{...data,priceCents:100}})).success).toBe(false);
+    expect((await db.query.webStoreBundle.findFirst())?.priceCents).toBe(offer.priceCents);
+    expect((await manager.saveStoreBundle({id:draft.id,data})).success).toBe(true);
+    expect((await manager.getStoreBundles()).bundles).toHaveLength(0);
+    expect(await dbAuditCount()).toBe(3);
+    await db.update(userData).set({isBanned:true}).where(eq(userData.userId,"buyer"));
+    expect((await manager.saveStoreBundle({id:draft.id,data:{...data,isActive:true}})).success).toBe(false);
+    expect(await dbAuditCount()).toBe(3);
+  });
+  it("does not grant bundle management to other content or administrator roles", async () => {
+    const db = await getTestDatabase();
+    const caller = await callerFor(paypalRouter,"recipient");
+    for (const role of ["CONTENT","HEAD_CONTENT","CODING-ADMIN","EVENT-ADMIN"] as const) {
+      await db.update(userData).set({role}).where(eq(userData.userId,"recipient"));
+      expect((await caller.saveStoreBundle({data:{...offer,description:"",isActive:false}})).success).toBe(false);
+      await expect(caller.getStoreBundles({includeInactive:true})).rejects.toThrow("Only the owner and content administrators");
+    }
+    expect(await db.query.webStoreBundle.findMany()).toHaveLength(0);
+    expect(await dbAuditCount()).toBe(0);
   });
   it("rejects bundle creation and edits below the fresh reputation/item price floor", async () => {
     const db = await getTestDatabase();
