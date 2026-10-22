@@ -20,13 +20,21 @@ let cachedAverage: CachedAverage | null = null;
 // Concurrent misses share one query instead of each scanning the table.
 let pendingAverage: Promise<CachedAverage> | null = null;
 
-/** Query the population average and store it in the instance cache. */
+/**
+ * Query the population average and store it in the instance cache.
+ *
+ * The (isAi, pvpExperience) index answers the average from the index alone. MySQL's
+ * cost model discounts indexes by how much of them sits in the buffer pool, and a
+ * query that runs only every few minutes leaves this index cold, so without the hint
+ * the optimizer picks the hot single-column isAi index and then performs one primary
+ * key lookup per human row (roughly ten times slower).
+ */
 const loadAverage = async (client: Pick<DrizzleClient, "select">) => {
   const [row] = await client
     .select({
       average: sql<number>`COALESCE(AVG(${userData.pvpExperience}), 0)`.mapWith(Number),
     })
-    .from(userData)
+    .from(userData, { forceIndex: "UserData_pvpExperienceAverage_idx" })
     .where(eq(userData.isAi, false));
   cachedAverage = { value: row?.average ?? 0, fetchedAt: Date.now() };
   return cachedAverage;
