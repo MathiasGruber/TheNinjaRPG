@@ -34,32 +34,32 @@ jobs:
               {
                 name: "size:XS",
                 color: "0e8a16",
-                description: "0-9 effective changed lines (test files excluded in mixed PRs).",
+                description: "0-9 effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
               {
                 name: "size:S",
                 color: "5ebd3e",
-                description: "10-29 effective changed lines (test files excluded in mixed PRs).",
+                description: "10-29 effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
               {
                 name: "size:M",
                 color: "fbca04",
-                description: "30-99 effective changed lines (test files excluded in mixed PRs).",
+                description: "30-99 effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
               {
                 name: "size:L",
                 color: "fe7d37",
-                description: "100-499 effective changed lines (test files excluded in mixed PRs).",
+                description: "100-499 effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
               {
                 name: "size:XL",
                 color: "d93f0b",
-                description: "500-999 effective changed lines (test files excluded in mixed PRs).",
+                description: "500-999 effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
               {
                 name: "size:XXL",
                 color: "b60205",
-                description: "1,000+ effective changed lines (test files excluded in mixed PRs).",
+                description: "1,000+ effective text lines (JSON excluded; tests excluded in mixed PRs).",
               },
             ];
 
@@ -69,6 +69,7 @@ jobs:
             const headSha = context.payload.pull_request.head.sha;
             const headTrackingRef = `refs/remotes/pr-size/${issueNumber}`;
 
+            const sizeExcludePathspecs = [":(glob,icase,exclude)**/*.json"];
             const testExcludePathspecs = [
               ":(glob,exclude)**/__tests__/**",
               ":(glob,exclude)**/test/**",
@@ -120,10 +121,10 @@ jobs:
                 .filter(Boolean)
                 .reduce((total, line) => {
                   const [insertionsRaw = "0", deletionsRaw = "0"] = line.split("\t");
-                  const additions =
-                    insertionsRaw === "-" ? 0 : Number.parseInt(insertionsRaw, 10) || 0;
-                  const deletions =
-                    deletionsRaw === "-" ? 0 : Number.parseInt(deletionsRaw, 10) || 0;
+                  // Git reports binary files with dashes instead of line counts.
+                  if (insertionsRaw === "-" || deletionsRaw === "-") return total;
+                  const additions = Number.parseInt(insertionsRaw, 10) || 0;
+                  const deletions = Number.parseInt(deletionsRaw, 10) || 0;
                   return total + additions + deletions;
                 }, 0);
 
@@ -174,6 +175,9 @@ jobs:
               "--ignore-all-space",
               "--ignore-blank-lines",
               `${baseSha}...${resolvedHeadSha}`,
+              "--",
+              ".",
+              ...sizeExcludePathspecs,
             ];
 
             const totalChangedLines = sumNumstat(
@@ -182,7 +186,7 @@ jobs:
             const nonTestChangedLines = sumNumstat(
               execFileSync(
                 "git",
-                [...diffArgs, "--", ".", ...testExcludePathspecs],
+                [...diffArgs, ...testExcludePathspecs],
                 { encoding: "utf8" },
               ),
             );
@@ -242,5 +246,5 @@ jobs:
                   : "all non-test changes";
 
             core.info(
-              `PR #${issueNumber}: ${nonTestChangedLines} non-test lines, ${testChangedLines} test lines, ${changedLines} effective lines -> ${nextLabelName} (${classification})`,
+              `PR #${issueNumber}: ${nonTestChangedLines} non-test lines, ${testChangedLines} test lines, ${changedLines} effective text lines -> ${nextLabelName} (${classification}; JSON and binary files excluded)`,
             );
