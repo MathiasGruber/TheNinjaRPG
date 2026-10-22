@@ -1,3 +1,4 @@
+import { timerClaimFixture } from "../../setup/gameTimers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as Sentry from "@sentry/nextjs";
 import { TRPCError } from "@trpc/server";
@@ -12,6 +13,7 @@ import {
 } from "../../setup/serverModules";
 
 const previous = new Date(0);
+const release = vi.fn(async () => true);
 const request = () => new Request("https://example.com/api/cron");
 
 beforeEach(() => {
@@ -22,9 +24,11 @@ beforeEach(() => {
   vi.spyOn(settings, "handleEndpointError").mockImplementation(
     actualGameSettings.handleEndpointError,
   );
-  vi.spyOn(settings, "checkGameTimer").mockResolvedValue(false);
-  vi.spyOn(settings, "updateGameSetting").mockResolvedValue(undefined);
+  vi.spyOn(settings, "lockWithGameTimer").mockResolvedValue(false);
+  release.mockReset().mockResolvedValue(true);
   vi.spyOn(settings, "lockWithHourlyTimer").mockResolvedValue({
+    ...timerClaimFixture(),
+    release,
     isNewHour: true,
     prevTime: previous,
     response: Response.json(null),
@@ -94,9 +98,10 @@ describe("endpoint error responses", () => {
         limit: vi.fn().mockRejectedValue(cause),
       };
       stubDatabase({ delete: vi.fn().mockReturnValue(deletion) });
-      vi.spyOn(settings, "updateGameSetting").mockImplementation(async () => {
+      release.mockImplementation(async () => {
         events.push("rollback");
         if (rollbackFails) throw rollbackCause;
+        return true;
       });
       vi.spyOn(Sentry, "captureException").mockImplementation(() => {
         events.push("report");
@@ -108,12 +113,7 @@ describe("endpoint error responses", () => {
       expect(response.status).toBe(500);
       expect(await response.json()).toBe("Internal server error");
       expect(events).toEqual(["rollback", "report"]);
-      expect(settings.updateGameSetting).toHaveBeenCalledWith(
-        expect.anything(),
-        "cleaner-hourly",
-        0,
-        previous,
-      );
+      expect(release).toHaveBeenCalledWith();
       expect(Sentry.captureException).toHaveBeenCalledTimes(1);
       expect(Sentry.captureException).toHaveBeenCalledWith(cause, {
         extra: { endpoint: "/api/cleaner" },

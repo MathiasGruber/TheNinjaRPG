@@ -44,7 +44,6 @@ const mocks = getDailyOverworldTestMocks();
 vi.mock("next/headers", () => ({ cookies: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/libs/gamesettings", () => ({
   lockWithDailyTimer: getDailyOverworldTestMocks().lock,
-  updateGameSetting: getDailyOverworldTestMocks().rollback,
   handleEndpointError: getDailyOverworldTestMocks().handleError,
 }));
 vi.mock("@/libs/overworldAi", () => ({
@@ -84,7 +83,7 @@ describe("daily-overworld-ai route", () => {
     mocks.updateSets.length = 0;
     mocks.authenticate.mockReturnValue(null);
     mocks.lock.mockResolvedValue({
-      isNewDay: true,
+      release: mocks.rollback, isNewDay: true,
       prevTime: new Date("2026-08-14T00:00:00.000Z"),
       response: new Response("locked"),
     });

@@ -122,15 +122,15 @@ describe("timer cadence", () => {
     setSystemTime(now);
     const store = timerStore();
     const results = await Promise.all([
-      lockWithGameTimer(store.client, "indexer-1m", 60 * 60_000),
-      lockWithGameTimer(store.client, "indexer-1m", 60 * 60_000),
+      lockWithGameTimer(store.client, "indexer-1m", 60_000),
+      lockWithGameTimer(store.client, "indexer-1m", 60_000),
     ]);
     expect(results.filter((result) => result === false)).toHaveLength(1);
     expect(results.filter((result) => result instanceof Response)).toHaveLength(1);
     expect(store.client.query.gameSetting.findFirst).toHaveBeenCalledTimes(2);
-    expect(await lockWithGameTimer(store.client, "indexer-1m", 60 * 60_000)).toBeInstanceOf(Response);
-    setSystemTime(new Date(now.getTime() + 3_599_640));
-    expect(await lockWithGameTimer(store.client, "indexer-1m", 60 * 60_000)).toBe(false);
+    expect(await lockWithGameTimer(store.client, "indexer-1m", 60_000)).toBeInstanceOf(Response);
+    setSystemTime(new Date(now.getTime() + 59_994));
+    expect(await lockWithGameTimer(store.client, "indexer-1m", 60_000)).toBe(false);
   });
 
   it("keeps read-only timer checks free of claims", async () => {

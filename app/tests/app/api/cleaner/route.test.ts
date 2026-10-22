@@ -1,3 +1,4 @@
+import { timerClaimFixture } from "../../../setup/gameTimers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { eq, type SQL } from "drizzle-orm";
 import { MySqlDialect, QueryBuilder } from "drizzle-orm/mysql-core";
@@ -77,7 +78,7 @@ const expireRequests = async (db: DrizzleClient) => {
     delete: (table: object) => table === userRequest ? db.delete(userRequest) : skipDelete(),
     update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
   });
-  vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
+  vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ ...timerClaimFixture(), release: mocks.reset, isNewHour: true, prevTime: new Date(0), response: Response.json(null) });
   vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
   vi.spyOn(travel, "completeExpiredGlobalTravel").mockResolvedValue(undefined);
   vi.spyOn(raids, "cleanupExpiredExclusiveRaids").mockResolvedValue(0);

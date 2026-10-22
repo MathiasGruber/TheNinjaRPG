@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     const [expiredBounties, activeCount, expiredAnalytics, villageMaintenance] =
       await Promise.all([
         bountyExpire(),
-        dailyActivePlayers(),
+        dailyActivePlayers(timerCheck),
         deleteExpiredVisitorAnalytics(),
         accrueVillageStructureMaintenance(drizzleDB),
       ]);
@@ -113,7 +113,9 @@ const bountyExpire = async () => {
   return expiredBounties;
 };
 
-const dailyActivePlayers = async () => {
+const dailyActivePlayers = async (
+  timerCheck: Awaited<ReturnType<typeof lockWithHourlyTimer>>,
+) => {
   // Count users active in the last 24 hours (updatedAt within last 24 hours)
   const result = await drizzleDB
     .select({ count: count() })
