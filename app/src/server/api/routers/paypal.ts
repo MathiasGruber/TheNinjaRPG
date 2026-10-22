@@ -39,6 +39,7 @@ import {
   calcFedUgradeCost,
   dollars2reps,
   fedStatusRepsCost,
+  getStoreBundleMinimumPriceCents,
   plan2FedStatus,
   reps2dollars,
 } from "@/utils/paypal";
@@ -48,6 +49,7 @@ import type { JsonData } from "@/utils/typeutils";
 import {
   searchPaypalTransactionSchema,
   storeBundleSchema,
+  storeBundleSchemaForItems,
   storeCheckoutSchema,
 } from "@/validators/points";
 import type { DrizzleClient } from "../../db";
@@ -129,7 +131,7 @@ export const paypalRouter = createTRPCRouter({
           orderBy: (table, { asc }) => [asc(table.priceCents), asc(table.name)],
         }),
         ctx.drizzle.query.item.findMany({
-          columns: { id: true, name: true, image: true },
+          columns: { id: true, name: true, image: true, repsCost: true },
         }),
       ]);
       return { bundles, items };
@@ -146,7 +148,7 @@ export const paypalRouter = createTRPCRouter({
               where: eq(webStoreBundle.id, input.id),
             })
           : undefined,
-        ctx.drizzle.query.item.findMany({ columns: { id: true } }),
+        ctx.drizzle.query.item.findMany({ columns: { id: true, repsCost: true } }),
       ]);
       if (user.isBanned || !canManageStore(user.role))
         return errorResponse("Only the owner can manage store bundles");
@@ -157,6 +159,11 @@ export const paypalRouter = createTRPCRouter({
         )
       )
         return errorResponse("Select existing items for the bundle");
+      const validated = storeBundleSchemaForItems(items).safeParse(input.data);
+      if (!validated.success)
+        return errorResponse(
+          validated.error.issues[0]?.message ?? "Check the bundle price",
+        );
       const id = input.id ?? nanoid();
       await Promise.all([
         existing
@@ -1051,7 +1058,7 @@ const prepareWebCheckout = async (
         })
       : undefined,
     ctx.drizzle.query.item.findMany({
-      columns: { id: true },
+      columns: { id: true, repsCost: true },
       where: eq(item.hidden, false),
     }),
     ctx.drizzle.query.storeUserIdAlias.findMany({
@@ -1081,6 +1088,9 @@ const prepareWebCheckout = async (
   if (!offer) return errorResponse("Bundle no longer exists");
   if (offer.contents.items.some((reward) => !items.some((i) => i.id === reward.id)))
     return errorResponse("This bundle contains an unavailable item. Contact staff.");
+  // Recheck published offers against current item prices and the direct-purchase rate.
+  if (offer.priceCents < getStoreBundleMinimumPriceCents(offer.contents, items))
+    return errorResponse("This bundle's price needs updating. Contact staff.");
   return reserveStoreOrder(ctx.drizzle, ctx.userId, recipient.userId, offer);
 };
 

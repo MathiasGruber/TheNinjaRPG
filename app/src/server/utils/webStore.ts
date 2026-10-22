@@ -12,7 +12,7 @@ import {
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { isDeletedStoreUserId } from "@/server/utils/purchases/grant";
-import { dynamicMonthlyRepCap } from "@/utils/paypal";
+import { dynamicMonthlyRepCap, getStoreBundleMinimumPriceCents } from "@/utils/paypal";
 import { type StoreContents, storeContentsSchema } from "@/validators/points";
 
 /** Distinguish snapshot-backed purchases from legacy PayPal custom IDs during recovery. */
@@ -230,7 +230,7 @@ export const authorizeStoreCapture = async (
     });
     const itemsQuery = order.contents.items.length
       ? db.query.item.findMany({
-          columns: { id: true },
+          columns: { id: true, repsCost: true },
           where: and(
             eq(item.hidden, false),
             inArray(
@@ -253,6 +253,9 @@ export const authorizeStoreCapture = async (
       return "The recipient account is no longer available. No payment was captured.";
     if (items.length !== order.contents.items.length)
       return "An item in this checkout is no longer available. No payment was captured.";
+    // Stop unpaid quotes that became too cheap; completed captures bypass this preflight.
+    if (order.priceCents < getStoreBundleMinimumPriceCents(order.contents, items))
+      return "This checkout's price needs updating. Start a new checkout. No payment was captured.";
     const error = await checkStoreAllowance(
       db,
       buyer,

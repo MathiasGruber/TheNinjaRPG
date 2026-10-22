@@ -38,9 +38,10 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { SearchSelect } from "@/layout/SearchSelect";
 import UserSearchSelect from "@/layout/UserSearchSelect";
+import { getStoreBundleMinimumPriceCents } from "@/utils/paypal";
 import { canManageStore } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
-import { type StoreBundleInput, storeBundleSchema } from "@/validators/points";
+import { type StoreBundleInput, storeBundleSchemaForItems } from "@/validators/points";
 import { getSearchValidator } from "@/validators/register";
 import { StoreCheckout } from "./StoreCheckout";
 
@@ -263,7 +264,7 @@ function StoreBundleEditor({
 }: {
   draft: StoreBundleInput;
   isEditing: boolean;
-  items: { id: string; name: string }[];
+  items: { id: string; name: string; repsCost: number }[];
   isPending: boolean;
   message?: string;
   returnFocusRef: RefObject<HTMLButtonElement | null>;
@@ -272,9 +273,12 @@ function StoreBundleEditor({
 }) {
   const form = useForm<StoreBundleInput>({
     defaultValues: draft,
-    resolver: zodResolver(storeBundleSchema),
+    resolver: zodResolver(storeBundleSchemaForItems(items)),
   });
   const rewards = useFieldArray({ control: form.control, name: "contents.items" });
+  const contents = useWatch({ control: form.control, name: "contents" });
+  const minimumCents = getStoreBundleMinimumPriceCents(contents, items);
+  const minimumPrice = Number.isFinite(minimumCents) ? minimumCents / 100 : undefined;
   const options = items
     .map((item) => ({ value: item.id, label: item.name }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -312,7 +316,9 @@ function StoreBundleEditor({
       }
     >
       <p className="text-muted-foreground text-sm">
-        Set a price in USD and guaranteed contents. Publish when the offer is ready.
+        {minimumPrice === undefined
+          ? "Enter valid quantities to calculate the minimum USD price."
+          : `Minimum $${minimumPrice.toFixed(2)} USD, based on reputation and rep-priced items.`}
       </p>
       <Form {...form}>
         <form
@@ -357,7 +363,7 @@ function StoreBundleEditor({
                     <FormControl>
                       <NumberInput
                         {...field}
-                        min={STORE_BUNDLE_MIN_PRICE_CENTS / 100}
+                        min={minimumPrice ?? STORE_BUNDLE_MIN_PRICE_CENTS / 100}
                         max={STORE_BUNDLE_MAX_PRICE_CENTS / 100}
                         step="0.01"
                         value={field.value / 100}

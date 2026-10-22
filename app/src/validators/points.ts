@@ -8,6 +8,8 @@ import {
   WEB_REP_MAX,
   WEB_REP_MIN,
 } from "@/drizzle/constants";
+import type { Item } from "@/drizzle/schema";
+import { getStoreBundleMinimumPriceCents } from "@/utils/paypal";
 
 export const buyRepsSchema = z.object({
   reputationPoints: z.number().int().min(WEB_REP_MIN).max(WEB_REP_MAX),
@@ -70,6 +72,19 @@ export const storeBundleSchema = z.object({
   isActive: z.boolean(),
   contents: storeContentsSchema,
 });
+
+/** The editor uses catalog prices; the router rechecks fresh item prices before saving. */
+export const storeBundleSchemaForItems = (items: Pick<Item, "id" | "repsCost">[]) =>
+  storeBundleSchema.superRefine((bundle, context) => {
+    const minimum = getStoreBundleMinimumPriceCents(bundle.contents, items);
+    if (bundle.priceCents < minimum)
+      context.addIssue({
+        code: "custom",
+        path: ["priceCents"],
+        message: `Minimum price is $${(minimum / 100).toFixed(2)} USD for the included reputation and rep-priced items`,
+      });
+  });
+
 /** Clients select an offer and recipient; the server supplies its price and reward snapshot. */
 export const storeCheckoutSchema = z.object({
   recipientId: z.string().min(1).max(191),

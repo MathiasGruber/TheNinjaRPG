@@ -5,8 +5,8 @@ import { staffRouter, deleteUser } from "@/server/api/routers/staff";
 import { paypalRouter, syncTransactions } from "@/server/api/routers/paypal";
 import { itemRouter } from "@/server/api/routers/item";
 import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
-import { buyRepsSchema, storeBundleSchema } from "@/validators/points";
-import { dynamicMonthlyRepCap } from "@/utils/paypal";
+import { buyRepsSchema, storeBundleSchema, storeBundleSchemaForItems } from "@/validators/points";
+import { dynamicMonthlyRepCap, getStoreBundleMinimumPriceCents, reps2dollars } from "@/utils/paypal";
 import { insertItems, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
@@ -38,6 +38,19 @@ async function reserve() {
 }
 
 describe("web store validation", () => {
+  it("prices included reputation and item quantities at the direct-purchase rate", () => {
+    const items = [{id:"store-item",repsCost:10}];
+    const minimum = Math.round(reps2dollars(90) * 100);
+    expect(getStoreBundleMinimumPriceCents(contents,items)).toBe(minimum);
+    const schema = storeBundleSchemaForItems(items);
+    const input = {...offer,description:"",isActive:false,priceCents:minimum};
+    expect(schema.safeParse(input).success).toBe(true);
+    const rejected = schema.safeParse({...input,priceCents:minimum-1});
+    expect(rejected.success).toBe(false);
+    if (!rejected.success) expect(rejected.error.issues[0]?.path).toEqual(["priceCents"]);
+    expect(getStoreBundleMinimumPriceCents({...contents,reputationPoints:0},[{id:"store-item",repsCost:0}])).toBe(100);
+    expect(getStoreBundleMinimumPriceCents(contents,[{id:"store-item",repsCost:-1}])).toBe(Math.round(reps2dollars(20)*100));
+  });
   it("requires whole custom quantities within checkout bounds", () => {
     for (const value of [NaN, Infinity, 4, 5.5, 1001]) expect(buyRepsSchema.safeParse({reputationPoints:value}).success).toBe(false);
     expect(buyRepsSchema.parse({reputationPoints:73}).reputationPoints).toBe(73);
@@ -216,6 +229,7 @@ describeWithDatabase("web store payments", () => {
     const db = await getTestDatabase();
     const buyer = await db.query.userData.findFirst({where:eq(userData.userId,"buyer")});
     const large = {...offer,contents:{...contents,reputationPoints:Math.floor(dynamicMonthlyRepCap(buyer)*0.6)}};
+    large.priceCents = getStoreBundleMinimumPriceCents(large.contents,[]);
     for (const id of ["expired-first","expired-second","expired-third"]) {
       await db.insert(webStoreOrder).values({id,buyerId:"buyer",recipientId:"recipient",...large,expiresAt:new Date(0)});
     }
@@ -342,6 +356,70 @@ describeWithDatabase("web store payments", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     } finally {fetchMock.mockRestore();}
     expect(await dbAuditCount()).toBe(1);
+  });
+  it("rejects bundle creation and edits below the fresh reputation/item price floor", async () => {
+    const db = await getTestDatabase();
+    const owner = await callerFor(paypalRouter,"buyer");
+    await db.update(item).set({repsCost:10}).where(eq(item.id,"store-item"));
+    const data = {...offer,description:"",isActive:true};
+    expect((await owner.saveStoreBundle({data})).success).toBe(false);
+    expect(await db.query.webStoreBundle.findMany()).toHaveLength(0);
+    expect(await dbAuditCount()).toBe(0);
+    data.priceCents = Math.round(reps2dollars(90)*100);
+    expect((await owner.saveStoreBundle({data})).success).toBe(true);
+    const saved = (await db.query.webStoreBundle.findFirst())!;
+    expect((await owner.saveStoreBundle({id:saved.id,data:{...data,priceCents:data.priceCents-1}})).success).toBe(false);
+    await db.update(item).set({repsCost:20}).where(eq(item.id,"store-item"));
+    expect((await owner.saveStoreBundle({id:saved.id,data})).success).toBe(false);
+    expect((await db.query.webStoreBundle.findFirst())?.priceCents).toBe(data.priceCents);
+    expect(await dbAuditCount()).toBe(1);
+  });
+  it("blocks underpriced published offers before creating a provider order", async () => {
+    const db = await getTestDatabase();
+    const owner = await callerFor(paypalRouter,"buyer");
+    await db.insert(webStoreBundle).values({id:"underpriced",...offer,description:"",isActive:true,priceCents:100});
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => Response.json({}));
+    try {
+      expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:"underpriced"}})).success).toBe(false);
+      await db.update(webStoreBundle).set({priceCents:offer.priceCents}).where(eq(webStoreBundle.id,"underpriced"));
+      await db.update(item).set({repsCost:10}).where(eq(item.id,"store-item"));
+      expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:"underpriced"}})).success).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await db.query.webStoreOrder.findMany()).toHaveLength(0);
+    } finally {fetchMock.mockRestore();}
+  });
+  it("rechecks repriced items before capture while honoring completed payment recovery", async () => {
+    const db = await getTestDatabase();
+    const owner = await callerFor(paypalRouter,"buyer");
+    await owner.saveStoreBundle({data:{...offer,description:"",isActive:true}});
+    const bundle = (await db.query.webStoreBundle.findFirst())!;
+    let provider:any; let captures=0;
+    const completePayment = () => {
+      provider.status="COMPLETED";
+      provider.purchase_units[0].payments={captures:[{id:"REPRICEDCAPTURE",status:"COMPLETED",amount:provider.purchase_units[0].amount}]};
+    };
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async (url,options) => {
+      const path=String(url);
+      if(path.endsWith("/v1/oauth2/token"))return Response.json({access_token:"test-only"});
+      if(path.endsWith("/v2/checkout/orders")){provider={...JSON.parse(String(options?.body)),id:"TESTORDER123456789",status:"APPROVED"};return Response.json(provider);}
+      if(path.endsWith("/capture")){captures++;completePayment();}
+      return Response.json(provider);
+    });
+    try {
+      expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:bundle.id}})).success).toBe(true);
+      await db.update(item).set({repsCost:10}).where(eq(item.id,"store-item"));
+      const rejected=await owner.captureStoreOrder({orderId:provider.id});
+      expect(rejected.success).toBe(false);
+      expect(rejected.message).toContain("No payment was captured");
+      expect(captures).toBe(0);
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+      completePayment();
+      expect((await owner.captureStoreOrder({orderId:provider.id})).success).toBe(true);
+      expect((await owner.resolveOrder({orderId:provider.id})).success).toBe(true);
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+      expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:20,money:500});
+      expect((await db.query.userItem.findMany()).reduce((sum,row)=>sum+row.quantity,0)).toBe(7);
+    } finally {fetchMock.mockRestore();}
   });
   it("rejects published bundles containing hidden items before opening checkout", async () => {
     const owner = await callerFor(paypalRouter,"buyer"); const db = await getTestDatabase();
