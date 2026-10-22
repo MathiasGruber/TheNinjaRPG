@@ -88,9 +88,11 @@ const startBattle = async (
       },
     }),
     insert: (table: object) => ({
-      values: async (value: unknown) => {
+      values: (value: unknown) => {
         if (table === battle) saved = value as CompleteBattle;
-        return { rowsAffected: 1 };
+        return Object.assign(Promise.resolve({ rowsAffected: 1 }), {
+          onDuplicateKeyUpdate: async () => ({ rowsAffected: 1 }),
+        });
       },
     }),
     update: () => ({

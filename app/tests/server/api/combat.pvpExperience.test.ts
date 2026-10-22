@@ -47,10 +47,12 @@ const startBattle = async (battleType: BattleType, repeats: number, defenderAi =
       };
       return builder;
     } }),
-    insert: (table: object) => ({ values: async (value: unknown) => {
+    insert: (table: object) => ({ values: (value: unknown) => {
       phases.push("write");
       if (table === battle) saved = value as CompleteBattle;
-      return { rowsAffected: 1 };
+      return Object.assign(Promise.resolve({ rowsAffected: 1 }), {
+        onDuplicateKeyUpdate: async () => ({ rowsAffected: 1 }),
+      });
     } }),
     update: () => ({ set: () => ({ where: async () => ({ rowsAffected: users.filter((user) => !user.isAi).length }) }) }),
   } as unknown as DrizzleClient;

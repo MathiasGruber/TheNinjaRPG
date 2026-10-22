@@ -1,4 +1,6 @@
 -- Pause GameSetting writers while reconciling names and applying this constraint.
+-- With PlanetScale deploy requests, reconcile data on the target branch before
+-- deploying the unique schema: deploy requests do not copy branch row changes.
 -- Preflight: SELECT name, COUNT(*) FROM GameSetting GROUP BY name HAVING COUNT(*) > 1;
 -- Inspect all rows for each returned name and retain an export before reconciliation.
 -- Only identical time/value pairs are safe to collapse automatically; id is not
