@@ -21,7 +21,7 @@ describeWithDatabase("named game-setting initialization", () => {
     expect(rows).toHaveLength(1);
     for (const setting of settings) expect(setting).toEqual(rows[0]!);
     expect(await indexColumns("GameSetting", "GameSetting_name_unique")).toEqual({ columns: ["name"], unique: true });
-    await expect(database.insert(gameSetting).values({ ...rows[0]!, id: "another-id" })).rejects.toThrow();
+    await expect(Promise.resolve(database.insert(gameSetting).values({ ...rows[0]!, id: "another-id" }))).rejects.toThrow();
   });
 
   it("admits exactly one daily claim during concurrent cold start", async () => {
