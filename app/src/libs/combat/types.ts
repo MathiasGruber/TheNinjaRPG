@@ -63,6 +63,8 @@ export type CombatQueryUserItem = UserItem & {
   imbuements: (UserItemImbuement & { item: Item })[];
   /** Real UserItem row backing a synthetic forced-loadout entry (XP is credited to it). */
   progressionRowId?: string | null;
+  /** Effects of this row's imbuements, carried when it is rebuilt from battle state. */
+  imbuementEffects?: UserEffect[];
 };
 
 /**
@@ -339,6 +341,11 @@ export type BattleUserItem = {
   dropChancePerc: number;
   lastUsedRound: number;
   originalCooldown: number;
+  /**
+   * Effects of this row's own imbuements. Kept per user item because
+   * extraState.items is shared by every participant wearing the same template.
+   */
+  imbuementEffects?: UserEffect[];
   activeVariantId?: string | null; // which variant is active (if any)
   variantBattleDescription?: string | null; // pre-resolved from variant at battle init
   variantImage?: string | null; // pre-resolved from variant at battle init

@@ -774,7 +774,8 @@ export const userItemToAction = (
     chakraCost: Math.max(0, item.chakraCost - item.chakraCostReducePerLvl * level),
     staminaCost: Math.max(0, item.staminaCost - item.staminaCostReducePerLvl * level),
     actionCostPerc: item.actionCostPerc,
-    effects: item.effects,
+    // The catalog item is shared by everyone holding this template; imbuements are per row.
+    effects: [...item.effects, ...(useritem.imbuementEffects ?? [])],
     quantity: useritem.quantity,
     data: item,
     durability: useritem.durability,
@@ -1471,7 +1472,10 @@ export const applyActionCooldowns = (
     if (ui.itemId === action.id && action.type === "item") {
       ui.lastUsedRound = round;
       ui.originalCooldown = item.cooldown;
-    } else if (applyGcd && sharesCooldown(item.effects)) {
+    } else if (
+      applyGcd &&
+      sharesCooldown([...item.effects, ...(ui.imbuementEffects ?? [])])
+    ) {
       if (lockedFor(ui.lastUsedRound, ui.originalCooldown) < SHARED_COOLDOWN_ROUNDS) {
         ui.lastUsedRound = round;
         ui.originalCooldown = SHARED_COOLDOWN_ROUNDS;
