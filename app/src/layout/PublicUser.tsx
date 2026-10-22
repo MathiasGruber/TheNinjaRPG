@@ -509,7 +509,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
   const utils = api.useUtils();
 
   // Mutations
-  const updateAvatar = api.reports.updateUserAvatar.useMutation();
+  const updateAvatar = api.reports.updateUserAvatar.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const handleAvatarUpdate = async () => {
     const target = avatarUpdateTarget;
@@ -551,7 +553,9 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     }
   };
 
-  const clearNindo = api.reports.clearNindo.useMutation();
+  const clearNindo = api.reports.clearNindo.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const handleClearNindo = async () => {
     const target = clearNindoTarget;
@@ -598,9 +602,13 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
     }
   };
 
-  const updateUserId = api.staff.updateUserId.useMutation();
+  const updateUserId = api.staff.updateUserId.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
-  const unstuckUser = api.staff.forceAwake.useMutation();
+  const unstuckUser = api.staff.forceAwake.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const handleForceAwake = async () => {
     const target = forceAwakeTarget;
@@ -2228,7 +2236,9 @@ const DeleteUserQuestControl: React.FC<{
     useState<UserQuestDeletionSnapshot | null>(null);
   const [isPending, setIsPending] = useState(false);
   const requestRef = useRef<UserQuestDeletionSnapshot | null>(null);
-  const deleteUserQuest = api.quests.deleteUserQuest.useMutation();
+  const deleteUserQuest = api.quests.deleteUserQuest.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const openConfirmation = () => {
     if (isPending || requestRef.current) return;
@@ -2474,7 +2484,9 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
   });
 
   // Mutation for adjusting jutsu level
-  const adjustJutsuLevel = api.jutsu.adjustUserJutsu.useMutation();
+  const adjustJutsuLevel = api.jutsu.adjustUserJutsu.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   // Staff item level editing
   const { data: userItems } = api.item.getPublicUserItems.useQuery(
@@ -2484,7 +2496,9 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
   const itemLevelForm = useForm<{ level: number }>({
     defaultValues: { level: 1 },
   });
-  const adjustItemLevel = api.item.adjustUserItem.useMutation();
+  const adjustItemLevel = api.item.adjustUserItem.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   // Query all reskins for selected jutsu
   const { data: jutsuReskins } = api.jutsu.getReskinsForJutsu.useQuery(
@@ -2689,8 +2703,8 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
         utils.jutsu.getPublicUserJutsus.invalidate({ userId: snapshot.userId }),
       ]);
     } catch (error) {
-      // Ordinary tRPC errors are shown by the global handler. Only suppressed transient errors
-      // need a local message. Close and refresh because this endpoint has no replay key.
+      // This caller owns transport feedback; other tRPC failures use the global handler.
+      // Close and refresh because this endpoint has no replay key.
       if (error instanceof Error && isRetryableTrpcError(error)) {
         showMutationToast({
           success: false,
@@ -2788,8 +2802,8 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
       setConfirmedItemAdjustment(null);
       void utils.item.getPublicUserItems.invalidate({ userId: snapshot.userId });
     } catch (error) {
-      // Ordinary tRPC errors are shown globally. Suppressed transient failures get one local,
-      // actionable message. Close and refresh because this endpoint has no replay key.
+      // This caller owns transport feedback; other tRPC failures use the global handler.
+      // Close and refresh because this endpoint has no replay key.
       if (error instanceof Error && isRetryableTrpcError(error)) {
         showMutationToast({
           success: false,
@@ -3963,9 +3977,13 @@ const BadgesTab: React.FC<BadgesTabProps> = ({ userId, username, currentBadges }
   });
 
   const utils = api.useUtils();
-  const insertUserBadge = api.staff.insertUserBadge.useMutation();
+  const insertUserBadge = api.staff.insertUserBadge.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
-  const removeUserBadge = api.staff.removeUserBadge.useMutation();
+  const removeUserBadge = api.staff.removeUserBadge.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   // Once an authoritative profile response contains an optimistic assignment, it no longer
   // needs a client overlay. Other optimistic badges remain independent.
@@ -4511,7 +4529,9 @@ const RemoveReferralButton: React.FC<RemoveReferralButtonProps> = ({
   const [retryRequest, setRetryRequest] = useState<ReferralRemovalRequest | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [modalVersion, setModalVersion] = useState(0);
-  const deleteReferral = api.staff.deleteReferral.useMutation();
+  const deleteReferral = api.staff.deleteReferral.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const handleRemove = async () => {
     if (inFlightRef.current) return;

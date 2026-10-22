@@ -95,7 +95,9 @@ export default function MissionHall({ userData }: MissionHallProps) {
     },
   });
 
-  const { mutateAsync: startQuest } = api.quests.startQuest.useMutation();
+  const { mutateAsync: startQuest } = api.quests.startQuest.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const startSpecificQuest = async (quest: { id: string }) => {
     // Mutation pending state is only visible on the next render. Capture the quest, sector, and
@@ -140,8 +142,7 @@ export default function MissionHall({ userData }: MissionHallProps) {
       ]);
       return true;
     } catch (error) {
-      // Normal tRPC failures are reported globally. Transient errors are intentionally suppressed
-      // there, so provide only that missing retry feedback and keep the confirmation usable.
+      // This caller owns transport recovery feedback; other tRPC failures use the global handler.
       if (
         startRequestRef.current === request &&
         activeContextRef.current === request.context &&

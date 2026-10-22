@@ -68,11 +68,17 @@ const TrpcClientProvider = (props: {
             staleTime: Infinity,
           },
           mutations: {
-            onError: (error) => handleTrpcError(error),
+            // A caller's onError replaces this fallback, preserving its recovery UX.
+            onError: (error, _variables, _result, context) =>
+              handleTrpcError(
+                error,
+                "mutation",
+                context.meta?.handlesTransportError === true,
+              ),
           },
         },
         queryCache: new QueryCache({
-          onError: (error, _query) => handleTrpcError(error),
+          onError: (error, _query) => handleTrpcError(error, "query"),
         }),
         mutationCache: new MutationCache({
           onMutate: (_variables, mutation) => {
@@ -159,7 +165,11 @@ const TrpcClientProvider = (props: {
 
 export default TrpcClientProvider;
 
-const handleTrpcError = (error: unknown) => {
+const handleTrpcError = (
+  error: unknown,
+  operation: "query" | "mutation",
+  handlesTransportError = false,
+) => {
   const trpcErrorCode =
     error instanceof TRPCClientError
       ? (error.data as { code?: string } | undefined)?.code
@@ -192,14 +202,20 @@ const handleTrpcError = (error: unknown) => {
   // specific auth and transient-error checks; other server failures must reach
   // error reporting and user feedback.
 
-  // Ignore transient network/CDN errors (retries handle these gracefully)
-  // Queries are retried by retryLink (up to 3 attempts), mutations are never retried
-  // All retryable errors are suppressed here to avoid user-facing toasts for transient issues
-  if (error instanceof TRPCClientError) {
-    if (isRetryableTrpcError(error)) {
-      // Filtered from Sentry in instrumentation-client.ts (isNetworkNavigationError)
-      return;
-    }
+  // Cache/default error callbacks run after retries finish; failed requests clear pending state.
+  // Transport failures need recovery feedback even though they are not Sentry defects.
+  // Mutations are never retried: losing the response does not imply a rollback.
+  if (error instanceof TRPCClientError && isRetryableTrpcError(error)) {
+    // Some mutateAsync callers reconcile the result and report uncertainty in catch.
+    if (handlesTransportError) return;
+    showMutationToast({
+      success: false,
+      message:
+        operation === "mutation"
+          ? "Could not confirm whether this action completed. Refresh the page to check the result before trying again."
+          : "Could not load the latest data. Check your connection and refresh the page.",
+    });
+    return;
   }
   // Ignore abort errors (user navigated away before request completed)
   // Use spec-compliant cause.name check with message-based fallback for browsers

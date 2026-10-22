@@ -1,8 +1,9 @@
 import * as clerk from "@clerk/nextjs";
+import * as Sentry from "@sentry/nextjs";
 import type { Clerk } from "@clerk/shared/types";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
-import type { TRPCClient } from "@trpc/client";
+import { type TRPCClient, TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { toast as sonnerToast } from "sonner";
@@ -318,3 +319,157 @@ it("keeps ordinary action failures as separate notices", async () => {
     "Please wait before trying again.",
   ]);
 });
+
+const fetchFailure = (message = "Failed to fetch") => {
+  const error = new TypeError(message);
+  error.stack = `${message}\n    at fetch (fetch:1:1)`;
+  return error;
+};
+
+it.each([
+  "Failed to fetch",
+  '\"Offline\" is not valid JSON',
+  '\"<!DOCTYPE \"... is not valid JSON',
+])(
+  "settles a mutation with uncertain-outcome feedback and no retry for %s",
+  async (message) => {
+    let rejectFetch!: (error: Error) => void;
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(
+      () =>
+        new Promise<Response>((_resolve, reject) => {
+          rejectFetch = reject;
+        }),
+    );
+    const capture = vi.spyOn(Sentry, "captureException");
+    const onSuccess = vi.fn();
+    let change!: () => Promise<unknown>;
+    const EventAction = () => {
+      const mutation = testApi.misc.setEventGameSetting.useMutation({ onSuccess });
+      change = () =>
+        mutation.mutateAsync({
+          setting: "regenGainMultiplier",
+          multiplier: "2",
+          days: 1,
+        });
+      return (
+        <button type="button" disabled={mutation.isPending}>
+          {mutation.isPending ? "Changing setting" : "Change setting"}
+        </button>
+      );
+    };
+    mountProvider(session("a"), <EventAction />);
+    let settled!: Promise<PromiseSettledResult<unknown>[]>;
+    act(() => {
+      settled = Promise.allSettled([change()]);
+    });
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByRole("button").textContent).toBe("Changing setting"),
+    );
+    expect(toastMessages()).toEqual([]);
+    await act(async () => {
+      rejectFetch(fetchFailure(message));
+      await settled;
+    });
+    await waitFor(() =>
+      expect(screen.getByRole<HTMLButtonElement>("button").disabled).toBe(false),
+    );
+    expect(queryClient.getMutationCache().getAll()[0]?.state.status).toBe("error");
+    expect(screen.getByRole("button").textContent).toBe("Change setting");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(toastMessages()).toEqual([
+      "Could not confirm whether this action completed. Refresh the page to check the result before trying again.",
+    ]);
+    expect(capture).not.toHaveBeenCalled();
+  },
+);
+
+it("leaves transport feedback to a caller's onError without a duplicate notice", async () => {
+  vi.spyOn(globalThis, "fetch").mockRejectedValue(fetchFailure());
+  const { attack, onError } = mountArenaMutation(session("a"));
+  await act(async () => {
+    await expect(attack()).rejects.toThrow("Failed to fetch");
+  });
+  expect(onError).toHaveBeenCalledTimes(1);
+  expect(toastMessages()).toEqual(["Failed to fetch"]);
+});
+
+it.each([true, false])(
+  "preserves catch-based recovery without hiding server errors: transport=%s",
+  async (transport) => {
+    const capture = vi.spyOn(Sentry, "captureException").mockReturnValue("event");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mountProvider(session("a"));
+    const error = transport
+      ? TRPCClientError.from(fetchFailure())
+      : TRPCClientError.from({
+          error: {
+            message: "Server failed",
+            code: -32603,
+            data: { code: "INTERNAL_SERVER_ERROR" },
+          },
+        });
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationKey: [["item", "consume"]],
+      meta: { handlesTransportError: true },
+      mutationFn: async () => {
+        throw error;
+      },
+    });
+    try {
+      await mutation.execute(undefined);
+    } catch {
+      if (transport)
+        toast.showMutationToast({
+          success: false,
+          message: "Refresh your inventory to check the result.",
+        });
+    }
+    expect(mutation.state.status).toBe("error");
+    expect(toastMessages()).toEqual([
+      transport ? "Refresh your inventory to check the result." : "Server failed",
+    ]);
+    expect(capture).toHaveBeenCalledTimes(transport ? 0 : 1);
+  },
+);
+
+it.each([true, false])(
+  "reports only exhausted query retries: recover=%s",
+  async (recover) => {
+    const capture = vi.spyOn(Sentry, "captureException");
+    let attempts = 0;
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+      attempts++;
+      // No cache error callback (and no toast) while retryLink is still trying.
+      expect(toastMessages()).toEqual([]);
+      if (recover && attempts === 2) {
+        return Response.json([
+          { result: { data: superjson.serialize({ success: true }) } },
+        ]);
+      }
+      throw fetchFailure();
+    });
+    const { trpc } = mountProvider(session("a"));
+    const settled = await Promise.allSettled([
+      queryClient.fetchQuery({
+        queryKey: ["transport-query"],
+        queryFn: () => trpc.profile.getUser.query(),
+        // Let the real retryLink exhaust its policy without adding TanStack's own retries.
+        retry: false,
+      }),
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(recover ? 2 : 4);
+    expect(settled[0]?.status).toBe(recover ? "fulfilled" : "rejected");
+    expect(queryClient.isFetching()).toBe(0);
+    expect(toastMessages()).toEqual(
+      recover
+        ? []
+        : [
+            "Could not load the latest data. Check your connection and refresh the page.",
+          ],
+    );
+    expect(capture).not.toHaveBeenCalled();
+  },
+  20_000,
+);

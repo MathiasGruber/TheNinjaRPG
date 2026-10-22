@@ -74,7 +74,9 @@ export default function OccupationCrafting() {
       new Date(imbuement.craftingFinishedAt) > new Date(),
   );
 
-  const imbueItemMutation = api.occupation.imbueItem.useMutation();
+  const imbueItemMutation = api.occupation.imbueItem.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const finishCraftingImmediatelyMutation =
     api.occupation.finishCraftingImmediately.useMutation({
@@ -100,7 +102,9 @@ export default function OccupationCrafting() {
       },
     });
 
-  const removeImbuementMutation = api.occupation.removeImbuement.useMutation();
+  const removeImbuementMutation = api.occupation.removeImbuement.useMutation({
+    meta: { handlesTransportError: true },
+  });
 
   const repairItemMutation = api.item.repair.useMutation({
     onMutate: prepareUserUpdate,
@@ -313,9 +317,8 @@ export default function OccupationCrafting() {
         utils.profile.getSidebarTimers.invalidate(),
       ]);
     } catch (error) {
-      // Normal server/validation errors are already reported globally. Transient transport errors
-      // are intentionally suppressed there, so supply only that missing feedback and retain the
-      // exact item/crystal selection for a safe retry.
+      // This caller owns transport feedback and retains the exact item/crystal selection.
+      // Other tRPC failures use the global handler.
       if (
         imbueRequestRef.current === request &&
         error instanceof Error &&
@@ -378,8 +381,8 @@ export default function OccupationCrafting() {
       );
       void utils.item.getUserItems.invalidate();
     } catch (error) {
-      // Validation errors use the global mutation toast. Only transport failures are suppressed
-      // there, so provide that missing feedback while retaining the exact target for retry.
+      // This caller owns transport feedback and retains the exact target for retry.
+      // Other tRPC failures use the global handler.
       if (
         removeImbuementRequestsRef.current.get(request.userItemImbuementId) ===
           request &&
