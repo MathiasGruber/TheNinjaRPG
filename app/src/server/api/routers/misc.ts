@@ -6,6 +6,7 @@ import { z } from "zod";
 import {
   DMG_SETTING_NAMES,
   Sentiment,
+  TRAINING_CAPTCHA_REFRESHES_PER_MINUTE,
   TRAINING_CAPTCHA_SOLVED_GRACE_MINUTES,
 } from "@/drizzle/constants";
 import {
@@ -21,11 +22,14 @@ import {
   userRewards,
   visitorLog,
 } from "@/drizzle/schema";
-import { captchaAnswerMatches, showTrainingCapcha } from "@/libs/captcha";
+import {
+  captchaAnswerMatches,
+  randomCaptchaValue,
+  showTrainingCapcha,
+} from "@/libs/captcha";
 import { fetchDmgConfig, getGameSetting, updateGameSetting } from "@/libs/gamesettings";
 import { getLayoutExperimentAssignments } from "@/libs/layoutPreference";
 import { hasEnergyQueue } from "@/libs/queue";
-import { randomString } from "@/libs/random";
 import { fetchUser } from "@/routers/profile";
 import {
   baseServerResponse,
@@ -114,6 +118,13 @@ export const miscRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .query(async ({ ctx }) => {
       return await generateCaptcha(ctx.drizzle, ctx.userId);
+    }),
+  refreshCaptcha: protectedProcedure
+    .meta({ mcp: { description: "Replace the pending captcha with a new one" } })
+    .use(ratelimitMiddleware)
+    .output(baseServerResponse)
+    .mutation(async ({ ctx }) => {
+      return await refreshCaptcha(ctx.drizzle, ctx.userId);
     }),
   submitNotification: protectedProcedure
     .input(z.object({ content: z.string().min(2).max(10000), senderId: z.string() }))
@@ -585,17 +596,8 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
   ]);
   if (recentlySolved) return { svg: null };
   // Value to guess
-  const value = current?.value ?? randomString(6);
-  // Create the SVG
-  const fontPath = path.resolve("./fonts/OpenSans.ttf");
-  const textToSVG = TextToSVG.loadSync(fontPath);
-  const svg = textToSVG.getSVG(value, {
-    x: 0,
-    y: 0,
-    fontSize: 40,
-    anchor: "top",
-    attributes: { fill: "red", stroke: "black" },
-  });
+  const value = current?.value ?? randomCaptchaValue();
+  const svg = renderCaptchaSvg(value);
   // Insert into database
   if (!current) {
     // Create a new captcha
@@ -603,6 +605,52 @@ export const generateCaptcha = async (client: DrizzleClient, userId: string) => 
   }
   // Return svg & hash
   return { svg };
+};
+
+/**
+ * Render a captcha value as dark glyphs on a light card, spaced one per slot, so it stays
+ * high-contrast on the dark game UI.
+ */
+const renderCaptchaSvg = (value: string) => {
+  const textToSVG = TextToSVG.loadSync(path.resolve("./fonts/OpenSans.ttf"));
+  const [fontSize, slot, padding, height] = [48, 44, 16, 72];
+  const width = 2 * padding + slot * value.length;
+  const glyphs = [...value].map((char, i) =>
+    textToSVG.getPath(char, {
+      x: padding + slot * i + slot / 2,
+      y: height / 2,
+      fontSize,
+      anchor: "center middle",
+      attributes: { fill: "#111111" },
+    }),
+  );
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" rx="8" fill="#ffffff"/>${glyphs.join("")}</svg>`;
+};
+
+/**
+ * Replace the user's pending captcha with a new one, consuming the old one as failed.
+ * At most `TRAINING_CAPTCHA_REFRESHES_PER_MINUTE` captchas are created per minute.
+ */
+export const refreshCaptcha = async (client: DrizzleClient, userId: string) => {
+  // Query
+  const recent = await client.$count(
+    captcha,
+    and(
+      eq(captcha.userId, userId),
+      gt(captcha.createdAt, sql`${captchaNow} - INTERVAL 1 MINUTE`),
+    ),
+  );
+  // Guard
+  if (recent >= TRAINING_CAPTCHA_REFRESHES_PER_MINUTE) {
+    return errorResponse("Too many new captchas, wait a minute and try again");
+  }
+  // Mutate
+  await client
+    .update(captcha)
+    .set({ used: true, success: false })
+    .where(and(eq(captcha.userId, userId), eq(captcha.used, false)));
+  await generateCaptcha(client, userId);
+  return { success: true, message: "New captcha generated" };
 };
 
 /**

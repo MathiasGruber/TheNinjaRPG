@@ -11,6 +11,7 @@ import {
   Handshake,
   Loader2,
   Medal,
+  RefreshCw,
   Search,
   ShieldAlert,
   Star,
@@ -736,11 +737,10 @@ const StatsTraining: React.FC<
         </PopoverTrigger>
         <PopoverContent>
           <p className="font-bold text-lg">Verify Humanity</p>
-          {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element for data URI */}
-          <img
-            alt="captcha"
+          <TrainingCaptchaImage
             className="mb-2"
-            src={`data:image/svg+xml;utf8,${encodeURIComponent(captcha.svg)}`}
+            svg={captcha.svg}
+            onRefreshed={() => captchaForm.reset()}
           />
           <Form {...captchaForm}>
             <form className="relative" onSubmit={onSubmit}>
@@ -866,10 +866,10 @@ const StatsTraining: React.FC<
           )}
           {needsCaptcha && captcha?.svg && (
             <div className="mb-4">
-              {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element */}
-              <img
-                alt="captcha"
-                src={`data:image/svg+xml;utf8,${encodeURIComponent(captcha.svg)}`}
+              <TrainingCaptchaImage
+                className="mb-2"
+                svg={captcha.svg}
+                onRefreshed={() => captchaForm.reset()}
               />
               <Input
                 placeholder="Enter captcha"
@@ -1922,6 +1922,43 @@ const CovertTraining: React.FC<TrainingProps> = (props) => {
         </div>
       </div>
     </ContentBox>
+  );
+};
+
+/** Server-rendered captcha image with a control that swaps it for a new one. */
+const TrainingCaptchaImage: React.FC<{
+  svg: string;
+  className?: string;
+  onRefreshed: () => void;
+}> = ({ svg, className, onRefreshed }) => {
+  const utils = api.useUtils();
+  const { mutate: refreshCaptcha, isPending } = api.misc.refreshCaptcha.useMutation({
+    onSuccess: async (result) => {
+      if (!result.success) showMutationToast(result);
+      await utils.misc.getCaptcha.invalidate();
+      onRefreshed();
+    },
+  });
+  return (
+    <div className={cn("flex items-center gap-2", className)}>
+      {/* biome-ignore lint/performance/noImgElement: SVG captcha requires img element for data URI */}
+      <img
+        alt="Captcha: type these characters into the field below"
+        className="h-auto max-w-full"
+        src={`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`}
+      />
+      <Button
+        type="button"
+        size="icon"
+        variant="outline"
+        aria-label="New captcha"
+        title="New captcha"
+        disabled={isPending}
+        onClick={() => refreshCaptcha()}
+      >
+        <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+      </Button>
+    </div>
   );
 };
 
