@@ -1136,7 +1136,7 @@ export const itemRouter = createTRPCRouter({
     .query(async ({ ctx }) => {
       const counts = await ctx.drizzle
         .select({
-          count: sql<number>`count(${userItem.id})`,
+          count: count(userItem.id),
           itemId: userItem.itemId,
           quantity: sql<number>`sum(${userItem.quantity})`,
         })
@@ -1351,7 +1351,7 @@ export const itemRouter = createTRPCRouter({
         }
         // Re-count after insert to close the TOCTOU window on MAX_ITEM_VARIANTS
         const [countRow] = await ctx.drizzle
-          .select({ n: sql<number>`COUNT(*)` })
+          .select({ n: count() })
           .from(itemVariant)
           .where(eq(itemVariant.itemId, input.itemId));
         if ((countRow?.n ?? 0) > MAX_ITEM_VARIANTS) {

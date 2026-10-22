@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   eq,
   gte,
   inArray,
@@ -796,7 +797,7 @@ export const startDeclaredWar = async (
         )
           return false;
         const [members] = await tx
-          .select({ count: sql<number>`COUNT(*)` })
+          .select({ count: count() })
           .from(userData)
           .innerJoin(clan, eq(clan.id, userData.clanId))
           .where(and(eq(clan.villageId, attacker.id), eq(userData.isAi, false)));
@@ -805,7 +806,7 @@ export const startDeclaredWar = async (
           .from(villageStructure)
           .where(inArray(villageStructure.villageId, villageIds));
         if (
-          Number(members?.count ?? 0) < FACTION_RAID_MIN_MEMBERS ||
+          (members?.count ?? 0) < FACTION_RAID_MIN_MEMBERS ||
           getRaidDeclarationBlock(
             attacker,
             structures.filter((s) => s.villageId === attacker.id),

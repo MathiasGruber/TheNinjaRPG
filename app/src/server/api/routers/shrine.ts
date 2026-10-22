@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   desc,
   eq,
   gt,
@@ -1102,7 +1103,7 @@ export const shrineRouter = createTRPCRouter({
 
       // If no one left in queue, delete the battle queue
       const counts = await ctx.drizzle
-        .select({ remaining: sql<number>`count(*)` })
+        .select({ remaining: count() })
         .from(mpvpBattleUser)
         .where(eq(mpvpBattleUser.clanBattleId, input.shrineBattleId));
       const remaining = counts[0]?.remaining ?? 0;

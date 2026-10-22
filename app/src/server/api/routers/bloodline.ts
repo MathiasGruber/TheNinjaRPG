@@ -2,6 +2,7 @@ import { randomInt } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import {
   and,
+  count,
   desc,
   eq,
   gte,
@@ -769,7 +770,7 @@ export const bloodlineRouter = createTRPCRouter({
       const stats = await ctx.drizzle
         .select({
           rank: bloodline.rank,
-          count: sql<number>`count(${bloodlineRolls.id})`,
+          count: count(bloodlineRolls.id),
         })
         .from(bloodlineRolls)
         .leftJoin(bloodline, eq(bloodlineRolls.bloodlineId, bloodline.id))
@@ -796,7 +797,7 @@ export const bloodlineRouter = createTRPCRouter({
       // Also count rolls with no bloodline (null bloodlineId)
       const noBloodlineCount = await ctx.drizzle
         .select({
-          count: sql<number>`count(${bloodlineRolls.id})`,
+          count: count(bloodlineRolls.id),
         })
         .from(bloodlineRolls)
         .where(
