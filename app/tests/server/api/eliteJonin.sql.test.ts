@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { quest, questHistory, userData } from "@/drizzle/schema";
 import { calcHP } from "@/libs/profile";
@@ -32,9 +32,24 @@ describeWithDatabase("Elite Jonin milestone claims", () => {
     expect(candidates.filter(q => isAvailableUserQuests(q, { ...user, completedQuests: [] }).check).map(q => q.id)).toEqual(["legacy"]);
     expect(canBootstrapQuestType(await fetchQuestBootstrap(client, user.userId), "tier", user.level)).toBe(true);
     expect((await fetchUncompletedQuests(client, user, "tier")).map(q => q.id)).toEqual(["legacy-tier"]);
-    const catalogue = await (await callerFor(questsRouter, user.userId)).getAll({ limit: 100, userLevel: 110 });
-    expect(catalogue.data.map(q => q.id)).toContain("legacy");
-    expect(catalogue.data.map(q => q.id)).not.toContain("bounded");
+    const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (typeof init?.body !== "string" || !init.body.includes("trpc-ratelimit"))
+        throw new Error("Unexpected HTTP request in Elite Jonin catalogue test");
+      const commands = JSON.parse(init.body) as unknown[];
+      const resultFor = (command: unknown[]) => ({
+        result: command[0] === "evalsha" || command[0] === "eval" ? [59, 60] : 1,
+      });
+      return Response.json(Array.isArray(commands[0])
+        ? commands.map(command => resultFor(command as unknown[]))
+        : resultFor(commands));
+    });
+    try {
+      const catalogue = await (await callerFor(questsRouter, user.userId)).getAll({ limit: 100, userLevel: 110 });
+      expect(catalogue.data.map(q => q.id)).toContain("legacy");
+      expect(catalogue.data.map(q => q.id)).not.toContain("bounded");
+    } finally {
+      fetch.mockRestore();
+    }
   });
 
   it("awards one level and one stat gain when two different milestones race for the same level", async () => {
