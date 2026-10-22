@@ -14,6 +14,7 @@ import * as modal from "@/layout/Modal";
 import { ObjectiveWarPanel } from "@/layout/ObjectiveWarPanel";
 import { WarDashboardNotices } from "@/layout/WarDashboardNotices";
 import { WarFieldActions } from "@/layout/WarFieldActions";
+import { WarMercenaries } from "@/layout/WarMercenaries";
 import type { UserWithRelations } from "@/routers/profile";
 import * as routing from "@/utils/routing";
 import * as UserContext from "@/utils/UserContext";
@@ -103,6 +104,7 @@ let wars: {
   attackerVillage: { name: string };
   defenderVillage: { name: string };
 }[];
+let mercenaries: RouterOutputs["war"]["getMercenaries"];
 let claims: RouterOutputs["war"]["getWarPointClaims"];
 let camps: RouterOutputs["war"]["getWarCampNotices"];
 let claimError: Error | null;
@@ -224,6 +226,7 @@ beforeEach(() => {
   claimError = null;
   isPending = false;
   claims = [];
+  mercenaries = { canHire: false, roster: [] };
   camps = [];
   wars = [
     {
@@ -243,7 +246,7 @@ beforeEach(() => {
       profile: { getUser: { invalidate: invalidateUser } },
     }),
     war: {
-      getMercenaries: { useQuery: () => ({ data: { canHire: false, roster: [] } }) },
+      getMercenaries: { useQuery: () => ({ data: mercenaries }) },
       getMercenaryOffers: { useQuery: () => ({ data: [] }) },
       inviteMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       acceptMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
@@ -276,6 +279,7 @@ beforeEach(() => {
       attackWarCamp: camp,
       convertWarPoints: convert,
     },
+    profile: { searchUsers: { useQuery: () => ({ data: [] }) } },
     combat: { startShrineBattle: attack },
   });
   vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(
@@ -327,6 +331,48 @@ afterEach(() => {
   vi.restoreAllMocks();
   globalThis.Event = originalEvent;
   globalThis.CustomEvent = originalCustomEvent;
+});
+
+describe("war mercenary management", () => {
+  const contract = (slot: number) => ({
+    id: `contract-${slot}`, warId: "war-1", sideVillageId: "own", userId: `mercenary-${slot}`,
+    invitedById: "kage", tokens: 4, slot, createdAt: new Date(NOW),
+    acceptedAt: slot === 1 ? new Date(NOW) : null, endedAt: null,
+    activeSlot: slot, activeUserId: slot === 1 ? `mercenary-${slot}` : null,
+    invitedUserId: `mercenary-${slot}`, user: { username: `Mercenary ${slot}` },
+  });
+
+  it("keeps the roster collapsed and omits hiring at capacity, restoring it when a slot opens", () => {
+    mercenaries = { canHire: true, roster: [contract(1), contract(2), contract(3)] };
+    const view = mount(<WarMercenaries warId="war-1" />);
+    const summary = view.getByText("Mercenaries · 3/3");
+    const disclosure = summary.closest("details")!;
+    expect(disclosure.open).toBe(false);
+    expect(view.queryByPlaceholderText("Choose mercenary")).toBeNull();
+    fireEvent.click(summary);
+    expect(disclosure.open).toBe(true);
+    expect(view.getByRole("button", { name: "Dismiss" })).toBeDefined();
+    expect(view.getAllByRole("button", { name: "Cancel invitation" })).toHaveLength(2);
+    expect(view.queryByRole("button", { name: "Invite mercenary" })).toBeNull();
+
+    mercenaries = { ...mercenaries, roster: mercenaries.roster.slice(0, 2) };
+    view.rerender(<WarMercenaries warId="war-1" />);
+    expect(disclosure.open).toBe(true);
+    expect(view.getByText("Mercenaries · 2/3")).toBeDefined();
+    expect(view.getByPlaceholderText("Choose mercenary")).toBeDefined();
+    expect(view.getByLabelText("Village token payment")).toBeDefined();
+    expect(view.getByRole("button", { name: "Invite mercenary" })).toBeDefined();
+    expect(view.getByText(/1 token = 1,000 Ryo/)).toBeDefined();
+  });
+
+  it("keeps resignation available to a hired player without exposing hiring controls", () => {
+    mercenaries = { canHire: false, roster: [contract(1)] };
+    const view = mount(<WarMercenaries warId="war-1" />);
+    fireEvent.click(view.getByText("Mercenaries · 1/3"));
+    expect(view.getByRole("button", { name: "Resign" })).toBeDefined();
+    expect(view.queryByRole("button", { name: "Dismiss" })).toBeNull();
+    expect(view.queryByPlaceholderText("Choose mercenary")).toBeNull();
+  });
 });
 
 describe("war field objectives", () => {

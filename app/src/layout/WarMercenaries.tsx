@@ -19,7 +19,7 @@ import type { UserSearchResult } from "@/validators/register";
 /** Private hiring controls: identities are returned only to the employing Kage and the player. */
 export const WarMercenaries = ({ warId }: { warId: string }) => {
   const [tokens, setTokens] = useState(1);
-  const controlsRef = useRef<HTMLElement>(null);
+  const controlsRef = useRef<HTMLDetailsElement>(null);
   const { feedback, refresh, onError } = useMercenaryFeedback();
   const roster = api.war.getMercenaries.useQuery({ warId }, { refetchInterval: 10000 });
   const form = useForm<{ username: string; users: UserSearchResult[] }>({
@@ -30,14 +30,14 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
   const leave = api.war.leaveMercenary.useMutation({ onSuccess: refresh, onError });
   const busy = invite.isPending || leave.isPending;
   return (
-    <section
+    <details
       ref={controlsRef}
       className="space-y-3 rounded-lg border bg-popover p-3"
       aria-label="War mercenaries"
     >
-      <h3 className="font-semibold">
+      <summary className="cursor-pointer font-semibold">
         Mercenaries · {roster.data?.roster.length ?? 0}/{WAR_MERCENARY_LIMIT}
-      </h3>
+      </summary>
       <p className="text-muted-foreground text-sm">
         Contracts last for this war. Mercenaries fight anonymously, can run war
         missions, and use ANBU war damage and recovery values. Either party can end a
@@ -82,7 +82,7 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
           </Button>
         </div>
       ))}
-      {roster.data?.canHire && (
+      {roster.data?.canHire && roster.data.roster.length < WAR_MERCENARY_LIMIT && (
         <div className="space-y-3">
           <UserSearchSelect
             useFormMethods={form}
@@ -116,13 +116,7 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
             acceptance.
           </p>
           <Button
-            disabled={
-              busy ||
-              !selected ||
-              !Number.isInteger(tokens) ||
-              tokens < 1 ||
-              roster.data.roster.length >= WAR_MERCENARY_LIMIT
-            }
+            disabled={busy || !selected || !Number.isInteger(tokens) || tokens < 1}
             onClick={() =>
               selected &&
               validateNumberInputs(controlsRef.current) &&
@@ -141,7 +135,7 @@ export const WarMercenaries = ({ warId }: { warId: string }) => {
           <AlertDescription>{feedback.message}</AlertDescription>
         </Alert>
       )}
-    </section>
+    </details>
   );
 };
 

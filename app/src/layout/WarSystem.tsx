@@ -76,6 +76,7 @@ import StatusBar from "@/layout/StatusBar";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
 import UserRequestSystem from "@/layout/UserRequestSystem";
+import { getWarSide } from "@/libs/objectiveWar";
 import { showMutationToast } from "@/libs/toast";
 import { canJoinWar, isFactionVillage } from "@/libs/war";
 import type { UserWithRelations } from "@/routers/profile";
@@ -123,7 +124,7 @@ export const WarRoom: React.FC<{
   // Queries
   const { data: activeWars } = api.war.getActiveWars.useQuery(
     { villageId: user.villageId ?? "" },
-    { staleTime: 10000, enabled: !!user.villageId && warType === "Active" },
+    { staleTime: 10000, enabled: warType === "Active" },
   );
 
   const { data: endedWars } = api.war.getEndedWars.useQuery(
@@ -181,9 +182,6 @@ export const WarRoom: React.FC<{
   const userVillage = villages?.find((v) => v.id === user.villageId);
   const relationships = villageData?.relationships || [];
 
-  // Checks
-  if (!user.villageId) return <Loader explanation="Join a village first" />;
-
   return (
     <>
       <ContentBox
@@ -222,62 +220,60 @@ export const WarRoom: React.FC<{
           </ContentBox>
         )}
 
-      {userVillage && (
-        <ContentBox
-          title={`${warType} Wars`}
-          subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
-          initialBreak={true}
-          topRightContent={
-            <NavTabs
-              id="warTypeSelection"
-              current={warType}
-              options={["Active", "Ended"]}
-              setValue={setWarType}
-            />
-          }
-        >
-          <div className="grid grid-cols-1 gap-4">
-            {warType === "Active" &&
-              activeWars?.map((war) =>
-                war.type === "SECTOR_WAR" ? (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
-                ) : (
-                  <VillageWar
-                    key={war.id}
-                    war={war}
-                    user={user}
-                    villages={villages}
-                    relationships={relationships}
-                    userVillage={userVillage}
-                    isKage={isLeader}
-                  />
-                ),
-              )}
-            {warType === "Active" && activeWars && activeWars.length === 0 && (
-              <p>No active wars</p>
+      <ContentBox
+        title={`${warType} Wars`}
+        subtitle={warType === "Active" ? "Current Conflicts" : "Past Conflicts"}
+        initialBreak={true}
+        topRightContent={
+          <NavTabs
+            id="warTypeSelection"
+            current={warType}
+            options={user.villageId ? ["Active", "Ended"] : ["Active"]}
+            setValue={setWarType}
+          />
+        }
+      >
+        <div className="grid grid-cols-1 gap-4">
+          {warType === "Active" &&
+            activeWars?.map((war) =>
+              war.type === "SECTOR_WAR" ? (
+                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ) : (
+                <VillageWar
+                  key={war.id}
+                  war={war}
+                  user={user}
+                  villages={villages}
+                  relationships={relationships}
+                  userVillage={userVillage}
+                  isKage={isLeader}
+                />
+              ),
             )}
-            {warType === "Ended" &&
-              endedWars?.map((war) =>
-                war.type === "SECTOR_WAR" ? (
-                  <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
-                ) : (
-                  <VillageWar
-                    key={war.id}
-                    war={war}
-                    user={user}
-                    villages={villages}
-                    relationships={relationships}
-                    userVillage={userVillage}
-                    isKage={isLeader}
-                  />
-                ),
-              )}
-            {warType === "Ended" && endedWars && endedWars.length === 0 && (
-              <p>No ended wars</p>
+          {warType === "Active" && activeWars && activeWars.length === 0 && (
+            <p>No active wars</p>
+          )}
+          {warType === "Ended" &&
+            endedWars?.map((war) =>
+              war.type === "SECTOR_WAR" ? (
+                <SectorWar key={war.id} war={war} user={user} isKage={isLeader} />
+              ) : (
+                <VillageWar
+                  key={war.id}
+                  war={war}
+                  user={user}
+                  villages={villages}
+                  relationships={relationships}
+                  userVillage={userVillage}
+                  isKage={isLeader}
+                />
+              ),
             )}
-          </div>
-        </ContentBox>
-      )}
+          {warType === "Ended" && endedWars && endedWars.length === 0 && (
+            <p>No ended wars</p>
+          )}
+        </div>
+      </ContentBox>
       {isLeader && warType === "Active" && (
         <ContentBox
           title="War Contract Offers"
@@ -1877,12 +1873,7 @@ export const VillageWar: React.FC<{
 
   // Derived
   const isAttacker =
-    war.attackerVillageId === user.villageId ||
-    war.warAllies.some(
-      (warAlly) =>
-        warAlly.supportVillageId === war.attackerVillageId &&
-        warAlly.villageId === user.villageId,
-    );
+    getWarSide(war, user.villageId, user.userId) === war.attackerVillageId;
   const attackerStructure = war.attackerVillage?.structures?.find(
     (s) => s.route === war.targetStructureRoute,
   );

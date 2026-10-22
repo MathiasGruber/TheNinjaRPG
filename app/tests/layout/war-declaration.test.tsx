@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dynamic from "next/dynamic";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
   type ComponentProps,
   type Dispatch,
@@ -39,7 +40,7 @@ vi.spyOn(dynamic, "default").mockImplementation(
       </>
     )) as never,
 );
-const { WarMap, SectorWar, VillageWar } = await import("@/layout/WarSystem");
+const { WarRoom, WarMap, SectorWar, VillageWar } = await import("@/layout/WarSystem");
 
 type MutationResult = { success: boolean; message: string };
 type MutationCallbacks = {
@@ -219,6 +220,45 @@ const mount = () =>
       ]}
     />,
   );
+
+describe("war room participation", () => {
+  it("loads active wars without village membership and keeps village history unavailable", () => {
+    user = { ...user, villageId: null, village: null };
+    const activeWars = vi.fn(() => ({ data: [] }));
+    const endedWars = vi.fn(() => ({ data: undefined }));
+    Object.assign(client.api.village, {
+      getAlliances: { useQuery: () => ({ data: { villages: [], relationships: [] } }) },
+    });
+    Object.assign(client.api.war, {
+      getActiveWars: { useQuery: activeWars },
+      getEndedWars: { useQuery: endedWars },
+      getAllyOffers: { useQuery: () => ({ data: [] }) },
+      acceptAllyOffer: declarations,
+      rejectAllyOffer: declarations,
+      cancelAllyOffer: declarations,
+    });
+    const view = render(
+      <AppRouterContext.Provider value={{
+        back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push: vi.fn(),
+        replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-room",
+      }}>
+        <WarRoom user={user} />
+      </AppRouterContext.Provider>,
+    );
+    expect(activeWars).toHaveBeenCalledWith(
+      { villageId: "" },
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(endedWars).toHaveBeenCalledWith(
+      { villageId: "" },
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(view.getByRole("heading", { name: "Active Wars" })).toBeDefined();
+    expect(view.getByText("No active wars")).toBeDefined();
+    expect(view.queryByText("Join a village first")).toBeNull();
+    expect(view.queryByRole("button", { name: "Ended" })).toBeNull();
+  });
+});
 
 describe("war declaration targets", () => {
   it.each(["HIDEOUT", "STRONGHOLD"] as const)(
@@ -521,6 +561,33 @@ describe("objective war townhall health", () => {
         UserWithRelations
       >;
       const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
+    },
+  );
+
+  it.each([
+    ["neutral", "attacker", true],
+    [null, "attacker", true],
+    ["defender", "attacker", true],
+    ["neutral", "defender", false],
+    [null, "defender", false],
+  ] as const)(
+    "uses the hired %s player's %s side for the heading and health order",
+    (villageId, sideVillageId, isAttacker) => {
+      response = {
+        ...freshWar,
+        warMercenaries: [{
+          id: "contract", warId: war.id, sideVillageId, userId: "viewer",
+          invitedById: "kage", tokens: 4, slot: 1, createdAt: new Date(),
+          acceptedAt: new Date(), endedAt: null, activeSlot: 1,
+          activeUserId: "viewer", invitedUserId: "viewer",
+        }],
+      };
+      const user = { userId: "viewer", villageId, role: "USER" } as NonNullable<UserWithRelations>;
+      const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expect(view.getByRole("heading", {
+        name: `${isAttacker ? "Attacking Defender" : "Defending Against Attacker"} - Village war`,
+      })).toBeDefined();
       expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
     },
   );
