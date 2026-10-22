@@ -7,7 +7,11 @@ import type {
   CompleteBattle,
 } from "@/libs/combat/types";
 import { getBattleTeamWars, getOpposingBattleWars } from "@/libs/combat/util";
-import { getWarSide, isObjectiveWarActive } from "@/libs/objectiveWar";
+import {
+  getWarSide,
+  isObjectiveWarActive,
+  isObjectiveWarOpen,
+} from "@/libs/objectiveWar";
 import type { DrizzleClient } from "@/server/db";
 import { applyObjectiveWarAction } from "@/server/utils/objectiveWar";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
@@ -19,8 +23,10 @@ export const getObjectiveWarRole = (
   user: BattleUserState,
 ): "leader" | "elder" | "coleader" | "anbu" | "assassin" | "regular" => {
   if (
-    Object.values(battle.extraState.wars).some((w) =>
-      w.warMercenaries?.some((m) => m.userId === user.userId),
+    Object.values(battle.extraState.wars).some(
+      (w) =>
+        isObjectiveWarOpen(w) &&
+        w.warMercenaries?.some((m) => m.userId === user.userId),
     )
   )
     return "anbu";

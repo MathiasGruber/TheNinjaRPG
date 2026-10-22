@@ -87,6 +87,7 @@ import { getGatheringItemDrops } from "@/libs/gathering";
 import { getHuntingItemDrops } from "@/libs/hunting";
 import { isQuestPresentationOnlyChange } from "@/libs/mapLocations";
 import { canRetryQuestBattle } from "@/libs/objectives";
+import { getWarSide } from "@/libs/objectiveWar";
 import {
   deriveOverworldOpponents,
   isSupportedOverworldBindingTask,
@@ -415,7 +416,7 @@ export const questsRouter = createTRPCRouter({
           villageId: input.villageId,
           level: input.level,
         }),
-        fetchActiveWars(ctx.drizzle, input.villageId),
+        fetchActiveWars(ctx.drizzle, input.villageId, ctx.userId),
       ]);
       if (!user) return [];
       const villageInWar = isWarMissionAvailable({
@@ -2290,7 +2291,7 @@ export const updateRewards = async (info: {
         : [],
     () =>
       hasWarRewards && user.villageId
-        ? fetchActiveWars(client, user.villageId)
+        ? fetchActiveWars(client, user.villageId, user.userId)
         : undefined,
     () =>
       (rewards.reward_sage_modes?.length ?? 0) > 0
@@ -2585,9 +2586,7 @@ export const updateRewards = async (info: {
       const applicableWars = activeWars.filter(
         (w) =>
           ["VILLAGE_WAR", "WAR_RAID"].includes(w.type) &&
-          (w.attackerVillageId === user.villageId ||
-            w.defenderVillageId === user.villageId ||
-            w.warAllies.some((a) => a.villageId === user.villageId)),
+          !!getWarSide(w, user.villageId, user.userId),
       );
       if (applicableWars.length === 0) return [];
 
@@ -2597,12 +2596,8 @@ export const updateRewards = async (info: {
       for (const activeWar of applicableWars) {
         // Determine if user is on attacker or defender side for this war
         const isOnAttackerSide =
-          activeWar.attackerVillageId === user.villageId ||
-          activeWar.warAllies.some(
-            (a) =>
-              a.villageId === user.villageId &&
-              a.supportVillageId === activeWar.attackerVillageId,
-          );
+          getWarSide(activeWar, user.villageId, user.userId) ===
+          activeWar.attackerVillageId;
 
         // Apply war damage (damages opponent's war health)
         if (rewards.reward_war_damage > 0) {
@@ -3308,7 +3303,7 @@ export const assignQuestToUser = async (args: {
     if (!user.villageId) {
       return errorResponse("You must be in a village for war missions");
     }
-    const warList = await fetchActiveWars(client, user.villageId);
+    const warList = await fetchActiveWars(client, user.villageId, user.userId);
     if (
       !isWarMissionAvailable({
         questType: "war",

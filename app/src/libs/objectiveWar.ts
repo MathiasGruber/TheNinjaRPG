@@ -32,7 +32,7 @@ export const getWarSide = (
   );
 };
 
-/** Exclude notice, expired and defeated wars even before background settlement finishes. */
+/** Exclude expired and defeated wars even before background settlement finishes. */
 export const isObjectiveWarOpen = (
   activeWar: Pick<
     War,
@@ -75,7 +75,11 @@ export const withMercenaryParticipation = <
       .filter((w) => isObjectiveWarOpen(w))
       .flatMap((w) => (w.warMercenaries ?? []).map((m) => [m.userId, w.id])),
   );
-  return wars.map((w) => ({ ...w, mercenaryWarIds }));
+  return wars.map((w) => ({
+    ...w,
+    warMercenaries: isObjectiveWarOpen(w) ? w.warMercenaries : [],
+    mercenaryWarIds,
+  }));
 };
 
 /** Missing progress on legacy wars behaves as an empty espionage counter. */
