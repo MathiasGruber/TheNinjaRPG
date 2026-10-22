@@ -39,6 +39,7 @@ import {
   CombatStatNames,
   DUNGEON_PARTY_SIZE,
   ELEMENTAL_MASTERY_BOOST,
+  ELITE_JONIN_BRACKET,
   HUNTING_REQUIRED_EXP,
   KAGE_DEFENSE_GRACE_MINUTES,
   KAGE_MIN_DAYS_IN_VILLAGE,
@@ -2940,6 +2941,7 @@ export const initiateBattle = async (
 
     // XP Bracket restrictions — same bracket, higher, or one below; immunity lift and war exemptions
     if (battleType === "COMBAT" && userIds.includes(user.userId)) {
+      // Elite bracket limits remain absolute before war-zone, war and immunity exemptions.
       const eliteMismatch =
         user.userId === userIds[0] &&
         nonAiTargets.find(
@@ -2953,7 +2955,7 @@ export const initiateBattle = async (
       if (eliteMismatch)
         return {
           success: false,
-          message: "Elite Jonin can only fight players in brackets 7 and 8.",
+          message: `Elite Jonin can only fight players in brackets ${ELITE_JONIN_BRACKET - 1} and ${ELITE_JONIN_BRACKET}.`,
         };
       // War-Torn sectors skip ordinary village and XP bracket restrictions.
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
@@ -4225,6 +4227,7 @@ export const initiateBattle = async (
  * callers may use `leftSideUserIds` instead. Spawn cells are allocated without reuse;
  * initiation validates capacity before calling this function.
  * Companion species summons join initiation's preload so their effect dispatch needs no reads.
+ * Ranked players normalize to endgame levels; other Elite players retain earned milestone levels.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.

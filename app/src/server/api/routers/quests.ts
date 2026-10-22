@@ -3987,6 +3987,8 @@ type CommitQuestObjectiveRewardsResult =
  *      CAS if its account snapshot claim loses.
  *   3. Restoring the full trackers, the sensei +ryo mission bonus, the tier-bootstrap /
  *      repeatable-achievement re-arm prep, and `updateRewards` (run together).
+ * Milestone fields join the guarded account UPDATE so competing quests cannot grant the
+ * same level. They are not delivered separately in the ordinary post-claim reward payout.
  * Returns a discriminated outcome; the raw bytes of the reward names are mapped onto
  * `rewards` so callers can render them directly.
  */
@@ -4119,6 +4121,7 @@ export const commitQuestObjectiveRewards = async (info: {
     ),
   );
   if (milestonePatch) {
+    // Evaluate level-driven trackers against pending progression, then commit them together.
     const progress = getNewTrackers(
       { ...user, ...milestonePatch, questData: trackers },
       [{ task: "user_level", value: milestonePatch.level }],
@@ -4131,6 +4134,7 @@ export const commitQuestObjectiveRewards = async (info: {
   const userDelta = getRewardUserDelta(rewards, 0, true);
   // Consequences can start battles or change inventory/quest relations outside this snapshot.
   const userCacheEligible =
+    // Progression changes pools/stats that ordinary reward deltas do not represent.
     !milestonePatch &&
     !rewards.reward_titles?.length &&
     consequences.every((entry) => entry.type === "update_user") &&
@@ -4291,6 +4295,7 @@ export const commitQuestObjectiveRewards = async (info: {
       // Unresolved objectives have no completion CAS; guard their payout at the snapshot claim.
       claimConditions: [
         liveQuestCondition,
+        // Recheck earned progression and exam caps at the guarded account write.
         ...(milestonePatch || rewards.reward_rank === "ELITE JONIN"
           ? [
               eq(userData.level, user.level),

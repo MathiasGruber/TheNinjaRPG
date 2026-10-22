@@ -72,6 +72,7 @@ import {
 import {
   type BattleType,
   BattleTypes,
+  ELITE_JONIN_BRACKET,
   IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
   MAX_PVP_BRACKET,
@@ -4831,7 +4832,8 @@ const BracketEligibilityBadge: React.FC<BracketEligibilityBadgeProps> = ({
   if (viewerRank === "ELITE JONIN" || targetRank === "ELITE JONIN") {
     return (
       <p className="font-medium text-red-500 text-sm">
-        ✗ Protected (Elite Jonin can only fight brackets 7 and 8)
+        ✗ Protected (Elite Jonin can only fight brackets {ELITE_JONIN_BRACKET - 1} and{" "}
+        {ELITE_JONIN_BRACKET})
       </p>
     );
   }

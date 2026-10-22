@@ -91,7 +91,7 @@ export const levelUpBlockMessage = (
 /**
  * Calculate the level for a given experience
  * @param experience - the experience to calculate the level for
- * @returns the level for the given experience
+ * @returns The XP-derived level, capped at MAX_EXPERIENCE_LEVEL.
  */
 export const calcLevel = (experience: number) => {
   let level = 1;
@@ -176,7 +176,7 @@ export const canAttackBracket = (
  * Whether a user passes a scout/map bracket filter.
  * Matches the exact selected bracket when filterBracket >= 0;
  * use filterBracket < 0 to disable filtering entirely.
- * Unknown experience fails closed when a filter is active.
+ * Unknown XP fails closed unless Elite rank already determines the bracket.
  */
 export const passesBracketFilter = (
   user: { experience?: number | null; rank?: UserRank },
@@ -365,6 +365,7 @@ export const getRedistributableStatTotal = (
  * Whether unused experience can still go anywhere on /profile/experience: one of the six
  * combat stats has rank capacity, or an assignable mastery has room under both its
  * discipline-rank cap and the shared earned total, or an eligible elemental track.
+ * Elite Jonin cannot assign XP even when their stats or masteries have capacity.
  */
 export const canAssignExperience = (
   user: Pick<
@@ -389,7 +390,7 @@ export const canAssignExperience = (
   );
 };
 
-/** Elite progression awards fixed stats; unused XP remains stored until its use is defined. */
+/** Elite milestone progression forbids XP assignment while preserving earned XP. */
 export const experienceAssignmentBlockMessage = (user: Pick<UserData, "rank">) =>
   user.rank === "ELITE JONIN"
     ? "Elite Jonin cannot assign experience. Complete academy milestones to increase your combat stats and level."

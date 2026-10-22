@@ -636,6 +636,7 @@ export const getReward = (
       }
     }
   }
+  // Milestone fields are completion-only and must survive ordinary package aggregation.
   if (resolved && userQuest && !isCompletedHelper) {
     rawRewards = {
       ...rawRewards,
@@ -2221,7 +2222,10 @@ export const controlShownQuestLocationInformation = (
   });
 };
 
-/** Legacy endgame quests remain available above the XP level cap; milestones retain exact levels. */
+/**
+ * Extend only legacy quests capped at the XP ceiling; milestone and other explicit caps
+ * retain their authored level bounds.
+ */
 export const getQuestMaxLevel = (quest: {
   maxLevel: number;
   content?: { reward?: { reward_level?: number } } | null;
@@ -2344,6 +2348,7 @@ export const isAvailableUserQuests = (
       promotion.reward_mastery_stat,
       promotion.reward_mastery_rank,
     );
+  // Any possible promotion path must satisfy the exam, including objectives and choices.
   const hasEliteExamReward =
     promotion?.reward_rank === "ELITE JONIN" ||
     completionReward?.reward_packages?.some(

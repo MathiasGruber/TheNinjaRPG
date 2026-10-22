@@ -137,7 +137,10 @@ const buildQuestDiscoveryWhere = (options: QuestDiscoveryOptions) =>
     ...(options.level !== undefined ? questLevelFilters(options.level) : []),
   );
 
-/** Load legacy endgame content too; availability still enforces exact milestone levels. */
+/**
+ * Include legacy endgame content in SQL candidates above the XP cap. The availability
+ * layer still enforces each milestone's exact level and rank requirements.
+ */
 export const questLevelFilters = (level: number) => [
   lte(quest.requiredLevel, level),
   or(

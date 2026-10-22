@@ -995,6 +995,8 @@ const questSuperRefine = (
     });
   }
   const reward = val.content.reward;
+  // Milestones are single-completion progression, not repeatable objective or choice loot.
+  // Rank rewards would also change the eligibility being claimed for the next level.
   if (reward.reward_level) {
     if (
       val.questType !== "starter" ||
@@ -1179,7 +1181,10 @@ export const QuestFormRawSchema = QuestValidatorRawSchema.extend(
     sceneCharacters: z.array(z.string()).prefault([]),
   }).shape,
 );
-/** Validate the editor's flattened run fields, clearing settings hidden by a type change. */
+/**
+ * Normalize flattened run settings and milestone-relevant rewards before shared validation.
+ * Clear run settings hidden by a quest-type change.
+ */
 export const QuestFormSchema = QuestFormRawSchema.transform((val) => ({
   ...val,
   petTaskMinutes: ["hunting", "gathering"].includes(val.questType)

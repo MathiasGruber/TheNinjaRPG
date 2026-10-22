@@ -199,12 +199,16 @@ export const SECTOR_MAP_VERSION = 1;
 export const SectorMapStatuses = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 export type SectorMapStatus = (typeof SectorMapStatuses)[number];
 
+/** Absolute character-level ceiling, including earned Elite Jonin milestones. */
+export const MAX_PLAYER_LEVEL = 110;
+/** XP progression stops here; higher Elite Jonin levels require milestones. */
+export const MAX_EXPERIENCE_LEVEL = 100;
+/** Elite Jonin use a rank-based bracket independently of their accumulated XP. */
+export const ELITE_JONIN_BRACKET = 8;
+/** Inclusive upper bound shared by bracket filters and displays. */
+export const MAX_PVP_BRACKET = ELITE_JONIN_BRACKET;
 // XP Bracket system — maps experience to protection tiers for PvP eligibility.
 // Bracket 0 is reserved for Academy students & Genin (RANKS_RESTRICTED_FROM_PVP).
-export const MAX_PLAYER_LEVEL = 110;
-export const MAX_EXPERIENCE_LEVEL = 100;
-export const ELITE_JONIN_BRACKET = 8;
-export const MAX_PVP_BRACKET = ELITE_JONIN_BRACKET;
 export const XP_BRACKETS = [
   { bracket: 1, min: 0,         max: 500_000 },
   { bracket: 2, min: 500_001,   max: 1_000_000 },
@@ -1246,9 +1250,13 @@ export const MAX_ATTRIBUTES = 5;
 export const BANK_INTEREST_CLAIM_DAYS = 8;
 export const RYO_CAP = 3000000000;
 // Independent base progression caps. Effective mastery buffs may exceed these caps.
+/** Highest earned offence/defence cap; individual ranks may have lower ceilings. */
 export const MAX_STATS_CAP = 1500000;
+/** Highest earned cap for each general; individual ranks may have lower ceilings. */
 export const MAX_GENS_CAP = 600000;
+/** Non-Elite endgame offence/defence ceiling. */
 export const JONIN_STATS_CAP = 1300000;
+/** Non-Elite endgame ceiling for each general. */
 export const JONIN_GENS_CAP = 400000;
 export const MAX_MASTERY_CAP = 1500000;
 /** Shared ceiling for earned mastery; equipment and bloodline modifiers are excluded. */
@@ -3507,7 +3515,7 @@ export const FED_COOKING_SILVER_SLOTS = 10;
 export const FED_COOKING_GOLD_SLOTS = 15;
 
 /**
- * Safely get user caps based on rank, with fallback to max caps
+ * Return rank-specific caps, or global ceilings when no rank is available.
  * @param rank - the user's rank
  * @returns caps object with stats_cap, gens_cap, and lvl_cap
  */

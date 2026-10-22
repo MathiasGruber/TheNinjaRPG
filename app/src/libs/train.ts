@@ -585,6 +585,7 @@ type JutsuEquipLimitUser = Pick<
   "rank" | "staffAccount" | "extraJutsuSlots" | "federalStatus"
 >;
 
+/** Combine rank, federal and extra-slot allowances; Elite grants one more rank slot than Jonin. */
 export const calcJutsuEquipLimit = (userdata: JutsuEquipLimitUser) => {
   const rankContrib = (rank: UserRank) => {
     switch (rank) {

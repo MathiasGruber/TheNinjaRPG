@@ -85,6 +85,7 @@ export type ObjectiveRewardInputType = z.input<typeof ObjectiveReward>;
 
 /** Final academy milestone rewards; these cannot be packaged or selected as loot. */
 export const milestoneRewardFields = {
+  /** Target character level; zero or absence disables the milestone reward. */
   reward_level: z.coerce
     .number()
     .int()
@@ -94,6 +95,7 @@ export const milestoneRewardFields = {
       `Milestone level must be ${MAX_EXPERIENCE_LEVEL + 1}–${MAX_PLAYER_LEVEL}, or 0 to disable`,
     )
     .optional(),
+  /** Fixed gain to each combat stat, limited by its rank cap at the account claim. */
   reward_stats: z.coerce.number().int().min(0).max(MAX_STATS_CAP).optional(),
 };
 

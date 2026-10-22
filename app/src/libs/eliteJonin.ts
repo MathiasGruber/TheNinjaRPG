@@ -6,7 +6,7 @@ import {
 import type { UserData } from "@/drizzle/schema";
 import { calcCP, calcEnergy, calcHP, calcSP } from "@/libs/profile";
 
-/** Milestones advance exactly one earned Elite Jonin level, independently of XP. */
+/** Return the blocking reason, or null for the next earned Elite level; XP never qualifies. */
 export const eliteJoninMilestoneBlockMessage = (
   user: Pick<UserData, "rank" | "level">,
   targetLevel: number,
@@ -23,7 +23,10 @@ export const eliteJoninMilestoneBlockMessage = (
   return null;
 };
 
-/** Stored combat-stat gains and pool growth land with the milestone's guarded account claim. */
+/**
+ * Build fixed combat-stat gains and normal pool growth without granting skill points.
+ * The caller validates eligibility and commits this patch with its guarded account claim.
+ */
 export const eliteJoninMilestoneUpdate = (
   user: Pick<
     UserData,
@@ -33,6 +36,7 @@ export const eliteJoninMilestoneUpdate = (
   statGain: number,
 ) => {
   const caps = getUserCaps("ELITE JONIN");
+  // A milestone must not reduce an existing stored stat that is already above its cap.
   const gain = (value: number, cap: number) =>
     Math.max(value, Math.min(value + statGain, cap));
   return {
