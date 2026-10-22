@@ -138,6 +138,7 @@ const makeInfo = (): ObjectiveInfo => ({
     defenderWarHealth: 6000,
     defenderWarHealthMax: 10000,
     warAllies: [],
+    warMercenaries: [],
     objectiveState: {
       attackerEspionage: WAR_ESPIONAGE_TARGET,
       defenderEspionage: 0,
@@ -242,6 +243,11 @@ beforeEach(() => {
       profile: { getUser: { invalidate: invalidateUser } },
     }),
     war: {
+      getMercenaries: { useQuery: () => ({ data: { canHire: false, roster: [] } }) },
+      getMercenaryOffers: { useQuery: () => ({ data: [] }) },
+      inviteMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+      acceptMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+      leaveMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       getObjectiveWarInfo: {
         useQuery: vi.fn(
           (_input: unknown, options: { refetchInterval: PollInterval }) => {

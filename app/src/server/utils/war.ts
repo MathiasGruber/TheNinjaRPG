@@ -65,6 +65,7 @@ import {
   type War,
   war,
   warAlly,
+  warMercenary,
 } from "@/drizzle/schema";
 import { selectWarObjectives } from "@/libs/objectiveWar";
 import {
@@ -479,6 +480,10 @@ const finishWarSettlement = async (client: DrizzleClient, endedWar: War) => {
           );
     }
     await Promise.all([
+      client
+        .update(warMercenary)
+        .set({ endedAt })
+        .where(and(eq(warMercenary.warId, endedWar.id), isNull(warMercenary.endedAt))),
       endedWar.rules
         ? client
             .update(userData)

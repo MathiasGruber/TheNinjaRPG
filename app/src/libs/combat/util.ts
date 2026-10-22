@@ -74,6 +74,7 @@ import { isSummonTemplate, spliceOrphanedSummons } from "@/libs/combat/summon";
 import { getTargetTiles } from "@/libs/combat/targeting";
 import type { BattleEffect, GroundEffect, UserEffect } from "@/libs/combat/types";
 import { dungeonCombatResult } from "@/libs/dungeon";
+import { getWarSide } from "@/libs/objectiveWar";
 import { boostPvpGain, pvpExperienceReward } from "@/libs/pvpExperience";
 import type { ObjectiveTrackerTaskInput as ObjectiveTrackerTask } from "@/libs/quest";
 import { calculateLpEloChange } from "@/libs/ranked_pvp";
@@ -261,22 +262,7 @@ export const getBattleTeamWars = (battle: CompleteBattle, user: BattleUserState)
   const wars = new Map<string, { war: BattleWar; sideVillageId: string }>();
   for (const member of getBattleTeamMembers(battle, user)) {
     for (const war of Object.values(battle.extraState.wars ?? {})) {
-      const sideVillageId =
-        member.villageId === war.attackerVillageId ||
-        war.warAllies.some(
-          (a) =>
-            a.villageId === member.villageId &&
-            a.supportVillageId === war.attackerVillageId,
-        )
-          ? war.attackerVillageId
-          : member.villageId === war.defenderVillageId ||
-              war.warAllies.some(
-                (a) =>
-                  a.villageId === member.villageId &&
-                  a.supportVillageId === war.defenderVillageId,
-              )
-            ? war.defenderVillageId
-            : undefined;
+      const sideVillageId = getWarSide(war, member.villageId, member.userId);
       if (sideVillageId && !wars.has(war.id)) wars.set(war.id, { war, sideVillageId });
     }
   }

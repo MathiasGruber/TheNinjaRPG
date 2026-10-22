@@ -184,7 +184,6 @@ interface ShrineBattleCardProps {
 const ShrineBattleCard: React.FC<ShrineBattleCardProps> = ({
   battle,
   userId,
-  userVillageId,
   onJoin,
   onLeave,
   onInitiate,
@@ -201,11 +200,11 @@ const ShrineBattleCard: React.FC<ShrineBattleCardProps> = ({
   // Determine if user can join as attacker or defender
   const canJoinAsAttacker =
     !userInBattle &&
-    userVillageId !== battle.defenderEntityId &&
+    battle.viewerSide === "ATTACKER" &&
     attackers.length < SHRINE_BATTLE_MAX_USERS_PER_SIDE;
   const canJoinAsDefender =
     !userInBattle &&
-    userVillageId === battle.defenderEntityId &&
+    battle.viewerSide === "DEFENDER" &&
     defenders.length < SHRINE_BATTLE_MAX_USERS_PER_SIDE;
 
   return (

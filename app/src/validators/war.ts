@@ -87,7 +87,7 @@ export type WarMissionAttempt = {
   questId: string;
   objectiveId: string;
   sideVillageId: string;
-  villageId: string;
+  villageId: string | null;
   sector: number;
   task: "espionage" | "sabotage";
   value: number;

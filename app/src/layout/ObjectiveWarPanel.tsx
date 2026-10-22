@@ -17,6 +17,7 @@ import Countdown from "@/layout/Countdown";
 import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import Table from "@/layout/Table";
+import { WarMercenaries } from "@/layout/WarMercenaries";
 import { getWarEspionage, getWarSide } from "@/libs/objectiveWar";
 import { pushToCombat } from "@/utils/routing";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
@@ -135,7 +136,7 @@ export const ObjectiveWarPanel = ({
       </Alert>
     ) : null;
   const w = data.war;
-  const side = getWarSide(w, user.villageId);
+  const side = getWarSide(w, user.villageId, user.userId);
   if (!side || !w.combatStartedAt || !endsAt) return null;
   const now = Date.now() - timeDiff;
   const isNotice = w.combatStartedAt.getTime() > now;
@@ -254,6 +255,7 @@ export const ObjectiveWarPanel = ({
           </div>
         </div>
       )}
+      {!hasEnded && !isFieldView && <WarMercenaries warId={warId} />}
       <Tabs defaultValue="objectives">
         <TabsList
           className={`grid ${isFieldView ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}

@@ -1,0 +1,138 @@
+import { settleObjectiveWarCombat } from "@/libs/combat/objectiveWar";
+import type { CompleteBattle, CombatResult } from "@/libs/combat/types";
+import { SimpleObjective } from "@/validators/objectives";
+import { ObjectiveReward } from "@/validators/rewards";
+import { afterAll, beforeEach, expect, it } from "bun:test";
+import { eq } from "drizzle-orm";
+import { quest, warActionReceipt, warContribution, warKill, userData, village, war, warAlly, warCamp, warMercenary } from "@/drizzle/schema";
+import { warRouter } from "@/server/api/routers/war";
+import { canEnterWarCampSector } from "@/server/utils/warMercenary";
+import { defaultWarRules } from "@/validators/war";
+import { insertUsers } from "../../setup/factories";
+import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+
+const seed = async () => {
+  const db = await getTestDatabase();
+  await resetTables(warActionReceipt, warContribution, warKill, quest, warMercenary, warCamp, warAlly, war, village, userData);
+  await db.insert(village).values([{ id: "a", name: "A", sector: 1, kageId: "kage", tokens: 20 }, { id: "b", kageId: "enemy-kage", name: "B", sector: 2 }, { id: "c", kageId: "neutral-kage", name: "C", sector: 3 }]);
+  await insertUsers([{ userId: "kage", villageId: "a" }, ...["merc", "merc2", "merc3", "merc4"].map((userId) => ({ userId, villageId: "c", money: 10 })), { userId: "enemy", villageId: "b" }]);
+  await db.insert(war).values({ id: "w", type: "VILLAGE_WAR", status: "ACTIVE", attackerVillageId: "a", defenderVillageId: "b", combatStartedAt: new Date(Date.now() - 3600000), rules: defaultWarRules, objectiveState: { attackerEspionage: 0, defenderEspionage: 0, objectives: [] } });
+  return db;
+};
+describeWithDatabase("war mercenary contracts", () => {
+  beforeEach(seed);
+  afterAll(async () => { await resetTables(warMercenary); });
+  it("accepts and pays once across concurrent retries, then releases the slot on resignation", async () => {
+    const db = await getTestDatabase();
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 4 })).success).toBe(true);
+    const contract = (await db.query.warMercenary.findFirst())!;
+    const merc = callerForDatabase(warRouter, "merc", db);
+    const results = await Promise.all(Array.from({ length: 4 }, () => merc.acceptMercenary({ contractId: contract.id })));
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.money).toBe(4010);
+    expect((await db.query.village.findFirst({ where: eq(village.id, "a") }))?.tokens).toBe(16);
+    expect((await merc.getObjectiveWarInfo({ warId: "w" }))?.war.warMercenaries).toHaveLength(1);
+    await db.update(userData).set({ warMission: { id: "mission", warId: "w", questId: "q", objectiveId: "o", villageId: "c", sideVillageId: "a", sector: 1, task: "espionage", value: 1, endsAt: new Date().toISOString() } }).where(eq(userData.userId, "merc"));
+    expect((await merc.leaveMercenary({ contractId: contract.id })).success).toBe(true);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.warMission).toBeNull();
+    expect((await db.query.warMercenary.findFirst())?.activeUserId).toBeNull();
+    expect(await merc.getObjectiveWarInfo({ warId: "w" })).toBeNull();
+  });
+  it("reserves at most three slots even when invitations race", async () => {
+    const db = await getTestDatabase();
+    const kage = callerForDatabase(warRouter, "kage", db);
+    await Promise.all(["merc", "merc2", "merc3", "merc4"].map((userId) => kage.inviteMercenary({ warId: "w", userId, tokens: 1 })));
+    for (const userId of ["merc", "merc2", "merc3", "merc4"]) await kage.inviteMercenary({ warId: "w", userId, tokens: 1 });
+    expect(await db.query.warMercenary.findMany()).toHaveLength(3);
+  });
+  it("rechecks funds, leadership, war lifetime and enemy eligibility before payment", async () => {
+    const db = await getTestDatabase();
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "enemy", tokens: 1 })).success).toBe(false);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 4 })).success).toBe(true);
+    const offer = (await db.query.warMercenary.findFirst())!;
+    const merc = callerForDatabase(warRouter, "merc", db);
+    await db.update(village).set({ tokens: 0 }).where(eq(village.id, "a"));
+    expect((await merc.acceptMercenary({ contractId: offer.id })).success).toBe(false);
+    await db.update(village).set({ tokens: 20, kageId: "replacement" }).where(eq(village.id, "a"));
+    expect((await merc.acceptMercenary({ contractId: offer.id })).success).toBe(false);
+    await db.update(village).set({ kageId: "kage" }).where(eq(village.id, "a"));
+    await db.update(userData).set({ villageId: "b" }).where(eq(userData.userId, "merc"));
+    expect((await merc.acceptMercenary({ contractId: offer.id })).success).toBe(false);
+    await db.update(userData).set({ villageId: "c" }).where(eq(userData.userId, "merc"));
+    await db.update(war).set({ endedAt: new Date(), status: "DRAW" }).where(eq(war.id, "w"));
+    expect((await merc.acceptMercenary({ contractId: offer.id })).success).toBe(false);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.money).toBe(10);
+  });
+  it("permits camp entry only for participants and keeps existing occupants free to leave", async () => {
+    const db = await getTestDatabase();
+    await db.insert(warCamp).values({ id: "camp", warId: "w", sector: 12, guardianId: "guardian", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 3600000) });
+    const outsider = { userId: "merc", villageId: "c", sector: 11 };
+    expect(await canEnterWarCampSector(db, outsider, 12)).toBe(false);
+    expect(await canEnterWarCampSector(db, { userId: "kage", villageId: "a", sector: 11 }, 12)).toBe(true);
+    expect(await canEnterWarCampSector(db, { ...outsider, sector: 12 }, 11)).toBe(true);
+    const kage = callerForDatabase(warRouter, "kage", db);
+    await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 1 });
+    const offer = (await db.query.warMercenary.findFirst())!;
+    await callerForDatabase(warRouter, "merc", db).acceptMercenary({ contractId: offer.id });
+    expect(await canEnterWarCampSector(db, outsider, 12)).toBe(true);
+  });
+});
+
+describeWithDatabase("mercenary exclusivity", () => {
+  beforeEach(seed);
+  afterAll(async () => { await resetTables(warMercenary); });
+  it("accepts only one war contract even when different offers are accepted together", async () => {
+    const db = await getTestDatabase();
+    const activeWar = (await db.query.war.findFirst())!;
+    await db.insert(war).values({ ...activeWar, id: "w2" });
+    await db.insert(warMercenary).values(["w", "w2"].map((warId) => ({ id: warId, warId, sideVillageId: "a", userId: "merc", invitedById: "kage", tokens: 2, slot: 0 })));
+    const caller = callerForDatabase(warRouter, "merc", db);
+    const results = await Promise.all(["w", "w2"].map((contractId) => caller.acceptMercenary({ contractId })));
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect((await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))?.money).toBe(2010);
+  });
+});
+
+describeWithDatabase("mercenary strategic participation", () => {
+  beforeEach(seed);
+  afterAll(async () => { await resetTables(warMercenary); });
+  it("completes a village-less mercenary mission and retains battle credit after dismissal", async () => {
+    const db = await getTestDatabase();
+    await db.update(userData).set({ villageId: null, rank: "JONIN", sector: 2 }).where(eq(userData.userId, "merc"));
+    const kage = callerForDatabase(warRouter, "kage", db);
+    expect((await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 2 })).success).toBe(true);
+    const offer = (await db.query.warMercenary.findFirst())!;
+    const merc = callerForDatabase(warRouter, "merc", db);
+    expect((await merc.acceptMercenary({ contractId: offer.id })).success).toBe(true);
+    await db.insert(quest).values({ id: "espionage", name: "Spy", questType: "war", questRank: "C", hidden: false, content: { objectives: [SimpleObjective.parse({ id: "spy", task: "espionage", durationSeconds: 1, value: 10 })], reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [] } });
+    const started = await merc.startWarMission({ warId: "w", questId: "espionage", objectiveId: "spy" });
+    expect(started.success, started.message).toBe(true);
+    const attempt = (await db.query.userData.findFirst({ where: eq(userData.userId, "merc") }))!.warMission!;
+    await db.update(userData).set({ warMission: { ...attempt, endsAt: new Date(Date.now() - 1000).toISOString() } }).where(eq(userData.userId, "merc"));
+    const completed = await merc.completeWarMission({ attemptId: attempt.id });
+    expect(completed.success, completed.message).toBe(true);
+    expect((await db.query.war.findFirst())?.objectiveState?.attackerEspionage).toBe(10);
+    const w = (await db.query.war.findFirst())!;
+    const winner = { userId: "merc", villageId: null, direction: "left", sector: 2, curHealth: 100 };
+    const snapshot = { id: "fight", battleType: "COMBAT", usersState: [winner, { userId: "enemy", villageId: "b", direction: "right", curHealth: 0 }], extraState: { villages: {}, clans: {}, wars: { w: { ...w, warAllies: [], warMercenaries: [{ userId: "merc", sideVillageId: "a" }] } } } } as unknown as CompleteBattle;
+    expect((await kage.leaveMercenary({ contractId: offer.id })).success).toBe(true);
+    await settleObjectiveWarCombat(db, snapshot, { didWin: 1 } as CombatResult, snapshot.usersState[0]!);
+    expect((await db.query.warContribution.findFirst())?.damage).toBe(defaultWarRules.anbuDamage);
+    expect((await db.query.warKill.findFirst())?.killerVillageId).toBe("a");
+  });
+  it("blocks a newly declared home-village war while the hired contract is live", async () => {
+    const db = await getTestDatabase();
+    const kage = callerForDatabase(warRouter, "kage", db);
+    await kage.inviteMercenary({ warId: "w", userId: "merc", tokens: 2 });
+    const offer = (await db.query.warMercenary.findFirst())!;
+    const merc = callerForDatabase(warRouter, "merc", db);
+    await merc.acceptMercenary({ contractId: offer.id });
+    const w = (await db.query.war.findFirst())!;
+    await db.insert(war).values({ ...w, id: "home-war", attackerVillageId: "c", defenderVillageId: "b" });
+    expect(await merc.getObjectiveWarInfo({ warId: "home-war" })).toBeNull();
+    await db.insert(warCamp).values({ id: "home-camp", warId: "home-war", sector: 22, guardianId: "guardian", startsAt: new Date(Date.now() - 1000), endsAt: new Date(Date.now() + 3600000) });
+    expect(await canEnterWarCampSector(db, { userId: "merc", villageId: "c", sector: 11 }, 22)).toBe(false);
+  });
+});

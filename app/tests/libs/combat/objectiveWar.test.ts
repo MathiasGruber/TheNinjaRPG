@@ -66,3 +66,20 @@ it("does not record an extra death when the losing player settles", async () => 
   await settleObjectiveWarCombat(client, battle, { didWin: 0 } as CombatResult, foe);
   expect(settlement).not.toHaveBeenCalled();
 });
+
+it("credits a mercenary to the hiring side with ANBU weighting from the battle snapshot", async () => {
+  const { hero, battle, client } = fixture();
+  hero.villageId = "neutral";
+  hero.rank = "ELDER";
+  battle.extraState.wars.w!.warMercenaries = [{ userId: hero.userId, sideVillageId: "a" }];
+  await settleObjectiveWarCombat(client, battle, { didWin: 1 } as CombatResult, hero);
+  expect(settlement.mock.calls[0]?.[2]).toMatchObject({ sideVillageId: "a", damage: defaultWarRules.anbuDamage, recovery: defaultWarRules.anbuRecovery });
+});
+
+it("does not give strategic credit to a mercenary's home village", async () => {
+  const { hero, battle, client } = fixture();
+  hero.villageId = null;
+  battle.extraState.wars.w!.warMercenaries = [{ userId: hero.userId, sideVillageId: "a" }];
+  await settleObjectiveWarCombat(client, battle, { didWin: 1 } as CombatResult, hero);
+  expect(settlement.mock.calls[0]?.[2]).toMatchObject({ sideVillageId: "a", damage: defaultWarRules.anbuDamage });
+});

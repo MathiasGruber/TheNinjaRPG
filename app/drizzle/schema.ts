@@ -5003,6 +5003,7 @@ export const warRelations = relations(war, ({ one, many }) => ({
     relationName: "defenderVillage",
   }),
   warAllies: many(warAlly),
+  warMercenaries: many(warMercenary),
   sector: one(sector, {
     fields: [war.sector],
     references: [sector.sector],
@@ -5053,6 +5054,37 @@ export const warAllyRelations = relations(warAlly, ({ one }) => ({
     fields: [warAlly.villageId],
     references: [village.id],
   }),
+}));
+
+/** Invitations reserve one of three slots; accepted contracts reserve the player globally. */
+export const warMercenary = mysqlTable("WarMercenary", {
+  id: varchar("id", { length: 191 }).primaryKey().notNull(),
+  warId: varchar("warId", { length: 191 }).notNull(),
+  sideVillageId: varchar("sideVillageId", { length: 191 }).notNull(),
+  userId: varchar("userId", { length: 191 }).notNull(),
+  invitedById: varchar("invitedById", { length: 191 }).notNull(),
+  tokens: int("tokens", { unsigned: true }).notNull(),
+  slot: tinyint("slot", { unsigned: true }).notNull(),
+  createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
+  acceptedAt: datetime("acceptedAt", { mode: "date", fsp: 3 }),
+  endedAt: datetime("endedAt", { mode: "date", fsp: 3 }),
+  activeSlot: tinyint("activeSlot", { unsigned: true }).generatedAlwaysAs(
+    sql`CASE WHEN \`endedAt\` IS NULL THEN \`slot\` ELSE NULL END`, { mode: "stored" }),
+  activeUserId: varchar("activeUserId", { length: 191 }).generatedAlwaysAs(
+    sql`CASE WHEN \`acceptedAt\` IS NOT NULL AND \`endedAt\` IS NULL THEN \`userId\` ELSE NULL END`, { mode: "stored" }),
+  invitedUserId: varchar("invitedUserId", { length: 191 }).generatedAlwaysAs(
+    sql`CASE WHEN \`endedAt\` IS NULL THEN \`userId\` ELSE NULL END`, { mode: "stored" }),
+}, (table) => ({
+  slots: uniqueIndex("WarMercenary_slot_key").on(table.warId, table.sideVillageId, table.activeSlot),
+  activeUser: uniqueIndex("WarMercenary_active_user_key").on(table.activeUserId),
+  invitation: uniqueIndex("WarMercenary_invitation_key").on(table.warId, table.invitedUserId),
+  user: index("WarMercenary_user_idx").on(table.userId),
+}));
+export type WarMercenary = InferSelectModel<typeof warMercenary>;
+export const warMercenaryRelations = relations(warMercenary, ({ one }) => ({
+  war: one(war, { fields: [warMercenary.warId], references: [war.id] }),
+  user: one(userData, { fields: [warMercenary.userId], references: [userData.userId] }),
+  village: one(village, { fields: [warMercenary.sideVillageId], references: [village.id] }),
 }));
 
 // Village elder vote (war declaration or kage removal proposals)

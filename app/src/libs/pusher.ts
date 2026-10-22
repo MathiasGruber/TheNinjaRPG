@@ -88,7 +88,8 @@ export const getServerPusher = () => {
 export type PusherClient = ReturnType<typeof getServerPusher>;
 
 /**
- * Updates the user's information on the map using Pusher, pushing it out to all users in the sector.
+ * Broadcast positions and status only. Viewer-specific identity and allegiance come
+ * from the authenticated sector snapshot so anonymous fighters cannot leak through presence events.
  * experience and rank are required so bracket filters never fail closed on a missing field
  * for a non-stealth presence update.
  * @param pusher - The Pusher client instance.
@@ -121,9 +122,6 @@ export const updateUserOnMap = async (
     userId: user.userId,
     longitude: user.longitude,
     latitude: user.latitude,
-    avatar: user.avatar,
-    avatarLight: user.avatarLight,
-    username: user.username,
     sector: user.sector,
     status: user.status,
     location: user.location,

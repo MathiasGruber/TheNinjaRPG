@@ -50,6 +50,8 @@ import type { DmgConfig } from "./constants";
 import type { CombatCacheSnapshot, CombatProfileUpdate } from "./userCache";
 
 export type BattleWar = War & {
+  mercenaryWarIds?: Record<string, string>;
+  warMercenaries?: { userId: string; sideVillageId: string }[];
   warAllies: { villageId: string; supportVillageId: string }[];
   attackerVillage: { name: string; sector?: number } | null;
   defenderVillage: { name: string; sector?: number } | null;

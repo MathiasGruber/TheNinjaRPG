@@ -724,7 +724,9 @@ const Sector: React.FC<SectorProps> = (props) => {
           return;
         }
 
-        const allianceStatus = getAllyStatus(userData?.village, data.villageId);
+        const allianceStatus =
+          usersRef.current.find((u) => u.userId === data.userId)?.allianceStatus ??
+          getAllyStatus(userData?.village, data.villageId);
         const idx = usersRef.current
           .filter((u) => u.userId)
           .findIndex((u) => u.userId === data.userId);
@@ -773,7 +775,8 @@ const Sector: React.FC<SectorProps> = (props) => {
           }
         } else {
           // New user enters — do not invent experience; unknown XP fails closed in bracket filters
-          usersRef.current.push({ ...data, allianceStatus });
+          // New identities come from the authenticated, masked sector snapshot.
+          void utils.travel.getSectorData.invalidate();
         }
         // Remove users who are no longer in the sector; compare against the
         // live sector ref, which crossings advance before the prop catches up
@@ -2005,14 +2008,18 @@ const Sector: React.FC<SectorProps> = (props) => {
         if (user.isBanned) return false;
 
         // Don't attack allies in active wars
-        const areWarAllies = isWarAllies(warData, userData.villageId, user.villageId);
+        const areWarAllies =
+          user.allianceStatus === "ALLY" ||
+          (user.allianceStatus !== "ENEMY" &&
+            isWarAllies(warData, userData.villageId, user.villageId));
         if (areWarAllies) {
           return false;
         }
 
         // Check if user is an enemy (different village and not ally)
         const isAlly =
-          user.villageId === userData.villageId || user.allianceStatus === "ALLY";
+          user.allianceStatus === "ALLY" ||
+          (user.allianceStatus !== "ENEMY" && user.villageId === userData.villageId);
 
         if (isAlly) return false;
 
@@ -2119,7 +2126,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       const enrichedData =
         fetchedUsers
           ?.map((user) => {
-            const allianceStatus = getAllyStatus(userData?.village, user.villageId);
+            const allianceStatus =
+              ("warRelationship" in user ? user.warRelationship : undefined) ??
+              getAllyStatus(userData?.village, user.villageId);
             return {
               ...user,
               allianceStatus,

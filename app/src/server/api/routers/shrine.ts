@@ -15,6 +15,7 @@ import {
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
+  IMG_AVATAR_DEFAULT,
   MAP_RESERVED_SECTORS,
   SHRINE_AI_UNLOCK_COST,
   SHRINE_BATTLE_LOBBY_SECONDS,
@@ -632,36 +633,40 @@ export const shrineRouter = createTRPCRouter({
       // battles stop showing up in the lobby UI before the cron deletes them.
       const shrineLobbyStaleBefore = shrineLobbyFreshAfter();
       // Fetch all battles with FIFO ordering (oldest first)
-      const battles = await ctx.drizzle.query.mpvpBattleQueue.findMany({
-        where: and(
-          eq(mpvpBattleQueue.battleType, "SHRINE_BATTLE"),
-          eq(mpvpBattleQueue.sector, input.sectorNumber),
-          isNull(mpvpBattleQueue.battleId),
-          gt(mpvpBattleQueue.createdAt, shrineLobbyStaleBefore),
-        ),
-        with: {
-          queue: {
-            columns: {
-              userId: true,
-              side: true,
-              slot: true,
-              createdAt: true,
-            },
-            with: {
-              user: {
-                columns: {
-                  username: true,
-                  level: true,
-                  rank: true,
-                  avatar: true,
-                  villageId: true,
+      const [battles, activeWars, viewer] = await Promise.all([
+        ctx.drizzle.query.mpvpBattleQueue.findMany({
+          where: and(
+            eq(mpvpBattleQueue.battleType, "SHRINE_BATTLE"),
+            eq(mpvpBattleQueue.sector, input.sectorNumber),
+            isNull(mpvpBattleQueue.battleId),
+            gt(mpvpBattleQueue.createdAt, shrineLobbyStaleBefore),
+          ),
+          with: {
+            queue: {
+              columns: {
+                userId: true,
+                side: true,
+                slot: true,
+                createdAt: true,
+              },
+              with: {
+                user: {
+                  columns: {
+                    username: true,
+                    level: true,
+                    rank: true,
+                    avatar: true,
+                    villageId: true,
+                  },
                 },
               },
             },
           },
-        },
-        orderBy: asc(mpvpBattleQueue.createdAt), // FIFO ordering - oldest first
-      });
+          orderBy: asc(mpvpBattleQueue.createdAt), // FIFO ordering - oldest first
+        }),
+        fetchActiveWars(ctx.drizzle),
+        fetchUser(ctx.drizzle, ctx.userId),
+      ]);
 
       // Filter to non-empty battles and identify empty ones for cleanup
       const nonEmptyBattles = battles.filter((battle) => battle.queue.length > 0);
@@ -681,7 +686,33 @@ export const shrineRouter = createTRPCRouter({
           );
       }
 
-      return nonEmptyBattles;
+      return nonEmptyBattles.map((entry) => {
+        const activeWar = activeWars.find(
+          (w) =>
+            w.rules &&
+            w.objectiveState?.objectives.some((o) => o.sector === entry.sector),
+        );
+        const side = activeWar
+          ? getWarSide(activeWar, viewer.villageId, ctx.userId)
+          : viewer.villageId;
+        return {
+          ...entry,
+          viewerSide:
+            activeWar && !side
+              ? null
+              : side === entry.defenderEntityId
+                ? ("DEFENDER" as const)
+                : ("ATTACKER" as const),
+          queue: entry.queue.map((member) => ({
+            ...member,
+            user:
+              activeWar?.warMercenaries?.some((m) => m.userId === member.userId) &&
+              member.userId !== ctx.userId
+                ? { ...member.user, username: "Mercenary", avatar: IMG_AVATAR_DEFAULT }
+                : member.user,
+          })),
+        };
+      });
     }),
 
   // Get user's currently queued shrine battle (to check which sector they're queued for)
@@ -747,9 +778,20 @@ export const shrineRouter = createTRPCRouter({
       // For VILLAGE_WAR/WAR_RAID: check village sectors
       const userWar = activeWars.find((w) => {
         if (w.status !== "ACTIVE") return false;
-        const side = getWarSide(w, user?.villageId ?? null);
+        const side = getWarSide(w, user?.villageId ?? null, user?.userId);
         const isUserOnAttackerSide = side === w.attackerVillageId;
         const isUserOnDefenderSide = side === w.defenderVillageId;
+
+        if (w.rules)
+          return (
+            !!side &&
+            isObjectiveWarActive(w) &&
+            areWarObjectivesRevealed(w, side) &&
+            !!w.objectiveState?.objectives.some(
+              (o) =>
+                o.sector === input.sectorNumber && o.villageId !== side && !o.destroyed,
+            )
+          );
 
         if (w.type === "SECTOR_WAR") {
           // Sector wars use war.sector and only attackers can attack
@@ -786,7 +828,11 @@ export const shrineRouter = createTRPCRouter({
       // Guards
       if (!user) return errorResponse("User not found");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to challenge");
-      if (!user.villageId) return errorResponse("You must be in a village");
+      if (
+        !user.villageId &&
+        !activeWars.some((w) => w.warMercenaries?.some((m) => m.userId === ctx.userId))
+      )
+        return errorResponse("You must be in a village or serving as a mercenary");
       if (MAP_RESERVED_SECTORS.includes(input.sectorNumber)) {
         return errorResponse("This sector is reserved and cannot be attacked");
       }
@@ -819,7 +865,7 @@ export const shrineRouter = createTRPCRouter({
           w.objectiveState?.objectives.some((o) => o.sector === input.sectorNumber),
       );
       if (objectiveWar) {
-        const side = getWarSide(objectiveWar, user.villageId);
+        const side = getWarSide(objectiveWar, user.villageId, user.userId);
         if (
           !side ||
           !isObjectiveWarActive(objectiveWar) ||
@@ -844,7 +890,9 @@ export const shrineRouter = createTRPCRouter({
           id: shrineBattleId,
           createdAt: new Date(),
           battleType: "SHRINE_BATTLE",
-          attackerEntityId: user.villageId,
+          attackerEntityId: userWar
+            ? getWarSide(userWar, user.villageId, user.userId)!
+            : user.villageId!,
           defenderEntityId: targetSector.villageId,
           sector: input.sectorNumber,
         });
@@ -903,38 +951,44 @@ export const shrineRouter = createTRPCRouter({
       const shrineLobbyStaleBefore = shrineLobbyFreshAfter();
 
       // Fetch user and battle data
-      const [{ user }, shrineBattle, existingUserBattles] = await Promise.all([
-        fetchUpdatedUser({
-          client: ctx.drizzle,
-          userId: ctx.userId,
-        }),
-        ctx.drizzle.query.mpvpBattleQueue.findFirst({
-          where: and(
-            eq(mpvpBattleQueue.id, input.shrineBattleId),
-            eq(mpvpBattleQueue.battleType, "SHRINE_BATTLE"),
-            gt(mpvpBattleQueue.createdAt, shrineLobbyStaleBefore),
-          ),
-          with: {
-            queue: {
-              with: {
-                user: {
-                  columns: {
-                    username: true,
-                    villageId: true,
+      const [{ user }, shrineBattle, existingUserBattles, activeWars] =
+        await Promise.all([
+          fetchUpdatedUser({
+            client: ctx.drizzle,
+            userId: ctx.userId,
+          }),
+          ctx.drizzle.query.mpvpBattleQueue.findFirst({
+            where: and(
+              eq(mpvpBattleQueue.id, input.shrineBattleId),
+              eq(mpvpBattleQueue.battleType, "SHRINE_BATTLE"),
+              gt(mpvpBattleQueue.createdAt, shrineLobbyStaleBefore),
+            ),
+            with: {
+              queue: {
+                with: {
+                  user: {
+                    columns: {
+                      username: true,
+                      villageId: true,
+                    },
                   },
                 },
               },
             },
-          },
-        }),
-        // Check if user is already in any active battle queue
-        fetchActiveUserMpvpBattles(ctx.drizzle, ctx.userId),
-      ]);
+          }),
+          // Check if user is already in any active battle queue
+          fetchActiveUserMpvpBattles(ctx.drizzle, ctx.userId),
+          fetchActiveWars(ctx.drizzle),
+        ]);
 
       // Guards
       if (!user) return errorResponse("User not found");
       if (user.status !== "AWAKE") return errorResponse("Must be awake to join");
-      if (!user.villageId) return errorResponse("You must be in a village");
+      if (
+        !user.villageId &&
+        !activeWars.some((w) => w.warMercenaries?.some((m) => m.userId === ctx.userId))
+      )
+        return errorResponse("You must be in a village or serving as a mercenary");
       if (!shrineBattle) return errorResponse("Shrine battle not found");
       if (shrineBattle.battleId) return errorResponse("Shrine battle already started");
 
@@ -943,15 +997,30 @@ export const shrineRouter = createTRPCRouter({
         return errorResponse("Already in a battle queue");
       }
 
-      // Validate side based on village
-      if (input.side === "ATTACKER") {
-        if (user.villageId === shrineBattle.defenderEntityId) {
-          return errorResponse("Defenders cannot join as attackers");
-        }
-      } else {
-        if (user.villageId !== shrineBattle.defenderEntityId) {
-          return errorResponse("Only shrine village members can defend");
-        }
+      const objectiveWar = activeWars.find(
+        (w) =>
+          w.rules &&
+          w.objectiveState?.objectives.some((o) => o.sector === shrineBattle.sector),
+      );
+      const side = objectiveWar
+        ? getWarSide(objectiveWar, user.villageId, user.userId)
+        : null;
+      if (objectiveWar) {
+        if (
+          !side ||
+          !isObjectiveWarActive(objectiveWar) ||
+          (input.side === "DEFENDER"
+            ? side !== shrineBattle.defenderEntityId
+            : side === shrineBattle.defenderEntityId ||
+              !areWarObjectivesRevealed(objectiveWar, side))
+        )
+          return errorResponse("You cannot join this shrine party on that war side.");
+      } else if (
+        input.side === "ATTACKER"
+          ? user.villageId === shrineBattle.defenderEntityId
+          : user.villageId !== shrineBattle.defenderEntityId
+      ) {
+        return errorResponse("You cannot join this shrine party on that side.");
       }
 
       // Find available slots for this side
@@ -1174,13 +1243,30 @@ export const shrineRouter = createTRPCRouter({
       }
 
       // Get the war the user is involved with
-      const userWar = activeWars.find(
-        (w) =>
-          w.attackerVillageId === user?.villageId &&
-          w.sector === shrineBattle.sector &&
-          w.status === "ACTIVE" &&
-          w.type === "SECTOR_WAR",
+      const userWar = activeWars.find((w) =>
+        w.rules
+          ? isObjectiveWarActive(w) &&
+            !!w.objectiveState?.objectives.some((o) => o.sector === shrineBattle.sector)
+          : w.attackerVillageId === user.villageId &&
+            w.sector === shrineBattle.sector &&
+            w.type === "SECTOR_WAR",
       );
+      if (
+        userWar?.rules &&
+        shrineBattle.queue.some((entry) => {
+          const side = getWarSide(userWar, entry.user.villageId, entry.userId);
+          return (
+            !side ||
+            (entry.side === "DEFENDER"
+              ? side !== shrineBattle.defenderEntityId
+              : side === shrineBattle.defenderEntityId ||
+                !areWarObjectivesRevealed(userWar, side))
+          );
+        })
+      )
+        return errorResponse(
+          "This objective shrine is unavailable until active combat and completed espionage, or a queued participant’s war affiliation changed. Leave the queue and try again.",
+        );
 
       // Relationship check
       const relationship = findRelationship(
