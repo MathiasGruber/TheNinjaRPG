@@ -25,7 +25,12 @@ import { ActionSelector } from "@/layout/CombatActions";
 import ContentImage from "@/layout/ContentImage";
 import ItemWithEffects from "@/layout/ItemWithEffects";
 import Modal from "@/layout/Modal";
-import { getCraftingRank, getTotalItemQuantity } from "@/libs/crafting";
+import {
+  formatCraftingRank,
+  getCraftingRank,
+  getMissingCraftingRank,
+  getTotalItemQuantity,
+} from "@/libs/crafting";
 import { showMutationToast } from "@/libs/toast";
 import type { UserWithRelations } from "@/routers/profile";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
@@ -183,10 +188,19 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
     }
   }, [maxCraftable, craftQuantity]);
 
+  // Rank the user still needs before the selected item can be crafted
+  const userCraftingRank = getCraftingRank(userData?.craftingExperience || 0);
+  const missingCraftingRank =
+    selectedItem && userData
+      ? getMissingCraftingRank(selectedItem, userCraftingRank)
+      : null;
+  const requiredRankLabel = missingCraftingRank
+    ? `Requires ${formatCraftingRank(missingCraftingRank)} rank`
+    : null;
+
   // Calculate crafting time
   const craftingTimeDisplay = useMemo(() => {
     if (!selectedItem || !userData) return "";
-    const userCraftingRank = getCraftingRank(userData.craftingExperience || 0);
     const craftingTime =
       selectedItem.itemType === "CONSUMABLE"
         ? CONSUMABLE_CRAFTING_TIMES_MINS[userCraftingRank]
@@ -200,7 +214,7 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
       craftingTime * 60 * shrineBoostFactor * craftQuantity,
     );
     return formatSecondsToTimeDisplay(totalSeconds);
-  }, [selectedItem, userData, craftQuantity]);
+  }, [selectedItem, userData, userCraftingRank, craftQuantity]);
 
   // Check if user can craft the selected item
   const canCraft = useMemo(() => {
@@ -208,6 +222,7 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
       !selectedItem ||
       !userItems ||
       isQueueFull ||
+      missingCraftingRank ||
       !Number.isFinite(craftQuantityInput)
     ) {
       return false;
@@ -216,7 +231,14 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
       const totalQuantity = getTotalItemQuantity(userItems, req.requirementItemId);
       return totalQuantity >= req.quantity * craftQuantity;
     });
-  }, [selectedItem, userItems, craftQuantity, craftQuantityInput, isQueueFull]);
+  }, [
+    selectedItem,
+    userItems,
+    craftQuantity,
+    craftQuantityInput,
+    isQueueFull,
+    missingCraftingRank,
+  ]);
 
   // Handle craft
   const handleCraft = () => {
@@ -359,13 +381,15 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
         proceed_label={
           isQueueFull
             ? "Crafting Queue Full"
-            : !Number.isFinite(craftQuantityInput)
-              ? "Enter a quantity"
-              : !canCraft
-                ? "Missing Materials"
-                : isBusy
-                  ? "Add to Queue"
-                  : "Start Crafting"
+            : requiredRankLabel
+              ? requiredRankLabel
+              : !Number.isFinite(craftQuantityInput)
+                ? "Enter a quantity"
+                : !canCraft
+                  ? "Missing Materials"
+                  : isBusy
+                    ? "Add to Queue"
+                    : "Start Crafting"
         }
         proceed_loading_label="Crafting"
         isLoading={isCraftPending}
@@ -423,7 +447,11 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm">Total Crafting Time:</span>
-                  <span className="font-semibold text-sm">{craftingTimeDisplay}</span>
+                  <span
+                    className={`font-semibold text-sm ${requiredRankLabel ? "text-red-600" : ""}`}
+                  >
+                    {requiredRankLabel ?? craftingTimeDisplay}
+                  </span>
                 </div>
                 {(selectedItem.craftingExperience ?? 0) > 0 && (
                   <div className="flex items-center justify-between">
