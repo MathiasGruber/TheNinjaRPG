@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 
@@ -47,7 +48,16 @@ if (checkOnly) {
   console.log(changed.length ? `${changed.length} manifests need updates.` : "All npm manifests match the latest releases.");
   process.exitCode = changed.length ? 1 : 0;
 } else {
-  for (const { file, updated } of changed) writeFileSync(new URL(`../${file}`, import.meta.url), updated);
+  for (const { file, updated } of changed) {
+    const target = new URL(`../${file}`, import.meta.url);
+    const temp = new URL(`${target.href}.${randomUUID()}.tmp`);
+    try {
+      writeFileSync(temp, updated);
+      renameSync(temp, target);
+    } finally {
+      rmSync(temp, { force: true });
+    }
+  }
   for (const file of files) {
     const result = spawnSync(process.execPath, [`${root}/scripts/dev-bun.mjs`, "update"], {
       cwd: `${root}/${file.replace("/package.json", "")}`, stdio: "inherit",
@@ -55,5 +65,5 @@ if (checkOnly) {
     if (result.error) throw result.error;
     if (result.status !== 0) process.exit(result.status ?? 1);
   }
-  console.log("Review migration guides and rebase versioned patches before running the repository checks.");
+  console.log("Review migration guides before running the repository checks.");
 }

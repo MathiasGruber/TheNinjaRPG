@@ -4,7 +4,7 @@ import {
   type Config,
   type Transaction,
 } from "@planetscale/database";
-import { format, type SqlValue } from "sql-escaper";
+import { escapeId, escape as escapeValue, type SqlValue } from "sql-escaper";
 
 /** Keep Drizzle's parameterized calls at the boundary to the SQL-only HTTP driver. */
 export const createPlanetScaleClient = (config: Config) => {
@@ -28,13 +28,31 @@ const bindParameters = <T extends Pick<Client, "execute">>(client: T) => {
     ) => {
       const hasParameters = Array.isArray(paramsOrOptions);
       const statement = hasParameters
-        ? format(query, paramsOrOptions, true, "Z")
+        ? formatParameters(query, paramsOrOptions)
         : query;
       const settings = hasParameters ? options : paramsOrOptions;
       return settings?.as === "array"
         ? execute(statement, { ...settings, as: "array" })
         : execute(statement, { ...settings, as: "object" });
     },
+  });
+};
+
+// The library formatter does not recognize double-quoted SQL. Scan quoted text,
+// identifiers and comments here, and keep value/identifier escaping in sql-escaper.
+// MySQL executable comments and optimizer hints retain the formatter's SQL treatment.
+const sqlTokens =
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: MySQL recognizes ASCII control characters after --.
+  /'(?:\\[\s\S]|''|[^'\\])*(?:'|$)|"(?:\\[\s\S]|""|[^"\\])*(?:"|$)|`(?:``|[^`])*(?:`|$)|--(?=[\x00-\x20]|$)[^\r\n]*|#[^\r\n]*|\/\*(?![!+])[\s\S]*?(?:\*\/|$)|\?+/g;
+
+const formatParameters = (query: string, parameters: SqlValue[]) => {
+  let index = 0;
+  return query.replace(sqlTokens, (token) => {
+    if (token[0] !== "?" || token.length > 2 || index >= parameters.length) {
+      return token;
+    }
+    const value = parameters[index++];
+    return token.length === 2 ? escapeId(value) : escapeValue(value, true, "Z");
   });
 };
 
