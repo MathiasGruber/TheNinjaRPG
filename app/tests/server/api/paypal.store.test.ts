@@ -115,6 +115,34 @@ describeWithDatabase("web store payments", () => {
       expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({ reputationPoints: 0, reputationPointsTotal: 0, money: 0 });
     } finally { fetchMock.mockRestore(); }
   });
+  it("reports an unsuccessful transaction lookup when store delivery rolls back and allows recovery", async () => {
+    const buyer = await callerFor(paypalRouter, "buyer");
+    const db = await getTestDatabase();
+    const order = await reserve();
+    await db.delete(userData).where(eq(userData.userId, "recipient"));
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(async url => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({ access_token: "test-only" });
+      return Response.json({ transaction_details: [reportingTransaction(order.id)] });
+    });
+    try {
+      const input = { transactionId: capture(order.id).captureId, transactionDate: new Date() };
+      expect(await buyer.resolveTransaction(input)).toEqual({
+        success: false,
+        message: `Transaction ID ${capture(order.id).captureId}: Recipient unavailable. Contact support with your payment receipt.`,
+      });
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+      expect(await db.query.userItem.findMany()).toHaveLength(0);
+      expect(await db.query.webStoreOrder.findFirst()).toMatchObject({ grantedAt: null, captureId: null });
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, "buyer") })).toMatchObject({ reputationPoints: 0, money: 0 });
+
+      await insertUsers([{ userId: "recipient", username: "Recipient", reputationPoints: 0, reputationPointsTotal: 0, money: 0 }]);
+      expect(await buyer.resolveTransaction(input)).toEqual({ success: true, message: `${offer.name} delivered` });
+      expect(await buyer.resolveTransaction(input)).toEqual({ success: true, message: "Purchase already delivered" });
+      expect(await db.query.paypalTransaction.findMany()).toHaveLength(1);
+      expect(await db.query.userItem.findMany()).toHaveLength(3);
+      expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({ reputationPoints: 20, reputationPointsTotal: 20, money: 500 });
+    } finally { fetchMock.mockRestore(); }
+  });
   it("skips store refunds while reconciling valid captures and retries", async () => {
     const db = await getTestDatabase();
     const refunded = await reserve();
@@ -133,12 +161,12 @@ describeWithDatabase("web store payments", () => {
     incomplete.transaction_info.transaction_status = "P";
     const batch = [refund, reportingTransaction(paid.id), incomplete];
     expect(await syncTransactions(db, batch, "test-only")).toEqual([
-      "Transaction ID store-refund invalid value",
-      `${offer.name} delivered`,
+      { success: false, message: "Transaction ID store-refund invalid value" },
+      expect.objectContaining({ success: true, message: `${offer.name} delivered` }),
     ]);
     expect(await syncTransactions(db, batch, "test-only")).toEqual([
-      "Transaction ID store-refund invalid value",
-      "Purchase already delivered",
+      { success: false, message: "Transaction ID store-refund invalid value" },
+      { success: true, message: "Purchase already delivered" },
     ]);
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recipient") })).toMatchObject({
       reputationPoints: 40, reputationPointsTotal: 40, money: 1000,
@@ -160,7 +188,7 @@ describeWithDatabase("web store payments", () => {
       transaction_amount: { currency_code: "USD", value: "-12.50" },
     });
     await expect(syncTransactions(db, [refund], "test-only")).resolves.toEqual([
-      "Transaction ID capture-legacy-refund invalid value",
+      { success: false, message: "Transaction ID capture-legacy-refund invalid value" },
     ]);
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
     expect(await db.query.userItem.findMany()).toHaveLength(0);
@@ -180,17 +208,23 @@ describeWithDatabase("web store payments", () => {
     legacy.transaction_info.custom_field = "buyer-buyer";
     const batch = [reportingTransaction(failed.order.id), reportingTransaction(paid.id), legacy];
     const failure = `Transaction ID ${capture(failed.order.id).captureId}: Recipient unavailable. Contact support with your payment receipt.`;
-    expect(await syncTransactions(db, batch, "test-only")).toEqual([
-      failure,
-      `${offer.name} delivered`,
-      "Transaction ID capture-legacy-payment synced!",
-    ]);
+    const caller = await callerFor(paypalRouter, "buyer");
+    const fetchMock = spyOn(globalThis, "fetch").mockImplementation(async url => {
+      if (String(url).endsWith("/v1/oauth2/token")) return Response.json({ access_token: "test-only" });
+      return Response.json({ transaction_details: batch });
+    });
+    try {
+      expect(await caller.resolveTransaction({ transactionId: capture(failed.order.id).captureId, transactionDate: new Date() })).toEqual({
+        success: false,
+        message: `${failure}, ${offer.name} delivered, Transaction ID capture-legacy-payment synced!`,
+      });
+    } finally { fetchMock.mockRestore(); }
     const buyer = await db.query.userData.findFirst({ where: eq(userData.userId, "buyer") });
     expect(buyer!.reputationPoints).toBeGreaterThan(0);
     expect(await syncTransactions(db, batch, "test-only")).toEqual([
-      failure,
-      "Purchase already delivered",
-      "Transaction ID capture-legacy-payment already processed",
+      { success: false, message: failure },
+      { success: true, message: "Purchase already delivered" },
+      { success: true, message: "Transaction ID capture-legacy-payment already processed" },
     ]);
     expect(await db.query.userData.findFirst({ where: eq(userData.userId, "buyer") })).toMatchObject({
       reputationPoints: buyer!.reputationPoints,
@@ -227,12 +261,12 @@ describeWithDatabase("web store payments", () => {
     });
     const report = spyOn(sentry, "logError").mockImplementation(() => {});
     try {
-      const messages = await syncTransactions(failingClient, [reportingTransaction(failed.id), reportingTransaction(paid.id)], "test-only");
-      expect(messages).toEqual([
-        `Transaction ID ${capture(failed.id).captureId}: Store delivery failed. Retry later or contact support.`,
-        `${offer.name} delivered`,
+      const results = await syncTransactions(failingClient, [reportingTransaction(failed.id), reportingTransaction(paid.id)], "test-only");
+      expect(results).toEqual([
+        { success: false, message: `Transaction ID ${capture(failed.id).captureId}: Store delivery failed. Retry later or contact support.` },
+        expect.objectContaining({ success: true, message: `${offer.name} delivered` }),
       ]);
-      expect(messages.join(" ")).not.toMatch(/sql-sentinel|parameter-sentinel|non-error-sentinel/);
+      expect(results.map(result => result.message).join(" ")).not.toMatch(/sql-sentinel|parameter-sentinel|non-error-sentinel/);
       expect(report).toHaveBeenCalledTimes(1);
       expect(report).toHaveBeenCalledWith(error, "Store delivery failed", { transactionId: capture(failed.id).captureId });
       expect(await db.query.webStoreOrder.findFirst({ where: eq(webStoreOrder.id, failed.id) })).toMatchObject({ grantedAt: null, captureId: null });

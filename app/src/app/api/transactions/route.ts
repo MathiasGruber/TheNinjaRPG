@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     const transactions = await getPaypalTransactions(new Date(), token);
 
     // Sync transactions & get messages
-    const msgs = await syncTransactions(drizzleDB, transactions, token);
+    const results = await syncTransactions(drizzleDB, transactions, token);
+    const msgs = results.map((result) => result.message);
 
     // Get transactions where refereal reputation points have not been added
     const mainTransaction = alias(paypalTransaction, "mainTransaction");

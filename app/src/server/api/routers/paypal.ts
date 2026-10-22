@@ -17,6 +17,7 @@ import {
 } from "@/drizzle/schema";
 import { isNativeUserAgent } from "@/libs/native/userAgent";
 import {
+  type BaseServerResponse,
   baseServerResponse,
   createTRPCRouter,
   errorResponse,
@@ -393,13 +394,16 @@ export const paypalRouter = createTRPCRouter({
         token,
         input.transactionId,
       );
-      const msgs = await syncTransactions(ctx.drizzle, transactions, token);
-      if (!msgs.length)
+      const results = await syncTransactions(ctx.drizzle, transactions, token);
+      if (!results.length)
         return errorResponse(
           "No completed transaction found. PayPal may not have reported this payment yet. Check the transaction ID and date, then retry later.",
         );
 
-      return { success: true, message: msgs.join(", ") };
+      return {
+        success: results.every((result) => result.success),
+        message: results.map((result) => result.message).join(", "),
+      };
     }),
   resolveSubscription: protectedProcedure
     .input(
@@ -835,13 +839,13 @@ export const getPaypalTransactions = async (
 };
 
 /**
- * Sync transactions (both subs & reps from paypal to game)
+ * Sync PayPal subscriptions and purchases, returning each completed payment's outcome.
  */
 export const syncTransactions = async (
   client: DrizzleClient,
   transactions: PaypalTransaction[],
   token: string,
-) => {
+): Promise<BaseServerResponse[]> => {
   const notifications = await Promise.all(
     transactions
       .filter((t) => t.transaction_info.transaction_status === "S")
@@ -852,10 +856,10 @@ export const syncTransactions = async (
         if (snapshotId) {
           // Successful reporting events also include refunds and reversals.
           if (parseFloat(info.transaction_amount.value ?? "") < 0) {
-            return `Transaction ID ${info.transaction_id} invalid value`;
+            return errorResponse(`Transaction ID ${info.transaction_id} invalid value`);
           }
           try {
-            const result = await deliverStoreOrder(client, {
+            return await deliverStoreOrder(client, {
               snapshotId,
               captureId: info.transaction_id,
               orderId: info.paypal_reference_id,
@@ -864,7 +868,6 @@ export const syncTransactions = async (
               invoiceId: info.invoice_id,
               raw: t,
             });
-            return result.message;
           } catch (error) {
             // A blocked delivery must not stop other payments or the hourly referral pass.
             const known =
@@ -880,7 +883,9 @@ export const syncTransactions = async (
                 transactionId: info.transaction_id,
               });
             }
-            return `Transaction ID ${info.transaction_id}: ${known ? error.message : "Store delivery failed. Retry later or contact support."}`;
+            return errorResponse(
+              `Transaction ID ${info.transaction_id}: ${known ? error.message : "Store delivery failed. Retry later or contact support."}`,
+            );
           }
         }
         const createdByUserId = info.custom_field?.split("-")?.[0];
@@ -889,7 +894,7 @@ export const syncTransactions = async (
         const currency = info.transaction_amount.currency_code;
         // If data could not be parsed
         if (!value || !currency || !createdByUserId || !affectedUserId) {
-          return `Transaction ID ${info.transaction_id} invalid`;
+          return errorResponse(`Transaction ID ${info.transaction_id} invalid`);
         }
         // Handle different cases
         if (
@@ -913,9 +918,14 @@ export const syncTransactions = async (
               subscriptionId: externalSubscription.id,
               lastPayment: status.lastPayment,
             });
-            return `Subscription ID ${info.paypal_reference_id} synced to ${status.newStatus}`;
+            return {
+              success: true,
+              message: `Subscription ID ${info.paypal_reference_id} synced to ${status.newStatus}`,
+            };
           } else {
-            return `Subscription ID ${info.paypal_reference_id} not found`;
+            return errorResponse(
+              `Subscription ID ${info.paypal_reference_id} not found`,
+            );
           }
         } else {
           const stored = await client.query.paypalTransaction.findFirst({
@@ -926,9 +936,12 @@ export const syncTransactions = async (
           });
           const parsedValue = parseFloat(value);
           if (parsedValue < 0) {
-            return `Transaction ID ${info.transaction_id} invalid value`;
+            return errorResponse(`Transaction ID ${info.transaction_id} invalid value`);
           } else if (stored) {
-            return `Transaction ID ${info.transaction_id} already processed`;
+            return {
+              success: true,
+              message: `Transaction ID ${info.transaction_id} already processed`,
+            };
           } else {
             await updateReps({
               client: client,
@@ -945,7 +958,10 @@ export const syncTransactions = async (
               type: "REP_PURCHASE",
               raw: t,
             });
-            return `Transaction ID ${info.transaction_id} synced!`;
+            return {
+              success: true,
+              message: `Transaction ID ${info.transaction_id} synced!`,
+            };
           }
         }
       }),
