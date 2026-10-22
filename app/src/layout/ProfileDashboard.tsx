@@ -69,6 +69,7 @@ import {
 } from "@/libs/profileDashboard";
 import { cn } from "@/libs/shadui";
 import { getMasteryTrainingState, masteryTrainingEndsAt } from "@/libs/train";
+import { calculatePercent } from "@/utils/math";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { nextUtcDayAt } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -279,13 +280,9 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
   const levelRequirement = calcLevelRequirements(userData.level);
   const isMilestoneProgression = userData.rank === "ELITE JONIN";
   const levelProgress = isMilestoneProgression
-    ? Math.max(
-        0,
-        Math.min(
-          100,
-          (100 * (userData.level - MAX_EXPERIENCE_LEVEL)) /
-            (MAX_PLAYER_LEVEL - MAX_EXPERIENCE_LEVEL),
-        ),
+    ? calculatePercent(
+        userData.level - MAX_EXPERIENCE_LEVEL,
+        MAX_PLAYER_LEVEL - MAX_EXPERIENCE_LEVEL,
       )
     : levelRequirement > 0
       ? Math.min(100, (userData.experience / levelRequirement) * 100)
