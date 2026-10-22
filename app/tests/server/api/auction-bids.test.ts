@@ -156,6 +156,40 @@ describeWithDatabase("auction bid atomicity", () => {
     expect(state.bids).toHaveLength(1);
   });
 
+  it("a bid racing seller cancellation either reserves funds or returns the item", async () => {
+    const db = synchronizeAuctionReads(await getTestDatabase());
+    const bidder = callerForDatabase(auctionRouter, "bidder", db);
+    const seller = callerForDatabase(auctionRouter, "seller", db);
+    const [bid, cancel] = await Promise.all([
+      bidder.placeBid({ auctionId: "auction", amount: 100 }),
+      seller.cancelAuction({ auctionId: "auction" }),
+    ]);
+    expect(Number(bid.success) + Number(cancel.success)).toBe(1);
+    const state = await saved();
+    expect(state.listing.status).toBe(bid.success ? "ACTIVE" : "CANCELLED");
+    expect(state.users.bidder?.bank).toBe(bid.success ? 900 : 1000);
+    expect(state.bids).toHaveLength(bid.success ? 1 : 0);
+    expect((await (await getTestDatabase()).select().from(userItem))[0]?.isInAuction).toBe(bid.success);
+  });
+
+  it("does not charge a bid whose listing settles after its snapshot", async () => {
+    await seedBid();
+    const db = await getTestDatabase();
+    const settler = await callerFor(auctionRouter, "seller");
+    const settled = wrapTransactions(db, (tx) => beforeStatements(tx, auctionListing, [async () => {
+      await db.update(auctionListing).set({ expiresAt: new Date(0) }).where(eq(auctionListing.id, "auction"));
+      expect((await settler.completeAuction({ auctionId: "auction" })).success).toBe(true);
+    }]));
+    const rival = callerForDatabase(auctionRouter, "rival", settled);
+    expect((await rival.placeBid({ auctionId: "auction", amount: 100 })).success).toBe(false);
+    const state = await saved();
+    expect(state.listing.status).toBe("SOLD");
+    expect(state.users.rival?.bank).toBe(1000);
+    expect(state.users.seller?.bank).toBe(1050);
+    expect(state.bids).toHaveLength(1);
+    expect(state.bids[0]).toMatchObject({ amount: 50, status: "WON" });
+  });
+
   it("rejects a non-raise even if a stale listing price is below the existing bid", async () => {
     await seedBid();
     const db = await getTestDatabase();
