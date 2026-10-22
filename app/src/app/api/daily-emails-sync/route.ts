@@ -3,11 +3,7 @@ import { nanoid } from "nanoid";
 import { cookies } from "next/headers";
 import { emailReminder } from "@/drizzle/schema";
 import { env } from "@/env/server.mjs";
-import {
-  handleEndpointError,
-  lockWithDailyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { MONTH_S, secondsFromNow } from "@/utils/time";
@@ -174,7 +170,7 @@ export async function GET(request: Request) {
 
     return Response.json(`OK - Fetched ${allClerkUsers.length} users`);
   } catch (cause) {
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

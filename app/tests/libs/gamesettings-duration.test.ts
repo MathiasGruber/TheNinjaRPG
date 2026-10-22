@@ -75,7 +75,9 @@ describe("lockWithGameTimer", () => {
       expect(dialect.sqlToQuery(query.where).params).toEqual([name]);
     }
     expect(set).toHaveBeenCalledWith({ value: 0, time: NOW });
-    expect(dialect.sqlToQuery(where.mock.calls[0]?.[0] as SQL).params).toEqual([name]);
+    const predicate = dialect.sqlToQuery(where.mock.calls[0]?.[0] as SQL);
+    expect(predicate.sql).toBe("(`GameSetting`.`id` = ? and `GameSetting`.`time` = ?)");
+    expect(predicate.params).toEqual(["timer-id", "2026-10-21 11:00:00.000"]);
   });
 
   it("does not update a timer while its duration has not elapsed", async () => {

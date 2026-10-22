@@ -1,11 +1,7 @@
 import { and, eq, ne, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { overworldAiPlacement } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithDailyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import {
   resolveOverworldPosition,
   snapOverworldPositionToWalkable,
@@ -86,7 +82,7 @@ export const GET = async (request: Request) => {
     return Response.json("OK");
   } catch (cause) {
     // Rollback
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 };

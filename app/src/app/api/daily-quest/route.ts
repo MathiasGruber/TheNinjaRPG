@@ -2,11 +2,7 @@ import { and, eq, gte, isNotNull, or, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { type UserRank, VILLAGE_SYNDICATE_ID } from "@/drizzle/constants";
 import { quest, questHistory, userData } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithDailyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithDailyTimer } from "@/libs/gamesettings";
 import { availableQuestLetterRanks } from "@/libs/train";
 import { upsertQuestEntries } from "@/routers/quests";
 import { drizzleDB } from "@/server/db";
@@ -201,7 +197,7 @@ export async function GET(request: Request) {
           deadline,
         ));
       if (!finished) {
-        await updateGameSetting(drizzleDB, ENDPOINT_NAME, RESUME_PENDING, resumeMarker);
+        await timerCheck.update(RESUME_PENDING, resumeMarker);
         return Response.json("Partially assigned; resuming on the next tick", {
           status: 202,
         });
@@ -211,7 +207,7 @@ export async function GET(request: Request) {
     return Response.json(`OK`);
   } catch (cause) {
     // Rollback
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

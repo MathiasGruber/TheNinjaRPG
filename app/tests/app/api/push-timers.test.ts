@@ -11,13 +11,12 @@ const rollback = vi.fn();
 const endpointError = vi.fn();
 beforeEach(() => {
   run.mockReset().mockResolvedValue({ processed: 1 });
-  lock.mockReset().mockResolvedValue({ isNewMinute: true, prevTime: previous, response: Response.json(null) });
+  lock.mockReset().mockResolvedValue({ release: rollback, isNewMinute: true, prevTime: previous, response: Response.json(null) });
   rollback.mockReset().mockResolvedValue(undefined);
   endpointError.mockReset().mockReturnValue(Response.json({ error: "worker failed" }, { status: 500 }));
   stubCronAuth(() => null);
   vi.spyOn(timers, "deliverDueTimedPushes").mockImplementation(run);
   vi.spyOn(settings, "lockWithMinuteTimer").mockImplementation(lock);
-  vi.spyOn(settings, "updateGameSetting").mockImplementation(rollback);
   vi.spyOn(settings, "handleEndpointError").mockImplementation(endpointError);
 });
 afterEach(() => { resetServerModuleStubs(); vi.restoreAllMocks(); });
@@ -41,6 +40,6 @@ it("runs the scheduled worker and leaves the claimed timer on success", async ()
 it("rolls back a failed worker's minute timer so durable receipts can be retried", async () => {
   run.mockRejectedValue(new Error("Redis unavailable"));
   expect((await GET(request())).status).toBe(500);
-  expect(rollback).toHaveBeenCalledWith(expect.anything(), "push-timers", 0, previous);
+  expect(rollback).toHaveBeenCalledWith();
   expect(endpointError).toHaveBeenCalledTimes(1);
 });

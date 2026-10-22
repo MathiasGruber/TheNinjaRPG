@@ -6,11 +6,7 @@ import {
   KAGE_MAX_ELDERS,
 } from "@/drizzle/constants";
 import { clan, userData, village } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithMonthlyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithMonthlyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 
@@ -129,7 +125,7 @@ async function handleCutoff() {
       `OK - Elder cutoff snapshot completed for ${villages.length} villages`,
     );
   } catch (cause) {
-    await updateGameSetting(drizzleDB, "monthly-elder-cutoff", 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }
@@ -275,12 +271,7 @@ async function handleRotation() {
 
     return Response.json(`OK - Elder rotation completed`);
   } catch (cause) {
-    await updateGameSetting(
-      drizzleDB,
-      "monthly-elder-rotation",
-      0,
-      timerCheck.prevTime,
-    );
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

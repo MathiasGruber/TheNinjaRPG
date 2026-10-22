@@ -1,10 +1,6 @@
 import { and, asc, eq, notInArray, sql } from "drizzle-orm";
 import { userReport } from "@/drizzle/schema";
-import {
-  checkGameTimer,
-  handleEndpointError,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithGameTimer } from "@/libs/gamesettings";
 import { buildModerationEvidence } from "@/libs/moderation/evidence";
 import { indexReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { generateAiSummary } from "@/libs/moderator";
@@ -18,13 +14,10 @@ export async function GET(request: Request) {
   if (authError) return authError;
 
   // Check timer
-  const response = await checkGameTimer(drizzleDB, TIMER_NAME, 60_000);
+  const response = await lockWithGameTimer(drizzleDB, TIMER_NAME, 60_000);
   if (response) return response;
 
   try {
-    // Update timer
-    await updateGameSetting(drizzleDB, TIMER_NAME, 0, new Date());
-
     // Fetch reports without a summary
     const reports = await drizzleDB.query.userReport.findMany({
       columns: {

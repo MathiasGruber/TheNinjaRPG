@@ -77,7 +77,7 @@ const expireRequests = async (db: DrizzleClient) => {
     delete: (table: object) => table === userRequest ? db.delete(userRequest) : skipDelete(),
     update: () => ({ set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) }),
   });
-  vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
+  vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) } as Awaited<ReturnType<typeof gamesettings.lockWithHourlyTimer>>);
   vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
   vi.spyOn(travel, "completeExpiredGlobalTravel").mockResolvedValue(undefined);
   vi.spyOn(raids, "cleanupExpiredExclusiveRaids").mockResolvedValue(0);
@@ -180,7 +180,6 @@ describe("account deletion in the existing cleaner", () => {
     vi.spyOn(gamesettings, "handleEndpointError").mockImplementation(actualGameSettings.handleEndpointError);
     vi.spyOn(gamesettings, "lockWithHourlyTimer").mockImplementation(mocks.lock);
     vi.spyOn(gamesettings, "lockWithDailyTimer").mockResolvedValue({ isNewDay: false } as Awaited<ReturnType<typeof gamesettings.lockWithDailyTimer>>);
-    vi.spyOn(gamesettings, "updateGameSetting").mockImplementation(mocks.reset);
     vi.spyOn(travel, "completeExpiredGlobalTravel").mockResolvedValue(undefined);
     vi.spyOn(raids, "cleanupExpiredExclusiveRaids").mockImplementation(vi.fn());
     vi.spyOn(contentReviewCleanup, "cleanupContentProposals").mockResolvedValue({ removed: 0, filesDeleted: 0 });
@@ -197,7 +196,7 @@ describe("account deletion in the existing cleaner", () => {
     expect(mocks.execute).not.toHaveBeenCalled();
   });
   it("processes due deletions as part of the hourly cleanup", async () => {
-    mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+    mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) });
     expect((await GET(request())).status).toBe(200);
     expect(mocks.execute).toHaveBeenCalled();
     expect(mocks.process).toHaveBeenCalledTimes(1);
@@ -205,17 +204,17 @@ describe("account deletion in the existing cleaner", () => {
     expect(mocks.reset).not.toHaveBeenCalled();
   });
   it("still processes deletions when content review cleanup fails", async () => {
-    mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+    mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) });
     vi.spyOn(contentReviewCleanup, "cleanupContentProposals").mockRejectedValue(new Error("storage down"));
     expect((await GET(request())).status).toBe(200);
     expect(mocks.process).toHaveBeenCalledTimes(1);
   });
   it("uses the standard cleaner failure and timer rollback for deletion failures", async () => {
     const previous = new Date(0);
-    mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: previous });
+    mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: previous });
     mocks.process.mockResolvedValue({ processed: 0, failed: 1 });
     expect((await GET(request())).status).toBe(500);
-    expect(mocks.reset).toHaveBeenCalledWith(expect.anything(), "cleaner-hourly", 0, previous);
+    expect(mocks.reset).toHaveBeenCalledWith();
   });
   describeWithDatabase("ranked queue status repair", () => {
     it("releases an orphan with a provisional ranked row while preserving a claimed queue", async () => {
@@ -247,7 +246,7 @@ describe("account deletion in the existing cleaner", () => {
           }),
         }),
       });
-      mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+      mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) });
       expect((await GET(request())).status).toBe(200);
       expect(repairs).toBe(1);
       expect(
@@ -290,7 +289,7 @@ describe("account deletion in the existing cleaner", () => {
           }),
         }),
       });
-      mocks.lock.mockResolvedValueOnce({ isNewHour: true, prevTime: new Date(0) });
+      mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) });
       expect((await GET(request())).status).toBe(200);
       const users = await db.query.userData.findMany();
       for (const user of users) {

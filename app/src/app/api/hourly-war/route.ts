@@ -258,7 +258,7 @@ export async function GET(request: Request) {
     return new Response("War hourly update completed", { status: 200 });
   } catch (cause) {
     // Rollback
-    await updateGameSetting(drizzleDB, ENDPOINT_NAME, 0, timerCheck.prevTime);
+    await timerCheck.release();
     return await handleEndpointError(cause);
   }
 }

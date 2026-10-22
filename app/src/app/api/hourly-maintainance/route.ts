@@ -10,11 +10,7 @@ import {
   userData,
   visitorLog,
 } from "@/drizzle/schema";
-import {
-  handleEndpointError,
-  lockWithHourlyTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithHourlyTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { accrueVillageStructureMaintenance } from "@/server/utils/villageMaintenance";
@@ -127,7 +123,7 @@ const dailyActivePlayers = async () => {
   const activeCount = result?.[0]?.count ?? 0;
 
   // Update the game setting with the count
-  await updateGameSetting(drizzleDB, ENDPOINT_NAME, activeCount, new Date());
+  await timerCheck.update(activeCount, new Date());
 
   return activeCount;
 };

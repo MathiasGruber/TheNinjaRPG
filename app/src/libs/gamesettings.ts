@@ -60,151 +60,144 @@ export const updateGameSetting = async (
 };
 
 /**
- * Locks the game for an explicit duration using a stable persisted timer name.
- *
- * @param client - The DrizzleClient instance to interact with the game settings.
- * @param timerName - Stable game-setting name, independent of the duration.
- * @param durationMs - The timer duration in milliseconds.
- * @returns A promise that resolves to the response from the checkGameTimer function.
+ * Claim a named timer using the timestamp read for eligibility. Only the winner
+ * may perform work or change the marker afterwards; a failed older run must not
+ * release a claim taken in a later period.
  */
+const claimGameTimer = async (
+  client: DrizzleClient,
+  name: string,
+  isEligible: (previous: Date, now: Date) => boolean,
+) => {
+  const timer = await getGameSetting(client, name);
+  const now = new Date();
+  const claim = isEligible(timer.time, now)
+    ? await client
+        .update(gameSetting)
+        .set({ value: 0, time: now })
+        .where(and(eq(gameSetting.id, timer.id), eq(gameSetting.time, timer.time)))
+    : undefined;
+  const isClaimed = claim?.rowsAffected === 1;
+  let ownsClaim = isClaimed;
+
+  // Completion values, resume markers and rollback all relinquish this claim.
+  const update = async (value: number, time: Date) => {
+    if (!ownsClaim) return false;
+    const result = await client
+      .update(gameSetting)
+      .set({ value, time })
+      .where(and(eq(gameSetting.id, timer.id), eq(gameSetting.time, now)));
+    ownsClaim = false;
+    return result.rowsAffected === 1;
+  };
+
+  return {
+    isClaimed,
+    prevTime: timer.time,
+    prevValue: timer.value,
+    update,
+    release: () => update(0, timer.time),
+  };
+};
+
+/** Atomically claim a rolling duration, retaining the persisted timer name. */
 export const lockWithGameTimer = async (
   client: DrizzleClient,
   timerName: string,
   durationMs: number,
 ) => {
-  const response = await checkGameTimer(client, timerName, durationMs);
-  if (!response) {
-    await updateGameSetting(client, timerName, 0, new Date());
-  }
-  return response;
+  const deltaTime = durationMs * 0.9999;
+  const claim = await claimGameTimer(
+    client,
+    timerName,
+    (previous, now) => previous.getTime() <= now.getTime() - deltaTime,
+  );
+  if (claim.isClaimed) return false;
+  return gameTimerWaitResponse(claim.prevTime, deltaTime);
 };
 
-/**
- * Locks the named game setting for one rolling hour.
- *
- * @param client - Database client used to read and update the timer.
- * @param name - Stable game-setting name identifying the hourly timer.
- * @returns Whether a new hour began, the prior timestamp, and a wait response.
- */
+/** Atomically claim one rolling hour. */
 export const lockWithHourlyTimer = async (client: DrizzleClient, name: string) => {
-  const timer = await getGameSetting(client, name);
-  const prevTime = timer.time;
-  const now = new Date();
-  const isNewHour = now.getTime() - prevTime.getTime() >= 60 * 60 * 1000;
-  let response: string | null = null;
-  if (!isNewHour) {
-    response = "Wait until an hour has passed before running this again";
-  } else {
-    await updateGameSetting(client, name, 0, now);
-  }
-  return { isNewHour, prevTime, response: Response.json(response, { status: 200 }) };
+  const claim = await claimGameTimer(
+    client,
+    name,
+    (previous, now) => now.getTime() - previous.getTime() >= 60 * 60 * 1000,
+  );
+  return {
+    ...claim,
+    isNewHour: claim.isClaimed,
+    response: Response.json(
+      claim.isClaimed
+        ? null
+        : "Wait until an hour has passed before running this again",
+    ),
+  };
 };
 
-/**
- * Locks the game with a minute timer.
- *
- * @param client
- * @param name
- * @returns
- */
+/** Atomically claim once per UTC calendar minute. */
 export const lockWithMinuteTimer = async (client: DrizzleClient, name: string) => {
-  const timer = await getGameSetting(client, name);
-  const prevTime = timer.time;
-
-  const now = new Date();
-  const isNewMinute =
-    now.getUTCFullYear() !== prevTime.getUTCFullYear() ||
-    now.getUTCMonth() !== prevTime.getUTCMonth() ||
-    now.getUTCDate() !== prevTime.getUTCDate() ||
-    now.getUTCHours() !== prevTime.getUTCHours() ||
-    now.getUTCMinutes() !== prevTime.getUTCMinutes();
-
-  let response: string | null = null;
-  if (!isNewMinute) {
-    response = "Wait until the next minute to run this again";
-  } else {
-    await updateGameSetting(client, name, 0, now);
-  }
-
-  return { isNewMinute, prevTime, response: Response.json(response, { status: 200 }) };
+  const claim = await claimGameTimer(
+    client,
+    name,
+    (previous, now) =>
+      isDifferentDay(now, previous) ||
+      now.getUTCHours() !== previous.getUTCHours() ||
+      now.getUTCMinutes() !== previous.getUTCMinutes(),
+  );
+  return {
+    ...claim,
+    isNewMinute: claim.isClaimed,
+    response: Response.json(
+      claim.isClaimed ? null : "Wait until the next minute to run this again",
+    ),
+  };
 };
 
-/**
- * Atomically claims a named timer once per UTC calendar day.
- *
- * @param client
- * @param name
- * @returns The claim result, previous timestamp and value, and locked response.
- */
+/** Atomically claim once per UTC calendar day. */
 export const lockWithDailyTimer = async (client: DrizzleClient, name: string) => {
-  const timer = await getGameSetting(client, name);
-  const prevTime = timer.time;
-  const prevValue = timer.value;
-  const now = new Date();
-  const claim = isDifferentDay(now, prevTime)
-    ? await client
-        .update(gameSetting)
-        .set({ value: 0, time: now })
-        .where(and(eq(gameSetting.id, timer.id), eq(gameSetting.time, prevTime)))
-    : undefined;
-  const isNewDay = claim?.rowsAffected === 1;
-  const response = isNewDay ? null : "Wait until the next day to run this again";
+  const claim = await claimGameTimer(client, name, (previous, now) =>
+    isDifferentDay(now, previous),
+  );
   return {
-    isNewDay,
-    prevTime,
-    prevValue,
-    response: Response.json(response, { status: 200 }),
+    ...claim,
+    isNewDay: claim.isClaimed,
+    response: Response.json(
+      claim.isClaimed ? null : "Wait until the next day to run this again",
+    ),
   };
 };
 
-/**
- * Locks the game with a weekly timer.
- *
- * @param client
- * @param name
- * @returns
- */
+/** Atomically claim when the existing calendar week number changes. */
 export const lockWithWeeklyTimer = async (client: DrizzleClient, name: string) => {
-  const timer = await getGameSetting(client, name);
-  const prevTime = timer.time;
-  const isNewWeek = getWeekNumber(new Date()) !== getWeekNumber(prevTime);
-  let response: string | null = null;
-  if (!isNewWeek) {
-    response = "Wait until the next week to run this again";
-  } else {
-    await updateGameSetting(client, name, 0, new Date());
-  }
+  const claim = await claimGameTimer(
+    client,
+    name,
+    (previous, now) => getWeekNumber(now) !== getWeekNumber(previous),
+  );
   return {
-    isNewWeek,
-    prevTime,
-    response: Response.json(response, { status: 200 }),
+    ...claim,
+    isNewWeek: claim.isClaimed,
+    response: Response.json(
+      claim.isClaimed ? null : "Wait until the next week to run this again",
+    ),
   };
 };
 
-/**
- * Locks the game with a monthly timer. Runs once per calendar month.
- *
- * @param client
- * @param name
- * @returns
- */
+/** Atomically claim once per UTC calendar month. */
 export const lockWithMonthlyTimer = async (client: DrizzleClient, name: string) => {
-  const timer = await getGameSetting(client, name);
-  const prevTime = timer.time;
-  const now = new Date();
-  const isNewMonth =
-    now.getUTCFullYear() !== prevTime.getUTCFullYear() ||
-    now.getUTCMonth() !== prevTime.getUTCMonth();
-  let response: string | null = null;
-  if (!isNewMonth) {
-    response = "Wait until the next month to run this again";
-  } else {
-    await updateGameSetting(client, name, 0, now);
-  }
+  const claim = await claimGameTimer(
+    client,
+    name,
+    (previous, now) =>
+      now.getUTCFullYear() !== previous.getUTCFullYear() ||
+      now.getUTCMonth() !== previous.getUTCMonth(),
+  );
   return {
-    isNewMonth,
-    prevTime,
-    response: Response.json(response, { status: 200 }),
+    ...claim,
+    isNewMonth: claim.isClaimed,
+    response: Response.json(
+      claim.isClaimed ? null : "Wait until the next month to run this again",
+    ),
   };
 };
 
@@ -223,14 +216,18 @@ export const checkGameTimer = async (
   const timer = await getGameSetting(client, timerName);
   const deltaTime = durationMs * 0.9999;
   if (timer.time > new Date(Date.now() - deltaTime)) {
-    const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(
-      timer.time.getTime() + deltaTime - Date.now(),
-    );
-    return Response.json(
-      `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
-    );
+    return gameTimerWaitResponse(timer.time, deltaTime);
   }
   return false;
+};
+
+const gameTimerWaitResponse = (previous: Date, durationMs: number) => {
+  const remaining = previous.getTime() + durationMs - Date.now();
+  if (remaining <= 0) return Response.json("Timer already claimed; try again later");
+  const [days, hours, minutes, seconds] = getDaysHoursMinutesSeconds(remaining);
+  return Response.json(
+    `Wait ${getTimeLeftStr(days, hours, minutes, seconds)} before running again`,
+  );
 };
 
 /**

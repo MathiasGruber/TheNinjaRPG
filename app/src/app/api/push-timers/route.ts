@@ -1,8 +1,4 @@
-import {
-  handleEndpointError,
-  lockWithMinuteTimer,
-  updateGameSetting,
-} from "@/libs/gamesettings";
+import { handleEndpointError, lockWithMinuteTimer } from "@/libs/gamesettings";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
 import { deliverDueTimedPushes } from "@/server/utils/push/timed";
@@ -18,7 +14,7 @@ export async function GET(request: Request) {
   try {
     return Response.json(await deliverDueTimedPushes(drizzleDB));
   } catch (error) {
-    await updateGameSetting(drizzleDB, TIMER, 0, timer.prevTime);
+    await timer.release();
     return handleEndpointError(error);
   }
 }

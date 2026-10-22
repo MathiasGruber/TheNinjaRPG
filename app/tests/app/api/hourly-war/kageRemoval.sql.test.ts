@@ -1,3 +1,4 @@
+import { timerClaimFixture } from "../../../setup/gameTimers";
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as headers from "next/headers";
@@ -18,7 +19,7 @@ describeWithDatabase("expired elder kage removal protection", () => {
     await resetTables(clan, notification, userData, village, villageElderVote, villageElderVoteEntry, villageStructure, war);
     stubCronAuth(() => null);
     spies.push(vi.spyOn(headers, "cookies").mockResolvedValue({} as never));
-    spies.push(vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ isNewHour: true, prevTime: new Date(0), response: Response.json("Ready") }));
+    spies.push(vi.spyOn(gamesettings, "lockWithHourlyTimer").mockResolvedValue({ ...timerClaimFixture(), isNewHour: true, prevTime: new Date(0), response: Response.json("Ready") }));
     spies.push(vi.spyOn(gamesettings, "getGameSetting").mockResolvedValue({ id: "daily-timer", name: "daily-war-decay", time: now, value: 0 }));
   });
   afterEach(() => {
