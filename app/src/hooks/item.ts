@@ -63,6 +63,7 @@ export const useItemEditForm = (
   // Keep parent-owned objects registered while their conditional editors are hidden.
   form.register("coordinateTargeting");
   form.register("methodSize");
+  form.register("furnitureData");
 
   // Mutation for updating item
   const { mutateAsync: updateItem, isPending: isUpdating } =

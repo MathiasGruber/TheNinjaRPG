@@ -1,9 +1,13 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import * as radixSize from "@radix-ui/react-use-size";
+import { act, cleanup, fireEvent, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
+import { Controller, type UseFormReturn } from "react-hook-form";
 import * as client from "@/app/_trpc/client";
 import type { Item } from "@/drizzle/schema";
 import { useItemEditForm } from "@/hooks/item";
-import { ItemValidator } from "@/validators/combat";
+import { EditContent } from "@/layout/EditContent";
+import { ItemValidator, ItemValidatorRawSchema, type ZodItemType } from "@/validators/combat";
+import { DEFAULT_FURNITURE_DATA, FURNITURE_ITEM_DEFAULTS } from "@/validators/item";
 import { setNullsToEmptyStrings } from "@/utils/typeutils";
 import { ensureDom } from "../setup-dom.mjs";
 
@@ -51,8 +55,10 @@ const data = {
   craftingRequirements: [],
 } as Item & { craftingRequirements: [] };
 const updateItem = vi.fn();
+const originalEvent = globalThis.Event;
 
 beforeEach(() => {
+  globalThis.Event = window.Event;
   updateItem.mockReset();
   Object.assign(vi.spyOn(client, "api" as never), {
     item: {
@@ -61,11 +67,17 @@ beforeEach(() => {
     },
     skillTree: { getAllNames: { useQuery: () => ({ data: [] }) } },
     bloodline: { getAllNames: { useQuery: () => ({ data: [] }) } },
+    gameAsset: {
+      getNameTags: { useQuery: () => ({ data: undefined }) },
+      getSceneAssets: { useQuery: () => ({ data: [] }) },
+      getAll: { useInfiniteQuery: () => ({ data: { pages: [] } }) },
+    },
   });
 });
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  globalThis.Event = originalEvent;
 });
 
 describe("staff item economy editor", () => {
@@ -132,6 +144,68 @@ describe("staff item economy editor", () => {
     });
     expect(result.current.form.getValues("furnitureData")).toBeNull();
     expect(await result.current.form.trigger()).toBe(true);
+  });
+  it("clears and saves loaded furniture after editing its nested controls", async () => {
+    vi.spyOn(radixSize, "useSize").mockReturnValue({ width: 0, height: 0 });
+    const savedFurniture = {
+      ...data,
+      ...ItemValidator.parse({
+        ...data,
+        ...FURNITURE_ITEM_DEFAULTS,
+        itemType: "FURNITURE",
+        furnitureData: {
+          ...DEFAULT_FURNITURE_DATA,
+          action: "storage",
+          width: 32,
+          views: { "90": { image: "chair-90.webp" } },
+        },
+      }),
+    } as typeof data;
+    let editor!: ReturnType<typeof useItemEditForm>;
+    const FurnitureEditor = () => {
+      editor = useItemEditForm(savedFurniture, async () => undefined);
+      return <>
+        <EditContent
+          schema={ItemValidatorRawSchema}
+          form={editor.form as unknown as UseFormReturn<ZodItemType>}
+          formData={editor.formData.filter((field) => field.id.startsWith("furnitureData."))}
+          showSubmit={false}
+        />
+        {editor.form.getValues("itemType") === "FURNITURE" && <Controller
+          control={editor.form.control}
+          name="furnitureData.views"
+          render={({ field }) => <output>{JSON.stringify(field.value)}</output>}
+        />}
+        <output data-testid="dirty">{String(editor.form.formState.isDirty)}</output>
+      </>;
+    };
+    const view = render(<FurnitureEditor />);
+    expect(view.getByTestId("dirty").textContent).toBe("false");
+    expect(editor.form.getValues("furnitureData")).toEqual(savedFurniture.furnitureData);
+    const floor = view.getByRole("switch", { name: "Floor decoration" });
+    fireEvent.click(floor);
+    expect(editor.form.getValues("furnitureData.isFloor")).toBe(true);
+    expect(editor.form.getFieldState("furnitureData.isFloor").isDirty).toBe(true);
+    fireEvent.click(floor);
+    expect(view.getByTestId("dirty").textContent).toBe("false");
+    expect(editor.form.getValues("furnitureData")).toEqual(savedFurniture.furnitureData);
+    await act(async () => {
+      editor.form.setValue("itemType", "MATERIAL", { shouldDirty: true });
+    });
+    expect(view.queryByRole("switch", { name: "Floor decoration" })).toBeNull();
+    expect(editor.form.getValues("furnitureData")).toBeNull();
+    expect(editor.form.getFieldState("furnitureData").isDirty).toBe(true);
+    expect(editor.form.formState.defaultValues?.furnitureData).toEqual(savedFurniture.furnitureData);
+    expect(view.getByTestId("dirty").textContent).toBe("true");
+    await act(async () => {
+      expect(await editor.form.trigger()).toBe(true);
+      await editor.handleItemSubmit();
+    });
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(updateItem).toHaveBeenCalledWith(expect.objectContaining({
+      id: data.id,
+      data: expect.objectContaining({ itemType: "MATERIAL", furnitureData: null }),
+    }));
   });
   it("clears seed extraction when an extractable crop becomes furniture", async () => {
     const crop = { ...data, itemType: "COOKING" as const, farmExtractSeedItemId: "rice-seed", farmExtractSeedCount: 5 };
