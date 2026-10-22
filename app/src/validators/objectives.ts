@@ -1189,6 +1189,8 @@ export const QuestFormSchema = QuestFormRawSchema.transform((val) => ({
     ...val.content,
     reward: {
       ...val.content.reward,
+      reward_rank: val.reward_rank,
+      reward_packages: val.reward_packages,
       reward_level: val.reward_level,
       reward_stats: val.reward_stats,
     },

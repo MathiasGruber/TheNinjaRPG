@@ -133,4 +133,34 @@ describe("Elite Jonin progression", () => {
     const quest = milestone();
     expect(QuestFormSchema.safeParse({ ...quest, ...quest.content.reward, reward_level: 102 }).success).toBe(false);
   });
+  it("allows clearing saved promotion rewards when editing a quest into a milestone", () => {
+    const quest = milestone();
+    for (const savedReward of [
+      { reward_rank: "ELITE JONIN" },
+      { reward_packages: [{ id: "promotion", name: "Promotion", description: "", rewards: { reward_rank: "ELITE JONIN" } }] },
+    ]) {
+      const saved = QuestValidator.parse({ ...quest, content: { ...quest.content,
+        reward: { ...savedReward, reward_level: 0, reward_stats: 0 },
+      } });
+      const edited = QuestFormSchema.parse({ ...saved, ...saved.content.reward,
+        reward_rank: "NONE", reward_packages: [], reward_level: 101, reward_stats: 20_000,
+      });
+      expect(edited.content.reward).toMatchObject({
+        reward_rank: "NONE", reward_packages: [], reward_level: 101, reward_stats: 20_000,
+      });
+      expect(QuestValidator.safeParse(edited).success).toBe(true);
+    }
+  });
+  it("rejects edited rank rewards and retained objective ranks in milestone forms", () => {
+    const quest = milestone();
+    const rankPackage = { id: "promotion", name: "Promotion", description: "", rewards: { reward_rank: "ELITE JONIN" } };
+    const draft = { ...quest, ...quest.content.reward };
+    for (const edited of [
+      { ...draft, reward_rank: "ELITE JONIN" },
+      { ...draft, reward_packages: [rankPackage] },
+      { ...draft, content: { ...quest.content, objectives: [{ id: "goal", task: "arena_kills", value: 1, reward_rank: "ELITE JONIN" }] } },
+      { ...draft, content: { ...quest.content, objectives: [{ id: "goal", task: "arena_kills", value: 1, reward_packages: [rankPackage] }] } },
+    ])
+      expect(QuestFormSchema.safeParse(edited).success).toBe(false);
+  });
 });
