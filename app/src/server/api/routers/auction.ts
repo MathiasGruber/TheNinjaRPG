@@ -697,9 +697,24 @@ export const auctionRouter = createTRPCRouter({
       }
 
       try {
-        // A first bid needs an INSERT alongside the guarded debit and listing update.
-        // Buyouts keep escrow on the transaction path for atomic delivery and refunds.
-        await retryOnDeadlock(() =>
+        if (isBuyoutBid && existingBid && auction.bids.length === 1) {
+          // With no losing bids, the claim, debit, delivery and seller payment are one joined row.
+          const settlement = await retryOnDeadlock(() =>
+            settleAuctionWithoutRefunds(ctx.drizzle, auction, ctx.userId, {
+              amount,
+              amountToDeduct,
+              listingGuard,
+              bidderGuard,
+            }),
+          );
+          await recordBidActivity(ctx.drizzle, bidLog, outbidNotification, true);
+          notifyAuctionSettlement(ctx.drizzle, settlement);
+          return { success: true, message: "Buyout successful - auction completed" };
+        }
+        // A first bid must INSERT AuctionBid and UPDATE its balance/listing together;
+        // MySQL cannot combine that INSERT and those UPDATEs in one statement.
+        // A buyout with losing bids also needs the complete-refund checks in settleAuction.
+        const settlement = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
             if (raiseStatement) {
               const raised = await tx.execute(raiseStatement);
@@ -737,45 +752,22 @@ export const auctionRouter = createTRPCRouter({
                 .values({ id: bidId, auctionId, bidderId: ctx.userId, amount });
             }
             await recordBidActivity(tx, bidLog, outbidNotification);
+            // Buyout escrow, delivery and every payment share this commit.
+            return isBuyoutBid ? settleAuction(tx, auction.id, ctx.userId) : null;
           }),
         );
+        if (settlement) {
+          notifyAuctionSettlement(ctx.drizzle, settlement);
+          return { success: true, message: "Buyout successful - auction completed" };
+        }
       } catch (error) {
-        if (error instanceof Error && error.name === "AuctionBidConflict")
+        if (
+          error instanceof Error &&
+          (error.name === "AuctionBidConflict" ||
+            error.name === "AuctionSettlementConflict")
+        )
           return errorResponse(error.message);
         throw error;
-      }
-
-      auction.currentPrice = amount;
-      auction.updatedAt = updatedAt;
-      if (!existingBid) {
-        auction.bids.push({
-          id: bidId,
-          auctionId,
-          bidderId: ctx.userId,
-          amount,
-          createdAt: updatedAt,
-          status: "ACTIVE",
-        });
-      }
-
-      // completeAuctionInternal reads bid amounts from this object; keep in sync with DB.
-      if (existingBid) {
-        existingBid.amount = amount;
-      }
-
-      // If this is a buyout bid, complete the auction immediately
-      if (isBuyoutBid) {
-        const winningBid = await completeAuctionInternal(
-          ctx.drizzle,
-          auction,
-          ctx.userId,
-        );
-        return {
-          success: true,
-          message: winningBid
-            ? "Buyout successful - auction completed"
-            : "Buyout failed - auction expired",
-        };
       }
 
       return {
@@ -793,30 +785,7 @@ export const auctionRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { auctionId } = input;
 
-      // Query
-      const auction = await fetchAuctionListing(ctx.drizzle, auctionId);
-
-      // Guard
-      if (!auction) {
-        return errorResponse("Auction not found");
-      }
-      if (auction.status !== "ACTIVE") {
-        return errorResponse("Auction is not active");
-      }
-      if (auction.expiresAt > new Date()) {
-        return errorResponse("Auction has not expired yet");
-      }
-
-      // Use the internal completion function
-      const winningBid = await completeAuctionInternal(ctx.drizzle, auction);
-
-      // Determine the result message
-      return {
-        success: true,
-        message: winningBid
-          ? "Auction completed successfully"
-          : "Auction expired with no bids",
-      };
+      return completeAuctionInternal(ctx.drizzle, auctionId);
     }),
 
   // Cancel listing (seller only, no bids — atomic guard so a race cannot cancel after a bid)
@@ -901,7 +870,7 @@ export const auctionRouter = createTRPCRouter({
  * @returns - Auction listing with bids
  */
 export const fetchAuctionListing = async (
-  drizzle: DrizzleClient,
+  drizzle: Pick<DrizzleClient, "query">,
   auctionId: string,
 ) => {
   const auction = await drizzle.query.auctionListing.findFirst({
@@ -928,129 +897,313 @@ export const fetchAuctionListing = async (
   return auction;
 };
 
-/**
- * Internal function to complete an auction (used for both expiration and buyout)
- * @param drizzle - Drizzle client
- * @param auction - Auction data with bids
- * @param winnerId - Optional specific winner ID (for buyout)
- * @returns - Winning bid if auction was sold, null if expired with no bids
- */
+/** Settle expiration and buyout through the same atomic listing claim. */
 export const completeAuctionInternal = async (
   drizzle: DrizzleClient,
-  auction: NonNullable<Awaited<ReturnType<typeof fetchAuctionListing>>>,
+  auctionId: string,
   winnerId?: string,
 ) => {
-  // Derived
-  const winningBid = winnerId
-    ? auction.bids.find((b) => b.bidderId === winnerId)
-    : (() => {
-        const sorted = [...auction.bids].sort((a, b) => b.amount - a.amount);
-        const [highest] = sorted;
-        return highest;
-      })();
-
-  const bidsToRefund =
-    auction.bids.filter((b) => b.bidderId !== winningBid?.bidderId) || [];
-
-  // Either the auction has a winning bid or it has expired
-  if (winningBid) {
-    await Promise.all([
-      drizzle
-        .update(userItem)
-        .set({
-          userId: winningBid.bidderId,
-          isInAuction: false,
-          // Clear the seller's selected cosmetic on ownership transfer — the buyer
-          // has not necessarily unlocked this variant, and display/combat paths
-          // trust activeVariantId. The buyer can re-select it if they own the unlock.
-          activeVariantId: null,
-          // Auction deliveries are carried; the seller's room placement does not transfer.
-          storedAtHome: false,
-          homeX: null,
-          homeY: null,
-          homeRotation: 0,
-          updatedAt: new Date(),
-        })
-        .where(eq(userItem.id, auction.userItemId)),
-      // Update seller based on currency type
-      auction.currencyType === "MONEY"
-        ? drizzle
-            .update(userData)
-            .set({
-              bank: sql`${userData.bank} + ${winningBid.amount}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(userData.userId, auction.sellerId))
-        : drizzle
-            .update(userData)
-            .set({
-              reputationPoints: sql`${userData.reputationPoints} + ${winningBid.amount}`,
-              updatedAt: new Date(),
-            })
-            .where(eq(userData.userId, auction.sellerId)),
-      drizzle
-        .update(auctionBid)
-        .set({ status: "WON" })
-        .where(eq(auctionBid.id, winningBid.id)),
-      drizzle
-        .update(auctionListing)
-        .set({
-          status: "SOLD",
-          buyerId: winningBid.bidderId,
-          updatedAt: new Date(),
-          expiresAt: new Date(),
-        })
-        .where(eq(auctionListing.id, auction.id)),
-      ...(bidsToRefund.length > 0
-        ? bidsToRefund.map((bid) =>
-            auction.currencyType === "MONEY"
-              ? drizzle
-                  .update(userData)
-                  .set({ bank: sql`${userData.bank} + ${bid.amount}` })
-                  .where(eq(userData.userId, bid.bidderId))
-              : drizzle
-                  .update(userData)
-                  .set({
-                    reputationPoints: sql`${userData.reputationPoints} + ${bid.amount}`,
-                  })
-                  .where(eq(userData.userId, bid.bidderId)),
-          )
-        : []),
-      ...(bidsToRefund.length > 0
-        ? bidsToRefund.map((bid) =>
-            drizzle
-              .update(auctionBid)
-              .set({ status: "REFUNDED" })
-              .where(eq(auctionBid.id, bid.id)),
-          )
-        : []),
-    ]);
-  } else {
-    // No bids, return item to seller and update auction status in parallel
-    await Promise.all([
-      drizzle
-        .update(userItem)
-        .set({
-          isInAuction: false,
-          updatedAt: new Date(),
-        })
-        .where(eq(userItem.id, auction.userItemId)),
-      drizzle
-        .update(auctionListing)
-        .set({
-          status: "EXPIRED",
-          updatedAt: new Date(),
-        })
-        .where(eq(auctionListing.id, auction.id)),
-    ]);
+  try {
+    const auction = await fetchAuctionListing(drizzle, auctionId);
+    if (!auction) return throwAuctionSettlementConflict("Auction not found");
+    const settlement = await retryOnDeadlock(() =>
+      auction.bids.length < 2
+        ? settleAuctionWithoutRefunds(drizzle, auction, winnerId)
+        : drizzle.transaction((tx) => settleAuction(tx, auctionId, winnerId)),
+    );
+    notifyAuctionSettlement(drizzle, settlement);
+    return settlement;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AuctionSettlementConflict")
+      return { ...errorResponse(error.message), winningBid: null };
+    throw error;
   }
+};
 
+/** Existing rows without refunds form one guarded join; no transaction is needed. */
+const settleAuctionWithoutRefunds = async (
+  database: Pick<DrizzleClient, "execute">,
+  auction: AuctionSettlementSnapshot,
+  winnerId?: string,
+  raise?: {
+    amount: number;
+    amountToDeduct: number;
+    listingGuard: QueryCondition;
+    bidderGuard: QueryCondition;
+  },
+) => {
+  const [bid] = auction.bids;
+  if (auction.bids.length > 1 || (bid && (bid.status !== "ACTIVE" || bid.amount <= 0)))
+    return throwAuctionSettlementConflict("Auction escrow changed; please refresh");
+  const winningBid = bid ? { ...bid, amount: raise?.amount ?? bid.amount } : null;
+  if (
+    winnerId &&
+    (!winningBid ||
+      winningBid.bidderId !== winnerId ||
+      auction.buyoutPrice === null ||
+      winningBid.amount < auction.buyoutPrice)
+  )
+    return throwAuctionSettlementConflict(
+      "Buyout bid is no longer available; please refresh",
+    );
+  const listingGuard = and(
+    eq(auctionListing.id, auction.id),
+    eq(auctionListing.status, "ACTIVE"),
+    eq(auctionListing.currentPrice, auction.currentPrice),
+    eq(auctionListing.currencyType, auction.currencyType),
+    eq(auctionListing.sellerId, auction.sellerId),
+    eq(auctionListing.userItemId, auction.userItemId),
+    winnerId
+      ? eq(auctionListing.buyoutPrice, auction.buyoutPrice ?? 0)
+      : lte(auctionListing.expiresAt, sql`CURRENT_TIMESTAMP(3)`),
+    raise?.listingGuard,
+  );
+  const itemGuard = and(
+    eq(userItem.userId, auction.sellerId),
+    eq(userItem.isInAuction, true),
+    gt(userItem.quantity, 0),
+  );
+  let rowsAffected: number;
+  if (!bid || !winningBid) {
+    const result = await database.execute(sql`
+      UPDATE ${auctionListing}
+      STRAIGHT_JOIN ${userItem} ON ${userItem.id} = ${auctionListing.userItemId}
+      SET ${auctionListing.status} = 'EXPIRED', ${auctionListing.buyerId} = NULL,
+          ${auctionListing.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${userItem.isInAuction} = 0, ${userItem.updatedAt} = CURRENT_TIMESTAMP(3)
+      WHERE ${and(listingGuard, itemGuard)}
+        AND NOT EXISTS (SELECT 1 FROM ${auctionBid} WHERE ${auctionBid.auctionId} = ${auctionListing.id})
+    `);
+    rowsAffected = result.rowsAffected;
+  } else {
+    const seller = alias(userData, "auctionSettlementSeller");
+    const otherBid = alias(auctionBid, "auctionSettlementOtherBid");
+    const sellerBalance =
+      auction.currencyType === "MONEY" ? seller.bank : seller.reputationPoints;
+    const buyerBalance =
+      auction.currencyType === "MONEY" ? userData.bank : userData.reputationPoints;
+    // Separate seller and buyer aliases yield exactly one match. Constant prices avoid
+    // depending on MySQL's unspecified multi-table assignment order during a bid raise.
+    const result = await database.execute(sql`
+      UPDATE ${auctionListing}
+      STRAIGHT_JOIN ${userItem} ON ${userItem.id} = ${auctionListing.userItemId}
+      STRAIGHT_JOIN ${auctionBid} ON ${auctionBid.auctionId} = ${auctionListing.id}
+      STRAIGHT_JOIN ${userData} AS ${seller} ON ${seller.userId} = ${auctionListing.sellerId}
+      STRAIGHT_JOIN ${userData} ON ${userData.userId} = ${auctionBid.bidderId}
+      LEFT JOIN ${auctionBid} AS ${otherBid} ON ${otherBid.auctionId} = ${auctionListing.id} AND ${otherBid.id} <> ${auctionBid.id}
+      SET ${auctionListing.status} = 'SOLD', ${auctionListing.buyerId} = ${winningBid.bidderId},
+          ${auctionListing.currentPrice} = ${winningBid.amount},
+          ${auctionListing.expiresAt} = CURRENT_TIMESTAMP(3), ${auctionListing.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${userItem.userId} = ${winningBid.bidderId}, ${userItem.isInAuction} = 0,
+          ${userItem.activeVariantId} = NULL, ${userItem.storedAtHome} = 0,
+          ${userItem.homeX} = NULL, ${userItem.homeY} = NULL, ${userItem.homeRotation} = 0,
+          ${userItem.updatedAt} = CURRENT_TIMESTAMP(3),
+          ${auctionBid.amount} = ${winningBid.amount}, ${auctionBid.status} = 'WON',
+          ${sellerBalance} = ${sellerBalance} + ${winningBid.amount},
+          ${seller.updatedAt} = GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${seller.updatedAt})),
+          ${buyerBalance} = ${buyerBalance} - ${raise?.amountToDeduct ?? 0},
+          ${userData.updatedAt} = GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))
+      WHERE ${and(
+        listingGuard,
+        itemGuard,
+        raise?.bidderGuard,
+        eq(auctionBid.id, bid.id),
+        eq(auctionBid.bidderId, bid.bidderId),
+        eq(auctionBid.amount, bid.amount),
+        eq(auctionBid.status, "ACTIVE"),
+        ne(userData.userId, seller.userId),
+        isNull(otherBid.id),
+      )}
+    `);
+    rowsAffected = result.rowsAffected;
+  }
+  if (rowsAffected === 0)
+    return throwAuctionSettlementConflict(
+      "Auction, bids, balance or reserved item changed; please refresh",
+    );
+  return {
+    success: true,
+    message: winningBid
+      ? "Auction completed successfully"
+      : "Auction expired with no bids",
+    winningBid,
+    auctionId: auction.id,
+    participantIds: [auction.sellerId, ...(winningBid ? [winningBid.bidderId] : [])],
+  };
+};
+
+/** Shares the bid transaction so a buyout debit and settlement commit together. */
+const settleAuction = async (
+  tx: AuctionTransaction,
+  auctionId: string,
+  winnerId?: string,
+) => {
+  const now = new Date();
+  // Refunds span a variable set of recipient matches. A joined UPDATE can change its
+  // ACTIVE/reservation predicates before visiting every match; assignment order is
+  // unspecified, so it cannot safely claim once and verify every refund in that form.
+  // One alias per recipient would hit MySQL's 61-table join limit; bid counts are unbounded.
+  // Claim once here, then check all credit/bid row counts and roll back any missing recipient.
+  const claim = await tx
+    .update(auctionListing)
+    .set({
+      updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${auctionListing.updatedAt}))`,
+    })
+    .where(
+      and(
+        eq(auctionListing.id, auctionId),
+        eq(auctionListing.status, "ACTIVE"),
+        winnerId ? undefined : lte(auctionListing.expiresAt, now),
+      ),
+    );
+  requireAuctionSettlementWrite(
+    claim.rowsAffected,
+    "Auction is no longer active or has not expired yet; please refresh",
+  );
+
+  // Read only after claiming: callers may have fetched before another bid committed.
+  const auction = await fetchAuctionListing(tx, auctionId);
+  if (!auction) return throwAuctionSettlementConflict("Auction not found");
+  if (auction.bids.length < 2)
+    return settleAuctionWithoutRefunds(tx, auction, winnerId);
+  if (auction.bids.some((bid) => bid.status !== "ACTIVE" || bid.amount <= 0))
+    throwAuctionSettlementConflict("Auction escrow is inconsistent; contact support");
+  const [winningBid] = [...auction.bids].sort(
+    (a, b) =>
+      b.amount - a.amount ||
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      a.id.localeCompare(b.id),
+  );
+  if (
+    winnerId &&
+    (!winningBid ||
+      winningBid.bidderId !== winnerId ||
+      auction.buyoutPrice === null ||
+      winningBid.amount < auction.buyoutPrice)
+  )
+    throwAuctionSettlementConflict("Buyout bid is no longer available; please refresh");
+
+  const delivery = await tx
+    .update(userItem)
+    .set({
+      isInAuction: false,
+      updatedAt: now,
+      ...(winningBid
+        ? {
+            userId: winningBid.bidderId,
+            // The recipient chooses their own unlocked cosmetic and room placement.
+            activeVariantId: null,
+            storedAtHome: false,
+            homeX: null,
+            homeY: null,
+            homeRotation: 0,
+          }
+        : {}),
+    })
+    .where(
+      and(
+        eq(userItem.id, auction.userItemId),
+        eq(userItem.userId, auction.sellerId),
+        eq(userItem.isInAuction, true),
+        gt(userItem.quantity, 0),
+      ),
+    );
+  requireAuctionSettlementWrite(
+    delivery.rowsAffected,
+    "Reserved auction item is unavailable",
+  );
+
+  const refunds = auction.bids.filter((bid) => bid.id !== winningBid?.id);
+  const credits = new Map<string, number>();
+  if (winningBid) credits.set(auction.sellerId, winningBid.amount);
+  for (const bid of refunds)
+    credits.set(bid.bidderId, (credits.get(bid.bidderId) ?? 0) + bid.amount);
+  if (winningBid && !credits.has(winningBid.bidderId))
+    credits.set(winningBid.bidderId, 0);
+  if (credits.size) {
+    const accounts = [...credits].sort(([a], [b]) => a.localeCompare(b));
+    const amounts = sql`CASE ${userData.userId} ${sql.join(
+      accounts.map(([id, amount]) => sql`WHEN ${id} THEN ${amount}`),
+      sql` `,
+    )} ELSE 0 END`;
+    // One payment statement keeps settlement bounded even with many losing bids.
+    // Touch the winner too, so a missing recipient rolls back the item transfer.
+    const payment = await tx
+      .update(userData)
+      .set({
+        ...(auction.currencyType === "MONEY"
+          ? { bank: sql`${userData.bank} + ${amounts}` }
+          : { reputationPoints: sql`${userData.reputationPoints} + ${amounts}` }),
+        updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt}))`,
+      })
+      .where(
+        inArray(
+          userData.userId,
+          accounts.map(([id]) => id),
+        ),
+      );
+    if (payment.rowsAffected !== credits.size)
+      throwAuctionSettlementConflict("Auction recipient account is unavailable");
+  }
+  if (winningBid) {
+    const won = await tx
+      .update(auctionBid)
+      .set({ status: "WON" })
+      .where(and(eq(auctionBid.id, winningBid.id), eq(auctionBid.status, "ACTIVE")));
+    requireAuctionSettlementWrite(
+      won.rowsAffected,
+      "Winning bid changed; please refresh",
+    );
+  }
+  if (refunds.length) {
+    const refunded = await tx
+      .update(auctionBid)
+      .set({ status: "REFUNDED" })
+      .where(
+        and(
+          inArray(
+            auctionBid.id,
+            refunds.map((bid) => bid.id),
+          ),
+          eq(auctionBid.status, "ACTIVE"),
+        ),
+      );
+    if (refunded.rowsAffected !== refunds.length)
+      throwAuctionSettlementConflict("Refund bids changed; please refresh");
+  }
+  await tx
+    .update(auctionListing)
+    .set({
+      status: winningBid ? "SOLD" : "EXPIRED",
+      buyerId: winningBid?.bidderId ?? null,
+      ...(winningBid ? { expiresAt: now } : {}),
+      updatedAt: now,
+    })
+    .where(eq(auctionListing.id, auctionId));
+
+  return {
+    success: true,
+    message: winningBid
+      ? "Auction completed successfully"
+      : "Auction expired with no bids",
+    winningBid: winningBid ?? null,
+    auctionId,
+    participantIds: [auction.sellerId, ...auction.bids.map((bid) => bid.bidderId)],
+  };
+};
+
+const notifyAuctionSettlement = (
+  drizzle: DrizzleClient,
+  settlement: Awaited<ReturnType<typeof settleAuction>>,
+) =>
   deferPushToUsers(
     drizzle,
-    [auction.sellerId, ...auction.bids.map((bid) => bid.bidderId)],
-    tradeUpdate(auction.id),
+    settlement.participantIds,
+    tradeUpdate(settlement.auctionId),
   );
-  return winningBid || null;
+
+const throwAuctionSettlementConflict = (message: string): never => {
+  throw Object.assign(new Error(message), { name: "AuctionSettlementConflict" });
 };
 
 const requireBidWrite = (rowsAffected: number, message: string) => {
@@ -1099,3 +1252,13 @@ const recordBidActivity = async (
     }),
   );
 };
+
+const requireAuctionSettlementWrite = (rowsAffected: number, message: string) => {
+  if (rowsAffected !== 1) throwAuctionSettlementConflict(message);
+};
+
+type AuctionTransaction = Parameters<Parameters<DrizzleClient["transaction"]>[0]>[0];
+
+type AuctionSettlementSnapshot = NonNullable<
+  Awaited<ReturnType<typeof fetchAuctionListing>>
+>;

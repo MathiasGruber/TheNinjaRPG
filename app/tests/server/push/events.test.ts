@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as Sentry from "@sentry/nextjs";
 import * as next from "next/server";
+import { userData } from "@/drizzle/schema";
 import { completeAuctionInternal } from "@/server/api/routers/auction";
 import type { DrizzleClient } from "@/server/db";
 import * as push from "@/server/utils/push";
@@ -54,21 +55,42 @@ describe("war native alerts", () => {
 
 describe("auction result native alerts", () => {
   const auction = {
-    id: "auction-one", sellerId: "seller", userItemId: "item-one", currencyType: "MONEY",
+    id: "auction-one", sellerId: "seller", userItemId: "item-one", currencyType: "MONEY", currentPrice: 200,
     bids: [
-      { id: "bid-one", bidderId: "winner", amount: 200 },
-      { id: "bid-two", bidderId: "refunded", amount: 100 },
+      { id: "bid-one", bidderId: "winner", amount: 200, status: "ACTIVE", createdAt: new Date(0) },
+      { id: "bid-two", bidderId: "refunded", amount: 100, status: "ACTIVE", createdAt: new Date(0) },
     ],
-  } as Parameters<typeof completeAuctionInternal>[1];
-  it("waits for delivery, seller credit and refund writes before notifying participants", async () => {
-    const resolvers: Array<() => void> = [];
-    const client = { update: () => ({ set: () => ({
-      where: () => new Promise<void>((resolve) => resolvers.push(resolve)),
-    }) }) } as unknown as DrizzleClient;
-    const finishing = completeAuctionInternal(client, auction);
+  };
+  const settlementClient = (bids = auction.bids) => {
+    const update = vi.fn(() => ({ set: () => ({ where: () => Promise.resolve({ rowsAffected: 1 }) }) }));
+    const tx = {
+      update,
+      query: { auctionListing: { findFirst: async () => ({ ...auction, bids }) } },
+    };
+    // The batched payment touches seller, winner and refund recipient together.
+    const payment = vi.fn(() => ({ set: () => ({ where: () => Promise.resolve({ rowsAffected: 3 }) }) }));
+    const transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work({
+      ...tx,
+      update: (table: unknown) => table === userData ? payment() : update(),
+    }));
+    const execute = vi.fn(async () => ({ rowsAffected: 2 }));
+    return { client: { transaction, execute, query: tx.query } as unknown as DrizzleClient, transaction, execute };
+  };
+  it("waits for the settlement commit before notifying participants", async () => {
+    const { client, transaction } = settlementClient();
+    let committed!: () => void;
+    const commit = new Promise<void>((resolve) => { committed = resolve; });
+    const run = transaction.getMockImplementation()!;
+    transaction.mockImplementation(async (work) => {
+      const result = await run(work);
+      await commit;
+      expect(deferred).toHaveLength(0);
+      return result;
+    });
+    const finishing = completeAuctionInternal(client, auction.id);
     expect(deferred).toHaveLength(0);
-    for (const resolve of resolvers) resolve();
-    expect(await finishing).toEqual(auction.bids[0] ?? null);
+    committed();
+    expect(await finishing).toMatchObject({ success: true, winningBid: auction.bids[0] });
     expect(deferred).toHaveLength(1);
     await deferred[0]?.();
     expect(send).toHaveBeenCalledWith(client, ["seller", "winner", "refunded"], expect.objectContaining({
@@ -76,14 +98,31 @@ describe("auction result native alerts", () => {
     }));
   });
   it("notifies only the seller for an expired listing with no bids", async () => {
-    const client = { update: () => ({ set: () => ({ where: () => Promise.resolve() }) }) } as unknown as DrizzleClient;
-    expect(await completeAuctionInternal(client, { ...auction, bids: [] })).toBeNull();
+    const { client } = settlementClient([]);
+    expect(await completeAuctionInternal(client, auction.id)).toMatchObject({ success: true, winningBid: null });
     await deferred[0]?.();
     expect(send.mock.calls[0]?.[1]).toEqual(["seller"]);
   });
-  it("does not announce completion when any delivery write fails", async () => {
-    const client = { update: () => ({ set: () => ({ where: () => Promise.reject(new Error("write failed")) }) }) } as unknown as DrizzleClient;
-    await expect(completeAuctionInternal(client, auction)).rejects.toThrow("write failed");
+  it("waits for a no-bid statement before notifying its seller", async () => {
+    const { client, execute, transaction } = settlementClient([]);
+    let finish!: () => void;
+    const statement = new Promise<void>((resolve) => { finish = resolve; });
+    execute.mockImplementation(async () => {
+      expect(deferred).toHaveLength(0);
+      await statement;
+      return { rowsAffected: 2 };
+    });
+    const finishing = completeAuctionInternal(client, auction.id);
+    expect(deferred).toHaveLength(0);
+    finish();
+    expect((await finishing).success).toBe(true);
+    expect(transaction).not.toHaveBeenCalled();
+    expect(deferred).toHaveLength(1);
+  });
+  it("does not announce completion when the transaction fails", async () => {
+    const { client, transaction } = settlementClient();
+    transaction.mockRejectedValue(new Error("write failed"));
+    await expect(completeAuctionInternal(client, auction.id)).rejects.toThrow("write failed");
     expect(deferred).toHaveLength(0);
   });
 });

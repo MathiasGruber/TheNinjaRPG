@@ -397,7 +397,7 @@ describeWithDatabase("auction bid atomicity", () => {
     const recorded = await recordQueries(() => api.placeBid({ auctionId: "auction", amount: 100 }));
     expect(recorded.result.success).toBe(true);
     expect(recorded.statements.filter((statement) => /STRAIGHT_JOIN/i.test(statement))).toHaveLength(1);
-    expect(recorded.statements.some((statement) => /^(begin|start transaction)/i.test(statement.trim()))).toBe(true);
+    expect(recorded.statements.some((statement) => /^(begin|start transaction)/i.test(statement.trim()))).toBe(false);
     const state = await saved();
     expect(state.listing.status).toBe("SOLD");
     expect(state.users.bidder?.bank).toBe(950);
