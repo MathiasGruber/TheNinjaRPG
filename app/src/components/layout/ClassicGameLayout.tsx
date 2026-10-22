@@ -374,7 +374,7 @@ export const ClassicGameLayout: React.FC<GameLayoutRenderProps> = ({
         </div>
 
         <div
-          className="absolute top-4 right-4 block grid grid-cols-2 gap-2 md:hidden [&_button]:flex [&_button]:min-h-[48px] [&_button]:min-w-[48px] [&_button]:items-center [&_button]:justify-center"
+          className="absolute top-4 right-4 z-50 block grid grid-cols-2 gap-2 md:hidden [&_button]:flex [&_button]:min-h-[48px] [&_button]:min-w-[48px] [&_button]:items-center [&_button]:justify-center"
           data-compact-hide
         >
           <div className="flex justify-center">
