@@ -69,6 +69,7 @@ import {
   questBuffTypes,
   questDebuffTypes,
   questStartingEffectsSchema,
+  rejectActivityBonuses,
   SuperRefinePassiveEffects,
 } from "@/validators/combat";
 import { mapLocationFields, supportsMapStructure } from "@/validators/mapLocation";
@@ -750,6 +751,7 @@ export const ObjectiveTracker = z.object({
   locationChecked: z.boolean().optional(),
   selectedNextObjectiveId: z.string().optional(),
   timestamp: z.iso.datetime().optional(),
+  collectDeadline: z.iso.datetime().optional(),
   recentlyDied: z.boolean().prefault(false),
   /** Personal side-effect receipt, independent of copied shared objective completion. */
   partyEffectsApplied: z.boolean().optional(),
@@ -1283,7 +1285,11 @@ export const RaidDamageThresholdValidator = z.object({
   damageRequired: z.coerce.number().min(1, "Damage must be at least 1"),
   sortOrder: z.coerce.number().min(0).max(255).prefault(0),
   rewards: ObjectiveReward,
-  effects: z.array(AllTags).prefault([]).superRefine(SuperRefinePassiveEffects),
+  effects: z
+    .array(AllTags)
+    .prefault([])
+    .superRefine(SuperRefinePassiveEffects)
+    .superRefine(rejectActivityBonuses),
   effectDurationMinutes: z.coerce.number().min(1).max(10080).prefault(60),
 });
 export type RaidDamageThresholdType = z.infer<typeof RaidDamageThresholdValidator>;

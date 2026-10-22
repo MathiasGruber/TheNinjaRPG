@@ -1129,7 +1129,16 @@ export const fetchMasterySources = async (
         with: { skill: { columns: { target: true, effects: true } } },
       },
       items: {
-        columns: { id: true, equipped: true, durability: true, level: true },
+        columns: {
+          id: true,
+          equipped: true,
+          durability: true,
+          level: true,
+          quantity: true,
+          storedAtHome: true,
+          isInAuction: true,
+          craftingFinishedAt: true,
+        },
         where: and(ne(userItem.equipped, "NONE"), gt(userItem.quantity, 0)),
         with: {
           item: {

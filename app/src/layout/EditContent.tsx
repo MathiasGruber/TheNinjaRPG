@@ -81,9 +81,11 @@ import type {
   ZodJutsuType,
 } from "@/validators/combat";
 import {
+  activityBonusPowerLabel,
   BloodlineValidator,
   getTagSchema,
   ItemValidator,
+  isActivityBonus,
   JutsuValidator,
   questBuffTypes,
   questDebuffTypes,
@@ -1648,6 +1650,8 @@ export const EditContent = <
 };
 
 interface EffectFormWrapperProps {
+  allowJutsuSlotGrants?: boolean;
+  allowActivityBonuses?: boolean;
   allowCoordinateTargeting?: boolean;
   idx: number;
   type: "jutsu" | "bloodline" | "item" | "skillTree" | "sageMode";
@@ -1796,7 +1800,14 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         const tagSchema = getTagSchema(watchType);
         const parsedTag = tagSchema.safeParse({ type: watchType });
         const shownTag = parsedTag.success ? parsedTag.data : tag;
-        const skipKeys = ["type", "calculation", "direction"];
+        const skipKeys = [
+          "type",
+          "calculation",
+          "direction",
+          ...(isActivityBonus(shownTag) || shownTag.type === "increasejutsuslots"
+            ? ["rounds", "target", "friendlyFire", "powerPerLevel", "timeTracker"]
+            : []),
+        ];
         // For all typed keys in shownTag, if the key exists in curTag, keep the value, except for type
         objectKeys(shownTag).forEach((key) => {
           if (!skipKeys.includes(key) && key in curTag) {
@@ -1865,6 +1876,10 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
 
   // Parse how to present the tag form
   const ignore = ["timeTracker", "type", "weightedCache", "rewardMode"];
+  if (isActivityBonus(tag) || tag.type === "increasejutsuslots")
+    ignore.push(
+      ...attributes.filter((key) => key !== "power" && key !== "description"),
+    );
   if (watchAll.rewardMode === "weightedCache") {
     ignore.push(
       ...Object.keys(tagSchema.shape).filter((key) => key.startsWith("reward_")),
@@ -2154,9 +2169,13 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         return {
           id: value,
           label:
-            props.type === "sageMode" && String(value) === "rounds"
-              ? "Instant (0) or mode duration"
-              : (FORM_LABEL_MAP[value] ?? value),
+            isActivityBonus(tag) && String(value) === "power"
+              ? activityBonusPowerLabel(tag)
+              : tag.type === "increasejutsuslots" && String(value) === "power"
+                ? "Additional jutsu slots"
+                : props.type === "sageMode" && String(value) === "rounds"
+                  ? "Instant (0) or mode duration"
+                  : (FORM_LABEL_MAP[value] ?? value),
           type: "number",
           readonly: isReputationField && !hasReputationPermission,
         };
@@ -2223,7 +2242,11 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
     formData.unshift({
       id: "type",
       type: "str_array",
-      values: props.availableTags,
+      values: props.availableTags.filter(
+        (type) =>
+          (props.allowActivityBonuses || !isActivityBonus({ type })) &&
+          (props.allowJutsuSlotGrants || type !== "increasejutsuslots"),
+      ),
     });
   }
 
@@ -4055,7 +4078,9 @@ const QuestBattleEffects = ({
           if (type)
             setEffects([
               ...effects,
-              getTagSchema(type).parse({ target: "SELF", rounds: 3 }) as ZodAllTags,
+              getTagSchema(type).parse(
+                isActivityBonus({ type }) ? {} : { target: "SELF", rounds: 3 },
+              ) as ZodAllTags,
             ]);
         }}
       >

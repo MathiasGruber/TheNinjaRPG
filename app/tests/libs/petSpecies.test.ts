@@ -2,7 +2,7 @@ import { z } from "zod";
 import { describe, expect, it } from "bun:test";
 import { PET_ABILITY_SLOTS_BY_RARITY, PetRarities } from "@/drizzle/constants";
 import { ActionEndTurn } from "@/validators/ai";
-import { AllTags, SuperRefineEffects, SuperRefinePassiveEffects, BarrierTag, IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
+import { AllTags, isActivityBonus, SuperRefineEffects, SuperRefinePassiveEffects, BarrierTag, IncreaseStatTag, MoveTag, SummonTag } from "@/validators/combat";
 import { PetSpeciesValidator } from "@/validators/petSpecies";
 import { petAiProfileSchema, updatePetAiSchema } from "@/validators/pets";
 
@@ -44,7 +44,7 @@ describe("authored companion species contracts", () => {
     const standardEffects = z.array(AllTags).superRefine(SuperRefineEffects).superRefine(SuperRefinePassiveEffects);
     for (const schema of AllTags.options) {
       const effect = schema.parse({});
-      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(effect.type !== "move" && standardEffects.safeParse([effect]).success);
+      expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(effect.type !== "move" && !isActivityBonus(effect) && standardEffects.safeParse([effect]).success);
     }
     for (const effect of [SummonTag.parse({ aiId: "external-ai" }), IncreaseStatTag.parse({ elements: ["Fire"], power: 150 })]) {
       expect(PetSpeciesValidator.safeParse({ ...species, effects: [effect] }).success).toBe(true);

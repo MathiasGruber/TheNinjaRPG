@@ -1,8 +1,8 @@
 import { beforeEach, expect, it } from "bun:test";
 import { eq } from "drizzle-orm";
 import { battle, huntingProgress, huntingReceipt, huntingSession, item, userData, userItem } from "@/drizzle/schema";
-import { calcBattleResult } from "@/libs/combat/util";
 import { updateBattle, updateUser } from "@/libs/combat/database";
+import { calcBattleResult } from "@/libs/combat/util";
 import type { PusherClient } from "@/libs/pusher";
 import { settleHuntingBattle } from "@/server/utils/hunting";
 import { makeBattleUserItem, makeCompleteBattle, makeUser } from "../../libs/combat/helpers/battleScenario";
@@ -135,19 +135,29 @@ describeWithDatabase("Atomic hunting settlement", () => {
     expect((await db.query.userData.findFirst())?.huntingExperience).toBe(123);
     expect((await db.query.huntingSession.findFirst())?.battleId).toBe("hunt");
   });
-  it("splits non-stackable and capped-stack material quantities", async () => {
+  it("splits static bonus quantities across non-stackable and capped stacks exactly once", async () => {
     const { db, current, result, version } = await setup();
     const meta = current.extraState.hunting;
     if (!meta) throw Error("Missing hunting state");
     meta.contract.rewards = [{ itemId: "hide", quantity: 5, chance: 100 }, { itemId: "tusk", quantity: 2, chance: 100 }];
     meta.materialStacks = { hide: 2, tusk: 1 };
+    meta.huntingBonusQuantity = 2;
     await settleHuntingBattle(db, current, result, version, settlePlayer);
     const inventory = await db.query.userItem.findMany();
-    expect(inventory.filter((i) => i.itemId === "hide").map((i) => i.quantity).sort()).toEqual([1, 2, 2]);
-    expect(inventory.filter((i) => i.itemId === "tusk").map((i) => i.quantity)).toEqual([1, 1]);
+    expect(inventory.filter((i) => i.itemId === "hide").map((i) => i.quantity).sort()).toEqual([1, 2, 2, 2]);
+    expect(inventory.filter((i) => i.itemId === "tusk").map((i) => i.quantity)).toEqual([1, 1, 1, 1],
+    );
+    expect(await settleHuntingBattle(db, current, result, version, settlePlayer)).toBe(
+      false,
+    );
+    expect(await db.query.userItem.findMany()).toHaveLength(inventory.length);
   });
   it("uses fresh quest state and results when a settlement transaction deadlocks", async () => {
     const { db, current, result, version } = await setup();
+    current.extraState.hunting!.huntingBonusQuantity = 2;
+    current.extraState.hunting!.contract.rewards = [
+      { itemId: "hide", quantity: 3, chance: 100 },
+    ];
     const snapshots: number[] = [];
     let attempts = 0;
     await settleHuntingBattle(db, current, result, version, async (tx, playerBattle, playerResult) => {
@@ -160,6 +170,12 @@ describeWithDatabase("Atomic hunting settlement", () => {
       await settlePlayer(tx, playerBattle, playerResult);
     });
     expect(snapshots).toEqual([0, 0]);
+    expect(
+      (await db.query.huntingReceipt.findFirst())?.result.materials[0]?.quantity,
+    ).toBe(5);
+    expect(
+      (await db.query.userItem.findMany()).reduce((sum, row) => sum + row.quantity, 0),
+    ).toBe(5);
     expect(current.extraState.hunting?.used).toBe(0);
     expect(result.notifications.filter((n) => n === "settled")).toHaveLength(1);
     expect((await db.query.huntingProgress.findFirst())?.used).toBe(1);

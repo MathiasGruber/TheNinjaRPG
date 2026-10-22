@@ -462,3 +462,8 @@ export const getUtcMonthDistance = (from: string, to: string) => {
   const [toYear = 0, toMonth = 0] = to.split("-").map(Number);
   return Math.max(0, (toYear - fromYear) * 12 + toMonth - fromMonth);
 };
+/** Apply a snapshotted static reduction after the activity's existing duration calculation. */
+export const reduceActivitySeconds = (existingSeconds: number, reductionSeconds = 0) =>
+  reductionSeconds === 0
+    ? existingSeconds
+    : Math.max(1, existingSeconds - reductionSeconds);

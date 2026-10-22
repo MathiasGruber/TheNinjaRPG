@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { eq } from "drizzle-orm";
 import type { ComponentProps, ReactNode } from "react";
 import * as client from "@/app/_trpc/client";
@@ -22,7 +22,7 @@ import { fetchUserItems } from "@/routers/item";
 import { occupationRouter } from "@/routers/occupation";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
-import { ensureDom } from "../setup-dom.mjs";
+import { DecreaseCookingTime, DecreaseCraftingTime } from "@/validators/combat";
 import { insertItems, insertUserItems, insertUsers } from "../setup/factories";
 import {
   callerForDatabase,
@@ -30,6 +30,7 @@ import {
   getTestDatabase,
   resetTables,
 } from "../setup/testDatabase";
+import { ensureDom } from "../setup-dom.mjs";
 
 describeWithDatabase("CraftingCatalog shrine duration preview", () => {
   beforeEach(async () => {
@@ -116,6 +117,15 @@ describeWithDatabase("CraftingCatalog shrine duration preview", () => {
     await insertItems([
       { id: "material", name: "Material" },
       {
+        id: "craft-gear",
+        itemType: "ARMOR",
+        maxDurability: 100,
+        effects: [
+          DecreaseCraftingTime.parse({ power: 10 }),
+          DecreaseCookingTime.parse({ power: 100 }),
+        ],
+      },
+      {
         id: "output",
         name: "Crafted blade",
         itemType: "WEAPON",
@@ -132,6 +142,13 @@ describeWithDatabase("CraftingCatalog shrine duration preview", () => {
     });
     await insertUserItems([
       { id: "owned-material", userId: "crafter", itemId: "material", quantity: 10 },
+      {
+        id: "owned-craft-gear",
+        userId: "crafter",
+        itemId: "craft-gear",
+        equipped: "CHEST",
+        durability: 100,
+      },
     ]);
     const [{ user }, output, inventory] = await Promise.all([
       fetchUpdatedUser({ client: db, userId: "crafter" }),
@@ -168,7 +185,7 @@ describeWithDatabase("CraftingCatalog shrine duration preview", () => {
     const baseSeconds = CRAFTING_TIMES_MINS[getCraftingRank(0)].COMMON * 60;
     const seconds = Math.round(
       baseSeconds * (fixture.hasBoost ? 1 - SHRINE_BOOST_BASE_PERC / 100 : 1),
-    );
+    ) - 10;
     expect(saved.craftingFinishedAt.getTime()).toBeGreaterThanOrEqual(
       startedAt + seconds * 1000,
     );

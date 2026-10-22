@@ -47,6 +47,10 @@ export type MasteryStatSource = Record<MasteryName, number>;
 
 /** Worn gear as the mastery helpers read it; a UserItem row joined with its Item fits. */
 export type MasteryGear = {
+  quantity?: number;
+  storedAtHome?: boolean;
+  isInAuction?: boolean;
+  craftingFinishedAt?: Date | null;
   id: string;
   equipped: string;
   durability: number;

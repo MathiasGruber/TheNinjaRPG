@@ -180,6 +180,7 @@ const SingleEditSkillTree: React.FC<SingleEditSkillTreeProps> = (props) => {
             }
           >
             <EffectFormWrapper
+              allowActivityBonuses
               idx={i}
               type="skillTree"
               tag={tag}

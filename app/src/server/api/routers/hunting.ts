@@ -564,6 +564,8 @@ export const huntingRouter = createTRPCRouter({
           targetIds: [contract.aiId],
           sector: user.sector,
           hunting: {
+            // initiateBattle captures the eligible passive bonus from its preloaded hunter.
+            huntingBonusQuantity: 0,
             userId: ctx.userId,
             sessionId: session.id,
             sessionVersion: session.version,

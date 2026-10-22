@@ -271,6 +271,13 @@ const SingleEditItem: React.FC<SingleEditItemProps> = (props) => {
               }
             >
               <EffectFormWrapper
+                allowJutsuSlotGrants={itemType === "CONSUMABLE"}
+                allowActivityBonuses={[
+                  "ARMOR",
+                  "ACCESSORY",
+                  "KEYSTONE",
+                  "CRYSTAL",
+                ].includes(itemType)}
                 idx={i}
                 type="item"
                 allowCoordinateTargeting={

@@ -45,10 +45,11 @@ import type {
   UserItem,
   UserQuest,
 } from "@/drizzle/schema";
+import { getActivityBonuses } from "@/libs/activityBonuses";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
 import { eliteJoninMilestoneBlockMessage } from "@/libs/eliteJonin";
 import { getFarmingLevel } from "@/libs/farming";
-import { getGatheringRank } from "@/libs/gathering";
+import { getCollectDeadline, getGatheringRank } from "@/libs/gathering";
 import { calcMedninRank } from "@/libs/hospital";
 import { getHuntingRank } from "@/libs/hunting";
 import {
@@ -91,7 +92,7 @@ import type { UserWithRelations } from "@/routers/profile";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
-import { periodStart, secondsPassed } from "@/utils/time";
+import { periodStart, reduceActivitySeconds, secondsPassed } from "@/utils/time";
 import {
   canAccessStructure,
   countBoostingShrines,
@@ -1640,19 +1641,32 @@ export const getNewTrackers = (
                     objective.collect_time_minutes
                   ) {
                     if ("timestamp" in status && status.timestamp) {
-                      // Unfloored so the guard is exactly `elapsed >= deadline`, the same
-                      // moment the client Countdown fires onFinish and calls checkRewards.
-                      const minutesPassed =
-                        secondsPassed(new Date(status.timestamp), undefined, false) /
-                        60;
-                      if (minutesPassed < objective.collect_time_minutes) {
+                      if (
+                        Date.now() <
+                        getCollectDeadline(
+                          status,
+                          objective.collect_time_minutes,
+                        )!.getTime()
+                      ) {
                         doCollect = false;
                       }
                     } else {
-                      notifications.push(
-                        `You started collecting. This will take ${objective.collect_time_minutes} minutes.`,
+                      const reduction =
+                        quest.questType === "gathering"
+                          ? getActivityBonuses(user).gatheringReductionSeconds
+                          : 0;
+                      const seconds = reduceActivitySeconds(
+                        objective.collect_time_minutes * 60,
+                        reduction,
                       );
-                      status.timestamp = new Date().toISOString();
+                      const startedAt = Date.now();
+                      status.timestamp = new Date(startedAt).toISOString();
+                      status.collectDeadline = new Date(
+                        startedAt + seconds * 1000,
+                      ).toISOString();
+                      notifications.push(
+                        `You started collecting. This will take ${seconds} seconds.`,
+                      );
                       doCollect = false;
                     }
                   }
@@ -1711,6 +1725,7 @@ export const getNewTrackers = (
                 !status.done
               ) {
                 status.timestamp = undefined;
+                status.collectDeadline = undefined;
                 notifications.push(
                   `${GATHERING_CANCEL_PREFIX} for ${quest.name}: you left the collection area.`,
                 );

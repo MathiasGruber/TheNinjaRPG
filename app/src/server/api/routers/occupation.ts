@@ -2,9 +2,6 @@ import { and, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import {
-  CLAN_BOOST_MAX_LEVEL,
-  CLAN_BOOST_PERCENT_PER_LEVEL,
-  CONSUMABLE_CRAFTING_TIMES_MINS,
   CRAFTING_TIMES_MINS,
   MAP_WAKE_ISLAND_SECTOR,
   OCCUPATION_CHANGE_COOLDOWN_DAYS,
@@ -17,12 +14,14 @@ import {
   userItem,
   userItemImbuement,
 } from "@/drizzle/schema";
+import { getActivityBonuses } from "@/libs/activityBonuses";
 import { getCookingLevel, getCookingSeconds } from "@/libs/cooking";
 import {
   calculateItemConsumption,
   craftingStartBlockMessage,
   formatCraftingRank,
   getCraftingRank,
+  getCraftingSeconds,
   getEffectiveMaxImbuements,
   getMissingCraftingRank,
   getTotalItemQuantity,
@@ -258,14 +257,6 @@ export const occupationRouter = createTRPCRouter({
       }
       // Derived
       const userCraftingRank = getCraftingRank(user.craftingExperience);
-      // Check rank eligibility using rank-based crafting times
-      const rankCraftingTime =
-        CRAFTING_TIMES_MINS[userCraftingRank][itemWithRequirements.rarity];
-      // Consumable crafting times depend on crafting rank rather than rarity.
-      const craftingTime =
-        itemWithRequirements.itemType === "CONSUMABLE"
-          ? CONSUMABLE_CRAFTING_TIMES_MINS[userCraftingRank]
-          : rankCraftingTime;
       // Guards - check rank eligibility regardless of item type
       const missingCraftingRank = getMissingCraftingRank(
         itemWithRequirements,
@@ -294,24 +285,21 @@ export const occupationRouter = createTRPCRouter({
       // See if we have a shrine boost, add it to crafting time in case
       const sectors = countBoostingShrines(user.village?.sectors);
       const shrineBoost = getShrineBoost(sectors, "Crafting", user.village);
-      const shrineBoostFactor = shrineBoost ? 1 - shrineBoost : 1;
-      // Clan crafting time reduction (percentage stored in clan object)
-      // Max boost is 20% (10 levels × 2%), clamp as safety guard
-      const clanCraftingTimeBoostCap =
-        (CLAN_BOOST_MAX_LEVEL * CLAN_BOOST_PERCENT_PER_LEVEL) / 100;
-      const clanCraftingTimeBoost = Math.min(
-        (user.clan?.craftingTimeBoost ?? 0) / 100,
-        clanCraftingTimeBoostCap,
-      );
-      const clanCraftingTimeFactor = 1 - clanCraftingTimeBoost;
+      const bonuses = getActivityBonuses(user);
       const craftSeconds = isMeal
-        ? getCookingSeconds(itemWithRequirements, input.quantity, shrineBoost)
-        : Math.round(
-            craftingTime *
-              60 *
-              shrineBoostFactor *
-              clanCraftingTimeFactor *
-              input.quantity,
+        ? getCookingSeconds(
+            itemWithRequirements,
+            input.quantity,
+            shrineBoost,
+            bonuses.cookingReductionSeconds,
+          )
+        : getCraftingSeconds(
+            itemWithRequirements,
+            userCraftingRank,
+            input.quantity,
+            shrineBoost,
+            user.clan?.craftingTimeBoost,
+            bonuses.craftingReductionSeconds,
           );
 
       // Calculate crafting finish time

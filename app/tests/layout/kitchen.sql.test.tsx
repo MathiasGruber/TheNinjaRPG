@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { eq } from "drizzle-orm";
 import * as client from "@/app/_trpc/client";
 import { SHRINE_BOOST_BASE_PERC } from "@/drizzle/constants";
@@ -24,9 +24,11 @@ import { occupationRouter } from "@/routers/occupation";
 import { fetchUpdatedUser } from "@/routers/profile";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import * as userContext from "@/utils/UserContext";
-import { IncreaseRegenerationTag } from "@/validators/combat";
+import {
+  DecreaseCookingTime,
+  DecreaseCraftingTime,
+  IncreaseRegenerationTag } from "@/validators/combat";
 import { MEAL_ITEM_DEFAULTS } from "@/validators/cooking";
-import { ensureDom } from "../setup-dom.mjs";
 import { insertItems, insertUserItems, insertUsers } from "../setup/factories";
 import {
   callerForDatabase,
@@ -34,6 +36,7 @@ import {
   getTestDatabase,
   resetTables,
 } from "../setup/testDatabase";
+import { ensureDom } from "../setup-dom.mjs";
 
 describeWithDatabase("Kitchen shrine duration preview", () => {
   beforeEach(async () => {
@@ -104,6 +107,15 @@ describeWithDatabase("Kitchen shrine duration preview", () => {
     await insertItems([
       { id: "rice", name: "Rice", canStack: true, stackSize: 100 },
       {
+        id: "cook-gear",
+        itemType: "ARMOR",
+        maxDurability: 100,
+        effects: [
+          DecreaseCookingTime.parse({ power: 10 }),
+          DecreaseCraftingTime.parse({ power: 100 }),
+        ],
+      },
+      {
         id: "meal",
         name: "Rice Bowl",
         ...MEAL_ITEM_DEFAULTS,
@@ -124,6 +136,13 @@ describeWithDatabase("Kitchen shrine duration preview", () => {
     });
     await insertUserItems([
       { id: "owned-rice", userId: "kitchen-cook", itemId: "rice", quantity: 10 },
+      {
+        id: "owned-cook-gear",
+        userId: "kitchen-cook",
+        itemId: "cook-gear",
+        equipped: "CHEST",
+        durability: 100,
+      },
     ]);
     const [{ user }, recipe, inventory] = await Promise.all([
       fetchUpdatedUser({ client: db, userId: "kitchen-cook" }),
@@ -167,7 +186,7 @@ describeWithDatabase("Kitchen shrine duration preview", () => {
     if (!saved?.craftingFinishedAt) throw new Error("Cooking output was not persisted");
     const seconds = Math.round(
       recipe.cookingTimeSeconds * (fixture.hasBoost ? 1 + SHRINE_BOOST_BASE_PERC / 100 : 1),
-    );
+    ) - 10;
     expect(saved.craftingFinishedAt.getTime()).toBeGreaterThanOrEqual(
       startedAt + seconds * 1000,
     );

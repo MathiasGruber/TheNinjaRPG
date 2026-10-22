@@ -1,7 +1,7 @@
 import { detailedDiff } from "deep-object-diff";
 import { z } from "zod";
 import { IMG_ORIENTATIONS } from "@/drizzle/constants";
-import { tagTypes } from "@/validators/combat";
+import { isActivityBonus, tagTypes } from "@/validators/combat";
 
 /** Shared content-generation input; existing callers retain the default provider. */
 export const contentImageInputSchema = z.object({
@@ -103,7 +103,10 @@ export const ConditionSummonWithinRange = z.object({
 
 // Elemental Damage resolves to damage before AI selection and effect conditions.
 export const AvailableEffectTypes = tagTypes.filter(
-  (type) => type !== "elementaldamage",
+  (type) =>
+    type !== "elementaldamage" &&
+    type !== "increasejutsuslots" &&
+    !isActivityBonus({ type }),
 ) as [string, ...string[]];
 export type AvailableEffectType = (typeof AvailableEffectTypes)[number];
 

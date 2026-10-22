@@ -60,10 +60,14 @@ describe("quest team progress", () => {
     const personal = projectPartyTracker(party);
     personal.goals[0]!.collected = true;
     personal.goals[0]!.timestamp = "2026-10-01T00:00:00.000Z";
+    personal.goals[0]!.collectDeadline = "2026-10-01T00:00:50.000Z";
     party.tracker.goals[0]!.done = true;
-    expect(projectPartyTracker(party, personal).goals[0]).toMatchObject({ done: true, collected: true, timestamp: personal.goals[0]!.timestamp });
+    expect(projectPartyTracker(party, personal).goals[0]).toMatchObject({ done: true, collected: true, timestamp: personal.goals[0]!.timestamp,
+      collectDeadline: personal.goals[0]!.collectDeadline,
+    });
     expect(projectPartyTracker(party).goals[0]?.collected).toBe(false);
     expect(projectPartyTracker(party).goals[0]?.timestamp).toBeUndefined();
+    expect(projectPartyTracker(party).goals[0]?.collectDeadline).toBeUndefined();
   });
   it("ignores contributions from the previous reset generation", () => {
     const { quest, party } = fixture();

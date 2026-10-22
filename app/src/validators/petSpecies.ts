@@ -10,6 +10,7 @@ import {
 } from "@/drizzle/constants";
 import {
   AllTags,
+  rejectActivityBonuses,
   SuperRefineEffects,
   SuperRefinePassiveEffects,
 } from "@/validators/combat";
@@ -60,6 +61,7 @@ export const PetSpeciesValidator = z
       .array(AllTags)
       .superRefine(SuperRefineEffects)
       .superRefine(SuperRefinePassiveEffects)
+      .superRefine(rejectActivityBonuses)
       .superRefine((effects, ctx) => {
         // Innate skills have no selected empty-ground destination.
         effects.forEach((effect, index) => {

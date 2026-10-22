@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNotNull, isNull, lte, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -13,7 +13,6 @@ import {
   CombatStatNames,
   ElementNames,
   getUserCaps,
-  MAX_EXTRA_JUTSU_SLOTS,
   REP_TRADE_MIN_LEVEL,
   RYO_CAP,
   RYO_FOR_REP_DAYS_FROZEN,
@@ -22,6 +21,10 @@ import {
   repTradeLevelMessage,
 } from "@/drizzle/constants";
 import { actionLog, ryoTrade, userData } from "@/drizzle/schema";
+import {
+  getJutsuSlotIncreaseError,
+  getJutsuSlotIncreaseLimit,
+} from "@/libs/jutsuSlots";
 import {
   getAssignedCombatStatTotal,
   getRedistributableStatTotal,
@@ -480,21 +483,20 @@ export const blackMarketRouter = createTRPCRouter({
       if (user.reputationPoints < COST_EXTRA_JUTSU_SLOT) {
         return errorResponse("Not enough reputation points");
       }
-      if (user.extraJutsuSlots >= MAX_EXTRA_JUTSU_SLOTS) {
-        return errorResponse("Already maximum amount of extra jutsu slots");
-      }
+      const slotError = getJutsuSlotIncreaseError(user.extraJutsuSlots);
+      if (slotError) return errorResponse(slotError);
       // Mutate
       const result = await ctx.drizzle
         .update(userData)
         .set({
-          extraJutsuSlots: sql`extraJutsuSlots + 1`,
+          extraJutsuSlots: sql`${userData.extraJutsuSlots} + 1`,
           reputationPoints: sql`reputationPoints - ${COST_EXTRA_JUTSU_SLOT}`,
         })
         .where(
           and(
             eq(userData.userId, ctx.userId),
             gte(userData.reputationPoints, COST_EXTRA_JUTSU_SLOT),
-            lt(userData.extraJutsuSlots, MAX_EXTRA_JUTSU_SLOTS),
+            lte(userData.extraJutsuSlots, getJutsuSlotIncreaseLimit()),
           ),
         );
       if (result.rowsAffected === 0) {
