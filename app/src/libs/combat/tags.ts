@@ -2080,7 +2080,7 @@ export const registerShieldConversion = (
     const { pass } = preventCheck(usersEffects, "buffprevent", target, effect);
     if (!pass) return preventResponse(effect, target, "cannot siphon damage");
   }
-  const { power } = getPower(effect);
+  const { power, qualifier } = getPower(effect);
   const shieldRounds = "shieldRounds" in effect ? effect.shieldRounds : 3;
   if (effect.type !== "consume" && effect.type !== "siphon") return;
   const userId = effect.type === "siphon" ? effect.targetId : effect.creatorId;
@@ -2106,6 +2106,18 @@ export const registerShieldConversion = (
     });
   }
   shieldConversionsByUser.set(userId, conversion);
+  if (effect.type === "siphon") {
+    // Sage auras are backdated to tick immediately; announce their first registration
+    // before they enter the persisted effects without changing their combat timing.
+    const isNewSageEffect =
+      effect.fromType === "sageMode" &&
+      !usersEffects.some((existing) => existing.id === effect.id);
+    return getInfo(
+      target,
+      { ...effect, isNew: effect.isNew || isNewSageEffect },
+      `will siphon ${qualifier} of damage taken into shields`,
+    );
+  }
   return undefined;
 };
 

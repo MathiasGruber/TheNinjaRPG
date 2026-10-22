@@ -39,6 +39,52 @@ const existingShield = (hp: number, userId = "defender") =>
   makeEffect("shield", { power: hp, health: hp, rounds: 3 }, runtime(userId));
 
 describe("Siphon damage taken conversion", () => {
+  it("announces a new Siphon on its recipient even without incoming damage", () => {
+    const effect = {
+      ...siphon("defender", 25),
+      creatorId: "attacker",
+      createdRound: ROUND,
+      isNew: true,
+    };
+    const { newBattle, actionEffects } = applyEffects(battle([effect]), "attacker", action);
+    expect(actionEffects).toContainEqual({
+      txt: "defender will siphon 25% of damage taken into shields for the next 3 rounds",
+      color: "blue",
+    });
+    expect(shieldHp(newBattle)).toBe(0);
+    const next = applyEffects(newBattle, "defender", action);
+    expect(next.actionEffects.some((info) => info.txt.includes("will siphon"))).toBe(false);
+  });
+
+  it("does not announce successful activation when Siphon is prevented", () => {
+    const effect = { ...siphon(), createdRound: ROUND, isNew: true };
+    const prevention = makeEffect("buffprevent", { power: 100, rounds: 3 }, runtime("attacker", "defender"));
+    const { actionEffects } = applyEffects(battle([effect, prevention]), "defender", action);
+    expect(actionEffects.some((info) => info.txt.includes("cannot siphon damage"))).toBe(true);
+    expect(actionEffects.some((info) => info.txt.includes("will siphon"))).toBe(false);
+  });
+
+  it("announces Siphon granted by Sage Mode before any damage is taken", () => {
+    const mode = makeSageMode({ activationRounds: 5, effects: [SiphonTag.parse({ power: 50 })] });
+    const initial = battle([makeActivateSageEffect("defender", { createdRound: ROUND })], [
+      makeBattleUser("attacker"),
+      makeBattleUser("defender", { sageModeId: mode.id }),
+    ]);
+    initial.extraState.sageModes = { [mode.id]: mode };
+    const { newBattle, actionEffects } = applyEffects(initial, "defender", action);
+    expect(newBattle.usersState[1]?.sageModeActivated).toBe(true);
+    expect(actionEffects.filter((info) => info.txt.includes("will siphon"))).toEqual([{
+      txt: "defender will siphon 50% of damage taken into shields for the next 5 rounds",
+      color: "blue",
+    }]);
+    expect(shieldHp(newBattle)).toBe(0);
+    expect(newBattle.usersEffects.find((effect) => effect.type === "siphon")).toMatchObject({
+      rounds: 5, isNew: false, castThisRound: false,
+    });
+    const next = applyEffects(newBattle, "defender", action);
+    expect(next.actionEffects.some((info) => info.txt.includes("will siphon"))).toBe(false);
+  });
+
   it("is registered and clearable, with a positive active duration", () => {
     expect(getTagSchema("siphon").parse({}).type).toBe("siphon");
     expect(isPositiveUserEffect(SiphonTag.parse({}))).toBe(true);
