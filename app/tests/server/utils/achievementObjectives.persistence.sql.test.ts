@@ -240,7 +240,7 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
   );
 
   it.each(["passive", "isolation"] as const)(
-    "bounds repeated %s CAS losses without persisting incomplete achievement progress",
+    "handles repeated %s CAS contention without persisting incomplete achievement progress",
     async (race) => {
       const db = await getTestDatabase();
       if (race === "isolation")
@@ -265,10 +265,24 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
             .where(eq(userData.userId, userId));
         }),
       );
-      await expect(fetchUpdatedUser({ client, userId, forceRegen: true })).rejects.toThrow(
-        "User state changed concurrently",
-      );
-      expect(attempts).toBe(3);
+      if (race === "isolation") {
+        await expect(fetchUpdatedUser({ client, userId, forceRegen: true })).rejects.toThrow(
+          "User state changed concurrently",
+        );
+        expect(attempts).toBe(3);
+      } else {
+        const result = await fetchUpdatedUser({ client, userId, forceRegen: true });
+        expect(attempts).toBe(1);
+        expect(
+          result.user?.questData?.find((entry) => entry.id === achievementId),
+        ).toEqual(before?.questData?.find((entry) => entry.id === achievementId));
+        expect(result.user?.updatedAt).toEqual(new Date(before!.updatedAt.getTime() + 1));
+        expect(
+          result.user?.userQuests.some((entry) => entry.questId === "deleted-quest"),
+        ).toBe(false);
+        expect(result.requiresUserRefresh).toBe(true);
+        expect(result.requiresProgressionRefresh).toBe(true);
+      }
       const saved = await db.query.userData.findFirst({
         where: eq(userData.userId, userId),
       });

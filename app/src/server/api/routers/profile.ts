@@ -3306,7 +3306,7 @@ export const updateUserContent = async (props: {
 export const fetchUpdatedUser = async (
   props: Parameters<typeof fetchUpdatedUserOnce>[0],
 ) => {
-  const settlement = { startedQueuedJobs: 0 };
+  const settlement = { startedQueuedJobs: 0, hasRejectedPassiveRegen: false };
   for (let attempt = 0; attempt < 3; attempt++) {
     const result = await fetchUpdatedUserOnce(props, settlement);
     if (result !== null) {
@@ -3333,7 +3333,7 @@ const fetchUpdatedUserOnce = async (
     /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
     allowQuestPartySyncFallback?: boolean;
   },
-  settlement: { startedQueuedJobs: number },
+  settlement: { startedQueuedJobs: number; hasRejectedPassiveRegen: boolean },
 ) => {
   // Destructure
   const { client, userId, userIp, hideInformation = false } = props;
@@ -3915,7 +3915,11 @@ const fetchUpdatedUserOnce = async (
 
   // If more than 5min since last user update, update the user with regen. We do not need this to be synchronous
   // and it is mostly done to keep user updated on the overview pages
-  if (user && ["AWAKE", "ASLEEP"].includes(user.status)) {
+  if (
+    user &&
+    !settlement.hasRejectedPassiveRegen &&
+    ["AWAKE", "ASLEEP"].includes(user.status)
+  ) {
     // Get activity rewards if any & update timers
     const now = new Date();
     const newDay = isDifferentDay(now, user.updatedAt);
@@ -4053,6 +4057,8 @@ const fetchUpdatedUserOnce = async (
         });
         if (!persisted) {
           // Rebuild achievement placeholders, party projection and derived fields together.
+          // Defer settlement to the next request; the winning state may have moved locations.
+          settlement.hasRejectedPassiveRegen = true;
           return null;
         }
       } catch (error) {
