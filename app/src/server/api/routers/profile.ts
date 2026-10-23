@@ -141,6 +141,7 @@ import {
   calcMaxEnergy,
   calcSP,
   canAssignExperience,
+  clampStoredPools,
   experienceAssignmentBlockMessage,
   getAssignedCombatStatTotal,
   levelUpBlockMessage,
@@ -4742,6 +4743,8 @@ export const scaleEditedAi = (stored: UserData, edited: UserData) => {
     }
   }
   scaleUserStats(edited, "ai", { reweight });
+  // Battles keep scaled pools in memory, but the saved row must fit its smallint columns.
+  clampStoredPools(edited);
 };
 
 export type UserWithRelations =

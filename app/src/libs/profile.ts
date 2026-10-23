@@ -269,6 +269,28 @@ export function capUserStats(user: UserData, rank: UserRank = user.rank) {
   if (user.sageMastery > MAX_MASTERY_CAP) user.sageMastery = MAX_MASTERY_CAP;
 }
 
+/** Largest value the UserData pool columns (smallint unsigned) can store. */
+export const MAX_STORED_POOL = 65_535;
+
+/** Highest pools multiplier whose HP, CP and SP at this level still fit the pool columns. */
+export const maxPoolsMultiplier = (level: number) =>
+  Math.floor(MAX_STORED_POOL / Math.max(calcHP(level), calcCP(level), calcSP(level)));
+
+/** Cap pools to what the UserData columns can store, so saving the row cannot overflow. */
+export const clampStoredPools = (
+  user: Pick<
+    UserData,
+    "curHealth" | "maxHealth" | "curStamina" | "maxStamina" | "curChakra" | "maxChakra"
+  >,
+) => {
+  user.curHealth = Math.min(user.curHealth, MAX_STORED_POOL);
+  user.maxHealth = Math.min(user.maxHealth, MAX_STORED_POOL);
+  user.curStamina = Math.min(user.curStamina, MAX_STORED_POOL);
+  user.maxStamina = Math.min(user.maxStamina, MAX_STORED_POOL);
+  user.curChakra = Math.min(user.curChakra, MAX_STORED_POOL);
+  user.maxChakra = Math.min(user.maxChakra, MAX_STORED_POOL);
+};
+
 /** Which scale a unit's stored stats are on; see scaleUserStats. */
 export type StatScale = "ai" | "player";
 
