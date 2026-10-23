@@ -69,6 +69,7 @@ import {
   getUserElementalSeal,
   hasNoAvailableActions,
   isEffectActive,
+  isEffectEnabled,
   isUserDisarmed,
   isUserImmobilized,
   isUserStealthed,
@@ -402,8 +403,9 @@ export const getActiveBasicActions = (
 
   // Collect active, targeted effects once
   const userActiveEffects =
-    battle?.usersEffects?.filter((e) => e.targetId === userId && isEffectActive(e)) ??
-    [];
+    battle?.usersEffects?.filter(
+      (e) => e.targetId === userId && isEffectEnabled(e, battle?.usersEffects),
+    ) ?? [];
 
   // Range bonuses from increaserange tags (per-action)
   const rangeBonusMap: Record<string, number> = userActiveEffects
@@ -853,7 +855,9 @@ export const handleInjectedJutsus = (
   user: ReturnedUserState,
 ) => {
   const injectEffects = battle?.usersEffects
-    ?.filter((e) => e.targetId === user.userId && isEffectActive(e))
+    ?.filter(
+      (e) => e.targetId === user.userId && isEffectEnabled(e, battle.usersEffects),
+    )
     ?.filter((e) => e.type === "injectjutsus");
 
   const allJutsus = battle?.extraState.jutsus ?? {};
@@ -1573,7 +1577,10 @@ const getTemporalApDelta = (
   if (action.type === "basic" || action.type === "item") return 0;
   const effects = battle.usersEffects.filter((e): e is UserEffect => {
     return (
-      e.type === type && e.targetId === userId && !e.castThisRound && isEffectActive(e)
+      e.type === type &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      isEffectEnabled(e, battle.usersEffects)
     );
   });
   const appliesByElements = (effect: UserEffect) => {

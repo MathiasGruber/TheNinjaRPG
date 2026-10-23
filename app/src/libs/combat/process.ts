@@ -143,6 +143,7 @@ import {
   getEffectStage,
   getItem,
   isEffectActive,
+  isEffectEnabled,
   recordUsedTag,
   refreshMasteries,
   resetMasteriesToBase,
@@ -824,7 +825,11 @@ export const applyEffects = (
       const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
       const targetShields = newUsersEffects.filter(
-        (e) => e.type === "shield" && e.targetId === c.targetId && e.power > 0,
+        (e) =>
+          e.type === "shield" &&
+          e.targetId === c.targetId &&
+          e.power > 0 &&
+          isEffectEnabled(e, usersEffects),
       ) as ShieldTagType[];
       /** Convenience method for reducing shields before applying damage */
       const calcAdjustedDamage = (
@@ -1422,13 +1427,13 @@ export const applySingleEffect = (
               config,
             );
           } else if (effect.type === "heal" && isTargetOrNew) {
-            info = heal(effect, newUsersEffects, curTarget, consequences, ratio);
+            info = heal(effect, usersEffects, curTarget, consequences, ratio);
           } else if (
             effect.type === "flee" &&
             isTargetOrNew &&
             !battle.extraState.dungeon
           ) {
-            info = flee(effect, newUsersEffects, newTarget);
+            info = flee(effect, usersEffects, newTarget);
           } else if (effect.type === "increasepoolcost" && isTargetOrNew) {
             info = increasepoolcost(effect, curTarget);
           } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
@@ -1450,7 +1455,7 @@ export const applySingleEffect = (
             info = adjustAggro(effect, usersEffects, newTarget);
           } else if (effect.type === "onehitkill") {
             const healthBefore = newTarget.curHealth;
-            info = onehitkill(effect, newUsersEffects, newTarget);
+            info = onehitkill(effect, usersEffects, newTarget);
             creditDamageEnmity(
               newUser,
               newTarget,
@@ -1458,11 +1463,11 @@ export const applySingleEffect = (
               usersEffects,
             );
           } else if (effect.type === "rob") {
-            info = rob(effect, newUsersEffects, newUser, newTarget, battle.battleType);
+            info = rob(effect, usersEffects, newUser, newTarget, battle.battleType);
           } else if (effect.type === "seal") {
-            info = seal(effect, newUsersEffects, curTarget);
+            info = seal(effect, usersEffects, curTarget);
           } else if (effect.type === "stun") {
-            info = stun(effect, newUsersEffects, curTarget);
+            info = stun(effect, usersEffects, curTarget);
           } else if (effect.type === "wound") {
             info = wound(effect, usersEffects, consequences, curTarget);
           }
@@ -1477,16 +1482,15 @@ export const applySingleEffect = (
             usersEffects,
             curTarget,
           );
-          if (timedEffect)
-            info = increaseStats(timedEffect, newUsersEffects, curTarget);
+          if (timedEffect) info = increaseStats(timedEffect, usersEffects, curTarget);
         } else if (effect.type === "increasemastery") {
-          info = increaseMastery(effect, newUsersEffects, newTarget);
+          info = increaseMastery(effect, usersEffects, newTarget);
         } else if (effect.type === "decreasemastery") {
-          info = decreaseMastery(effect, newUsersEffects, newTarget);
+          info = decreaseMastery(effect, usersEffects, newTarget);
         } else if (effect.type === "increasemaxpools") {
-          info = increaseMaxPools(effect, newUsersEffects, newTarget);
+          info = increaseMaxPools(effect, usersEffects, newTarget);
         } else if (effect.type === "decreasemaxpools") {
-          info = decreaseMaxPools(effect, newUsersEffects, newTarget);
+          info = decreaseMaxPools(effect, usersEffects, newTarget);
         } else if (effect.type === "increasecooldown") {
           info = increaseCooldown(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasecooldown") {
@@ -1494,7 +1498,7 @@ export const applySingleEffect = (
         } else if (effect.type === "increaserange") {
           info = increaseRange(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasestat") {
-          info = decreaseStats(effect, newUsersEffects, curTarget);
+          info = decreaseStats(effect, usersEffects, curTarget);
         } else if (effect.type === "increasedamagetaken") {
           info = increaseDamageTaken(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "decreasedamagetaken") {
