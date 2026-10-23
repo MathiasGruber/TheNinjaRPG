@@ -1341,6 +1341,14 @@ const delay = (ms: number): Promise<void> =>
  * @param userId - The ID of the user to delete.
  */
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
+  const activeHunt = await client.query.huntingSession.findFirst({
+    columns: { userId: true },
+    where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'aiId', ${userId}), '$.contracts') = 1`,
+  });
+  if (activeHunt)
+    return errorResponse(
+      "This AI is used by an active hunting session. Wait for it to finish.",
+    );
   const MAX_RETRIES = 6;
   const BASE_DELAY_MS = 100;
   const MAX_JITTER_MS = 100;

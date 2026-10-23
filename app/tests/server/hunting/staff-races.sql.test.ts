@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingReceipt, huntingSession, item, mpvpBattleUser, questHistory, rankedPvpQueue, sectorMap, storeUserIdAlias, userData, userItem } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
@@ -12,7 +12,7 @@ import type { DrizzleClient } from "@/server/db";
 import { insertItems, insertUsers } from "../../setup/factories";
 import { huntingContract, huntingHabitatContent, huntingMap } from "../../setup/hunting";
 import { beforeStatements } from "../../setup/statements";
-import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("staff changes during hunting admission", () => {
   beforeEach(async () => {
@@ -30,7 +30,7 @@ describeWithDatabase("staff changes during hunting admission", () => {
     await db.insert(huntingHabitat).values({ id: "forest", content: huntingHabitatContent(), updatedAt: new Date() });
     await db.insert(sectorMap).values({ id: "map", sector: 1, name: "Forest", width: 1, height: 1, status: "PUBLISHED", normalizedJson: huntingMap() });
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => { setSystemTime(); vi.restoreAllMocks(); });
 
   it("assigns distinct contract IDs to concurrent saves with the same draft ID", async () => {
     const db = await getTestDatabase();
@@ -178,6 +178,74 @@ describeWithDatabase("staff changes during hunting admission", () => {
     const session = (await hunter.getSession())!.session;
     expect((await hunter.accept({ habitatId: "forest", contractId: saved.content.contracts[1]!.id, version: session.version })).success).toBe(true);
     expect(await profiles.delete({ id: "enemy" })).toMatchObject({ success: true, message: "AI deleted" });
+  });
+
+  it.each(["AI", "material"] as const)("rejects unauthorized %s deletion before loading hunting sessions", async (kind) => {
+    const { db } = await prepare();
+    await insertUsers([{ userId: "unused-ai", username: "UnusedAI", isAi: true }]);
+    await insertItems([{ id: "unused-item", name: "Unused material" }]);
+    const recorded = await recordQueries(() => kind === "AI"
+      ? callerForDatabase(profileRouter, "hunter", db).delete({ id: "unused-ai" })
+      : callerForDatabase(itemRouter, "hunter", db).delete({ id: "unused-item" }));
+    expect(recorded.result).toMatchObject({ success: false, message: expect.stringContaining("Not allowed") });
+    expect(recorded.statements.filter((s) => s.includes("from `HuntingSession`"))).toHaveLength(0);
+  });
+
+  it.each(["AI", "material"] as const)("checks only selected legacy contract references for %s deletion", async (kind) => {
+    const { db } = await prepare();
+    await insertUsers([{ userId: "unused-ai", username: "UnusedAI", isAi: true }, { userId: "ai_%", username: "WildcardAI", isAi: true }]);
+    await insertItems([{ id: "unused-item", name: "Unused material" }, { id: "item_%", name: "Wildcard material" }]);
+    const content = huntingHabitatContent();
+    content.contracts[0] = { ...huntingContract(), aiId: "ai_%", rewards: [{ itemId: "item_%", quantity: 1, chance: 100 }] };
+    content.contracts.push({ ...huntingContract(), id: "other", aiId: "unused-ai", rewards: [{ itemId: "unused-item", quantity: 1, chance: 100 }] });
+    await db.update(huntingSession).set({ content });
+    await db.delete(huntingHabitat);
+    const remove = (id: string) => kind === "AI"
+      ? callerForDatabase(profileRouter, "staff", db).delete({ id })
+      : callerForDatabase(itemRouter, "staff", db).delete({ id });
+    expect((await remove(kind === "AI" ? "unused-ai" : "unused-item")).success).toBe(true);
+    expect((await remove(kind === "AI" ? "enemy" : "hide")).success).toBe(true);
+    const id = kind === "AI" ? "ai_%" : "item_%";
+    const recorded = await recordQueries(() => remove(id));
+    expect(recorded.result).toMatchObject({ success: false, message: expect.stringContaining("active hunting session") });
+    const queries = recorded.statements.filter((s) => s.includes("from `HuntingSession`"));
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toContain("JSON_CONTAINS");
+    expect(queries[0]).toContain("limit 1");
+    await db.update(huntingSession).set({ content: null });
+    expect((await remove(id)).success).toBe(true);
+  });
+
+  it("retains the accepted AI when a moderator confirms an elapsed deletion timer", async () => {
+    const { db, hunter, id } = await prepare();
+    await insertUsers([{ userId: "moderator", username: "Moderator", role: "HEAD_MODERATOR" }, { userId: "replacement-ai", username: "ReplacementAI", isAi: true }]);
+    const moderator = callerForDatabase(profileRouter, "moderator", db);
+    expect((await moderator.toggleDeletionTimer({ userId: "enemy" })).success).toBe(true);
+    const target = (await db.query.userData.findFirst({ where: eq(userData.userId, "enemy") }))!;
+    const content = huntingHabitatContent();
+    content.contracts[0]!.aiId = "replacement-ai";
+    expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+    setSystemTime(new Date(target.deletionAt!.getTime() + 1));
+    expect(await moderator.confirmDeletion({ userId: "enemy" })).toMatchObject({ success: false, message: expect.stringContaining("active hunting session") });
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "enemy") })).toEqual(target);
+    expect(await db.query.storeUserIdAlias.findMany()).toHaveLength(0);
+    expect((await hunter.start({ id })).success).toBe(true);
+    await settleVictory(db);
+    const session = (await hunter.getSession())!.session;
+    expect((await hunter.sessionAction({ id: session.id, version: session.version, action: "finish" })).success).toBe(true);
+    expect(await moderator.confirmDeletion({ userId: "enemy" })).toMatchObject({ success: true });
+  });
+
+  it("allows a hunter to delete their own account and accepted session", async () => {
+    const { db } = await prepare();
+    const profile = callerForDatabase(profileRouter, "hunter", db);
+    expect((await profile.toggleDeletionTimer({ userId: "hunter" })).success).toBe(true);
+    const target = (await db.query.userData.findFirst({ where: eq(userData.userId, "hunter") }))!;
+    setSystemTime(new Date(target.deletionAt!.getTime() + 1));
+    expect(await profile.confirmDeletion({ userId: "hunter" })).toMatchObject({ success: true });
+    expect(await db.query.huntingSession.findMany()).toHaveLength(0);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "hunter") })).toBeUndefined();
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "enemy") })).toBeDefined();
   });
 
   it("allows staff edits during combat and settles the accepted rewards and final cooldown exactly once", async () => {
