@@ -1,13 +1,7 @@
 import { and, desc, eq, gte, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { FEDERAL_MONTHLY_USD_CENTS } from "@/drizzle/constants";
-import {
-  paypalTransaction,
-  stripeCheckout,
-  stripePayment,
-  userData,
-} from "@/drizzle/schema";
-import { env } from "@/env/server.mjs";
+import { stripeCheckout, stripePayment, userData } from "@/drizzle/schema";
 import { isNativeUserAgent } from "@/libs/native/userAgent";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
@@ -44,64 +38,30 @@ export const stripeRouter = createTRPCRouter({
         return errorResponse("Your account changed. Start checkout again.");
       if (!isStripeConfigured())
         return errorResponse("Card payments are temporarily unavailable.");
-      const [buyer, recipient, existing, recentPaypal, recentStripe, pending] =
-        await Promise.all([
-          ctx.drizzle.query.userData.findFirst({
-            where: eq(userData.userId, ctx.userId),
-          }),
-          ctx.drizzle.query.userData.findFirst({
-            where: eq(userData.userId, input.userId),
-          }),
-          ctx.drizzle.query.stripeCheckout.findFirst({
-            where: eq(stripeCheckout.id, input.requestId),
-          }),
-          ctx.drizzle
-            .select({
-              total:
-                sql<number>`COALESCE(SUM(${paypalTransaction.reputationPoints}), 0)`.mapWith(
-                  Number,
-                ),
-            })
-            .from(paypalTransaction)
-            .where(
-              and(
-                eq(paypalTransaction.createdById, ctx.userId),
-                gte(paypalTransaction.createdAt, sql`NOW() - INTERVAL 30 DAY`),
-                sql`${paypalTransaction.status} NOT IN ('CANCELLED', 'REVIEW_REQUIRED')`,
-                sql`(${paypalTransaction.status} != 'RESERVED' OR ${paypalTransaction.createdAt} >= NOW() - INTERVAL 3 HOUR)`,
-              ),
+      const [buyer, recipient, existing, allowanceUsed, pending] = await Promise.all([
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, ctx.userId),
+        }),
+        ctx.drizzle.query.userData.findFirst({
+          where: eq(userData.userId, input.userId),
+        }),
+        ctx.drizzle.query.stripeCheckout.findFirst({
+          where: eq(stripeCheckout.id, input.requestId),
+        }),
+        reputationAllowanceUsed(ctx.drizzle, ctx.userId, "", input.requestId),
+        ctx.drizzle.query.stripeCheckout.findMany({
+          where: and(
+            eq(stripeCheckout.createdById, ctx.userId),
+            ne(stripeCheckout.id, input.requestId),
+            isNull(stripeCheckout.closedAt),
+            gte(
+              stripeCheckout.createdAt,
+              sql`NOW() - INTERVAL ${STRIPE_CHECKOUT_RESERVATION_SECONDS} SECOND`,
             ),
-          ctx.drizzle
-            .select({
-              total:
-                sql<number>`COALESCE(SUM(${stripePayment.reputationPoints}), 0)`.mapWith(
-                  Number,
-                ),
-            })
-            .from(stripePayment)
-            .where(
-              and(
-                eq(stripePayment.createdById, ctx.userId),
-                isNotNull(stripePayment.grantedAt),
-                ...(env.NODE_ENV === "production"
-                  ? [eq(stripePayment.isSandbox, false)]
-                  : []),
-                gte(stripePayment.purchasedAt, sql`NOW() - INTERVAL 30 DAY`),
-              ),
-            ),
-          ctx.drizzle.query.stripeCheckout.findMany({
-            where: and(
-              eq(stripeCheckout.createdById, ctx.userId),
-              ne(stripeCheckout.id, input.requestId),
-              isNull(stripeCheckout.closedAt),
-              gte(
-                stripeCheckout.createdAt,
-                sql`NOW() - INTERVAL ${STRIPE_CHECKOUT_RESERVATION_SECONDS} SECOND`,
-              ),
-              sql`NOT EXISTS (SELECT 1 FROM ${stripePayment} p WHERE p.checkoutId = ${stripeCheckout.id} AND p.grantedAt IS NOT NULL)`,
-            ),
-          }),
-        ]);
+            sql`NOT EXISTS (SELECT 1 FROM ${stripePayment} p WHERE p.checkoutId = ${stripeCheckout.id} AND p.grantedAt IS NOT NULL)`,
+          ),
+        }),
+      ]);
       if (!buyer || !recipient)
         return errorResponse("The buyer or recipient no longer exists.");
       if (buyer.isBanned || recipient.isBanned)
@@ -149,11 +109,7 @@ export const stripeRouter = createTRPCRouter({
       }
       if (
         tier === "NONE" &&
-        reputationPoints +
-          (recentPaypal[0]?.total ?? 0) +
-          (recentStripe[0]?.total ?? 0) +
-          pending.reduce((sum, checkout) => sum + checkout.reputationPoints, 0) >
-          dynamicMonthlyRepCap(buyer)
+        reputationPoints + allowanceUsed > dynamicMonthlyRepCap(buyer)
       )
         return errorResponse("This purchase exceeds your monthly reputation limit.");
       const stripe = getStripe();
