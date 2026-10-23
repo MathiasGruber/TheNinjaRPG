@@ -3985,6 +3985,7 @@ export const IMG_LAYOUT_THEME_ART = {
   "20-eclipse-observatory": "https://ui0arpl8sm.ufs.sh/f/DChv6QwC43mEy6HAEWuq_.webp",
 } as const;
 
-/** Per-effect safety limits; eligible passive effects stack without percentage caps. */
+/** Per-effect reduction limit in seconds; eligible passive sources stack additively. */
 export const MAX_ACTIVITY_REDUCTION_SECONDS = 86_400;
+/** Per-effect extra units for each successfully dropped material, without changing drop chances. */
 export const MAX_HUNTING_BONUS_QUANTITY = 1_000;

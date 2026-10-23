@@ -148,6 +148,7 @@ const PowerAttributes = {
   powerPerLevel: z.coerce.number().min(0).max(1).prefault(0),
 };
 
+/** Activity passives use flat self-only amounts, without combat duration or level scaling. */
 const ActivityBonusAttributes = {
   ...BaseAttributes,
   power: z.coerce.number().int().min(0).max(MAX_ACTIVITY_REDUCTION_SECONDS).prefault(1),
@@ -202,6 +203,7 @@ export const IncreaseHuntingYield = z.object({
   ),
 });
 
+/** Out-of-combat passives supported by the shared activity-source aggregator. */
 export const activityBonusTypes = [
   "decreasegatheringtime",
   "decreasefarmingtime",
@@ -209,10 +211,12 @@ export const activityBonusTypes = [
   "decreasecookingtime",
   "increasehuntingyield",
 ] as const;
+/** Keep power units identical in the content editor and player-facing effect details. */
 export const activityBonusPowerLabel = (tag: { type: string }) =>
   tag.type === "increasehuntingyield"
     ? "Additional quantity per dropped material"
     : "Reduction (seconds)";
+/** Identify activity-only tags for authoring restrictions and removal from combat snapshots. */
 export const isActivityBonus = (tag: { type: string }) =>
   (activityBonusTypes as readonly string[]).includes(tag.type);
 
@@ -1121,6 +1125,7 @@ export const IncreaseReskinSlots = z.object({
   type: z.literal("noncombatincreasereskins").prefault("noncombatincreasereskins"),
 });
 
+/** Permanent consumable grants share the purchase cap and never execute as combat effects. */
 export const IncreaseJutsuSlots = z.object({
   ...BaseAttributes,
   type: z.literal("increasejutsuslots").prefault("increasejutsuslots"),
@@ -2119,6 +2124,7 @@ export const SkillTreeValidator = z
       .superRefine(SuperRefinePassiveEffects),
   })
   .superRefine((tier, ctx) => {
+    // Purchased Bloodright effects enter userSkills only during combat, after activity snapshots.
     if (tier.pathType === "BLOODRIGHT") rejectActivityBonuses(tier.effects, ctx);
     if (tier.pathType === "BLOODRIGHT" && !tier.bloodlineId)
       ctx.addIssue({

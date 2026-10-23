@@ -7,7 +7,10 @@ import {
 } from "@/libs/mastery";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 
-/** Pure aggregation over preloaded passive sources; timers and battles snapshot these totals. */
+/**
+ * Sum flat bonuses from the base bloodline, activated skills and usable worn gear/imbuements.
+ * Reads only preloaded relations; callers snapshot the totals when an activity or battle starts.
+ */
 export const getActivityBonuses = (user: ActivityBonusUser) => {
   const totals = {
     gatheringReductionSeconds: 0,
@@ -29,6 +32,7 @@ export const getActivityBonuses = (user: ActivityBonusUser) => {
         !gear.isInAuction &&
         (!gear.craftingFinishedAt || gear.craftingFinishedAt < now),
     );
+  // Mastery requirements must use the same active skills and available inventory as the bonuses.
   const wearer = { ...user, userSkills, items };
   const tags = [
     ...(user.bloodline?.effects ?? []),
@@ -47,6 +51,7 @@ export const getActivityBonuses = (user: ActivityBonusUser) => {
       .flatMap(wornGearTags),
   ];
   for (const tag of tags) {
+    // Persisted content must still satisfy the flat, self-only, noncombat contract.
     if (
       !Number.isSafeInteger(tag.power) ||
       tag.power < 0 ||
@@ -77,6 +82,13 @@ export const getActivityBonuses = (user: ActivityBonusUser) => {
   return totals;
 };
 
+/** Ignore narrow profile projections that omit the fields needed to establish passive eligibility. */
+const hasPassiveGearData = (gear: ActivityBonusGear): gear is MasteryGear =>
+  Array.isArray(gear.item.effects) &&
+  typeof gear.item.canBeImbued === "boolean" &&
+  gear.item.bloodlineId !== undefined;
+
+/** Accept profile rows with partial item data; only complete passive sources contribute. */
 type ActivityBonusGear = Omit<MasteryGear, "item"> & {
   item: Pick<MasteryGear["item"], "itemType" | "maxDurability"> &
     Partial<MasteryGear["item"]>;
@@ -84,8 +96,3 @@ type ActivityBonusGear = Omit<MasteryGear, "item"> & {
 type ActivityBonusUser = Omit<MasteryBuffUser, "items"> & {
   items?: ActivityBonusGear[];
 };
-
-const hasPassiveGearData = (gear: ActivityBonusGear): gear is MasteryGear =>
-  Array.isArray(gear.item.effects) &&
-  typeof gear.item.canBeImbued === "boolean" &&
-  gear.item.bloodlineId !== undefined;

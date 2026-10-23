@@ -1650,7 +1650,9 @@ export const EditContent = <
 };
 
 interface EffectFormWrapperProps {
+  /** Offer permanent slot grants only for noncombat consumables. */
   allowJutsuSlotGrants?: boolean;
+  /** Opt in only for sources that the runtime includes in passive activity aggregation. */
   allowActivityBonuses?: boolean;
   allowCoordinateTargeting?: boolean;
   idx: number;
@@ -1800,6 +1802,7 @@ export const EffectFormWrapper: React.FC<EffectFormWrapperProps> = (props) => {
         const tagSchema = getTagSchema(watchType);
         const parsedTag = tagSchema.safeParse({ type: watchType });
         const shownTag = parsedTag.success ? parsedTag.data : tag;
+        // Switching to noncombat tags must not carry over combat timing or targeting fields.
         const skipKeys = [
           "type",
           "calculation",

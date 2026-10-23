@@ -109,6 +109,7 @@ export const getSeedExtractionDurationSeconds = (cropQuantity: number) =>
 export const getTotalFarmPlots = (farmPlotsPurchased: number) =>
   Math.min(FARM_STARTING_PLOTS + farmPlotsPurchased, FARM_MAX_PLOTS);
 
+/** Round the Federal-adjusted crop duration before subtracting its snapshotted passive bonus. */
 export const getFarmGrowTimeSeconds = (
   baseGrowTimeSeconds: number,
   user: Pick<UserData, "staffAccount" | "federalStatus">,

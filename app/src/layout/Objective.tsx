@@ -11,7 +11,6 @@ import Image from "@/layout/Image";
 import Link from "@/layout/Link";
 import Modal from "@/layout/Modal";
 import StatusBar from "@/layout/StatusBar";
-import { getCollectDeadline } from "@/libs/gathering";
 import { masteryRewardLabels } from "@/libs/masteryRewards";
 import {
   canRetryQuestBattle,
@@ -22,6 +21,7 @@ import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { collapseRewards } from "@/libs/rewards";
 import { showMutationToast } from "@/libs/toast";
 import { parseHtml } from "@/utils/parse";
+import { getCollectDeadline } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
 import { getObjectiveSchema } from "@/validators/objectives";

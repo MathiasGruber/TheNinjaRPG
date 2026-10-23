@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { getCollectDeadline } from "@/libs/gathering";
 import { getNewTrackers } from "@/libs/quest";
+import { getCollectDeadline } from "@/utils/time";
 import { DecreaseGatheringTime } from "@/validators/combat";
 
-// Timed collect_item objectives are gated server-side on the elapsed time since the
-// tracker's `timestamp`, measured with Date.now(); the clock is a spy so each case can
-// place the request exactly relative to the deadline. (The timestamp itself is written
-// with `new Date()`, which the spy does not cover.)
+// Timed collect_item objectives compare Date.now() with the saved deadline, falling
+// back to timestamp plus configured duration for older trackers. The spy controls
+// both collection starts and exact completion boundaries.
 const START = Date.UTC(2026, 8, 16, 12, 0, 0);
 let nowMs = START;
 

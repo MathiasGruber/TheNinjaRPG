@@ -2168,6 +2168,7 @@ export const itemRouter = createTRPCRouter({
         return errorResponse("Not consumable");
       }
 
+      // Reject malformed persisted grants before the atomic claim can consume the item.
       let jutsuSlotIncrease = 0;
       for (const effect of useritem.item.effects) {
         if (effect.type !== "increasejutsuslots") continue;
@@ -2643,6 +2644,7 @@ export const itemRouter = createTRPCRouter({
         // or battle that wins the account race leaves the item available for retry.
         // Drizzle cannot express this joined UPDATE. Empty stacks are cleaned up
         // after the claim; quantity zero cannot be consumed or used as an entry item.
+        // Slot grants increment the live counter and guard capacity in this same atomic statement.
         const claim = () =>
           client.execute(sql`
           UPDATE ${userData}

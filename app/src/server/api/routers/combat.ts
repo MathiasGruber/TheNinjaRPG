@@ -2434,14 +2434,15 @@ export const initiateBattle = async (
       .map((user) => [user.userId, captureCombatCacheSnapshot(user)]),
   );
 
-  // Hunting settlement writes the battle's item quantities and durability back.
-  // Preserve the real equipment before combat processing mutates its snapshot.
+  // Capture activity yield before combat processing strips passive-only tags from these sources.
   if (info.hunting) {
     const hunter = fetchedUsers.find((user) => user.userId === info.hunting?.userId);
     info.hunting.huntingBonusQuantity = hunter
       ? getActivityBonuses(hunter).huntingBonusQuantity
       : 0;
   }
+  // Hunting settlement writes the battle's item quantities and durability back.
+  // Preserve the real equipment before combat processing mutates its snapshot.
   const huntingEquipment = info.hunting
     ? (
         fetchedUsers.find((user) => user.userId === info.hunting?.userId)?.items ?? []

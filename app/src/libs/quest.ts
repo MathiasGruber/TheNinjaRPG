@@ -49,7 +49,7 @@ import { getActivityBonuses } from "@/libs/activityBonuses";
 import type { BloodlineCollectionProgress } from "@/libs/bloodline";
 import { eliteJoninMilestoneBlockMessage } from "@/libs/eliteJonin";
 import { getFarmingLevel } from "@/libs/farming";
-import { getCollectDeadline, getGatheringRank } from "@/libs/gathering";
+import { getGatheringRank } from "@/libs/gathering";
 import { calcMedninRank } from "@/libs/hospital";
 import { getHuntingRank } from "@/libs/hunting";
 import {
@@ -92,7 +92,12 @@ import type { UserWithRelations } from "@/routers/profile";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
-import { periodStart, reduceActivitySeconds, secondsPassed } from "@/utils/time";
+import {
+  getCollectDeadline,
+  periodStart,
+  reduceActivitySeconds,
+  secondsPassed,
+} from "@/utils/time";
 import {
   canAccessStructure,
   countBoostingShrines,
@@ -1651,6 +1656,7 @@ export const getNewTrackers = (
                         doCollect = false;
                       }
                     } else {
+                      // Snapshot once so later passive changes cannot alter a running collection.
                       const reduction =
                         quest.questType === "gathering"
                           ? getActivityBonuses(user).gatheringReductionSeconds

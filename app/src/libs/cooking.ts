@@ -39,7 +39,10 @@ export const getCookingRankProgress = (experience: number) => {
           ),
   };
 };
-/** Time counts every output meal; Crafting shrine bonuses increase Cooking duration. */
+/**
+ * Count every output meal and batch; Crafting shrine bonuses increase Cooking duration.
+ * Subtract the static passive bonus once from the complete job, after rounding.
+ */
 export const getCookingSeconds = (
   meal: Pick<Item, "cookingTimeSeconds" | "cookingOutputQuantity">,
   batches: number,

@@ -5,6 +5,7 @@ import {
   PET_FEED_COOLDOWN_HOURS,
   REGEN_SECONDS,
 } from "@/drizzle/constants";
+import type { ObjectiveTrackerType } from "@/validators/objectives";
 
 /**
  * Enumerate sorted UTC starts at fixed spacing, including earliest when it is a slot.
@@ -462,8 +463,26 @@ export const getUtcMonthDistance = (from: string, to: string) => {
   const [toYear = 0, toMonth = 0] = to.split("-").map(Number);
   return Math.max(0, (toYear - fromYear) * 12 + toMonth - fromMonth);
 };
-/** Apply a snapshotted static reduction after the activity's existing duration calculation. */
+/**
+ * Apply a flat reduction after existing modifiers, with a one-second minimum.
+ * No bonus preserves the original duration, including fractional-second legacy timers.
+ */
 export const reduceActivitySeconds = (existingSeconds: number, reductionSeconds = 0) =>
   reductionSeconds === 0
     ? existingSeconds
     : Math.max(1, existingSeconds - reductionSeconds);
+
+/**
+ * Share the saved collection deadline between server guards and client countdowns.
+ * Older trackers without a snapshot retain their original configured duration.
+ */
+export const getCollectDeadline = (
+  progress: Pick<ObjectiveTrackerType, "timestamp" | "collectDeadline">,
+  configuredMinutes: number,
+) =>
+  progress.timestamp && configuredMinutes > 0
+    ? new Date(
+        progress.collectDeadline ??
+          new Date(Date.parse(progress.timestamp) + configuredMinutes * 60_000),
+      )
+    : null;

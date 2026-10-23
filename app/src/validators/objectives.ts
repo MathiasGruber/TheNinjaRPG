@@ -751,6 +751,7 @@ export const ObjectiveTracker = z.object({
   locationChecked: z.boolean().optional(),
   selectedNextObjectiveId: z.string().optional(),
   timestamp: z.iso.datetime().optional(),
+  /** Captured at collection start; passive changes apply only to subsequent collections. */
   collectDeadline: z.iso.datetime().optional(),
   recentlyDied: z.boolean().prefault(false),
   /** Personal side-effect receipt, independent of copied shared objective completion. */
