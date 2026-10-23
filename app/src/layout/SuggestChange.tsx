@@ -24,6 +24,7 @@ import {
 import Modal from "@/layout/Modal";
 import { CATEGORY_LABELS } from "@/libs/contentReview/labels";
 import { showMutationToast } from "@/libs/toast";
+import { formatTrpcErrorMessage } from "@/utils/error";
 import { canSuggestContent } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
 
@@ -38,6 +39,10 @@ interface SuggestChangeProps {
   /** Button text, such as "Suggest instead" beside a save button. */
   label?: string;
 }
+
+/** Hint under a field that is still shorter than the server accepts. */
+const minLengthHint = (length: number, min: number) =>
+  `At least ${min} characters (${length}/${min})`;
 
 /**
  * Sends the editor's current values to the content review desk instead of saving them.
@@ -64,12 +69,14 @@ export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
         setError(data.message);
       }
     },
-    onError: (err) => setError(err.message),
+    onError: (err) => setError(formatTrpcErrorMessage(err)),
   });
 
+  const titleLength = title.trim().length;
+  const rationaleLength = rationale.trim().length;
   const isValid =
-    title.trim().length >= CONTENT_PROPOSAL_TITLE_LENGTH.min &&
-    rationale.trim().length >= CONTENT_PROPOSAL_RATIONALE_LENGTH.min;
+    titleLength >= CONTENT_PROPOSAL_TITLE_LENGTH.min &&
+    rationaleLength >= CONTENT_PROPOSAL_RATIONALE_LENGTH.min;
 
   // Keep hooks unconditional while user data loads or the staff role changes.
   if (!canSuggestContent(userData?.role)) return null;
@@ -92,6 +99,7 @@ export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
         proceed_label="Send for review"
         proceed_loading_label="Sending..."
         isValid={isValid}
+        proceedDisabled={!isValid}
         isLoading={isPending}
         keepOpenOnAccept={true}
         onAccept={(e) => {
@@ -146,6 +154,11 @@ export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
               placeholder="Fix the typo in the description"
               onChange={(e) => setTitle(e.target.value)}
             />
+            {titleLength < CONTENT_PROPOSAL_TITLE_LENGTH.min && (
+              <p className="text-muted-foreground text-xs">
+                {minLengthHint(titleLength, CONTENT_PROPOSAL_TITLE_LENGTH.min)}
+              </p>
+            )}
           </div>
           <div className="grid gap-1">
             <Label htmlFor="suggest-rationale">Why (required)</Label>
@@ -156,6 +169,11 @@ export const SuggestChange: React.FC<SuggestChangeProps> = (props) => {
               placeholder="What is wrong today, and why this change fixes it"
               onChange={(e) => setRationale(e.target.value)}
             />
+            {rationaleLength < CONTENT_PROPOSAL_RATIONALE_LENGTH.min && (
+              <p className="text-muted-foreground text-xs">
+                {minLengthHint(rationaleLength, CONTENT_PROPOSAL_RATIONALE_LENGTH.min)}
+              </p>
+            )}
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}
         </div>
