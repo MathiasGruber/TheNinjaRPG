@@ -548,6 +548,7 @@ export const itemRouter = createTRPCRouter({
         );
       // Check accepted terms after live references: an acceptance can precede a
       // staff edit that removes the reward while the habitat query is in flight.
+      // Match the selected contract; backfilled snapshots can contain the whole habitat.
       const activeHunt = await ctx.drizzle.query.huntingSession.findFirst({
         columns: { userId: true },
         where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'rewards', JSON_ARRAY(JSON_OBJECT('itemId', ${input.id}))), '$.contracts') = 1`,

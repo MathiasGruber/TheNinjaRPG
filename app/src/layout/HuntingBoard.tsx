@@ -22,6 +22,7 @@ import type { HuntingReceipt } from "@/validators/hunting";
 
 /**
  * Browse and manage the same personal session from the occupation or combat result.
+ * Active summaries and catalogue rows use accepted terms until the session is released.
  * Successful starts own profile/cache updates; onStarted clears an existing combat result.
  * sessionOnly omits browsing and reward summaries to keep arrival dialogs focused.
  */

@@ -32,7 +32,7 @@ import {
 export const huntingRouter = createTRPCRouter({
   /**
    * Load only the caller's encounter for travel/dashboard polling in one joined read.
-   * A missing session returns null; unavailable rules leave a null contract for recovery.
+   * Missing accepted terms leave a null contract so legacy sessions can still be finished.
    */
   getSession: protectedProcedure.query(async ({ ctx }) => {
     const [row] = await ctx.drizzle
@@ -105,6 +105,7 @@ export const huntingRouter = createTRPCRouter({
               },
             }))
         : [];
+    // Accepted AI and reward references remain visible after their live contracts change.
     const contracts = [
       ...visibleHabitats.flatMap((h) => h.content.contracts),
       ...(session?.content?.contracts ?? []),
@@ -216,6 +217,7 @@ export const huntingRouter = createTRPCRouter({
                 .update(huntingHabitat)
                 .set({
                   content,
+                  // Same-millisecond saves must invalidate admission's captured revision.
                   updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${huntingHabitat.updatedAt}))`,
                 })
                 .where(eq(huntingHabitat.id, id));
@@ -295,7 +297,7 @@ export const huntingRouter = createTRPCRouter({
     });
     return { success: true, message: "Habitat deleted." };
   }),
-  /** Assign a reachable sector once; switching uses a session CAS and preserves per-contract usage. */
+  /** Capture accepted terms and a reachable sector; atomically reconcile usage when switching. */
   accept: protectedProcedure
     .use(ratelimitMiddleware)
     .input(acceptHuntingContractSchema)
@@ -360,6 +362,7 @@ export const huntingRouter = createTRPCRouter({
         return errorResponse(
           "There are no approved reachable locations for this contract.",
         );
+      // Retain habitat metadata for the board, but freeze only the selected contract.
       const next = {
         id: nanoid(),
         habitatId: habitat.id,
@@ -436,7 +439,7 @@ export const huntingRouter = createTRPCRouter({
         message: `Contract accepted. Travel to sector ${sector}.`,
       };
     }),
-  /** Prepare once or finish the exact displayed session, leaving its partial allowance intact. */
+  /** Prepare accepted terms once, or finish the displayed session and reconcile reduced limits. */
   sessionAction: protectedProcedure
     .input(huntingSessionActionSchema)
     .mutation(async ({ ctx, input }) => {
@@ -464,8 +467,10 @@ export const huntingRouter = createTRPCRouter({
         isNull(huntingSession.battleId),
       );
       if (input.action === "finish") {
-        // MySQL cannot DELETE the session and UPDATE its allowance in one statement.
-        // Roll back the release if reconciliation fails, keeping the contract recoverable.
+        // A joined UPDATE can switch contracts, but MySQL cannot DELETE this session
+        // and UPDATE its allowance in one statement. Separate writes could release it
+        // without starting an exhausted allowance's cooldown if reconciliation fails.
+        // Keep this transaction confined to finish so both writes commit or retry together.
         const saved = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
             const deleted = await tx.delete(huntingSession).where(guard);
@@ -607,7 +612,12 @@ export const huntingRouter = createTRPCRouter({
     }),
 });
 
-/** Reconcile reduced limits only after leaving a contract, without touching another active hunt. */
+/**
+ * Start a reduced allowance's cooldown without changing its consumed hunts.
+ * The caller must release the session on this same transaction client first; failures
+ * must roll back both operations. Habitat revisions and active-session guards prevent
+ * applying superseded rules or changing another accepted contract's allowance.
+ */
 const reconcileInactiveAllowance = async (
   client: DrizzleClient,
   userId: string,

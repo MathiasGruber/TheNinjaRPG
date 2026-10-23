@@ -1334,13 +1334,14 @@ const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Delete a user and all associated data with automatic retry on deadlock.
- * Implements exponential backoff with jitter to handle MySQL deadlocks (errno 1213).
- * Uses 6 retry attempts with base delay of 100ms (max ~6-7s total retry time).
+ * Delete a user and associated data, retrying MySQL deadlocks with bounded backoff.
+ * Reject accepted hunting AI references before this helper begins destructive cleanup.
  * @param client - The database client.
  * @param userId - The ID of the user to delete.
+ * @returns An expected rejection before cleanup, or undefined after successful deletion.
  */
 export const deleteUser = async (client: DrizzleClient, userId: string) => {
+  // Only the selected contract is a dependency, even in a full-habitat legacy snapshot.
   const activeHunt = await client.query.huntingSession.findFirst({
     columns: { userId: true },
     where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'aiId', ${userId}), '$.contracts') = 1`,
@@ -1359,8 +1360,7 @@ export const deleteUser = async (client: DrizzleClient, userId: string) => {
       return;
     } catch (error) {
       if (isMysqlDeadlockError(error) && attempt < MAX_RETRIES) {
-        // Exponential backoff with jitter: 300ms, 600ms, 1200ms, 2400ms, 4800ms, 9600ms...
-        // Jitter (0-200ms) prevents thundering herd when multiple users retry simultaneously
+        // Jitter keeps concurrent cleanup retries from repeatedly colliding.
         const jitter = Math.random() * MAX_JITTER_MS;
         const delayMs = BASE_DELAY_MS * 2 ** (attempt - 1) + jitter;
 
