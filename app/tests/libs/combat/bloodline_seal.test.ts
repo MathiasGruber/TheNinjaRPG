@@ -184,6 +184,15 @@ describe("Bloodline Seal injected jutsu", () => {
     expect(user.jutsus[0]?.lastUsedRound).toBe(3);
   });
 
+  it("preserves a separately learned jutsu when a grant for the same skill expires", () => {
+    const { user, grant, battle, jutsu } = injectedFixture();
+    const learned = { ...user.jutsus[0]!, id: "learned-skill", origin: "user" as const };
+    user.jutsus.push(learned);
+    grant.rounds = 0;
+    expect(availableUserActions(battle, user.userId).some(a => a.id === jutsu.id)).toBe(true);
+    expect(user.jutsus).toEqual([learned]);
+  });
+
   it("removes an injected record when its grant expires during sealing", () => {
     const { user, grant, battle } = injectedFixture();
     grant.rounds = 0;

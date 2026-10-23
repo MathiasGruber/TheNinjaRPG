@@ -942,7 +942,9 @@ export const handleInjectedJutsus = (
 
   // Define the user available jutsus
   const activeJutsus = [
-    ...(user?.jutsus?.filter((j) => !toBeRemovedIds.includes(j.jutsuId)) ?? []),
+    ...(user?.jutsus?.filter(
+      (j) => j.origin !== "injected" || !toBeRemovedIds.includes(j.jutsuId),
+    ) ?? []),
     ...toBeAddedIds
       .map((id) => allJutsus[id])
       .filter((j): j is Jutsu => j !== undefined)
