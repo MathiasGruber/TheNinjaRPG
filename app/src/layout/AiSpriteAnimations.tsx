@@ -11,6 +11,7 @@ import { NumberInput } from "@/components/ui/number-input";
 import ContentBox from "@/layout/ContentBox";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { showMutationToast } from "@/libs/toast";
+import { groupBy } from "@/utils/grouping";
 import { UploadButton } from "@/utils/uploadthing";
 import {
   type SpriteAnimationInput,
@@ -106,20 +107,16 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
                   assign.reset();
                 }}
               >
-                {[...new Set(data.actions.map((action) => action.group))].map(
-                  (group) => (
-                    <optgroup key={group} label={group}>
-                      {data.actions
-                        .filter((action) => action.group === group)
-                        .map((action) => (
-                          <option key={action.key} value={action.key}>
-                            {action.name}
-                            {bindings.has(action.key) ? " (assigned)" : ""}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ),
-                )}
+                {[...groupBy(data.actions, "group")].map(([group, actions]) => (
+                  <optgroup key={group} label={group}>
+                    {actions.map((action) => (
+                      <option key={action.key} value={action.key}>
+                        {action.name}
+                        {bindings.has(action.key) ? " (assigned)" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
             <div>
@@ -206,9 +203,7 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
           change.
         </p>
         <form
-          onSubmit={form.handleSubmit((values) =>
-            create.mutate(spriteAnimationSchema.parse(values)),
-          )}
+          onSubmit={form.handleSubmit((values) => create.mutate(values))}
           className="space-y-3"
         >
           {(

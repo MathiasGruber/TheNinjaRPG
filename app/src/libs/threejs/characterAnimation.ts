@@ -118,19 +118,16 @@ export const updateCharacterAnimation = (info: {
     runtime.material.needsUpdate = true;
     runtime.animationId = animation.id;
   }
-  const stateKey =
-    !moving && actionPlaying && animation === action ? actionEvent?.id : key;
+  const isActionAnimation = !moving && actionPlaying && animation === action;
+  const stateKey = isActionAnimation ? actionEvent?.id : key;
   if (runtime.stateKey !== stateKey) {
     runtime.stateKey = stateKey;
-    runtime.startedAt =
-      !moving && actionPlaying && animation === action
-        ? (runtime.eventStartedAt ?? now)
-        : now;
+    runtime.startedAt = isActionAnimation ? (runtime.eventStartedAt ?? now) : now;
   }
   const frame = spriteAnimationFrame(
     animation,
     now - runtime.startedAt,
-    !(!moving && actionPlaying && animation === action),
+    !isActionAnimation,
   );
   const map = runtime.material.map;
   if (!map) return;
