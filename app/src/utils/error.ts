@@ -225,3 +225,36 @@ export const isFetchOriginError = (error: Error): boolean => {
     stack.includes("AbortController")
   );
 };
+
+interface InputIssue {
+  code?: string;
+  origin?: string;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  path?: PropertyKey[];
+  message?: string;
+}
+
+/**
+ * Readable message for a failed tRPC call. Input validation failures carry their Zod
+ * issues in `data.zodError` and an error message of raw issue JSON, so those issues are
+ * phrased per field instead; any other error keeps its message.
+ */
+export const formatTrpcErrorMessage = (error: { message: string; data?: unknown }) => {
+  const issues = (error.data as { zodError?: InputIssue[] | null } | undefined)
+    ?.zodError;
+  if (!Array.isArray(issues) || issues.length === 0) return error.message;
+  return issues
+    .map((issue) => {
+      const field = issue.path?.map(String).join(".") ?? "";
+      const label = field ? field.charAt(0).toUpperCase() + field.slice(1) : "Input";
+      if (issue.origin === "string" && issue.code === "too_small") {
+        return `${label} must be at least ${issue.minimum} characters.`;
+      }
+      if (issue.origin === "string" && issue.code === "too_big") {
+        return `${label} must be at most ${issue.maximum} characters.`;
+      }
+      return `${label}: ${issue.message ?? "invalid value"}`;
+    })
+    .join(" ");
+};
