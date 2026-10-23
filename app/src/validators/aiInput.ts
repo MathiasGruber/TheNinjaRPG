@@ -2,6 +2,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { ElementNames } from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
+import { MAX_STORED_POOL, maxPoolsMultiplier } from "@/libs/profile";
 import {
   AllTags,
   SuperRefineEffects,
@@ -64,6 +65,16 @@ export const insertAiSchema = createInsertSchema(userData)
         .superRefine(SuperRefineEffects)
         .superRefine(SuperRefinePassiveEffects),
     }).shape,
-  );
+  )
+  .superRefine((data, ctx) => {
+    const allowed = maxPoolsMultiplier(data.level);
+    if (data.poolsMultiplier > allowed) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["poolsMultiplier"],
+        message: `Pool modifier ${data.poolsMultiplier} at level ${data.level} would push HP/CP/SP above the maximum of ${MAX_STORED_POOL.toLocaleString("en-US")}. Use at most ${allowed} at this level.`,
+      });
+    }
+  });
 export type InsertAiSchema = z.infer<typeof insertAiSchema>;
 export type InsertAiSchemaInput = z.input<typeof insertAiSchema>;

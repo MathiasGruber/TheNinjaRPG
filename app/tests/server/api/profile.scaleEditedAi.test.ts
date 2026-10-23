@@ -2,7 +2,7 @@
 import { describe, expect, it } from "bun:test";
 import { CombatStatNames, SCALED_AI_STAT_BUDGET_SHARE } from "@/drizzle/constants";
 import type { UserData } from "@/drizzle/schema";
-import { calcLevelRequirements } from "@/libs/profile";
+import { calcLevelRequirements, MAX_STORED_POOL } from "@/libs/profile";
 import { scaleEditedAi } from "../../../src/server/api/routers/profile";
 
 // Row _-LABA3r7vwogsQ4O3ALq in data/ai.sql: a specialist whose six stats hold more than
@@ -100,5 +100,23 @@ describe("scaleEditedAi", () => {
     const edited = { ...makeClown(), statsMultiplier: 6 } as UserData;
     scaleEditedAi(stored, edited);
     for (const stat of CombatStatNames) expect(edited[stat]).toBe(1_669_560);
+  });
+
+  // THENINJARPG-2Z2: Rust Ferret (level 120, pools x15) scaled to 90,750 HP, which the
+  // smallint unsigned pool columns reject with "Out of range value for column 'curHealth'".
+  it("caps pools to what the database columns can store", () => {
+    const stored = { ...makeClown(), level: 120, poolsMultiplier: 15 } as UserData;
+    const edited = { ...stored } as UserData;
+    scaleEditedAi(stored, edited);
+    for (const pool of [
+      edited.curHealth,
+      edited.maxHealth,
+      edited.curChakra,
+      edited.maxChakra,
+      edited.curStamina,
+      edited.maxStamina,
+    ]) {
+      expect(pool).toBe(MAX_STORED_POOL);
+    }
   });
 });
