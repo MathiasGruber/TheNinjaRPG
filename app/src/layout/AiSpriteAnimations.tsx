@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm, useFormState } from "react-hook-form";
+import { useForm, useFormState, useWatch } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,8 @@ import {
 export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
   const utils = api.useUtils();
   const config = api.spriteAnimation.getAiConfig.useQuery({ userId });
-  const [previewKey, setPreviewKey] = useState("idle");
+  const [actionKey, setActionKey] = useState("idle");
+  const [candidateId, setCandidateId] = useState<string>();
   const form = useForm<SpriteAnimationInput>({
     resolver: zodResolver(spriteAnimationSchema),
     defaultValues: {
@@ -34,20 +35,28 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
     },
   });
   const { errors } = useFormState({ control: form.control });
+  const draft = useWatch({ control: form.control });
+  const draftPreview = spriteAnimationSchema.safeParse({
+    ...draft,
+    name: draft.name || "New animation",
+  });
   const create = api.spriteAnimation.create.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
       if (result.success) {
         form.reset();
         await utils.spriteAnimation.getAiConfig.invalidate();
+        if ("id" in result) setCandidateId(result.id);
       }
     },
   });
   const assign = api.spriteAnimation.assign.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
-      if (result.success)
+      if (result.success) {
         await utils.spriteAnimation.getAiConfig.invalidate({ userId });
+        setCandidateId(undefined);
+      }
     },
   });
   const data = config.data;
@@ -57,7 +66,11 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
       assignment.animationId,
     ]),
   );
-  const animationId = bindings.get(previewKey) ?? bindings.get("idle");
+  const savedId = bindings.get(actionKey) ?? "";
+  const selectionId = candidateId ?? savedId;
+  const hasChanges = selectionId !== savedId;
+  const animationId =
+    selectionId || (actionKey !== "idle" ? bindings.get("idle") : undefined);
   const preview = data?.animations.find((animation) => animation.id === animationId);
 
   return (
@@ -68,7 +81,7 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
     >
       <p className="mb-3 text-sm">
         Unassigned actions use Idle. If Idle is unassigned, the current character image
-        is shown. Changes take effect in new battles.
+        is shown. Preview a selection, then apply it to new battles.
       </p>
       {config.isPending && <p>Loading animation assignments…</p>}
       {config.error && (
@@ -78,55 +91,95 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
         </div>
       )}
       {data && (
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="space-y-2">
-            {data.actions.map((action) => (
-              <div
-                key={action.key}
-                className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-2"
+        <div className="grid grid-cols-[minmax(0,1fr)_128px] gap-3 sm:grid-cols-[minmax(0,1fr)_180px]">
+          <div className="min-w-0 space-y-3">
+            <div>
+              <Label htmlFor="sprite-action">Action</Label>
+              <select
+                id="sprite-action"
+                className="block w-full min-w-0 rounded-md border bg-background p-2 text-sm"
+                value={actionKey}
+                disabled={assign.isPending}
+                onChange={(event) => {
+                  setActionKey(event.target.value);
+                  setCandidateId(undefined);
+                  assign.reset();
+                }}
               >
-                <Label htmlFor={`animation-${action.key}`}>
-                  <span className="text-muted-foreground text-xs">
-                    {action.group} ·{" "}
-                  </span>
-                  {action.name}
-                </Label>
-                <select
-                  id={`animation-${action.key}`}
-                  className="min-w-0 rounded-md border bg-background p-2 text-sm"
-                  value={bindings.get(action.key) ?? ""}
-                  disabled={assign.isPending}
-                  onChange={(event) => {
-                    setPreviewKey(action.key);
-                    assign.mutate({
-                      userId,
-                      actionKey: action.key,
-                      animationId: event.target.value || null,
-                    });
-                  }}
-                  onFocus={() => setPreviewKey(action.key)}
-                >
-                  <option value="">
-                    {action.key === "idle" ? "Current image" : "Default (idle → image)"}
+                {[...new Set(data.actions.map((action) => action.group))].map(
+                  (group) => (
+                    <optgroup key={group} label={group}>
+                      {data.actions
+                        .filter((action) => action.group === group)
+                        .map((action) => (
+                          <option key={action.key} value={action.key}>
+                            {action.name}
+                            {bindings.has(action.key) ? " (assigned)" : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ),
+                )}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="sprite-selection">Animation</Label>
+              <select
+                id="sprite-selection"
+                className="block w-full min-w-0 rounded-md border bg-background p-2 text-sm"
+                value={selectionId}
+                disabled={assign.isPending}
+                onChange={(event) => {
+                  setCandidateId(event.target.value);
+                  assign.reset();
+                }}
+              >
+                <option value="">
+                  {actionKey === "idle" ? "Current image" : "Default (idle → image)"}
+                </option>
+                {data.animations.map((animation) => (
+                  <option key={animation.id} value={animation.id}>
+                    {animation.name}
                   </option>
-                  {data.animations.map((animation) => (
-                    <option key={animation.id} value={animation.id}>
-                      {animation.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                disabled={!hasChanges || assign.isPending}
+                onClick={() =>
+                  assign.mutate({
+                    userId,
+                    actionKey,
+                    animationId: selectionId || null,
+                  })
+                }
+              >
+                {assign.isPending ? "Saving…" : "Apply"}
+              </Button>
+              {hasChanges && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={assign.isPending}
+                  onClick={() => {
+                    setCandidateId(undefined);
+                    assign.reset();
+                  }}
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
             {assign.error && (
               <p role="alert" className="text-destructive text-sm">
                 {assign.error.message}
               </p>
             )}
           </div>
-          <div>
-            <p className="mb-2 font-semibold text-sm">
-              Preview · {data.actions.find((action) => action.key === previewKey)?.name}
-            </p>
+          <div className="min-w-0">
+            <p className="mb-2 font-semibold text-sm">Preview</p>
             {preview ? (
               <SpriteAnimationPreview key={preview.id} animation={preview} />
             ) : (
@@ -137,6 +190,7 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
             {preview && (
               <p className="mt-2 text-muted-foreground text-xs">
                 {preview.frameCount} frames · {preview.fps} fps · faces {preview.facing}
+                {!selectionId && actionKey !== "idle" && " · uses Idle"}
               </p>
             )}
           </div>
@@ -219,6 +273,15 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
             <option value="left">Left</option>
             <option value="right">Right</option>
           </select>
+          {draftPreview.success && (
+            <div className="w-40 max-w-full">
+              <p className="mb-2 font-semibold text-sm">Draft preview</p>
+              <SpriteAnimationPreview
+                key={JSON.stringify(draftPreview.data)}
+                animation={{ ...draftPreview.data, id: "draft" }}
+              />
+            </div>
+          )}
           {create.error && (
             <p role="alert" className="text-destructive text-sm">
               {create.error.message}
