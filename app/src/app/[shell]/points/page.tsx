@@ -594,7 +594,7 @@ const PayPalSubscriptionButton = (props: {
 
   return (
     <div
-      className={`h-full rounded-lg border p-3 ${props.currentUserStatus === props.buttonStatus ? "border-primary bg-accent" : "bg-card"}`}
+      className={`flex h-full flex-col rounded-lg border p-3 ${props.currentUserStatus === props.buttonStatus ? "border-primary bg-accent" : "bg-card"}`}
     >
       <div className="relative">
         <Image
@@ -627,7 +627,7 @@ const PayPalSubscriptionButton = (props: {
           </Confirm>
         )}
       </div>
-      <div>
+      <div className="flex-1">
         {props.buttonStatus === "NORMAL" && normalBenefits}
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
@@ -733,7 +733,7 @@ const PayPalSubscriptionButton = (props: {
         <Confirm
           title="Confirm Upgrade"
           button={
-            <div className="mt-2 rounded-lg border-2 border-black bg-amber-200 p-2 text-center text-black hover:cursor-pointer hover:bg-orange-200">
+            <div className="mt-2 w-full rounded-lg border-2 border-black bg-amber-200 p-2 text-center text-black hover:cursor-pointer hover:bg-orange-200">
               Or, buy with
               {props.buttonStatus === "NORMAL" && (
                 <h3 className="font-bold italic">
