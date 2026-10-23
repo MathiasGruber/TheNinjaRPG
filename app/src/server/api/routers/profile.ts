@@ -34,6 +34,7 @@ import {
   getTavernColorChangeCost,
   getUserCaps,
   IMG_AVATAR_DEFAULT,
+  KAGE_DEFENSE_REMINDER_HOURS,
   KAGE_MIN_PRESTIGE,
   KAGE_PRESTIGE_REQUIREMENT,
   MAX_ATTRIBUTES,
@@ -243,6 +244,7 @@ import { activeWarAllyWhere } from "@/server/utils/warAlly";
 import { fetchMercenaryWarId } from "@/server/utils/warMercenary";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
+import { getKageSetupDeadline } from "@/utils/kage";
 import {
   canAwardExperience,
   canChangeContent,
@@ -1070,6 +1072,32 @@ export const profileRouter = createTRPCRouter({
           href: "/townhall",
           name: label,
           color: "red",
+          alwaysShow: true,
+        });
+      }
+
+      // Remind the incumbent for the whole publication window; missing it removes the title.
+      const kageVillage = user?.village;
+      const setupDeadline =
+        user &&
+        !user.isAi &&
+        kageVillage?.type === "VILLAGE" &&
+        kageVillage.kageId === user.userId
+          ? getKageSetupDeadline(kageVillage)
+          : null;
+      if (setupDeadline) {
+        const isPaused =
+          kageVillage?.kageSchedule?.kageId === user?.userId &&
+          !!kageVillage?.kageSchedule?.paused;
+        const isUrgent =
+          setupDeadline.getTime() - now.getTime() <=
+          KAGE_DEFENSE_REMINDER_HOURS * 3600_000;
+        notifications.push({
+          href: "/townhall",
+          name: isPaused
+            ? "Kage defense schedule required: deadline paused during war"
+            : `Publish your Kage defense schedule by ${setupDeadline.toISOString().slice(0, 16).replace("T", " ")} UTC or lose the Kage title`,
+          color: isUrgent && !isPaused ? "red" : "blue",
           alwaysShow: true,
         });
       }

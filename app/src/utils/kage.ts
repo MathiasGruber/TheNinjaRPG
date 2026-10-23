@@ -1,14 +1,15 @@
 import {
+  KAGE_DEFENSE_SETUP_HOURS,
   KAGE_DEFENSE_SLOT_MINUTES,
   KAGE_DEFENSE_WINDOW_HOURS,
   KAGE_MIN_DAYS_IN_VILLAGE,
   KAGE_PRESTIGE_REQUIREMENT,
   KAGE_RANK_REQUIREMENT,
 } from "@/drizzle/constants";
-import type { UserData } from "@/drizzle/schema";
+import type { UserData, Village } from "@/drizzle/schema";
 import { hasRequiredRank } from "@/libs/train";
 import type { UserWithRelations } from "@/routers/profile";
-import { getWeeklyWindowSlots } from "@/utils/time";
+import { getWeeklyWindowSlots, secondsFromDate } from "@/utils/time";
 import type { KageWindow } from "@/validators/kage";
 
 /** Enumerate title-defense starts from an inclusive lower bound using the configured UTC cadence. */
@@ -58,4 +59,27 @@ const getDaysInVillage = (user: UserData) => {
  */
 export const isKage = (user: NonNullable<UserWithRelations>) => {
   return Boolean(user?.village && user.userId === user.village?.kageId);
+};
+
+/**
+ * Schedule publication deadline for the incumbent's current tenure, or null once
+ * published. Matches the server's initial deadline until reconciliation persists one.
+ */
+export const getKageSetupDeadline = (
+  v: Pick<
+    Village,
+    "kageId" | "leaderUpdatedAt" | "kageScheduleAvailableAt" | "kageSchedule"
+  >,
+) => {
+  const state = v.kageSchedule;
+  const sameTenure =
+    state?.kageId === v.kageId && state.tenure === v.leaderUpdatedAt.toISOString();
+  if (sameTenure && state.publishedAt) return null;
+  if (sameTenure && state.setupDueAt) return new Date(state.setupDueAt);
+  return secondsFromDate(
+    KAGE_DEFENSE_SETUP_HOURS * 3600,
+    new Date(
+      Math.max(v.leaderUpdatedAt.getTime(), v.kageScheduleAvailableAt.getTime()),
+    ),
+  );
 };

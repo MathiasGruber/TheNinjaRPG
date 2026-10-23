@@ -75,4 +75,11 @@ export type KageDefenseSchedule = {
     ai: boolean;
   };
   vacancy?: { removedUserId: string; reason: string };
+  /** Why the previous incumbent lost the title when an elder was appointed in their place. */
+  predecessor?: {
+    removedUserId: string;
+    removedUsername: string;
+    removedAt: string;
+    reason: string;
+  };
 };

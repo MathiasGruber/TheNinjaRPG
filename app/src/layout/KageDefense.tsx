@@ -191,7 +191,10 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
             ) : (
               <p className="mt-2">
                 The Kage must publish a schedule by {utc(hall.setupDeadline)}.{" "}
-                <Countdown targetDate={hall.setupDeadline} timeDiff={timeDiff} />
+                <Countdown targetDate={hall.setupDeadline} timeDiff={timeDiff} />{" "}
+                Otherwise the title passes to an eligible elder or is left vacant. The
+                deadline is paused during village wars, and at least{" "}
+                {KAGE_DEFENSE_SETUP_HOURS} hours remain after a war ends.
               </p>
             )}
             <p className="mt-2 text-muted-foreground text-sm">
@@ -295,6 +298,13 @@ export const KageDefense = ({ user }: { user: NonNullable<UserWithRelations> }) 
                 </Button>
               </div>
             </div>
+          )}
+          {hall.kageId && hall.schedule?.predecessor && (
+            <p className="rounded border p-3 text-sm">
+              {hall.schedule.predecessor.removedUsername} was removed as Kage on{" "}
+              {utc(new Date(hall.schedule.predecessor.removedAt))}{" "}
+              {hall.schedule.predecessor.reason.replace(/^Kage removed /, "")}.
+            </p>
           )}
           {!hall.kageId && hall.schedule?.vacancy && (
             <div className="space-y-2 rounded border p-3">

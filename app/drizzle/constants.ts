@@ -304,6 +304,7 @@ export const LOG_TYPES = [
   "quest",
   "user",
   "userjutsu",
+  "village",
   "villageStructure",
   "war",
 ] as const;
@@ -3967,6 +3968,8 @@ export const KAGE_DEFENSE_MIN_DAYS = 2;
 export const KAGE_DEFENSE_SLOT_MINUTES = 60;
 export const KAGE_DEFENSE_NOTICE_HOURS = 24;
 export const KAGE_DEFENSE_SETUP_HOURS = 24;
+/** The incumbent's schedule reminder turns urgent this close to the publication deadline. */
+export const KAGE_DEFENSE_REMINDER_HOURS = 12;
 export const KAGE_DEFENSE_CHECK_IN_MINUTES = 5;
 export const KAGE_DEFENSE_GRACE_MINUTES = 5;
 /** Optional early-fight invitations expire independently of scheduled attendance. */

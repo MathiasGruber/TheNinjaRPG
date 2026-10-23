@@ -1,5 +1,7 @@
 import { and, asc, desc, eq, exists, gte, inArray, or, sql } from "drizzle-orm";
+import { nanoid } from "nanoid";
 import {
+  ACTION_LOG_RELATED_MSG_MAX_LENGTH,
   KAGE_CHALLENGER_DAILY_LIMIT,
   KAGE_CHALLENGER_WEEKLY_LIMIT,
   KAGE_DEFENSE_CHECK_IN_MINUTES,
@@ -9,11 +11,14 @@ import {
   KAGE_DEFENSE_PUBLIC_SYNC_SECONDS,
   KAGE_DEFENSE_SETUP_HOURS,
   KAGE_DEFENSE_SLOT_MINUTES,
+  TERR_BOT_ID,
 } from "@/drizzle/constants";
 import {
+  actionLog,
   battle,
   type KageDefendedChallenge,
   kageDefendedChallenges,
+  notification,
   userData,
   village,
   war,
@@ -119,6 +124,10 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
   const warInterrupted = wars.some(
     (w) => w.startedAt > observedAt || (w.endedAt && w.endedAt > observedAt),
   );
+  const lastWarEndedAt = wars.reduce<Date | null>(
+    (latest, w) => (w.endedAt && (!latest || w.endedAt > latest) ? w.endedAt : latest),
+    null,
+  );
   return {
     village: v,
     rows,
@@ -126,6 +135,7 @@ const loadKageDefense = async (client: DrizzleClient, villageId: string) => {
     now,
     paused,
     warInterrupted,
+    lastWarEndedAt,
     resetAssignments: !sameTenure || paused || state.paused || warInterrupted,
   };
 };
@@ -178,6 +188,15 @@ export const syncLockedKageDefense = async (
       new Date(state.setupDueAt).getTime() +
         Math.max(0, now.getTime() - priorObservation.getTime()),
     ).toISOString();
+  }
+  // A war consumes the incumbent's attention, so a full setup window follows its end.
+  if (!state.publishedAt && hall.lastWarEndedAt) {
+    const postWarDeadline = secondsFromDate(
+      KAGE_DEFENSE_SETUP_HOURS * 3600,
+      hall.lastWarEndedAt,
+    );
+    if (postWarDeadline > new Date(state.setupDueAt))
+      state.setupDueAt = postWarDeadline.toISOString();
   }
   if (
     v.kage &&
@@ -485,52 +504,60 @@ export const withinKageChallengeLimits = (
 
 /**
  * Replace an absent incumbent with an eligible elder, or leave a public vacancy.
- * Rank, tenure and waiting assignments change together in the caller's village transaction.
+ * Rank, tenure, waiting assignments, the staff audit row and the announcement change
+ * together in the caller's village transaction, so retries cannot duplicate them.
  */
 const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) => {
+  const { now, village: v } = hall;
   const candidates = await client.query.userData.findMany({
-    where: and(eq(userData.villageId, hall.village.id), eq(userData.rank, "ELDER")),
+    where: and(eq(userData.villageId, v.id), eq(userData.rank, "ELDER")),
     orderBy: [asc(userData.isAi), asc(userData.userId)],
   });
   const replacement = candidates.find(
-    (u) =>
-      u.userId !== hall.village.kageId &&
-      (u.isAi || !getKageEligibility(u, hall.village.id)),
+    (u) => u.userId !== v.kageId && (u.isAi || !getKageEligibility(u, v.id)),
   );
-  const vacancy: KageDefenseSchedule = {
-    kageId: "",
-    tenure: hall.now.toISOString(),
+  const removedUsername = v.kage?.username ?? v.kageId;
+  const removal = {
+    removedUserId: v.kageId,
+    removedUsername,
+    removedAt: now.toISOString(),
+    reason: hall.state.publishedAt
+      ? `Kage removed after ${KAGE_DEFENSE_MAX_NO_SHOWS} missed attended defenses`
+      : `Kage removed for not publishing a defense schedule within ${KAGE_DEFENSE_SETUP_HOURS} hours`,
+  };
+  // An appointed elder starts a fresh tenure that still shows why the title changed hands.
+  const nextSchedule: KageDefenseSchedule = {
+    kageId: replacement?.userId ?? "",
+    tenure: now.toISOString(),
     windows: [],
     publishedAt: null,
     missedStarts: 0,
     paused: false,
-    observedAt: hall.now.toISOString(),
-    vacancy: {
-      removedUserId: hall.village.kageId,
-      reason: hall.state.publishedAt
-        ? `Kage removed after ${KAGE_DEFENSE_MAX_NO_SHOWS} missed attended defenses`
-        : `Kage removed for not publishing a defense schedule within ${KAGE_DEFENSE_SETUP_HOURS} hours`,
-    },
+    observedAt: now.toISOString(),
+    ...(replacement
+      ? { predecessor: removal }
+      : { vacancy: { removedUserId: removal.removedUserId, reason: removal.reason } }),
   };
+  const succession = await client
+    .update(village)
+    .set({
+      kageId: replacement?.userId ?? "",
+      leaderUpdatedAt: now,
+      kageSchedule: nextSchedule,
+    })
+    .where(
+      and(
+        eq(village.id, v.id),
+        eq(village.kageId, v.kageId),
+        eq(village.leaderUpdatedAt, v.leaderUpdatedAt),
+      ),
+    );
+  if (!succession.rowsAffected) return;
   if (replacement?.rank === "ELDER" && !replacement.isAi)
     await client
       .update(userData)
       .set({ rank: "JONIN" })
       .where(eq(userData.userId, replacement.userId));
-  await client
-    .update(village)
-    .set({
-      kageId: replacement?.userId ?? "",
-      leaderUpdatedAt: hall.now,
-      kageSchedule: replacement ? null : vacancy,
-    })
-    .where(
-      and(
-        eq(village.id, hall.village.id),
-        eq(village.kageId, hall.village.kageId),
-        eq(village.leaderUpdatedAt, hall.village.leaderUpdatedAt),
-      ),
-    );
   await client
     .update(kageDefendedChallenges)
     .set({
@@ -538,13 +565,53 @@ const removeAbsentKage = async (client: DrizzleClient, hall: KageDefenseHall) =>
       scheduledAt: null,
       checkedInAt: null,
       aiAccepted: false,
-      notBefore: secondsFromDate(KAGE_DEFENSE_NOTICE_HOURS * 3600, hall.now),
+      notBefore: secondsFromDate(KAGE_DEFENSE_NOTICE_HOURS * 3600, now),
       outcome: "Kage removed for attendance or missing schedule; priority retained",
     })
     .where(
       and(
-        eq(kageDefendedChallenges.villageId, hall.village.id),
+        eq(kageDefendedChallenges.villageId, v.id),
         inArray(kageDefendedChallenges.status, ["QUEUED", "SCHEDULED"]),
+      ),
+    );
+  const successor = replacement
+    ? `${replacement.username} of the Elder Council is now Kage.`
+    : "Elders may nominate an eligible successor at Town Hall.";
+  await client.insert(actionLog).values({
+    id: nanoid(),
+    userId: v.kageId,
+    tableName: "village",
+    relatedId: v.id,
+    relatedMsg: `${removedUsername} removed as Kage of ${v.name}`.slice(
+      0,
+      ACTION_LOG_RELATED_MSG_MAX_LENGTH,
+    ),
+    changes: [
+      `Removed Kage: ${removedUsername} (${v.kageId})`,
+      `Reason: ${removal.reason}`,
+      `Tenure started: ${v.leaderUpdatedAt.toISOString()}`,
+      hall.state.publishedAt
+        ? `Missed attended defenses: ${hall.state.missedStarts}`
+        : `Schedule deadline: ${hall.state.setupDueAt ?? "unknown"}`,
+      replacement
+        ? `Replacement: ${replacement.username} (${replacement.userId})`
+        : "Replacement: none; village left vacant",
+    ],
+  });
+  // Publish one system announcement; unread counters determine who receives it.
+  await client.insert(notification).values({
+    userId: TERR_BOT_ID,
+    content: `${removedUsername} was removed as Kage of ${v.name} ${removal.reason.replace(/^Kage removed /, "")}. ${successor}`,
+  });
+  await client
+    .update(userData)
+    .set({ unreadNotifications: sql`${userData.unreadNotifications} + 1` })
+    .where(
+      inArray(
+        userData.userId,
+        [v.kageId, replacement && !replacement.isAi ? replacement.userId : ""].filter(
+          Boolean,
+        ),
       ),
     );
 };
