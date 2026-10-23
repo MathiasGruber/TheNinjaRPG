@@ -5,6 +5,7 @@ import { MySqlDialect, QueryBuilder } from "drizzle-orm/mysql-core";
 import {
   mpvpBattleUser,
   battle,
+  huntingSession,
   quest,
   questHistory,
   rankedPvpQueue,
@@ -260,6 +261,43 @@ describe("account deletion in the existing cleaner", () => {
           where: eq(userData.userId, "claimed"),
         }))?.status,
       ).toBe("QUEUED");
+    });
+  });
+  describeWithDatabase("abandoned hunting reservations", () => {
+    const huntingBattleRow = (id: string, updatedAt = new Date()) => ({
+      id, background: "default" as const, battleType: "HUNTING" as const, usersState: [], usersEffects: [], groundEffects: [],
+      extraState: {} as (typeof battle.$inferInsert)["extraState"], createdAt: updatedAt, updatedAt, roundStartAt: updatedAt,
+    });
+    afterEach(async () => { await resetTables(battle, huntingSession); });
+    it("releases reservations whose battle expired in the same run and keeps live fights", async () => {
+      const db = await getTestDatabase();
+      await resetTables(battle, huntingSession);
+      await db.insert(battle).values([
+        huntingBattleRow("expired", new Date(Date.now() - 2 * 86_400_000)),
+        huntingBattleRow("live"),
+      ]);
+      await db.insert(huntingSession).values(["expired", "live", "gone"].map((battleId) => ({
+        userId: battleId, id: battleId, habitatId: "forest", contractId: "contract", sector: 1,
+        version: 3, battleId, readyAt: new Date(0), startedAt: new Date(0),
+      })));
+      stubDatabase({
+        execute: mocks.execute,
+        select: db.select.bind(db),
+        // Only battle expiry and the reservation repair run against SQL.
+        delete: (table: object) => table === battle ? db.delete(battle) : skipDelete(),
+        update: (table: object) => table === huntingSession
+          ? db.update(huntingSession)
+          : { set: () => ({ where: vi.fn().mockResolvedValue(undefined) }) },
+      });
+      mocks.lock.mockResolvedValueOnce({ release: mocks.reset, isNewHour: true, prevTime: new Date(0) });
+      expect((await GET(request())).status).toBe(200);
+      expect((await db.query.battle.findMany()).map((b) => b.id)).toEqual(["live"]);
+      const sessions = await db.query.huntingSession.findMany();
+      expect(Object.fromEntries(sessions.map((s) => [s.id, [s.battleId, s.version]]))).toEqual({
+        expired: [null, 4],
+        gone: [null, 4],
+        live: ["live", 3],
+      });
     });
   });
   describeWithDatabase("isolated Pyramid status repair", () => {
