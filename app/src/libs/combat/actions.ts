@@ -130,6 +130,16 @@ export const availableUserActions = (
   if (battle && user) {
     user.jutsus = handleInjectedJutsus(battle, user);
   }
+  const enabledInjectedJutsuIds = new Set(
+    battle?.usersEffects
+      .filter(
+        (effect) =>
+          effect.type === "injectjutsus" &&
+          effect.targetId === userId &&
+          isEffectEnabled(effect, battle.usersEffects),
+      )
+      .flatMap((effect) => InjectJutsusTag.parse(effect).jutsuIds),
+  );
 
   // Concatenate all actions
   let availableActions = [
@@ -177,6 +187,12 @@ export const availableUserActions = (
           .filter((userjutsu) => {
             const jutsu = getJutsu(battle, userjutsu.jutsuId);
             if (!jutsu) return false;
+            if (
+              userjutsu.origin === "injected" &&
+              jutsu.id !== SAGE_MODE_ACTIVATION_JUTSU_ID &&
+              !enabledInjectedJutsuIds.has(jutsu.id)
+            )
+              return false;
             // Separate companion balance from every player, AI and summon loadout,
             // including injected actions and snapshots saved before content edits.
             if ((jutsu.jutsuType === "PETS") !== Boolean(user.petId)) return false;
@@ -848,16 +864,15 @@ export const userJutsuToAction = (
  * the mode's CP/SP cost, and the battle type allows sage mode.
  * - Union of jutsus from ALL active inject effects (multiple injects stack).
  * - Remove only jutsus that are no longer in any active effect (expiry).
- * - Preserve existing injected jutsu objects so lastUsedRound/cooldown is kept.
+ * - Preserve existing injected jutsu objects so lastUsedRound/cooldown is kept,
+ *   including while a grant is sealed. Action selection hides disabled grants.
  */
 export const handleInjectedJutsus = (
   battle: ReturnedBattle,
   user: ReturnedUserState,
 ) => {
   const injectEffects = battle?.usersEffects
-    ?.filter(
-      (e) => e.targetId === user.userId && isEffectEnabled(e, battle.usersEffects),
-    )
+    ?.filter((e) => e.targetId === user.userId && isEffectActive(e))
     ?.filter((e) => e.type === "injectjutsus");
 
   const allJutsus = battle?.extraState.jutsus ?? {};

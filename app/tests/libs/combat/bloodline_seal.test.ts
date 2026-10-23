@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { availableUserActions } from "@/libs/combat/actions";
+import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { applyEffects } from "@/libs/combat/process";
 import { applyFinalStandDamage, heal, healPrevent } from "@/libs/combat/tags";
 import type { UserEffect } from "@/libs/combat/types";
@@ -14,6 +15,7 @@ import {
   makeCompleteBattle,
   makeDamageEffect,
   makeEffect,
+  makeTag,
 } from "./helpers/battleScenario";
 
 const target = () => makeBattleUser("defender", { curHealth: 100, maxHealth: 1000 });
@@ -145,5 +147,47 @@ describe("Bloodline Seal", () => {
     const sealed = resolve([shield, sealEffect()]);
     expect(sealed.usersState[1]?.curHealth).toBeLessThan(100);
     expect(shield.power).toBe(500);
+  });
+});
+
+const injectedFixture = () => {
+  const jutsu = { ...SAGE_MODE_ACTIVATION_JUTSU, id: "injected-skill", name: "Injected skill", cooldown: 10, effects: [makeTag("heal")] };
+  const user = makeBattleUser("defender", {
+    jutsus: [{ id: "owned-injection", jutsuId: jutsu.id, origin: "injected", equipped: true, level: 1, experience: 0, originalCooldown: 10, lastUsedRound: 3 }],
+  });
+  const grant = makeEffect("injectjutsus", { jutsuIds: [jutsu.id], rounds: 20 }, runtime);
+  const seal = sealEffect();
+  const battle = makeCompleteBattle({ round: 4, usersState: [user], usersEffects: [grant, seal], extraState: { jutsus: { [jutsu.id]: jutsu } } });
+  return { user, grant, seal, battle, jutsu };
+};
+
+describe("Bloodline Seal injected jutsu", () => {
+  it("hides a sealed grant while preserving its record and cooldown after restoration", () => {
+    const { user, seal, battle, jutsu } = injectedFixture();
+    const original = user.jutsus[0];
+    expect(availableUserActions(battle, user.userId).some(a => a.id === jutsu.id)).toBe(false);
+    expect(user.jutsus[0]).toBe(original);
+    seal.rounds = 0;
+    battle.round = 6;
+    const restored = availableUserActions(battle, user.userId).find(a => a.id === jutsu.id);
+    expect(restored?.lastUsedRound).toBe(3);
+    expect(restored?.cooldown).toBe(10);
+    expect(availableUserActions(battle, user.userId, true, true).some(a => a.id === jutsu.id)).toBe(false);
+    battle.round = 13;
+    expect(availableUserActions(battle, user.userId, true, true).some(a => a.id === jutsu.id)).toBe(true);
+  });
+
+  it("keeps a jutsu available if an unsealed source grants it too", () => {
+    const { user, grant, battle, jutsu } = injectedFixture();
+    battle.usersEffects.push({ ...grant, id: "item-grant", fromType: "item" });
+    expect(availableUserActions(battle, user.userId).some(a => a.id === jutsu.id)).toBe(true);
+    expect(user.jutsus[0]?.lastUsedRound).toBe(3);
+  });
+
+  it("removes an injected record when its grant expires during sealing", () => {
+    const { user, grant, battle } = injectedFixture();
+    grant.rounds = 0;
+    availableUserActions(battle, user.userId);
+    expect(user.jutsus).toEqual([]);
   });
 });
