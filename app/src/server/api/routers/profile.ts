@@ -3300,7 +3300,8 @@ export const updateUserContent = async (props: {
 
 /**
  * Load user relations and settle passive regeneration when due or forceRegen=true.
- * A lost snapshot CAS discards the hydrated user; at most three complete attempts are made.
+ * A lost snapshot CAS discards the hydrated user; at most three hydration attempts are made.
+ * Passive settlement is attempted once; losing its CAS only rehydrates the winning state.
  * Repeated concurrent changes produce a conflict instead of stale user data.
  */
 export const fetchUpdatedUser = async (

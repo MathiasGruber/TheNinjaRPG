@@ -201,6 +201,7 @@ export const isMockQuestHistoryRow = (row: { id: string; questId: string }): boo
  * Strip in-memory-only achievement trackers before persisting `UserData.questData`, except
  * completed collection goals and event counters whose progress must survive until reward claim.
  * Mock rows from `mockAchievementHistoryEntries` use `id === questId`; real `QuestHistory.id` is a nanoid.
+ * @param preserveUnloadedTrackers Keep omitted progress in sparse reads; loaded orphan rows still allow cleanup.
  */
 export const filterQuestTrackersForDbPersist = (
   trackers: QuestTrackerType[],
@@ -689,6 +690,7 @@ export const getReward = (
       increment: 1,
       contentId: userQuest.questId,
     });
+    // Credit this claim before its completion history has been persisted.
     const completionTask =
       QuestCompletionTasks[
         userQuest.quest.questType as keyof typeof QuestCompletionTasks
@@ -1404,6 +1406,7 @@ export const getNewTrackers = (
           } else if (task === "raids_completed" && user.raidsCompleted !== undefined) {
             status.value = Number(user.raidsCompleted);
           } else if (isInArray(task, Object.values(QuestCompletionTasks))) {
+            // Repeatable quests reset completed; retain lifetime totals and legacy completions.
             status.value = user.completedQuests.reduce(
               (total, history) =>
                 history.questType &&

@@ -94,6 +94,7 @@ export const CombatActivityTasks = [
   "overworld_ai_fought",
 ] as const;
 
+/** Quest claims that contribute to lifetime completion objectives. */
 export const QuestCompletionTasks = {
   battlepyramid: "battle_pyramids_completed",
   story: "stories_completed",
@@ -101,6 +102,7 @@ export const QuestCompletionTasks = {
   overworld: "overworld_quests_completed",
 } as const;
 
+/** Derived completion goals whose earned snapshot survives until the achievement is claimed. */
 export const CompletionTasks = [
   ...Object.values(QuestCompletionTasks),
   "dungeons_completed",

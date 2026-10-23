@@ -2,11 +2,13 @@ import { getTableName, gt, gte, or, sql } from "drizzle-orm";
 import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
 import { questHistory } from "@/drizzle/schema";
 
+/** Receipt-derived totals; sparse readers omit counts rather than treating them as zero. */
 export type ActivityCompletions = {
   dungeonsCompleted?: number;
   raidsCompleted?: number;
 };
 
+/** Include lifetime history even when a repeatable quest's current completion was reset. */
 export const completedQuestHistoryRelation = {
   columns: {
     id: true,
