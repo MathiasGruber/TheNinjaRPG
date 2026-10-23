@@ -31,7 +31,7 @@ import { showMutationToast } from "@/libs/toast";
 import { canAwardReputation } from "@/utils/permissions";
 import { useUserData } from "@/utils/UserContext";
 import type { ZodAllTags } from "@/validators/combat";
-import { getTagSchema, isActivityBonus, tagTypes } from "@/validators/combat";
+import { getTagSchema, tagTypes } from "@/validators/combat";
 import {
   type ThresholdFormData,
   type ThresholdFormDataInput,
@@ -491,9 +491,7 @@ export const RaidThresholdEditor: React.FC<RaidThresholdEditorProps> = ({
                       <EffectFormWrapper
                         idx={idx}
                         type="jutsu"
-                        availableTags={tagTypes.filter(
-                          (type) => !isActivityBonus({ type }),
-                        )}
+                        availableTags={tagTypes}
                         tag={effect}
                         effects={effects}
                         setEffects={setEffects}

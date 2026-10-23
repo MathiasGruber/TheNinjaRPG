@@ -4078,9 +4078,7 @@ const QuestBattleEffects = ({
           if (type)
             setEffects([
               ...effects,
-              getTagSchema(type).parse(
-                isActivityBonus({ type }) ? {} : { target: "SELF", rounds: 3 },
-              ) as ZodAllTags,
+              getTagSchema(type).parse({ target: "SELF", rounds: 3 }) as ZodAllTags,
             ]);
         }}
       >
