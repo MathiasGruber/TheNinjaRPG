@@ -616,6 +616,7 @@ export const disposeAnimatedGroup = (root: Object3D, spriteMixer: SpriteMixer) =
  */
 export const cleanUp = (scene: Scene, renderer: WebGLRenderer) => {
   scene.traverse((object) => {
+    // Disposing a material does not free its actor-owned atlas clone.
     if (typeof object.userData.disposeCharacterAnimation === "function")
       object.userData.disposeCharacterAnimation();
     if ("isMesh" in object || "isSprite" in object || "isLine" in object) {

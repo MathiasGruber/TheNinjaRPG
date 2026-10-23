@@ -20,7 +20,9 @@ import {
   spriteAnimationSchema,
 } from "@/validators/spriteAnimation";
 
+/** Staff-managed immutable sheets and reversible AI bindings, used by new battles. */
 export const spriteAnimationRouter = createTRPCRouter({
+  /** Load the AI's available actions, saved bindings and reusable library together. */
   getAiConfig: protectedProcedure
     .input(aiSpriteAnimationInput)
     .query(async ({ ctx, input }) => {
@@ -44,6 +46,7 @@ export const spriteAnimationRouter = createTRPCRouter({
         animations,
       };
     }),
+  /** Create a shared library entry without assigning it to an AI. */
   create: protectedProcedure
     .input(spriteAnimationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -66,6 +69,7 @@ export const spriteAnimationRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Sprite animation created", id };
     }),
+  /** Save or clear one action override, then invalidate suggestions based on old bindings. */
   assign: protectedProcedure
     .input(assignSpriteAnimationSchema)
     .mutation(async ({ ctx, input }) => {
@@ -85,32 +89,32 @@ export const spriteAnimationRouter = createTRPCRouter({
         return errorResponse("This AI does not have that action");
       if (input.animationId && !animation)
         return errorResponse("Sprite animation not found");
-      // Assignment and entity version change together, so content review sees one coherent edit.
-      await ctx.drizzle.transaction(async (tx) => {
-        if (input.animationId) {
-          await tx
-            .insert(aiSpriteAnimation)
-            .values({
-              userId: ai.userId,
-              actionKey: input.actionKey,
-              animationId: input.animationId,
-            })
-            .onDuplicateKeyUpdate({ set: { animationId: input.animationId } });
-        } else {
-          await tx
-            .delete(aiSpriteAnimation)
-            .where(
-              and(
-                eq(aiSpriteAnimation.userId, ai.userId),
-                eq(aiSpriteAnimation.actionKey, input.actionKey),
+      // The binding changes in one atomic statement; concurrent staff edits are
+      // last-write-wins and can be reapplied. Review versions hash the bindings,
+      // so timestamp/audit writes need no cross-row transaction or locking read.
+      await Promise.all([
+        input.animationId
+          ? ctx.drizzle
+              .insert(aiSpriteAnimation)
+              .values({
+                userId: ai.userId,
+                actionKey: input.actionKey,
+                animationId: input.animationId,
+              })
+              .onDuplicateKeyUpdate({ set: { animationId: input.animationId } })
+          : ctx.drizzle
+              .delete(aiSpriteAnimation)
+              .where(
+                and(
+                  eq(aiSpriteAnimation.userId, ai.userId),
+                  eq(aiSpriteAnimation.actionKey, input.actionKey),
+                ),
               ),
-            );
-        }
-        await tx
+        ctx.drizzle
           .update(userData)
           .set({ updatedAt: new Date() })
-          .where(eq(userData.userId, ai.userId));
-        await tx.insert(actionLog).values({
+          .where(eq(userData.userId, ai.userId)),
+        ctx.drizzle.insert(actionLog).values({
           id: nanoid(),
           userId: ctx.userId,
           tableName: "ai",
@@ -119,8 +123,8 @@ export const spriteAnimationRouter = createTRPCRouter({
           changes: [
             `${input.actionKey}: ${ai.spriteAnimationBindings.find((binding) => binding.actionKey === input.actionKey)?.animationId ?? "default"} → ${input.animationId ?? "default"}`,
           ],
-        });
-      });
+        }),
+      ]);
       await outdateProposalsFor(
         ctx.drizzle,
         "AI",
@@ -134,6 +138,7 @@ export const spriteAnimationRouter = createTRPCRouter({
     }),
 });
 
+/** Fetch an AI and the equipped catalogue entries needed to validate assignment keys. */
 const fetchAnimationAi = (client: import("@/server/db").DrizzleClient, id: string) =>
   client.query.userData.findFirst({
     where: and(eq(userData.userId, id), eq(userData.isAi, true)),
@@ -144,6 +149,7 @@ const fetchAnimationAi = (client: import("@/server/db").DrizzleClient, id: strin
     },
   });
 
+/** Use catalogue IDs so reusable sheets follow equipped actions rather than inventory rows. */
 const animationActions = (
   ai: NonNullable<Awaited<ReturnType<typeof fetchAnimationAi>>>,
 ) => [

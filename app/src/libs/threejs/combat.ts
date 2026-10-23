@@ -781,6 +781,7 @@ export const setAiAvatarFacing = (sprite: Sprite, facing: AvatarFacing) => {
   const mirrored = data.avatarFacing !== facing;
   if (data.mirrored === mirrored) return;
   data.mirrored = mirrored;
+  // Animated actors own their material and mirror UVs within the active atlas cell.
   if (!sprite.userData.characterAnimation) {
     sprite.material = aiAvatarMaterial(data.avatarPath, mirrored);
   }
@@ -817,6 +818,7 @@ export const createUserSprite = (
   group.add(shadow_sprite);
 
   // User marker background or raw image
+  // Animated bodies use unframed artwork, including AIs that normally use avatar markers.
   const noMarker =
     userData.isAi &&
     (userData.isOriginal || Object.keys(userData.spriteAnimations ?? {}).length > 0);

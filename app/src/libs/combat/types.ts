@@ -126,7 +126,9 @@ export type CombatQueryCompletedQuest = {
  */
 export type CombatQueryUser = UserData &
   ActivityCompletions & {
+    /** Retained when lobby/loadout processing receives an already frozen combatant. */
     spriteAnimations?: CharacterAnimations;
+    /** Initiation-only relation; stripped after projecting rendering metadata into battle state. */
     spriteAnimationBindings?: {
       actionKey: string;
       animation: import("@/drizzle/schema").SpriteAnimation | null;
@@ -181,7 +183,9 @@ export type ProcessedItem = CombatQueryUserItem & {
 export type CombatUserFields = {
   /** Identity masking captured with the combatant's battle snapshot. */
   isMasked?: boolean;
+  /** Rendering-only snapshots remain stable when staff change the AI's live assignments. */
   spriteAnimations?: CharacterAnimations;
+  /** Latest delivered action ID/key; clients deduplicate it and queue assigned one-shots. */
   spriteAnimationEvent?: SpriteAnimationEvent;
   /** Damage already deferred by Diffuse; survives the granting effect's expiry. */
   diffuseDamage?: {

@@ -63,6 +63,7 @@ export const useAiEditForm = (
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
+        // Equipment edits also change which jutsu/item actions can receive animations.
         await Promise.all([
           utils.profile.getAi.invalidate(),
           utils.spriteAnimation.getAiConfig.invalidate({ userId: user.userId }),

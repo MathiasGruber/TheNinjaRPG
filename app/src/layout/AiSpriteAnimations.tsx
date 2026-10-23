@@ -18,10 +18,12 @@ import {
   spriteAnimationSchema,
 } from "@/validators/spriteAnimation";
 
+/** Edit one AI's bindings and shared sheets independently of the parent AI form draft. */
 export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
   const utils = api.useUtils();
   const config = api.spriteAnimation.getAiConfig.useQuery({ userId });
   const [actionKey, setActionKey] = useState("idle");
+  // Undefined follows the saved binding; an empty string explicitly previews clearing it.
   const [candidateId, setCandidateId] = useState<string>();
   const form = useForm<SpriteAnimationInput>({
     resolver: zodResolver(spriteAnimationSchema),
@@ -37,6 +39,7 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
   });
   const { errors } = useFormState({ control: form.control });
   const draft = useWatch({ control: form.control });
+  // An unnamed draft can be inspected, but creation still requires the resolver's name.
   const draftPreview = spriteAnimationSchema.safeParse({
     ...draft,
     name: draft.name || "New animation",
@@ -293,6 +296,10 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
   );
 };
 
+/**
+ * Preview the unchanged row-major atlas without cropping or resizing its source cells.
+ * Key by sheet identity or draft metadata to reset frame and load-error state on edits.
+ */
 export const SpriteAnimationPreview = ({
   animation,
 }: {

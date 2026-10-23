@@ -8,20 +8,12 @@ import type {
 import { resolveSpriteAnimation, spriteAnimationFrame } from "@/libs/spriteAnimations";
 import { loadTexture } from "@/libs/threejs/util";
 
-type AnimationRuntime = {
-  material: SpriteMaterial;
-  animationId?: string;
-  stateKey?: string;
-  startedAt: number;
-  eventId?: string;
-  events: SpriteAnimationEvent[];
-  eventStartedAt?: number;
-};
-
 /**
  * Characters retain their existing Sprite while swapping sheets with different grids.
  * SpriteMixer's ActionSprite fixes its grid at construction; this adapter owns a private
  * map per actor so grid changes and cell mirroring never mutate a shared atlas.
+ * Movement has priority over queued one-shots. `now` is the render loop's monotonic
+ * millisecond clock; the scene cleanup hook releases only this actor's owned resources.
  */
 export const updateCharacterAnimation = (info: {
   sprite: Sprite;
@@ -118,6 +110,7 @@ export const updateCharacterAnimation = (info: {
     runtime.material.needsUpdate = true;
     runtime.animationId = animation.id;
   }
+  // Event identity restarts repeated casts even when they share the same atlas.
   const isActionAnimation = !moving && actionPlaying && animation === action;
   const stateKey = isActionAnimation ? actionEvent?.id : key;
   if (runtime.stateKey !== stateKey) {
@@ -149,4 +142,15 @@ export const applySpriteAnimationFrame = (
     (column + (mirrored ? 1 : 0)) / animation.columns,
     1 - (row + 1) / animation.rows,
   );
+};
+
+/** Actor-owned GPU resources and separate receipt, queued-action and visible-sheet clocks. */
+type AnimationRuntime = {
+  material: SpriteMaterial;
+  animationId?: string;
+  stateKey?: string;
+  startedAt: number;
+  eventId?: string;
+  events: SpriteAnimationEvent[];
+  eventStartedAt?: number;
 };

@@ -4309,6 +4309,8 @@ const assertAcyclicSummons = (dependencies: Map<string, Set<string>>) => {
  * Companion species summons join initiation's preload so their effect dispatch needs no reads.
  * Ranked players normalize to endgame levels; other Elite players retain earned milestone levels.
  * Recursive summon loads reject cycles; references satisfied by the same batch remain valid.
+ * Animation relations become rendering-only snapshots; reprocessed combatants keep
+ * their existing snapshots so live assignment edits cannot change an ongoing battle.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.

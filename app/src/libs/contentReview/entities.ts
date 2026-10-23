@@ -82,6 +82,7 @@ export const draftName = (fields: Record<string, unknown>) => {
 const toEntity = (type: ContentProposalEntityType, loaded: Loaded): ContentEntity => {
   const editable = pick(loaded.payload, ENTITY_CONFIG[type].editableKeys);
   // Animation assignments are edited separately but still invalidate AI proposals.
+  // Empty bindings retain the editable-only version; clearing overrides restores it.
   const assignments = loaded.payload.spriteAnimationAssignments;
   const versioned =
     type === "AI" && Array.isArray(assignments) && assignments.length > 0
@@ -377,6 +378,7 @@ export const ENTITY_CONFIG: Record<ContentProposalEntityType, EntityConfig> = {
         isHidden: false,
         payload: {
           ...row,
+          // Database row order must not change an otherwise identical review version.
           spriteAnimationAssignments: spriteAnimationBindings
             .map(({ actionKey, animationId }) => ({ actionKey, animationId }))
             .sort((a, b) => a.actionKey.localeCompare(b.actionKey)),

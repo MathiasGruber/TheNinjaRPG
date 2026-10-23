@@ -1447,6 +1447,8 @@ export const performBattleAction = (props: {
   // Apply relevant effects, and get back new state + active effects
   const { newBattle, actionEffects } = applyEffects(battle, actorId, action);
 
+  // Effects replace participant objects; attach the event to the returned state,
+  // using a fresh ID so repeated casts of the same action can restart playback.
   const animatedActor = newBattle.usersState.find((actor) => actor.userId === actorId);
   if (
     animatedActor?.spriteAnimations &&

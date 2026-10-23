@@ -199,8 +199,10 @@ export const spriteAnimation = mysqlTable("SpriteAnimation", {
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
   createdByUserId: varchar("createdByUserId", { length: 191 }).notNull(),
 });
+/** Stored library entry, including staff attribution and rendering metadata. */
 export type SpriteAnimation = InferSelectModel<typeof spriteAnimation>;
 
+/** One replaceable override per AI/action; clearing it leaves the shared sheet intact. */
 export const aiSpriteAnimation = mysqlTable("AiSpriteAnimation", {
   userId: varchar("userId", { length: 191 }).notNull(),
   actionKey: varchar("actionKey", { length: 191 }).notNull(),
@@ -209,6 +211,7 @@ export const aiSpriteAnimation = mysqlTable("AiSpriteAnimation", {
   pk: primaryKey({ columns: [table.userId, table.actionKey] }),
   animation: index("AiSpriteAnimation_animation_idx").on(table.animationId),
 }));
+/** Resolve shared sheets at battle initiation rather than fetching them during actions. */
 export const aiSpriteAnimationRelations = relations(aiSpriteAnimation, ({ one }) => ({
   user: one(userData, { fields: [aiSpriteAnimation.userId], references: [userData.userId] }),
   animation: one(spriteAnimation, { fields: [aiSpriteAnimation.animationId], references: [spriteAnimation.id] }),

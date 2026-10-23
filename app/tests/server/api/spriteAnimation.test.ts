@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
-import { actionLog, aiProfile, aiSpriteAnimation, battle, jutsu, spriteAnimation, userData, userJutsu } from "@/drizzle/schema";
+import {
+  actionLog,
+  aiProfile,
+  aiSpriteAnimation,
+  battle,
+  contentProposal,
+  contentProposalBasis,
+  jutsu,
+  spriteAnimation,
+  userData,
+  userJutsu,
+} from "@/drizzle/schema";
 import { loadEntities } from "@/libs/contentReview/entities";
 import { contentVersion } from "@/libs/contentReview/version";
 import { Pusher } from "@/libs/pusher";
@@ -13,7 +24,7 @@ import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables }
 describeWithDatabase("sprite animation administration and battle snapshots", () => {
   beforeEach(async () => {
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
-    await resetTables(aiSpriteAnimation, spriteAnimation, battle, actionLog, userJutsu, jutsu, aiProfile, userData);
+    await resetTables(aiSpriteAnimation, spriteAnimation, battle, contentProposalBasis, contentProposal, actionLog, userJutsu, jutsu, aiProfile, userData);
     await insertUsers([
       { userId: "editor", username: "Editor", role: "CONTENT", rank: "JONIN", level: 50 },
       { userId: "player", username: "Player", rank: "JONIN", level: 50 },
@@ -48,6 +59,74 @@ describeWithDatabase("sprite animation administration and battle snapshots", () 
     const cleared = (await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])).get("AI:ai")!.version;
     expect(cleared).toBe(before);
     expect(cleared).not.toBe(after);
+  });
+  it("outdates proposals after binding changes while retaining current proposals on an unchanged save", async () => {
+    const db = await getTestDatabase();
+    const api = await caller();
+    /** Seed a pending suggestion against the AI's actual current review version. */
+    const saveProposal = async (id: string) => {
+      const entity = (
+        await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])
+      ).get("AI:ai")!;
+      await Promise.all([
+        db.insert(contentProposal).values({
+          id,
+          title: "Review this AI's animation",
+          rationale: "Animation choices depend on the current AI bindings.",
+          category: "ANIMATION",
+          source: "STAFF",
+        }),
+        db.insert(contentProposalBasis).values({
+          proposalId: id,
+          entityType: "AI",
+          entityId: "ai",
+          version: entity.version,
+          role: "TARGET",
+        }),
+      ]);
+    };
+    await db
+      .update(userData)
+      .set({ updatedAt: new Date("2020-01-01") })
+      .where(eq(userData.userId, "ai"));
+    await saveProposal("before-assignment");
+    expect(
+      (await api.assign({ userId: "ai", actionKey: "idle", animationId: "idle" })).success,
+    ).toBe(true);
+    expect(
+      (await db.query.contentProposal.findFirst({
+        where: eq(contentProposal.id, "before-assignment"),
+      }))?.status,
+    ).toBe("OUTDATED");
+    expect(
+      (await db.query.userData.findFirst({ where: eq(userData.userId, "ai") }))!
+        .updatedAt.getTime(),
+    ).toBeGreaterThan(new Date("2020-01-01").getTime());
+    expect(
+      await db.query.actionLog.findMany({ where: eq(actionLog.relatedId, "ai") }),
+    ).toHaveLength(1);
+
+    await saveProposal("current-assignment");
+    expect(
+      (await api.assign({ userId: "ai", actionKey: "idle", animationId: "idle" })).success,
+    ).toBe(true);
+    expect(
+      (await db.query.contentProposal.findFirst({
+        where: eq(contentProposal.id, "current-assignment"),
+      }))?.status,
+    ).toBe("PENDING");
+
+    expect(
+      (await api.assign({ userId: "ai", actionKey: "idle", animationId: null })).success,
+    ).toBe(true);
+    expect(
+      (await db.query.contentProposal.findFirst({
+        where: eq(contentProposal.id, "current-assignment"),
+      }))?.status,
+    ).toBe("OUTDATED");
+    expect(
+      await db.query.actionLog.findMany({ where: eq(actionLog.relatedId, "ai") }),
+    ).toHaveLength(3);
   });
   it("freezes animations at initiation, including their real source facing, without author metadata", async () => {
     const db = await getTestDatabase();

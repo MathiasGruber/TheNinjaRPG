@@ -1580,6 +1580,7 @@ export const profileRouter = createTRPCRouter({
       // Run all inserts at once
       await Promise.all([
         ctx.drizzle.insert(userData).values(aiData),
+        // Clone the bindings, retaining the same immutable sheets in the shared library.
         ...(animationBindings.length
           ? [
               ctx.drizzle.insert(aiSpriteAnimation).values(

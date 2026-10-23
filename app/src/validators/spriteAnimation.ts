@@ -20,10 +20,13 @@ export const spriteAnimationSchema = z
     path: ["frameCount"],
   });
 
+/** Select an AI; the router also checks that it exists and that the caller can edit content. */
 export const aiSpriteAnimationInput = z.object({ userId: z.string().min(1) });
+/** Null removes an override; the router verifies both the action and library entry exist. */
 export const assignSpriteAnimationSchema = aiSpriteAnimationInput.extend({
   actionKey: z.string().min(1).max(191),
   animationId: z.string().min(1).nullable(),
 });
 
+/** Form values may contain numeric strings; the shared schema coerces them before saving. */
 export type SpriteAnimationInput = z.input<typeof spriteAnimationSchema>;
