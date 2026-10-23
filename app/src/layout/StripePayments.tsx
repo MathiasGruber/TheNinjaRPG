@@ -101,7 +101,10 @@ export const StripePaymentReturn = () => {
   const [message, setMessage] = useState("");
   const started = useRef(false);
   const cancelCheckout = api.stripe.cancelCheckout.useMutation({
-    onSuccess: (result) => setMessage(result.message),
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      if (result.success) await utils.paypal.getRecentRepsCount.invalidate();
+    },
     onError: () =>
       setMessage("Could not close checkout yet. Please reload to try again."),
   });
