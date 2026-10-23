@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFormState } from "react-hook-form";
 import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
       facing: "left",
     },
   });
+  const { errors } = useFormState({ control: form.control });
   const create = api.spriteAnimation.create.useMutation({
     onSuccess: async (result) => {
       showMutationToast(result);
@@ -165,9 +166,9 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
             <div key={field}>
               <Label htmlFor={`sprite-${field}`}>{label}</Label>
               <Input id={`sprite-${field}`} {...form.register(field)} />
-              {form.formState.errors[field] && (
+              {errors[field] && (
                 <p role="alert" className="text-destructive text-xs">
-                  {form.formState.errors[field]?.message}
+                  {errors[field]?.message}
                 </p>
               )}
             </div>
@@ -201,9 +202,9 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
                   step={field === "fps" ? "0.1" : "1"}
                   {...form.register(field)}
                 />
-                {form.formState.errors[field] && (
+                {errors[field] && (
                   <p role="alert" className="text-destructive text-xs">
-                    {form.formState.errors[field]?.message}
+                    {errors[field]?.message}
                   </p>
                 )}
               </div>

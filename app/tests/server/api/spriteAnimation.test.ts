@@ -2,8 +2,10 @@ import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import { actionLog, aiProfile, aiSpriteAnimation, battle, jutsu, spriteAnimation, userData, userJutsu } from "@/drizzle/schema";
 import { loadEntities } from "@/libs/contentReview/entities";
+import { contentVersion } from "@/libs/contentReview/version";
 import { Pusher } from "@/libs/pusher";
 import { initiateBattle } from "@/server/api/routers/combat";
+import { profileRouter } from "@/server/api/routers/profile";
 import { spriteAnimationRouter } from "@/server/api/routers/spriteAnimation";
 import { insertUsers } from "../../setup/factories";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
@@ -32,7 +34,9 @@ describeWithDatabase("sprite animation administration and battle snapshots", () 
   });
   it("upserts and clears assignments while retaining reusable sheets and changing review basis", async () => {
     const db = await getTestDatabase(); const api = await caller();
-    const before = (await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])).get("AI:ai")!.version;
+    const original = (await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])).get("AI:ai")!;
+    const before = original.version;
+    expect(before).toBe(contentVersion(original.editable));
     expect((await api.assign({ userId: "ai", actionKey: "idle", animationId: "idle" })).success).toBe(true);
     const after = (await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])).get("AI:ai")!.version;
     expect(after).not.toBe(before);
@@ -41,6 +45,9 @@ describeWithDatabase("sprite animation administration and battle snapshots", () 
     await api.assign({ userId: "ai", actionKey: "idle", animationId: null });
     expect(await db.query.aiSpriteAnimation.findMany()).toHaveLength(0);
     expect(await db.query.spriteAnimation.findMany()).toHaveLength(2);
+    const cleared = (await loadEntities(db, [{ entityType: "AI", entityId: "ai" }])).get("AI:ai")!.version;
+    expect(cleared).toBe(before);
+    expect(cleared).not.toBe(after);
   });
   it("freezes animations at initiation, including their real source facing, without author metadata", async () => {
     const db = await getTestDatabase();
@@ -54,5 +61,20 @@ describeWithDatabase("sprite animation administration and battle snapshots", () 
     await (await caller()).assign({ userId: "ai", actionKey: "idle", animationId: "move" });
     const persisted = await db.query.battle.findFirst({ where: eq(battle.id, saved.id) });
     expect(persisted!.usersState.find((user) => user.controllerId === "ai")!.spriteAnimations?.idle?.id).toBe("idle");
+  });
+  it("copies assignments when cloning an AI and removes only bindings when deleting the clone", async () => {
+    const db = await getTestDatabase();
+    await (await caller()).assign({ userId: "ai", actionKey: "idle", animationId: "idle" });
+    const profile = callerForDatabase(profileRouter, "editor", db);
+    const cloned = await profile.cloneAi({ id: "ai" });
+    expect(cloned.success).toBe(true);
+    const cloneId = cloned.message;
+    expect(await db.query.aiSpriteAnimation.findMany({ where: eq(aiSpriteAnimation.userId, cloneId) })).toMatchObject([
+      { userId: cloneId, actionKey: "idle", animationId: "idle" },
+    ]);
+    expect((await profile.delete({ id: cloneId })).success).toBe(true);
+    expect(await db.query.aiSpriteAnimation.findMany({ where: eq(aiSpriteAnimation.userId, cloneId) })).toHaveLength(0);
+    expect(await db.query.aiSpriteAnimation.findMany({ where: eq(aiSpriteAnimation.userId, "ai") })).toHaveLength(1);
+    expect(await db.query.spriteAnimation.findMany()).toHaveLength(2);
   });
 });

@@ -82,11 +82,12 @@ export const draftName = (fields: Record<string, unknown>) => {
 const toEntity = (type: ContentProposalEntityType, loaded: Loaded): ContentEntity => {
   const editable = pick(loaded.payload, ENTITY_CONFIG[type].editableKeys);
   // Animation assignments are edited separately but still invalidate AI proposals.
+  const assignments = loaded.payload.spriteAnimationAssignments;
   const versioned =
-    type === "AI"
+    type === "AI" && Array.isArray(assignments) && assignments.length > 0
       ? {
           ...editable,
-          spriteAnimationAssignments: loaded.payload.spriteAnimationAssignments ?? [],
+          spriteAnimationAssignments: assignments,
         }
       : editable;
   return { ...loaded, type, editable, version: contentVersion(versioned) };
