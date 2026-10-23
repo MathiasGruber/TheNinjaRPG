@@ -3300,31 +3300,41 @@ export const updateUserContent = async (props: {
 
 /**
  * Load user relations and settle passive regeneration when due or forceRegen=true.
- * A lost expulsion CAS discards the snapshot; at most three complete attempts are made.
- * Repeated concurrent membership changes produce a conflict instead of stale user data.
+ * A lost snapshot CAS discards the hydrated user; at most three complete attempts are made.
+ * Repeated concurrent changes produce a conflict instead of stale user data.
  */
 export const fetchUpdatedUser = async (
   props: Parameters<typeof fetchUpdatedUserOnce>[0],
 ) => {
-  // A lost village-state CAS invalidates the entire snapshot, including its relations.
+  const settlement = { startedQueuedJobs: 0 };
   for (let attempt = 0; attempt < 3; attempt++) {
-    const result = await fetchUpdatedUserOnce(props);
-    if (result !== null) return result;
+    const result = await fetchUpdatedUserOnce(props, settlement);
+    if (result !== null) {
+      // A rejected settlement still requires client reconciliation after a successful retry.
+      if (attempt > 0) {
+        result.requiresUserRefresh = true;
+        result.requiresProgressionRefresh = true;
+      }
+      return result;
+    }
   }
   throw serverError("CONFLICT", "User state changed concurrently; please try again");
 };
 
-/** One snapshot/regen pass; null requests a fresh attempt after a lost expulsion CAS. */
-const fetchUpdatedUserOnce = async (props: {
-  client: DrizzleClient;
-  userId: string;
-  userIp?: string;
-  forceRegen?: boolean;
-  /** Client responses opt in; server callers need canonical locations for tracker persistence. */
-  hideInformation?: boolean;
-  /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
-  allowQuestPartySyncFallback?: boolean;
-}) => {
+/** One snapshot/regen pass; null requests full hydration after a lost snapshot CAS. */
+const fetchUpdatedUserOnce = async (
+  props: {
+    client: DrizzleClient;
+    userId: string;
+    userIp?: string;
+    forceRegen?: boolean;
+    /** Client responses opt in; server callers need canonical locations for tracker persistence. */
+    hideInformation?: boolean;
+    /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
+    allowQuestPartySyncFallback?: boolean;
+  },
+  settlement: { startedQueuedJobs: number },
+) => {
   // Destructure
   const { client, userId, userIp, hideInformation = false } = props;
   let { forceRegen } = props;
@@ -3429,10 +3439,9 @@ const fetchUpdatedUserOnce = async (props: {
   // Start timed jobs (jutsu levels, crafts) whose turn has come, backdated to when it
   // came. The in-memory check keeps every other request free of extra queries. When a
   // due queue was settled, the user is read again.
-  let startedQueuedJobs = 0;
   if (user && hasDueTimedJob(user.queue, now)) {
     try {
-      startedQueuedJobs = await settleDueTimedQueues(client, [user], now);
+      settlement.startedQueuedJobs += await settleDueTimedQueues(client, [user], now);
       // Drops refund resources and remove rows too; reconcile every due settlement.
       user = await queryUpdatedUser();
       requiresUserRefresh = true;
@@ -3582,8 +3591,7 @@ const fetchUpdatedUserOnce = async (props: {
           ...immunity,
         });
       } else {
-        const freshUser = await queryUpdatedUser();
-        if (freshUser) Object.assign(user, freshUser);
+        return null;
       }
     }
   }
@@ -3744,7 +3752,7 @@ const fetchUpdatedUserOnce = async (props: {
       toastMessages: ["Quest team progress will update on your next request."],
       hasUnvotedPolls,
       trackerResults,
-      startedQueuedJobs,
+      startedQueuedJobs: settlement.startedQueuedJobs,
     };
   }
 
@@ -4044,14 +4052,8 @@ const fetchUpdatedUserOnce = async (props: {
             : null,
         });
         if (!persisted) {
-          requiresUserRefresh = true;
-          requiresProgressionRefresh = true;
-          // Another mutation won the snapshot. Use its current pools and version rather than
-          // returning the regeneration values calculated from our stale read.
-          // Queue heads and their rows must come from the same winning snapshot.
-          const freshUser = await queryUpdatedUser();
-          if (freshUser) Object.assign(user, freshUser);
-          else if (queuedTrainingSnapshot) Object.assign(user, queuedTrainingSnapshot);
+          // Rebuild achievement placeholders, party projection and derived fields together.
+          return null;
         }
       } catch (error) {
         requiresProgressionRefresh = true;
@@ -4146,7 +4148,7 @@ const fetchUpdatedUserOnce = async (props: {
       trackerResults,
       requiresUserRefresh: requiresUserRefresh || toastMessages.length > 0,
       /** Queued jutsu levels or crafts started by this refresh */
-      startedQueuedJobs,
+      startedQueuedJobs: settlement.startedQueuedJobs,
     };
   } else {
     return {
@@ -4161,7 +4163,7 @@ const fetchUpdatedUserOnce = async (props: {
       hasUnvotedPolls,
       trackerResults: null,
       requiresUserRefresh: requiresUserRefresh || toastMessages.length > 0,
-      startedQueuedJobs,
+      startedQueuedJobs: settlement.startedQueuedJobs,
     };
   }
 };

@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   aiProfile,
   battle,
@@ -21,6 +21,7 @@ import { getNewTrackers, mockAchievementHistoryEntries } from "@/libs/quest";
 import { initiateBattle } from "@/server/api/routers/combat";
 import { farmingRouter } from "@/server/api/routers/farming";
 import { itemRouter } from "@/server/api/routers/item";
+import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import { settleJutsuTrainingQueue } from "@/server/utils/userQueue";
 import {
   CombatActivityTasks,
@@ -36,6 +37,7 @@ import {
   insertUsers,
 } from "../../setup/factories";
 import { queueEnergy } from "../../setup/queues";
+import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
   describeWithDatabase,
@@ -150,6 +152,129 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
       { id: "orphan-history", userId, questId: "deleted-quest" },
     ]);
   });
+
+  it.each(["none", "passive", "isolation"] as const)(
+    "retains unclaimed achievement goals when profile hydration encounters %s CAS contention",
+    async (race) => {
+      const db = await getTestDatabase();
+      const prior = new Date(Date.now() - 600_000);
+      await db
+        .update(userData)
+        .set({
+          status: race === "isolation" ? "BATTLE" : "AWAKE",
+          battleId: null,
+          regeneration: 0,
+          updatedAt: prior,
+          regenAt: prior,
+          primaryElement: "Fire",
+          secondaryElement: "Water",
+        })
+        .where(eq(userData.userId, userId));
+      await db
+        .update(quest)
+        .set({
+          content: QuestValidatorRawSchema.shape.content.parse({
+            objectives: [
+              getObjectiveSchema("stories_completed").parse({
+                id: "story",
+                task: "stories_completed",
+                value: 1,
+              }),
+            ],
+            reward: {},
+            sceneBackground: "",
+            sceneCharacters: [],
+          }),
+        })
+        .where(eq(quest.id, "active-quest"));
+      await insertQuests([{ id: "completed-story", questType: "story" }]);
+      await insertQuestHistory([
+        {
+          userId,
+          questId: "completed-story",
+          questType: "story",
+          completed: 1,
+          previousCompletes: 1,
+        },
+      ]);
+      const before = await db.query.userData.findFirst({
+        where: eq(userData.userId, userId),
+      });
+      const expected = structuredClone(before!.questData![0]!);
+      if (race !== "none") expected.goals[0]!.value = 5;
+      const client =
+        race === "none"
+          ? db
+          : beforeStatements(db, userData, [
+              async () =>
+                db
+                  .update(userData)
+                  .set({ updatedAt: new Date(), questData: [expected] })
+                  .where(eq(userData.userId, userId)),
+            ]);
+      const result = await fetchUpdatedUser({ client, userId });
+      const saved = await db.query.userData.findFirst({
+        where: eq(userData.userId, userId),
+      });
+      expect(saved?.questData?.find((entry) => entry.id === achievementId)).toEqual(
+        expected,
+      );
+      expect(result.user?.questData?.find((entry) => entry.id === achievementId)).toEqual(
+        expected,
+      );
+      expect(saved?.questData?.find((entry) => entry.id === "active-quest")?.goals).toEqual(
+        expect.arrayContaining([expect.objectContaining({ id: "story", value: 1, done: true })]),
+      );
+      expect(result.user?.userQuests.some((entry) => entry.questId === "deleted-quest")).toBe(
+        false,
+      );
+      if (race !== "none") {
+        expect(result.requiresUserRefresh).toBe(true);
+        expect(result.requiresProgressionRefresh).toBe(true);
+      }
+      const reloaded = await fetchUpdatedUser({ client: db, userId });
+      expect(reloaded.user?.questData?.find((entry) => entry.id === achievementId)).toEqual(
+        expected,
+      );
+    },
+  );
+
+  it.each(["passive", "isolation"] as const)(
+    "bounds repeated %s CAS losses without persisting incomplete achievement progress",
+    async (race) => {
+      const db = await getTestDatabase();
+      if (race === "isolation")
+        await db
+          .update(userData)
+          .set({ status: "BATTLE" })
+          .where(eq(userData.userId, userId));
+      const before = await db.query.userData.findFirst({
+        where: eq(userData.userId, userId),
+      });
+      let attempts = 0;
+      const client = beforeStatements(
+        db,
+        userData,
+        Array.from({ length: 3 }, () => async () => {
+          attempts++;
+          await db
+            .update(userData)
+            .set({
+              updatedAt: sql`TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt})`,
+            })
+            .where(eq(userData.userId, userId));
+        }),
+      );
+      await expect(fetchUpdatedUser({ client, userId, forceRegen: true })).rejects.toThrow(
+        "User state changed concurrently",
+      );
+      expect(attempts).toBe(3);
+      const saved = await db.query.userData.findFirst({
+        where: eq(userData.userId, userId),
+      });
+      expect(saved?.questData).toEqual(before?.questData);
+    },
+  );
 
   it.each([
     ["jutsu", "jutsu", 1],

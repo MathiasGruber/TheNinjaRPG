@@ -1592,7 +1592,7 @@ export const questsRouter = createTRPCRouter({
       )
         return errorResponse("The quest team leader chooses dialog branches");
 
-      const activeAttempt = user.userQuests.find(
+      const activeAttempt = [...user.userQuests, ...progressionQuestCandidates].find(
         (entry) => entry.questId === input.questId && !entry.endAt,
       );
       if (
