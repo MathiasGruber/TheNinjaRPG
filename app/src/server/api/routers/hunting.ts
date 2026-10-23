@@ -363,9 +363,6 @@ export const huntingRouter = createTRPCRouter({
         contractId: contract.id,
         content: { ...habitat.content, contracts: [contract] },
         sector,
-        readyAt: null,
-        battleId: null,
-        lastResult: null,
         startedAt: new Date(),
         version: (session?.version ?? -1) + 1,
       };
@@ -386,9 +383,10 @@ export const huntingRouter = createTRPCRouter({
       );
       try {
         // Switching and reconciling the old allowance share one guarded statement.
-        const saved = session
-          ? await retryOnDeadlock(() =>
-              ctx.drizzle.execute(sql`
+        const saved = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(
+            session
+              ? sql`
               UPDATE ${huntingSession} AS s
               LEFT JOIN ${huntingProgress} AS p
                 ON p.userId = s.userId AND p.contractId = s.contractId
@@ -412,10 +410,8 @@ export const huntingRouter = createTRPCRouter({
                     ? sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId} AND ${huntingHabitat.updatedAt} = ${previousHabitat.updatedAt})`
                     : sql`NOT EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId})`
                 }
-            `),
-            )
-          : await retryOnDeadlock(() =>
-              ctx.drizzle.execute(sql`
+            `
+              : sql`
                 INSERT INTO ${huntingSession}
                   (userId, id, habitatId, contractId, content, sector, readyAt,
                    battleId, version, startedAt, lastResult)
@@ -423,8 +419,9 @@ export const huntingRouter = createTRPCRouter({
                        ${JSON.stringify(next.content)}, ${next.sector}, NULL, NULL,
                        ${next.version}, ${next.startedAt}, NULL
                 FROM ${huntingHabitat} WHERE ${targetHabitatGuard}
-              `),
-            );
+              `,
+          ),
+        );
         if (saved.rowsAffected === 0)
           return errorResponse("Your hunting session changed. Refresh the board.");
       } catch (error) {
