@@ -1,18 +1,24 @@
-import { beforeEach, expect, it } from "bun:test";
+import { beforeEach, expect, it, vi } from "bun:test";
 import { eq } from "drizzle-orm";
 import {
+  aiProfile,
+  battle,
+  battleHistory,
   farmPlot,
   item,
   itemPurchaseCounter,
   jutsu,
   quest,
   questHistory,
+  trainingLog,
   userData,
   userItem,
   userJutsu,
   userQueue,
 } from "@/drizzle/schema";
+import { getServerPusher } from "@/libs/pusher";
 import { getNewTrackers, mockAchievementHistoryEntries } from "@/libs/quest";
+import { initiateBattle } from "@/server/api/routers/combat";
 import { farmingRouter } from "@/server/api/routers/farming";
 import { itemRouter } from "@/server/api/routers/item";
 import { settleJutsuTrainingQueue } from "@/server/utils/userQueue";
@@ -29,6 +35,7 @@ import {
   insertQuests,
   insertUsers,
 } from "../../setup/factories";
+import { queueEnergy } from "../../setup/queues";
 import {
   callerFor,
   describeWithDatabase,
@@ -48,6 +55,10 @@ const tasks = [...CombatActivityTasks, ...completionTasks];
 describeWithDatabase("achievement persistence through sparse quest updates", () => {
   beforeEach(async () => {
     await resetTables(
+      battleHistory,
+      battle,
+      aiProfile,
+      trainingLog,
       farmPlot,
       itemPurchaseCounter,
       userQueue,
@@ -117,6 +128,16 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
               task: "plants_watered",
               value: 10,
             }),
+            getObjectiveSchema("stats_trained").parse({
+              id: "energy",
+              task: "stats_trained",
+              value: 100,
+            }),
+            getObjectiveSchema("minutes_training").parse({
+              id: "minutes",
+              task: "minutes_training",
+              value: 100,
+            }),
           ],
           reward: {},
           sceneBackground: "",
@@ -130,9 +151,17 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
     ]);
   });
 
-  it.each(["jutsu", "buy", "water"] as const)(
-    "retains unclaimed counters and earned completions after %s progress",
-    async (action) => {
+  it.each([
+    ["jutsu", "jutsu", 1],
+    ["buy", "buy", 1],
+    ["water", "water", 1],
+    ["energy", "energy", 8.5],
+    ["mastery", "minutes", 15],
+    ["element", "minutes", 15],
+    ["none", "energy", undefined],
+  ] as const)(
+    "retains unclaimed counters and earned completions through %s updates",
+    async (action, goalId, expectedProgress) => {
       const db = await getTestDatabase();
       const before = await db.query.userData.findFirst({
         where: eq(userData.userId, userId),
@@ -174,7 +203,7 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
         expect(
           (await api.buy({ itemId: "shop-item", villageId: "home", stack: 1 })).success,
         ).toBe(true);
-      } else {
+      } else if (action === "water") {
         await insertItems([{ id: "seed", isFarmSeed: true }]);
         await db
           .insert(farmPlot)
@@ -188,6 +217,57 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
           });
         const api = await callerFor(farmingRouter, userId);
         expect((await api.waterPlot({ plotId: "growing-plot" })).success).toBe(true);
+      } else {
+        await db
+          .update(userData)
+          .set({
+            curEnergy: 0,
+            regeneration: 100,
+            regenAt: new Date(now.getTime() - 195000),
+            ...(action === "mastery"
+              ? {
+                  currentlyTrainingMastery: "ninjutsuMastery" as const,
+                  masteryTrainingStartedAt: new Date(now.getTime() - 20 * 60000),
+                  trainingSpeed: "15min" as const,
+                }
+              : {}),
+            ...(action === "element"
+              ? {
+                  currentlyTrainingElement: "Wind" as const,
+                  elementalTrainingStartedAt: new Date(now.getTime() - 20 * 60000),
+                  elementalTrainingSpeed: "15min" as const,
+                }
+              : {}),
+          })
+          .where(eq(userData.userId, userId));
+        await insertUsers([
+          { userId: "enemy", username: "Enemy", isAi: true, rank: "NONE", level: 1 },
+        ]);
+        await db
+          .insert(aiProfile)
+          .values({ id: "Default", userId: "default-ai", rules: [] });
+        if (action === "energy")
+          await queueEnergy(userId, [{ stat: "offence", energy: 100 }]);
+        const trigger = vi
+          .spyOn(getServerPusher(), "trigger")
+          .mockResolvedValue({} as never);
+        try {
+          const result = await initiateBattle(
+            { client: db, userIds: [userId], targetIds: ["enemy"] },
+            "ARENA",
+          );
+          expect(result.success).toBe(true);
+          const state = await db.query.battle.findFirst({
+            where: eq(battle.id, result.battleId!),
+          });
+          expect(
+            state?.extraState.questData[userId]?.find(
+              (tracker) => tracker.id === achievementId,
+            ),
+          ).toEqual(before?.questData?.[0]);
+        } finally {
+          trigger.mockRestore();
+        }
       }
       const after = await db.query.userData.findFirst({
         where: eq(userData.userId, userId),
@@ -199,11 +279,13 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
       expect(
         after?.questData
           ?.find((tracker) => tracker.id === "active-quest")
-          ?.goals.find((goal) => goal.id === action)?.value,
-      ).toBe(1);
-      expect(after?.questData?.some((tracker) => tracker.id === "deleted-quest")).toBe(
-        false,
-      );
+          ?.goals.find((goal) => goal.id === goalId)?.value,
+      ).toBe(expectedProgress);
+      if (action !== "none") {
+        expect(
+          after?.questData?.some((tracker) => tracker.id === "deleted-quest"),
+        ).toBe(false);
+      }
       expect(
         after?.userQuests.some((history) => history.questId === achievementId),
       ).toBe(false);

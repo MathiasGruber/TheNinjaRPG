@@ -2594,6 +2594,7 @@ export const initiateBattle = async (
         getNewTrackers(user as unknown as NonNullable<UserWithRelations>, tasks)
           .trackers,
         user,
+        true,
       );
     }
     return [
