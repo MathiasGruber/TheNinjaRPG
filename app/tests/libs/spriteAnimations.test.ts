@@ -79,6 +79,37 @@ describe("AI sprite animation selection", () => {
     updateCharacterAnimation({ ...base, event, now: 4000 });
     expect(sprite.userData.characterAnimation.animationId).toBe("idle");
   });
+  it("plays consecutive actions and an explicit wait delivered during movement in order, once each", () => {
+    const sprite = new Sprite();
+    const wait = { ...move, id: "wait", url: "https://example.com/wait.png" };
+    const base = { sprite, animations: { idle, move, "jutsu:fire": attack, "jutsu:ice": attack, "basic:wait": wait }, moving: false, facing: "left" as const, staticMap: loaded(), textureForPath: loaded };
+    const first = { id: "cast-1", actionKey: "jutsu:fire" };
+    const second = { id: "cast-2", actionKey: "jutsu:ice" };
+    const last = { id: "wait", actionKey: "basic:wait" };
+    updateCharacterAnimation({ ...base, event: undefined, now: 0 });
+    updateCharacterAnimation({ ...base, event: first, moving: true, now: 1000 });
+    updateCharacterAnimation({ ...base, event: second, moving: true, now: 2000 });
+    updateCharacterAnimation({ ...base, event: last, moving: true, now: 3000 });
+    updateCharacterAnimation({ ...base, event: last, moving: true, now: 3500 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("move");
+    updateCharacterAnimation({ ...base, event: last, now: 4000 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("attack");
+    expect(sprite.userData.characterAnimation.startedAt).toBe(4000);
+    updateCharacterAnimation({ ...base, event: last, now: 4400 });
+    expect(sprite.material.map?.offset.x).not.toBe(0);
+    updateCharacterAnimation({ ...base, event: last, now: 4960 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("attack");
+    expect(sprite.userData.characterAnimation.startedAt).toBe(4960);
+    expect(sprite.material.map?.offset.x).toBe(0);
+    updateCharacterAnimation({ ...base, event: last, now: 5920 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("wait");
+    updateCharacterAnimation({ ...base, event: last, now: 7000 });
+    updateCharacterAnimation({ ...base, event: last, now: 7100 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("idle");
+    const remounted = new Sprite();
+    updateCharacterAnimation({ ...base, sprite: remounted, event: last, now: 7100 });
+    expect(remounted.userData.characterAnimation.animationId).toBe("idle");
+  });
   it("rejects sheets whose declared frames do not fit the grid", () => {
     expect(spriteAnimationSchema.safeParse({ ...idle, frameCount: 25 }).success).toBe(false);
     expect(spriteAnimationSchema.safeParse(idle).success).toBe(true);

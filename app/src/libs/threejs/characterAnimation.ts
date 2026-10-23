@@ -14,7 +14,7 @@ type AnimationRuntime = {
   stateKey?: string;
   startedAt: number;
   eventId?: string;
-  actionKey?: string;
+  events: SpriteAnimationEvent[];
   eventStartedAt?: number;
 };
 
@@ -47,32 +47,47 @@ export const updateCharacterAnimation = (info: {
       }),
       startedAt: now,
       eventId: event?.id,
-      eventStartedAt: now,
+      events: [],
     };
     sprite.userData.characterAnimation = runtime;
     const owned = runtime;
     sprite.userData.disposeCharacterAnimation = () => {
+      owned.events.length = 0;
       if (owned.material.userData.ownsMap) owned.material.map?.dispose();
       owned.material.dispose();
     };
   }
   if (event && runtime.eventId !== event.id) {
     runtime.eventId = event.id;
-    runtime.actionKey = event.actionKey;
-    runtime.eventStartedAt = moving ? undefined : now;
+    if (event.actionKey !== "move" && animations[event.actionKey])
+      runtime.events.push(event);
   }
-  // A server update can contain both travel and the following attack. Finish the
-  // visible travel before starting that action's one-shot animation clock.
-  if (!moving && runtime.actionKey && runtime.eventStartedAt === undefined) {
+  let actionEvent = runtime.events[0];
+  let action = actionEvent ? animations[actionEvent.actionKey] : undefined;
+  if (
+    !moving &&
+    runtime.eventStartedAt !== undefined &&
+    (!action || now - runtime.eventStartedAt >= (action.frameCount / action.fps) * 1000)
+  ) {
+    runtime.events.shift();
+    runtime.eventStartedAt = undefined;
+    actionEvent = runtime.events[0];
+    action = actionEvent ? animations[actionEvent.actionKey] : undefined;
+  }
+  // Travel can outlast several delivered actions. Start each assigned one-shot
+  // in order after travel, so a later action or wait cannot erase an unseen cast.
+  if (!moving && actionEvent && runtime.eventStartedAt === undefined) {
     runtime.eventStartedAt = now;
   }
-  const action = runtime.actionKey ? animations[runtime.actionKey] : undefined;
   const actionPlaying =
     action &&
-    runtime.actionKey !== "move" &&
     runtime.eventStartedAt !== undefined &&
     now - runtime.eventStartedAt < (action.frameCount / action.fps) * 1000;
-  const key = moving ? "move" : actionPlaying ? (runtime.actionKey ?? "idle") : "idle";
+  const key = moving
+    ? "move"
+    : actionPlaying
+      ? (actionEvent?.actionKey ?? "idle")
+      : "idle";
   let animation = resolveSpriteAnimation(animations, key);
   // Failed or still-loading action atlases also fall back through idle to the image.
   let source = animation ? textureForPath(animation.url, 0) : undefined;
@@ -103,7 +118,8 @@ export const updateCharacterAnimation = (info: {
     runtime.material.needsUpdate = true;
     runtime.animationId = animation.id;
   }
-  const stateKey = !moving && actionPlaying && animation === action ? event?.id : key;
+  const stateKey =
+    !moving && actionPlaying && animation === action ? actionEvent?.id : key;
   if (runtime.stateKey !== stateKey) {
     runtime.stateKey = stateKey;
     runtime.startedAt =

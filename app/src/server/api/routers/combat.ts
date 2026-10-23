@@ -728,20 +728,6 @@ export const combatRouter = createTRPCRouter({
         // Create the grid for the battle
         const grid = getBattleGrid(1, battle);
 
-        // Kage battles, auto-combat spectators and assigned sprite animations
-        // need one action per poll. Each actor holds only its latest animation
-        // event, so batching can overwrite a jutsu with a following wait before
-        // the client sees it. Departed participants no longer cap the batch.
-        const needsActionPlayback = battle.usersState.some(
-          (u) =>
-            ((!u.isAi && !u.isSummon && u.isAutoCombat) ||
-              Object.keys(u.spriteAnimations ?? {}).length > 0) &&
-            !u.leftBattle &&
-            stillInBattle(u, battle.usersEffects),
-        );
-        const maxActions =
-          AutoBattleTypes.includes(battle.battleType) || needsActionPlayback ? 1 : 5;
-
         // Instantiate new state variables
         const history: {
           battleRound: number;
@@ -936,9 +922,23 @@ export const combatRouter = createTRPCRouter({
           // piloted summon is never auto-driven here for the same reason it is
           // not authorized as an AI turn at the top of the block.
           const { isAITurn: newIsAITurn } = getTurnControl(newActor, suid);
+          // Recheck after actions: a hidden animated summon template may now be
+          // alive. Each actor's latest event must reach the client before another
+          // action overwrites it; departed participants no longer cap the batch.
+          const needsActionPlayback = newBattle.usersState.some(
+            (u) =>
+              ((!u.isAi && !u.isSummon && u.isAutoCombat) ||
+                Object.keys(u.spriteAnimations ?? {}).length > 0) &&
+              !u.leftBattle &&
+              stillInBattle(u, newBattle.usersEffects),
+          );
+          const maxActions =
+            AutoBattleTypes.includes(newBattle.battleType) || needsActionPlayback
+              ? 1
+              : 5;
           if (
             newIsAITurn && // Continue new loop if the next actor acts autonomously
-            nActions < maxActions && // and we haven't performed 5 actions yet
+            nActions < maxActions && // and we haven't reached the playback cap
             !result && // and the battle is not over for the user
             (newActor.userId !== actor.userId || description) // and new actor, or successful attack
           ) {
