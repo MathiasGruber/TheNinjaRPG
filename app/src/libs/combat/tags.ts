@@ -2285,6 +2285,7 @@ export const poison = (
       if (
         (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&
         eff.targetId === target.userId &&
+        isEffectEnabled(eff, usersEffects) &&
         eff.poolsAffected &&
         Array.isArray(eff.poolsAffected)
       ) {
@@ -2792,7 +2793,8 @@ export const timeCompression = (
       e.id !== effect.id &&
       isEffectEnabled(e, usersEffects),
   );
-  if (existingTimeCompression) {
+  // Restored bloodline tags keep their duration; the overlapping jutsu is rejected.
+  if (existingTimeCompression && (effect.isNew || effect.fromType !== "bloodline")) {
     effect.rounds = 0;
     return {
       txt: `${target.username} already has time compression active`,
@@ -2848,7 +2850,8 @@ export const timeDilation = (
       e.id !== effect.id &&
       isEffectEnabled(e, usersEffects),
   );
-  if (existingTimeDilation) {
+  // Restored bloodline tags keep their duration; the overlapping jutsu is rejected.
+  if (existingTimeDilation && (effect.isNew || effect.fromType !== "bloodline")) {
     effect.rounds = 0;
     return {
       txt: `${target.username} already has time dilation active`,

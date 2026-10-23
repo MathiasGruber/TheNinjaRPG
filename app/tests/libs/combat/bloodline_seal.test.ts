@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { availableUserActions } from "@/libs/combat/actions";
+import { availableUserActions, getActionPointCost, performBattleAction } from "@/libs/combat/actions";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { applyEffects } from "@/libs/combat/process";
 import { applyFinalStandDamage, heal, healPrevent } from "@/libs/combat/tags";
-import type { UserEffect } from "@/libs/combat/types";
+import type { CompleteBattle, UserEffect } from "@/libs/combat/types";
 import {
+  alignBattle,
   calcPoolCost,
+  getBattleGrid,
   getEffectiveMaxPool,
   hasActiveEffectOfType,
   isEffectActive,
@@ -41,6 +43,7 @@ const healEffect = () => makeEffect("heal", { power: 50, rounds: 0, calculation:
   castThisRound: true,
   createdRound: 3,
 });
+
 const prevention = () => makeEffect("healprevent", { power: 100, rounds: 10 }, runtime);
 
 describe("Bloodline Seal", () => {
@@ -226,3 +229,87 @@ describe("Bloodline Seal injected jutsu", () => {
     expect(user.jutsus).toEqual([]);
   });
 });
+
+describe("Bloodline Seal temporal effects", () => {
+  for (const type of ["timedilation", "timecompression"] as const) {
+    it.each([false, true])(`restores ${type} without stacking or losing its duration (temporary first=%j)`, (temporaryFirst) => {
+      const bloodline = makeEffect(type, { power: 100, rounds: 20, target: "SELF" }, runtime);
+      const seal = sealEffect({ rounds: 1, createdRound: 1 });
+      const fixture = actionFixture([bloodline, seal], [makeTag(type, { power: 100, rounds: 4, target: "SELF" })]);
+      let battle = fixture.battle;
+      const expectedCost = type === "timedilation" ? 30 : 50;
+
+      expect(getActionPointCost("defender", battle, fixture.action)).toBe(40);
+      battle = fixture.perform(battle).newBattle;
+      expect(battle.usersEffects.find(e => e.id === bloodline.id)?.rounds).toBe(20);
+      expect(battle.usersEffects.filter(e => e.type === type)).toHaveLength(2);
+      if (temporaryFirst) battle.usersEffects.reverse();
+
+      battle = nextRound(battle);
+      expect(getActionPointCost("defender", battle, fixture.action)).toBe(expectedCost);
+      battle = applyEffects(battle, "defender").newBattle;
+      expect(battle.usersEffects.some(e => e.type === "seal")).toBe(false);
+      expect(battle.usersEffects.find(e => e.id === bloodline.id)?.rounds).toBe(19);
+      expect(getActionPointCost("defender", battle, fixture.action)).toBe(expectedCost);
+
+      // Advance past the temporary jutsu's duration, then the bloodline's own expiry.
+      for (let i = 0; i < 5; i++) battle = applyEffects(nextRound(battle), "defender").newBattle;
+      expect(battle.usersEffects.find(e => e.id === bloodline.id)?.rounds).toBe(14);
+      expect(battle.usersEffects.filter(e => e.type === type)).toHaveLength(1);
+      expect(getActionPointCost("defender", battle, fixture.action)).toBe(expectedCost);
+      for (let i = 0; i < 14; i++) battle = applyEffects(nextRound(battle), "defender").newBattle;
+      expect(battle.usersEffects.some(e => e.id === bloodline.id)).toBe(false);
+      expect(getActionPointCost("defender", battle, fixture.action)).toBe(40);
+    });
+  }
+});
+
+describe("Bloodline Seal poison pool costs", () => {
+  it.each(["bloodline", "item", "jutsu"] as const)("uses enabled %s modifiers before, during and after sealing", (fromType) => {
+    const modifier = makeEffect("increasepoolcost", { power: 100, calculation: "percentage", poolsAffected: ["Chakra"] }, { ...runtime, fromType });
+    const poison = makeEffect("poison", { power: 100, rounds: 10 }, { ...runtime, creatorId: "attacker", fromType: "jutsu", createdRound: 1 });
+    const seal = sealEffect({ createdRound: 1 });
+    const fixture = actionFixture([poison, modifier]);
+    const checkAction = (effects: UserEffect[], expected: number) => {
+      const battle = structuredClone(fixture.battle);
+      battle.usersEffects = structuredClone(effects);
+      const { newBattle } = fixture.perform(battle);
+      const user = newBattle.usersState.find(u => u.userId === "defender")!;
+      expect(5000 - user.curChakra).toBe(expected);
+      expect(5000 - user.curHealth).toBe(expected);
+      expect(newBattle.usersEffects.find(e => e.id === modifier.id)?.power).toBe(100);
+    };
+    checkAction([poison, modifier], 200);
+    checkAction([poison, modifier, seal], fromType === "bloodline" ? 100 : 200);
+    seal.rounds = 0;
+    checkAction([poison, modifier, seal], 200);
+  });
+});
+
+const actionFixture = (
+  effects: UserEffect[],
+  tags: typeof SAGE_MODE_ACTIVATION_JUTSU.effects = [makeTag("damage", { power: 0, calculation: "static", rounds: 0, target: "SELF" })],
+) => {
+  const jutsu = { ...SAGE_MODE_ACTIVATION_JUTSU, id: "test-action", name: "Test action", chakraCost: 100, actionCostPerc: 40, effects: tags };
+  const user = makeBattleUser("defender", {
+    jutsus: [{ id: "owned-action", jutsuId: jutsu.id, origin: "user", equipped: true, level: 1, experience: 0, originalCooldown: 0, lastUsedRound: -10 }],
+  });
+  const battle = makeCompleteBattle({
+    createdAt: new Date(0), width: 12, height: 10, round: 3,
+    usersState: [makeBattleUser("attacker"), user], usersEffects: effects,
+    extraState: { jutsus: { [jutsu.id]: jutsu } },
+  });
+  const action = availableUserActions(battle, "defender", true, true).find(a => a.id === jutsu.id)!;
+  const perform = (current: CompleteBattle) => performBattleAction({
+    battle: current, action, grid: getBattleGrid(1, current), actorId: "defender", contextUserId: "defender",
+    longitude: user.longitude, latitude: user.latitude,
+  });
+  return { battle, action, perform };
+};
+
+const nextRound = (battle: CompleteBattle) => {
+  battle.usersState.forEach(user => { user.round = battle.round; user.actionPoints = 0; });
+  battle.roundStartAt = new Date(Date.now() - 600_000);
+  expect(alignBattle(battle, [], "defender").progressRound).toBe(true);
+  return battle;
+};

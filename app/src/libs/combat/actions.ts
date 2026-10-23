@@ -1615,8 +1615,8 @@ const getTemporalApDelta = (
     }
     return effect.elements.some((el: ElementName) => actionElements.has(el));
   };
-  const applicable = effects.filter(appliesByElements);
-  return applicable.length * 10;
+  // Seal expiry can restore a bloodline before overlapping jutsu are removed.
+  return effects.some(appliesByElements) ? 10 : 0;
 };
 
 export const getActionPointCost = (
