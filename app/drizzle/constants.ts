@@ -2702,76 +2702,77 @@ export const IMG_SCENE_BACKGROUND =
 export const IMG_SCENE_CHARACTER =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJF08NAw3G2iOewJtjGzvNcmEX3TBnoSfMDZPH.webp";
 
+/** Objective medallions share a consistent silhouette and palette across activity types. */
 export const IMG_BADGE_RESET_QUEST =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJeCQbfYiyV3OvUJQExAi0bGoIZDF74LqSnHRd.webp";
+  "https://ui0arpl8sm.ufs.sh/f/gXUcsnyYqeFKNEgEK80Ku.webp";
 export const IMG_BADGE_FAIL_QUEST =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJuFEUH7CyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
+  "https://ui0arpl8sm.ufs.sh/f/oZRYFtp_jEdTMTk4Lchr6.webp";
 export const IMG_BADGE_WIN_QUEST =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJnk99IbmojJ0EqeDCvBrNmZaXVdY97gSpOWiA.webp";
+  "https://ui0arpl8sm.ufs.sh/f/sz0_SpcWjLPgJ7ZmvDd57.webp";
 export const IMG_BADGE_NEW_QUEST =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJneJSZsmojJ0EqeDCvBrNmZaXVdY97gSpOWiA.webp";
+  "https://ui0arpl8sm.ufs.sh/f/e_82__T24tTMy_xFeo8kz.webp";
 export const IMG_BADGE_START_BATTLE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJqZXK1HdkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn.webp";
+  "https://ui0arpl8sm.ufs.sh/f/avQS0yZt1AXXcPvbgKFWe.webp";
 export const IMG_BADGE_DIALOG =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJpIn7vsbKBAOsGCHyl3Sk0mZFrgWPUdjMJ75D.webp";
+  "https://ui0arpl8sm.ufs.sh/f/4utB5tlNoLam-iI-zj7x8.webp";
 export const IMG_BADGE_RANDOM_ENCOUNTER_WINS =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJqyp2N4dkOZgJQ8mGRcdx3SsWvPelyYFTt5Vn.webp";
+  "https://ui0arpl8sm.ufs.sh/f/ewaLGtLm3nOtrHGx_qRes.webp";
 export const IMG_BADGE_PVPKILLS =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJyPU0OdukVH2MI5Lo4ehEfAXvZdcmtWqPg7rp.webp";
+  "https://ui0arpl8sm.ufs.sh/f/aNrqVG4giokYuC3HFawrh.webp";
 export const IMG_BADGE_ARENAKILLS =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJZXqeTaYQrBIUTu69nkMxWmS4ah0O7LVCp8bz.webp";
+  "https://ui0arpl8sm.ufs.sh/f/oKuoRoPzTP9h2mVSLhLkN.webp";
 export const IMG_BADGE_MINUTES_PASSED =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJCmrv4YU26OYrIJuNP1pvSyz29edFtKbngjRc.webp";
+  "https://ui0arpl8sm.ufs.sh/f/sCwVcW57GN_mHfYpplhRG.webp";
 export const IMG_BADGE_ERRANDS_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJFkFklPG2iOewJtjGzvNcmEX3TBnoSfMDZPH4.webp";
+  "https://ui0arpl8sm.ufs.sh/f/-nJOoy4pvL5OPHukM45g9.webp";
 export const IMG_BADGE_D_MISSION_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJuD6udtCyJLoOFkrcn4gxSwCfEQ9eMNXZlG8b.webp";
+  "https://ui0arpl8sm.ufs.sh/f/cWQyibYOttT25IRd9yGGI.webp";
 export const IMG_BADGE_C_MISSION_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJGudreBRfoVrha0LP4mAS5KM7wtiZbUNXJxdC.webp";
+  "https://ui0arpl8sm.ufs.sh/f/VxMXyM0uK_VEOJ0Uwbpdq.webp";
 export const IMG_BADGE_B_MISSION_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJy2Uv1s5ukVH2MI5Lo4ehEfAXvZdcmtWqPg7r.webp";
+  "https://ui0arpl8sm.ufs.sh/f/wKG5ehC7oXNDmRub35Th2.webp";
 export const IMG_BADGE_A_MISSION_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJEJpK3acLfKL5D7TAFe29bymSaPCIQ846MdzG.webp";
+  "https://ui0arpl8sm.ufs.sh/f/eokjd8AA_Vh0-EaoGa-aa.webp";
 export const IMG_BADGE_D_CRIME_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJDyHMWFlzEwoh0WXMnscL279N8ayVQUCbRzS3.webp";
+  "https://ui0arpl8sm.ufs.sh/f/ACAeinywl5EYgBA4udOCw.webp";
 export const IMG_BADGE_C_CRIME_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJnJ43OQmojJ0EqeDCvBrNmZaXVdY97gSpOWiA.webp";
+  "https://ui0arpl8sm.ufs.sh/f/3_pCbZLTL-YBqLsHo4zXu.webp";
 export const IMG_BADGE_B_CRIME_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJHS8H1zQvYURJhgs76VZtf9wxpMa13Cq0iOnr.webp";
+  "https://ui0arpl8sm.ufs.sh/f/rXd9vlSbn7FkcuiPOUD-G.webp";
 export const IMG_BADGE_A_CRIME_TOTAL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJQ6PtAxjhzBPya1rwfCIqOTU0cV5xgsMeo3u2.webp";
+  "https://ui0arpl8sm.ufs.sh/f/91AllqERlSVzatCxk4hfX.webp";
 export const IMG_BADGE_MINUTES_TRAINING =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJbZSRGyZAtYUndMi56GkX19q0A4PzyeIloBrE.webp";
+  "https://ui0arpl8sm.ufs.sh/f/KfUdD8eup3d2xREY0NLIR.webp";
 export const IMG_BADGE_JUTSUS_MASTERED =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJDyHTMUuzEwoh0WXMnscL279N8ayVQUCbRzS3.webp";
+  "https://ui0arpl8sm.ufs.sh/f/n-G7oHmog8hlR0Eeuyh1W.webp";
 export const IMG_BADGE_STATS_TRAINED =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJVNQSNpF2veAXohUuE59nTQHRJIYjtiG18aF4.webp";
+  "https://ui0arpl8sm.ufs.sh/f/rKHSPKRZjhT2THkEBlAJz.webp";
 export const IMG_BADGE_DAYS_IN_VILLAGE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ2HU2el8nMXlcRpYmJ5do0zKw4Qx6PVEtBa9b.webp";
+  "https://ui0arpl8sm.ufs.sh/f/ZidEpTBA6hBJu-ztTNTxA.webp";
 export const IMG_BADGE_REPUTATION_POINTS =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJxyYNkgWZsq9k0Von5rUfP6OgQ2TyptCKHS4u.webp";
+  "https://ui0arpl8sm.ufs.sh/f/lmAIk-R1uaEW2TkwmSUt6.webp";
 export const IMG_BADGE_USER_LEVEL =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJo6lBgeZ9MPZpHJ7VliuEWDfATdxhv62SXnm4.webp";
+  "https://ui0arpl8sm.ufs.sh/f/icWSGrpJL5UR3IPq476hX.webp";
 export const IMG_BADGE_MOVE_TO_LOCATION =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJ5qXZuJi797jl4ubX8xrRqTZasyMp2WA5eLGU.webp";
+  "https://ui0arpl8sm.ufs.sh/f/cWFDULaLp71U8E2WWwMvI.webp";
 export const IMG_BADGE_BLOODLINE_COLLECTION =
-  "https://ui0arpl8sm.ufs.sh/f/ZQyNIkckHEC2XXm5NvOi2.webp";
+  "https://ui0arpl8sm.ufs.sh/f/u38YiwURW7pypzTorZBgG.webp";
 export const IMG_BADGE_COLLECT_ITEM =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJtxtluhUYJDfpFXWm3nrcPluEtIZqyLkaSV1j.webp";
+  "https://ui0arpl8sm.ufs.sh/f/y2UmySQIMPhCkTCpBcsBf.webp";
 export const IMG_BADGE_DEFEAT_OPPONENTS =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJYwI8YKOMAlNnPZ41ev6fCGcFK3hmjX9I8W7d.webp";
+  "https://ui0arpl8sm.ufs.sh/f/LFTQiXZ87kv98nwERR44f.webp";
 export const IMG_BADGE_EXCLUSIVE_RAID =
-  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJw7O7n2PT2j854CWbaITZyegfXimvd7s16cO0.webp";
+  "https://ui0arpl8sm.ufs.sh/f/PT7BTg0JjSonG-peepP0O.webp";
 export const IMG_BADGE_OPEN_RAID =
-  "https://ui0arpl8sm.ufs.sh/f/Hzww9EQvYURJdEQfdeP62PI3ciLaYzgVX8FopBADxSrGmvQl.webp";
+  "https://ui0arpl8sm.ufs.sh/f/kj3f9-_imgX1uw7p2Ql00.webp";
 export const IMG_BADGE_MEDICAL_EXPERIENCE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJzr5NPBemvaQu94EYJs8HpxVzofny6iPtbgCZ.webp";
+  "https://ui0arpl8sm.ufs.sh/f/u6kENeqGp_00LfWgr-1-i.webp";
 export const IMG_BADGE_GATHERING_EXPERIENCE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJMgUHxAtsO4cexqW2RDgkE3zZbNXSFGitmnar.webp";
+  "https://ui0arpl8sm.ufs.sh/f/aIzBI0oDSP-vCWotlpFYm.webp";
 export const IMG_BADGE_HUNTING_EXPERIENCE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJg0V017cU9cpECTimBdjaqbNn7vQsxGR1wLk4.webp";
+  "https://ui0arpl8sm.ufs.sh/f/TUBJIps22Vh1aIjPDCIzH.webp";
 export const IMG_BADGE_CRAFTING_EXPERIENCE =
-  "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJIY2lVjxfOewksxBoS1HQCihpL7c42Ky9uUFv.webp";
+  "https://ui0arpl8sm.ufs.sh/f/hEA5rzHw2FegUzAk-yyNS.webp";
 /** Dedicated artwork keeps the activity and completion achievement goals visually distinct. */
 export const IMG_BADGE_DUNGEONS_COMPLETED =
   "https://ui0arpl8sm.ufs.sh/f/8NttzjW8jKBXSuVi712aQ.webp";
@@ -2795,6 +2796,26 @@ export const IMG_BADGE_RANKED_PARTICIPATED =
   "https://ui0arpl8sm.ufs.sh/f/RdngUH8_Kj7A0OC6A1sJn.webp";
 export const IMG_BADGE_OVERWORLD_AI_FOUGHT =
   "https://ui0arpl8sm.ufs.sh/f/RjI036fqQtf2oO9Y1g9k0.webp";
+
+/** Farming objectives use badge artwork independent of the farm terrain textures. */
+export const IMG_BADGE_SEEDS_PLANTED =
+  "https://ui0arpl8sm.ufs.sh/f/F7zJZpwtgdTYH2i6bJo_Y.webp";
+export const IMG_BADGE_PLANTS_WATERED =
+  "https://ui0arpl8sm.ufs.sh/f/4f950PjLAtc1ROg1-0v56.webp";
+export const IMG_BADGE_PLANTS_FERTILIZED =
+  "https://ui0arpl8sm.ufs.sh/f/d9ixQcfx5imDNXCyKA8VL.webp";
+export const IMG_BADGE_PLANTS_HARVESTED =
+  "https://ui0arpl8sm.ufs.sh/f/HNhsltw6SZJCARs7Uh7jT.webp";
+export const IMG_BADGE_FARMING_COLLECTION_LOG =
+  "https://ui0arpl8sm.ufs.sh/f/x81-ZiynJNPaCtal5Wt2y.webp";
+export const IMG_BADGE_FARMING_LEVEL =
+  "https://ui0arpl8sm.ufs.sh/f/WrWchCjEbAfHy42NLEUzx.webp";
+export const IMG_BADGE_ESPIONAGE =
+  "https://ui0arpl8sm.ufs.sh/f/Axwc5IACkwc8LBo-jbn9H.webp";
+export const IMG_BADGE_SABOTAGE =
+  "https://ui0arpl8sm.ufs.sh/f/ufTTZl6wdgxi1toHMk7-x.webp";
+export const IMG_BADGE_SPARS_WON =
+  "https://ui0arpl8sm.ufs.sh/f/z-vwhGA6dbiKmMV5BB4R9.webp";
 
 export const IMG_BADGE_ITEMS_CRAFTED = IMG_BADGE_CRAFTING_EXPERIENCE;
 export const IMG_BADGE_CREATURES_HUNTED = IMG_BADGE_HUNTING_EXPERIENCE;
