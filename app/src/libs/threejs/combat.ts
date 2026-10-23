@@ -63,8 +63,10 @@ import {
   getVillage,
 } from "@/libs/combat/util";
 import { builtinTerrainDepression } from "@/libs/sector-map/terrains";
+import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { createAggroHalo, updateAggroHalo } from "@/libs/threejs/aggroHalo";
 import { getTileInfo } from "@/libs/threejs/biome";
+import { updateCharacterAnimation } from "@/libs/threejs/characterAnimation";
 import { createCombatMaxPoolCache } from "@/libs/threejs/combatMaxPools";
 import {
   calculateHexUVCoordinates,
@@ -779,7 +781,9 @@ export const setAiAvatarFacing = (sprite: Sprite, facing: AvatarFacing) => {
   const mirrored = data.avatarFacing !== facing;
   if (data.mirrored === mirrored) return;
   data.mirrored = mirrored;
-  sprite.material = aiAvatarMaterial(data.avatarPath, mirrored);
+  if (!sprite.userData.characterAnimation) {
+    sprite.material = aiAvatarMaterial(data.avatarPath, mirrored);
+  }
 };
 
 /**
@@ -813,8 +817,13 @@ export const createUserSprite = (
   group.add(shadow_sprite);
 
   // User marker background or raw image
-  const noMarker = userData.isAi && userData.isOriginal;
+  const noMarker =
+    userData.isAi &&
+    (userData.isOriginal || Object.keys(userData.spriteAnimations ?? {}).length > 0);
   if (noMarker) {
+    for (const animation of Object.values(userData.spriteAnimations ?? {})) {
+      loadTexture(animation.url, 0);
+    }
     const avatarPath = userData.avatar ? `${userData.avatar}?1=1` : IMG_AVATAR_DEFAULT;
     const sprite = new Sprite(aiAvatarMaterial(avatarPath, false));
     sprite.name = AI_AVATAR_SPRITE;
@@ -1030,7 +1039,12 @@ export const setVisible = (obj: Object3D | Group | Sprite, visible: boolean) => 
 };
 
 // Track current tile (visual) and target tile (logical)
-type MovementState = { path?: TerrainHex[]; index: number };
+type MovementState = {
+  path?: TerrainHex[];
+  index: number;
+  elapsedMs?: number;
+  from?: { x: number; y: number };
+};
 type UserMeshData = {
   hex?: TerrainHex;
   targetHex?: TerrainHex;
@@ -1040,6 +1054,7 @@ type UserMeshData = {
 type GroupUsersData = {
   pathFinder?: PathCalculator;
   needsSort?: boolean;
+  lastRenderAt?: number;
 };
 
 /** Returns a cached PathCalculator on the users group, creating it if missing */
@@ -1080,7 +1095,7 @@ const getOrInitUserMeshData = (
   return meshData;
 };
 
-/** Computes a new path if target changed or path exhausted; updates meshData.targetHex */
+/** A new logical destination starts a path; rendered frames retain its segment clock. */
 const computePathIfNeeded = (
   meshData: UserMeshData,
   pathFinder: PathCalculator,
@@ -1091,11 +1106,7 @@ const computePathIfNeeded = (
     !prevTarget ||
     prevTarget.col !== targetTile.col ||
     prevTarget.row !== targetTile.row;
-  const needNewPath =
-    targetChanged ||
-    !meshData.movement?.path ||
-    (meshData.movement?.index ?? 0) >= (meshData.movement?.path?.length ?? 0);
-  if (needNewPath) {
+  if (targetChanged) {
     const start: TerrainHex = meshData.hex ?? targetTile;
     const path = pathFinder.getShortestPath(start, targetTile) || [];
     const trimmed =
@@ -1110,85 +1121,54 @@ const computePathIfNeeded = (
   meshData.targetHex = targetTile;
 };
 
-/** Returns the per-frame movement speed for a tile */
-const getTileSpeed = (tile: TerrainHex): number => {
-  return (tile.width / 50) * 5; // tripled speed
-};
+/** Give a walking sheet time to play even on high-refresh displays. */
+const getTileTravelMs = (animation: CharacterAnimation | undefined): number =>
+  animation
+    ? Math.min(1000, Math.max(350, (animation.frameCount / animation.fps) * 1000))
+    : 250;
 
-/** Steps the mesh along its path or directly to target with clamped constant speed */
+/** Interpolate in elapsed time, carrying unused time across tile boundaries. */
 const stepAlongPath = (
   userMesh: Group,
   meshData: UserMeshData,
   targetTile: TerrainHex,
-  speed: number,
+  durationMs: number,
+  deltaMs: number,
   parentGroup: Group,
   onTileStep?: () => void,
 ) => {
-  const { x: curX, y: curY } = userMesh.position;
-  const moveTowards = (tx: number, ty: number, maxStep: number) => {
-    const dx = tx - curX;
-    const dy = ty - curY;
-    const dist = Math.hypot(dx, dy);
-    if (dist <= maxStep || dist === 0) {
-      userMesh.position.set(tx, ty, 0);
-      return true;
-    } else {
-      const nx = dx / dist;
-      const ny = dy / dist;
-      userMesh.position.set(curX + nx * maxStep, curY + ny * maxStep, 0);
-      return false;
-    }
-  };
-
-  // Easing function for speed multiplier: 0 at ends, 1 in middle. Clamp to a minimum to avoid stall
-  const easedMultiplier = (progress: number, min = 0.35) => {
-    const p = Math.max(0, Math.min(1, progress));
-    const s = Math.sin(Math.PI * p);
-    return Math.max(min, s);
-  };
-
-  const path = meshData.movement?.path;
-  let index = meshData.movement?.index ?? 0;
-  if (path && index < path.length) {
-    const nextTile = path[index];
-    if (!nextTile) return;
+  const movement = meshData.movement;
+  if (!movement) return;
+  let remainingMs = deltaMs;
+  do {
+    const nextTile = movement.path?.[movement.index] ?? targetTile;
     const { x, y } = nextTile.center;
-    // Compute progress along current segment for easing
-    const startCenter = meshData.hex?.center ?? nextTile.center;
-    const totalDist = Math.hypot((startCenter?.x ?? 0) - x, (startCenter?.y ?? 0) - y);
-    const remaining = Math.hypot(-x - curX, -y - curY);
-    const progress = totalDist > 0 ? 1 - remaining / totalDist : 1;
-    const step = speed * easedMultiplier(progress);
-    const reached = moveTowards(-x, -y, step);
-    if (reached) {
-      meshData.hex = nextTile;
-      index += 1;
-      meshData.movement = { path, index };
-      if (onTileStep) onTileStep();
-      markGroupNeedsSort(parentGroup);
-      if (!path || index >= path.length) {
-        const { x: tx, y: ty } = targetTile.center;
-        userMesh.position.set(-tx, -ty, 0);
-        meshData.hex = targetTile;
-        meshData.movement = { path: undefined, index: 0 };
-      }
+    if (userMesh.position.x === -x && userMesh.position.y === -y) return;
+    movement.from ??= { x: userMesh.position.x, y: userMesh.position.y };
+    const elapsed = movement.elapsedMs ?? 0;
+    const stepMs = Math.min(remainingMs, durationMs - elapsed);
+    movement.elapsedMs = elapsed + stepMs;
+    remainingMs -= stepMs;
+    const progress = movement.elapsedMs / durationMs;
+    const eased = progress * progress * (3 - 2 * progress);
+    userMesh.position.set(
+      movement.from.x + (-x - movement.from.x) * eased,
+      movement.from.y + (-y - movement.from.y) * eased,
+      0,
+    );
+    if (progress < 1) return;
+    userMesh.position.set(-x, -y, 0);
+    meshData.hex = nextTile;
+    movement.index += 1;
+    movement.elapsedMs = 0;
+    movement.from = undefined;
+    onTileStep?.();
+    markGroupNeedsSort(parentGroup);
+    if (!movement.path || movement.index >= movement.path.length) {
+      meshData.movement = { index: 0 };
+      return;
     }
-  } else {
-    const { x, y } = targetTile.center;
-    const startCenter = meshData.hex?.center ?? targetTile.center;
-    const totalDist = Math.hypot((startCenter?.x ?? 0) - x, (startCenter?.y ?? 0) - y);
-    const remaining = Math.hypot(-x - curX, -y - curY);
-    const progress = totalDist > 0 ? 1 - remaining / totalDist : 1;
-    const step = speed * easedMultiplier(progress);
-    const reached = moveTowards(-x, -y, step);
-    if (reached) {
-      const previousHex = meshData.hex;
-      meshData.hex = targetTile;
-      if (parentGroup && previousHex !== targetTile) {
-        markGroupNeedsSort(parentGroup);
-      }
-    }
-  }
+  } while (remainingMs > 0);
 };
 
 /**
@@ -1291,6 +1271,10 @@ export const drawCombatUsers = (info: {
   const userGroupData = group_users.userData as GroupUsersData & {
     lastUserPositions?: Map<string, string>;
   };
+  const now = performance.now();
+  // Tab suspension must not skip the entire walking sequence on the first frame back.
+  const deltaMs = Math.min(100, Math.max(0, now - (userGroupData.lastRenderAt ?? now)));
+  userGroupData.lastRenderAt = now;
   const lastPositions = userGroupData.lastUserPositions || new Map<string, string>();
   const currentPositions = new Map<string, string>();
 
@@ -1351,7 +1335,7 @@ export const drawCombatUsers = (info: {
         const targetTile: TerrainHex = hex;
         const meshData = getOrInitUserMeshData(userMesh, targetTile);
         computePathIfNeeded(meshData, pathFinder, targetTile);
-        const speed = getTileSpeed(meshData.hex ?? targetTile);
+        const durationMs = getTileTravelMs(user.spriteAnimations?.move);
         const onTileStep = () => {
           if (info.sfxEnabled) {
             try {
@@ -1362,7 +1346,15 @@ export const drawCombatUsers = (info: {
             } catch {}
           }
         };
-        stepAlongPath(userMesh, meshData, targetTile, speed, group_users, onTileStep);
+        stepAlongPath(
+          userMesh,
+          meshData,
+          targetTile,
+          durationMs,
+          deltaMs,
+          group_users,
+          onTileStep,
+        );
         userMesh.userData = meshData;
 
         // Only check if not at target to determine if user is still moving
@@ -1373,6 +1365,23 @@ export const drawCombatUsers = (info: {
         if (notAtTarget) {
           anyUserMoving = true;
         }
+        if (avatarSprite) {
+          const avatarData = avatarSprite.userData as AiAvatarData;
+          updateCharacterAnimation({
+            sprite: avatarSprite,
+            animations: user.spriteAnimations,
+            event: user.spriteAnimationEvent,
+            moving: notAtTarget,
+            facing: avatarData.mirrored
+              ? avatarData.avatarFacing === "left"
+                ? "right"
+                : "left"
+              : avatarData.avatarFacing,
+            staticMap: loadTexture(avatarData.avatarPath, 50, avatarData.mirrored),
+            now,
+          });
+        }
+
         // Handle remove users from combat.
         if (!stillInBattle(user, usersEffects) && user.hidden === undefined) {
           setVisible(userMesh, false);

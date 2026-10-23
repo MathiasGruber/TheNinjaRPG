@@ -221,6 +221,7 @@ import { projectPartyTracker } from "@/libs/questParty";
 import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
+import { snapshotSpriteAnimations } from "@/libs/spriteAnimations";
 import { rollStealthKeep } from "@/libs/stealth";
 import type { GlobalMapData } from "@/libs/threejs/types";
 import {
@@ -2172,6 +2173,7 @@ export const initiateBattle = async (
         },
         completedQuests: completedQuestHistoryRelation,
         aiProfile: true,
+        spriteAnimationBindings: { with: { animation: true } },
         bounties: {
           columns: { id: true, status: true, amountRyo: true },
           where: eq(bounty.status, "OPEN"),
@@ -4404,6 +4406,9 @@ export const processUsersForBattle = async (
       ...inputUser,
       // Freeze the choice before bloodline processing and later profile edits, including ranked battles.
       preferredDamageElement: getPreferredDamageElement(inputUser),
+      spriteAnimations: inputUser.spriteAnimationBindings
+        ? snapshotSpriteAnimations(inputUser.spriteAnimationBindings)
+        : (inputUser.spriteAnimations ?? {}),
       // Set controllerID and mark this user as the original
       controllerId: inputUser.userId,
       enemySkillIds: [],
@@ -5087,6 +5092,7 @@ export const processUsersForBattle = async (
               with: { skill: true },
             },
             aiProfile: true,
+            spriteAnimationBindings: { with: { animation: true } },
           },
           where: inArray(userData.userId, missingSummonIds),
         });
@@ -5107,6 +5113,7 @@ export const processUsersForBattle = async (
         (rows) => rows?.filter((row) => requestedSummonIds.has(row.userId)) ?? [],
       ),
     );
+
     if (summons.length > 0) {
       const {
         userEffects: summonEffects,
@@ -5351,6 +5358,7 @@ export const processUsersForBattle = async (
       bountySignups: _bountySignups,
       activeReskin: _activeReskin,
       cookingJobs: _cookingJobs,
+      spriteAnimationBindings: _spriteAnimationBindings,
       ...rest
     } = user;
 

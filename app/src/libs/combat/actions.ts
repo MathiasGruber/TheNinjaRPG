@@ -84,6 +84,7 @@ import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
 import { hasMasteryRequirements } from "@/libs/mastery";
 import { getSageDailyCap, getSageModeActivationCost } from "@/libs/sageMode";
 import { hasRequiredSkill } from "@/libs/skillRequirements";
+import { spriteActionKey } from "@/libs/spriteAnimations";
 import {
   CleanseTag,
   ClearTag,
@@ -1445,6 +1446,17 @@ export const performBattleAction = (props: {
 
   // Apply relevant effects, and get back new state + active effects
   const { newBattle, actionEffects } = applyEffects(battle, actorId, action);
+
+  const animatedActor = newBattle.usersState.find((actor) => actor.userId === actorId);
+  if (
+    animatedActor?.spriteAnimations &&
+    Object.keys(animatedActor.spriteAnimations).length > 0
+  ) {
+    animatedActor.spriteAnimationEvent = {
+      id: nanoid(),
+      actionKey: spriteActionKey(action),
+    };
+  }
 
   return { newBattle, actionEffects };
 };

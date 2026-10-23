@@ -81,7 +81,15 @@ export const draftName = (fields: Record<string, unknown>) => {
 /** Adds the editable fields and their version to a loaded row. */
 const toEntity = (type: ContentProposalEntityType, loaded: Loaded): ContentEntity => {
   const editable = pick(loaded.payload, ENTITY_CONFIG[type].editableKeys);
-  return { ...loaded, type, editable, version: contentVersion(editable) };
+  // Animation assignments are edited separately but still invalidate AI proposals.
+  const versioned =
+    type === "AI"
+      ? {
+          ...editable,
+          spriteAnimationAssignments: loaded.payload.spriteAnimationAssignments ?? [],
+        }
+      : editable;
+  return { ...loaded, type, editable, version: contentVersion(versioned) };
 };
 
 const pick = (source: Record<string, unknown>, keys: readonly string[]) =>
@@ -357,16 +365,20 @@ export const ENTITY_CONFIG: Record<ContentProposalEntityType, EntityConfig> = {
         with: {
           jutsus: { with: { jutsu: { columns: { id: true } } } },
           items: { with: { item: { columns: { id: true } } } },
+          spriteAnimationBindings: true,
         },
       });
       // Same projection as useAiEditForm, minus relations whose content was deleted.
-      return rows.map(({ jutsus, items, ...row }) => ({
+      return rows.map(({ jutsus, items, spriteAnimationBindings, ...row }) => ({
         id: row.userId,
         name: row.username,
         image: row.avatar,
         isHidden: false,
         payload: {
           ...row,
+          spriteAnimationAssignments: spriteAnimationBindings
+            .map(({ actionKey, animationId }) => ({ actionKey, animationId }))
+            .sort((a, b) => a.actionKey.localeCompare(b.actionKey)),
           jutsus: jutsus
             .filter((entry) => entry.jutsu)
             .map((entry) => entry.jutsuId)

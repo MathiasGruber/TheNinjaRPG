@@ -11,6 +11,7 @@ import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import {
   actionLog,
   aiProfile,
+  aiSpriteAnimation,
   anbuSquad,
   auctionOffer,
   automatedModeration,
@@ -1481,6 +1482,7 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
     ...[huntingSession, huntingProgress, huntingReceipt].map((table) =>
       client.delete(table).where(eq(table.userId, userId)),
     ),
+    client.delete(aiSpriteAnimation).where(eq(aiSpriteAnimation.userId, userId)),
     client.delete(userItem).where(eq(userItem.userId, userId)),
     client.delete(farmPlot).where(eq(farmPlot.userId, userId)),
     client.delete(farmExtraction).where(eq(farmExtraction.userId, userId)),

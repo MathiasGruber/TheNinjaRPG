@@ -42,6 +42,10 @@ import type {
 } from "@/drizzle/schema";
 import type { GenNames, publicState, StatNames } from "@/libs/combat/constants";
 import type { TerrainHex } from "@/libs/hexgrid";
+import type {
+  CharacterAnimations,
+  SpriteAnimationEvent,
+} from "@/libs/spriteAnimations";
 import type { ActivityCompletions } from "@/server/utils/achievementObjectives";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
@@ -122,6 +126,11 @@ export type CombatQueryCompletedQuest = {
  */
 export type CombatQueryUser = UserData &
   ActivityCompletions & {
+    spriteAnimations?: CharacterAnimations;
+    spriteAnimationBindings?: {
+      actionKey: string;
+      animation: import("@/drizzle/schema").SpriteAnimation | null;
+    }[];
     titles?: import("@/drizzle/schema").UserTitle[];
     /** Loaded at initiation and realized into battle effects; never fetched during an action. */
     raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
@@ -172,6 +181,8 @@ export type ProcessedItem = CombatQueryUserItem & {
 export type CombatUserFields = {
   /** Identity masking captured with the combatant's battle snapshot. */
   isMasked?: boolean;
+  spriteAnimations?: CharacterAnimations;
+  spriteAnimationEvent?: SpriteAnimationEvent;
   /** Damage already deferred by Diffuse; survives the granting effect's expiry. */
   diffuseDamage?: {
     attackerId: string;

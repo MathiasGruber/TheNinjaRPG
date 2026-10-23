@@ -616,6 +616,8 @@ export const disposeAnimatedGroup = (root: Object3D, spriteMixer: SpriteMixer) =
  */
 export const cleanUp = (scene: Scene, renderer: WebGLRenderer) => {
   scene.traverse((object) => {
+    if (typeof object.userData.disposeCharacterAnimation === "function")
+      object.userData.disposeCharacterAnimation();
     if ("isMesh" in object || "isSprite" in object || "isLine" in object) {
       if ("material" in object) (object.material as Material).dispose();
       if ("geometry" in object) (object.geometry as BufferGeometry).dispose();

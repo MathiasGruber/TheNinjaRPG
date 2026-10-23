@@ -86,6 +86,12 @@ const adminMiddleware = async () => {
 };
 
 export const ourFileRouter = {
+  spriteAnimationUploader: f({ image: { maxFileSize: "8MB" } })
+    .middleware(async ({ files }) => ({
+      ...(await adminMiddleware()),
+      ...withExtensionIds(files),
+    }))
+    .onUploadComplete(async ({ file }) => moderateUploadedImage(file)),
   imageUploader: f({ image: { maxFileSize: "512KB" } })
     .middleware(async ({ files }) => ({
       ...(await avatarMiddleware()),
