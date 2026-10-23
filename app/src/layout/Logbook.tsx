@@ -945,6 +945,7 @@ export const useCheckRewards = () => {
             rewards.reward_clanpoints > 0 ||
             rewards.reward_anbupoints > 0 ||
             rewards.reward_exp > 0 ||
+            (rewards.reward_pet_experience ?? 0) > 0 ||
             rewards.reward_tokens > 0 ||
             rewards.reward_prestige > 0 ||
             rewards.reward_reputation > 0 ||

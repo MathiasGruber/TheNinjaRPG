@@ -56,6 +56,7 @@ describe("confirmed reward cache deltas", () => {
     ["reward_crafting_experience", 1],
     ["reward_gathering_experience", 1],
     ["reward_sage_mastery_experience", 1],
+    ["reward_pet_experience", 1],
     ["reward_skillpoints", 1],
   ])("reconciles %s because its derived state is not represented", (field, value) => {
     expect(getRewardUserDelta(reward({ [field as string]: value }))).toBeUndefined();

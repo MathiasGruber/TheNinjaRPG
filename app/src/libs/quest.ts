@@ -542,6 +542,11 @@ export const getReward = (
       target.reward_clanpoints = Math.floor(target.reward_clanpoints * factor);
       target.reward_anbupoints = Math.floor(target.reward_anbupoints * factor);
       target.reward_exp = scaleReward(target.reward_exp, missionLoyalty);
+      if (target.reward_pet_experience !== undefined)
+        target.reward_pet_experience = scaleReward(
+          target.reward_pet_experience,
+          missionLoyalty,
+        );
       target.reward_tokens = scaleReward(
         target.reward_tokens,
         missionLoyalty + loyalty.villageRewards,

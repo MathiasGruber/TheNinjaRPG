@@ -48,6 +48,10 @@ export const rewardFields = {
   reward_clanpoints: z.coerce.number().prefault(0),
   reward_anbupoints: z.coerce.number().prefault(0),
   reward_exp: z.coerce.number().prefault(0),
+  /**
+   * Unassigned XP for the eligible active pet without player XP; optional in stored rewards.
+   */
+  reward_pet_experience: z.coerce.number().min(0).optional(),
   reward_tokens: z.coerce.number().prefault(0),
   reward_prestige: z.coerce.number().prefault(0),
   reward_reputation: z.coerce.number().prefault(0),
@@ -172,6 +176,7 @@ export const REWARD_CHOICE_AMOUNT_FIELDS = [
   "reward_clanpoints",
   "reward_anbupoints",
   "reward_exp",
+  "reward_pet_experience",
   "reward_tokens",
   "reward_prestige",
   "reward_reputation",

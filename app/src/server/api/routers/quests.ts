@@ -2099,6 +2099,9 @@ const removeQuestTrackerByQuestId = (
  * Money/XP-style scalars use SQL increments on `userData` columns so parallel grants compose;
  * village tokens and clan points already used this pattern.
  *
+ * Pet XP combines positive player XP and dedicated pet rewards in this same account update;
+ * the shared SQL helper checks live pet eligibility without another database round trip.
+ *
  * Sage: `reward_sage_modes` rolls and records a not-yet-owned mode only when the
  * player has no equipped `sageModeId`. Already-equipped players skip the grant so
  * a mode is not burned into history they can never wear.
@@ -2422,7 +2425,11 @@ export const updateRewards = async (info: {
     money: sql`${userData.money} + ${rewards.reward_money ?? 0}`,
     seichiSilver: sql`${userData.seichiSilver} + ${rewards.reward_seichi_silver ?? 0}`,
     earnedExperience: sql`${userData.earnedExperience} + ${rewards.reward_exp ?? 0}`,
-    petExperience: petExperienceGainSql(rewards.reward_exp ?? 0),
+    // Round each grant separately; player XP penalties must not offset dedicated pet XP.
+    petExperience: petExperienceGainSql(
+      Math.max(0, Math.round(rewards.reward_exp ?? 0)) +
+        Math.round(rewards.reward_pet_experience ?? 0),
+    ),
     villagePrestige: sql`${userData.villagePrestige} + ${rewards.reward_prestige ?? 0}`,
     reputationPoints: sql`${userData.reputationPoints} + ${rewards.reward_reputation ?? 0}`,
     reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${rewards.reward_reputation ?? 0}`,
@@ -5424,7 +5431,10 @@ export const claimRewardChoiceTrackers = async (
   return claim.success;
 };
 
-/** Scalar rewards compose with other accepted cache updates; relation changes need reconciliation. */
+/**
+ * Scalar rewards compose with accepted cache updates; derived state needs reconciliation.
+ * Pet XP needs a refresh because its committed amount depends on live SQL eligibility.
+ */
 export const getRewardUserDelta = (
   rewards: GetRewardResult,
   reputationCost = 0,
@@ -5456,6 +5466,7 @@ export const getRewardUserDelta = (
     rewards.reward_hunting_experience !== 0 ||
     rewards.reward_crafting_experience !== 0 ||
     rewards.reward_gathering_experience !== 0 ||
+    (rewards.reward_pet_experience ?? 0) !== 0 ||
     MASTERY_EXPERIENCE_FIELDS.some((field) => (rewards[field] ?? 0) > 0) ||
     (rewards.reward_mastery_rank && rewards.reward_mastery_rank !== "NONE") ||
     rewards.reward_sage_mastery_experience !== 0 ||

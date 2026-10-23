@@ -5,8 +5,8 @@ import { userData, userPet } from "@/drizzle/schema";
 import { getMaxPetRank } from "@/libs/pets/progression";
 
 /**
- * Add newly awarded player XP in the caller's guarded owner update, using live
- * pet eligibility rather than a stale read. Omit petId to use the current active
+ * Add mirrored player XP or dedicated pet rewards in the caller's guarded owner
+ * update, using live pet eligibility. Omit petId to use the current active
  * pet, pass an ID to bind battle rewards to its original companion, or pass null
  * to award no pet XP. Assigning already earned player XP must not call this again.
  */

@@ -3223,6 +3223,7 @@ export const FORM_LABEL_MAP: Record<string, string> = {
   reward_titles: "Give Title",
   reward_money: "Ryo",
   reward_exp: "Experience",
+  reward_pet_experience: "Pet Experience (eligible active pet only)",
   reward_prestige: "Prestige",
   reward_reputation: "Reputation",
   reward_clanpoints: "Clan Points",
