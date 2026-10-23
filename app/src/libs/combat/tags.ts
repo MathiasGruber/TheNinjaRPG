@@ -3575,8 +3575,17 @@ const preventCheck = (
   target: BattleUserState,
   effect?: UserEffect, // Add optional effect parameter to check creation time
 ) => {
+  // A sealed bloodline cannot protect its holder: skip prevent tags that come from a
+  // bloodline while the target is under an active seal.
+  const sealEffects = usersEffects.filter(
+    (e) => e.type === "seal" && !e.isNew && isEffectActive(e),
+  );
   const preventTag = usersEffects.find(
-    (e) => e.type === type && e.targetId === target.userId && !e.castThisRound,
+    (e) =>
+      e.type === type &&
+      e.targetId === target.userId &&
+      !e.castThisRound &&
+      !sealCheck(e, sealEffects),
   );
 
   if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
