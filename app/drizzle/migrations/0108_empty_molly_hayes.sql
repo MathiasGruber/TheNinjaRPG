@@ -29,6 +29,7 @@ CREATE TABLE `StripePayment` (
 	`expiresAt` datetime(3),
 	`grantedAt` datetime(3),
 	`createdAt` datetime(3) NOT NULL DEFAULT (CURRENT_TIMESTAMP(3)),
+	`reviewRequired` boolean NOT NULL DEFAULT false,
 	CONSTRAINT `StripePayment_id` PRIMARY KEY(`id`)
 );
 

@@ -4,7 +4,7 @@ The web points shop supports Stripe Checkout alongside PayPal. Native shells use
 
 ## Configuration and deployment
 
-Apply the migrations creating `StripeCheckout`/`StripePayment` and adding `StripePayment.reviewRequired` before deploying application code. Federal reconciliation references these tables even when card checkout is disabled. Preserve both tables and their audit rows when rolling back application code.
+Apply the migration creating `StripeCheckout` and `StripePayment` before deploying application code. Federal reconciliation references these tables even when card checkout is disabled. Preserve both tables and their audit rows when rolling back application code.
 
 Use a dedicated Stripe account and separate live and sandbox configurations. Create three active, fixed USD recurring prices with a one-month interval, quantity one, explicit inclusive tax behavior, and the exact amounts above. Configure these server-only variables:
 

@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "8fcc8d2c-6f38-472d-8bf1-753a1cc25f11",
+  "id": "b7cc12a3-1c00-447a-895d-8b457f30978e",
   "prevId": "23f20af5-3b3e-45ec-a918-912ae446057d",
   "tables": {
     "AbEvent": {
@@ -21990,6 +21990,14 @@
     "StripePayment": {
       "name": "StripePayment",
       "columns": {
+        "reviewRequired": {
+          "name": "reviewRequired",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
         "federalStatusOverride": {
           "name": "federalStatusOverride",
           "type": "enum('NONE','NORMAL','SILVER','GOLD')",
