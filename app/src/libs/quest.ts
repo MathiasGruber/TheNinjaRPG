@@ -107,7 +107,12 @@ import type {
   QuestContentType,
   QuestTrackerType,
 } from "@/validators/objectives";
-import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
+import {
+  CombatActivityTasks,
+  ObjectiveTracker,
+  QuestCompletionTasks,
+  QuestTracker,
+} from "@/validators/objectives";
 import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import type { ObjectiveRewardType, PendingRewardChoice } from "@/validators/rewards";
 import {
@@ -192,7 +197,7 @@ export const isMockQuestHistoryRow = (row: { id: string; questId: string }): boo
 
 /**
  * Strip in-memory-only achievement trackers before persisting `UserData.questData`, except
- * completed collection goals whose catalogue snapshot must survive until reward claim.
+ * completed collection goals and event counters whose progress must survive until reward claim.
  * Mock rows from `mockAchievementHistoryEntries` use `id === questId`; real `QuestHistory.id` is a nanoid.
  */
 export const filterQuestTrackersForDbPersist = (
@@ -217,8 +222,15 @@ export const filterQuestTrackersForDbPersist = (
       !achievement ||
       achievement.content?.objectives.some(
         (objective) =>
-          objective.task === "bloodline_collection" &&
-          tracker.goals.some((goal) => goal.id === objective.id && goal.done),
+          ((objective.task === "bloodline_collection" ||
+            objective.task === "dungeons_completed" ||
+            objective.task === "raids_completed" ||
+            Object.values(QuestCompletionTasks).some(
+              (task) => task === objective.task,
+            )) &&
+            tracker.goals.some((goal) => goal.id === objective.id && goal.done)) ||
+          (CombatActivityTasks.some((task) => task === objective.task) &&
+            tracker.goals.some((goal) => goal.id === objective.id && goal.value > 0)),
       )
     );
   });
@@ -670,6 +682,12 @@ export const getReward = (
       increment: 1,
       contentId: userQuest.questId,
     });
+    const completionTask =
+      QuestCompletionTasks[
+        userQuest.quest.questType as keyof typeof QuestCompletionTasks
+      ];
+    if (completionTask)
+      followupTrackerTasks.push({ task: completionTask, increment: 1 });
   }
   if (followupTrackerTasks.length > 0) {
     const { trackers: updatedTrackers } = getNewTrackers(
@@ -1371,6 +1389,28 @@ export const getNewTrackers = (
               // retained above, so catalogue growth never revokes a recorded completion.
               status.done = isComplete;
             }
+          } else if (
+            task === "dungeons_completed" &&
+            user.dungeonsCompleted !== undefined
+          ) {
+            status.value = Number(user.dungeonsCompleted);
+          } else if (task === "raids_completed" && user.raidsCompleted !== undefined) {
+            status.value = Number(user.raidsCompleted);
+          } else if (
+            Object.values(QuestCompletionTasks).some(
+              (completionTask) => completionTask === task,
+            )
+          ) {
+            status.value = user.completedQuests.reduce(
+              (total, history) =>
+                history.questType &&
+                QuestCompletionTasks[
+                  history.questType as keyof typeof QuestCompletionTasks
+                ] === task
+                  ? total + Math.max(history.completed, history.previousCompletes ?? 0)
+                  : total,
+              0,
+            );
           } else if (task === "user_level") {
             // Use originalLevel if available (for combat-scaled users), otherwise use current level
             const userLevel =
@@ -1809,6 +1849,16 @@ export const getNewTrackers = (
             });
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
+            // Latch an earned completion before its source content can be retired.
+            // Goals already done return above, so passive reads request this write once.
+            if (
+              task === "dungeons_completed" ||
+              task === "raids_completed" ||
+              Object.values(QuestCompletionTasks).some(
+                (completionTask) => completionTask === task,
+              )
+            )
+              consequences.push({ type: "update_user", ids: ["activity_completion"] });
           }
 
           // If status is now done, then add quest id to list of updated quests

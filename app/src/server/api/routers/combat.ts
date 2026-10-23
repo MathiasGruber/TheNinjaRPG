@@ -260,6 +260,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { activityCompletionExtras } from "@/server/utils/achievementObjectives";
 import { battleClaimRollbackStatus } from "@/server/utils/concurrency";
 import { settleCookingExperience } from "@/server/utils/cooking";
 import {
@@ -2093,6 +2094,7 @@ export const initiateBattle = async (
 
   const queryBattleUsers = () =>
     client.query.userData.findMany({
+      extras: (table) => activityCompletionExtras(table.userId),
       with: {
         raidBuffs: true,
         titles: true,
@@ -2150,7 +2152,13 @@ export const initiateBattle = async (
           with: { quest: true },
         },
         completedQuests: {
-          columns: { id: true, questId: true, completed: true },
+          columns: {
+            id: true,
+            questId: true,
+            completed: true,
+            questType: true,
+            previousCompletes: true,
+          },
           where: or(
             gte(questHistory.completed, 1),
             gt(questHistory.previousCompletes, 0),

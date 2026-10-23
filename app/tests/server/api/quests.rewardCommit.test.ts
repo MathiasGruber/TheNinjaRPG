@@ -134,6 +134,12 @@ const makeClient = (
     delete: deleteFrom,
     insert: vi.fn(),
     select,
+    execute: vi.fn(async () => {
+      const result = updateResults[sets.length];
+      if (!result) throw new Error("Unexpected joined completion claim");
+      sets.push({ joinedCompletion: true });
+      return result;
+    }),
     query: {
       questHistory: {
         findFirst: vi.fn().mockResolvedValue(historyAfterLostCompletion),
@@ -311,6 +317,24 @@ describe("commitQuestObjectiveRewards compatibility", () => {
       } else expect(payout).not.toHaveProperty("curEnergy");
     },
   );
+  it.each(["battlepyramid", "story", "event", "overworld"] as const)(
+    "claims %s history and account state atomically before exposing completion credit",
+    async (questType) => {
+      const { user, missionHistory } = makeUser();
+      const history = { ...missionHistory, quest: { ...missionHistory.quest, questType } };
+      const { client, sets, update } = makeClient([{ rowsAffected: 0 }], { completed: 0 });
+      const result = await commitQuestObjectiveRewards({
+        client, userId: user.userId, user: { ...user, userQuests: [history] } as never,
+        rewards: rewards(), trackers: [], userQuest: history as never, resolved: true,
+        notifications: [], consequences: [], existingHistory: history,
+      });
+      expect(result.outcome).toBe("state_changed");
+      expect(sets).toEqual([{ joinedCompletion: true }]);
+      expect(update).not.toHaveBeenCalled();
+      expect(user.completedQuests).toEqual([]);
+    },
+  );
+
   it("keeps completion, snapshot claim, and payout in the legacy order", async () => {
     const { user, missionHistory } = makeUser();
     const { client, sets } = makeClient([

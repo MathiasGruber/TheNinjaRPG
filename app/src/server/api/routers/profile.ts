@@ -200,6 +200,7 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { scopedRead } from "@/server/requestScope";
+import { activityCompletionExtras } from "@/server/utils/achievementObjectives";
 import {
   adjustSeichiSilverAtomically,
   claimUserSnapshot,
@@ -3339,7 +3340,10 @@ const fetchUpdatedUserOnce = async (props: {
   const queryUpdatedUser = () =>
     client.query.userData.findFirst({
       where: eq(userData.userId, userId),
-      extras: (table) => ({ displayTitle: displayTitleSql(table).as("displayTitle") }),
+      extras: (table) => ({
+        ...activityCompletionExtras(table.userId),
+        displayTitle: displayTitleSql(table).as("displayTitle"),
+      }),
       with: {
         bloodline: true,
         questParty: { with: questPartyRelations },
@@ -3383,7 +3387,13 @@ const fetchUpdatedUserOnce = async (props: {
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
         completedQuests: {
-          columns: { id: true, questId: true, completed: true },
+          columns: {
+            id: true,
+            questId: true,
+            completed: true,
+            questType: true,
+            previousCompletes: true,
+          },
           where: or(
             gte(questHistory.completed, 1),
             gt(questHistory.previousCompletes, 0),
@@ -4784,6 +4794,8 @@ export type UserWithRelations =
       /** Derived regeneration before timed bonuses, retained for pending recovery ticks. */
       regenerationWithoutTimedBuffs?: number;
       displayTitle?: string;
+      dungeonsCompleted?: number;
+      raidsCompleted?: number;
       titles?: (UserTitle & { title?: import("@/drizzle/schema").Title })[];
       raidBuffs?: TimedBuff[];
       questParty?: LoadedQuestParty | null;
@@ -4808,7 +4820,13 @@ export type UserWithRelations =
         | null;
       loadout?: { jutsuIds: string[] } | null;
       userQuests: (UserQuest & { quest: Quest })[];
-      completedQuests: { id: string; questId: string; completed: number }[];
+      completedQuests: {
+        id: string;
+        questId: string;
+        completed: number;
+        questType?: Quest["questType"];
+        previousCompletes?: number;
+      }[];
       votes?: UserVote | null;
       activeWars?: {
         status: string;

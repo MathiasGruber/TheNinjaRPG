@@ -4084,8 +4084,17 @@ const fetchUserQuestState = async (client: DrizzleClient, userId: string) => {
         with: { quest: true },
       },
       completedQuests: {
-        columns: { id: true, questId: true, completed: true },
-        where: gte(questHistory.completed, 1),
+        columns: {
+          id: true,
+          questId: true,
+          completed: true,
+          questType: true,
+          previousCompletes: true,
+        },
+        where: or(
+          gte(questHistory.completed, 1),
+          gt(questHistory.previousCompletes, 0),
+        ),
       },
     },
   });

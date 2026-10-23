@@ -85,7 +85,27 @@ import { villageMissionContentError } from "@/validators/villageMission";
 // Re-export idsWithNumberField so consumers can import from objectives
 export { idsWithNumberField };
 
+/** Event counters retain progress before an achievement's first reward claim. */
+export const CombatActivityTasks = [
+  "pvp_participated",
+  "spars_participated",
+  "ranked_wins",
+  "ranked_participated",
+  "overworld_ai_fought",
+] as const;
+
+export const QuestCompletionTasks = {
+  battlepyramid: "battle_pyramids_completed",
+  story: "stories_completed",
+  event: "events_completed",
+  overworld: "overworld_quests_completed",
+} as const;
+
 export const SimpleTasks = [
+  ...CombatActivityTasks,
+  ...Object.values(QuestCompletionTasks),
+  "dungeons_completed",
+  "raids_completed",
   "espionage",
   "sabotage",
   "siege_operation",
@@ -306,6 +326,35 @@ export const objectiveImageMap: Record<
     title: "Encounter Wins",
   },
   spars_won: { image: IMG_BADGE_ARENAKILLS, title: "Spars Won" },
+  pvp_participated: { image: IMG_BADGE_PVPKILLS, title: "PvP Participation" },
+  spars_participated: { image: IMG_BADGE_ARENAKILLS, title: "Spar Participation" },
+  ranked_wins: { image: IMG_BADGE_PVPKILLS, title: "Ranked Games Won" },
+  ranked_participated: { image: IMG_BADGE_PVPKILLS, title: "Ranked Participation" },
+  overworld_ai_fought: {
+    image: IMG_BADGE_DEFEAT_OPPONENTS,
+    title: "Overworld AI Fought",
+  },
+  dungeons_completed: {
+    image: IMG_BADGE_COMPLETE_SPECIFIC_QUEST,
+    title: "Dungeons Completed",
+  },
+  battle_pyramids_completed: {
+    image: IMG_BADGE_COMPLETE_SPECIFIC_QUEST,
+    title: "Battle Pyramids Completed",
+  },
+  raids_completed: { image: IMG_BADGE_OPEN_RAID, title: "Raids Completed" },
+  stories_completed: {
+    image: IMG_BADGE_COMPLETE_SPECIFIC_QUEST,
+    title: "Stories Completed",
+  },
+  events_completed: {
+    image: IMG_BADGE_COMPLETE_SPECIFIC_QUEST,
+    title: "Events Completed",
+  },
+  overworld_quests_completed: {
+    image: IMG_BADGE_COMPLETE_SPECIFIC_QUEST,
+    title: "Overworld Quests Completed",
+  },
   medical_experience: {
     image: IMG_BADGE_MEDICAL_EXPERIENCE,
     title: "Medical Experience",
