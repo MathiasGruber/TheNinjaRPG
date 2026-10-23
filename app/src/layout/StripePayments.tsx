@@ -120,14 +120,18 @@ export const StripePaymentReturn = () => {
   const resolve = api.stripe.resolveSession.useMutation({
     onSuccess: async (result) => {
       setMessage(result.message);
+      await Promise.all([
+        utils.stripe.getPayments.invalidate(),
+        utils.stripe.getPendingCheckouts.invalidate(),
+        ...(result.success
+          ? [
+              utils.profile.getUser.invalidate(),
+              utils.paypal.getRecentRepsCount.invalidate(),
+              utils.stripe.getSubscriptions.invalidate(),
+            ]
+          : []),
+      ]);
       if (result.success) {
-        await Promise.all([
-          utils.profile.getUser.invalidate(),
-          utils.paypal.getRecentRepsCount.invalidate(),
-          utils.stripe.getSubscriptions.invalidate(),
-          utils.stripe.getPayments.invalidate(),
-          utils.stripe.getPendingCheckouts.invalidate(),
-        ]);
         setSessionId(null);
         const url = new URL(window.location.href);
         url.searchParams.delete("stripe_session");
