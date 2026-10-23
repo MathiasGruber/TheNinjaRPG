@@ -1293,6 +1293,8 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
 /**
  * Resolve passive effects without letting sealed bloodline tags participate.
  * Use isEffectActive for lifetime bookkeeping so suppressed tags survive the seal.
+ * Pass the full user-effect context: only resolved, unexpired seals on the same
+ * target suppress a bloodline tag; a newly cast seal must resolve first.
  */
 export const isEffectEnabled = (
   effect: UserEffect | GroundEffect,

@@ -2280,7 +2280,7 @@ export const poison = (
   let modifiedStaminaCost = action.staminaCost;
 
   if (!effect.castThisRound && actorId === target.userId) {
-    // Iterate over active pool adjustment effects affecting the target.
+    // Match action spending's modifier eligibility, including bloodline suppression.
     usersEffects.forEach((eff) => {
       if (
         (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&

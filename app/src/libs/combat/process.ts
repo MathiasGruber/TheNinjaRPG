@@ -1400,7 +1400,8 @@ export const applySingleEffect = (
       // Figure if tag should be applied
       const ratio = calcApplyRatio(effect, battle, effect.targetId, isTargetOrNew);
       if (ratio > 0) {
-        // Include resolved Sage tags and pending seals without duplicating effects.
+        // Prefer resolved effects so newly activated Sage protections apply immediately.
+        // Retain unprocessed originals so seals are visible regardless of effect order.
         const resolvedEffectIds = new Set(newUsersEffects.map((e) => e.id));
         const preventionEffects = [
           ...newUsersEffects,

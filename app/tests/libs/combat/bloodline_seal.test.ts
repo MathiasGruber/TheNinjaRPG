@@ -179,6 +179,7 @@ describe("Bloodline Seal", () => {
   });
 });
 
+/** A granted skill already on cooldown when its bloodline becomes sealed. */
 const injectedFixture = () => {
   const jutsu = { ...SAGE_MODE_ACTIVATION_JUTSU, id: "injected-skill", name: "Injected skill", cooldown: 10, effects: [makeTag("heal")] };
   const user = makeBattleUser("defender", {
@@ -286,6 +287,7 @@ describe("Bloodline Seal poison pool costs", () => {
   });
 });
 
+/** Exercise action selection, resource spending and effect processing together. */
 const actionFixture = (
   effects: UserEffect[],
   tags: typeof SAGE_MODE_ACTIVATION_JUTSU.effects = [makeTag("damage", { power: 0, calculation: "static", rounds: 0, target: "SELF" })],
@@ -307,6 +309,7 @@ const actionFixture = (
   return { battle, action, perform };
 };
 
+/** Advance through normal round alignment so effect lifetimes expire naturally. */
 const nextRound = (battle: CompleteBattle) => {
   battle.usersState.forEach(user => { user.round = battle.round; user.actionPoints = 0; });
   battle.roundStartAt = new Date(Date.now() - 600_000);
