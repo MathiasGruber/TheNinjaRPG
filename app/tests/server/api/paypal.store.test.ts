@@ -106,7 +106,7 @@ describeWithDatabase("web store payments", () => {
         transactions = report;
         expect(await buyer.resolveTransaction({ transactionId: capture(order.id).captureId, transactionDate: new Date() })).toEqual({
           success: false,
-          message: "No completed transaction found. PayPal may not have reported this payment yet. Check the transaction ID and date, then retry later.",
+          message: "No completed PayPal transaction was found for that ID and date. Check the details and try again.",
         });
       }
       expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);

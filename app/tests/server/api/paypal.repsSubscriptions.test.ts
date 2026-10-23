@@ -51,7 +51,7 @@ describeWithDatabase("reputation-funded subscriptions", () => {
     const caller = await callerFor(paypalRouter, BUYER);
     const results = await Promise.all(
       Array.from({ length: ATTEMPTS }, () =>
-        caller.subscribeWithReps({ userId: BUYER, status: "GOLD" }),
+        caller.subscribeWithReps({ expectedUserId: BUYER, userId: BUYER, status: "GOLD" }),
       ),
     );
     expect(results.filter((result) => result.success)).toHaveLength(1);
@@ -71,7 +71,7 @@ describeWithDatabase("reputation-funded subscriptions", () => {
     ]);
     const caller = await callerFor(paypalRouter, BUYER);
     const results = await Promise.all(
-      giftees.map((userId) => caller.subscribeWithReps({ userId, status: "NORMAL" })),
+      giftees.map((userId) => caller.subscribeWithReps({ expectedUserId: BUYER, userId, status: "NORMAL" })),
     );
     expect(results.filter((result) => result.success)).toHaveLength(1);
     expect(await readUser(BUYER)).toMatchObject({ reputationPoints: 0 });
@@ -97,7 +97,7 @@ describeWithDatabase("reputation-funded subscriptions", () => {
       .set({ federalStatus: "NORMAL" })
       .where(eq(userData.userId, GIFTEE));
     const caller = callerForDatabase(paypalRouter, BUYER, staleGifteeClient(database));
-    const result = await caller.subscribeWithReps({ userId: GIFTEE, status: "SILVER" });
+    const result = await caller.subscribeWithReps({ expectedUserId: BUYER, userId: GIFTEE, status: "SILVER" });
     expect(result.success).toBe(false);
     expect(await readUser(BUYER)).toMatchObject({ reputationPoints: cost });
     expect(await readSubscriptions()).toHaveLength(0);

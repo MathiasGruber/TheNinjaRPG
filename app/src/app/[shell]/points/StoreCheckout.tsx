@@ -76,7 +76,9 @@ export function StoreCheckout({
           {message}
         </p>
       )}
-      {isRejected ? (
+      {!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
+        <p>PayPal checkout is temporarily unavailable. Please try again later.</p>
+      ) : isRejected ? (
         <p role="alert">PayPal could not load. Refresh the page to try again.</p>
       ) : !isResolved ? (
         <Loader explanation="Loading PayPal checkout" />

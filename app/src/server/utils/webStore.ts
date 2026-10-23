@@ -1,4 +1,4 @@
-import { and, eq, gt, gte, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { STORE_ORDER_RESERVATION_MINUTES } from "@/drizzle/constants";
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
+import { reputationAllowanceUsed } from "@/server/utils/purchases/allowance";
 import { isDeletedStoreUserId } from "@/server/utils/purchases/grant";
 import { dynamicMonthlyRepCap, getStoreBundleMinimumPriceCents } from "@/utils/paypal";
 import { type StoreContents, storeContentsSchema } from "@/validators/points";
@@ -301,38 +302,14 @@ const checkStoreAllowance = async (
   points: number,
   excludeOrderId?: string,
 ) => {
-  const paidQuery = client
-    .select({
-      count:
-        sql<number>`COALESCE(SUM(${paypalTransaction.reputationPoints}),0)`.mapWith(
-          Number,
-        ),
-    })
-    .from(paypalTransaction)
-    .where(
-      and(
-        eq(paypalTransaction.createdById, buyer.userId),
-        gte(paypalTransaction.createdAt, sql`NOW() - INTERVAL 30 DAY`),
-      ),
-    );
-  const pendingQuery = client.query.webStoreOrder.findMany({
-    where: and(
-      eq(webStoreOrder.buyerId, buyer.userId),
-      isNull(webStoreOrder.grantedAt),
-      gt(webStoreOrder.expiresAt, new Date()),
-      excludeOrderId ? ne(webStoreOrder.id, excludeOrderId) : undefined,
-    ),
-  });
-  // Positive-reputation checks run in a single PlanetScale transaction session.
-  const [paid, pending] =
-    points > 0
-      ? ([await paidQuery, await pendingQuery] as const)
-      : await Promise.all([paidQuery, pendingQuery]);
-  const reserved = pending.reduce(
-    (sum, order) => sum + order.contents.reputationPoints,
-    0,
+  const used = await reputationAllowanceUsed(
+    client,
+    buyer.userId,
+    "",
+    "",
+    excludeOrderId,
   );
-  return (paid[0]?.count ?? 0) + reserved + points > dynamicMonthlyRepCap(buyer)
+  return used + points > dynamicMonthlyRepCap(buyer)
     ? "This exceeds your monthly reputation allowance, including other open checkouts. No payment was captured."
     : null;
 };

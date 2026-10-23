@@ -6,6 +6,11 @@ import { z } from "zod";
  * This way you can ensure the app isn't built with invalid env vars.
  */
 export const serverSchema = z.object({
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_NORMAL: z.string().optional(),
+  STRIPE_PRICE_SILVER: z.string().optional(),
+  STRIPE_PRICE_GOLD: z.string().optional(),
   SHOPIFY_STORE_DOMAIN: z.string().regex(/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/).or(z.literal("")).optional(),
   SHOPIFY_STOREFRONT_ACCESS_TOKEN: z.string().min(1).or(z.literal("")).optional(),
   MERCH_CHECKOUT_ENABLED: z.enum(["true", "false"]).optional(),
@@ -97,6 +102,11 @@ export const serverSchema = z.object({
  * @type {{ [k in keyof z.infer<typeof serverSchema>]: z.infer<typeof serverSchema>[k] | undefined }}
  */
 export const serverEnv = {
+  STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
+  STRIPE_PRICE_NORMAL: process.env.STRIPE_PRICE_NORMAL,
+  STRIPE_PRICE_SILVER: process.env.STRIPE_PRICE_SILVER,
+  STRIPE_PRICE_GOLD: process.env.STRIPE_PRICE_GOLD,
   SHOPIFY_STORE_DOMAIN: process.env.SHOPIFY_STORE_DOMAIN,
   SHOPIFY_STOREFRONT_ACCESS_TOKEN: process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN,
   MERCH_CHECKOUT_ENABLED: /** @type {"true" | "false" | undefined} */ (process.env.MERCH_CHECKOUT_ENABLED),
