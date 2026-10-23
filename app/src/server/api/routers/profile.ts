@@ -1607,6 +1607,8 @@ export const profileRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
+      if (!canChangeContent(user.role))
+        return errorResponse("Not allowed to delete AI");
       const [ai, habitats] = await Promise.all([
         fetchUser(ctx.drizzle, input.id),
         ctx.drizzle.query.huntingHabitat.findMany(),
@@ -1615,8 +1617,9 @@ export const profileRouter = createTRPCRouter({
         return errorResponse(
           "This AI is used by a hunting contract. Remove the target first.",
         );
-      if (ai?.isAi && canChangeContent(user.role)) {
-        await deleteUser(ctx.drizzle, ai.userId);
+      if (ai?.isAi) {
+        const rejected = await deleteUser(ctx.drizzle, ai.userId);
+        if (rejected) return rejected;
         await outdateProposalsFor(
           ctx.drizzle,
           "AI",
@@ -2728,7 +2731,8 @@ export const profileRouter = createTRPCRouter({
         return errorResponse("Please leave clan or faction first.");
       }
       // Mutate
-      await deleteUser(ctx.drizzle, input.userId);
+      const rejected = await deleteUser(ctx.drizzle, input.userId);
+      if (rejected) return rejected;
       return { success: true, message: "User deleted" };
     }),
   claimVotes: protectedProcedure

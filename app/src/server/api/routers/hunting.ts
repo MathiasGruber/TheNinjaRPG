@@ -18,6 +18,7 @@ import {
   protectedProcedure,
   ratelimitMiddleware,
 } from "@/server/api/trpc";
+import type { DrizzleClient } from "@/server/db";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { canChangeContent } from "@/utils/permissions";
 import {
@@ -31,17 +32,15 @@ import {
 export const huntingRouter = createTRPCRouter({
   /**
    * Load only the caller's encounter for travel/dashboard polling in one joined read.
-   * A missing session returns null; unavailable rules leave a null contract for recovery.
+   * Missing accepted terms leave a null contract so legacy sessions can still be finished.
    */
   getSession: protectedProcedure.query(async ({ ctx }) => {
     const [row] = await ctx.drizzle
       .select({
         session: huntingSession,
-        habitat: huntingHabitat,
         progress: huntingProgress,
       })
       .from(huntingSession)
-      .leftJoin(huntingHabitat, eq(huntingHabitat.id, huntingSession.habitatId))
       .leftJoin(
         huntingProgress,
         and(
@@ -51,11 +50,9 @@ export const huntingRouter = createTRPCRouter({
       )
       .where(eq(huntingSession.userId, ctx.userId));
     if (!row) return null;
-    const contract = row.habitat?.content.enabled
-      ? row.habitat.content.contracts.find(
-          (c) => c.id === row.session.contractId && c.enabled,
-        )
-      : undefined;
+    const contract = row.session.content?.contracts.find(
+      (c) => c.id === row.session.contractId,
+    );
     const serverTime = new Date();
     return {
       session: row.session,
@@ -108,7 +105,11 @@ export const huntingRouter = createTRPCRouter({
               },
             }))
         : [];
-    const contracts = visibleHabitats.flatMap((h) => h.content.contracts);
+    // Accepted AI and reward references remain visible after their live contracts change.
+    const contracts = [
+      ...visibleHabitats.flatMap((h) => h.content.contracts),
+      ...(session?.content?.contracts ?? []),
+    ];
     const aiIds = new Set(contracts.map((c) => c.aiId));
     const itemIds = new Set(contracts.flatMap((c) => c.rewards.map((r) => r.itemId)));
     return {
@@ -131,7 +132,7 @@ export const huntingRouter = createTRPCRouter({
       ? ctx.drizzle.query.huntingHabitat.findMany()
       : [];
   }),
-  /** Validate authored references and locations before publishing rules to future encounter starts. */
+  /** Validate authored references and locations before publishing rules to future contracts. */
   save: protectedProcedure
     .use(ratelimitMiddleware)
     .input(saveHuntingHabitatSchema)
@@ -204,9 +205,6 @@ export const huntingRouter = createTRPCRouter({
           id: existingIds.has(c.id) ? c.id : nanoid(),
         })),
       };
-      const inCombat = new Error(
-        "Hunters are fighting in this habitat. Wait for those battles to finish before editing.",
-      );
       const missing = new Error("Habitat not found. Refresh the editor.");
       // Rules and affected allowances must commit together: a reduced limit can exhaust
       // progress with no cooldown, and an interleaved save must not apply superseded rules.
@@ -217,20 +215,13 @@ export const huntingRouter = createTRPCRouter({
             if (input.id) {
               const saved = await tx
                 .update(huntingHabitat)
-                .set({ content, updatedAt: new Date() })
-                .where(
-                  and(
-                    eq(huntingHabitat.id, id),
-                    sql`NOT EXISTS (SELECT 1 FROM ${huntingSession} WHERE ${huntingSession.habitatId} = ${id} AND ${huntingSession.battleId} IS NOT NULL)`,
-                  ),
-                );
-              if (saved.rowsAffected !== 1) {
-                const exists = await tx.query.huntingHabitat.findFirst({
-                  where: eq(huntingHabitat.id, id),
-                  columns: { id: true },
-                });
-                throw exists ? inCombat : missing;
-              }
+                .set({
+                  content,
+                  // Same-millisecond saves must invalidate admission's captured revision.
+                  updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${huntingHabitat.updatedAt}))`,
+                })
+                .where(eq(huntingHabitat.id, id));
+              if (saved.rowsAffected !== 1) throw missing;
             } else
               await tx
                 .insert(huntingHabitat)
@@ -248,13 +239,14 @@ export const huntingRouter = createTRPCRouter({
                     eq(huntingProgress.contractId, contract.id),
                     sql`${huntingProgress.used} >= ${contract.hunts}`,
                     isNull(huntingProgress.cooldownUntil),
+                    // Active contracts keep their allowance and settlement version.
+                    sql`NOT EXISTS (SELECT 1 FROM ${huntingSession} WHERE ${huntingSession.userId} = ${huntingProgress.userId} AND ${huntingSession.contractId} = ${huntingProgress.contractId})`,
                   ),
                 );
             }
           }),
         );
       } catch (error) {
-        if (error === inCombat) return errorResponse(inCombat.message);
         if (error === missing) return errorResponse(missing.message);
         throw error;
       }
@@ -305,18 +297,16 @@ export const huntingRouter = createTRPCRouter({
     });
     return { success: true, message: "Habitat deleted." };
   }),
-  /** Assign a reachable sector once; switching uses a session CAS and preserves per-contract usage. */
+  /** Capture accepted terms and a reachable sector; atomically reconcile usage when switching. */
   accept: protectedProcedure
     .use(ratelimitMiddleware)
     .input(acceptHuntingContractSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, habitat, session, progress] = await Promise.all([
+      const [user, habitats, session, progress] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
         }),
-        ctx.drizzle.query.huntingHabitat.findFirst({
-          where: eq(huntingHabitat.id, input.habitatId),
-        }),
+        ctx.drizzle.query.huntingHabitat.findMany(),
         ctx.drizzle.query.huntingSession.findFirst({
           where: eq(huntingSession.userId, ctx.userId),
         }),
@@ -327,6 +317,7 @@ export const huntingRouter = createTRPCRouter({
           ),
         }),
       ]);
+      const habitat = habitats.find((h) => h.id === input.habitatId);
       const contract = habitat?.content.contracts.find(
         (c) => c.id === input.contractId,
       );
@@ -371,14 +362,13 @@ export const huntingRouter = createTRPCRouter({
         return errorResponse(
           "There are no approved reachable locations for this contract.",
         );
+      // Retain habitat metadata for the board, but freeze only the selected contract.
       const next = {
         id: nanoid(),
         habitatId: habitat.id,
         contractId: contract.id,
+        content: { ...habitat.content, contracts: [contract] },
         sector,
-        readyAt: null,
-        battleId: null,
-        lastResult: null,
         startedAt: new Date(),
         version: (session?.version ?? -1) + 1,
       };
@@ -387,22 +377,58 @@ export const huntingRouter = createTRPCRouter({
         .insert(huntingProgress)
         .values({ userId: ctx.userId, contractId: contract.id })
         .onDuplicateKeyUpdate({ set: { contractId: contract.id } });
+      const previousHabitat = habitats.find((h) => h.id === session?.habitatId);
+      const previousContract = previousHabitat?.content.contracts.find(
+        (c) => c.id === session?.contractId,
+      );
+      // A save may reconcile the target allowance before admission; accept only
+      // the same habitat version that supplied this session's terms.
+      const targetHabitatGuard = and(
+        eq(huntingHabitat.id, habitat.id),
+        eq(huntingHabitat.updatedAt, habitat.updatedAt),
+      );
       try {
-        const saved = session
-          ? await ctx.drizzle
-              .update(huntingSession)
-              .set(next)
-              .where(
-                and(
-                  eq(huntingSession.userId, ctx.userId),
-                  eq(huntingSession.version, session.version),
-                  isNull(huntingSession.battleId),
-                ),
-              )
-          : await ctx.drizzle
-              .insert(huntingSession)
-              .values({ ...next, userId: ctx.userId });
-        if (saved.rowsAffected !== 1)
+        // Switching and reconciling the old allowance share one guarded statement.
+        const saved = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(
+            session
+              ? sql`
+              UPDATE ${huntingSession} AS s
+              LEFT JOIN ${huntingProgress} AS p
+                ON p.userId = s.userId AND p.contractId = s.contractId
+              SET s.id = ${next.id}, s.habitatId = ${next.habitatId},
+                  s.contractId = ${next.contractId}, s.content = ${JSON.stringify(next.content)},
+                  s.sector = ${next.sector}, s.readyAt = NULL, s.battleId = NULL,
+                  s.lastResult = NULL, s.startedAt = ${next.startedAt}, s.version = ${next.version},
+                  p.version = p.version + 1,
+                  p.cooldownUntil = ${
+                    previousContract
+                      ? sql`CASE WHEN p.used >= ${previousContract.hunts} AND p.cooldownUntil IS NULL
+                        THEN ${new Date(Date.now() + previousContract.cooldownSeconds * 1000)}
+                        ELSE p.cooldownUntil END`
+                      : sql`p.cooldownUntil`
+                  }
+              WHERE s.userId = ${ctx.userId} AND s.id = ${session.id}
+                AND s.version = ${session.version} AND s.battleId IS NULL
+                AND EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${targetHabitatGuard})
+                AND ${
+                  previousHabitat
+                    ? sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId} AND ${huntingHabitat.updatedAt} = ${previousHabitat.updatedAt})`
+                    : sql`NOT EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId})`
+                }
+            `
+              : sql`
+                INSERT INTO ${huntingSession}
+                  (userId, id, habitatId, contractId, content, sector, readyAt,
+                   battleId, version, startedAt, lastResult)
+                SELECT ${ctx.userId}, ${next.id}, ${next.habitatId}, ${next.contractId},
+                       ${JSON.stringify(next.content)}, ${next.sector}, NULL, NULL,
+                       ${next.version}, ${next.startedAt}, NULL
+                FROM ${huntingHabitat} WHERE ${targetHabitatGuard}
+              `,
+          ),
+        );
+        if (saved.rowsAffected === 0)
           return errorResponse("Your hunting session changed. Refresh the board.");
       } catch (error) {
         if (!isMysqlDuplicateKeyError(error)) throw error;
@@ -413,18 +439,17 @@ export const huntingRouter = createTRPCRouter({
         message: `Contract accepted. Travel to sector ${sector}.`,
       };
     }),
-  /** Prepare once or finish the exact displayed session, leaving its partial allowance intact. */
+  /** Prepare accepted terms once, or finish the displayed session and reconcile reduced limits. */
   sessionAction: protectedProcedure
     .input(huntingSessionActionSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, session, habitats] = await Promise.all([
+      const [user, session] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
         }),
         ctx.drizzle.query.huntingSession.findFirst({
           where: eq(huntingSession.userId, ctx.userId),
         }),
-        ctx.drizzle.query.huntingHabitat.findMany(),
       ]);
       if (
         !session ||
@@ -442,7 +467,23 @@ export const huntingRouter = createTRPCRouter({
         isNull(huntingSession.battleId),
       );
       if (input.action === "finish") {
-        const saved = await ctx.drizzle.delete(huntingSession).where(guard);
+        // A joined UPDATE can switch contracts, but MySQL cannot DELETE this session
+        // and UPDATE its allowance in one statement. Separate writes could release it
+        // without starting an exhausted allowance's cooldown if reconciliation fails.
+        // Keep this transaction confined to finish so both writes commit or retry together.
+        const saved = await retryOnDeadlock(() =>
+          ctx.drizzle.transaction(async (tx) => {
+            const deleted = await tx.delete(huntingSession).where(guard);
+            if (deleted.rowsAffected === 1)
+              await reconcileInactiveAllowance(
+                tx as unknown as DrizzleClient,
+                ctx.userId,
+                session.habitatId,
+                session.contractId,
+              );
+            return deleted;
+          }),
+        );
         return saved.rowsAffected === 1
           ? {
               success: true,
@@ -450,8 +491,7 @@ export const huntingRouter = createTRPCRouter({
             }
           : errorResponse("Your session changed.");
       }
-      const habitat = habitats.find((h) => h.id === session.habitatId);
-      const contract = habitat?.content.contracts.find(
+      const contract = session.content?.contracts.find(
         (c) => c.id === session.contractId,
       );
       if (
@@ -460,8 +500,6 @@ export const huntingRouter = createTRPCRouter({
         user.isBanned ||
         user.sector !== session.sector ||
         !contract ||
-        !contract.enabled ||
-        !habitat?.content.enabled ||
         !huntingEligibility(user.occupation, user.huntingExperience, contract)
       )
         return errorResponse(
@@ -480,19 +518,18 @@ export const huntingRouter = createTRPCRouter({
         ? { success: true, message: "Preparation started." }
         : errorResponse("Your session changed.");
     }),
-  /** Revalidate current rules and preload combat data before the guarded encounter admission. */
+  /** Validate accepted terms and preload combat data before guarded encounter admission. */
   start: protectedProcedure
     .use(ratelimitMiddleware)
     .input(huntingIdSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, session, habitats, progressRows, materials] = await Promise.all([
+      const [user, session, progressRows, materials] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
         }),
         ctx.drizzle.query.huntingSession.findFirst({
           where: eq(huntingSession.userId, ctx.userId),
         }),
-        ctx.drizzle.query.huntingHabitat.findMany(),
         ctx.drizzle.query.huntingProgress.findMany({
           where: eq(huntingProgress.userId, ctx.userId),
         }),
@@ -501,18 +538,10 @@ export const huntingRouter = createTRPCRouter({
           columns: { id: true, name: true, canStack: true, stackSize: true },
         }),
       ]);
-      const habitat = habitats.find((h) => h.id === session?.habitatId);
-      const contract = habitat?.content.contracts.find(
+      const contract = session?.content?.contracts.find(
         (c) => c.id === session?.contractId,
       );
-      if (
-        !session ||
-        session.id !== input.id ||
-        session.battleId ||
-        !contract ||
-        !habitat?.content.enabled ||
-        !contract.enabled
-      )
+      if (!session || session.id !== input.id || session.battleId || !contract)
         return errorResponse("This hunting session is unavailable. Refresh the board.");
       const progress = progressRows.find((p) => p.contractId === contract.id);
       const allowance = huntingAllowance(contract, progress);
@@ -543,7 +572,6 @@ export const huntingRouter = createTRPCRouter({
       });
       if (
         !contract.sectors.includes(session.sector) ||
-        !habitat.content.sectors.includes(session.sector) ||
         !maps.some(
           (m) =>
             m.sector === session.sector &&
@@ -567,8 +595,7 @@ export const huntingRouter = createTRPCRouter({
             userId: ctx.userId,
             sessionId: session.id,
             sessionVersion: session.version,
-            habitatId: habitat.id,
-            habitatUpdatedAt: habitat.updatedAt.toISOString(),
+            habitatId: session.habitatId,
             contract,
             used: allowance.used,
             progressVersion: progress.version,
@@ -584,3 +611,40 @@ export const huntingRouter = createTRPCRouter({
       );
     }),
 });
+
+/**
+ * Start a reduced allowance's cooldown without changing its consumed hunts.
+ * The caller must release the session on this same transaction client first; failures
+ * must roll back both operations. Habitat revisions and active-session guards prevent
+ * applying superseded rules or changing another accepted contract's allowance.
+ */
+const reconcileInactiveAllowance = async (
+  client: DrizzleClient,
+  userId: string,
+  habitatId: string,
+  contractId: string,
+) => {
+  // This read depends on releasing the session: a concurrent save must see the
+  // allowance as inactive, or finish before we read its updated terms.
+  const habitat = await client.query.huntingHabitat.findFirst({
+    where: eq(huntingHabitat.id, habitatId),
+  });
+  const contract = habitat?.content.contracts.find((c) => c.id === contractId);
+  if (!habitat || !contract) return;
+  await client
+    .update(huntingProgress)
+    .set({
+      cooldownUntil: new Date(Date.now() + contract.cooldownSeconds * 1000),
+      version: sql`${huntingProgress.version} + 1`,
+    })
+    .where(
+      and(
+        eq(huntingProgress.userId, userId),
+        sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${habitatId} AND ${huntingHabitat.updatedAt} = ${habitat.updatedAt})`,
+        eq(huntingProgress.contractId, contract.id),
+        sql`${huntingProgress.used} >= ${contract.hunts}`,
+        isNull(huntingProgress.cooldownUntil),
+        sql`NOT EXISTS (SELECT 1 FROM ${huntingSession} WHERE ${huntingSession.userId} = ${userId} AND ${huntingSession.contractId} = ${contract.id})`,
+      ),
+    );
+};

@@ -22,6 +22,7 @@ import type { HuntingReceipt } from "@/validators/hunting";
 
 /**
  * Browse and manage the same personal session from the occupation or combat result.
+ * Active summaries and catalogue rows use accepted terms until the session is released.
  * Successful starts own profile/cache updates; onStarted clears an existing combat result.
  * sessionOnly omits browsing and reward summaries to keep arrival dialogs focused.
  */
@@ -91,10 +92,8 @@ export function HuntingBoard({
   const data = board.data;
   const session = data?.session;
   const user = data?.user;
-  const activeHabitat = data?.habitats.find((h) => h.id === session?.habitatId);
-  const active = activeHabitat?.content.contracts.find(
-    (c) => c.id === session?.contractId,
-  );
+  const activeHabitat = session?.content;
+  const active = activeHabitat?.contracts.find((c) => c.id === session?.contractId);
   const progress = data?.progress.find((p) => p.contractId === active?.id);
   const allowance = active
     ? huntingAllowance(active, progress, data?.serverTime.getTime())
@@ -111,23 +110,26 @@ export function HuntingBoard({
       ...h,
       content: {
         ...h.content,
-        contracts: h.content.contracts.filter((c) => {
-          const ai = data?.creatures.find((a) => a.userId === c.aiId);
-          return (
-            (!rank || c.rank === rank) &&
-            (!creature.trim() ||
-              `${ai?.username ?? ""} ${c.name}`
-                .toLowerCase()
-                .includes(creature.trim().toLowerCase())) &&
-            (!material.trim() ||
-              c.rewards.some((r) =>
-                data?.materials
-                  .find((m) => m.id === r.itemId)
-                  ?.name.toLowerCase()
-                  .includes(material.trim().toLowerCase()),
-              ))
-          );
-        }),
+        // The active row describes the accepted session until it finishes or switches.
+        contracts: h.content.contracts
+          .map((c) => (h.id === session?.habitatId && c.id === active?.id ? active : c))
+          .filter((c) => {
+            const ai = data?.creatures.find((a) => a.userId === c.aiId);
+            return (
+              (!rank || c.rank === rank) &&
+              (!creature.trim() ||
+                `${ai?.username ?? ""} ${c.name}`
+                  .toLowerCase()
+                  .includes(creature.trim().toLowerCase())) &&
+              (!material.trim() ||
+                c.rewards.some((r) =>
+                  data?.materials
+                    .find((m) => m.id === r.itemId)
+                    ?.name.toLowerCase()
+                    .includes(material.trim().toLowerCase()),
+                ))
+            );
+          }),
       },
     }))
     .filter((h) => h.content.contracts.length > 0);
@@ -162,7 +164,7 @@ export function HuntingBoard({
               {active?.name ?? "Unavailable contract"}
             </h3>
             <p>
-              {activeHabitat?.content.name} · Personal encounter in sector{" "}
+              {activeHabitat?.name} · Personal encounter in sector{" "}
               <strong>{session.sector}</strong>
             </p>
             <p>{huntingSessionStage(session, !!allowance?.cooling, now)}</p>
@@ -176,8 +178,8 @@ export function HuntingBoard({
             )}
             {!active && (
               <p>
-                Staff changed or disabled this contract. Select a new contract or finish
-                this session.
+                The accepted contract is unavailable. Finish this session and select a
+                new contract.
               </p>
             )}
             <div className="grid grid-cols-2 gap-2 [&_button]:h-full [&_button]:min-h-9 [&_button]:w-full [&_button]:whitespace-normal">

@@ -8,7 +8,7 @@ export const huntingContract = () => huntingContractSchema.parse({
 /** Enabled habitat whose contract and encounter location belong to the same sector. */
 export const huntingHabitatContent = (): HuntingHabitatContent => ({ name: "Forest", description: "Forest wildlife", enabled: true, sectors: [1], contracts: [huntingContract()] });
 /** Complete preloaded settlement data, including the session/progress CAS versions. */
-export const huntingBattleState = (): HuntingBattleState => ({ userId: "hunter", sessionId: "session", sessionVersion: 0, habitatId: "forest", habitatUpdatedAt: new Date(0).toISOString(), contract: huntingContract(), used: 0, progressVersion: 0, huntingExperience: 123, materialNames: { hide: "Boar hide", tusk: "Boar tusk" }, materialStacks: { hide: 1, tusk: 10 } });
+export const huntingBattleState = (): HuntingBattleState => ({ userId: "hunter", sessionId: "session", sessionVersion: 0, habitatId: "forest", contract: huntingContract(), used: 0, progressVersion: 0, huntingExperience: 123, materialNames: { hide: "Boar hide", tusk: "Boar tusk" }, materialStacks: { hide: 1, tusk: 10 } });
 
 /** Minimal traversable published-map content with the spawn anchor used by admission. */
 export const huntingMap = (): import("@/libs/sector-map/types").NormalizedSectorMap => ({

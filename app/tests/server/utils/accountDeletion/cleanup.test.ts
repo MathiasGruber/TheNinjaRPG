@@ -12,6 +12,7 @@ import {
 } from "../../../setup/testDatabase";
 import { removeAccountGameData } from "@/server/utils/accountDeletion/cleanup";
 import * as processors from "@/server/utils/accountDeletion/processors";
+import { runDeletionStep } from "@/server/utils/accountDeletion/worker";
 
 const depart = clans.removeFromClan;
 
@@ -24,6 +25,25 @@ describeWithDatabase("account deletion clan departure retries", () => {
     vi.spyOn(staff, "deleteUser").mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("keeps a rejected shared deletion retryable instead of completing account cleanup", async () => {
+    await insertUsers([{ userId: "departing" }]);
+    vi.spyOn(staff, "deleteUser").mockResolvedValueOnce({
+      success: false,
+      message: "This AI is used by an active hunting session. Wait for it to finish.",
+    });
+    const advance = vi.fn();
+    const step = () => runDeletionStep({
+      phase: "IDENTITY_DELETED",
+      removeIdentity: vi.fn(),
+      removeGameData: () => removeAccountGameData("departing"),
+      advance,
+    });
+    await expect(step()).rejects.toThrow("active hunting session");
+    expect(advance).not.toHaveBeenCalled();
+    await step();
+    expect(advance).toHaveBeenCalledWith("COMPLETE", 0);
+  });
 
   it.each([false, true])(
     "retries departure after membership was cleared (last member: %s)",

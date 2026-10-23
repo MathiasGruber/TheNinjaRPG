@@ -85,7 +85,7 @@ export async function GET(request: Request) {
 
     // Step 1b: Release hunting reservations whose battle is gone. Settlement clears the
     // reservation with the battle, but an abandoned hunt only expires through Step 1;
-    // a dangling battleId would trap the hunter and block staff edits to the habitat.
+    // a dangling battleId would trap the hunter.
     await retryOnDeadlock(() =>
       drizzleDB
         .update(huntingSession)

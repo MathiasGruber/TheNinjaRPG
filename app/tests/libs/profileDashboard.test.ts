@@ -692,7 +692,7 @@ it("keeps remote raid cards actionable with their destination sector", () => {
 it("shows the personal hunting contract and its current stage ahead of legacy quests", () => {
   const serverTime = new Date("2026-01-01T12:00:00Z");
   const hunting = {
-    session: { userId: "hunter", id: "session", contractId: "contract", habitatId: "forest", sector: 1, readyAt: null as Date | null, battleId: null as string | null, version: 0, startedAt: serverTime, lastResult: null },
+    session: { content: null, userId: "hunter", id: "session", contractId: "contract", habitatId: "forest", sector: 1, readyAt: null as Date | null, battleId: null as string | null, version: 0, startedAt: serverTime, lastResult: null },
     contract: huntingContract(),
     allowance: { used: 1, remaining: 2, cooling: false }, serverTime,
   };

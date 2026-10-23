@@ -49,6 +49,7 @@ import {
   actionLog,
   bloodlineRolls,
   craftingRequirement,
+  huntingSession,
   item,
   itemLoadout,
   itemPurchaseCounter,
@@ -520,20 +521,23 @@ export const itemRouter = createTRPCRouter({
     .input(idSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [user, entry, childEvolutions, variants, huntingReferences] =
-        await Promise.all([
-          fetchUser(ctx.drizzle, ctx.userId),
-          fetchItem(ctx.drizzle, input.id),
-          ctx.drizzle.query.item.findMany({
-            columns: { id: true, name: true },
-            where: eq(item.parentItemId, input.id),
-          }),
-          ctx.drizzle.query.itemVariant.findMany({
-            where: eq(itemVariant.itemId, input.id),
-            columns: { id: true },
-          }),
-          ctx.drizzle.query.huntingHabitat.findMany(),
-        ]);
+      const user = await fetchUser(ctx.drizzle, ctx.userId);
+      if (user.isBanned)
+        return errorResponse("You are banned and cannot perform this action");
+      if (!canChangeContent(user.role))
+        return errorResponse("Not allowed to delete item");
+      const [entry, childEvolutions, variants, huntingReferences] = await Promise.all([
+        fetchItem(ctx.drizzle, input.id),
+        ctx.drizzle.query.item.findMany({
+          columns: { id: true, name: true },
+          where: eq(item.parentItemId, input.id),
+        }),
+        ctx.drizzle.query.itemVariant.findMany({
+          where: eq(itemVariant.itemId, input.id),
+          columns: { id: true },
+        }),
+        ctx.drizzle.query.huntingHabitat.findMany(),
+      ]);
       if (
         huntingReferences.some((h) =>
           h.content.contracts.some((c) => c.rewards.some((r) => r.itemId === input.id)),
@@ -542,14 +546,20 @@ export const itemRouter = createTRPCRouter({
         return errorResponse(
           "This material is used by a hunting contract. Remove that reward first.",
         );
-      if (user.isBanned)
-        return errorResponse("You are banned and cannot perform this action");
+      // Check accepted terms after live references: an acceptance can precede a
+      // staff edit that removes the reward while the habitat query is in flight.
+      // Match the selected contract; backfilled snapshots can contain the whole habitat.
+      const activeHunt = await ctx.drizzle.query.huntingSession.findFirst({
+        columns: { userId: true },
+        where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'rewards', JSON_ARRAY(JSON_OBJECT('itemId', ${input.id}))), '$.contracts') = 1`,
+      });
+      if (activeHunt)
+        return errorResponse(
+          "This material is used by an active hunting session. Wait for it to finish.",
+        );
       if (!entry) return errorResponse("Item not found");
       if (entry.id === TUTORIAL_ITEM_ID)
         return errorResponse("Cannot delete tutorial item");
-      if (!canChangeContent(user.role)) {
-        return { success: false, message: `Not allowed to delete item` };
-      }
       if (childEvolutions.length > 0) {
         return errorResponse(
           `Cannot delete item with evolutions: ${childEvolutions.map((e) => e.name).join(", ")}`,

@@ -80,6 +80,9 @@ export const huntingSessionActionSchema = z.object({
   action: z.enum(["prepare", "finish"]),
 });
 export type HuntingHabitatContent = z.infer<typeof huntingHabitatSchema>;
+/** Legacy sessions can retain a captured contract without the removed habitat's metadata. */
+export type HuntingSessionContent = Pick<HuntingHabitatContent, "contracts"> &
+  Partial<HuntingHabitatContent>;
 export type HuntingContract = z.infer<typeof huntingContractSchema>;
 /** Committed encounter outcome shared by the persisted session and combat result screen. */
 export type HuntingReceipt = {
@@ -92,14 +95,13 @@ export type HuntingReceipt = {
   cooldownUntil: string | null;
   materials: { itemId: string; name: string; quantity: number; bonus: boolean }[];
 };
-/** Current contract rules are loaded at each start; a running battle carries all settlement data. */
+/** Accepted contract terms are preloaded at each start, including all battle settlement data. */
 export type HuntingBattleState = {
   userId: string;
   sessionId: string;
   sessionVersion: number;
   contract: HuntingContract;
   habitatId: string;
-  habitatUpdatedAt: string;
   progressVersion: number;
   used: number;
   huntingExperience: number;
