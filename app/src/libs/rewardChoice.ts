@@ -327,6 +327,7 @@ export const rewardFromChoiceCards = (
         if (card.contentId) reward[card.field].push(card.contentId);
         break;
       default:
+        // Optional XP fields are absent from an empty reward until their card is picked.
         reward[card.field] = (reward[card.field] ?? 0) + card.amount;
     }
   }
