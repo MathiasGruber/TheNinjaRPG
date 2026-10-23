@@ -60,7 +60,7 @@ import type { ObjectiveWarState, WarRules, WarMissionAttempt, WarSettlement } fr
 import type { DungeonContent, DungeonRunState, DungeonRewardReceipt } from "@/validators/dungeon";
 import type { PetTask } from "@/validators/petTasks";
 
-import type { HuntingHabitatContent, HuntingReceipt } from "@/validators/hunting";
+import type { HuntingHabitatContent, HuntingReceipt, HuntingSessionContent } from "@/validators/hunting";
 
 /** Editable habitats and their creature contracts; accepted sessions retain their own terms. */
 export const huntingHabitat = mysqlTable("HuntingHabitat", {
@@ -74,8 +74,8 @@ export const huntingSession = mysqlTable("HuntingSession", {
   id: varchar("id", { length: 191 }).notNull(),
   habitatId: varchar("habitatId", { length: 191 }).notNull(),
   contractId: varchar("contractId", { length: 191 }).notNull(),
-  // NULL preserves recovery for sessions whose habitat was unavailable during backfill.
-  content: json("content").$type<HuntingHabitatContent>(),
+  // NULL permits finishing legacy sessions without recoverable accepted terms.
+  content: json("content").$type<HuntingSessionContent>(),
   sector: smallint("sector").notNull(),
   readyAt: datetime("readyAt", { mode: "date", fsp: 3 }),
   battleId: varchar("battleId", { length: 191 }),

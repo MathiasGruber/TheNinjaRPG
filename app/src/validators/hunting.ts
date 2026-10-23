@@ -80,6 +80,9 @@ export const huntingSessionActionSchema = z.object({
   action: z.enum(["prepare", "finish"]),
 });
 export type HuntingHabitatContent = z.infer<typeof huntingHabitatSchema>;
+/** Legacy sessions can retain a captured contract without the removed habitat's metadata. */
+export type HuntingSessionContent = Pick<HuntingHabitatContent, "contracts"> &
+  Partial<HuntingHabitatContent>;
 export type HuntingContract = z.infer<typeof huntingContractSchema>;
 /** Committed encounter outcome shared by the persisted session and combat result screen. */
 export type HuntingReceipt = {

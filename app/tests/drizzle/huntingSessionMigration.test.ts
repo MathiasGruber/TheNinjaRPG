@@ -18,7 +18,7 @@ describeWithDatabase("accepted hunting terms migration", () => {
       for (const name of names) await query(baselineTableSql(snapshot.tables[name]!));
       const content = huntingHabitatContent();
       await query("INSERT INTO HuntingHabitat (id, content, updatedAt) VALUES ('forest', ?, NOW(3))", [JSON.stringify(content)]);
-      for (const [userId, habitatId, battleId] of [["accepted", "forest", null], ["fighting", "forest", "fight"], ["missing", "removed", null]]) {
+      for (const [userId, habitatId, battleId] of [["accepted", "forest", null], ["fighting", "forest", "fight"], ["missing-fighting", "removed", "fight"], ["missing", "removed", null]]) {
         await query("INSERT INTO HuntingSession (userId, id, habitatId, contractId, sector, battleId, startedAt) VALUES (?, ?, ?, 'contract', 1, ?, NOW(3))", [userId, userId, habitatId, battleId]);
       }
       const battleContract = { ...huntingContract(), name: "Accepted boar", experience: 123 };
@@ -31,6 +31,7 @@ describeWithDatabase("accepted hunting terms migration", () => {
       expect(rows.map(({ content: _content, ...row }) => row)).toEqual(before);
       expect(rows.find((r) => r.userId === "accepted")!.content).toEqual(content);
       expect(rows.find((r) => r.userId === "fighting")!.content.contracts).toEqual([battleContract]);
+      expect(rows.find((r) => r.userId === "missing-fighting")!.content).toEqual({ contracts: [battleContract] });
       expect(rows.find((r) => r.userId === "missing")!.content).toBeNull();
     } finally {
       await connection.query(`DROP TABLE IF EXISTS ${names.map((name) => quoteIdentifier(prefix + name)).join(", ")}`);
