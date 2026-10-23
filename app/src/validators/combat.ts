@@ -2119,6 +2119,7 @@ export const SkillTreeValidator = z
       .superRefine(SuperRefinePassiveEffects),
   })
   .superRefine((tier, ctx) => {
+    if (tier.pathType === "BLOODRIGHT") rejectActivityBonuses(tier.effects, ctx);
     if (tier.pathType === "BLOODRIGHT" && !tier.bloodlineId)
       ctx.addIssue({
         code: "custom",
