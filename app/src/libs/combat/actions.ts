@@ -69,6 +69,7 @@ import {
   getUserElementalSeal,
   hasNoAvailableActions,
   isEffectActive,
+  isEffectEnabled,
   isUserDisarmed,
   isUserImmobilized,
   isUserStealthed,
@@ -125,10 +126,20 @@ export const availableUserActions = (
   // lookup in the combat router both lose it.
   const isPilotedSummon = !!user?.isSummon && !!user?.isPiloted;
 
-  // Handle injected jutsus
+  // Keep granted records for cooldown bookkeeping; only enabled grants expose actions.
   if (battle && user) {
     user.jutsus = handleInjectedJutsus(battle, user);
   }
+  const enabledInjectedJutsuIds = new Set(
+    battle?.usersEffects
+      .filter(
+        (effect) =>
+          effect.type === "injectjutsus" &&
+          effect.targetId === userId &&
+          isEffectEnabled(effect, battle.usersEffects),
+      )
+      .flatMap((effect) => InjectJutsusTag.parse(effect).jutsuIds),
+  );
 
   // Concatenate all actions
   let availableActions = [
@@ -176,6 +187,13 @@ export const availableUserActions = (
           .filter((userjutsu) => {
             const jutsu = getJutsu(battle, userjutsu.jutsuId);
             if (!jutsu) return false;
+            // Sage Activation is granted by equipped-mode eligibility, not an inject tag.
+            if (
+              userjutsu.origin === "injected" &&
+              jutsu.id !== SAGE_MODE_ACTIVATION_JUTSU_ID &&
+              !enabledInjectedJutsuIds.has(jutsu.id)
+            )
+              return false;
             // Separate companion balance from every player, AI and summon loadout,
             // including injected actions and snapshots saved before content edits.
             if ((jutsu.jutsuType === "PETS") !== Boolean(user.petId)) return false;
@@ -402,8 +420,9 @@ export const getActiveBasicActions = (
 
   // Collect active, targeted effects once
   const userActiveEffects =
-    battle?.usersEffects?.filter((e) => e.targetId === userId && isEffectActive(e)) ??
-    [];
+    battle?.usersEffects?.filter(
+      (e) => e.targetId === userId && isEffectEnabled(e, battle?.usersEffects),
+    ) ?? [];
 
   // Range bonuses from increaserange tags (per-action)
   const rangeBonusMap: Record<string, number> = userActiveEffects
@@ -845,8 +864,9 @@ export const userJutsuToAction = (
  * jutsu when the user has an equipped mode, is under the daily cap, can afford
  * the mode's CP/SP cost, and the battle type allows sage mode.
  * - Union of jutsus from ALL active inject effects (multiple injects stack).
- * - Remove only jutsus that are no longer in any active effect (expiry).
- * - Preserve existing injected jutsu objects so lastUsedRound/cooldown is kept.
+ * - Remove only expired injected records; separately learned copies remain.
+ * - Preserve existing injected jutsu objects so lastUsedRound/cooldown is kept,
+ *   including while a grant is sealed. Action selection hides disabled grants.
  */
 export const handleInjectedJutsus = (
   battle: ReturnedBattle,
@@ -923,7 +943,9 @@ export const handleInjectedJutsus = (
 
   // Define the user available jutsus
   const activeJutsus = [
-    ...(user?.jutsus?.filter((j) => !toBeRemovedIds.includes(j.jutsuId)) ?? []),
+    ...(user?.jutsus?.filter(
+      (j) => j.origin !== "injected" || !toBeRemovedIds.includes(j.jutsuId),
+    ) ?? []),
     ...toBeAddedIds
       .map((id) => allJutsus[id])
       .filter((j): j is Jutsu => j !== undefined)
@@ -1562,6 +1584,10 @@ const collectJutsuActionElements = (action: CombatAction): Set<ElementName> => {
   return acc;
 };
 
+/**
+ * Return one 10 AP adjustment per enabled temporal type, limited by element scope.
+ * Restored bloodline and temporary jutsu tags can overlap before effect processing.
+ */
 const getTemporalApDelta = (
   battle: ReturnedBattle,
   userId: string,
@@ -1573,7 +1599,10 @@ const getTemporalApDelta = (
   if (action.type === "basic" || action.type === "item") return 0;
   const effects = battle.usersEffects.filter((e): e is UserEffect => {
     return (
-      e.type === type && e.targetId === userId && !e.castThisRound && isEffectActive(e)
+      e.type === type &&
+      e.targetId === userId &&
+      !e.castThisRound &&
+      isEffectEnabled(e, battle.usersEffects)
     );
   });
   const appliesByElements = (effect: UserEffect) => {
@@ -1591,8 +1620,8 @@ const getTemporalApDelta = (
     }
     return effect.elements.some((el: ElementName) => actionElements.has(el));
   };
-  const applicable = effects.filter(appliesByElements);
-  return applicable.length * 10;
+  // Seal expiry can restore a bloodline before overlapping jutsu are removed.
+  return effects.some(appliesByElements) ? 10 : 0;
 };
 
 export const getActionPointCost = (

@@ -143,6 +143,7 @@ import {
   getEffectStage,
   getItem,
   isEffectActive,
+  isEffectEnabled,
   recordUsedTag,
   refreshMasteries,
   resetMasteriesToBase,
@@ -824,7 +825,11 @@ export const applyEffects = (
       const user = newUsersState.find((u) => u.userId === c.userId);
       const target = newUsersState.find((u) => u.userId === c.targetId);
       const targetShields = newUsersEffects.filter(
-        (e) => e.type === "shield" && e.targetId === c.targetId && e.power > 0,
+        (e) =>
+          e.type === "shield" &&
+          e.targetId === c.targetId &&
+          e.power > 0 &&
+          isEffectEnabled(e, usersEffects),
       ) as ShieldTagType[];
       /** Convenience method for reducing shields before applying damage */
       const calcAdjustedDamage = (
@@ -1395,6 +1400,13 @@ export const applySingleEffect = (
       // Figure if tag should be applied
       const ratio = calcApplyRatio(effect, battle, effect.targetId, isTargetOrNew);
       if (ratio > 0) {
+        // Prefer resolved effects so newly activated Sage protections apply immediately.
+        // Retain unprocessed originals so seals are visible regardless of effect order.
+        const resolvedEffectIds = new Set(newUsersEffects.map((e) => e.id));
+        const preventionEffects = [
+          ...newUsersEffects,
+          ...usersEffects.filter((e) => !resolvedEffectIds.has(e.id)),
+        ];
         // Record the APPLIED (resolved, ratio>0) tag type for the tag_usage_win tracker.
         // The damage-modifier loop in applyEffects records the same way past its preventInfo
         // guard, so both write sites share recordUsedTag's single definition of "applied".
@@ -1422,13 +1434,13 @@ export const applySingleEffect = (
               config,
             );
           } else if (effect.type === "heal" && isTargetOrNew) {
-            info = heal(effect, newUsersEffects, curTarget, consequences, ratio);
+            info = heal(effect, preventionEffects, curTarget, consequences, ratio);
           } else if (
             effect.type === "flee" &&
             isTargetOrNew &&
             !battle.extraState.dungeon
           ) {
-            info = flee(effect, newUsersEffects, newTarget);
+            info = flee(effect, preventionEffects, newTarget);
           } else if (effect.type === "increasepoolcost" && isTargetOrNew) {
             info = increasepoolcost(effect, curTarget);
           } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
@@ -1450,7 +1462,7 @@ export const applySingleEffect = (
             info = adjustAggro(effect, usersEffects, newTarget);
           } else if (effect.type === "onehitkill") {
             const healthBefore = newTarget.curHealth;
-            info = onehitkill(effect, newUsersEffects, newTarget);
+            info = onehitkill(effect, preventionEffects, newTarget);
             creditDamageEnmity(
               newUser,
               newTarget,
@@ -1458,11 +1470,17 @@ export const applySingleEffect = (
               usersEffects,
             );
           } else if (effect.type === "rob") {
-            info = rob(effect, newUsersEffects, newUser, newTarget, battle.battleType);
+            info = rob(
+              effect,
+              preventionEffects,
+              newUser,
+              newTarget,
+              battle.battleType,
+            );
           } else if (effect.type === "seal") {
-            info = seal(effect, newUsersEffects, curTarget);
+            info = seal(effect, preventionEffects, curTarget);
           } else if (effect.type === "stun") {
-            info = stun(effect, newUsersEffects, curTarget);
+            info = stun(effect, preventionEffects, curTarget);
           } else if (effect.type === "wound") {
             info = wound(effect, usersEffects, consequences, curTarget);
           }
@@ -1478,15 +1496,15 @@ export const applySingleEffect = (
             curTarget,
           );
           if (timedEffect)
-            info = increaseStats(timedEffect, newUsersEffects, curTarget);
+            info = increaseStats(timedEffect, preventionEffects, curTarget);
         } else if (effect.type === "increasemastery") {
-          info = increaseMastery(effect, newUsersEffects, newTarget);
+          info = increaseMastery(effect, preventionEffects, newTarget);
         } else if (effect.type === "decreasemastery") {
-          info = decreaseMastery(effect, newUsersEffects, newTarget);
+          info = decreaseMastery(effect, preventionEffects, newTarget);
         } else if (effect.type === "increasemaxpools") {
-          info = increaseMaxPools(effect, newUsersEffects, newTarget);
+          info = increaseMaxPools(effect, preventionEffects, newTarget);
         } else if (effect.type === "decreasemaxpools") {
-          info = decreaseMaxPools(effect, newUsersEffects, newTarget);
+          info = decreaseMaxPools(effect, preventionEffects, newTarget);
         } else if (effect.type === "increasecooldown") {
           info = increaseCooldown(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasecooldown") {
@@ -1494,7 +1512,7 @@ export const applySingleEffect = (
         } else if (effect.type === "increaserange") {
           info = increaseRange(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasestat") {
-          info = decreaseStats(effect, newUsersEffects, curTarget);
+          info = decreaseStats(effect, preventionEffects, curTarget);
         } else if (effect.type === "increasedamagetaken") {
           info = increaseDamageTaken(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "decreasedamagetaken") {

@@ -754,7 +754,7 @@ export const getPoolAdjustment = (
   let adjustment = 0;
 
   effects
-    .filter((e) => e.targetId === user.userId && isEffectActive(e))
+    .filter((e) => e.targetId === user.userId && isEffectEnabled(e, effects))
     .forEach((e) => {
       if (e.type === "increasemaxpools" || e.type === "decreasemaxpools") {
         const pools = getPoolsAffected(e);
@@ -1090,6 +1090,7 @@ export const hasActiveEffectOfType = (
         e.type === type &&
         e.targetId === userId &&
         !e.castThisRound &&
+        isEffectEnabled(e, userEffects) &&
         "rounds" in e &&
         e.rounds &&
         e.rounds > 0,
@@ -1128,6 +1129,7 @@ export const getUserElementalSeal = (
       e.type === "elementalseal" &&
       e.targetId === userId &&
       !e.castThisRound &&
+      isEffectEnabled(e, userEffects) &&
       e.rounds &&
       e.rounds > 0,
   );
@@ -1277,9 +1279,7 @@ export const calcEffectRoundInfo = (
   return { startRound: -1, curRound: battle.round };
 };
 
-/**
- * Filter for effects based on their duration
- */
+/** Check whether a tag still has duration remaining. */
 export const isEffectActive = (effect: UserEffect | GroundEffect) => {
   if (
     "timedBuffExpiresAt" in effect &&
@@ -1287,13 +1287,31 @@ export const isEffectActive = (effect: UserEffect | GroundEffect) => {
     effect.timedBuffExpiresAt <= Date.now()
   )
     return false;
-  // Check1: If rounds not specified on tag, then yes, still active
-  if (effect.rounds === undefined) return true;
-  // Check2: If rounds > 0 then still active
-  if (effect.rounds > 0) return true;
-  // If none of the above, then no longer active
-  return false;
+  return effect.rounds === undefined || effect.rounds > 0;
 };
+
+/**
+ * Resolve passive effects without letting sealed bloodline tags participate.
+ * Use isEffectActive for lifetime bookkeeping so suppressed tags survive the seal.
+ * Pass the full user-effect context: only resolved, unexpired seals on the same
+ * target suppress a bloodline tag; a newly cast seal must resolve first.
+ */
+export const isEffectEnabled = (
+  effect: UserEffect | GroundEffect,
+  usersEffects: UserEffect[] | undefined,
+): boolean =>
+  isEffectActive(effect) &&
+  !(
+    effect.fromType === "bloodline" &&
+    "targetId" in effect &&
+    usersEffects?.some(
+      (seal) =>
+        seal.type === "seal" &&
+        !seal.isNew &&
+        isEffectActive(seal) &&
+        seal.targetId === effect.targetId,
+    )
+  );
 
 /** Potency for distinct selections or calculation modes can coexist. */
 export const getEffectStackKey = (effect: UserEffect) => {
@@ -1501,7 +1519,8 @@ export const calcPoolCost = (
     .filter(
       (e) =>
         ["increasepoolcost", "decreasepoolcost"].includes(e.type) &&
-        e.targetId === target.userId,
+        e.targetId === target.userId &&
+        isEffectEnabled(e, usersEffects),
     )
     .forEach((e) => {
       // Get the power to apply (positive or negative)
@@ -3072,7 +3091,7 @@ export const calcApReduction = (
         e.type === "stun" &&
         e.targetId === userId &&
         !e.castThisRound &&
-        isEffectActive(e),
+        isEffectEnabled(e, battle?.usersEffects),
     ) ?? []),
     ...(battle?.groundEffects?.filter((e) => {
       // Basic checks for stun effect at user's location

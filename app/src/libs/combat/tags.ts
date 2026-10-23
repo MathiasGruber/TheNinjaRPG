@@ -40,6 +40,7 @@ import {
   getPoolsAffected,
   getPreventTypeName,
   isEffectActive,
+  isEffectEnabled,
   selectTransferEffects,
   storeMasteryBases,
 } from "@/libs/combat/util";
@@ -217,7 +218,7 @@ const checkPreventImmunity = (
       (e) =>
         e.type === "immunity" &&
         e.targetId === target.userId &&
-        (e.rounds === undefined || e.rounds > 0) &&
+        isEffectEnabled(e, usersEffects) &&
         "blocks" in e &&
         e.blocks === effect.type,
     );
@@ -1499,7 +1500,12 @@ export const calcDmgModifier = (
   usersState: UserEffect[],
 ) => {
   const weaknesses = usersState
-    .filter((e) => e.type === "weakness" && e.targetId === target.userId)
+    .filter(
+      (e) =>
+        e.type === "weakness" &&
+        e.targetId === target.userId &&
+        isEffectEnabled(e, usersState),
+    )
     .map((e) => e as UserEffect & WeaknessTagType)
     .filter((e) => {
       const check1 = e.jutsus.includes(dmgEffect.actionId);
@@ -2053,7 +2059,7 @@ export const vamp = (
       e.type === "healprevent" &&
       e.targetId === effect.creatorId &&
       !e.castThisRound &&
-      (e.rounds === undefined || e.rounds > 0),
+      isEffectEnabled(e, usersEffects),
   );
   if (casterHealPrevented) return preventResponse(effect, target, "cannot vamp");
   const { power, qualifier } = getPower(effect);
@@ -2274,11 +2280,12 @@ export const poison = (
   let modifiedStaminaCost = action.staminaCost;
 
   if (!effect.castThisRound && actorId === target.userId) {
-    // Iterate over active pool adjustment effects affecting the target.
+    // Match action spending's modifier eligibility, including bloodline suppression.
     usersEffects.forEach((eff) => {
       if (
         (eff.type === "increasepoolcost" || eff.type === "decreasepoolcost") &&
         eff.targetId === target.userId &&
+        isEffectEnabled(eff, usersEffects) &&
         eff.poolsAffected &&
         Array.isArray(eff.poolsAffected)
       ) {
@@ -2352,7 +2359,7 @@ export const applyFinalStandDamage = (
   const finalStandEffect = effects.find((effect) => {
     if (effect.type !== "finalstand" || effect.targetId !== target.userId) return false;
     if (effect.fromType === "bloodline") {
-      if (effect.rounds === 0) return false;
+      if (!isEffectEnabled(effect, effects)) return false;
       // Bloodline Final Stand lasts until the next round, including debt repayment.
       effect.rounds = 1;
       return true;
@@ -2784,9 +2791,10 @@ export const timeCompression = (
       e.type === "timecompression" &&
       e.targetId === target.userId &&
       e.id !== effect.id &&
-      isEffectActive(e),
+      isEffectEnabled(e, usersEffects),
   );
-  if (existingTimeCompression) {
+  // Restored bloodline tags keep their duration; the overlapping jutsu is rejected.
+  if (existingTimeCompression && (effect.isNew || effect.fromType !== "bloodline")) {
     effect.rounds = 0;
     return {
       txt: `${target.username} already has time compression active`,
@@ -2840,9 +2848,10 @@ export const timeDilation = (
       e.type === "timedilation" &&
       e.targetId === target.userId &&
       e.id !== effect.id &&
-      isEffectActive(e),
+      isEffectEnabled(e, usersEffects),
   );
-  if (existingTimeDilation) {
+  // Restored bloodline tags keep their duration; the overlapping jutsu is rejected.
+  if (existingTimeDilation && (effect.isNew || effect.fromType !== "bloodline")) {
     effect.rounds = 0;
     return {
       txt: `${target.username} already has time dilation active`,
@@ -3576,7 +3585,11 @@ const preventCheck = (
   effect?: UserEffect, // Add optional effect parameter to check creation time
 ) => {
   const preventTag = usersEffects.find(
-    (e) => e.type === type && e.targetId === target.userId && !e.castThisRound,
+    (e) =>
+      e.type === type &&
+      e.targetId === target.userId &&
+      !e.castThisRound &&
+      isEffectEnabled(e, usersEffects),
   );
 
   if (preventTag && (preventTag.rounds === undefined || preventTag.rounds > 0)) {
