@@ -17,6 +17,7 @@ import {
   makeEffect,
   makeTag,
 } from "./helpers/battleScenario";
+import { makeActivateSageEffect, makeSageMode } from "./helpers/sageMode";
 
 const target = () => makeBattleUser("defender", { curHealth: 100, maxHealth: 1000 });
 const runtime = {
@@ -133,6 +134,31 @@ describe("Bloodline Seal", () => {
     const { newBattle } = applyEffects(battle, "defender");
     expect(newBattle.usersState.find((u) => u.userId === "defender")?.curHealth).toBe(600);
     expect(newBattle.usersEffects.find((e) => e.type === "healprevent")?.rounds).toBe(10);
+  });
+
+  it.each([false, true])("keeps newly activated Sage robbery protection with bloodline sealing=%j", (sealed) => {
+    const sage = makeBattleUser("defender", { sageModeId: "sage-1", money: 1000 });
+    const mode = makeSageMode({ effects: [makeTag("robprevent", { power: 100 })] });
+    const bloodlinePrevent = makeEffect("robprevent", { power: 100, rounds: 10 }, runtime);
+    const robbery = makeEffect("rob", { power: 100, rounds: 3, robPercentage: 10 }, {
+      creatorId: "attacker", targetId: "defender", targetType: "user", fromType: "jutsu", createdRound: 1,
+    });
+    const { newBattle, actionEffects } = applyEffects(makeCompleteBattle({
+      round: 5,
+      usersState: [makeBattleUser("attacker", { money: 0 }), sage],
+      usersEffects: [
+        makeActivateSageEffect("defender", { createdRound: 5 }),
+        robbery,
+        ...(sealed ? [bloodlinePrevent, sealEffect()] : []),
+      ],
+      extraState: { sageModes: { "sage-1": mode } },
+    }), "defender");
+
+    expect(newBattle.usersState.find((u) => u.userId === "defender")?.money).toBe(1000);
+    expect(newBattle.usersState.find((u) => u.userId === "attacker")?.money).toBe(0);
+    expect(actionEffects.some((e) => e.txt === "defender resisted being robbed")).toBe(true);
+    expect(newBattle.usersEffects.filter((e) => e.type === "robprevent" && e.fromType === "sageMode")).toHaveLength(1);
+    expect(bloodlinePrevent.rounds).toBe(10);
   });
 
   it("suppresses bloodline shields in the complete damage pipeline", () => {
