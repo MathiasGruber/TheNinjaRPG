@@ -367,15 +367,16 @@ export default function MyItems() {
         }
       >
         {isFetching && <Loader explanation="Refreshing items" />}
-        <div className="flex flex-col">
-          <div className="flex flex-col sm:flex-row">
-            <div className="w-full basis-1/2 p-3">
+        <div className="@container">
+          {/* Keep equipment near its silhouette width while the backpack gains columns. */}
+          <div className="grid @min-[600px]:grid-cols-[314px_minmax(0,1fr)]">
+            <div className="min-w-0 p-3">
               <h2 className="font-bold text-2xl text-foreground">Equipped</h2>
               <div className="relative mx-auto w-full max-w-[290px]">
                 <Character useritems={userItems} userData={userData} />
               </div>
             </div>
-            <div className="max-h-full basis-1/2 overflow-y-scroll border-t-2 border-dashed bg-poppopover p-3 sm:max-h-[600px] sm:border-t-0 sm:border-l-2">
+            <div className="bg-poppopover min-w-0 overflow-y-auto border-t-2 border-dashed p-3 @min-[600px]:max-h-[600px] @min-[600px]:border-t-0 @min-[600px]:border-l-2">
               <h2 className="mb-2 font-bold text-2xl text-foreground">Backpack</h2>
               <Backpack
                 userData={userData}
@@ -1054,8 +1055,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
 
   return (
     <>
+      {/* Match equipment's pixel sizing across theme and user font scales. */}
       <ActionSelector
-        className="grid-cols-6 pt-3 sm:grid-cols-4 md:grid-cols-4"
+        className="pt-3"
+        gridClassNameOverwrite="grid grid-cols-[repeat(auto-fill,minmax(56px,1fr))]"
         items={items}
         counts={itemBadges.counts}
         levels={itemBadges.levels}
