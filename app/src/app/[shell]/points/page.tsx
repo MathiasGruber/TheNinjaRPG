@@ -623,9 +623,10 @@ const PayPalSubscriptionButton = (props: {
           >
             You are about to upgrade your federal subscription. This can only be done if
             you own the PayPal or Stripe subscription in question, and only for your own
-            character. Note that this action is permanent and will cost {upgradeCost}{" "}
-            reputation points. You currently have {userData?.reputationPoints}{" "}
-            reputation points. Are you sure?
+            character. This costs {upgradeCost} reputation points. For Stripe
+            subscriptions, the upgrade lasts for the rest of the current paid period;
+            renewals keep the original subscription tier. You currently have{" "}
+            {userData?.reputationPoints} reputation points. Are you sure?
           </Confirm>
         )}
       </div>
