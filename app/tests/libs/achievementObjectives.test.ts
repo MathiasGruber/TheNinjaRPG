@@ -98,6 +98,19 @@ describe("achievement activity objectives", () => {
     expect(goal(user, "raids_completed")?.value).toBe(3);
   });
 
+  it("preserves only unloaded trackers during sparse writes and retains full-read cleanup", () => {
+    const user = makeUser();
+    const unloaded = QuestTracker.parse({ id: "unloaded", goals: [{ id: "counter", value: 4 }] });
+    const invalidated = QuestTracker.parse({ id: "achievement", goals: [{ id: "counter", value: 4 }] });
+    const orphaned = QuestTracker.parse({ id: "deleted" });
+    user.questData = [unloaded, invalidated, orphaned];
+    user.userQuests[0]!.completed = 1;
+    user.userQuests.push({ id: "orphan", questId: "deleted", quest: null } as never);
+    const result = getNewTrackers(user, [{ task: "any" }]);
+    expect(filterQuestTrackersForDbPersist(result.trackers, user, true)).toEqual([unloaded]);
+    expect(filterQuestTrackersForDbPersist(result.trackers, user)).toEqual([]);
+  });
+
   it("persists newly earned completion goals once and keeps them after source retirement", () => {
     const user = makeUser();
     user.raidsCompleted = 10;

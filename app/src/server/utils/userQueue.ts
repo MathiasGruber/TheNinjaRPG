@@ -1025,6 +1025,7 @@ const updateQueueOwner = async (
     const questData = filterQuestTrackersForDbPersist(
       getNewTrackers(user, trackers).trackers,
       user,
+      true,
     );
     const written = await client
       .update(userData)

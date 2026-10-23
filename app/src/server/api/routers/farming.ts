@@ -2404,7 +2404,7 @@ const awardFarmingProgress = async (
       farmingExperience: snapshotUser.farmingExperience + xpGain,
       farmingCollectionCount,
       questData: snapshotQuests.questData,
-      userQuests: snapshotQuests.userQuests.filter((entry) => entry.quest),
+      userQuests: snapshotQuests.userQuests,
       completedQuests: snapshotQuests.completedQuests,
     } as unknown as Parameters<typeof getNewTrackers>[0];
     const taskUpdates: ObjectiveTrackerTaskInput[] = [
@@ -2429,7 +2429,7 @@ const awardFarmingProgress = async (
     const { trackers } = getNewTrackers(trackerUser, taskUpdates);
     return {
       advancesObjective: true,
-      questData: filterQuestTrackersForDbPersist(trackers, trackerUser) as
+      questData: filterQuestTrackersForDbPersist(trackers, trackerUser, true) as
         | ReturnType<typeof filterQuestTrackersForDbPersist>
         | undefined,
     };

@@ -203,7 +203,15 @@ export const isMockQuestHistoryRow = (row: { id: string; questId: string }): boo
 export const filterQuestTrackersForDbPersist = (
   trackers: QuestTrackerType[],
   user: NonNullable<UserWithRelations>,
+  preserveUnloadedTrackers = false,
 ) => {
+  // Sparse quest reads omit achievements without history rows. Their persisted counters
+  // and earned completion snapshots must survive updates to the loaded quests.
+  const unloadedTrackers = preserveUnloadedTrackers
+    ? (user.questData ?? []).filter(
+        (tracker) => !user.userQuests.some((entry) => entry.questId === tracker.id),
+      )
+    : [];
   const inMemoryOnlyAchievements = new Map(
     user.userQuests
       // `uq.quest` is null for an orphaned QuestHistory row (its quest was deleted). Most callers
@@ -216,7 +224,7 @@ export const filterQuestTrackersForDbPersist = (
       )
       .map((uq) => [uq.questId, uq.quest]),
   );
-  return trackers.filter((tracker) => {
+  const persistedTrackers = trackers.filter((tracker) => {
     const achievement = inMemoryOnlyAchievements.get(tracker.id);
     return (
       !achievement ||
@@ -234,6 +242,7 @@ export const filterQuestTrackersForDbPersist = (
       )
     );
   });
+  return [...persistedTrackers, ...unloadedTrackers];
 };
 
 /** Hidden active targets need server projection after changing sectors, even if currently revealed. */
