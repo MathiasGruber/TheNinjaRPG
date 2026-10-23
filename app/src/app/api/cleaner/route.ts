@@ -20,6 +20,7 @@ import {
   forumThread,
   historicalAvatar,
   historicalIp,
+  huntingSession,
   jutsu,
   moderationScan,
   mpvpBattleQueue,
@@ -81,6 +82,26 @@ export async function GET(request: Request) {
       .where(lt(battle.updatedAt, sql`CURRENT_TIMESTAMP(3) - INTERVAL 1 DAY`))
       .orderBy(battle.updatedAt)
       .limit(rangeCleanupBatchSize);
+
+    // Step 1b: Release hunting reservations whose battle is gone. Settlement clears the
+    // reservation with the battle, but an abandoned hunt only expires through Step 1;
+    // a dangling battleId would trap the hunter and block staff edits to the habitat.
+    await retryOnDeadlock(() =>
+      drizzleDB
+        .update(huntingSession)
+        .set({ battleId: null, version: sql`${huntingSession.version} + 1` })
+        .where(
+          and(
+            isNotNull(huntingSession.battleId),
+            notExists(
+              drizzleDB
+                .select({ id: battle.id })
+                .from(battle)
+                .where(eq(battle.id, huntingSession.battleId)),
+            ),
+          ),
+        ),
+    );
 
     // Step 2: Release missing fights while preserving an open isolated Pyramid run.
     await drizzleDB
