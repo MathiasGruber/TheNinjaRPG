@@ -109,23 +109,26 @@ export function HuntingBoard({
       ...h,
       content: {
         ...h.content,
-        contracts: h.content.contracts.filter((c) => {
-          const ai = data?.creatures.find((a) => a.userId === c.aiId);
-          return (
-            (!rank || c.rank === rank) &&
-            (!creature.trim() ||
-              `${ai?.username ?? ""} ${c.name}`
-                .toLowerCase()
-                .includes(creature.trim().toLowerCase())) &&
-            (!material.trim() ||
-              c.rewards.some((r) =>
-                data?.materials
-                  .find((m) => m.id === r.itemId)
-                  ?.name.toLowerCase()
-                  .includes(material.trim().toLowerCase()),
-              ))
-          );
-        }),
+        // The active row describes the accepted session until it finishes or switches.
+        contracts: h.content.contracts
+          .map((c) => (h.id === session?.habitatId && c.id === active?.id ? active : c))
+          .filter((c) => {
+            const ai = data?.creatures.find((a) => a.userId === c.aiId);
+            return (
+              (!rank || c.rank === rank) &&
+              (!creature.trim() ||
+                `${ai?.username ?? ""} ${c.name}`
+                  .toLowerCase()
+                  .includes(creature.trim().toLowerCase())) &&
+              (!material.trim() ||
+                c.rewards.some((r) =>
+                  data?.materials
+                    .find((m) => m.id === r.itemId)
+                    ?.name.toLowerCase()
+                    .includes(material.trim().toLowerCase()),
+                ))
+            );
+          }),
       },
     }))
     .filter((h) => h.content.contracts.length > 0);

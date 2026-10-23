@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import * as navigation from "next/navigation";
 import type { ReactNode } from "react";
@@ -16,6 +16,7 @@ const session = { content: huntingHabitatContent(), id: "session", habitatId: "f
 let user: { userId: string; occupation: string; sector: number; status: string };
 let currentSession: typeof session | null;
 let boardSession: typeof session | null;
+let boardProgress: { contractId: string; used: number; cooldownUntil: Date | null }[];
 
 beforeEach(() => {
   window.sessionStorage.removeItem("huntingArrival:hunter");
@@ -23,6 +24,7 @@ beforeEach(() => {
   user = { userId: "hunter", occupation: "HUNTER", sector: 2, status: "AWAKE" };
   currentSession = null;
   boardSession = null;
+  boardProgress = [];
   const board = {
     user: { ...user, huntingExperience: 123 }, session: null, progress: [], serverTime: now,
     habitats: [
@@ -35,7 +37,7 @@ beforeEach(() => {
   Object.assign(vi.spyOn(client, "api" as never), {
     useUtils: () => ({}),
     hunting: {
-      getBoard: { useQuery: () => ({ data: { ...board, session: boardSession }, isLoading: false }) },
+      getBoard: { useQuery: () => ({ data: { ...board, session: boardSession, progress: boardProgress }, isLoading: false }) },
       getSession: { useQuery: () => ({ data: currentSession ? { session: currentSession, contract: huntingContract() } : null }) },
       accept: { useMutation: () => ({}) }, sessionAction: { useMutation: () => ({}) }, start: { useMutation: () => ({}) },
     },
@@ -68,13 +70,39 @@ it("hides nonmatching habitats and combines rank, creature and material filters"
 });
 
 it("renders accepted terms independently of the updated contract board", () => {
-  boardSession = { ...session, content: { ...huntingHabitatContent(), name: "Accepted forest", contracts: [{ ...huntingContract(), name: "Original boar", hunts: 7, preparationSeconds: 15 }] } };
+  boardSession = { ...session, content: { ...huntingHabitatContent(), name: "Accepted forest", contracts: [{ ...huntingContract(), name: "Original boar", hunts: 7, preparationSeconds: 15, experience: 80, cooldownSeconds: 120, aiId: "lizard", rank: "C RANK", rewards: [{ itemId: "scales", quantity: 3, chance: 100 }] }] } };
+  boardProgress = [{ contractId: "contract", used: 1, cooldownUntil: null }];
   user.sector = 1;
   const view = render(<HuntingBoard />);
-  expect(view.getByRole("heading", { name: "Original boar" })).toBeTruthy();
-  expect(view.getByText("7 / 7 successful hunts remaining")).toBeTruthy();
+  expect(view.getAllByRole("heading", { name: "Original boar" })).toHaveLength(2);
+  expect(view.getByText("6 / 7 successful hunts remaining")).toBeTruthy();
   expect(view.getByRole("button", { name: "Prepare (15s)" })).toBeTruthy();
+  const activeRow = within(view.getByRole("button", { name: "Active contract" }).closest("article")!);
+  expect(activeRow.getByText("Guaranteed: 3× Lizard scales")).toBeTruthy();
+  expect(activeRow.getByText("Lizard · Level 20 · C RANK · Easy")).toBeTruthy();
+  expect(activeRow.getByText("+80 hunting experience · 15s preparation")).toBeTruthy();
+  expect(activeRow.getByText("6 / 7 hunts · Cooldown after final victory: 120s")).toBeTruthy();
+  expect(view.getByRole("heading", { name: "Lizard hunt" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "C RANK" }));
+  fireEvent.change(view.getByLabelText("Creature filter"), { target: { value: "original boar" } });
+  fireEvent.change(view.getByLabelText("Material filter"), { target: { value: "scales" } });
+  expect(view.getByRole("button", { name: "Active contract" })).toBeTruthy();
+
+  fireEvent.click(view.getByRole("button", { name: "All ranks" }));
+  fireEvent.change(view.getByLabelText("Creature filter"), { target: { value: "" } });
+  fireEvent.change(view.getByLabelText("Material filter"), { target: { value: "" } });
+  boardSession = null;
+  view.rerender(<HuntingBoard />);
+  expect(view.queryByRole("heading", { name: "Original boar" })).toBeNull();
   expect(view.getByRole("heading", { name: "Forest boar" })).toBeTruthy();
+  expect(view.getAllByRole("button", { name: "Accept contract" })).toHaveLength(2);
+  boardSession = session;
+  view.rerender(<HuntingBoard />);
+  const acceptedRow = within(view.getByRole("button", { name: "Active contract" }).closest("article")!);
+  expect(acceptedRow.getByText("Guaranteed: 2× Boar hide")).toBeTruthy();
+  expect(acceptedRow.getByText("+50 hunting experience · 10s preparation")).toBeTruthy();
+  expect(acceptedRow.getByText("2 / 3 hunts · Cooldown after final victory: 60s")).toBeTruthy();
 });
 
 it("opens on arrival, stays dismissed across refreshes, and reopens on the next arrival", () => {
