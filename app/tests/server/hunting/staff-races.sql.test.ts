@@ -5,10 +5,12 @@ import { Pusher } from "@/libs/pusher";
 import type { CompleteBattle } from "@/libs/combat/types";
 import { combatRouter } from "@/server/api/routers/combat";
 import { huntingRouter } from "@/server/api/routers/hunting";
+import { itemRouter } from "@/server/api/routers/item";
+import { profileRouter } from "@/server/api/routers/profile";
 import { staffRouter } from "@/server/api/routers/staff";
 import type { DrizzleClient } from "@/server/db";
 import { insertItems, insertUsers } from "../../setup/factories";
-import { huntingHabitatContent, huntingMap } from "../../setup/hunting";
+import { huntingContract, huntingHabitatContent, huntingMap } from "../../setup/hunting";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -119,6 +121,64 @@ describeWithDatabase("staff changes during hunting admission", () => {
     expect((await db.query.userItem.findMany({ where: eq(userItem.itemId, "hide") })).reduce((sum, row) => sum + row.quantity, 0)).toBe(2);
     return current;
   };
+
+  it.each(["initial acceptance", "different-habitat switch"] as const)("rejects changed target terms during %s without replacing the session", async (mode) => {
+    const db = await getTestDatabase();
+    const hunter = callerForDatabase(huntingRouter, "hunter", db);
+    await db.update(huntingHabitat).set({ updatedAt: new Date(0) });
+    await db.insert(huntingProgress).values({ userId: "hunter", contractId: "contract", used: 2 });
+    if (mode === "different-habitat switch") {
+      await db.insert(huntingHabitat).values({ id: "other", content: { ...huntingHabitatContent(), contracts: [{ ...huntingContract(), id: "other-contract" }] }, updatedAt: new Date(0) });
+      expect((await hunter.accept({ habitatId: "other", contractId: "other-contract", version: null })).success).toBe(true);
+    }
+    const previous = await db.query.huntingSession.findFirst();
+    const client = beforeStatements(db, huntingSession, [async () => {
+      const content = huntingHabitatContent();
+      content.contracts[0]!.hunts = 1;
+      content.contracts[0]!.cooldownSeconds = 3600;
+      expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+    }]);
+    expect(await callerForDatabase(huntingRouter, "hunter", client).accept({ habitatId: "forest", contractId: "contract", version: previous?.version ?? null })).toMatchObject({ success: false, message: "Your hunting session changed. Refresh the board." });
+    expect(await db.query.huntingSession.findFirst()).toEqual(previous);
+    expect(await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") })).toMatchObject({ used: 2, version: 1, cooldownUntil: expect.any(Date) });
+    expect(await hunter.accept({ habitatId: "forest", contractId: "contract", version: previous?.version ?? null })).toMatchObject({ success: false, message: "This contract is on cooldown." });
+  });
+
+  it("keeps accepted material references through settlement and releases them on finish", async () => {
+    const { db, hunter, id } = await prepare();
+    expect((await hunter.start({ id })).success).toBe(true);
+    const content = huntingHabitatContent();
+    content.contracts[0]!.rewards = [{ itemId: "tusk", quantity: 4, chance: 100 }];
+    expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+    const items = callerForDatabase(itemRouter, "staff", db);
+    expect(await items.delete({ id: "hide" })).toMatchObject({ success: false, message: expect.stringContaining("active hunting session") });
+    await settleVictory(db);
+    const rewards = await db.query.userItem.findMany({ where: eq(userItem.itemId, "hide"), with: { item: true } });
+    expect(rewards.every((reward) => reward.item?.id === "hide")).toBe(true);
+    expect(await items.delete({ id: "hide" })).toMatchObject({ success: false });
+    const session = (await hunter.getSession())!.session;
+    expect((await hunter.sessionAction({ id: session.id, version: session.version, action: "finish" })).success).toBe(true);
+    expect(await items.delete({ id: "hide" })).toMatchObject({ success: true, message: "Item deleted" });
+  });
+
+  it("keeps accepted creature references through admission and releases them on switch", async () => {
+    const { db, hunter, id } = await prepare();
+    await insertUsers([{ userId: "replacement-ai", username: "replacement-ai", isAi: true }]);
+    const content = huntingHabitatContent();
+    content.contracts[0]!.aiId = "replacement-ai";
+    content.contracts.push({ ...huntingContract(), id: "new-contract", aiId: "replacement-ai" });
+    const saved = await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content });
+    if (!("content" in saved)) throw Error("Habitat save failed");
+    const profiles = callerForDatabase(profileRouter, "staff", db);
+    expect(await profiles.delete({ id: "enemy" })).toMatchObject({ success: false, message: expect.stringContaining("active hunting session") });
+    expect((await hunter.start({ id })).success).toBe(true);
+    const current = (await db.query.battle.findFirst())!;
+    expect(current.usersState.some((u) => u.controllerId === "enemy" && u.isAi)).toBe(true);
+    await settleVictory(db);
+    const session = (await hunter.getSession())!.session;
+    expect((await hunter.accept({ habitatId: "forest", contractId: saved.content.contracts[1]!.id, version: session.version })).success).toBe(true);
+    expect(await profiles.delete({ id: "enemy" })).toMatchObject({ success: true, message: "AI deleted" });
+  });
 
   it("allows staff edits during combat and settles the accepted rewards and final cooldown exactly once", async () => {
     const { db, hunter, id } = await prepare();

@@ -378,6 +378,12 @@ export const huntingRouter = createTRPCRouter({
       const previousContract = previousHabitat?.content.contracts.find(
         (c) => c.id === session?.contractId,
       );
+      // A save may reconcile the target allowance before admission; accept only
+      // the same habitat version that supplied this session's terms.
+      const targetHabitatGuard = and(
+        eq(huntingHabitat.id, habitat.id),
+        eq(huntingHabitat.updatedAt, habitat.updatedAt),
+      );
       try {
         // Switching and reconciling the old allowance share one guarded statement.
         const saved = session
@@ -400,6 +406,7 @@ export const huntingRouter = createTRPCRouter({
                   }
               WHERE s.userId = ${ctx.userId} AND s.id = ${session.id}
                 AND s.version = ${session.version} AND s.battleId IS NULL
+                AND EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${targetHabitatGuard})
                 AND ${
                   previousHabitat
                     ? sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId} AND ${huntingHabitat.updatedAt} = ${previousHabitat.updatedAt})`
@@ -407,9 +414,17 @@ export const huntingRouter = createTRPCRouter({
                 }
             `),
             )
-          : await ctx.drizzle
-              .insert(huntingSession)
-              .values({ ...next, userId: ctx.userId });
+          : await retryOnDeadlock(() =>
+              ctx.drizzle.execute(sql`
+                INSERT INTO ${huntingSession}
+                  (userId, id, habitatId, contractId, content, sector, readyAt,
+                   battleId, version, startedAt, lastResult)
+                SELECT ${ctx.userId}, ${next.id}, ${next.habitatId}, ${next.contractId},
+                       ${JSON.stringify(next.content)}, ${next.sector}, NULL, NULL,
+                       ${next.version}, ${next.startedAt}, NULL
+                FROM ${huntingHabitat} WHERE ${targetHabitatGuard}
+              `),
+            );
         if (saved.rowsAffected === 0)
           return errorResponse("Your hunting session changed. Refresh the board.");
       } catch (error) {

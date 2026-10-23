@@ -1607,13 +1607,25 @@ export const profileRouter = createTRPCRouter({
       const user = await fetchUser(ctx.drizzle, ctx.userId);
       if (user.isBanned)
         return errorResponse("You are banned and cannot perform this action");
-      const [ai, habitats] = await Promise.all([
+      const [ai, habitats, huntingSessions] = await Promise.all([
         fetchUser(ctx.drizzle, input.id),
         ctx.drizzle.query.huntingHabitat.findMany(),
+        ctx.drizzle.query.huntingSession.findMany({
+          columns: { content: true, contractId: true },
+        }),
       ]);
       if (habitats.some((h) => h.content.contracts.some((c) => c.aiId === input.id)))
         return errorResponse(
           "This AI is used by a hunting contract. Remove the target first.",
+        );
+      if (
+        huntingSessions.some(
+          (s) =>
+            s.content?.contracts.find((c) => c.id === s.contractId)?.aiId === input.id,
+        )
+      )
+        return errorResponse(
+          "This AI is used by an active hunting session. Wait for it to finish.",
         );
       if (ai?.isAi && canChangeContent(user.role)) {
         await deleteUser(ctx.drizzle, ai.userId);
