@@ -526,23 +526,18 @@ export const itemRouter = createTRPCRouter({
         return errorResponse("You are banned and cannot perform this action");
       if (!canChangeContent(user.role))
         return errorResponse("Not allowed to delete item");
-      const [entry, childEvolutions, variants, huntingReferences, activeHunt] =
-        await Promise.all([
-          fetchItem(ctx.drizzle, input.id),
-          ctx.drizzle.query.item.findMany({
-            columns: { id: true, name: true },
-            where: eq(item.parentItemId, input.id),
-          }),
-          ctx.drizzle.query.itemVariant.findMany({
-            where: eq(itemVariant.itemId, input.id),
-            columns: { id: true },
-          }),
-          ctx.drizzle.query.huntingHabitat.findMany(),
-          ctx.drizzle.query.huntingSession.findFirst({
-            columns: { userId: true },
-            where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'rewards', JSON_ARRAY(JSON_OBJECT('itemId', ${input.id}))), '$.contracts') = 1`,
-          }),
-        ]);
+      const [entry, childEvolutions, variants, huntingReferences] = await Promise.all([
+        fetchItem(ctx.drizzle, input.id),
+        ctx.drizzle.query.item.findMany({
+          columns: { id: true, name: true },
+          where: eq(item.parentItemId, input.id),
+        }),
+        ctx.drizzle.query.itemVariant.findMany({
+          where: eq(itemVariant.itemId, input.id),
+          columns: { id: true },
+        }),
+        ctx.drizzle.query.huntingHabitat.findMany(),
+      ]);
       if (
         huntingReferences.some((h) =>
           h.content.contracts.some((c) => c.rewards.some((r) => r.itemId === input.id)),
@@ -551,6 +546,12 @@ export const itemRouter = createTRPCRouter({
         return errorResponse(
           "This material is used by a hunting contract. Remove that reward first.",
         );
+      // Check accepted terms after live references: an acceptance can precede a
+      // staff edit that removes the reward while the habitat query is in flight.
+      const activeHunt = await ctx.drizzle.query.huntingSession.findFirst({
+        columns: { userId: true },
+        where: sql`JSON_CONTAINS(${huntingSession.content}, JSON_OBJECT('id', ${huntingSession.contractId}, 'rewards', JSON_ARRAY(JSON_OBJECT('itemId', ${input.id}))), '$.contracts') = 1`,
+      });
       if (activeHunt)
         return errorResponse(
           "This material is used by an active hunting session. Wait for it to finish.",

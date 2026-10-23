@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, setSystemTime, vi } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { actionLog, aiProfile, battle, battleHistory, huntingHabitat, huntingProgress, huntingReceipt, huntingSession, item, mpvpBattleUser, questHistory, rankedPvpQueue, sectorMap, storeUserIdAlias, userData, userItem } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
 import type { CompleteBattle } from "@/libs/combat/types";
@@ -9,7 +9,7 @@ import { itemRouter } from "@/server/api/routers/item";
 import { profileRouter } from "@/server/api/routers/profile";
 import { staffRouter } from "@/server/api/routers/staff";
 import type { DrizzleClient } from "@/server/db";
-import { insertItems, insertUsers } from "../../setup/factories";
+import { insertItems, insertUsers, insertUserItems } from "../../setup/factories";
 import { huntingContract, huntingHabitatContent, huntingMap } from "../../setup/hunting";
 import { beforeStatements } from "../../setup/statements";
 import { callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
@@ -122,10 +122,25 @@ describeWithDatabase("staff changes during hunting admission", () => {
     return current;
   };
 
-  it.each(["initial acceptance", "different-habitat switch"] as const)("rejects changed target terms during %s without replacing the session", async (mode) => {
+  it("keeps saved habitat revisions current and strictly increasing despite the application clock", async () => {
+    const db = await getTestDatabase();
+    const staff = callerForDatabase(huntingRouter, "staff", db);
+    for (const revision of [new Date(0), new Date("2099-01-01T00:00:00.123Z")]) {
+      setSystemTime(revision);
+      await db.update(huntingHabitat).set({ updatedAt: revision });
+      const [clock] = await db.select({ at: sql<Date>`CURRENT_TIMESTAMP(3)`.mapWith(huntingHabitat.updatedAt) }).from(huntingHabitat);
+      expect((await staff.save({ id: "forest", content: huntingHabitatContent() })).success).toBe(true);
+      const saved = (await db.query.huntingHabitat.findFirst())!;
+      expect(saved.updatedAt.getTime()).toBeGreaterThan(revision.getTime());
+      expect(saved.updatedAt.getTime()).toBeGreaterThanOrEqual(clock!.at.getTime());
+    }
+  });
+
+  it.each(["initial acceptance", "different-habitat switch"] as const)("rejects a same-millisecond target save during %s without replacing the session", async (mode) => {
     const db = await getTestDatabase();
     const hunter = callerForDatabase(huntingRouter, "hunter", db);
-    await db.update(huntingHabitat).set({ updatedAt: new Date(0) });
+    const revision = (await db.query.huntingHabitat.findFirst())!.updatedAt;
+    setSystemTime(revision);
     await db.insert(huntingProgress).values({ userId: "hunter", contractId: "contract", used: 2 });
     if (mode === "different-habitat switch") {
       await db.insert(huntingHabitat).values({ id: "other", content: { ...huntingHabitatContent(), contracts: [{ ...huntingContract(), id: "other-contract" }] }, updatedAt: new Date(0) });
@@ -144,6 +159,27 @@ describeWithDatabase("staff changes during hunting admission", () => {
     expect(await hunter.accept({ habitatId: "forest", contractId: "contract", version: previous?.version ?? null })).toMatchObject({ success: false, message: "This contract is on cooldown." });
   });
 
+  it("rejects a same-millisecond previous-habitat save and reconciles its reduced allowance on retry", async () => {
+    const db = await getTestDatabase();
+    setSystemTime((await db.query.huntingHabitat.findFirst())!.updatedAt);
+    const hunter = callerForDatabase(huntingRouter, "hunter", db);
+    expect((await hunter.accept({ habitatId: "forest", contractId: "contract", version: null })).success).toBe(true);
+    await db.update(huntingProgress).set({ used: 2 });
+    await db.insert(huntingHabitat).values({ id: "other", content: { ...huntingHabitatContent(), contracts: [{ ...huntingContract(), id: "other-contract" }] }, updatedAt: new Date() });
+    const previous = (await db.query.huntingSession.findFirst())!;
+    const progress = await db.query.huntingProgress.findFirst();
+    const client = beforeStatements(db, huntingSession, [async () => {
+      const content = huntingHabitatContent();
+      content.contracts[0] = { ...content.contracts[0]!, hunts: 1, cooldownSeconds: 3600 };
+      expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+    }]);
+    expect(await callerForDatabase(huntingRouter, "hunter", client).accept({ habitatId: "other", contractId: "other-contract", version: previous.version })).toMatchObject({ success: false, message: "Your hunting session changed. Refresh the board." });
+    expect(await db.query.huntingSession.findFirst()).toEqual(previous);
+    expect(await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") })).toEqual(progress);
+    expect((await hunter.accept({ habitatId: "other", contractId: "other-contract", version: previous.version })).success).toBe(true);
+    expect(await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") })).toMatchObject({ used: 2, version: 1, cooldownUntil: new Date(Date.now() + 3_600_000) });
+  });
+
   it("keeps accepted material references through settlement and releases them on finish", async () => {
     const { db, hunter, id } = await prepare();
     expect((await hunter.start({ id })).success).toBe(true);
@@ -159,6 +195,48 @@ describeWithDatabase("staff changes during hunting admission", () => {
     const session = (await hunter.getSession())!.session;
     expect((await hunter.sessionAction({ id: session.id, version: session.version, action: "finish" })).success).toBe(true);
     expect(await items.delete({ id: "hide" })).toMatchObject({ success: true, message: "Item deleted" });
+  });
+
+  it("retains accepted materials when acceptance and a staff edit overlap deletion reference reads", async () => {
+    const db = await getTestDatabase();
+    const hunter = callerForDatabase(huntingRouter, "hunter", db);
+    await insertUserItems([{ id: "retained-hide", userId: "hunter", itemId: "hide", quantity: 7 }]);
+    const material = await db.query.item.findFirst({ where: eq(item.id, "hide") });
+    const inventory = await db.query.userItem.findMany({ where: eq(userItem.itemId, "hide") });
+    let pendingActiveCheck: Promise<unknown> | undefined;
+    const sessions = new Proxy(db.query.huntingSession, { get(target, key, receiver) {
+      if (key === "findFirst") return (...args: Parameters<typeof target.findFirst>) => {
+        pendingActiveCheck = Promise.resolve(target.findFirst(...args));
+        return pendingActiveCheck;
+      };
+      return Reflect.get(target, key, receiver);
+    } });
+    const habitats = new Proxy(db.query.huntingHabitat, { get(target, key, receiver) {
+      if (key === "findMany") return async (...args: Parameters<typeof target.findMany>) => {
+        // Let an independently started session check finish before publishing the new snapshot.
+        await Promise.resolve();
+        await pendingActiveCheck;
+        expect((await hunter.accept({ habitatId: "forest", contractId: "contract", version: null })).success).toBe(true);
+        const content = huntingHabitatContent();
+        content.contracts[0]!.rewards = [{ itemId: "tusk", quantity: 1, chance: 100 }];
+        expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+        return target.findMany(...args);
+      };
+      return Reflect.get(target, key, receiver);
+    } });
+    const query = new Proxy(db.query, { get(target, key, receiver) {
+      return key === "huntingSession" ? sessions : key === "huntingHabitat" ? habitats : Reflect.get(target, key, receiver);
+    } });
+    const client = new Proxy(db, { get(target, key, receiver) {
+      return key === "query" ? query : Reflect.get(target, key, receiver);
+    } });
+    expect(await callerForDatabase(itemRouter, "staff", client).delete({ id: "hide" })).toMatchObject({ success: false, message: expect.stringContaining("active hunting session") });
+    expect(await db.query.item.findFirst({ where: eq(item.id, "hide") })).toEqual(material);
+    expect(await db.query.userItem.findMany({ where: eq(userItem.itemId, "hide") })).toEqual(inventory);
+    const session = (await db.query.huntingSession.findFirst())!;
+    await db.update(huntingSession).set({ readyAt: new Date(0) });
+    expect((await hunter.start({ id: session.id })).success).toBe(true);
+    expect((await db.query.battle.findFirst())?.extraState?.hunting?.contract.rewards).toEqual(huntingContract().rewards);
   });
 
   it("keeps accepted creature references through admission and releases them on switch", async () => {

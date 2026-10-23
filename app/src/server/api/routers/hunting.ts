@@ -214,7 +214,10 @@ export const huntingRouter = createTRPCRouter({
             if (input.id) {
               const saved = await tx
                 .update(huntingHabitat)
-                .set({ content, updatedAt: new Date() })
+                .set({
+                  content,
+                  updatedAt: sql`GREATEST(CURRENT_TIMESTAMP(3), TIMESTAMPADD(MICROSECOND, 1000, ${huntingHabitat.updatedAt}))`,
+                })
                 .where(eq(huntingHabitat.id, id));
               if (saved.rowsAffected !== 1) throw missing;
             } else
