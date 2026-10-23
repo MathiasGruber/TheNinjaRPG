@@ -5,7 +5,8 @@ import { Pusher } from "@/libs/pusher";
 import { huntingRouter } from "@/routers/hunting";
 import { insertItems, insertUsers } from "../../setup/factories";
 import { huntingContract, huntingHabitatContent, huntingMap } from "../../setup/hunting";
-import { beforeStatements } from "../../setup/statements";
+import type { DrizzleClient } from "@/server/db";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { callerFor, callerForDatabase, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("Hunting lifecycle", () => {
@@ -201,13 +202,51 @@ describeWithDatabase("Hunting lifecycle", () => {
     const { session } = await accept();
     const db = await getTestDatabase();
     await db.update(huntingProgress).set({ used: 2 });
-    const client = beforeStatements(db, huntingSession, [async () => {
+    const client = withTransactionStatements(db, (client) => beforeStatements(client, huntingSession, [async () => {
       const content = huntingHabitatContent();
       content.contracts[0]!.hunts = 1;
       expect((await (await callerFor(huntingRouter, "staff")).save({ id: "forest", content })).success).toBe(true);
-    }]);
+    }]));
     expect((await callerForDatabase(huntingRouter, "hunter", client).sessionAction({ id: session.id, version: session.version, action: "finish" })).success).toBe(true);
     expect((await db.query.huntingProgress.findFirst())?.cooldownUntil?.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it.each(["finish", "switch"] as const)("keeps the old session and allowance when %s fails", async (action) => {
+    const { hunter, session } = await accept();
+    const db = await getTestDatabase();
+    await db.update(huntingProgress).set({ used: 2 });
+    const content = huntingHabitatContent();
+    content.contracts[0]!.hunts = 1;
+    content.contracts.push({ ...huntingContract(), id: "second" });
+    expect((await (await callerFor(huntingRouter, "staff")).save({ id: "forest", content })).success).toBe(true);
+    const before = await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") });
+    const client = action === "finish"
+      ? withTransactionStatements(db, (client) => failStatements(client, huntingProgress))
+      : failStatements(db, huntingSession);
+    const failing = callerForDatabase(huntingRouter, "hunter", client);
+    const run = (caller: typeof hunter) => action === "finish"
+      ? caller.sessionAction({ id: session.id, version: session.version, action: "finish" })
+      : caller.accept({ habitatId: "forest", contractId: "second", version: session.version });
+    await expect(run(failing)).rejects.toThrow("Statement failed on purpose");
+    expect(await db.query.huntingSession.findFirst()).toEqual(session);
+    expect(await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") })).toEqual(before);
+    expect((await run(hunter)).success).toBe(true);
+    expect((await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") }))?.cooldownUntil?.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("rejects a stale switch without changing its accepted terms or allowance", async () => {
+    const { session } = await accept();
+    const db = await getTestDatabase();
+    await db.update(huntingProgress).set({ used: 2 });
+    const client = beforeStatements(db, huntingSession, [async () => {
+      const content = huntingHabitatContent();
+      content.contracts[0]!.hunts = 1;
+      content.contracts.push({ ...huntingContract(), id: "second" });
+      expect((await (await callerFor(huntingRouter, "staff")).save({ id: "forest", content })).success).toBe(true);
+    }]);
+    expect(await callerForDatabase(huntingRouter, "hunter", client).accept({ habitatId: "forest", contractId: "second", version: session.version })).toMatchObject({ success: false, message: "Your hunting session changed. Refresh the board." });
+    expect(await db.query.huntingSession.findFirst()).toEqual(session);
+    expect(await db.query.huntingProgress.findFirst({ where: eq(huntingProgress.contractId, "contract") })).toMatchObject({ used: 2, cooldownUntil: null, version: 0 });
   });
 
   it("prepares with accepted terms after contract removal and uses updated terms after finishing", async () => {
@@ -232,3 +271,11 @@ describeWithDatabase("Hunting lifecycle", () => {
     expect(await hunter.getSession()).toMatchObject({ contract: { name: "Updated boar", preparationSeconds: 30, hunts: 5, experience: 99 } });
   });
 });
+
+/** Apply statement fault/interleaving hooks to the short finish transaction as well. */
+const withTransactionStatements = (database: DrizzleClient, wrap: (client: DrizzleClient) => DrizzleClient): DrizzleClient =>
+  new Proxy(wrap(database), { get(target, key, receiver) {
+    if (key === "transaction") return (...args: Parameters<typeof database.transaction>) =>
+      database.transaction((tx) => args[0](wrap(tx as unknown as DrizzleClient) as typeof tx));
+    return Reflect.get(target, key, receiver);
+  } });

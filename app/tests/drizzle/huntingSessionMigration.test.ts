@@ -8,13 +8,13 @@ import { describeWithDatabase } from "../setup/testDatabase";
 
 describeWithDatabase("accepted hunting terms migration", () => {
   it("backfills sessions and retains battle terms without losing unavailable sessions", async () => {
-    const connection = await mysql.createConnection({ uri: process.env.TEST_MYSQL_URL, multipleStatements: true });
+    const connection = await mysql.createConnection({ uri: process.env.TEST_MYSQL_URL, multipleStatements: false });
     const prefix = `hunting_${randomUUID().replaceAll("-", "")}_`;
     const names = ["HuntingSession", "HuntingHabitat", "Battle"];
     const query = <T extends mysql.QueryResult = mysql.QueryResult>(statement: string, values?: unknown[]) =>
       connection.query<T>(statement.replace(/\b(HuntingSession|HuntingHabitat|Battle)\b/g, `${prefix}$1`), values);
     try {
-      const snapshot = JSON.parse(await readFile("drizzle/migrations/meta/0105_snapshot.json", "utf8")) as { tables: Record<string, SnapshotTable> };
+      const snapshot = JSON.parse(await readFile("drizzle/migrations/meta/0106_snapshot.json", "utf8")) as { tables: Record<string, SnapshotTable> };
       for (const name of names) await query(baselineTableSql(snapshot.tables[name]!));
       const content = huntingHabitatContent();
       await query("INSERT INTO HuntingHabitat (id, content, updatedAt) VALUES ('forest', ?, NOW(3))", [JSON.stringify(content)]);
@@ -24,9 +24,11 @@ describeWithDatabase("accepted hunting terms migration", () => {
       const battleContract = { ...huntingContract(), name: "Accepted boar", experience: 123 };
       await query("INSERT INTO Battle (id, background, battleType, usersState, usersEffects, groundEffects, extraState) VALUES ('fight', 'ground', 'HUNTING', '[]', '[]', '[]', ?)", [JSON.stringify({ hunting: { contract: battleContract } })]);
       const [before] = await query<mysql.RowDataPacket[]>("SELECT * FROM HuntingSession ORDER BY userId");
-      const migration = await readFile("drizzle/migrations/0107_kind_sabra.sql", "utf8");
-      expect(migration).not.toContain("--> statement-breakpoint");
-      await query(migration);
+      for (const file of ["0107_kind_sabra.sql", "0108_hard_psynapse.sql", "0109_fluffy_hairball.sql"]) {
+        const migration = await readFile(`drizzle/migrations/${file}`, "utf8");
+        expect(migration).not.toContain("--> statement-breakpoint");
+        await query(migration);
+      }
       const [rows] = await query<mysql.RowDataPacket[]>("SELECT * FROM HuntingSession ORDER BY userId");
       expect(rows.map(({ content: _content, ...row }) => row)).toEqual(before);
       expect(rows.find((r) => r.userId === "accepted")!.content).toEqual(content);

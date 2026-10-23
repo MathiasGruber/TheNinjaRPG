@@ -297,13 +297,11 @@ export const huntingRouter = createTRPCRouter({
     .use(ratelimitMiddleware)
     .input(acceptHuntingContractSchema)
     .mutation(async ({ ctx, input }) => {
-      const [user, habitat, session, progress] = await Promise.all([
+      const [user, habitats, session, progress] = await Promise.all([
         ctx.drizzle.query.userData.findFirst({
           where: eq(userData.userId, ctx.userId),
         }),
-        ctx.drizzle.query.huntingHabitat.findFirst({
-          where: eq(huntingHabitat.id, input.habitatId),
-        }),
+        ctx.drizzle.query.huntingHabitat.findMany(),
         ctx.drizzle.query.huntingSession.findFirst({
           where: eq(huntingSession.userId, ctx.userId),
         }),
@@ -314,6 +312,7 @@ export const huntingRouter = createTRPCRouter({
           ),
         }),
       ]);
+      const habitat = habitats.find((h) => h.id === input.habitatId);
       const contract = habitat?.content.contracts.find(
         (c) => c.id === input.contractId,
       );
@@ -375,34 +374,48 @@ export const huntingRouter = createTRPCRouter({
         .insert(huntingProgress)
         .values({ userId: ctx.userId, contractId: contract.id })
         .onDuplicateKeyUpdate({ set: { contractId: contract.id } });
+      const previousHabitat = habitats.find((h) => h.id === session?.habitatId);
+      const previousContract = previousHabitat?.content.contracts.find(
+        (c) => c.id === session?.contractId,
+      );
       try {
+        // Switching and reconciling the old allowance share one guarded statement.
         const saved = session
-          ? await ctx.drizzle
-              .update(huntingSession)
-              .set(next)
-              .where(
-                and(
-                  eq(huntingSession.userId, ctx.userId),
-                  eq(huntingSession.version, session.version),
-                  isNull(huntingSession.battleId),
-                ),
-              )
+          ? await retryOnDeadlock(() =>
+              ctx.drizzle.execute(sql`
+              UPDATE ${huntingSession} AS s
+              LEFT JOIN ${huntingProgress} AS p
+                ON p.userId = s.userId AND p.contractId = s.contractId
+              SET s.id = ${next.id}, s.habitatId = ${next.habitatId},
+                  s.contractId = ${next.contractId}, s.content = ${JSON.stringify(next.content)},
+                  s.sector = ${next.sector}, s.readyAt = NULL, s.battleId = NULL,
+                  s.lastResult = NULL, s.startedAt = ${next.startedAt}, s.version = ${next.version},
+                  p.version = p.version + 1,
+                  p.cooldownUntil = ${
+                    previousContract
+                      ? sql`CASE WHEN p.used >= ${previousContract.hunts} AND p.cooldownUntil IS NULL
+                        THEN ${new Date(Date.now() + previousContract.cooldownSeconds * 1000)}
+                        ELSE p.cooldownUntil END`
+                      : sql`p.cooldownUntil`
+                  }
+              WHERE s.userId = ${ctx.userId} AND s.id = ${session.id}
+                AND s.version = ${session.version} AND s.battleId IS NULL
+                AND ${
+                  previousHabitat
+                    ? sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId} AND ${huntingHabitat.updatedAt} = ${previousHabitat.updatedAt})`
+                    : sql`NOT EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${session.habitatId})`
+                }
+            `),
+            )
           : await ctx.drizzle
               .insert(huntingSession)
               .values({ ...next, userId: ctx.userId });
-        if (saved.rowsAffected !== 1)
+        if (saved.rowsAffected === 0)
           return errorResponse("Your hunting session changed. Refresh the board.");
       } catch (error) {
         if (!isMysqlDuplicateKeyError(error)) throw error;
         return errorResponse("You already have an active contract. Refresh the board.");
       }
-      if (session)
-        await reconcileInactiveAllowance(
-          ctx.drizzle,
-          ctx.userId,
-          session.habitatId,
-          session.contractId,
-        );
       return {
         success: true,
         message: `Contract accepted. Travel to sector ${sector}.`,
@@ -436,14 +449,21 @@ export const huntingRouter = createTRPCRouter({
         isNull(huntingSession.battleId),
       );
       if (input.action === "finish") {
-        const saved = await ctx.drizzle.delete(huntingSession).where(guard);
-        if (saved.rowsAffected === 1)
-          await reconcileInactiveAllowance(
-            ctx.drizzle,
-            ctx.userId,
-            session.habitatId,
-            session.contractId,
-          );
+        // MySQL cannot DELETE the session and UPDATE its allowance in one statement.
+        // Roll back the release if reconciliation fails, keeping the contract recoverable.
+        const saved = await retryOnDeadlock(() =>
+          ctx.drizzle.transaction(async (tx) => {
+            const deleted = await tx.delete(huntingSession).where(guard);
+            if (deleted.rowsAffected === 1)
+              await reconcileInactiveAllowance(
+                tx as unknown as DrizzleClient,
+                ctx.userId,
+                session.habitatId,
+                session.contractId,
+              );
+            return deleted;
+          }),
+        );
         return saved.rowsAffected === 1
           ? {
               success: true,
