@@ -1,5 +1,6 @@
 "use client";
 
+import { CreditCard, LoaderCircle, Wallet } from "lucide-react";
 import { nanoid } from "nanoid";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
@@ -40,7 +41,10 @@ export const StripeCheckoutButton = ({
   return (
     <div className="my-2 text-center">
       <Button
-        className="w-full"
+        className="h-auto min-h-16 w-full flex-col gap-1 rounded-lg bg-[#635bff] px-3 py-2.5 text-white hover:bg-[#5145e5] focus-visible:ring-[#635bff]"
+        aria-label="Pay with Stripe — cards, wallets and Link"
+        aria-busy={checkout.isPending}
+        title="Available payment methods depend on your device and location."
         disabled={disabled || checkout.isPending}
         onClick={() => {
           setMessage("");
@@ -54,14 +58,34 @@ export const StripeCheckoutButton = ({
           });
         }}
       >
-        {checkout.isPending ? "Opening checkout…" : "Pay by card with Stripe"}
+        {checkout.isPending ? (
+          <span className="inline-flex items-center gap-2">
+            <LoaderCircle
+              className="h-4 w-4 animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            Opening checkout…
+          </span>
+        ) : (
+          <>
+            <span className="font-semibold">Pay with Stripe</span>
+            <span
+              className="inline-flex items-center gap-3 text-[10px] text-white/90"
+              aria-hidden="true"
+            >
+              <span className="inline-flex items-center gap-1">
+                <CreditCard className="h-3 w-3" />
+                Cards
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Wallet className="h-3 w-3" />
+                Wallets
+              </span>
+              <span className="font-semibold italic">Link</span>
+            </span>
+          </>
+        )}
       </Button>
-      {purchase.type === "federal" && (
-        <p className="mt-1 text-xs">
-          Monthly base price in USD, including applicable tax. Checkout may offer local
-          currency. Renews until cancelled.
-        </p>
-      )}
       {message && (
         <p role="alert" className="mt-2 text-sm">
           {message}
