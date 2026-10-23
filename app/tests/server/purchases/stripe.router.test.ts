@@ -121,4 +121,44 @@ describeWithDatabase("Stripe router guards and durable checkout terms", () => {
     expect(outcomes.filter((outcome) => outcome.success)).toHaveLength(1);
     expect(create).toHaveBeenCalledTimes(1);
   });
+  it("lists only the payer's current unfinished checkouts, excluding delivered, closed and stale rows", async () => {
+    const db = await getTestDatabase(); const caller = await callerFor(stripeRouter, BUYER);
+    const open = input(); await caller.createCheckout(open);
+    const closed = input(); await caller.createCheckout(closed); await caller.cancelCheckout({ checkoutId: closed.requestId });
+    const stale = input(); await caller.createCheckout(stale);
+    await db.update(stripeCheckout).set({ createdAt: new Date(Date.now() - 26 * 3600000) }).where(eq(stripeCheckout.id, stale.requestId));
+    const delivered = input(); await caller.createCheckout(delivered);
+    await db.insert(stripePayment).values({ id: "pi_list_delivered", checkoutId: delivered.requestId, createdById: BUYER, affectedUserId: RECIPIENT, amountCents: 100, reputationPoints: 20, purchasedAt: new Date(), grantedAt: new Date() });
+    const subscription = input(); await caller.createCheckout(subscription);
+    await db.update(stripeCheckout).set({ subscriptionId: "sub_list_finished" }).where(eq(stripeCheckout.id, subscription.requestId));
+    expect(await caller.getPendingCheckouts()).toEqual([{ id: open.requestId, affectedUserId: RECIPIENT, federalStatus: "NONE", reputationPoints: expect.any(Number), recipientUsername: RECIPIENT }]);
+    expect(await (await callerFor(stripeRouter, RECIPIENT)).getPendingCheckouts()).toEqual([]);
+  });
+  it("recovers a lost creation response from listed immutable terms and rejects finished session replay", async () => {
+    const caller = await callerFor(stripeRouter, BUYER); const purchase = input(51);
+    lostCreateResponse = true; await expect(caller.createCheckout(purchase)).rejects.toThrow("Stripe response lost");
+    const [pending] = await caller.getPendingCheckouts(); expect(pending).toBeDefined();
+    const recovered = { ...purchase, requestId: pending!.id, userId: pending!.affectedUserId, purchase: { type: "reputation" as const, reputationPoints: pending!.reputationPoints } };
+    const result = await caller.createCheckout(recovered); expect(result.success).toBe(true);
+    expect(sessions.size).toBe(1);
+    const session = [...sessions.values()][0]!; session.status = "complete";
+    expect((await caller.createCheckout(recovered)).success).toBe(false);
+    expect((await caller.cancelCheckout({ checkoutId: pending!.id })).success).toBe(false);
+    expect(expire).not.toHaveBeenCalled();
+  });
+
+  it("resumes listed federal checkout without creating a duplicate subscription and cancellation removes its reservation", async () => {
+    const caller = await callerFor(stripeRouter, BUYER);
+    const purchase = { requestId: nanoid(), expectedUserId: BUYER, userId: RECIPIENT, purchase: { type: "federal" as const, federalStatus: "NORMAL" as const } };
+    vi.spyOn(stripeClient, "validFederalPrice").mockReturnValue(true);
+    expect((await caller.createCheckout(purchase)).success).toBe(true);
+    expect((await caller.createCheckout({ ...purchase, requestId: nanoid() })).success).toBe(false);
+    const [pending] = await caller.getPendingCheckouts(); expect(pending?.federalStatus).toBe("NORMAL");
+    expect((await caller.createCheckout({ ...purchase, requestId: pending!.id })).success).toBe(true);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect((await caller.cancelCheckout({ checkoutId: pending!.id })).success).toBe(true);
+    expect(await caller.getPendingCheckouts()).toEqual([]);
+    expect((await caller.createCheckout({ ...purchase, requestId: nanoid() })).success).toBe(true);
+  });
+
 });

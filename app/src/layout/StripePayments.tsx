@@ -22,6 +22,7 @@ export const StripeCheckoutButton = ({
   purchase: Purchase;
   disabled?: boolean;
 }) => {
+  const utils = api.useUtils();
   const { data: user } = useRequiredUserData();
   const { data: availability } = api.stripe.availability.useQuery();
   const [message, setMessage] = useState("");
@@ -33,9 +34,13 @@ export const StripeCheckoutButton = ({
       else {
         setMessage(result.message);
         request.current = { key: "", id: nanoid() };
+        void utils.stripe.getPendingCheckouts.invalidate();
       }
     },
-    onError: () => setMessage("Could not open Stripe checkout. Please try again."),
+    onError: () => {
+      setMessage("Could not open Stripe checkout. Please try again.");
+      void utils.stripe.getPendingCheckouts.invalidate();
+    },
   });
   if (!availability?.enabled || !user) return null;
   return (
@@ -103,7 +108,11 @@ export const StripePaymentReturn = () => {
   const cancelCheckout = api.stripe.cancelCheckout.useMutation({
     onSuccess: async (result) => {
       setMessage(result.message);
-      if (result.success) await utils.paypal.getRecentRepsCount.invalidate();
+      if (result.success)
+        await Promise.all([
+          utils.paypal.getRecentRepsCount.invalidate(),
+          utils.stripe.getPendingCheckouts.invalidate(),
+        ]);
     },
     onError: () =>
       setMessage("Could not close checkout yet. Please reload to try again."),
@@ -117,6 +126,7 @@ export const StripePaymentReturn = () => {
           utils.paypal.getRecentRepsCount.invalidate(),
           utils.stripe.getSubscriptions.invalidate(),
           utils.stripe.getPayments.invalidate(),
+          utils.stripe.getPendingCheckouts.invalidate(),
         ]);
         setSessionId(null);
         const url = new URL(window.location.href);
@@ -154,6 +164,96 @@ export const StripePaymentReturn = () => {
         >
           Check payment again
         </Button>
+      )}
+    </ContentBox>
+  );
+};
+
+export const StripePendingCheckouts = () => {
+  const utils = api.useUtils();
+  const { data: user } = useRequiredUserData();
+  const pending = api.stripe.getPendingCheckouts.useQuery();
+  const [message, setMessage] = useState("");
+  const resume = api.stripe.createCheckout.useMutation({
+    onSuccess: (result) => {
+      if (result.success && "url" in result && result.url)
+        window.location.assign(result.url);
+      else setMessage(result.message);
+    },
+    onError: () => setMessage("Could not open Stripe checkout. Please try again."),
+  });
+  const cancel = api.stripe.cancelCheckout.useMutation({
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      if (result.success)
+        await Promise.all([
+          utils.stripe.getPendingCheckouts.invalidate(),
+          utils.paypal.getRecentRepsCount.invalidate(),
+        ]);
+    },
+    onError: () => setMessage("Could not cancel checkout. Please try again."),
+  });
+  if (pending.isError)
+    return (
+      <p role="alert">
+        Unfinished Stripe checkouts could not be loaded. Please reload to try again.
+      </p>
+    );
+  if (!pending.data?.length || !user) return null;
+  return (
+    <ContentBox title="Unfinished Stripe checkouts" initialBreak={true}>
+      {pending.data.map((checkout) => (
+        <div
+          className="my-2 flex flex-wrap items-center justify-between gap-2 rounded border p-2"
+          key={checkout.id}
+        >
+          <p className="text-sm">
+            {checkout.federalStatus === "NONE"
+              ? `${checkout.reputationPoints} reputation points`
+              : `${checkout.federalStatus} support`}
+            {" · "}
+            {checkout.recipientUsername ?? "Deleted character"}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={resume.isPending || cancel.isPending}
+              onClick={() => {
+                setMessage("");
+                resume.mutate({
+                  requestId: checkout.id,
+                  expectedUserId: user.userId,
+                  userId: checkout.affectedUserId,
+                  purchase:
+                    checkout.federalStatus === "NONE"
+                      ? {
+                          type: "reputation",
+                          reputationPoints: checkout.reputationPoints,
+                        }
+                      : { type: "federal", federalStatus: checkout.federalStatus },
+                });
+              }}
+            >
+              Continue
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={resume.isPending || cancel.isPending}
+              onClick={() => {
+                setMessage("");
+                cancel.mutate({ checkoutId: checkout.id });
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ))}
+      {message && (
+        <p role="status" className="text-sm">
+          {message}
+        </p>
       )}
     </ContentBox>
   );
@@ -212,6 +312,7 @@ export const StripeSubscriptions = () => {
 };
 
 export const StripePaymentHistory = () => {
+  const [visibleCount, setVisibleCount] = useState(5);
   const payments = api.stripe.getPayments.useQuery();
   if (payments.isError)
     return (
@@ -226,7 +327,7 @@ export const StripePaymentHistory = () => {
       subtitle="Your most recent card payments, in USD."
       initialBreak={true}
     >
-      {payments.data.map((payment) => (
+      {payments.data.slice(0, visibleCount).map((payment) => (
         <div className="my-2 rounded border p-2" key={payment.id}>
           <p>
             ${(payment.amountCents / 100).toFixed(2)} USD —{" "}
@@ -247,6 +348,15 @@ export const StripePaymentHistory = () => {
           </p>
         </div>
       ))}
+      {visibleCount < payments.data.length && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setVisibleCount((count) => count + 5)}
+        >
+          Show more
+        </Button>
+      )}
     </ContentBox>
   );
 };

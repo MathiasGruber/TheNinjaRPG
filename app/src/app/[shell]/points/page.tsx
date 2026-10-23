@@ -85,6 +85,7 @@ import {
   StripeCheckoutButton,
   StripePaymentHistory,
   StripePaymentReturn,
+  StripePendingCheckouts,
   StripeSubscriptions,
 } from "@/layout/StripePayments";
 import type { ColumnDefinitionType } from "@/layout/Table";
@@ -241,6 +242,7 @@ const PaypalShopContent = ({
           {isReady ? <FederalStore /> : <Loader />}
         </TabsContent>
       </ContentBox>
+      <StripePendingCheckouts />
       {activeTab === "Reputation" && <StripePaymentHistory />}
       {activeTab !== "Federal" && <TransactionHistory />}
       {activeTab !== "Federal" && <LookupTransaction />}

@@ -360,6 +360,32 @@ export const stripeRouter = createTRPCRouter({
               : "Payment is still processing. You can check again; confirmed payments are delivered automatically.",
       };
     }),
+  getPendingCheckouts: protectedProcedure.query(async ({ ctx }) => {
+    const recipient = alias(userData, "recipient");
+    return ctx.drizzle
+      .select({
+        id: stripeCheckout.id,
+        affectedUserId: stripeCheckout.affectedUserId,
+        federalStatus: stripeCheckout.federalStatus,
+        reputationPoints: stripeCheckout.reputationPoints,
+        recipientUsername: recipient.username,
+      })
+      .from(stripeCheckout)
+      .leftJoin(recipient, eq(recipient.userId, stripeCheckout.affectedUserId))
+      .where(
+        and(
+          eq(stripeCheckout.createdById, ctx.userId),
+          isNull(stripeCheckout.closedAt),
+          isNull(stripeCheckout.subscriptionId),
+          gte(
+            stripeCheckout.createdAt,
+            sql`NOW() - INTERVAL ${STRIPE_CHECKOUT_RESERVATION_SECONDS} SECOND`,
+          ),
+          sql`NOT EXISTS (SELECT 1 FROM ${stripePayment} p WHERE p.checkoutId = ${stripeCheckout.id} AND p.grantedAt IS NOT NULL)`,
+        ),
+      )
+      .orderBy(desc(stripeCheckout.createdAt));
+  }),
   getPayments: protectedProcedure.query(async ({ ctx }) =>
     ctx.drizzle.query.stripePayment.findMany({
       where: eq(stripePayment.createdById, ctx.userId),
