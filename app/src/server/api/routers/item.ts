@@ -156,6 +156,7 @@ import {
   serverError,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { completedQuestHistoryRelation } from "@/server/utils/achievementObjectives";
 import {
   cacheReceiptId,
   commitCacheConsumption,
@@ -3488,21 +3489,17 @@ export const itemRouter = createTRPCRouter({
       if (questState && advancesBuyItemObjective) {
         const buyer = {
           ...user,
-          // Source questData + userQuests + completedQuests from the SAME fetchUserQuestState
-          // snapshot so the tracker read is internally consistent. Drop orphaned rows (quest
-          // deleted → `quest` is null) to match the convention fetchUpdatedUser applies; this
-          // bespoke fetch is the one caller that otherwise leaks nulls into the tracker/persist
-          // path. (The scalar fields getNewTrackers' "every time" block reads still come from
-          // fetchUser — a pre-existing, accepted torn-read this consolidation does not widen.)
+          // Keep quest state from one snapshot. Orphaned history IDs let the
+          // tracker/persist helpers remove deleted quest trackers.
           questData: questState.questData,
-          userQuests: questState.userQuests.filter((q) => q.quest),
+          userQuests: questState.userQuests,
           completedQuests: questState.completedQuests,
         } as unknown as Parameters<typeof getNewTrackers>[0];
         const { trackers } = getNewTrackers(buyer, [
           { task: "buy_item", increment: input.stack, contentId: iid },
         ]);
         questDataUpdate = {
-          questData: filterQuestTrackersForDbPersist(trackers, buyer),
+          questData: filterQuestTrackersForDbPersist(trackers, buyer, true),
         };
       }
       // Commit the user-snapshot claim, fund deduction, quest update, and item insert
@@ -4083,10 +4080,7 @@ const fetchUserQuestState = async (client: DrizzleClient, userId: string) => {
         ),
         with: { quest: true },
       },
-      completedQuests: {
-        columns: { id: true, questId: true, completed: true },
-        where: gte(questHistory.completed, 1),
-      },
+      completedQuests: completedQuestHistoryRelation,
     },
   });
 };

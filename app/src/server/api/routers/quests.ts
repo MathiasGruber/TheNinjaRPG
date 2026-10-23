@@ -237,7 +237,11 @@ import { canAccessStructure } from "@/utils/village";
 import { publicMapLocationsSchema } from "@/validators/mapLocation";
 import { idSchema } from "@/validators/misc";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
-import { QuestTracker, QuestValidator } from "@/validators/objectives";
+import {
+  QuestCompletionTasks,
+  QuestTracker,
+  QuestValidator,
+} from "@/validators/objectives";
 import { petSelectionSchema } from "@/validators/pets";
 import {
   type PetTask,
@@ -1588,7 +1592,7 @@ export const questsRouter = createTRPCRouter({
       )
         return errorResponse("The quest team leader chooses dialog branches");
 
-      const activeAttempt = user.userQuests.find(
+      const activeAttempt = [...user.userQuests, ...progressionQuestCandidates].find(
         (entry) => entry.questId === input.questId && !entry.endAt,
       );
       if (
@@ -4154,8 +4158,8 @@ export const commitQuestObjectiveRewards = async (info: {
     user.questData = removeQuestTrackerByQuestId(user.questData, userQuest.questId);
   }
 
-  // Isolated and delegated completions publish history and the account snapshot together,
-  // so a failed request cannot strand an isolated player or leave an away-pet receipt behind.
+  // Isolated, delegated and achievement-counted completions publish history with the
+  // account snapshot, keeping run receipts and completion credit behind the same claim.
   // Other completions retain their history CAS and revert it if the snapshot claim loses.
   let resolvedCompletionCommitted = false;
   let claimManagedCompletion: typeof claimUserSnapshot | undefined;
@@ -4207,7 +4211,11 @@ export const commitQuestObjectiveRewards = async (info: {
       liveQuestCondition,
       ...(rewardChoice || petTask ? [isNull(questHistory.pendingRewardChoice)] : []),
     );
-    const managedRun = petTask ? userQuest : isolatedRun;
+    // History-derived completion achievements must never observe a completion that
+    // can still be reverted after a lost account snapshot claim.
+    const countedCompletion =
+      userQuest && Object.hasOwn(QuestCompletionTasks, userQuest.quest.questType);
+    const managedRun = petTask || countedCompletion ? userQuest : isolatedRun;
     if (managedRun) {
       const completedAt = completedEndAt;
       // Joined UPDATE assignment order is unspecified, so decide period rollover from
@@ -4518,7 +4526,14 @@ export const commitQuestObjectiveRewards = async (info: {
     }
     user.completedQuests = [
       ...user.completedQuests.filter((entry) => entry.questId !== userQuest.questId),
-      { id: entry?.id ?? userQuest.id, questId: userQuest.questId, completed: 1 },
+      {
+        id: entry?.id ?? userQuest.id,
+        questId: userQuest.questId,
+        completed: 1,
+        questType: userQuest.quest.questType,
+        previousCompletes:
+          entry?.previousCompletes ?? (userQuest.previousCompletes ?? 0) + 1,
+      },
     ];
     if (user.activeNpcQuestId === userQuest.questId) user.activeNpcQuestId = null;
   }

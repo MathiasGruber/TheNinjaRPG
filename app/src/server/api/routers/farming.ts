@@ -55,6 +55,7 @@ import { fetchUserSkills } from "@/routers/skillTree";
 import { fetchUserItems } from "@/server/api/routers/item";
 import { createTRPCRouter, errorResponse, protectedProcedure } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { completedQuestHistoryRelation } from "@/server/utils/achievementObjectives";
 import {
   claimUserSnapshot,
   refundUserItemQuantityAtomically,
@@ -2332,10 +2333,7 @@ const fetchFarmingQuestState = async (client: DrizzleClient, userId: string) => 
         ),
         with: { quest: true },
       },
-      completedQuests: {
-        columns: { id: true, questId: true, completed: true },
-        where: gte(questHistory.completed, 1),
-      },
+      completedQuests: completedQuestHistoryRelation,
     },
   });
 };
@@ -2395,7 +2393,7 @@ const awardFarmingProgress = async (
       farmingExperience: snapshotUser.farmingExperience + xpGain,
       farmingCollectionCount,
       questData: snapshotQuests.questData,
-      userQuests: snapshotQuests.userQuests.filter((entry) => entry.quest),
+      userQuests: snapshotQuests.userQuests,
       completedQuests: snapshotQuests.completedQuests,
     } as unknown as Parameters<typeof getNewTrackers>[0];
     const taskUpdates: ObjectiveTrackerTaskInput[] = [
@@ -2420,7 +2418,7 @@ const awardFarmingProgress = async (
     const { trackers } = getNewTrackers(trackerUser, taskUpdates);
     return {
       advancesObjective: true,
-      questData: filterQuestTrackersForDbPersist(trackers, trackerUser) as
+      questData: filterQuestTrackersForDbPersist(trackers, trackerUser, true) as
         | ReturnType<typeof filterQuestTrackersForDbPersist>
         | undefined,
     };

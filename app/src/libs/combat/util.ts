@@ -633,6 +633,26 @@ export const buildCombatTrackerTasks = (
     (opponent) =>
       opponent.direction !== user.direction && !opponent.isAi && !opponent.isSummon,
   );
+  // Participation is settled once per real match on wins, losses, draws and fleeing.
+  // Practice ranked spars and staff tournament exhibitions do not advance competitive counters.
+  if (!curBattle.extraState?.tournamentGameId && !user.isAi && !user.isSummon) {
+    if (curBattle.battleType === "COMBAT" && isPvp)
+      tasks.push({ task: "pvp_participated", increment: 1 });
+    if (curBattle.battleType === "SPARRING" && isPvp)
+      tasks.push({ task: "spars_participated", increment: 1 });
+    if (curBattle.battleType === "RANKED_PVP" && isPvp) {
+      tasks.push({ task: "ranked_participated", increment: 1 });
+      if (result.didWin > 0) tasks.push({ task: "ranked_wins", increment: 1 });
+    }
+    if (curBattle.battleType === "OVERWORLD") {
+      const opponents = curBattle.usersState.filter(
+        (opponent) =>
+          !areBattleAllies(user, opponent) && opponent.isAi && !opponent.isSummon,
+      );
+      if (opponents.length)
+        tasks.push({ task: "overworld_ai_fought", increment: opponents.length });
+    }
+  }
   const combatType = isPvp ? "PVP" : "PVE";
   for (const action of user.usedActions.filter((action) => action.type === "jutsu")) {
     tasks.push({

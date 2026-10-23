@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { beforeEach, expect, it } from "bun:test";
 import { jutsu, userData, userJutsu, userQueue, userVote } from "@/drizzle/schema";
 import { calcJutsuTrainCost } from "@/libs/train";
@@ -7,6 +7,7 @@ import { jutsuRouter } from "@/server/api/routers/jutsu";
 import { trainRouter } from "@/server/api/routers/train";
 import { queueMasteries } from "../../setup/queues";
 import { insertUsers } from "../../setup/factories";
+import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
   describeWithDatabase,
@@ -127,6 +128,34 @@ describeWithDatabase("Queue settlement response reconciliation", () => {
     expect(result.user?.money).toBe(actual?.money);
     expect(result.requiresUserRefresh).toBe(true);
     expect(result.requiresProgressionRefresh).toBe(true);
+  });
+
+  it("reports a queued job started before a rejected passive settlement", async () => {
+    const db = await getTestDatabase();
+    const prior = new Date(Date.now() - 600_000);
+    await db.update(jutsu).set({ hidden: false }).where(eq(jutsu.id, "hidden-drop"));
+    await db
+      .update(userData)
+      .set({ updatedAt: prior, regenAt: prior })
+      .where(eq(userData.userId, userId));
+    const client = beforeStatements(db, userData, [
+      async () =>
+        db
+          .update(userData)
+          .set({
+            updatedAt: sql`TIMESTAMPADD(MICROSECOND, 1000, ${userData.updatedAt})`,
+            curEnergy: 17,
+          })
+          .where(eq(userData.userId, userId)),
+    ]);
+    const result = await fetchUpdatedUser({ client, userId, forceRegen: true });
+    expect(result.startedQueuedJobs).toBe(1);
+    expect(result.user?.curEnergy).toBe(17);
+    expect(result.user?.queue).toEqual([]);
+    expect(result.requiresUserRefresh).toBe(true);
+    expect(result.requiresProgressionRefresh).toBe(true);
+    expect(await db.query.userJutsu.findMany({ where: eq(userJutsu.userId, userId) })).toHaveLength(1);
+    expect((await fetchUpdatedUser({ client: db, userId })).startedQueuedJobs).toBe(0);
   });
 
   it.each([5, 16])(

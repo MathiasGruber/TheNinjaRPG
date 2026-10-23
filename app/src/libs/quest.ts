@@ -88,6 +88,7 @@ import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
 import { availableQuestLetterRanks, hasRequiredRank } from "@/libs/train";
 import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
+import { isInArray } from "@/utils/array";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
@@ -107,7 +108,13 @@ import type {
   QuestContentType,
   QuestTrackerType,
 } from "@/validators/objectives";
-import { ObjectiveTracker, QuestTracker } from "@/validators/objectives";
+import {
+  CombatActivityTasks,
+  CompletionTasks,
+  ObjectiveTracker,
+  QuestCompletionTasks,
+  QuestTracker,
+} from "@/validators/objectives";
 import { QuestReward, type QuestRewardType } from "@/validators/rewardPackages";
 import type { ObjectiveRewardType, PendingRewardChoice } from "@/validators/rewards";
 import {
@@ -192,13 +199,22 @@ export const isMockQuestHistoryRow = (row: { id: string; questId: string }): boo
 
 /**
  * Strip in-memory-only achievement trackers before persisting `UserData.questData`, except
- * completed collection goals whose catalogue snapshot must survive until reward claim.
+ * completed collection goals and event counters whose progress must survive until reward claim.
  * Mock rows from `mockAchievementHistoryEntries` use `id === questId`; real `QuestHistory.id` is a nanoid.
+ * @param preserveUnloadedTrackers Keep omitted progress in sparse reads; loaded orphan rows still allow cleanup.
  */
 export const filterQuestTrackersForDbPersist = (
   trackers: QuestTrackerType[],
   user: NonNullable<UserWithRelations>,
+  preserveUnloadedTrackers = false,
 ) => {
+  // Sparse quest reads omit achievements without history rows. Their persisted counters
+  // and earned completion snapshots must survive updates to the loaded quests.
+  const unloadedTrackers = preserveUnloadedTrackers
+    ? (user.questData ?? []).filter(
+        (tracker) => !user.userQuests.some((entry) => entry.questId === tracker.id),
+      )
+    : [];
   const inMemoryOnlyAchievements = new Map(
     user.userQuests
       // `uq.quest` is null for an orphaned QuestHistory row (its quest was deleted). Most callers
@@ -211,17 +227,21 @@ export const filterQuestTrackersForDbPersist = (
       )
       .map((uq) => [uq.questId, uq.quest]),
   );
-  return trackers.filter((tracker) => {
+  const persistedTrackers = trackers.filter((tracker) => {
     const achievement = inMemoryOnlyAchievements.get(tracker.id);
     return (
       !achievement ||
       achievement.content?.objectives.some(
         (objective) =>
-          objective.task === "bloodline_collection" &&
-          tracker.goals.some((goal) => goal.id === objective.id && goal.done),
+          ((objective.task === "bloodline_collection" ||
+            isInArray(objective.task, CompletionTasks)) &&
+            tracker.goals.some((goal) => goal.id === objective.id && goal.done)) ||
+          (isInArray(objective.task, CombatActivityTasks) &&
+            tracker.goals.some((goal) => goal.id === objective.id && goal.value > 0)),
       )
     );
   });
+  return [...persistedTrackers, ...unloadedTrackers];
 };
 
 /** Hidden active targets need server projection after changing sectors, even if currently revealed. */
@@ -670,6 +690,13 @@ export const getReward = (
       increment: 1,
       contentId: userQuest.questId,
     });
+    // Credit this claim before its completion history has been persisted.
+    const completionTask =
+      QuestCompletionTasks[
+        userQuest.quest.questType as keyof typeof QuestCompletionTasks
+      ];
+    if (completionTask)
+      followupTrackerTasks.push({ task: completionTask, increment: 1 });
   }
   if (followupTrackerTasks.length > 0) {
     const { trackers: updatedTrackers } = getNewTrackers(
@@ -1371,6 +1398,25 @@ export const getNewTrackers = (
               // retained above, so catalogue growth never revokes a recorded completion.
               status.done = isComplete;
             }
+          } else if (
+            task === "dungeons_completed" &&
+            user.dungeonsCompleted !== undefined
+          ) {
+            status.value = Number(user.dungeonsCompleted);
+          } else if (task === "raids_completed" && user.raidsCompleted !== undefined) {
+            status.value = Number(user.raidsCompleted);
+          } else if (isInArray(task, Object.values(QuestCompletionTasks))) {
+            // Repeatable quests reset completed; retain lifetime totals and legacy completions.
+            status.value = user.completedQuests.reduce(
+              (total, history) =>
+                history.questType &&
+                QuestCompletionTasks[
+                  history.questType as keyof typeof QuestCompletionTasks
+                ] === task
+                  ? total + Math.max(history.completed, history.previousCompletes ?? 0)
+                  : total,
+              0,
+            );
           } else if (task === "user_level") {
             // Use originalLevel if available (for combat-scaled users), otherwise use current level
             const userLevel =
@@ -1809,6 +1855,10 @@ export const getNewTrackers = (
             });
           if ("value" in objective && status.value >= objective.value) {
             status.done = true;
+            // Latch an earned completion before its source content can be retired.
+            // Goals already done return above, so passive reads request this write once.
+            if (isInArray(task, CompletionTasks))
+              consequences.push({ type: "update_user", ids: ["activity_completion"] });
           }
 
           // If status is now done, then add quest id to list of updated quests

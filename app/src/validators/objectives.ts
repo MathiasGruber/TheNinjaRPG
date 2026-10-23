@@ -8,6 +8,7 @@ import {
   IMG_BADGE_ARENAKILLS,
   IMG_BADGE_B_CRIME_TOTAL,
   IMG_BADGE_B_MISSION_TOTAL,
+  IMG_BADGE_BATTLE_PYRAMIDS_COMPLETED,
   IMG_BADGE_BLOODLINE_COLLECTION,
   IMG_BADGE_BUY_ITEM,
   IMG_BADGE_C_CRIME_TOTAL,
@@ -23,9 +24,14 @@ import {
   IMG_BADGE_DAYS_IN_VILLAGE,
   IMG_BADGE_DEFEAT_OPPONENTS,
   IMG_BADGE_DIALOG,
+  IMG_BADGE_DUNGEONS_COMPLETED,
   IMG_BADGE_ERRANDS_TOTAL,
+  IMG_BADGE_ESPIONAGE,
+  IMG_BADGE_EVENTS_COMPLETED,
   IMG_BADGE_EXCLUSIVE_RAID,
   IMG_BADGE_FAIL_QUEST,
+  IMG_BADGE_FARMING_COLLECTION_LOG,
+  IMG_BADGE_FARMING_LEVEL,
   IMG_BADGE_GATHERING_EXPERIENCE,
   IMG_BADGE_HERBS_GATHERED,
   IMG_BADGE_HUNTING_EXPERIENCE,
@@ -37,19 +43,32 @@ import {
   IMG_BADGE_MOVE_TO_LOCATION,
   IMG_BADGE_NEW_QUEST,
   IMG_BADGE_OPEN_RAID,
+  IMG_BADGE_OVERWORLD_AI_FOUGHT,
+  IMG_BADGE_OVERWORLD_QUESTS_COMPLETED,
+  IMG_BADGE_PLANTS_FERTILIZED,
+  IMG_BADGE_PLANTS_HARVESTED,
+  IMG_BADGE_PLANTS_WATERED,
+  IMG_BADGE_PVP_PARTICIPATED,
   IMG_BADGE_PVPKILLS,
+  IMG_BADGE_RAIDS_COMPLETED,
   IMG_BADGE_RANDOM_ENCOUNTER_WINS,
+  IMG_BADGE_RANKED_PARTICIPATED,
+  IMG_BADGE_RANKED_WINS,
   IMG_BADGE_REPUTATION_POINTS,
   IMG_BADGE_RESET_QUEST,
+  IMG_BADGE_SABOTAGE,
+  IMG_BADGE_SEEDS_PLANTED,
+  IMG_BADGE_SPARS_PARTICIPATED,
+  IMG_BADGE_SPARS_WON,
   IMG_BADGE_START_BATTLE,
   IMG_BADGE_STATS_TRAINED,
+  IMG_BADGE_STORIES_COMPLETED,
   IMG_BADGE_TAG_USAGE_WIN,
   IMG_BADGE_TRAIN_SPECIFIC_JUTSU,
   IMG_BADGE_USE_ITEM_COMBAT,
   IMG_BADGE_USE_JUTSU_COMBAT,
   IMG_BADGE_USER_LEVEL,
   IMG_BADGE_WIN_QUEST,
-  IMG_FARM_PLOT_SOIL,
   LetterRanks,
   MAX_PLAYER_LEVEL,
   MasteryTypes,
@@ -85,7 +104,33 @@ import { villageMissionContentError } from "@/validators/villageMission";
 // Re-export idsWithNumberField so consumers can import from objectives
 export { idsWithNumberField };
 
+/** Event counters retain progress before an achievement's first reward claim. */
+export const CombatActivityTasks = [
+  "pvp_participated",
+  "spars_participated",
+  "ranked_wins",
+  "ranked_participated",
+  "overworld_ai_fought",
+] as const;
+
+/** Quest claims that contribute to lifetime completion objectives. */
+export const QuestCompletionTasks = {
+  battlepyramid: "battle_pyramids_completed",
+  story: "stories_completed",
+  event: "events_completed",
+  overworld: "overworld_quests_completed",
+} as const;
+
+/** Derived completion goals whose earned snapshot survives until the achievement is claimed. */
+export const CompletionTasks = [
+  ...Object.values(QuestCompletionTasks),
+  "dungeons_completed",
+  "raids_completed",
+] as const;
+
 export const SimpleTasks = [
+  ...CombatActivityTasks,
+  ...CompletionTasks,
   "espionage",
   "sabotage",
   "siege_operation",
@@ -272,9 +317,9 @@ export const objectiveImageMap: Record<
   AllObjectiveTask,
   { image: string; title: string }
 > = {
-  espionage: { image: IMG_BADGE_MINUTES_PASSED, title: "Espionage" },
-  sabotage: { image: IMG_BADGE_DAMAGE_DEALT, title: "Sabotage" },
-  siege_operation: { image: IMG_BADGE_DAMAGE_DEALT, title: "Siege Operation" },
+  espionage: { image: IMG_BADGE_ESPIONAGE, title: "Espionage" },
+  sabotage: { image: IMG_BADGE_SABOTAGE, title: "Sabotage" },
+  siege_operation: { image: IMG_BADGE_SABOTAGE, title: "Siege Operation" },
   combined_mission_effort: {
     image: IMG_BADGE_A_MISSION_TOTAL,
     title: "Combined Mission Effort",
@@ -305,7 +350,42 @@ export const objectiveImageMap: Record<
     image: IMG_BADGE_RANDOM_ENCOUNTER_WINS,
     title: "Encounter Wins",
   },
-  spars_won: { image: IMG_BADGE_ARENAKILLS, title: "Spars Won" },
+  spars_won: { image: IMG_BADGE_SPARS_WON, title: "Spars Won" },
+  pvp_participated: { image: IMG_BADGE_PVP_PARTICIPATED, title: "PvP Participation" },
+  spars_participated: {
+    image: IMG_BADGE_SPARS_PARTICIPATED,
+    title: "Spar Participation",
+  },
+  ranked_wins: { image: IMG_BADGE_RANKED_WINS, title: "Ranked Games Won" },
+  ranked_participated: {
+    image: IMG_BADGE_RANKED_PARTICIPATED,
+    title: "Ranked Participation",
+  },
+  overworld_ai_fought: {
+    image: IMG_BADGE_OVERWORLD_AI_FOUGHT,
+    title: "Overworld AI Fought",
+  },
+  dungeons_completed: {
+    image: IMG_BADGE_DUNGEONS_COMPLETED,
+    title: "Dungeons Completed",
+  },
+  battle_pyramids_completed: {
+    image: IMG_BADGE_BATTLE_PYRAMIDS_COMPLETED,
+    title: "Battle Pyramids Completed",
+  },
+  raids_completed: { image: IMG_BADGE_RAIDS_COMPLETED, title: "Raids Completed" },
+  stories_completed: {
+    image: IMG_BADGE_STORIES_COMPLETED,
+    title: "Stories Completed",
+  },
+  events_completed: {
+    image: IMG_BADGE_EVENTS_COMPLETED,
+    title: "Events Completed",
+  },
+  overworld_quests_completed: {
+    image: IMG_BADGE_OVERWORLD_QUESTS_COMPLETED,
+    title: "Overworld Quests Completed",
+  },
   medical_experience: {
     image: IMG_BADGE_MEDICAL_EXPERIENCE,
     title: "Medical Experience",
@@ -341,15 +421,15 @@ export const objectiveImageMap: Record<
   items_crafted: { image: IMG_BADGE_ITEMS_CRAFTED, title: "Items Crafted" },
   creatures_hunted: { image: IMG_BADGE_CREATURES_HUNTED, title: "Creatures Hunted" },
   herbs_gathered: { image: IMG_BADGE_HERBS_GATHERED, title: "Herbs Gathered" },
-  seeds_planted: { image: IMG_FARM_PLOT_SOIL, title: "Seeds Planted" },
-  plants_watered: { image: IMG_FARM_PLOT_SOIL, title: "Plants Watered" },
-  plants_fertilized: { image: IMG_FARM_PLOT_SOIL, title: "Plants Fertilized" },
-  plants_harvested: { image: IMG_FARM_PLOT_SOIL, title: "Plants Harvested" },
+  seeds_planted: { image: IMG_BADGE_SEEDS_PLANTED, title: "Seeds Planted" },
+  plants_watered: { image: IMG_BADGE_PLANTS_WATERED, title: "Plants Watered" },
+  plants_fertilized: { image: IMG_BADGE_PLANTS_FERTILIZED, title: "Plants Fertilized" },
+  plants_harvested: { image: IMG_BADGE_PLANTS_HARVESTED, title: "Plants Harvested" },
   farming_collection_log: {
-    image: IMG_FARM_PLOT_SOIL,
+    image: IMG_BADGE_FARMING_COLLECTION_LOG,
     title: "Farming Collection",
   },
-  farming_level: { image: IMG_FARM_PLOT_SOIL, title: "Farming Level" },
+  farming_level: { image: IMG_BADGE_FARMING_LEVEL, title: "Farming Level" },
   bloodline_collection: {
     image: IMG_BADGE_BLOODLINE_COLLECTION,
     title: "Bloodline Collection",

@@ -42,6 +42,7 @@ import type {
 } from "@/drizzle/schema";
 import type { GenNames, publicState, StatNames } from "@/libs/combat/constants";
 import type { TerrainHex } from "@/libs/hexgrid";
+import type { ActivityCompletions } from "@/server/utils/achievementObjectives";
 import type { EffectType, ZodAllTags } from "@/validators/combat";
 import type { CoordinateTargeting } from "@/validators/coordinateTargeting";
 import type { MethodSize } from "@/validators/methodSize";
@@ -110,6 +111,8 @@ export type CombatQueryCompletedQuest = {
   id: string;
   questId: string;
   completed: number;
+  questType?: Quest["questType"];
+  previousCompletes?: number;
 };
 
 /**
@@ -117,33 +120,34 @@ export type CombatQueryCompletedQuest = {
  * This type matches the `client.query.userData.findMany` with combat relations.
  * Some fields are optional as they're not included in all combat queries (e.g., summons).
  */
-export type CombatQueryUser = UserData & {
-  titles?: import("@/drizzle/schema").UserTitle[];
-  /** Loaded at initiation and realized into battle effects; never fetched during an action. */
-  raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
-  /** Completion receipts loaded only for settlement before entering combat. */
-  cookingJobs?: { id: string; experience: number; finishesAt: Date }[];
-  bloodline: (Bloodline & { bloodrightTiers?: SkillTree[] }) | null;
-  activeReskin?: BloodlineReskin | null; // For bloodline reskinning
-  sageMode?: SageMode | null; // Sage mode (must be manually activated)
-  // Present when processUsersForBattle is re-run from live BattleUserState
-  sageModeActivated?: boolean;
-  sageModeActivatedRound?: number | null;
-  sageModeExpiresRound?: number | null;
-  sageModeUsedThisBattle?: boolean;
-  village: CombatQueryVillage | null;
-  loadout?: { jutsuIds: string[] } | null;
-  clan?: Clan | null;
-  anbuSquad?: AnbuSquad | null;
-  items: CombatQueryUserItem[];
-  jutsus: CombatQueryUserJutsu[];
-  userSkills: CombatQueryUserSkill[];
-  userQuests?: UserQuest[]; // Full UserQuest with quest relation
-  completedQuests?: CombatQueryCompletedQuest[];
-  aiProfile: AiProfile | null;
-  bounties?: CombatQueryBounty[];
-  bountySignups?: CombatQueryBountySignup[];
-};
+export type CombatQueryUser = UserData &
+  ActivityCompletions & {
+    titles?: import("@/drizzle/schema").UserTitle[];
+    /** Loaded at initiation and realized into battle effects; never fetched during an action. */
+    raidBuffs?: import("@/drizzle/schema").UserRaidBuff[];
+    /** Completion receipts loaded only for settlement before entering combat. */
+    cookingJobs?: { id: string; experience: number; finishesAt: Date }[];
+    bloodline: (Bloodline & { bloodrightTiers?: SkillTree[] }) | null;
+    activeReskin?: BloodlineReskin | null; // For bloodline reskinning
+    sageMode?: SageMode | null; // Sage mode (must be manually activated)
+    // Present when processUsersForBattle is re-run from live BattleUserState
+    sageModeActivated?: boolean;
+    sageModeActivatedRound?: number | null;
+    sageModeExpiresRound?: number | null;
+    sageModeUsedThisBattle?: boolean;
+    village: CombatQueryVillage | null;
+    loadout?: { jutsuIds: string[] } | null;
+    clan?: Clan | null;
+    anbuSquad?: AnbuSquad | null;
+    items: CombatQueryUserItem[];
+    jutsus: CombatQueryUserJutsu[];
+    userSkills: CombatQueryUserSkill[];
+    userQuests?: UserQuest[]; // Full UserQuest with quest relation
+    completedQuests?: CombatQueryCompletedQuest[];
+    aiProfile: AiProfile | null;
+    bounties?: CombatQueryBounty[];
+    bountySignups?: CombatQueryBountySignup[];
+  };
 
 /**
  * ProcessedJutsu - Jutsu with processing fields added
@@ -376,6 +380,7 @@ export type BattleBasicAction = {
  * Full relation objects (village, clan, bloodline, etc.) are stored in extraState and referenced by ID.
  */
 export type BattleUserState = Omit<UserData, "questData"> &
+  ActivityCompletions &
   CombatUserFields & {
     // Reference jutsus/items (static data in extraState)
     jutsus: BattleUserJutsu[];
