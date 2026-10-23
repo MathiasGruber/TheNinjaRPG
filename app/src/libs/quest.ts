@@ -88,6 +88,7 @@ import { findNearestReachableCoordinate } from "@/libs/sector-map/validation";
 import { availableQuestLetterRanks, hasRequiredRank } from "@/libs/train";
 import { getVillageLoyaltyBonuses } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
+import { isInArray } from "@/utils/array";
 import { getUnique } from "@/utils/grouping";
 import { canChangeContent, canPlayHiddenQuests } from "@/utils/permissions";
 import { capitalizeFirstLetter } from "@/utils/string";
@@ -109,6 +110,7 @@ import type {
 } from "@/validators/objectives";
 import {
   CombatActivityTasks,
+  CompletionTasks,
   ObjectiveTracker,
   QuestCompletionTasks,
   QuestTracker,
@@ -231,13 +233,9 @@ export const filterQuestTrackersForDbPersist = (
       achievement.content?.objectives.some(
         (objective) =>
           ((objective.task === "bloodline_collection" ||
-            objective.task === "dungeons_completed" ||
-            objective.task === "raids_completed" ||
-            Object.values(QuestCompletionTasks).some(
-              (task) => task === objective.task,
-            )) &&
+            isInArray(objective.task, CompletionTasks)) &&
             tracker.goals.some((goal) => goal.id === objective.id && goal.done)) ||
-          (CombatActivityTasks.some((task) => task === objective.task) &&
+          (isInArray(objective.task, CombatActivityTasks) &&
             tracker.goals.some((goal) => goal.id === objective.id && goal.value > 0)),
       )
     );
@@ -1405,11 +1403,7 @@ export const getNewTrackers = (
             status.value = Number(user.dungeonsCompleted);
           } else if (task === "raids_completed" && user.raidsCompleted !== undefined) {
             status.value = Number(user.raidsCompleted);
-          } else if (
-            Object.values(QuestCompletionTasks).some(
-              (completionTask) => completionTask === task,
-            )
-          ) {
+          } else if (isInArray(task, Object.values(QuestCompletionTasks))) {
             status.value = user.completedQuests.reduce(
               (total, history) =>
                 history.questType &&
@@ -1860,13 +1854,7 @@ export const getNewTrackers = (
             status.done = true;
             // Latch an earned completion before its source content can be retired.
             // Goals already done return above, so passive reads request this write once.
-            if (
-              task === "dungeons_completed" ||
-              task === "raids_completed" ||
-              Object.values(QuestCompletionTasks).some(
-                (completionTask) => completionTask === task,
-              )
-            )
+            if (isInArray(task, CompletionTasks))
               consequences.push({ type: "update_user", ids: ["activity_completion"] });
           }
 

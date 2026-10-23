@@ -59,6 +59,7 @@ import {
 import type { UserWithRelations } from "@/routers/profile";
 import { fetchStudents } from "@/routers/sensei";
 import type { DrizzleClient } from "@/server/db";
+import { completedQuestHistoryRelation } from "@/server/utils/achievementObjectives";
 import { claimUserSnapshot } from "@/server/utils/concurrency";
 import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { fetchPvpExperienceAverage } from "@/server/utils/pvpExperience";
@@ -1133,19 +1134,7 @@ const fetchQuestUser = async (
         ),
         with: { quest: true },
       },
-      completedQuests: {
-        columns: {
-          id: true,
-          questId: true,
-          completed: true,
-          questType: true,
-          previousCompletes: true,
-        },
-        where: or(
-          gte(questHistory.completed, 1),
-          gt(questHistory.previousCompletes, 0),
-        ),
-      },
+      completedQuests: completedQuestHistoryRelation,
       village: true,
       clan: true,
       items: {

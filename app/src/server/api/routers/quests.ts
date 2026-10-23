@@ -237,7 +237,11 @@ import { canAccessStructure } from "@/utils/village";
 import { publicMapLocationsSchema } from "@/validators/mapLocation";
 import { idSchema } from "@/validators/misc";
 import type { AllObjectivesType, QuestTrackerType } from "@/validators/objectives";
-import { QuestTracker, QuestValidator } from "@/validators/objectives";
+import {
+  QuestCompletionTasks,
+  QuestTracker,
+  QuestValidator,
+} from "@/validators/objectives";
 import { petSelectionSchema } from "@/validators/pets";
 import {
   type PetTask,
@@ -4210,10 +4214,7 @@ export const commitQuestObjectiveRewards = async (info: {
     // History-derived completion achievements must never observe a completion that
     // can still be reverted after a lost account snapshot claim.
     const countedCompletion =
-      userQuest &&
-      ["battlepyramid", "story", "event", "overworld"].includes(
-        userQuest.quest.questType,
-      );
+      userQuest && Object.hasOwn(QuestCompletionTasks, userQuest.quest.questType);
     const managedRun = petTask || countedCompletion ? userQuest : isolatedRun;
     if (managedRun) {
       const completedAt = completedEndAt;

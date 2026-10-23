@@ -1,10 +1,22 @@
-import { getTableName, sql } from "drizzle-orm";
+import { getTableName, gt, gte, or, sql } from "drizzle-orm";
 import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
+import { questHistory } from "@/drizzle/schema";
 
 export type ActivityCompletions = {
   dungeonsCompleted?: number;
   raidsCompleted?: number;
 };
+
+export const completedQuestHistoryRelation = {
+  columns: {
+    id: true,
+    questId: true,
+    completed: true,
+    questType: true,
+    previousCompletes: true,
+  },
+  where: or(gte(questHistory.completed, 1), gt(questHistory.previousCompletes, 0)),
+} as const;
 
 /** Indexed completion receipts folded into profile/initiation reads; combat actions never fetch them. */
 export const activityCompletionExtras = (column: AnyMySqlColumn) => {

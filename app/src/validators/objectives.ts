@@ -101,11 +101,15 @@ export const QuestCompletionTasks = {
   overworld: "overworld_quests_completed",
 } as const;
 
-export const SimpleTasks = [
-  ...CombatActivityTasks,
+export const CompletionTasks = [
   ...Object.values(QuestCompletionTasks),
   "dungeons_completed",
   "raids_completed",
+] as const;
+
+export const SimpleTasks = [
+  ...CombatActivityTasks,
+  ...CompletionTasks,
   "espionage",
   "sabotage",
   "siege_operation",

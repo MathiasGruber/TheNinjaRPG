@@ -200,7 +200,10 @@ import {
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
 import { scopedRead } from "@/server/requestScope";
-import { activityCompletionExtras } from "@/server/utils/achievementObjectives";
+import {
+  activityCompletionExtras,
+  completedQuestHistoryRelation,
+} from "@/server/utils/achievementObjectives";
 import {
   adjustSeichiSilverAtomically,
   claimUserSnapshot,
@@ -3386,19 +3389,7 @@ const fetchUpdatedUserOnce = async (props: {
           },
           orderBy: sql`FIELD(${questHistory.questType}, 'daily', 'tier') ASC`,
         },
-        completedQuests: {
-          columns: {
-            id: true,
-            questId: true,
-            completed: true,
-            questType: true,
-            previousCompletes: true,
-          },
-          where: or(
-            gte(questHistory.completed, 1),
-            gt(questHistory.previousCompletes, 0),
-          ),
-        },
+        completedQuests: completedQuestHistoryRelation,
         votes: true,
         titles: { with: { title: true } },
         userSkills: { where: eq(userSkill.activated, true), with: { skill: true } },
