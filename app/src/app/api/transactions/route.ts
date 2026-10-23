@@ -12,8 +12,8 @@ import {
 } from "@/server/api/routers/paypal";
 import { drizzleDB } from "@/server/db";
 import { authenticateCronRequest } from "@/server/utils/cron";
-import { dollars2reps } from "@/utils/paypal";
 
+/** Reconcile PayPal payments and award outstanding referral reputation on the hourly schedule. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;
@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     const transactions = await getPaypalTransactions(new Date(), token);
 
     // Sync transactions & get messages
-    const msgs = await syncTransactions(drizzleDB, transactions, token);
+    const results = await syncTransactions(drizzleDB, transactions, token);
+    const msgs = results.map((result) => result.message);
 
     // Get transactions where refereal reputation points have not been added
     const mainTransaction = alias(paypalTransaction, "mainTransaction");
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
         transactionUpdatedDate: mainTransaction.transactionUpdatedDate,
         invoiceId: mainTransaction.invoiceId,
         amount: mainTransaction.amount,
+        reputationPoints: mainTransaction.reputationPoints,
         currency: mainTransaction.currency,
         recruiterId: recruiterUser.userId,
         referalTransactionId: refTransaction.transactionId,
@@ -78,7 +80,8 @@ export async function GET(request: Request) {
       );
     for (const transaction of unawardedTransactions) {
       if (transaction.createdById && transaction.recruiterId) {
-        const referralBonus = Math.floor(dollars2reps(transaction.amount) * 0.1);
+        // Bundles can include ryo/items, so referral rewards use the reputation actually purchased.
+        const referralBonus = Math.floor(transaction.reputationPoints * 0.1);
         msgs.push(`Add ${referralBonus} ref reps - invoiceId ${transaction.invoiceId}`);
         await updateReps({
           client: drizzleDB,

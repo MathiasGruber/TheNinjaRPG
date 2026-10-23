@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { type ComponentProps, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 /**
  * Select one catalog ID with searchable labels, closing the popover on selection.
  * Values remain stable IDs; an empty value can represent the caller's reset option.
+ * Trigger attributes let FormControl connect field errors and focus to the button.
  */
 export function SearchSelect({
   label,
@@ -24,6 +25,7 @@ export function SearchSelect({
   placeholder,
   disabled,
   onChange,
+  ...triggerProps
 }: {
   label: string;
   value: string;
@@ -31,12 +33,16 @@ export function SearchSelect({
   placeholder: string;
   disabled?: boolean;
   onChange: (value: string) => void;
-}) {
+} & Pick<
+  ComponentProps<typeof Button>,
+  "id" | "aria-invalid" | "aria-describedby" | "ref"
+>) {
   const [open, setOpen] = useState(false);
   return (
     <Popover open={disabled ? false : open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          {...triggerProps}
           type="button"
           variant="outline"
           role="combobox"

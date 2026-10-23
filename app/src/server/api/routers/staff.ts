@@ -93,6 +93,7 @@ import {
   userVote,
   village,
   warKill,
+  webStoreOrder,
 } from "@/drizzle/schema";
 import { deleteUserReportEmbeddings } from "@/libs/moderation/reportSearch";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
@@ -110,6 +111,7 @@ import { isMysqlDeadlockError, retryOnDeadlock } from "@/server/utils/mysqlError
 import { resumeBracketImmunitySql } from "@/server/utils/objectiveWar";
 import { renameParentalContact } from "@/server/utils/parentalControls";
 import {
+  DELETED_STORE_USER_PREFIX,
   isDeletedStoreUserId,
   migrateStoreEntitlementRevocations,
   migrateStoreEntitlementStates,
@@ -1036,6 +1038,14 @@ export const staffRouter = createTRPCRouter({
           .set({ affectedUserId: input.newUserId })
           .where(eq(paypalSubscription.affectedUserId, input.userId)),
         ctx.drizzle
+          .update(webStoreOrder)
+          .set({ buyerId: input.newUserId })
+          .where(eq(webStoreOrder.buyerId, input.userId)),
+        ctx.drizzle
+          .update(webStoreOrder)
+          .set({ recipientId: input.newUserId })
+          .where(eq(webStoreOrder.recipientId, input.userId)),
+        ctx.drizzle
           .update(paypalTransaction)
           .set({ affectedUserId: input.newUserId })
           .where(eq(paypalTransaction.affectedUserId, input.userId)),
@@ -1390,6 +1400,13 @@ const deleteUserInternal = async (client: DrizzleClient, userId: string) => {
       .delete(userPushPreference)
       .where(eq(userPushPreference.userId, userId));
   });
+
+  // Keep paid snapshots for support and retire recipients before inventory cleanup.
+  // Delivery claims the same rows, so any in-flight grant finishes before cleanup.
+  await client
+    .update(webStoreOrder)
+    .set({ recipientId: `${DELETED_STORE_USER_PREFIX}${nanoid()}` })
+    .where(eq(webStoreOrder.recipientId, userId));
 
   // Close permanent offers before removing their escrow inventory. The status CAS
   // serializes deletion with acceptance, so cleanup cannot erase a supplier's payment.

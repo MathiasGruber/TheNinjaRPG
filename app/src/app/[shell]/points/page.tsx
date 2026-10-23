@@ -9,13 +9,19 @@ import {
   usePayPalScriptReducer,
 } from "@paypal/react-paypal-js";
 import { Check, ChevronsUp, Search } from "lucide-react";
-import { nanoid } from "nanoid";
 import { useEffect, useRef, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { api, onError } from "@/app/_trpc/client";
 import NativeStore from "@/components/native/NativeStore";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -25,6 +31,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   FARM_GOLD_FED_TIME_REDUCTION_PERCENT,
   FED_COOKING_GOLD_SLOTS,
@@ -61,6 +69,9 @@ import {
   SKILL_TREE_RESET_FREE_GOLD,
   SKILL_TREE_RESET_FREE_NORMAL,
   SKILL_TREE_RESET_FREE_SILVER,
+  WEB_REP_MAX,
+  WEB_REP_MIN,
+  WEB_REP_PRESETS,
 } from "@/drizzle/constants";
 import { useNativeShell } from "@/hooks/useNativeShell";
 import BanInfo from "@/layout/BanInfo";
@@ -68,7 +79,6 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Image from "@/layout/Image";
 import Loader from "@/layout/Loader";
-import NavTabs from "@/layout/NavTabs";
 import SliderField from "@/layout/SliderField";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
@@ -86,6 +96,8 @@ import { useRequiredUserData } from "@/utils/UserContext";
 import type { BuyRepsSchema, SearchPaypalTransactionSchema } from "@/validators/points";
 import { buyRepsSchema, searchPaypalTransactionSchema } from "@/validators/points";
 import { getSearchValidator } from "@/validators/register";
+import { StoreBundles } from "./StoreBundles";
+import { StoreCheckout } from "./StoreCheckout";
 
 const CURRENCY = "USD";
 const OPTIONS = {
@@ -137,7 +149,7 @@ export default function PaypalShop() {
 
   return (
     <>
-      {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID && (
+      {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
         <PayPalScriptProvider
           options={{
             ...OPTIONS,
@@ -146,6 +158,10 @@ export default function PaypalShop() {
         >
           <PaypalShopContent userData={userData} />
         </PayPalScriptProvider>
+      ) : (
+        <ContentBox title="Store">
+          <p>Checkout is temporarily unavailable. Please try again later.</p>
+        </ContentBox>
       )}
     </>
   );
@@ -162,9 +178,8 @@ const PaypalShopContent = ({
   const [activeTab, setActiveTab] = useState<string>("Reputation");
   const [isReady, setIsReady] = useState(true);
   const [, dispatch] = usePayPalScriptReducer();
-  const currency = "USD";
 
-  const { data: purchasedReps } = api.paypal.getRecentRepsCount.useQuery(
+  const allowance = api.paypal.getRecentRepsCount.useQuery(
     { userId: userData?.userId ?? "-" },
     { enabled: !!userData },
   );
@@ -176,7 +191,7 @@ const PaypalShopContent = ({
       value: {
         ...OPTIONS,
         vault: true,
-        intent: activeTab === "Reputation" ? "capture" : "subscription",
+        intent: activeTab === "Federal" ? "subscription" : "capture",
       },
     });
   }, [activeTab, dispatch]);
@@ -190,226 +205,209 @@ const PaypalShopContent = ({
   }, []);
 
   return (
-    <>
+    <Tabs value={activeTab} onValueChange={setActiveTab}>
       <ContentBox
         title={activeTab}
-        subtitle={`Monthly Reps [${purchasedReps ?? 0} / ${dynamicMonthlyRepCap(userData)}]`}
-        padding={activeTab !== "Log"}
+        subtitle={
+          allowance.isPending
+            ? "Loading monthly allowance…"
+            : allowance.isError
+              ? "Monthly allowance unavailable"
+              : `Monthly Reps [${allowance.data} / ${dynamicMonthlyRepCap(userData)}]`
+        }
         topRightContent={
           <>
             <div className="grow"></div>
-            <NavTabs
-              current={activeTab}
-              options={["Reputation", "Federal"]}
-              setValue={setActiveTab}
-            />
+            <TabsList className="h-auto flex-wrap" aria-label="Store">
+              {["Reputation", "Bundles", "Federal"].map((tab) => (
+                <TabsTrigger key={tab} value={tab}>
+                  {tab}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </>
         }
       >
-        {isReady && activeTab === "Reputation" && (
-          <ReputationStore currency={currency} />
-        )}
-        {isReady && activeTab === "Federal" && <FederalStore />}
-        {!isReady && <Loader explanation="Loading..." />}
+        <TabsContent value="Reputation" className="mt-0">
+          {isReady ? <ReputationStore /> : <Loader />}
+        </TabsContent>
+        <TabsContent value="Bundles" className="mt-0">
+          {isReady ? <StoreBundles /> : <Loader />}
+        </TabsContent>
+        <TabsContent value="Federal" className="mt-0">
+          {isReady ? <FederalStore /> : <Loader />}
+        </TabsContent>
       </ContentBox>
-      {activeTab === "Reputation" && <TransactionHistory />}
-      {activeTab === "Reputation" && <LookupTransaction />}
+      {activeTab !== "Federal" && <TransactionHistory />}
+      {activeTab !== "Federal" && <LookupTransaction />}
       {activeTab === "Federal" && <SubscriptionsOverview />}
-    </>
+    </Tabs>
   );
 };
 
 /**
  * Reputation Store component
  */
-const ReputationStore = (props: { currency: string }) => {
+const ReputationStore = () => {
   const { data: userData } = useRequiredUserData();
-  const [{ isResolved }] = usePayPalScriptReducer();
-  const [amount, setAmount] = useState(0);
-  const maxUsers = 1;
-  const invoiceIdRef = useRef(nanoid());
-  const isMountedRef = useRef(true);
-
-  // Track mount state to prevent operations after unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  const utils = api.useUtils();
-
-  const { mutate: buyReps, isPending } = api.paypal.resolveOrder.useMutation({
-    onSuccess: async (data) => {
-      showMutationToast(data);
-      await utils.profile.getUser.invalidate();
-    },
-  });
-
-  const { data: purchasedReps } = api.paypal.getRecentRepsCount.useQuery(
+  const {
+    data: purchasedReps,
+    isPending: isLoadingLimit,
+    isError,
+    refetch,
+  } = api.paypal.getRecentRepsCount.useQuery(
     { userId: userData?.userId ?? "-" },
     { enabled: !!userData },
   );
-
   const repFormMethods = useForm<BuyRepsSchema>({
-    defaultValues: { reputationPoints: 20 },
-    resolver: zodResolver(buyRepsSchema),
+    defaultValues: { reputationPoints: WEB_REP_PRESETS[0] },
   });
-
-  const userSearchSchema = getSearchValidator({ max: maxUsers });
+  const watchedPoints = useWatch({
+    control: repFormMethods.control,
+    name: "reputationPoints",
+  });
+  const userSearchSchema = getSearchValidator({ max: 1 });
   const userSearchMethods = useForm<z.infer<typeof userSearchSchema>>({
     defaultValues: { username: "", users: [] },
     resolver: zodResolver(userSearchSchema),
   });
-
   const watchedUsers = useWatch({
     control: userSearchMethods.control,
     name: "users",
     defaultValue: [],
   });
-  const watchedPoints = useWatch({
-    control: repFormMethods.control,
-    name: "reputationPoints",
-    defaultValue: 20,
-  });
-  const selectedUser = watchedUsers?.[0];
-
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      setAmount(reps2dollars(watchedPoints));
-    }, 200);
-    return () => clearTimeout(delayDebounceFn);
-  }, [watchedPoints, setAmount]);
-
-  useEffect(() => {
-    if (userData?.username && watchedUsers.length === 0) {
+    if (userData && watchedUsers.length === 0)
       userSearchMethods.setValue("users", [userData]);
-    }
-  }, [userData, userSearchMethods, watchedUsers]);
-
-  // No reps for banned users
+  }, [userData, watchedUsers, userSearchMethods]);
+  const isAllowanceReady = !isLoadingLimit && !isError;
+  const monthlyRemaining = isAllowanceReady
+    ? Math.max(0, dynamicMonthlyRepCap(userData) - (purchasedReps ?? 0))
+    : undefined;
+  const maxPoints = Math.min(WEB_REP_MAX, monthlyRemaining ?? 0);
+  const canBuy = isAllowanceReady && maxPoints >= WEB_REP_MIN;
+  const valid =
+    canBuy &&
+    buyRepsSchema.safeParse({ reputationPoints: watchedPoints }).success &&
+    watchedPoints <= maxPoints;
+  const amount = valid ? reps2dollars(watchedPoints) : undefined;
   if (userData?.isBanned) return <BanInfo />;
-
-  // Set the maximum number of purchaseable points
-  const dynamicLimit = dynamicMonthlyRepCap(userData);
-  const maxPoints = purchasedReps ? dynamicLimit - purchasedReps : dynamicLimit;
-
   return (
-    <>
-      <div className="text-center text-2xl">
-        {PAYPAL_DISCOUNT_PERCENT > 0 && (
-          <p className="font-bold text-3xl text-red-500">
-            {PAYPAL_DISCOUNT_PERCENT}% Discount Applied!
-          </p>
-        )}
-        <SliderField
-          id="reputationPoints"
-          default={20}
-          min={5}
-          max={maxPoints}
-          unit={`reputation points for $${amount} USD`}
-          register={repFormMethods.register}
-          setValue={repFormMethods.setValue}
-          watchedValue={watchedPoints}
-          error={repFormMethods.formState.errors.reputationPoints?.message}
-        />
-      </div>
-      {userData && (
-        <UserSearchSelect
-          useFormMethods={userSearchMethods}
-          showYourself={true}
-          showAi={false}
-          inline={true}
-          maxUsers={maxUsers}
-        />
+    <div className="space-y-4">
+      <p className="text-muted-foreground text-sm">
+        Support Seichi with reputation points for yourself or another player.
+      </p>
+      {PAYPAL_DISCOUNT_PERCENT > 0 && (
+        <p className="font-bold text-destructive">
+          {PAYPAL_DISCOUNT_PERCENT}% discount applied
+        </p>
       )}
-      <div className="mt-3 grid grid-cols-2">
-        <div className="mx-2 mb-2 cursor-not-allowed rounded-md bg-slate-500 p-2 text-center font-bold">
-          Crypto, Coming Soon
-        </div>
-        {isResolved && userData && selectedUser && !isPending ? (
-          <PayPalButtons
-            style={{ layout: "horizontal", tagline: false }}
-            forceReRender={[amount, watchedUsers, props.currency]}
-            createOrder={(_data, actions) => {
-              return actions.order.create({
-                intent: "CAPTURE",
-                purchase_units: [
-                  {
-                    amount: {
-                      currency_code: props.currency,
-                      value: amount.toString(),
-                    },
-                    invoice_id: invoiceIdRef.current,
-                    custom_id: `${userData.userId}-${selectedUser.userId}`,
-                  },
-                ],
-              });
-            }}
-            onApprove={(_data, actions) => {
-              invoiceIdRef.current = nanoid();
-              if (actions.order) {
-                return actions.order.capture().then((details) => {
-                  // Only proceed if component is still mounted
-                  if (!isMountedRef.current) return;
-                  buyReps({ orderId: details.id ?? nanoid() });
-                  // Send GTM event with conversion data
-                  const purchaseUnit = details?.purchase_units?.[0];
-                  const transaction_id = purchaseUnit?.invoice_id;
-                  const currency = purchaseUnit?.amount?.currency_code;
-                  const value = purchaseUnit?.amount?.value;
-                  if (transaction_id && currency && value) {
-                    sendGTMEvent({ ecommerce: null });
-                    sendGTMEvent({
-                      event: "purchase",
-                      ecommerce: {
-                        transaction_id: transaction_id,
-                        value: Number(value),
-                        currency: currency,
-                        items: [
-                          {
-                            item_id: "BASIC_REPS",
-                            item_name: "REPUTATION POINTS",
-                            price: Number(value),
-                            quantity: 1,
-                          },
-                        ],
-                      },
-                    });
-                  }
-                });
-              } else {
-                if (!isMountedRef.current) return Promise.resolve();
-                showMutationToast({
-                  success: false,
-                  message:
-                    "Order not fully completed yet. Please wait for the order to clear, or when you know your transaction ID, contact support through our paypal email",
-                  title: "No order",
-                });
-                return Promise.resolve();
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Choose your reputation</CardTitle>
+            <CardDescription>Enter an amount or select a quick pack.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <label htmlFor="reputation-amount" className="block font-semibold text-sm">
+              Reputation points
+            </label>
+            <NumberInput
+              id="reputation-amount"
+              min={canBuy ? WEB_REP_MIN : undefined}
+              max={canBuy ? maxPoints : undefined}
+              disabled={!canBuy}
+              step={1}
+              aria-describedby="reputation-limit"
+              value={watchedPoints}
+              onValueChange={(value) =>
+                repFormMethods.setValue("reputationPoints", value)
               }
-            }}
-            onCancel={() => {
-              // User closed the popup without completing payment - this is expected behavior
-            }}
-            onError={(err) => {
-              // Suppress PayPal cleanup errors (occur during navigation)
-              if (isPayPalCleanupError(err)) return;
-              // Only show toast if component is still mounted
-              if (!isMountedRef.current) return;
-              showMutationToast({
-                success: false,
-                message: "Payment could not be processed. Please try again.",
-                title: "Payment Error",
-              });
-            }}
-          />
-        ) : (
-          <Loader />
-        )}
+            />
+            <div className="grid grid-cols-5 gap-1">
+              {WEB_REP_PRESETS.map((points) => (
+                <Button
+                  key={points}
+                  variant={watchedPoints === points ? "default" : "outline"}
+                  className="min-w-0 px-1 text-xs"
+                  disabled={points > maxPoints || isLoadingLimit || isError}
+                  onClick={() => repFormMethods.setValue("reputationPoints", points)}
+                >
+                  {points} rep
+                </Button>
+              ))}
+            </div>
+            {canBuy && (
+              <SliderField
+                id="reputationPoints"
+                default={WEB_REP_PRESETS[0]}
+                min={WEB_REP_MIN}
+                max={maxPoints}
+                unit="reputation points"
+                formatWatchedValue={(value) => `${value} reputation points`}
+                register={repFormMethods.register}
+                setValue={repFormMethods.setValue}
+                watchedValue={
+                  Number.isFinite(watchedPoints) ? watchedPoints : WEB_REP_MIN
+                }
+              />
+            )}
+            <p id="reputation-limit" className="text-muted-foreground text-sm">
+              {isLoadingLimit
+                ? "Loading your monthly allowance…"
+                : isError
+                  ? "Your monthly allowance is unavailable."
+                  : !canBuy
+                    ? `${monthlyRemaining} reputation points left this month. The minimum purchase is ${WEB_REP_MIN}.`
+                    : `${monthlyRemaining} reputation points left this month. Buy ${WEB_REP_MIN}–${maxPoints} per purchase.`}
+            </p>
+            {canBuy && !valid && (
+              <p role="alert" className="text-destructive text-sm">
+                Enter a whole number between {WEB_REP_MIN} and {maxPoints}.
+              </p>
+            )}
+            {isError && (
+              <p role="alert">
+                Could not load your allowance.{" "}
+                <Button onClick={() => void refetch()}>Retry</Button>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Purchase summary</CardTitle>
+            <CardDescription>
+              Choose who receives the points before checkout.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <UserSearchSelect
+              useFormMethods={userSearchMethods}
+              showYourself
+              showAi={false}
+              inline
+              maxUsers={1}
+            />
+            <div className="flex items-baseline justify-between border-y py-4">
+              <span>{valid ? `${watchedPoints} reputation` : "Choose an amount"}</span>
+              <strong className="text-2xl">
+                {amount === undefined ? "—" : `$${amount.toFixed(2)}`}
+                <span className="ml-1 font-normal text-sm">USD</span>
+              </strong>
+            </div>
+            <StoreCheckout
+              recipientId={watchedUsers[0]?.userId}
+              selection={{
+                type: "custom",
+                reputationPoints: valid ? watchedPoints : WEB_REP_MIN,
+              }}
+              disabled={!valid || isLoadingLimit || isError}
+            />
+          </CardContent>
+        </Card>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -584,11 +582,11 @@ const PayPalSubscriptionButton = (props: {
 
   return (
     <div
-      className={`${props.currentUserStatus === props.buttonStatus ? "rounded-lg bg-orange-200" : ""}`}
+      className={`h-full rounded-lg border p-3 ${props.currentUserStatus === props.buttonStatus ? "border-primary bg-accent" : "bg-card"}`}
     >
       <div className="relative">
         <Image
-          className={`mb-3`}
+          className="mx-auto mb-3 max-w-40"
           src={props.imageSrc}
           alt={props.buttonStatus}
           width={512}
@@ -782,7 +780,11 @@ const FederalStore = () => {
           maxUsers={maxUsers}
         />
       )}
-      {status !== "NONE" && (
+      <p className="my-3 text-muted-foreground text-sm">
+        Compare monthly federal benefits. Subscribe with PayPal or use reputation points
+        for a month of support.
+      </p>
+      {status && status !== "NONE" && (
         <div className="my-3">
           This user already has federal support. If you are the creator of the
           subscription, you should be able to see it in a table below and cancel it.
@@ -930,7 +932,13 @@ const LookupTransaction = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await utils.profile.getUser.invalidate();
+        await Promise.all([
+          utils.profile.getUser.invalidate(),
+          utils.item.getUserItems.invalidate(),
+          utils.item.getUserItemsWithVariants.invalidate(),
+          utils.paypal.getRecentRepsCount.invalidate(),
+          utils.paypal.getPaypalTransactions.invalidate(),
+        ]);
       }
     },
   });

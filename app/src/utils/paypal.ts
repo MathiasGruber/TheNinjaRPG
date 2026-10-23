@@ -14,8 +14,10 @@ import {
   MAX_REPS_PER_MONTH,
   PAYPAL_DISCOUNT_PERCENT,
   QUEUE_WAITING_SLOTS,
+  STORE_BUNDLE_MIN_PRICE_CENTS,
 } from "@/drizzle/constants";
-import type { FederalStatus, UserData } from "@/drizzle/schema";
+import type { FederalStatus, Item, UserData } from "@/drizzle/schema";
+import type { StoreContents } from "@/validators/points";
 
 export const getUserFederalStatus = (
   user: Pick<UserData, "staffAccount" | "federalStatus">,
@@ -92,6 +94,24 @@ export const reps2dollars = (reps: number) => {
   const discount = (100 - PAYPAL_DISCOUNT_PERCENT) / 100;
   const base = reps ** (1 / 1.305);
   return Math.ceil(base * discount * 10) / 10;
+};
+
+/** Price the bundle's reputation and rep-priced items using the direct-purchase curve. */
+export const getStoreBundleMinimumPriceCents = (
+  contents: StoreContents,
+  items: Pick<Item, "id" | "repsCost">[],
+) => {
+  const reputation = contents.items.reduce(
+    (total, reward) =>
+      total +
+      Math.max(0, items.find((entry) => entry.id === reward.id)?.repsCost ?? 0) *
+        reward.quantity,
+    contents.reputationPoints,
+  );
+  return Math.max(
+    STORE_BUNDLE_MIN_PRICE_CENTS,
+    Math.round(reps2dollars(reputation) * 100),
+  );
 };
 
 export const dollars2reps = (dollars: number) => {
