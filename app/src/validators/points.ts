@@ -11,7 +11,6 @@ import {
 } from "@/drizzle/constants";
 import type { Item } from "@/drizzle/schema";
 import { getStoreBundleMinimumPriceCents } from "@/utils/paypal";
-import { baseServerResponse } from "./base";
 
 export const buyRepsSchema = z.object({
   reputationPoints: z.number().int().min(WEB_REP_MIN).max(WEB_REP_MAX),
@@ -30,21 +29,6 @@ export type SearchPaypalTransactionSchema = z.infer<
   typeof searchPaypalTransactionSchema
 >;
 
-export const paypalCheckoutSchema = z.strictObject({
-  requestId: z
-    .string()
-    .length(21)
-    .regex(/^[A-Za-z0-9_-]+$/),
-  expectedUserId: z.string().min(1).max(191),
-  userId: z.string().min(1).max(191),
-  reputationPoints: z.number().int().min(5),
-});
-export const paypalCheckoutIdSchema = z.strictObject({
-  requestId: z
-    .string()
-    .length(21)
-    .regex(/^[A-Za-z0-9_-]+$/),
-});
 export const paypalOrderSchema = z.strictObject({
   orderId: z.string().min(15).max(20),
 });
@@ -66,20 +50,6 @@ export const federalUpgradeSchema = z.strictObject({
   plan: z.enum(FederalStatuses),
 });
 
-export const paypalCaptureResponseSchema = baseServerResponse.extend({
-  restartFunding: z.boolean().optional(),
-});
-
-export const paypalCheckoutResponseSchema = z.discriminatedUnion("success", [
-  baseServerResponse.extend({
-    success: z.literal(true),
-    orderId: z.string(),
-  }),
-  baseServerResponse.extend({
-    success: z.literal(false),
-    restartCheckout: z.boolean().optional(),
-  }),
-]);
 /** Paid bundles contain guaranteed quantities; no random rewards or gameplay multipliers. */
 export const storeContentsSchema = z
   .object({

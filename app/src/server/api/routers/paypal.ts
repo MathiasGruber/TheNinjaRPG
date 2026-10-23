@@ -58,10 +58,6 @@ import type { JsonData } from "@/utils/typeutils";
 import {
   federalReputationPurchaseSchema,
   federalUpgradeSchema,
-  paypalCaptureResponseSchema,
-  paypalCheckoutIdSchema,
-  paypalCheckoutResponseSchema,
-  paypalCheckoutSchema,
   paypalOrderSchema,
   paypalSubscriptionIdSchema,
   paypalSubscriptionSchema,
@@ -80,7 +76,6 @@ type PaypalAmount = {
 
 type PaypalOrder =
   | {
-      fundingDeclined?: boolean;
       id?: string;
       status?: string;
       purchase_units?: {
@@ -135,217 +130,6 @@ type PaypalTransaction = {
 };
 
 export const paypalRouter = createTRPCRouter({
-  createOrder: protectedProcedure
-    .input(paypalCheckoutSchema)
-    .output(paypalCheckoutResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      if (isNativeUserAgent(ctx.userAgent))
-        return errorResponse("Use the in-app store to purchase in the native app.");
-      if (input.expectedUserId !== ctx.userId)
-        return errorResponse("Your account changed. Start checkout again.");
-      const amount = Math.round(reps2dollars(input.reputationPoints) * 100) / 100;
-      const reps = dollars2reps(amount);
-      const reserved = await retryOnDeadlock(() =>
-        ctx.drizzle.transaction(async (tx) => {
-          const buyer = await lockPurchaseBuyer(tx, ctx.userId);
-          const [recipient, existing] = await Promise.all([
-            tx.query.userData.findFirst({ where: eq(userData.userId, input.userId) }),
-            tx.query.paypalTransaction.findFirst({
-              where: eq(paypalTransaction.id, input.requestId),
-            }),
-          ]);
-          if (!buyer || buyer.isBanned || !recipient || recipient.isBanned)
-            return false;
-          if (
-            existing?.createdById === ctx.userId &&
-            (existing.status === "CANCELLED" ||
-              (existing.status === "RESERVED" &&
-                existing.createdAt.getTime() <= Date.now() - 3 * 3600000))
-          )
-            return "restart";
-          if (existing)
-            return (
-              existing.createdById === ctx.userId &&
-              existing.affectedUserId === input.userId &&
-              existing.amount === amount &&
-              existing.reputationPoints === reps &&
-              existing.status === "RESERVED" &&
-              existing.createdAt.getTime() > Date.now() - 3 * 3600000
-            );
-          if (
-            (await reputationAllowanceUsed(tx, ctx.userId)) + reps >
-            dynamicMonthlyRepCap(buyer)
-          )
-            return false;
-          await tx.insert(paypalTransaction).values({
-            id: input.requestId,
-            createdById: ctx.userId,
-            affectedUserId: input.userId,
-            transactionId: `reservation_${input.requestId}`,
-            transactionUpdatedDate: new Date().toISOString(),
-            invoiceId: input.requestId,
-            amount,
-            reputationPoints: reps,
-            currency: "USD",
-            status: "RESERVED",
-            type: "REP_PURCHASE",
-            rawData: {},
-          });
-          return true;
-        }),
-      );
-      if (reserved === "restart")
-        return {
-          ...errorResponse("Checkout was cancelled or expired. Please try again."),
-          restartCheckout: true,
-        };
-      if (!reserved)
-        return errorResponse(
-          "This purchase exceeds your remaining monthly allowance, or checkout changed. Cancel unfinished checkout and try again.",
-        );
-      const existing = await ctx.drizzle.query.paypalTransaction.findFirst({
-        where: eq(paypalTransaction.id, input.requestId),
-      });
-      if (existing?.orderId)
-        return {
-          success: true as const,
-          message: "Continue checkout",
-          orderId: existing.orderId,
-        };
-      // The same request resumes after an uncertain provider response; do not release its
-      // reservation until cancellation prevents our capture endpoint from charging it.
-      const token = await getPaypalAccessToken();
-      const order = await paypalOrderRequest("", token, input.requestId, {
-        intent: "CAPTURE",
-        purchase_units: [
-          {
-            amount: { currency_code: "USD", value: amount.toFixed(2) },
-            invoice_id: input.requestId,
-            custom_id: `${ctx.userId}-${input.userId}`,
-          },
-        ],
-      });
-      if (!order?.id) throw new Error("PayPal did not return an order ID");
-      const saved = await ctx.drizzle
-        .update(paypalTransaction)
-        .set({ orderId: order.id })
-        .where(
-          and(
-            eq(paypalTransaction.id, input.requestId),
-            eq(paypalTransaction.status, "RESERVED"),
-          ),
-        );
-      if (saved.rowsAffected !== 1) {
-        const current = await ctx.drizzle.query.paypalTransaction.findFirst({
-          where: eq(paypalTransaction.id, input.requestId),
-        });
-        if (current?.status === "CANCELLED")
-          return {
-            ...errorResponse("Checkout was cancelled. Please try again."),
-            restartCheckout: true,
-          };
-        if (current?.orderId !== order.id || current.status !== "RESERVED")
-          return errorResponse("Checkout was cancelled. Start checkout again.");
-      }
-      return {
-        success: true as const,
-        message: "Continue checkout",
-        orderId: order.id,
-      };
-    }),
-  cancelOrder: protectedProcedure
-    .input(paypalCheckoutIdSchema)
-    .mutation(async ({ ctx, input }) => {
-      const result = await ctx.drizzle
-        .update(paypalTransaction)
-        .set({ status: "CANCELLED" })
-        .where(
-          and(
-            eq(paypalTransaction.id, input.requestId),
-            eq(paypalTransaction.createdById, ctx.userId),
-            eq(paypalTransaction.status, "RESERVED"),
-          ),
-        );
-      if (result.rowsAffected === 1)
-        return { success: true, message: "Checkout cancelled" };
-      const existing = await ctx.drizzle.query.paypalTransaction.findFirst({
-        where: eq(paypalTransaction.id, input.requestId),
-      });
-      if (
-        !existing ||
-        (existing.createdById === ctx.userId && existing.status === "CANCELLED")
-      )
-        return { success: true, message: "Checkout cancelled" };
-      return errorResponse(
-        "Payment may already be processing. Check your purchase history before trying again.",
-      );
-    }),
-  captureOrder: protectedProcedure
-    .input(paypalOrderSchema)
-    .output(paypalCaptureResponseSchema)
-    .mutation(async ({ ctx, input }) => {
-      if (isNativeUserAgent(ctx.userAgent))
-        return errorResponse("Use the in-app store to purchase in the native app.");
-      const receipt = await ctx.drizzle.query.paypalTransaction.findFirst({
-        where: and(
-          eq(paypalTransaction.orderId, input.orderId),
-          eq(paypalTransaction.type, "REP_PURCHASE"),
-        ),
-      });
-      if (!receipt || receipt.createdById !== ctx.userId)
-        return errorResponse("This checkout belongs to another account.");
-      if (receipt.status === "COMPLETED")
-        return { success: true, message: "Reputation points already delivered" };
-      if (receipt.status === "RESERVED") {
-        const claimed = await ctx.drizzle
-          .update(paypalTransaction)
-          .set({ status: "CAPTURING" })
-          .where(
-            and(
-              eq(paypalTransaction.id, receipt.id),
-              eq(paypalTransaction.status, "RESERVED"),
-              gte(paypalTransaction.createdAt, sql`NOW() - INTERVAL 3 HOUR`),
-            ),
-          );
-        if (claimed.rowsAffected !== 1)
-          return errorResponse("Checkout expired or changed. Start checkout again.");
-      } else if (receipt.status !== "CAPTURING")
-        return errorResponse("Checkout is closed. Start checkout again.");
-      const token = await getPaypalAccessToken();
-      let order = await getPaypalOrder({ orderId: input.orderId, token });
-      if (order?.status !== "COMPLETED")
-        order = await paypalOrderRequest(
-          `${input.orderId}/capture`,
-          token,
-          `capture_${receipt.id}`,
-          {},
-        );
-      if (order?.fundingDeclined) {
-        // Only a definite provider decline can release a capture claim. Unknown
-        // outcomes retain it until the same idempotent capture is reconciled.
-        await ctx.drizzle
-          .update(paypalTransaction)
-          .set({ status: "RESERVED" })
-          .where(
-            and(
-              eq(paypalTransaction.id, receipt.id),
-              eq(paypalTransaction.status, "CAPTURING"),
-            ),
-          );
-        return {
-          ...errorResponse(
-            "PayPal declined this payment method. Choose another payment method or cancel checkout.",
-          ),
-          restartFunding: true,
-        };
-      }
-      // Some provider responses omit purchase-unit metadata even after capture. Fetch
-      // the completed order rather than interpreting an incomplete response as delivery.
-      if (order?.status === "COMPLETED" && !order.purchase_units?.[0]?.custom_id)
-        order = await getPaypalOrder({ orderId: input.orderId, token });
-      return deliverPaypalOrder(ctx.drizzle, order, ctx.userId, input.orderId);
-    }),
-  // Recover orders approved by a previously loaded checkout client.
   /** List published offers; store managers may also request unpublished drafts. */
   getStoreBundles: protectedProcedure
     .input(z.object({ includeInactive: z.boolean().optional() }).nullish())
@@ -1291,42 +1075,6 @@ export const getPaypalOrder = async (input: { orderId: string; token: string }) 
       return data;
     });
   return order;
-};
-
-const paypalOrderRequest = async (
-  path: string,
-  token: string,
-  requestId: string,
-  body: JsonData,
-): Promise<PaypalOrder> => {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_PAYPAL_URL}/v2/checkout/orders${path ? `/${path}` : ""}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "PayPal-Request-Id": requestId,
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify(body),
-    },
-  );
-  if (!response.ok) {
-    const failure = (await response.json().catch(() => undefined)) as
-      | { details?: { issue?: string }[] }
-      | undefined;
-    if (
-      path.endsWith("/capture") &&
-      response.status === 422 &&
-      failure?.details?.[0]?.issue === "INSTRUMENT_DECLINED"
-    )
-      return { fundingDeclined: true };
-    throw new Error(
-      `PayPal order request failed (${response.status}); retry the same checkout`,
-    );
-  }
-  return response.json();
 };
 
 const deliverPaypalOrder = async (
