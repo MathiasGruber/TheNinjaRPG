@@ -175,6 +175,7 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
           reward_clanpoints: data.reward_clanpoints,
           reward_anbupoints: data.reward_anbupoints,
           reward_exp: data.reward_exp,
+          reward_pet_experience: data.reward_pet_experience,
           reward_level: data.reward_level,
           reward_stats: data.reward_stats,
           reward_medical_experience: data.reward_medical_experience,
@@ -469,6 +470,11 @@ export const useQuestEditForm = (quest: Quest, refetch: () => Promise<unknown>) 
   formData.push({ id: "reward_clanpoints", type: "number" });
   formData.push({ id: "reward_anbupoints", type: "number" });
   formData.push({ id: "reward_exp", type: "number" });
+  formData.push({
+    id: "reward_pet_experience",
+    type: "number",
+    label: "Pet Experience (eligible active pet only)",
+  });
   formData.push({
     id: "reward_level",
     type: "number",

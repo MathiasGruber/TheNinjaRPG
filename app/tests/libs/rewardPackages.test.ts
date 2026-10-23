@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
-import { QuestRewardMetrics, type QuestType } from "@/drizzle/constants";
+import { ADDITIONAL_MISSION_REWARD_MULTIPLIER, QuestRewardMetrics, type QuestType } from "@/drizzle/constants";
 import { dataRouter } from "@/routers/data";
 import { collapseRewards } from "@/libs/rewards";
 import { getRewardArray } from "@/libs/objectives";
@@ -11,7 +11,7 @@ import { getNewTrackers, getReward, postProcessRewards } from "@/libs/quest";
 import { buildRewardChoiceCards, getUnavailableRewardCards, maxRewardPicks, requiredRewardPicks, rewardFromChoiceCards, toggleRewardPick, validateRewardPicks, verifyRewardChoiceForSave } from "@/libs/rewardChoice";
 import { validateQuestRewardPackages } from "@/server/api/routers/rewardPackages";
 import { QuestReward, RewardNodeValidator, RewardPackageValidator } from "@/validators/rewardPackages";
-import { ObjectiveReward } from "@/validators/rewards";
+import { hasReward, ObjectiveReward } from "@/validators/rewards";
 import type { QuestContentType } from "@/validators/objectives";
 
 /** Create a normalized snapshot with distinct attachment and source identities. */
@@ -115,6 +115,35 @@ describe("reward packages", () => {
       ],
     }) as unknown as Parameters<typeof getNewTrackers>[0];
 
+
+  it("validates and previews pet-only rewards and preserves direct and packaged choices", () => {
+    expect(ObjectiveReward.safeParse({ reward_pet_experience: -1 }).success).toBe(false);
+    expect(ObjectiveReward.safeParse({ reward_pet_experience: Infinity }).success).toBe(false);
+    const reward = QuestReward.parse({ reward_pet_experience: "100", reward_packages: [
+      packageReward("pet", { reward_pet_experience: 50 }),
+    ] });
+    expect(hasReward(ObjectiveReward.parse({ reward_pet_experience: 100 }))).toBe(true);
+    expect(getRewardArray(reward)).toEqual(["150 pet experience"]);
+    expect(getReward(makeUser({ reward }), "q1").rewards).toMatchObject({ reward_exp: 0, reward_pet_experience: 150 });
+    const choice = getReward(makeUser({ reward, rewardMode: "choose" }), "q1");
+    expect(choice.rewards.reward_pet_experience ?? 0).toBe(0);
+    expect(choice.rewardChoice?.cards).toHaveLength(2);
+    for (const card of choice.rewardChoice!.cards) {
+      const payout = postProcessRewards(rewardFromChoiceCards([card]));
+      expect(payout.reward_exp).toBe(0);
+      expect(payout.reward_pet_experience).toBe(card.field === "reward_package" ? 50 : 100);
+    }
+  });
+
+  it("aggregates objective pet XP and scales reduced missions and frozen choices", () => {
+    const reward = QuestReward.parse({ reward_pet_experience: 100 });
+    const objective = SimpleObjective.parse({ id: "pet-objective", task: "user_level", value: 1, reward_pet_experience: 50 });
+    expect(getReward(makeUser({ reward, objectives: [objective] }), "q1").rewards.reward_pet_experience).toBe(150);
+    const user = makeUser({ reward, rewardMode: "choose" });
+    user.dailyMissions = 1000;
+    const choice = getReward(user, "q1");
+    expect(choice.rewardChoice?.cards).toMatchObject([{ field: "reward_pet_experience", amount: 100 * ADDITIONAL_MISSION_REWARD_MULTIPLIER }]);
+  });
 
   it("grants combined snapshots and leaves the source untouched", () => {
     const reward = QuestReward.parse({reward_money: 10, reward_packages: [packageReward("a",{reward_money: 100}), packageReward("b",{reward_money: 200, reward_items:[{ids:["item"],number:100,quantity:3}]})]});

@@ -65,6 +65,7 @@ export const boostPvpGain = (gain: number, percent: number) =>
   gain > 0 ? (gain * (100 + percent)) / 100 : gain;
 
 const integerPvpRewardFields = new Set<string>([
+  "reward_pet_experience",
   "reward_money",
   "reward_clanpoints",
   "reward_exp",
@@ -76,6 +77,7 @@ const integerPvpRewardFields = new Set<string>([
 ]);
 
 const pvpRewardFields = [
+  "reward_pet_experience",
   "reward_money",
   "reward_clanpoints",
   "reward_exp",

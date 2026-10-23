@@ -174,6 +174,51 @@ describeWithDatabase("accompanying pet experience against real MySQL", () => {
     expect(assigned.petExperience).toBe(123);
   });
 
+  it("grants pet-only rewards atomically alongside ordinary XP without changing player XP", async () => {
+    await insertPet();
+    const before = await readUser();
+    const client = await getTestDatabase();
+    const grant = (rewards: object) => updateRewards({
+      client, user: before, reason: "Quest complete",
+      rewards: PostProcessedRewardSchema.parse(rewards),
+    });
+    await Promise.all([
+      grant({ reward_pet_experience: 100 }),
+      grant({ reward_pet_experience: 50 }),
+    ]);
+    const petOnly = await readUser();
+    expect(petOnly.petExperience).toBe(173);
+    expect(petOnly.earnedExperience).toBe(before.earnedExperience);
+    expect(petOnly.experience).toBe(before.experience);
+    await grant({ reward_exp: 10.4, reward_pet_experience: 20.4 });
+    const mixed = await readUser();
+    expect(mixed.petExperience).toBe(203);
+    expect(mixed.earnedExperience).toBe(10);
+    expect(mixed.experience).toBe(before.experience);
+    await grant({ reward_exp: -5, reward_pet_experience: 50 });
+    expect((await readUser()).petExperience).toBe(253);
+  });
+
+  it.each(["missing", "disabled", "away"])(
+    "withholds pet-only rewards when the active pet is %s",
+    async (state) => {
+      const client = await getTestDatabase();
+      if (state !== "missing") await insertPet({ battleEnabled: state !== "disabled" });
+      if (state === "away") await client.update(userData).set({ petTask: {
+        petId, questId: "contract", questHistoryId: "attempt", startedAt: 1,
+        questVersion: 1, finishesAt: 2,
+      } }).where(eq(userData.userId, userId));
+      const before = await readUser();
+      await updateRewards({ client, user: before, reason: "Quest complete",
+        rewards: PostProcessedRewardSchema.parse({ reward_pet_experience: 100 }),
+      });
+      const after = await readUser();
+      expect(after.petExperience).toBe(before.petExperience);
+      expect(after.earnedExperience).toBe(before.earnedExperience);
+      expect(after.experience).toBe(before.experience);
+    },
+  );
+
   it("settles both combat XP kinds once against the frozen accompanying pet", async () => {
     const database = await getTestDatabase();
     await insertPet();

@@ -360,6 +360,9 @@ export const getRewardArray = (reward?: QuestRewardType) => {
   if (questReward.reward_exp) {
     rewards.push(`${questReward.reward_exp} exp`);
   }
+  if (questReward.reward_pet_experience) {
+    rewards.push(`${questReward.reward_pet_experience} pet experience`);
+  }
   if (questReward.reward_tokens) {
     rewards.push(`${questReward.reward_tokens} village tokens`);
   }

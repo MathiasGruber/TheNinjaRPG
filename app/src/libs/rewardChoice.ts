@@ -327,7 +327,7 @@ export const rewardFromChoiceCards = (
         if (card.contentId) reward[card.field].push(card.contentId);
         break;
       default:
-        reward[card.field] += card.amount;
+        reward[card.field] = (reward[card.field] ?? 0) + card.amount;
     }
   }
   return reward;
@@ -375,6 +375,7 @@ export const REWARD_CHOICE_AMOUNT_LABELS: Record<RewardChoiceAmountField, string
   reward_clanpoints: "Clan Points",
   reward_anbupoints: "Anbu Points",
   reward_exp: "Experience",
+  reward_pet_experience: "Pet Experience",
   reward_tokens: "Village Tokens",
   reward_prestige: "Prestige",
   reward_reputation: "Reputation Points",
@@ -395,6 +396,7 @@ export const REWARD_CHOICE_CATEGORY_LABELS: Record<RewardChoiceCard["field"], st
       REWARD_CHOICE_AMOUNT_FIELDS.map((field) => [field, "Currency"]),
     ),
     reward_exp: "Experience",
+    reward_pet_experience: "Experience",
     reward_medical_experience: "Experience",
     reward_hunting_experience: "Experience",
     reward_crafting_experience: "Experience",

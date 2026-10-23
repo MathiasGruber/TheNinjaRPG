@@ -2422,7 +2422,10 @@ export const updateRewards = async (info: {
     money: sql`${userData.money} + ${rewards.reward_money ?? 0}`,
     seichiSilver: sql`${userData.seichiSilver} + ${rewards.reward_seichi_silver ?? 0}`,
     earnedExperience: sql`${userData.earnedExperience} + ${rewards.reward_exp ?? 0}`,
-    petExperience: petExperienceGainSql(rewards.reward_exp ?? 0),
+    petExperience: petExperienceGainSql(
+      Math.max(0, Math.round(rewards.reward_exp ?? 0)) +
+        Math.round(rewards.reward_pet_experience ?? 0),
+    ),
     villagePrestige: sql`${userData.villagePrestige} + ${rewards.reward_prestige ?? 0}`,
     reputationPoints: sql`${userData.reputationPoints} + ${rewards.reward_reputation ?? 0}`,
     reputationPointsTotal: sql`${userData.reputationPointsTotal} + ${rewards.reward_reputation ?? 0}`,
@@ -5456,6 +5459,7 @@ export const getRewardUserDelta = (
     rewards.reward_hunting_experience !== 0 ||
     rewards.reward_crafting_experience !== 0 ||
     rewards.reward_gathering_experience !== 0 ||
+    (rewards.reward_pet_experience ?? 0) !== 0 ||
     MASTERY_EXPERIENCE_FIELDS.some((field) => (rewards[field] ?? 0) > 0) ||
     (rewards.reward_mastery_rank && rewards.reward_mastery_rank !== "NONE") ||
     rewards.reward_sage_mastery_experience !== 0 ||

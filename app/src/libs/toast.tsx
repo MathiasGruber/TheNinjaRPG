@@ -296,6 +296,11 @@ export const showRewardToast = (
               <b>Anbu points:</b> {rewards.reward_anbupoints}
             </span>
           )}
+          {(rewards.reward_pet_experience ?? 0) > 0 && (
+            <p>
+              <b>Pet experience:</b> {rewards.reward_pet_experience}
+            </p>
+          )}
           {rewards.reward_exp > 0 && (
             <span className="whitespace-nowrap">
               <b>Experience:</b> {rewards.reward_exp}
