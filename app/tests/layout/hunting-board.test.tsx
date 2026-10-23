@@ -12,15 +12,17 @@ import * as UserContext from "@/utils/UserContext";
 import { huntingContract, huntingHabitatContent } from "../setup/hunting";
 
 const now = new Date();
-const session = { id: "session", habitatId: "forest", contractId: "contract", sector: 1, readyAt: null, battleId: null, version: 0 };
+const session = { content: huntingHabitatContent(), id: "session", habitatId: "forest", contractId: "contract", sector: 1, readyAt: null, battleId: null, version: 0 };
 let user: { userId: string; occupation: string; sector: number; status: string };
 let currentSession: typeof session | null;
+let boardSession: typeof session | null;
 
 beforeEach(() => {
   window.sessionStorage.removeItem("huntingArrival:hunter");
   window.sessionStorage.removeItem("huntingArrival:another-hunter");
   user = { userId: "hunter", occupation: "HUNTER", sector: 2, status: "AWAKE" };
   currentSession = null;
+  boardSession = null;
   const board = {
     user: { ...user, huntingExperience: 123 }, session: null, progress: [], serverTime: now,
     habitats: [
@@ -33,7 +35,7 @@ beforeEach(() => {
   Object.assign(vi.spyOn(client, "api" as never), {
     useUtils: () => ({}),
     hunting: {
-      getBoard: { useQuery: () => ({ data: board, isLoading: false }) },
+      getBoard: { useQuery: () => ({ data: { ...board, session: boardSession }, isLoading: false }) },
       getSession: { useQuery: () => ({ data: currentSession ? { session: currentSession, contract: huntingContract() } : null }) },
       accept: { useMutation: () => ({}) }, sessionAction: { useMutation: () => ({}) }, start: { useMutation: () => ({}) },
     },
@@ -63,6 +65,16 @@ it("hides nonmatching habitats and combines rank, creature and material filters"
   fireEvent.change(view.getByLabelText("Material filter"), { target: { value: "" } });
   expect(view.getByRole("heading", { name: "Forest" })).toBeTruthy();
   expect(view.queryByRole("heading", { name: "Desert" })).toBeNull();
+});
+
+it("renders accepted terms independently of the updated contract board", () => {
+  boardSession = { ...session, content: { ...huntingHabitatContent(), name: "Accepted forest", contracts: [{ ...huntingContract(), name: "Original boar", hunts: 7, preparationSeconds: 15 }] } };
+  user.sector = 1;
+  const view = render(<HuntingBoard />);
+  expect(view.getByRole("heading", { name: "Original boar" })).toBeTruthy();
+  expect(view.getByText("7 / 7 successful hunts remaining")).toBeTruthy();
+  expect(view.getByRole("button", { name: "Prepare (15s)" })).toBeTruthy();
+  expect(view.getByRole("heading", { name: "Forest boar" })).toBeTruthy();
 });
 
 it("opens on arrival, stays dismissed across refreshes, and reopens on the next arrival", () => {

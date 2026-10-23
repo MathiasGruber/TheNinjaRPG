@@ -81,7 +81,6 @@ import {
   dungeonRun,
   gameAsset,
   gameSetting,
-  huntingHabitat,
   huntingProgress,
   huntingSession,
   item,
@@ -4085,7 +4084,7 @@ export const initiateBattle = async (
     try {
       result = await retryOnDeadlock(() =>
         client.transaction(async (tx) => {
-          // Reserve the encounter only while its preloaded rules and allowance remain current.
+          // Reserve only while the accepted session and allowance remain unchanged.
           const session = await tx
             .update(huntingSession)
             .set({ battleId, version: sql`${huntingSession.version} + 1` })
@@ -4097,7 +4096,7 @@ export const initiateBattle = async (
                 isNull(huntingSession.battleId),
                 eq(huntingSession.contractId, meta.contract.id),
                 eq(huntingSession.sector, sector ?? -1),
-                sql`EXISTS (SELECT 1 FROM ${huntingHabitat} WHERE ${huntingHabitat.id} = ${meta.habitatId} AND ${huntingHabitat.updatedAt} = ${new Date(meta.habitatUpdatedAt)})`,
+                eq(huntingSession.habitatId, meta.habitatId),
                 sql`EXISTS (SELECT 1 FROM ${huntingProgress} WHERE ${huntingProgress.userId} = ${meta.userId} AND ${huntingProgress.contractId} = ${meta.contract.id} AND ${huntingProgress.version} = ${meta.progressVersion})`,
               ),
             );

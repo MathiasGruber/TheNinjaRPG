@@ -120,6 +120,50 @@ describeWithDatabase("staff changes during hunting admission", () => {
     return current;
   };
 
+  it("allows staff edits during combat and settles the accepted rewards and final cooldown exactly once", async () => {
+    const { db, hunter, id } = await prepare();
+    await db.update(huntingProgress).set({ used: 2 });
+    expect((await hunter.start({ id })).success).toBe(true);
+    const before = (await db.query.huntingProgress.findFirst())!;
+    const content = huntingHabitatContent();
+    content.contracts[0] = { ...content.contracts[0]!, hunts: 1, cooldownSeconds: 3600, experience: 999, rewards: [{ itemId: "tusk", quantity: 10, chance: 100 }] };
+    const staff = callerForDatabase(huntingRouter, "staff", db);
+    expect(await staff.save({ id: "forest", content })).toMatchObject({ success: true });
+    expect(await db.query.huntingProgress.findFirst()).toEqual(before);
+    const current = (await db.query.battle.findFirst()) as CompleteBattle;
+    for (const enemy of current.usersState.filter((u) => u.isAi)) enemy.curHealth = 0;
+    await db.update(battle).set({ usersState: current.usersState }).where(eq(battle.id, current.id));
+    const combat = callerForDatabase(combatRouter, "hunter", db);
+    expect((await combat.getBattle({ battleId: current.id })).result?.hunting).toMatchObject({ experience: 50, remaining: 0 });
+    await combat.getBattle({ battleId: current.id });
+    expect(await db.query.huntingReceipt.findMany()).toHaveLength(1);
+    const progress = (await db.query.huntingProgress.findFirst())!;
+    expect(progress).toMatchObject({ used: 3, version: 1 });
+    expect(progress.cooldownUntil!.getTime() - Date.now()).toBeGreaterThan(50_000);
+    expect(progress.cooldownUntil!.getTime() - Date.now()).toBeLessThanOrEqual(60_000);
+    expect((await db.query.userItem.findMany({ where: eq(userItem.itemId, "hide") })).reduce((sum, row) => sum + row.quantity, 0)).toBe(2);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "hunter") })).toMatchObject({ huntingExperience: 173, status: "AWAKE" });
+  });
+
+  it("admits accepted terms when a staff save overlaps battle admission", async () => {
+    const { db, id } = await prepare();
+    let edited = false;
+    const client = new Proxy(db, { get(target, key, receiver) {
+      if (key === "transaction") return async (...args: Parameters<typeof target.transaction>) => {
+        if (!edited) {
+          edited = true;
+          const content = huntingHabitatContent();
+          content.contracts = [];
+          expect((await callerForDatabase(huntingRouter, "staff", db).save({ id: "forest", content })).success).toBe(true);
+        }
+        return target.transaction(...args);
+      };
+      return Reflect.get(target, key, receiver);
+    } });
+    expect((await callerForDatabase(huntingRouter, "hunter", client).start({ id })).success).toBe(true);
+    await settleVictory(db);
+  });
+
   it("rejects stale force-awake recovery without clearing the admitted hunt or its queues", async () => {
     const { db, hunter, id, version } = await prepare();
     const client = beforeStatements(db, userData, [async () => {

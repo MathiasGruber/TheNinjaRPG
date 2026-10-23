@@ -92,14 +92,13 @@ export type HuntingReceipt = {
   cooldownUntil: string | null;
   materials: { itemId: string; name: string; quantity: number; bonus: boolean }[];
 };
-/** Current contract rules are loaded at each start; a running battle carries all settlement data. */
+/** Accepted contract terms are preloaded at each start, including all battle settlement data. */
 export type HuntingBattleState = {
   userId: string;
   sessionId: string;
   sessionVersion: number;
   contract: HuntingContract;
   habitatId: string;
-  habitatUpdatedAt: string;
   progressVersion: number;
   used: number;
   huntingExperience: number;

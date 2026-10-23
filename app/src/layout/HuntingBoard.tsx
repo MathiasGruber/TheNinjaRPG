@@ -91,10 +91,8 @@ export function HuntingBoard({
   const data = board.data;
   const session = data?.session;
   const user = data?.user;
-  const activeHabitat = data?.habitats.find((h) => h.id === session?.habitatId);
-  const active = activeHabitat?.content.contracts.find(
-    (c) => c.id === session?.contractId,
-  );
+  const activeHabitat = session?.content;
+  const active = activeHabitat?.contracts.find((c) => c.id === session?.contractId);
   const progress = data?.progress.find((p) => p.contractId === active?.id);
   const allowance = active
     ? huntingAllowance(active, progress, data?.serverTime.getTime())
@@ -162,7 +160,7 @@ export function HuntingBoard({
               {active?.name ?? "Unavailable contract"}
             </h3>
             <p>
-              {activeHabitat?.content.name} · Personal encounter in sector{" "}
+              {activeHabitat?.name} · Personal encounter in sector{" "}
               <strong>{session.sector}</strong>
             </p>
             <p>{huntingSessionStage(session, !!allowance?.cooling, now)}</p>
@@ -176,8 +174,8 @@ export function HuntingBoard({
             )}
             {!active && (
               <p>
-                Staff changed or disabled this contract. Select a new contract or finish
-                this session.
+                The accepted contract is unavailable. Finish this session and select a
+                new contract.
               </p>
             )}
             <div className="grid grid-cols-2 gap-2 [&_button]:h-full [&_button]:min-h-9 [&_button]:w-full [&_button]:whitespace-normal">

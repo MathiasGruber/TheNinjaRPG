@@ -62,18 +62,20 @@ import type { PetTask } from "@/validators/petTasks";
 
 import type { HuntingHabitatContent, HuntingReceipt } from "@/validators/hunting";
 
-/** Editable habitats and their creature contracts; sessions resolve the current rules at launch. */
+/** Editable habitats and their creature contracts; accepted sessions retain their own terms. */
 export const huntingHabitat = mysqlTable("HuntingHabitat", {
   id: varchar("id", { length: 191 }).primaryKey().notNull(),
   content: json("content").$type<HuntingHabitatContent>().notNull(),
   updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).notNull(),
 });
-/** One personal location and preparation timer per hunter, independent of contract allowances. */
+/** Personal location, preparation timer and accepted terms, independent of contract allowances. */
 export const huntingSession = mysqlTable("HuntingSession", {
   userId: varchar("userId", { length: 191 }).primaryKey().notNull(),
   id: varchar("id", { length: 191 }).notNull(),
   habitatId: varchar("habitatId", { length: 191 }).notNull(),
   contractId: varchar("contractId", { length: 191 }).notNull(),
+  // NULL preserves recovery for sessions whose habitat was unavailable during backfill.
+  content: json("content").$type<HuntingHabitatContent>(),
   sector: smallint("sector").notNull(),
   readyAt: datetime("readyAt", { mode: "date", fsp: 3 }),
   battleId: varchar("battleId", { length: 191 }),
