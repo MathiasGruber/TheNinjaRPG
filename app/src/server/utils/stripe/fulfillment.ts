@@ -186,16 +186,12 @@ export const fulfillStripeInvoice = async (
     if (current?.subscriptionId !== subscriptionId)
       throw new Error("Stripe subscription does not match checkout");
   }
-  const [buyerId, recipientId] = await Promise.all([
-    canonicalStoreUserId(client, checkout.createdById),
-    canonicalStoreUserId(client, checkout.affectedUserId),
-  ]);
   await grantStripeReceipt(client, {
     id: invoice.id,
     isSandbox: !invoice.livemode,
     checkoutId,
-    createdById: buyerId,
-    affectedUserId: recipientId,
+    createdById: checkout.createdById,
+    affectedUserId: checkout.affectedUserId,
     amountCents: checkout.amountCents,
     reputationPoints: 0,
     federalStatus: checkout.federalStatus,
@@ -253,8 +249,8 @@ export const fulfillStripeSession = async (
       id: paymentIntentId,
       isSandbox: !session.livemode,
       checkoutId,
-      createdById: await canonicalStoreUserId(client, checkout.createdById),
-      affectedUserId: await canonicalStoreUserId(client, checkout.affectedUserId),
+      createdById: checkout.createdById,
+      affectedUserId: checkout.affectedUserId,
       amountCents: checkout.amountCents,
       reputationPoints: checkout.reputationPoints,
       federalStatus: "NONE",
