@@ -5,13 +5,14 @@ import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { paypalSubscription, paypalTransaction, stripeCheckout, stripePayment, storeUserIdAlias, userData, webStoreOrder } from "@/drizzle/schema";
 import { MAX_REPS_PER_MONTH } from "@/drizzle/constants";
 import { env } from "@/env/server.mjs";
-import { paypalRouter, reconcilePaypalSubscription, syncTransactions, updateReps } from "@/server/api/routers/paypal";
+import { paypalRouter, reconcilePaypalSubscription, syncTransactions, updateReps, updateSubscription } from "@/server/api/routers/paypal";
 import { reserveStoreOrder, deliverStoreOrder } from "@/server/utils/webStore";
 import { stripeRouter } from "@/server/api/routers/stripe";
 import * as stripeClient from "@/server/utils/stripe/client";
 import { reconcileFederalStatuses, setFederalStatusWithStoreFloor } from "@/server/utils/purchases/grant";
 import { fulfillStripeInvoice, fulfillStripeSession } from "@/server/utils/stripe/fulfillment";
 import { calcFedUgradeCost, dollars2reps, fedStatusRepsCost, reps2dollars } from "@/utils/paypal";
+import { beforeStatements, failStatements } from "../../setup/statements";
 import { insertUsers } from "../../setup/factories";
 import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -76,6 +77,27 @@ describeWithDatabase("Shared PayPal and Stripe reputation reservations", () => {
     Object.assign(session ?? {}, { status: "complete", payment_status: "paid", mode: "payment", payment_intent: `pi_${input.requestId}`, livemode: false, currency: "usd", amount_total: Math.round(reps2dollars(input.purchase.reputationPoints) * 100), client_reference_id: input.requestId, managed_payments: { enabled: true }, automatic_tax: { enabled: true, status: "complete" }, created: Math.floor(created / 1000) });
     return `cs_test_${input.requestId}`;
   };
+  it.each(["insert", "update", "unchanged"])("repairs derived support after an interrupted subscription %s without a transaction", async (mode) => {
+    const db = await getTestDatabase();
+    const paidAt = new Date(Date.now() - 3600000);
+    if (mode !== "insert") await db.insert(paypalSubscription).values({ id: "recover_projection", subscriptionId: "I-PROJECTION", createdById: BUYER, affectedUserId: TARGET, federalStatus: mode === "unchanged" ? "GOLD" : "NORMAL", status: "ACTIVE", orderId: "I-PROJECTION", updatedAt: mode === "unchanged" ? paidAt : new Date(Date.now() - 2 * 86400000) });
+    const input = { client: failStatements(db, userData), createdById: BUYER, affectedUserId: TARGET, subscriptionId: "I-PROJECTION", orderId: "I-PROJECTION", federalStatus: "GOLD" as const, status: "ACTIVE", lastPayment: paidAt };
+    // The paid ledger survives a failed projection write; an identical retry must repair it.
+    await expect(updateSubscription(input)).rejects.toThrow("Statement failed on purpose");
+    expect(await db.query.paypalSubscription.findMany()).toMatchObject([{ federalStatus: "GOLD", updatedAt: paidAt }]);
+    expect((await target())?.federalStatus).toBe("NONE");
+    expect((await updateSubscription({ ...input, client: db })).success).toBe(true);
+    expect((await target())?.federalStatus).toBe("GOLD");
+    expect(await db.query.paypalSubscription.findMany()).toHaveLength(1);
+  });
+  it("does not apply a subscription update after its ownership changes", async () => {
+    const db = await getTestDatabase();
+    await db.insert(paypalSubscription).values({ id: "moved_subscription", subscriptionId: "I-MOVED", createdById: BUYER, affectedUserId: TARGET, federalStatus: "NORMAL", status: "ACTIVE", updatedAt: new Date(Date.now() - 2 * 86400000) });
+    const client = beforeStatements(db, paypalSubscription, [() => db.update(paypalSubscription).set({ createdById: OTHER, affectedUserId: OTHER }).where(eq(paypalSubscription.id, "moved_subscription"))]);
+    expect((await updateSubscription({ client, createdById: BUYER, affectedUserId: TARGET, subscriptionId: "I-MOVED", federalStatus: "GOLD", status: "ACTIVE", lastPayment: new Date() })).success).toBe(false);
+    expect((await target())?.federalStatus).toBe("NONE");
+    expect(await db.query.paypalSubscription.findFirst()).toMatchObject({ createdById: OTHER, affectedUserId: OTHER, federalStatus: "NORMAL" });
+  });
   it.each([false, true])("shares bundle reservations and delivered receipts with Stripe: Stripe first=%s", async (stripeFirst) => {
     const db = await getTestDatabase();
     await paid(MAX_REPS_PER_MONTH - 1000);

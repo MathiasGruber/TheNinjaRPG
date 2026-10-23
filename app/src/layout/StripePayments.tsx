@@ -9,10 +9,9 @@ import { Button } from "@/components/ui/button";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { useRequiredUserData } from "@/utils/UserContext";
-import type { stripeCheckoutSchema } from "@/validators/stripe";
+import type { stripePurchaseSchema } from "@/validators/stripe";
 
-type Purchase = z.infer<typeof stripeCheckoutSchema>["purchase"];
-
+/** Open hosted checkout with a stable request identity across uncertain responses. */
 export const StripeCheckoutButton = ({
   userId,
   purchase,
@@ -26,6 +25,7 @@ export const StripeCheckoutButton = ({
   const { data: user } = useRequiredUserData();
   const { data: availability } = api.stripe.availability.useQuery();
   const [message, setMessage] = useState("");
+  // A transport failure may hide a created session; retry its key instead of charging anew.
   const request = useRef({ key: "", id: nanoid() });
   const checkout = api.stripe.createCheckout.useMutation({
     onSuccess: (result) => {
@@ -100,6 +100,7 @@ export const StripeCheckoutButton = ({
   );
 };
 
+/** Resolve redirect status with visible retry and refresh receipts even for held payments. */
 export const StripePaymentReturn = () => {
   const utils = api.useUtils();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export const StripePaymentReturn = () => {
   const resolve = api.stripe.resolveSession.useMutation({
     onSuccess: async (result) => {
       setMessage(result.message);
+      // Held payments write receipts too; only successful delivery clears the retry URL.
       await Promise.all([
         utils.stripe.getPayments.invalidate(),
         utils.stripe.getPendingCheckouts.invalidate(),
@@ -173,6 +175,7 @@ export const StripePaymentReturn = () => {
   );
 };
 
+/** Resume or cancel saved payer reservations without changing their purchase terms. */
 export const StripePendingCheckouts = () => {
   const utils = api.useUtils();
   const { data: user } = useRequiredUserData();
@@ -263,6 +266,7 @@ export const StripePendingCheckouts = () => {
   );
 };
 
+/** Manage renewal separately from the paid support period and current recipient tier. */
 export const StripeSubscriptions = () => {
   const utils = api.useUtils();
   const subscriptions = api.stripe.getSubscriptions.useQuery();
@@ -315,6 +319,7 @@ export const StripeSubscriptions = () => {
   );
 };
 
+/** Show a compact, progressively revealed receipt ledger with support references. */
 export const StripePaymentHistory = () => {
   const [visibleCount, setVisibleCount] = useState(5);
   const payments = api.stripe.getPayments.useQuery();
@@ -364,3 +369,5 @@ export const StripePaymentHistory = () => {
     </ContentBox>
   );
 };
+
+type Purchase = z.infer<typeof stripePurchaseSchema>;

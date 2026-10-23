@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
+import { z } from "zod";
 import { FEDERAL_MONTHLY_USD_CENTS } from "@/drizzle/constants";
 import { stripeCheckout, stripePayment, userData } from "@/drizzle/schema";
 import { isNativeUserAgent } from "@/libs/native/userAgent";
@@ -21,16 +22,22 @@ import {
 } from "@/server/utils/stripe/client";
 import { fulfillStripeSession } from "@/server/utils/stripe/fulfillment";
 import { dollars2reps, dynamicMonthlyRepCap, reps2dollars } from "@/utils/paypal";
-import {
-  stripeCheckoutSchema,
-  stripeSessionSchema,
-  stripeSubscriptionSchema,
-} from "@/validators/stripe";
+import { stripePurchaseSchema } from "@/validators/stripe";
 
+/** Authenticated web checkout, recovery and management; provider objects establish payment. */
 export const stripeRouter = createTRPCRouter({
+  /** Expose readiness without leaking credentials or provider configuration. */
   availability: protectedProcedure.query(() => ({ enabled: isStripeConfigured() })),
+  /** Persist server-authored terms before idempotently creating a payable session. */
   createCheckout: protectedProcedure
-    .input(stripeCheckoutSchema)
+    .input(
+      z.object({
+        requestId: z.string().regex(/^[A-Za-z0-9_-]{21}$/),
+        expectedUserId: z.string().min(1).max(191),
+        userId: z.string().min(1).max(191),
+        purchase: stripePurchaseSchema,
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       if (isNativeUserAgent(ctx.userAgent))
         return errorResponse("Use the in-app store to purchase in the native app.");
@@ -152,7 +159,9 @@ export const stripeRouter = createTRPCRouter({
       }
       // The checkout reservation and buyer snapshot advance together. Parallel requests
       // cannot both spend the same remaining monthly allowance or start duplicate support.
-      // A short transaction is needed because the guard and durable reservation are two rows.
+      // The buyer lock must precede the cross-provider allowance snapshot and reservation
+      // INSERT. A joined UPDATE cannot insert a reservation or claim an absent checkout;
+      // keeping them together also prevents concurrent duplicate Federal checkouts.
       if (!existing) {
         const reserved = await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
@@ -252,8 +261,9 @@ export const stripeRouter = createTRPCRouter({
         return errorResponse("Stripe could not open checkout. Please try again.");
       return { success: true, message: "Continue to Stripe", url: session.url };
     }),
+  /** Release allowance only after Stripe confirms that the session cannot be paid. */
   cancelCheckout: protectedProcedure
-    .input(stripeSubscriptionSchema)
+    .input(z.object({ checkoutId: z.string().min(1).max(191) }))
     .mutation(async ({ ctx, input }) => {
       const checkout = await ctx.drizzle.query.stripeCheckout.findFirst({
         where: eq(stripeCheckout.id, input.checkoutId),
@@ -294,8 +304,16 @@ export const stripeRouter = createTRPCRouter({
         message: "Checkout cancelled. No purchase was confirmed.",
       };
     }),
+  /** Check ownership before authoritative fulfillment; URL parameters never grant value. */
   resolveSession: protectedProcedure
-    .input(stripeSessionSchema)
+    .input(
+      z.object({
+        sessionId: z
+          .string()
+          .regex(/^cs_(?:test_|live_)?[A-Za-z0-9]+$/)
+          .max(255),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const session = await getStripe().checkout.sessions.retrieve(input.sessionId);
       const checkout = session.metadata?.tnrCheckoutId
@@ -316,6 +334,7 @@ export const stripeRouter = createTRPCRouter({
               : "Payment is still processing. You can check again; confirmed payments are delivered automatically.",
       };
     }),
+  /** Recover payer-owned reservations with their original immutable checkout terms. */
   getPendingCheckouts: protectedProcedure.query(async ({ ctx }) => {
     const recipient = alias(userData, "recipient");
     return ctx.drizzle
@@ -342,6 +361,7 @@ export const stripeRouter = createTRPCRouter({
       )
       .orderBy(desc(stripeCheckout.createdAt));
   }),
+  /** Return payer receipts, including held payments needed for support or refund review. */
   getPayments: protectedProcedure.query(async ({ ctx }) =>
     ctx.drizzle.query.stripePayment.findMany({
       where: eq(stripePayment.createdById, ctx.userId),
@@ -349,6 +369,7 @@ export const stripeRouter = createTRPCRouter({
       limit: 100,
     }),
   ),
+  /** Read provider renewal state for subscriptions the caller pays for or receives. */
   getSubscriptions: protectedProcedure.query(async ({ ctx }) => {
     const recipient = alias(userData, "recipient");
     const checkouts = await ctx.drizzle
@@ -385,8 +406,9 @@ export const stripeRouter = createTRPCRouter({
       }),
     );
   }),
+  /** Stop future renewals while retaining the already-paid invoice period. */
   cancelSubscription: protectedProcedure
-    .input(stripeSubscriptionSchema)
+    .input(z.object({ checkoutId: z.string().min(1).max(191) }))
     .mutation(async ({ ctx, input }) => {
       const checkout = await ctx.drizzle.query.stripeCheckout.findFirst({
         where: eq(stripeCheckout.id, input.checkoutId),

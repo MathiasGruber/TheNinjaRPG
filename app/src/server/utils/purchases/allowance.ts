@@ -51,7 +51,11 @@ export const reputationAllowanceUsed = async (
   return row?.total ?? 0;
 };
 
-/** Serialize cross-provider allowance changes on the buyer row without missing-row locks. */
+/**
+ * Serialize cross-provider allowance changes on an existing buyer within a transaction.
+ * The lock must precede the allowance snapshot and its reservation/delivery write; it
+ * is not a standalone claim and must not be released between those operations.
+ */
 export const lockPurchaseBuyer = async (client: DrizzleClient, buyerId: string) => {
   const locked = await client
     .update(userData)

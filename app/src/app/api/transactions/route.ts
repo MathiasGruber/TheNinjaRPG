@@ -21,7 +21,7 @@ import { authenticateCronRequest } from "@/server/utils/cron";
 import { retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { stripeIsLive } from "@/server/utils/stripe/client";
 
-/** Reconcile PayPal payments and award outstanding referral reputation on the hourly schedule. */
+/** Reconcile PayPal payments and award delivered PayPal/Stripe referrals on the hourly schedule. */
 export async function GET(request: Request) {
   const authError = authenticateCronRequest(request);
   if (authError) return authError;

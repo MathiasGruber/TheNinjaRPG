@@ -19,9 +19,10 @@ import { calcFedUgradeCost, dynamicMonthlyRepCap } from "@/utils/paypal";
 import { getStripe, stripeIsLive } from "./client";
 
 type Checkout = typeof stripeCheckout.$inferSelect;
+/** Immutable provider terms persisted before an idempotent game-value claim. */
 export type StripeReceipt = typeof stripePayment.$inferInsert;
 
-/** A receipt and its balance change share a single atomic claim, as store grants do. */
+/** Persist verified terms, then atomically claim delivery; held receipts never grant value. */
 export const grantStripeReceipt = async (
   client: DrizzleClient,
   receipt: StripeReceipt,
@@ -63,6 +64,8 @@ export const grantStripeReceipt = async (
     }
     // Reputation delivery shares the buyer lock with checkout reservations and PayPal
     // grants, so released reservations cannot turn delayed payments into excess credit.
+    // The SUM must run after acquiring that lock; a joined credit UPDATE alone cannot
+    // serialize the cross-provider aggregate. Federal-only claims need no transaction.
     const claim = async (client: DrizzleClient) => {
       if (stored.reputationPoints > 0) {
         const buyer = await lockPurchaseBuyer(client, buyerId);
@@ -111,6 +114,7 @@ export const grantStripeReceipt = async (
     await setFederalStatusWithStoreFloor(client, recipientId, "NONE");
   });
 
+/** Accept either the SDK's expanded object or its unexpanded provider reference. */
 const objectId = (value: string | { id: string } | null | undefined) =>
   typeof value === "string" ? value : value?.id;
 
@@ -147,6 +151,7 @@ export const invoiceCoverage = (invoice: Stripe.Invoice, checkout: Checkout) => 
   };
 };
 
+/** Validate a managed paid invoice and bind its exact period to the original checkout. */
 export const fulfillStripeInvoice = async (
   client: DrizzleClient,
   invoiceId: string,

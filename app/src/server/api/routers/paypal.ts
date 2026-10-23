@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { TransactionType } from "@/drizzle/constants";
@@ -56,11 +56,6 @@ import { canManageStore, canSeeSecretData } from "@/utils/permissions";
 import { addDays, secondsFromNow } from "@/utils/time";
 import type { JsonData } from "@/utils/typeutils";
 import {
-  federalReputationPurchaseSchema,
-  federalUpgradeSchema,
-  paypalOrderSchema,
-  paypalSubscriptionIdSchema,
-  paypalSubscriptionSchema,
   searchPaypalTransactionSchema,
   storeBundleSchema,
   storeBundleSchemaForItems,
@@ -322,7 +317,7 @@ export const paypalRouter = createTRPCRouter({
     }),
 
   resolveOrder: protectedProcedure
-    .input(paypalOrderSchema)
+    .input(z.strictObject({ orderId: z.string().min(15).max(20) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       if (isNativeUserAgent(ctx.userAgent))
@@ -373,7 +368,12 @@ export const paypalRouter = createTRPCRouter({
       };
     }),
   resolveSubscription: protectedProcedure
-    .input(paypalSubscriptionSchema)
+    .input(
+      z.strictObject({
+        subscriptionId: z.string().min(1).max(191),
+        orderId: z.string().min(1).max(191).optional(),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const token = await getPaypalAccessToken();
@@ -439,7 +439,13 @@ export const paypalRouter = createTRPCRouter({
   }),
   // Buy subscription with reputation points
   subscribeWithReps: protectedProcedure
-    .input(federalReputationPurchaseSchema)
+    .input(
+      z.strictObject({
+        userId: z.string().min(1).max(191),
+        expectedUserId: z.string().min(1).max(191),
+        status: z.enum(FederalStatuses),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       if (input.expectedUserId !== ctx.userId)
@@ -450,6 +456,9 @@ export const paypalRouter = createTRPCRouter({
       const changed = new Error(
         "Your balance or recipient's subscription changed. Reload and try again.",
       );
+      // A successful purchase creates a new subscription ledger row as well as debiting
+      // the buyer and claiming the recipient. A guarded UPDATE cannot insert that ledger;
+      // all three writes must roll back if the balance or recipient guard loses.
       try {
         await retryOnDeadlock(() =>
           ctx.drizzle.transaction(async (tx) => {
@@ -492,7 +501,12 @@ export const paypalRouter = createTRPCRouter({
     }),
   // Upgrade a subscription for a user. Can only be done by the user who created the subscription
   upgradeSubscription: protectedProcedure
-    .input(federalUpgradeSchema)
+    .input(
+      z.strictObject({
+        userId: z.string().min(1).max(191),
+        plan: z.enum(FederalStatuses),
+      }),
+    )
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       // Self only, which is all the UI ever offers. Without it the caller can name any
@@ -561,7 +575,7 @@ export const paypalRouter = createTRPCRouter({
     }),
   // Cancel paypal subscription
   cancelPaypalSubscription: protectedProcedure
-    .input(paypalSubscriptionIdSchema)
+    .input(z.strictObject({ subscriptionId: z.string().min(1).max(191) }))
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
       const stored = await ctx.drizzle.query.paypalSubscription.findFirst({
@@ -638,9 +652,7 @@ export const paypalRouter = createTRPCRouter({
     }),
 });
 
-/**
- * Updates subscription for a user
- */
+/** CAS the verified paid period, then rebuild its recoverable cross-provider entitlement. */
 export const updateSubscription = async (input: {
   client: DrizzleClient;
   createdById: string;
@@ -651,88 +663,89 @@ export const updateSubscription = async (input: {
   status: string;
   lastPayment?: Date;
 }) => {
-  return retryOnDeadlock(() =>
-    input.client.transaction(async (tx) => {
-      const current = await tx.query.paypalSubscription.findFirst({
-        where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
-      });
-      if (
-        current &&
-        (current.createdById !== input.createdById ||
-          current.affectedUserId !== input.affectedUserId)
-      )
-        return errorResponse("Subscription ownership changed. Retry recovery.");
-      // Preserve the saved window of a reputation-funded upgrade. Otherwise, a newer
-      // confirmed payment advances the paid marker without inventing another billing date.
-      const retainsPeriod =
-        current &&
-        current.updatedAt > secondsFromNow(-3600 * 24 * 31) &&
-        (!input.lastPayment ||
-          input.lastPayment <= current.updatedAt ||
-          FederalStatuses.indexOf(current.federalStatus) >
-            FederalStatuses.indexOf(input.federalStatus));
-      const tier = retainsPeriod ? current.federalStatus : input.federalStatus;
-      const paidAt = retainsPeriod
-        ? current.updatedAt
-        : (input.lastPayment ?? new Date());
-      const approvalReference = current?.orderId ?? input.orderId;
-      if (
-        retainsPeriod &&
-        current.federalStatus === "NONE" &&
-        input.federalStatus !== "NONE"
-      )
-        return errorResponse(
-          "This paid period requires support review before coverage can be restored.",
+  return retryOnDeadlock(async () => {
+    const current = await input.client.query.paypalSubscription.findFirst({
+      where: eq(paypalSubscription.subscriptionId, input.subscriptionId),
+    });
+    if (
+      current &&
+      (current.createdById !== input.createdById ||
+        current.affectedUserId !== input.affectedUserId)
+    )
+      return errorResponse("Subscription ownership changed. Retry recovery.");
+    // Preserve the saved window of a reputation-funded upgrade. Otherwise, a newer
+    // confirmed payment advances the paid marker without inventing another billing date.
+    const retainsPeriod =
+      current &&
+      current.updatedAt > secondsFromNow(-3600 * 24 * 31) &&
+      (!input.lastPayment ||
+        input.lastPayment <= current.updatedAt ||
+        FederalStatuses.indexOf(current.federalStatus) >
+          FederalStatuses.indexOf(input.federalStatus));
+    const tier = retainsPeriod ? current.federalStatus : input.federalStatus;
+    const paidAt = retainsPeriod
+      ? current.updatedAt
+      : (input.lastPayment ?? new Date());
+    const approvalReference = current?.orderId ?? input.orderId;
+    if (
+      retainsPeriod &&
+      current.federalStatus === "NONE" &&
+      input.federalStatus !== "NONE"
+    )
+      return errorResponse(
+        "This paid period requires support review before coverage can be restored.",
+      );
+    const synchronized =
+      current &&
+      current.status === input.status &&
+      current.federalStatus === tier &&
+      current.updatedAt.getTime() === paidAt.getTime() &&
+      current.orderId === (approvalReference ?? null);
+    if (current && !synchronized) {
+      const claimed = await input.client
+        .update(paypalSubscription)
+        .set({
+          status: input.status,
+          federalStatus: tier,
+          updatedAt: paidAt,
+          orderId: approvalReference,
+        })
+        .where(
+          and(
+            eq(paypalSubscription.id, current.id),
+            eq(paypalSubscription.createdById, current.createdById),
+            eq(paypalSubscription.affectedUserId, current.affectedUserId),
+            eq(paypalSubscription.updatedAt, current.updatedAt),
+            eq(paypalSubscription.status, current.status),
+            eq(paypalSubscription.federalStatus, current.federalStatus),
+          ),
         );
-      if (
-        current &&
-        current.status === input.status &&
-        current.federalStatus === tier &&
-        current.updatedAt.getTime() === paidAt.getTime() &&
-        current.orderId === (approvalReference ?? null)
-      )
-        return { success: true, message: "Subscription already synchronized" };
-      if (current) {
-        const claimed = await tx
-          .update(paypalSubscription)
-          .set({
-            status: input.status,
-            federalStatus: tier,
-            updatedAt: paidAt,
-            orderId: approvalReference,
-          })
-          .where(
-            and(
-              eq(paypalSubscription.id, current.id),
-              eq(paypalSubscription.updatedAt, current.updatedAt),
-              eq(paypalSubscription.status, current.status),
-              eq(paypalSubscription.federalStatus, current.federalStatus),
-            ),
-          );
-        if (claimed.rowsAffected !== 1)
+      if (claimed.rowsAffected !== 1)
+        return errorResponse("Subscription changed. Retry recovery.");
+    } else if (!current) {
+      try {
+        await input.client.insert(paypalSubscription).values({
+          id: nanoid(),
+          createdById: input.createdById,
+          affectedUserId: input.affectedUserId,
+          orderId: input.orderId,
+          subscriptionId: input.subscriptionId,
+          federalStatus: tier,
+          status: input.status,
+          updatedAt: paidAt,
+        });
+      } catch (error) {
+        if (isMysqlDuplicateKeyError(error))
           return errorResponse("Subscription changed. Retry recovery.");
-      } else {
-        try {
-          await tx.insert(paypalSubscription).values({
-            id: nanoid(),
-            createdById: input.createdById,
-            affectedUserId: input.affectedUserId,
-            orderId: input.orderId,
-            subscriptionId: input.subscriptionId,
-            federalStatus: tier,
-            status: input.status,
-            updatedAt: paidAt,
-          });
-        } catch (error) {
-          if (isMysqlDuplicateKeyError(error))
-            return errorResponse("Subscription changed. Retry recovery.");
-          throw error;
-        }
+        throw error;
       }
-      await setFederalStatusWithStoreFloor(tx, input.affectedUserId, tier);
-      return { success: true, message: "Subscription synchronized" };
-    }),
-  );
+    }
+    // The subscription is authoritative; federalStatus is a rebuildable projection,
+    // like Stripe's post-claim reconciliation. Retrying must repair it even when the
+    // paid-period CAS already committed, so no transaction spans these two writes.
+    await setFederalStatusWithStoreFloor(input.client, input.affectedUserId, tier);
+    return { success: true, message: "Subscription synchronized" };
+  });
 };
 
 /**
@@ -1077,6 +1090,7 @@ export const getPaypalOrder = async (input: { orderId: string; token: string }) 
   return order;
 };
 
+/** Verify one authoritative legacy capture before entering shared receipt delivery. */
 const deliverPaypalOrder = async (
   client: DrizzleClient,
   order: PaypalOrder,
@@ -1122,13 +1136,16 @@ const deliverPaypalOrder = async (
   });
 };
 
-/** Receipt conversion and reward delivery commit together, including recovery imports. */
+/** Verify legacy terms and serialize allowance, receipt conversion and credit for safe replay. */
 const deliverPaypalReputation = async (input: Parameters<typeof updateReps>[0]) => {
   const [createdById, affectedUserId] = await Promise.all([
     canonicalStoreUserId(input.client, input.createdById),
     canonicalStoreUserId(input.client, input.affectedUserId),
   ]);
   input = { ...input, createdById, affectedUserId };
+  // The allowance SUM must follow the buyer lock, as it does for store reservations.
+  // Legacy imports can also require an INSERT: a joined credit UPDATE alone cannot
+  // atomically create the receipt or protect the cross-provider aggregate.
   return retryOnDeadlock(() =>
     input.client.transaction(async (tx) => {
       const buyer = await lockPurchaseBuyer(tx, input.createdById);
@@ -1323,6 +1340,7 @@ export const reconcilePaypalSubscription = async (input: {
   });
 };
 
+/** Decode the legacy buyer-recipient reference without accepting ambiguous identities. */
 const parsePaypalSubscriptionOwners = (customId: unknown) => {
   if (typeof customId !== "string") return null;
   const users = customId.split("-");

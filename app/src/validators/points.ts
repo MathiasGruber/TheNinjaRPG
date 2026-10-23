@@ -1,6 +1,5 @@
 import { z } from "zod";
 import {
-  FederalStatuses,
   STORE_BUNDLE_MAX_ITEMS,
   STORE_BUNDLE_MAX_PRICE_CENTS,
   STORE_BUNDLE_MAX_QUANTITY,
@@ -28,27 +27,6 @@ export const searchPaypalTransactionSchema = z
 export type SearchPaypalTransactionSchema = z.infer<
   typeof searchPaypalTransactionSchema
 >;
-
-export const paypalOrderSchema = z.strictObject({
-  orderId: z.string().min(15).max(20),
-});
-
-export const paypalSubscriptionIdSchema = z.strictObject({
-  subscriptionId: z.string().min(1).max(191),
-});
-export const paypalSubscriptionSchema = paypalSubscriptionIdSchema.extend({
-  orderId: z.string().min(1).max(191).optional(),
-});
-
-export const federalReputationPurchaseSchema = z.strictObject({
-  userId: z.string().min(1).max(191),
-  expectedUserId: z.string().min(1).max(191),
-  status: z.enum(FederalStatuses),
-});
-export const federalUpgradeSchema = z.strictObject({
-  userId: z.string().min(1).max(191),
-  plan: z.enum(FederalStatuses),
-});
 
 /** Paid bundles contain guaranteed quantities; no random rewards or gameplay multipliers. */
 export const storeContentsSchema = z

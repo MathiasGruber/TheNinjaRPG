@@ -8,6 +8,7 @@ import {
   fulfillStripeSession,
 } from "@/server/utils/stripe/fulfillment";
 
+/** Authenticate raw Stripe events and retry failed authoritative fulfillment without double grants. */
 export async function POST(request: Request) {
   if (!env.STRIPE_SECRET_KEY || !env.STRIPE_WEBHOOK_SECRET)
     return Response.json({ error: "Stripe webhook unavailable" }, { status: 503 });
