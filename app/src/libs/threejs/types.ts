@@ -53,6 +53,8 @@ export interface GlobalMapData {
 export interface SectorUser {
   userId: string;
   username: string;
+  /** Viewer-specific anonymity from the authenticated sector snapshot. */
+  isMasked?: boolean;
   curHealth: number;
   maxHealth: number;
   avatar: string | null;

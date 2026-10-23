@@ -41,6 +41,7 @@ import {
   ELEMENTAL_MASTERY_BOOST,
   ELITE_JONIN_BRACKET,
   HUNTING_REQUIRED_EXP,
+  IMG_AVATAR_DEFAULT,
   KAGE_DEFENSE_GRACE_MINUTES,
   KAGE_MIN_DAYS_IN_VILLAGE,
   KAGE_PRESTIGE_REQUIREMENT,
@@ -189,8 +190,10 @@ import { resolveSelectableLoadout } from "@/libs/loadout";
 import { effectiveMasteries, isWornGear, isWornGearDisabled } from "@/libs/mastery";
 import {
   areWarObjectivesRevealed,
+  getWarRelationship,
   getWarSide,
   isObjectiveWarActive,
+  withMercenaryParticipation,
 } from "@/libs/objectiveWar";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import {
@@ -234,7 +237,6 @@ import {
   settleQueuedTraining,
 } from "@/libs/train";
 import { calcIsInVillage, getBiomeFromGlobalTile } from "@/libs/travel";
-import { findWarsWithUser } from "@/libs/war";
 import { fetchAiProfileById } from "@/routers/ai";
 import { fetchSectorVillage } from "@/routers/village";
 import { fetchActiveWars } from "@/routers/war";
@@ -279,6 +281,7 @@ import { fetchSanninRankedPlayers } from "@/server/utils/ranked";
 import { hasDueTimedJob, settleDueTimedQueues } from "@/server/utils/userQueue";
 import { extendWarParticipantSql, liftBracketImmunitySql } from "@/server/utils/war";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
+import { activeWarMercenaryWhere } from "@/server/utils/warMercenary";
 import { findRelationship } from "@/utils/alliance";
 import { getRandomElement } from "@/utils/array";
 import { getKageEligibility } from "@/utils/kage";
@@ -1478,7 +1481,8 @@ export const combatRouter = createTRPCRouter({
           users: [rawUserForProcessing],
           settings: data.settings,
           relations: data.relations,
-          wars: data.activeWars,
+          // Loadout changes retain the allegiance and contribution roles captured at initiation.
+          wars: Object.values(userBattle.extraState.wars),
           villages: data.villages,
           defaultProfile: data.defaultProfile,
           battleType: userBattle.battleType,
@@ -1793,7 +1797,7 @@ export const combatRouter = createTRPCRouter({
       // For VILLAGE_WAR/WAR_RAID: check village sectors for attack OR defend scenarios
       const userWar = activeWars.find((w) => {
         if (w.status !== "ACTIVE") return false;
-        const side = getWarSide(w, user?.villageId ?? null);
+        const side = getWarSide(w, user?.villageId ?? null, user?.userId);
         const isUserOnAttackerSide = side === w.attackerVillageId;
         const isUserOnDefenderSide = side === w.defenderVillageId;
 
@@ -2728,7 +2732,7 @@ export const initiateBattle = async (
       for (const attacker of users.filter(
         (u) => userIds.includes(u.userId) && !u.isAi,
       )) {
-        const side = getWarSide(activeWar, attacker.villageId);
+        const side = getWarSide(activeWar, attacker.villageId, attacker.userId);
         if (
           !side ||
           side === objective.villageId ||
@@ -2961,9 +2965,16 @@ export const initiateBattle = async (
       // War-Torn sectors skip ordinary village and XP bracket restrictions.
       const isInWarTornSector = user.sector === MAP_WAR_TORN_BATTLEGROUND_SECTOR;
       if (!isInWarTornSector) {
+        if (
+          nonAiTargets.some((t) => getWarRelationship(activeWars, user, t) === "ALLY")
+        )
+          return errorResponse("Cannot attack a participant on your war side");
         // Guard 1: Cannot attack members of your own village
         const sameVillageTarget = nonAiTargets.find(
-          (t) => t.villageId !== null && t.villageId === user.villageId,
+          (t) =>
+            t.villageId !== null &&
+            t.villageId === user.villageId &&
+            getWarRelationship(activeWars, user, t) !== "ENEMY",
         );
         if (sameVillageTarget) {
           return {
@@ -2975,7 +2986,9 @@ export const initiateBattle = async (
         // Guard 2: Cannot attack members of allied villages
         const alliedTarget = nonAiTargets.find(
           (t) =>
-            findRelationship(relations, user.villageId, t.villageId)?.status === "ALLY",
+            (getWarRelationship(activeWars, user, t) ??
+              findRelationship(relations, user.villageId, t.villageId)?.status) ===
+            "ALLY",
         );
         if (alliedTarget) {
           return {
@@ -3011,13 +3024,20 @@ export const initiateBattle = async (
             if (t.bracketImmunityLiftedUntil > now) return false;
 
             // Guard 5 (allow): both are active war participants on opposing sides.
-            // Pass activeWars as both arguments so findWarsWithUser expands war allies
-            // correctly for ally-village players who are not the primary attacker/defender.
+            // Effective allegiance includes allied villages and exclusive mercenary appointments.
             const targetIsWarParticipant = t.warParticipantUntil > now;
-            const atWar =
-              findWarsWithUser(activeWars, activeWars, t.villageId, user.villageId)
-                .length > 0;
-            if (attackerIsWarParticipant && targetIsWarParticipant && atWar)
+            const atWar = getWarRelationship(activeWars, user, t) === "ENEMY";
+            if (
+              (attackerIsWarParticipant ||
+                activeWars.some((w) =>
+                  w.warMercenaries?.some((m) => m.userId === user.userId),
+                )) &&
+              (targetIsWarParticipant ||
+                activeWars.some((w) =>
+                  w.warMercenaries?.some((m) => m.userId === t.userId),
+                )) &&
+              atWar
+            )
               return false;
 
             return true; // no exemption — this target is blocked
@@ -3377,12 +3397,7 @@ export const initiateBattle = async (
             return (
               !!attacker &&
               !!target &&
-              findWarsWithUser(
-                activeWars,
-                activeWars,
-                target.villageId,
-                attacker.villageId,
-              ).length > 0
+              getWarRelationship(activeWars, attacker, target) === "ENEMY"
             );
           });
         })
@@ -4512,8 +4527,19 @@ export const processUsersForBattle = async (
       user.latitude = location.y;
     }
 
+    if (
+      (battleType === "COMBAT" || battleType === "SHRINE_WAR") &&
+      info.wars.some((w) => w.warMercenaries?.some((m) => m.userId === user.userId))
+    ) {
+      user.isMasked = true;
+      user.username = "Mercenary";
+      user.avatar = IMG_AVATAR_DEFAULT;
+      user.avatarLight = IMG_AVATAR_DEFAULT;
+    }
+
     // Hide ANBU members who are being attacked (defenders)
     if (
+      !user.isMasked &&
       user.anbuId &&
       user.anbuSquad &&
       battleType === "COMBAT" &&
@@ -5321,6 +5347,7 @@ export const fetchBattleEssentials = async (client: DrizzleClient) => {
     client.query.war.findMany({
       where: eq(war.status, "ACTIVE"),
       with: {
+        warMercenaries: { where: activeWarMercenaryWhere() },
         warAllies: { where: activeWarAllyWhere() },
         attackerVillage: { columns: { name: true, sector: true } },
         defenderVillage: { columns: { name: true, sector: true } },
@@ -5353,7 +5380,7 @@ export const fetchBattleEssentials = async (client: DrizzleClient) => {
   ]);
   return {
     defaultProfile,
-    activeWars,
+    activeWars: withMercenaryParticipation(activeWars),
     settings: [...settings, pvpAverage],
     villages,
     relations,

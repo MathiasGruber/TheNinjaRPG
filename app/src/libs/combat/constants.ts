@@ -90,6 +90,7 @@ export const publicState = [
   "iAmHere",
   "initiative",
   "isAi",
+  "isMasked",
   "isPiloted",
   "isAutoCombat",
   "isSummon",

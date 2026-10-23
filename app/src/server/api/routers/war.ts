@@ -28,6 +28,8 @@ import {
   WAR_DECLARATION_COOLDOWN_HOURS,
   WAR_DECLARATION_COST,
   WAR_FACTION_MAX_SECTORS,
+  WAR_MERCENARY_LIMIT,
+  WAR_MERCENARY_MAX_TOKENS,
   WAR_MINIMUM_MEMBERS_REQUIRED,
   WAR_MINIMUM_TOKENS_FOR_BEING_ATTACKABLE,
   WAR_MISSION_REQUIRED_RANK,
@@ -53,6 +55,7 @@ import {
   warCamp,
   warContribution,
   warKill,
+  warMercenary,
 } from "@/drizzle/schema";
 import { castElderVoteEntry, fetchElderVote, fetchElderVotes } from "@/libs/elder";
 import {
@@ -60,6 +63,7 @@ import {
   getWarSide,
   isObjectiveWarActive,
   maskWarObjectives,
+  withMercenaryParticipation,
 } from "@/libs/objectiveWar";
 import { isAvailableUserQuests } from "@/libs/quest";
 import { findActiveExclusiveRaidForSector } from "@/libs/raids";
@@ -88,6 +92,7 @@ import {
   protectedProcedure,
 } from "@/server/api/trpc";
 import type { DrizzleClient } from "@/server/db";
+import { isMysqlDuplicateKeyError, retryOnDeadlock } from "@/server/utils/mysqlErrors";
 import { applyObjectiveWarAction, fetchWarRules } from "@/server/utils/objectiveWar";
 import { notifyWarVillages } from "@/server/utils/push/war";
 import {
@@ -104,6 +109,12 @@ import {
   closeWarAllyOffer,
   withdrawWarAlly,
 } from "@/server/utils/warAlly";
+import {
+  acceptWarMercenary,
+  activeWarMercenaryWhere,
+  fetchMercenaryWarId,
+  warMissionMembershipGuard,
+} from "@/server/utils/warMercenary";
 import { findRelationship } from "@/utils/alliance";
 import { isKage } from "@/utils/kage";
 import {
@@ -124,6 +135,180 @@ import {
 } from "@/validators/war";
 
 export const warRouter = createTRPCRouter({
+  /** Return the caller's pending and accepted contracts in open wars, including notice. */
+  getMercenaryOffers: protectedProcedure.query(({ ctx }) =>
+    ctx.drizzle.query.warMercenary.findMany({
+      where: and(
+        eq(warMercenary.userId, ctx.userId),
+        isNull(warMercenary.endedAt),
+        sql`EXISTS (SELECT 1 FROM War w WHERE w.id = ${warMercenary.warId} AND w.status = 'ACTIVE' AND w.endedAt IS NULL AND w.attackerWarHealth > 0 AND w.defenderWarHealth > 0 AND SYSDATE(3) < DATE_ADD(w.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(w.rules, '$.durationDays') AS UNSIGNED) DAY))`,
+      ),
+      with: {
+        village: { columns: { name: true } },
+        war: {
+          columns: { id: true },
+          with: {
+            attackerVillage: { columns: { name: true } },
+            defenderVillage: { columns: { name: true } },
+          },
+        },
+      },
+    }),
+  ),
+  /** Return a private unended roster; only the player and employing Kage see each entry. */
+  getMercenaries: protectedProcedure
+    .input(warIdSchema)
+    .query(async ({ ctx, input }) => {
+      const [user, activeWar, roster, ledVillage] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        ctx.drizzle.query.war.findFirst({ where: eq(war.id, input.warId) }),
+        ctx.drizzle.query.warMercenary.findMany({
+          where: and(eq(warMercenary.warId, input.warId), isNull(warMercenary.endedAt)),
+          with: { user: { columns: { username: true } } },
+        }),
+        ctx.drizzle.query.village.findFirst({
+          where: eq(village.kageId, ctx.userId),
+          columns: { id: true },
+        }),
+      ]);
+      const canHire =
+        !!activeWar?.rules &&
+        activeWar.status === "ACTIVE" &&
+        !activeWar.endedAt &&
+        !!ledVillage &&
+        user.villageId === ledVillage.id &&
+        [activeWar.attackerVillageId, activeWar.defenderVillageId].includes(
+          ledVillage.id,
+        );
+      return {
+        canHire: canHire && !user.isBanned,
+        roster: roster.filter(
+          (m) =>
+            m.userId === ctx.userId || (canHire && m.sideVillageId === ledVillage?.id),
+        ),
+      };
+    }),
+  /** Reserve a pending slot for a main village's Kage; tokens are charged on acceptance. */
+  inviteMercenary: protectedProcedure
+    .input(
+      z.object({
+        warId: z.string(),
+        userId: z.string(),
+        tokens: z.number().int().min(1).max(WAR_MERCENARY_MAX_TOKENS),
+      }),
+    )
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const [user, target, activeWar, payer, roster] = await Promise.all([
+        fetchUser(ctx.drizzle, ctx.userId),
+        fetchUser(ctx.drizzle, input.userId),
+        ctx.drizzle.query.war.findFirst({
+          where: eq(war.id, input.warId),
+          with: { warAllies: { where: activeWarAllyWhere() } },
+        }),
+        ctx.drizzle.query.village.findFirst({ where: eq(village.kageId, ctx.userId) }),
+        ctx.drizzle.query.warMercenary.findMany({
+          where: and(eq(warMercenary.warId, input.warId), isNull(warMercenary.endedAt)),
+        }),
+      ]);
+      if (
+        !activeWar?.rules ||
+        activeWar.status !== "ACTIVE" ||
+        activeWar.endedAt ||
+        !payer ||
+        user.villageId !== payer.id ||
+        ![activeWar.attackerVillageId, activeWar.defenderVillageId].includes(payer.id)
+      )
+        return errorResponse(
+          "Only a participating village's Kage can hire mercenaries.",
+        );
+      if (
+        user.isBanned ||
+        target.isBanned ||
+        target.isAi ||
+        target.villageId === payer.id ||
+        (getWarSide(activeWar, target.villageId) &&
+          getWarSide(activeWar, target.villageId) !== payer.id)
+      )
+        return errorResponse(
+          "Choose a player from another non-enemy village, an ally, or an outlaw.",
+        );
+      if (payer.tokens < input.tokens)
+        return errorResponse("Your village does not have enough tokens.");
+      const slots = new Set(
+        roster.filter((m) => m.sideVillageId === payer.id).map((m) => m.slot),
+      );
+      const slot = Array.from(
+        { length: WAR_MERCENARY_LIMIT },
+        (_, index) => index,
+      ).find((index) => !slots.has(index));
+      if (slot === undefined)
+        return errorResponse(
+          "All mercenary slots are occupied. Pending invitations reserve a slot.",
+        );
+      try {
+        const saved = await retryOnDeadlock(() =>
+          ctx.drizzle.execute(sql`
+        INSERT INTO WarMercenary (id, warId, sideVillageId, userId, invitedById, tokens, slot)
+        SELECT ${nanoid()}, w.id, payer.id, ${input.userId}, ${ctx.userId}, ${input.tokens}, ${slot}
+        FROM War w INNER JOIN Village payer ON payer.id IN (w.attackerVillageId, w.defenderVillageId)
+        WHERE w.id = ${input.warId} AND w.status = 'ACTIVE' AND w.endedAt IS NULL AND w.rules IS NOT NULL
+          AND payer.id = ${payer.id} AND payer.kageId = ${ctx.userId} AND payer.tokens >= ${input.tokens}
+          AND w.attackerWarHealth > 0 AND w.defenderWarHealth > 0
+          AND SYSDATE(3) < DATE_ADD(w.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(w.rules, '$.durationDays') AS UNSIGNED) DAY)
+      `),
+        );
+        return saved.rowsAffected > 0
+          ? {
+              success: true,
+              message:
+                "Invitation sent. Tokens are charged only when the player accepts.",
+            }
+          : errorResponse("The war, Kage or balance changed. Refresh and try again.");
+      } catch (error) {
+        if (isMysqlDuplicateKeyError(error))
+          return errorResponse(
+            "The roster changed or this player is already invited. Refresh and try again.",
+          );
+        throw error;
+      }
+    }),
+  /** Accept the caller's invitation, atomically exchanging village tokens for player Ryo. */
+  acceptMercenary: protectedProcedure
+    .input(z.object({ contractId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(({ ctx, input }) =>
+      acceptWarMercenary(ctx.drizzle, input.contractId, ctx.userId),
+    ),
+  /**
+   * Let the player or employing Kage close a contract without refunding payment.
+   * Clear an unfinished mission only when it matches an accepted contract's war and
+   * side; pending cancellations preserve the player's missions.
+   */
+  leaveMercenary: protectedProcedure
+    .input(z.object({ contractId: z.string() }))
+    .output(baseServerResponse)
+    .mutation(async ({ ctx, input }) => {
+      const saved = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+      UPDATE WarMercenary m INNER JOIN Village v ON v.id = m.sideVillageId
+      INNER JOIN UserData participant ON participant.userId = m.userId
+      SET m.endedAt = SYSDATE(3), participant.warMission = CASE
+        WHEN m.acceptedAt IS NOT NULL
+          AND JSON_UNQUOTE(JSON_EXTRACT(participant.warMission, '$.warId')) = m.warId
+          AND JSON_UNQUOTE(JSON_EXTRACT(participant.warMission, '$.sideVillageId')) = m.sideVillageId
+        THEN NULL ELSE participant.warMission END
+      WHERE m.id = ${input.contractId} AND m.endedAt IS NULL
+        AND (m.userId = ${ctx.userId} OR v.kageId = ${ctx.userId})
+    `),
+      );
+      return saved.rowsAffected > 0
+        ? {
+            success: true,
+            message: "Mercenary contract closed. Payments are not refunded.",
+          }
+        : errorResponse("Contract already closed or you are not authorized.");
+    }),
   /** Read configurable defaults; approved wars use their own immutable snapshots. */
   getRules: protectedProcedure.query(({ ctx }) => fetchWarRules(ctx.drizzle)),
   /** Save the complete staff configuration in one upsert, without a transaction. */
@@ -165,12 +350,15 @@ export const warRouter = createTRPCRouter({
         completedQuests,
         ownVillage,
         kills,
+        mercenaryHistory,
+        mercenaryWarId,
       ] = await Promise.all([
         ctx.drizzle.query.war.findFirst({
           where: eq(war.id, input.warId),
           with: {
             attackerVillage: { columns: { name: true, sector: true } },
             defenderVillage: { columns: { name: true, sector: true } },
+            warMercenaries: { where: activeWarMercenaryWhere() },
             warAllies: { where: activeWarAllyWhere() },
           },
         }),
@@ -213,12 +401,34 @@ export const warRouter = createTRPCRouter({
             victim: { columns: { username: true } },
           },
         }),
+        ctx.drizzle.query.warMercenary.findMany({
+          columns: { userId: true },
+          where: and(
+            eq(warMercenary.warId, input.warId),
+            sql`${warMercenary.acceptedAt} IS NOT NULL`,
+          ),
+        }),
+        fetchMercenaryWarId(ctx.drizzle, ctx.userId),
       ]);
-      if (!activeWar?.rules || !getWarSide(activeWar, user.villageId)) return null;
-      const side = getWarSide(activeWar, user.villageId)!;
+      if (
+        !activeWar?.rules ||
+        !getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId)
+      )
+        return null;
+      const side = getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId)!;
+      const mercenaryIds = new Set(mercenaryHistory.map((m) => m.userId));
+      const isMasked = (id: string) => mercenaryIds.has(id) && id !== ctx.userId;
+      const displayName = (id: string, name: string | null | undefined) =>
+        isMasked(id) ? "Mercenary" : (name ?? "Unknown ninja");
       const combatContributions = new Map<
         string,
-        { userId: string; username: string; kills: number; losses: number }
+        {
+          userId: string;
+          username: string;
+          isMasked: boolean;
+          kills: number;
+          losses: number;
+        }
       >();
       for (const kill of kills) {
         for (const participant of [
@@ -227,7 +437,8 @@ export const warRouter = createTRPCRouter({
         ]) {
           const contribution = combatContributions.get(participant.userId) ?? {
             userId: participant.userId,
-            username: participant.user?.username ?? "Unknown ninja",
+            username: displayName(participant.userId, participant.user?.username),
+            isMasked: isMasked(participant.userId),
             kills: 0,
             losses: 0,
           };
@@ -240,6 +451,7 @@ export const warRouter = createTRPCRouter({
           activeWar,
           user.villageId,
           user.rank === "ELDER" || ownVillage[0]?.kageId === user.userId,
+          ctx.userId,
         ),
         missions: missions
           .filter(
@@ -258,13 +470,23 @@ export const warRouter = createTRPCRouter({
               .map((o) => ({ questId: q.id, name: q.name, objective: o })),
           ),
         camps,
-        contributions,
-        combatContributions: [...combatContributions.values()].sort(
-          (a, b) =>
-            b.kills - a.kills ||
-            a.losses - b.losses ||
-            a.username.localeCompare(b.username),
-        ),
+        contributions: contributions.map((row) => ({
+          ...row,
+          userId: isMasked(row.userId) ? null : row.userId,
+          username: displayName(row.userId, row.username),
+          isMasked: isMasked(row.userId),
+        })),
+        combatContributions: [...combatContributions.values()]
+          .map((row) => ({
+            ...row,
+            userId: row.isMasked ? null : row.userId,
+          }))
+          .sort(
+            (a, b) =>
+              b.kills - a.kills ||
+              a.losses - b.losses ||
+              a.username.localeCompare(b.username),
+          ),
         attempt: user.warMission,
       };
     }),
@@ -273,22 +495,29 @@ export const warRouter = createTRPCRouter({
     .input(startWarMissionSchema)
     .output(baseServerResponse)
     .mutation(async ({ ctx, input }) => {
-      const [activeWar, user, mission, completedQuests] = await Promise.all([
-        ctx.drizzle.query.war.findFirst({
-          where: eq(war.id, input.warId),
-          with: { warAllies: { where: activeWarAllyWhere() } },
-        }),
-        fetchUser(ctx.drizzle, ctx.userId),
-        ctx.drizzle.query.quest.findFirst({ where: eq(quest.id, input.questId) }),
-        ctx.drizzle.query.questHistory.findMany({
-          columns: { id: true, questId: true, completed: true },
-          where: and(
-            eq(questHistory.userId, ctx.userId),
-            eq(questHistory.completed, 1),
-          ),
-        }),
-      ]);
-      const side = activeWar ? getWarSide(activeWar, user.villageId) : null;
+      const [activeWar, user, mission, completedQuests, mercenaryWarId] =
+        await Promise.all([
+          ctx.drizzle.query.war.findFirst({
+            where: eq(war.id, input.warId),
+            with: {
+              warMercenaries: { where: activeWarMercenaryWhere() },
+              warAllies: { where: activeWarAllyWhere() },
+            },
+          }),
+          fetchUser(ctx.drizzle, ctx.userId),
+          ctx.drizzle.query.quest.findFirst({ where: eq(quest.id, input.questId) }),
+          ctx.drizzle.query.questHistory.findMany({
+            columns: { id: true, questId: true, completed: true },
+            where: and(
+              eq(questHistory.userId, ctx.userId),
+              eq(questHistory.completed, 1),
+            ),
+          }),
+          fetchMercenaryWarId(ctx.drizzle, ctx.userId),
+        ]);
+      const side = activeWar
+        ? getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId)
+        : null;
       const objective = mission?.content.objectives.find(
         (o) => o.id === input.objectiveId,
       );
@@ -296,7 +525,6 @@ export const warRouter = createTRPCRouter({
         !activeWar?.rules ||
         activeWar.endedAt ||
         !side ||
-        !user.villageId ||
         !mission ||
         mission.hidden ||
         mission.questType !== "war" ||
@@ -364,14 +592,16 @@ export const warRouter = createTRPCRouter({
             eq(userData.userId, ctx.userId),
             eq(userData.status, "AWAKE"),
             isNull(userData.warMission),
-            eq(userData.villageId, user.villageId),
+            user.villageId
+              ? eq(userData.villageId, user.villageId)
+              : isNull(userData.villageId),
             eq(userData.sector, user.sector),
             eq(userData.isBanned, false),
             sql`EXISTS (SELECT 1 FROM War currentWar WHERE currentWar.id = ${activeWar.id} AND currentWar.endedAt IS NULL AND currentWar.status = 'ACTIVE'
               AND currentWar.attackerWarHealth > 0 AND currentWar.defenderWarHealth > 0
               AND currentWar.combatStartedAt <= SYSDATE(3)
               AND SYSDATE(3) < DATE_ADD(currentWar.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(currentWar.rules, '$.durationDays') AS UNSIGNED) DAY)
-              AND (${userData.villageId} = ${side} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = currentWar.id AND membership.villageId = ${userData.villageId} AND membership.supportVillageId = ${side} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)))`,
+              AND ${warMissionMembershipGuard(activeWar.id, side, ctx.userId)})`,
           ),
         );
       if (!saved.rowsAffected)
@@ -394,10 +624,16 @@ export const warRouter = createTRPCRouter({
         return errorResponse(
           `War missions require ${capitalizeFirstLetter(WAR_MISSION_REQUIRED_RANK)} rank or higher`,
         );
-      const activeWar = await ctx.drizzle.query.war.findFirst({
-        where: eq(war.id, attempt.warId),
-        with: { warAllies: { where: activeWarAllyWhere() } },
-      });
+      const [activeWar, mercenaryWarId] = await Promise.all([
+        ctx.drizzle.query.war.findFirst({
+          where: eq(war.id, attempt.warId),
+          with: {
+            warMercenaries: { where: activeWarMercenaryWhere() },
+            warAllies: { where: activeWarAllyWhere() },
+          },
+        }),
+        fetchMercenaryWarId(ctx.drizzle, ctx.userId),
+      ]);
       if (activeWar && !isObjectiveWarActive(activeWar))
         return errorResponse("War missions are only available during active combat");
       if (
@@ -406,7 +642,8 @@ export const warRouter = createTRPCRouter({
         user.isBanned ||
         user.status !== "AWAKE" ||
         user.villageId !== attempt.villageId ||
-        getWarSide(activeWar, user.villageId) !== attempt.sideVillageId ||
+        getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId) !==
+          attempt.sideVillageId ||
         user.sector !== attempt.sector
       )
         return errorResponse(
@@ -442,10 +679,17 @@ export const warRouter = createTRPCRouter({
               and(
                 eq(userData.userId, user.userId),
                 eq(userData.status, "AWAKE"),
-                eq(userData.villageId, attempt.villageId),
+                attempt.villageId
+                  ? eq(userData.villageId, attempt.villageId)
+                  : isNull(userData.villageId),
                 eq(userData.sector, attempt.sector),
                 sql`JSON_UNQUOTE(JSON_EXTRACT(${userData.warMission}, '$.id')) = ${attempt.id}`,
                 sql`SYSDATE(3) >= ${new Date(attempt.endsAt)}`,
+                warMissionMembershipGuard(
+                  activeWar.id,
+                  attempt.sideVillageId,
+                  ctx.userId,
+                ),
               ),
             );
           return result.rowsAffected > 0;
@@ -477,9 +721,10 @@ export const warRouter = createTRPCRouter({
   attackWarCamp: protectedProcedure
     .input(warCampSchema)
     .mutation(async ({ ctx, input }) => {
-      const [camp, user] = await Promise.all([
+      const [camp, user, mercenaryWarId] = await Promise.all([
         ctx.drizzle.query.warCamp.findFirst({ where: eq(warCamp.id, input.campId) }),
         fetchUser(ctx.drizzle, ctx.userId),
+        fetchMercenaryWarId(ctx.drizzle, ctx.userId),
       ]);
       if (
         !camp ||
@@ -490,9 +735,14 @@ export const warRouter = createTRPCRouter({
         return errorResponse("War camp is closed");
       const activeWar = await ctx.drizzle.query.war.findFirst({
         where: eq(war.id, camp.warId),
-        with: { warAllies: { where: activeWarAllyWhere() } },
+        with: {
+          warMercenaries: { where: activeWarMercenaryWhere() },
+          warAllies: { where: activeWarAllyWhere() },
+        },
       });
-      const side = activeWar ? getWarSide(activeWar, user.villageId) : null;
+      const side = activeWar
+        ? getWarSide(activeWar, user.villageId, user.userId, mercenaryWarId)
+        : null;
       if (
         !activeWar ||
         !side ||
@@ -517,10 +767,12 @@ export const warRouter = createTRPCRouter({
         "SHRINE_WAR",
       );
     }),
-  /** List open camps for main villages and their accepted, active allies. */
+  /**
+   * List open camps for main villages, accepted allies and mercenaries, respecting
+   * the player's exclusive mercenary appointment.
+   */
   getWarCampNotices: protectedProcedure.query(async ({ ctx }) => {
     const user = await fetchUser(ctx.drizzle, ctx.userId);
-    if (!user.villageId) return [];
     return ctx.drizzle
       .select({ id: warCamp.id, sector: warCamp.sector, endsAt: warCamp.endsAt })
       .from(warCamp)
@@ -528,13 +780,17 @@ export const warRouter = createTRPCRouter({
       .where(
         and(
           isNull(war.endedAt),
+          sql`NOT EXISTS (SELECT 1 FROM WarMercenary exclusiveMerc INNER JOIN War exclusiveWar ON exclusiveWar.id = exclusiveMerc.warId WHERE exclusiveMerc.userId = ${ctx.userId} AND exclusiveMerc.warId != ${war.id} AND exclusiveMerc.acceptedAt IS NOT NULL AND exclusiveMerc.endedAt IS NULL AND exclusiveWar.status = 'ACTIVE' AND exclusiveWar.endedAt IS NULL AND exclusiveWar.attackerWarHealth > 0 AND exclusiveWar.defenderWarHealth > 0 AND SYSDATE(3) < DATE_ADD(exclusiveWar.combatStartedAt, INTERVAL CAST(JSON_EXTRACT(exclusiveWar.rules, '$.durationDays') AS UNSIGNED) DAY))`,
+          eq(war.status, "ACTIVE"),
+          sql`${war.combatStartedAt} <= SYSDATE(3) AND SYSDATE(3) < DATE_ADD(${war.combatStartedAt}, INTERVAL CAST(JSON_EXTRACT(${war.rules}, '$.durationDays') AS UNSIGNED) DAY)`,
           gt(war.attackerWarHealth, 0),
           gt(war.defenderWarHealth, 0),
           isNull(warCamp.resolvedAt),
           sql`${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)`,
           or(
-            eq(war.attackerVillageId, user.villageId),
-            eq(war.defenderVillageId, user.villageId),
+            user.villageId ? eq(war.attackerVillageId, user.villageId) : undefined,
+            user.villageId ? eq(war.defenderVillageId, user.villageId) : undefined,
+            sql`EXISTS (SELECT 1 FROM WarMercenary m WHERE m.warId = ${war.id} AND m.userId = ${ctx.userId} AND m.acceptedAt IS NOT NULL AND m.endedAt IS NULL)`,
             sql`EXISTS (SELECT 1 FROM WarAlly WHERE warId = ${war.id} AND villageId = ${user.villageId} AND acceptedAt IS NOT NULL AND endedAt IS NULL)`,
           ),
         ),
@@ -613,28 +869,41 @@ export const warRouter = createTRPCRouter({
             : "Faction unavailable"),
       }));
     }),
-  // Get active wars for a village
+  /**
+   * Return the viewer's effective participation for their own or an empty village ID;
+   * other village IDs filter village participation. Mask objectives for the viewer.
+   */
   getActiveWars: protectedProcedure
     .meta({
-      mcp: { description: "Get active wars for a village" },
+      mcp: {
+        description:
+          "Get active wars for your effective participation when villageId is your own or empty; otherwise, get wars involving the requested village. Objectives follow your viewing permissions.",
+      },
     })
     .input(z.object({ villageId: z.string() }))
     .query(async ({ ctx, input }) => {
       const [wars, viewer, ledVillage] = await Promise.all([
-        fetchActiveWars(ctx.drizzle, input.villageId),
+        fetchActiveWars(ctx.drizzle),
         fetchUser(ctx.drizzle, ctx.userId),
         ctx.drizzle.query.village.findFirst({
           columns: { id: true },
           where: eq(village.kageId, ctx.userId),
         }),
       ]);
-      return wars.map((w) =>
-        maskWarObjectives(
-          w,
-          viewer.villageId,
-          viewer.rank === "ELDER" || ledVillage?.id === viewer.villageId,
-        ),
-      );
+      return wars
+        .filter((w) =>
+          input.villageId === viewer.villageId || !input.villageId
+            ? !!getWarSide(w, viewer.villageId, ctx.userId)
+            : isVillageInvolvedInAnyWar([w], input.villageId),
+        )
+        .map((w) =>
+          maskWarObjectives(
+            w,
+            viewer.villageId,
+            viewer.rank === "ELDER" || ledVillage?.id === viewer.villageId,
+            ctx.userId,
+          ),
+        );
     }),
 
   // Get ended wars for a village
@@ -1620,18 +1889,53 @@ export const warRouter = createTRPCRouter({
     .meta({ mcp: { description: "Get war kill records" } })
     .input(z.object({ warId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const results = await ctx.drizzle.query.warKill.findMany({
-        where: eq(warKill.warId, input.warId),
-        with: {
-          killer: { columns: { userId: true, avatar: true, username: true } },
-          victim: { columns: { userId: true, avatar: true, username: true } },
-          killerVillage: { columns: { id: true, name: true } },
-          victimVillage: { columns: { id: true, name: true } },
-        },
-        orderBy: [desc(warKill.killedAt)],
-      });
-      // Ensure killer and victim are not null
-      return results.filter((kill) => kill.killer && kill.victim);
+      const [results, mercenaryHistory] = await Promise.all([
+        ctx.drizzle.query.warKill.findMany({
+          where: eq(warKill.warId, input.warId),
+          with: {
+            killer: { columns: { userId: true, avatar: true, username: true } },
+            victim: { columns: { userId: true, avatar: true, username: true } },
+            killerVillage: { columns: { id: true, name: true } },
+            victimVillage: { columns: { id: true, name: true } },
+          },
+          orderBy: [desc(warKill.killedAt)],
+        }),
+        ctx.drizzle.query.warMercenary.findMany({
+          columns: { userId: true },
+          where: and(
+            eq(warMercenary.warId, input.warId),
+            sql`${warMercenary.acceptedAt} IS NOT NULL`,
+          ),
+        }),
+      ]);
+      // Accepted contracts keep identities private after dismissal; recorded villages
+      // are credited war sides and remain visible alongside the kill records.
+      const maskedIds = new Set(
+        mercenaryHistory.filter((m) => m.userId !== ctx.userId).map((m) => m.userId),
+      );
+      return results
+        .filter((kill) => kill.killer && kill.victim)
+        .map((kill) => ({
+          ...kill,
+          killerId: maskedIds.has(kill.killerId) ? null : kill.killerId,
+          victimId: maskedIds.has(kill.victimId) ? null : kill.victimId,
+          killer: maskedIds.has(kill.killerId)
+            ? {
+                ...kill.killer,
+                userId: null,
+                username: "Mercenary",
+                avatar: IMG_AVATAR_DEFAULT,
+              }
+            : kill.killer,
+          victim: maskedIds.has(kill.victimId)
+            ? {
+                ...kill.victim,
+                userId: null,
+                username: "Mercenary",
+                avatar: IMG_AVATAR_DEFAULT,
+              }
+            : kill.victim,
+        }));
     }),
 
   getWarKillStats: protectedProcedure
@@ -1645,47 +1949,54 @@ export const warRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      // If total kills
-      if (input.aggregateBy === "totalKills") {
-        return await ctx.drizzle
+      // Damage contributions count positive values only; negative values are losses.
+      const aggregateField =
+        input.aggregateBy === "townhallHpChange"
+          ? warKill.townhallHpChange
+          : warKill.shrineHpChange;
+      const aggregate =
+        input.aggregateBy === "totalKills"
+          ? count()
+          : sql<number>`sum(GREATEST(${aggregateField}, 0))`;
+      const [results, mercenaryHistory] = await Promise.all([
+        ctx.drizzle
           .select({
             killerId: warKill.killerId,
             killerUsername: userData.username,
             villageId: userData.villageId,
             villageName: village.name,
             killerAvatar: userData.avatar,
-            count: count(),
+            count: aggregate,
           })
           .from(warKill)
           .leftJoin(userData, eq(warKill.killerId, userData.userId))
           .leftJoin(village, eq(userData.villageId, village.id))
           .where(eq(warKill.warId, input.warId))
           .groupBy(warKill.killerId)
-          .orderBy(desc(count()));
-      }
-
-      // Other aggregate fields - only sum positive values (actual damage contribution)
-      // Negative values represent losses, which shouldn't count as "damage dealt"
-      const aggregateField =
-        input.aggregateBy === "townhallHpChange"
-          ? warKill.townhallHpChange
-          : warKill.shrineHpChange;
-
-      return await ctx.drizzle
-        .select({
-          killerId: warKill.killerId,
-          killerUsername: userData.username,
-          villageId: userData.villageId,
-          villageName: village.name,
-          killerAvatar: userData.avatar,
-          count: sql<number>`sum(GREATEST(${aggregateField}, 0))`,
-        })
-        .from(warKill)
-        .leftJoin(userData, eq(warKill.killerId, userData.userId))
-        .leftJoin(village, eq(userData.villageId, village.id))
-        .where(eq(warKill.warId, input.warId))
-        .groupBy(warKill.killerId)
-        .orderBy(desc(sql<number>`sum(GREATEST(${aggregateField}, 0))`));
+          .orderBy(desc(aggregate)),
+        ctx.drizzle.query.warMercenary.findMany({
+          columns: { userId: true },
+          where: and(
+            eq(warMercenary.warId, input.warId),
+            sql`${warMercenary.acceptedAt} IS NOT NULL`,
+          ),
+        }),
+      ]);
+      const maskedIds = new Set(
+        mercenaryHistory.filter((m) => m.userId !== ctx.userId).map((m) => m.userId),
+      );
+      return results.map((row) =>
+        maskedIds.has(row.killerId)
+          ? {
+              ...row,
+              killerId: null,
+              killerUsername: "Mercenary",
+              killerAvatar: IMG_AVATAR_DEFAULT,
+              villageId: null,
+              villageName: null,
+            }
+          : row,
+      );
     }),
 
   // Get pending elder votes for a village
@@ -2017,14 +2328,20 @@ export const warRouter = createTRPCRouter({
 });
 
 /**
- * Fetch active wars for a village
+ * Settle due wars and load accepted, unended allies and mercenaries. Build exclusive
+ * mercenary assignments across all open wars before applying participation filters.
  * @param client - The database client
- * @param villageId - The ID of the village
+ * @param villageId - Optional village participation filter
+ * @param userId - With villageId, filter by the player's effective allegiance instead
  * @returns The active wars
  */
-export const fetchActiveWars = async (client: DrizzleClient, villageId?: string) => {
-  // Fetch from database the active ones
-  let activeWars = await client.query.war.findMany({
+export const fetchActiveWars = async (
+  client: DrizzleClient,
+  villageId?: string,
+  userId?: string,
+) => {
+  // Include pending settlements so ended wars can finish their strategic writes.
+  let activeWars: FetchActiveWarsReturnType[] = await client.query.war.findMany({
     where: or(eq(war.status, "ACTIVE"), eq(war.settlementPending, true)),
     with: {
       attackerVillage: {
@@ -2033,6 +2350,7 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       defenderVillage: {
         with: { structures: true },
       },
+      warMercenaries: { where: activeWarMercenaryWhere() },
       warAllies: {
         where: activeWarAllyWhere(),
         with: {
@@ -2041,25 +2359,29 @@ export const fetchActiveWars = async (client: DrizzleClient, villageId?: string)
       },
     },
   });
-  // Process the wars and end the ones that need to be ended
+  // Settle before filtering so expired appointments no longer exclude other wars.
   activeWars = await Promise.all(
     activeWars
       .filter((war) => war.attackerVillage && war.defenderVillage)
       .map((war) => handleWarEnd(war, client)),
   );
-  // Final active wars
-  activeWars = activeWars.filter(
+  // Resolve cross-war exclusivity before narrowing to a village or player.
+  activeWars = withMercenaryParticipation(activeWars).filter(
     (war) =>
       war.status === "ACTIVE" &&
-      (!villageId || isVillageInvolvedInAnyWar([war], villageId)),
+      (!villageId ||
+        (userId
+          ? !!getWarSide(war, villageId, userId)
+          : isVillageInvolvedInAnyWar([war], villageId))),
   );
 
-  // Return active wars
   return activeWars;
 };
 
 export type FetchActiveWarsReturnType = War & {
   warAllies: (WarAlly & { village: Village })[];
+  warMercenaries?: import("@/drizzle/schema").WarMercenary[];
+  mercenaryWarIds?: Record<string, string>;
   attackerVillage: Village & { structures: VillageStructure[] };
   defenderVillage: Village & { structures: VillageStructure[] };
 };
@@ -2080,6 +2402,7 @@ export const fetchActiveWar = async (client: DrizzleClient, warId: string) => {
       defenderVillage: {
         with: { structures: true },
       },
+      warMercenaries: { where: activeWarMercenaryWhere() },
       warAllies: {
         where: activeWarAllyWhere(),
         with: {

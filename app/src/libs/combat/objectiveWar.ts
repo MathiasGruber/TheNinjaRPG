@@ -7,17 +7,32 @@ import type {
   CompleteBattle,
 } from "@/libs/combat/types";
 import { getBattleTeamWars, getOpposingBattleWars } from "@/libs/combat/util";
-import { getWarSide, isObjectiveWarActive } from "@/libs/objectiveWar";
+import {
+  getWarSide,
+  isObjectiveWarActive,
+  isObjectiveWarOpen,
+} from "@/libs/objectiveWar";
 import type { DrizzleClient } from "@/server/db";
 import { applyObjectiveWarAction } from "@/server/utils/objectiveWar";
 import { checkAssassin, checkCoLeader } from "@/validators/clan";
 import type { WarRules } from "@/validators/war";
 
-/** Apply role precedence using only the villages and clans captured at battle initiation. */
+/**
+ * Use battle-initiation snapshots; an open mercenary appointment grants ANBU role
+ * precedence over the player's village and clan roles.
+ */
 export const getObjectiveWarRole = (
   battle: CompleteBattle,
   user: BattleUserState,
 ): "leader" | "elder" | "coleader" | "anbu" | "assassin" | "regular" => {
+  if (
+    Object.values(battle.extraState.wars).some(
+      (w) =>
+        isObjectiveWarOpen(w) &&
+        w.warMercenaries?.some((m) => m.userId === user.userId),
+    )
+  )
+    return "anbu";
   const village = user.villageId
     ? battle.extraState.villages[user.villageId]
     : undefined;
@@ -40,15 +55,7 @@ export const settleObjectiveWarCombat = async (
   result: CombatResult,
   user: BattleUserState,
 ) => {
-  if (
-    !result.didWin ||
-    user.isAi ||
-    user.isSummon ||
-    user.fledBattle ||
-    !user.villageId
-  )
-    return;
-  const userVillageId = user.villageId;
+  if (!result.didWin || user.isAi || user.isSummon || user.fledBattle) return;
   const opponents = battle.usersState.filter(
     (target) =>
       !target.isSummon &&
@@ -65,10 +72,13 @@ export const settleObjectiveWarCombat = async (
     participatingWars
       .filter((w) => w.rules && isObjectiveWarActive(w))
       .map(async (w) => {
-        const sideVillageId = getWarSide(w, user.villageId);
+        const sideVillageId = getWarSide(w, user.villageId, user.userId);
         // Shared combat teams cannot grant a non-participant village strategic credit.
         if (!sideVillageId) return;
         const rules = w.rules as WarRules;
+        const hasMercenarySnapshot = !!w.warMercenaries?.some(
+          (m) => m.userId === user.userId && m.sideVillageId === sideVillageId,
+        );
         const camp = battle.extraState.warCamp;
         if (
           camp &&
@@ -83,6 +93,7 @@ export const settleObjectiveWarCombat = async (
             id: `${battle.id}:${user.userId}:${w.id}`,
             userId: user.userId,
             sideVillageId,
+            hasMercenarySnapshot,
             camp,
           });
           return;
@@ -97,6 +108,7 @@ export const settleObjectiveWarCombat = async (
             id: `${battle.id}:${user.userId}:${w.id}`,
             userId: user.userId,
             sideVillageId,
+            hasMercenarySnapshot,
             objectiveIndex,
             shrineDamage: rules.guardianDamage,
           });
@@ -116,6 +128,7 @@ export const settleObjectiveWarCombat = async (
           id: `${battle.id}:${user.userId}:${w.id}`,
           userId: user.userId,
           sideVillageId,
+          hasMercenarySnapshot,
           damage: rules[`${role}Damage`] * defeated.length,
           recovery: rules[`${role}Recovery`] * defeated.length,
           espionage: WAR_PVP_ESPIONAGE_POINTS * defeated.length,
@@ -124,8 +137,11 @@ export const settleObjectiveWarCombat = async (
             warId: w.id,
             killerId: user.userId,
             victimId: target.userId,
-            killerVillageId: userVillageId,
-            victimVillageId: target.villageId ?? "unknown",
+            killerVillageId: sideVillageId,
+            victimVillageId:
+              getWarSide(w, target.villageId, target.userId) ??
+              target.villageId ??
+              "unknown",
             sector: user.sector,
             shrineHpChange: 0,
             townhallHpChange: 0,

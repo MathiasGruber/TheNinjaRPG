@@ -50,6 +50,8 @@ import type { DmgConfig } from "./constants";
 import type { CombatCacheSnapshot, CombatProfileUpdate } from "./userCache";
 
 export type BattleWar = War & {
+  mercenaryWarIds?: Record<string, string>;
+  warMercenaries?: { userId: string; sideVillageId: string }[];
   warAllies: { villageId: string; supportVillageId: string }[];
   attackerVillage: { name: string; sector?: number } | null;
   defenderVillage: { name: string; sector?: number } | null;
@@ -164,6 +166,8 @@ export type ProcessedItem = CombatQueryUserItem & {
  * Shared between ProcessingBattleUser and BattleUserState.
  */
 export type CombatUserFields = {
+  /** Identity masking captured with the combatant's battle snapshot. */
+  isMasked?: boolean;
   /** Damage already deferred by Diffuse; survives the granting effect's expiry. */
   diffuseDamage?: {
     attackerId: string;

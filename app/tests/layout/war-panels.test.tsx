@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as navigation from "next/navigation";
 import { type ComponentProps, type ReactNode, useState } from "react";
 import * as client from "@/app/_trpc/client";
 import type { RouterOutputs } from "@/app/_trpc/client";
@@ -14,6 +15,7 @@ import * as modal from "@/layout/Modal";
 import { ObjectiveWarPanel } from "@/layout/ObjectiveWarPanel";
 import { WarDashboardNotices } from "@/layout/WarDashboardNotices";
 import { WarFieldActions } from "@/layout/WarFieldActions";
+import { WarMercenaries } from "@/layout/WarMercenaries";
 import type { UserWithRelations } from "@/routers/profile";
 import * as routing from "@/utils/routing";
 import * as UserContext from "@/utils/UserContext";
@@ -103,6 +105,7 @@ let wars: {
   attackerVillage: { name: string };
   defenderVillage: { name: string };
 }[];
+let mercenaries: RouterOutputs["war"]["getMercenaries"];
 let claims: RouterOutputs["war"]["getWarPointClaims"];
 let camps: RouterOutputs["war"]["getWarCampNotices"];
 let claimError: Error | null;
@@ -138,6 +141,7 @@ const makeInfo = (): ObjectiveInfo => ({
     defenderWarHealth: 6000,
     defenderWarHealthMax: 10000,
     warAllies: [],
+    warMercenaries: [],
     objectiveState: {
       attackerEspionage: WAR_ESPIONAGE_TARGET,
       defenderEspionage: 0,
@@ -206,6 +210,7 @@ const readyAttempt = (endsAt = new Date(NOW - 1000).toISOString()) => ({
 
 beforeEach(() => {
   ensureDom();
+  vi.spyOn(navigation, "useRouter").mockReturnValue(router);
   globalThis.Event = window.Event;
   globalThis.CustomEvent = window.CustomEvent;
   vi.clearAllMocks();
@@ -223,6 +228,7 @@ beforeEach(() => {
   claimError = null;
   isPending = false;
   claims = [];
+  mercenaries = { canHire: false, roster: [] };
   camps = [];
   wars = [
     {
@@ -242,6 +248,11 @@ beforeEach(() => {
       profile: { getUser: { invalidate: invalidateUser } },
     }),
     war: {
+      getMercenaries: { useQuery: () => ({ data: mercenaries }) },
+      getMercenaryOffers: { useQuery: () => ({ data: [] }) },
+      inviteMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+      acceptMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
+      leaveMercenary: { useMutation: () => ({ isPending: false, mutate: vi.fn() }) },
       getObjectiveWarInfo: {
         useQuery: vi.fn(
           (_input: unknown, options: { refetchInterval: PollInterval }) => {
@@ -270,6 +281,7 @@ beforeEach(() => {
       attackWarCamp: camp,
       convertWarPoints: convert,
     },
+    profile: { searchUsers: { useQuery: () => ({ data: [] }) } },
     combat: { startShrineBattle: attack },
   });
   vi.spyOn(UserContext, "useRequiredUserData").mockImplementation(
@@ -323,7 +335,74 @@ afterEach(() => {
   globalThis.CustomEvent = originalCustomEvent;
 });
 
+describe("war mercenary management", () => {
+  const contract = (slot: number) => ({
+    id: `contract-${slot}`, warId: "war-1", sideVillageId: "own", userId: `mercenary-${slot}`,
+    invitedById: "kage", tokens: 4, slot, createdAt: new Date(NOW),
+    acceptedAt: slot === 1 ? new Date(NOW) : null, endedAt: null,
+    activeSlot: slot, activeUserId: slot === 1 ? `mercenary-${slot}` : null,
+    invitedUserId: `mercenary-${slot}`, user: { username: `Mercenary ${slot}` },
+  });
+
+  it("keeps the roster collapsed and omits hiring at capacity, restoring it when a slot opens", () => {
+    mercenaries = { canHire: true, roster: [contract(1), contract(2), contract(3)] };
+    const view = mount(<WarMercenaries warId="war-1" />);
+    const summary = view.getByText("Mercenaries · 3/3");
+    const disclosure = summary.closest("details")!;
+    expect(disclosure.open).toBe(false);
+    expect(view.queryByPlaceholderText("Choose mercenary")).toBeNull();
+    fireEvent.click(summary);
+    expect(disclosure.open).toBe(true);
+    expect(view.getByRole("button", { name: "Dismiss" })).toBeDefined();
+    expect(view.getAllByRole("button", { name: "Cancel invitation" })).toHaveLength(2);
+    expect(view.queryByRole("button", { name: "Invite mercenary" })).toBeNull();
+
+    mercenaries = { ...mercenaries, roster: mercenaries.roster.slice(0, 2) };
+    view.rerender(<WarMercenaries warId="war-1" />);
+    expect(disclosure.open).toBe(true);
+    expect(view.getByText("Mercenaries · 2/3")).toBeDefined();
+    expect(view.getByPlaceholderText("Choose mercenary")).toBeDefined();
+    expect(view.getByLabelText("Village token payment")).toBeDefined();
+    expect(view.getByRole("button", { name: "Invite mercenary" })).toBeDefined();
+    expect(view.getByText(/1 token = 1,000 Ryo/)).toBeDefined();
+  });
+
+  it("keeps resignation available to a hired player without exposing hiring controls", () => {
+    mercenaries = { canHire: false, roster: [contract(1)] };
+    const view = mount(<WarMercenaries warId="war-1" />);
+    fireEvent.click(view.getByText("Mercenaries · 1/3"));
+    expect(view.getByRole("button", { name: "Resign" })).toBeDefined();
+    expect(view.queryByRole("button", { name: "Dismiss" })).toBeNull();
+    expect(view.queryByPlaceholderText("Choose mercenary")).toBeNull();
+  });
+});
+
 describe("war field objectives", () => {
+  it("keeps masked contributions readable without profile navigation in either table", () => {
+    const identities = [
+      { userId: null, username: "Mercenary", isMasked: true },
+      { userId: user.userId, username: "Mercenary", isMasked: false },
+    ];
+    info!.contributions = identities.map((identity) => ({
+      ...identity, damage: 100, recovery: 50, convertedAt: null, expiredAt: null,
+    }));
+    info!.combatContributions = identities.map((identity) => ({
+      ...identity, kills: 1, losses: 0,
+    }));
+    const view = mount(<ObjectiveWarPanel warId="war-1" />);
+    openTab(view, "Contributions");
+    for (const table of view.getAllByRole("table")) {
+      const [masked, own] = within(table).getAllByRole("row").slice(1);
+      expect(masked!.textContent).toContain("Mercenary");
+      expect(masked!.classList.contains("cursor-pointer")).toBe(false);
+      fireEvent.click(masked!);
+      expect(router.push).not.toHaveBeenCalled();
+      fireEvent.click(own!);
+      expect(router.push).toHaveBeenCalledWith(`/userid/${user.userId}`);
+      router.push.mockClear();
+    }
+  });
+
   it("mounts one field panel only while its toolbar dialog is open", () => {
     const view = mount(<WarFieldActions />);
     const query = client.api.war.getObjectiveWarInfo.useQuery;

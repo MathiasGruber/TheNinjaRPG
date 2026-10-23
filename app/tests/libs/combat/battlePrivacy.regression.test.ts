@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "bun:test";
+import { IMG_AVATAR_DEFAULT } from "@/drizzle/constants";
 import type { AiProfile, Jutsu } from "@/drizzle/schema";
 import { availableUserActions, calcActiveUser } from "@/libs/combat/actions";
-import type { CombatQueryUser, ReturnedBattle } from "@/libs/combat/types";
+import type { BattleWar, CombatQueryUser, ReturnedBattle } from "@/libs/combat/types";
 import { hasNoAvailableActions, maskBattle } from "@/libs/combat/util";
 import { processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
@@ -37,6 +38,32 @@ const battleWithPrivateAction = (isAi: boolean) => makeCompleteBattle({
 
 describe("battle privacy regressions", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ["COMBAT", true, "Player", "Mercenary", IMG_AVATAR_DEFAULT],
+    ["SHRINE_WAR", true, "Player", "Mercenary", IMG_AVATAR_DEFAULT],
+    ["QUEST", true, "Player", "Player", "profile-avatar"],
+    ["SPARRING", true, "Player", "Player", "profile-avatar"],
+    ["RANKED_PVP", true, "Player", "Player", "profile-avatar"],
+    ["HUNTING", true, "Player", "Player", "profile-avatar"],
+    ["COMBAT", false, "Player", "ANBU Member", "squad-avatar"],
+    ["COMBAT", false, "Mercenary", "ANBU Member", "squad-avatar"],
+  ] as const)("preserves %s anonymity for mercenary %s named %s", async (battleType, isMercenary, username, expectedName, expectedAvatar) => {
+    const user = {
+      ...makeBattleUser("fighter"), username, avatar: "profile-avatar",
+      avatarLight: "profile-avatar", regenAt: now, regeneration: 0, money: 0,
+      effects: [], bloodright: [], bloodlineId: null, userSkills: [], items: [], jutsus: [],
+      anbuId: "squad", anbuSquad: { id: "squad", image: "squad-avatar" },
+    } as unknown as CombatQueryUser;
+    const processed = await processUsersForBattle({} as DrizzleClient, {
+      users: [user], battleType, leftSideUserIds: ["attacker"],
+      hide: false, isSummon: false, width: 13, height: 9,
+      settings: [], relations: [], villages: [], defaultProfile: { id: "Default" } as AiProfile,
+      wars: [{ id: "w", warMercenaries: isMercenary ? [{ userId: "fighter", sideVillageId: "a" }] : [] }] as unknown as BattleWar[],
+    });
+    expect(processed.usersState[0]).toMatchObject({ username: expectedName, avatar: expectedAvatar });
+    expect(processed.usersState[0]?.isMasked === true).toBe(expectedName === "Mercenary");
+  });
 
   it("strips private stat metadata from realized public catalogs without mutating battle state", async () => {
     const authored = makeTag("increasedamagegiven", { power: 12 });

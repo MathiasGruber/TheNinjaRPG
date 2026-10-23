@@ -724,7 +724,9 @@ const Sector: React.FC<SectorProps> = (props) => {
           return;
         }
 
-        const allianceStatus = getAllyStatus(userData?.village, data.villageId);
+        const allianceStatus =
+          usersRef.current.find((u) => u.userId === data.userId)?.allianceStatus ??
+          getAllyStatus(userData?.village, data.villageId);
         const idx = usersRef.current
           .filter((u) => u.userId)
           .findIndex((u) => u.userId === data.userId);
@@ -773,7 +775,8 @@ const Sector: React.FC<SectorProps> = (props) => {
           }
         } else {
           // New user enters — do not invent experience; unknown XP fails closed in bracket filters
-          usersRef.current.push({ ...data, allianceStatus });
+          // New identities come from the authenticated, masked sector snapshot.
+          void utils.travel.getSectorData.invalidate();
         }
         // Remove users who are no longer in the sector; compare against the
         // live sector ref, which crossings advance before the prop catches up
@@ -2005,14 +2008,18 @@ const Sector: React.FC<SectorProps> = (props) => {
         if (user.isBanned) return false;
 
         // Don't attack allies in active wars
-        const areWarAllies = isWarAllies(warData, userData.villageId, user.villageId);
+        const areWarAllies =
+          user.allianceStatus === "ALLY" ||
+          (user.allianceStatus !== "ENEMY" &&
+            isWarAllies(warData, userData.villageId, user.villageId));
         if (areWarAllies) {
           return false;
         }
 
         // Check if user is an enemy (different village and not ally)
         const isAlly =
-          user.villageId === userData.villageId || user.allianceStatus === "ALLY";
+          user.allianceStatus === "ALLY" ||
+          (user.allianceStatus !== "ENEMY" && user.villageId === userData.villageId);
 
         if (isAlly) return false;
 
@@ -2119,7 +2126,9 @@ const Sector: React.FC<SectorProps> = (props) => {
       const enrichedData =
         fetchedUsers
           ?.map((user) => {
-            const allianceStatus = getAllyStatus(userData?.village, user.villageId);
+            const allianceStatus =
+              ("warRelationship" in user ? user.warRelationship : undefined) ??
+              getAllyStatus(userData?.village, user.villageId);
             return {
               ...user,
               allianceStatus,
@@ -3381,7 +3390,7 @@ interface SorroundingUsersProps {
   move: (longitude: number, latitude: number) => void;
 }
 
-const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
+export const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
   // Destructure props
   const { userData, timeDiff, storedBracket, setStoredBracket } = props;
 
@@ -3435,7 +3444,10 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
           const isAlly =
-            user.villageId === userData.villageId || relationship?.status === "ALLY";
+            user.allianceStatus === "ALLY" ||
+            (user.allianceStatus !== "ENEMY" &&
+              (user.villageId === userData.villageId ||
+                relationship?.status === "ALLY"));
           const isPvpRestrictedRank = RANKS_RESTRICTED_FROM_PVP.includes(user.rank);
           const showAttack = !isPvpRestrictedRank && (props.allyAttack || !isAlly);
           const showRob = !isPvpRestrictedRank && sameHex && userData.isOutlaw;
@@ -3478,16 +3490,18 @@ const SorroundingUsers: React.FC<SorroundingUsersProps> = (props) => {
                     />
                   )}
                 </div>
-                <div className="absolute top-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
-                  <Link href={`/userid/${user.userId}`}>
-                    <Image
-                      src={IMG_SECTOR_INFO}
-                      width={40}
-                      height={40}
-                      alt={`Info-${user.userId}`}
-                    />
-                  </Link>
-                </div>
+                {!user.isMasked && (
+                  <div className="absolute top-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
+                    <Link href={`/userid/${user.userId}`}>
+                      <Image
+                        src={IMG_SECTOR_INFO}
+                        width={40}
+                        height={40}
+                        alt={`Info-${user.userId}`}
+                      />
+                    </Link>
+                  </div>
+                )}
                 <div className="absolute bottom-0 left-0 z-50 max-w-1/3 hover:cursor-pointer hover:opacity-80">
                   {user.curHealth < user.maxHealth &&
                     hasRequiredRank(userData.rank, MEDNIN_MIN_RANK) && (

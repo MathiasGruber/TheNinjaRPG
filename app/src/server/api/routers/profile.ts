@@ -239,6 +239,7 @@ import {
   settleJutsuTrainingQueue,
 } from "@/server/utils/userQueue";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
+import { fetchMercenaryWarId } from "@/server/utils/warMercenary";
 import { getRandomElement } from "@/utils/array";
 import { calculateContentDiff } from "@/utils/diff";
 import {
@@ -3372,6 +3373,7 @@ const fetchUpdatedUserOnce = async (props: {
     fetchedUser,
     hasUnvotedPolls,
     allActiveWars,
+    mercenaryWarId,
     activeShrineBattles,
     activeRaids,
     questBootstrap,
@@ -3381,6 +3383,7 @@ const fetchUpdatedUserOnce = async (props: {
     queryUpdatedUser(),
     fetchHasUnvotedPolls(client, userId, now),
     fetchAllActiveWars(client),
+    fetchMercenaryWarId(client, userId),
     fetchActiveShrineLobbies(client, shrineLobbyStaleBefore),
     fetchActiveRaids(client, now),
     fetchQuestBootstrap(client, userId),
@@ -3589,11 +3592,10 @@ const fetchUpdatedUserOnce = async (props: {
   if (user?.villageId) {
     const userActiveWars = allActiveWars.filter(
       (w) =>
-        // Direct participation
-        w.attackerVillageId === user.villageId ||
-        w.defenderVillageId === user.villageId ||
-        // Ally participation
-        w.warAllies.some((a) => a.villageId === user.villageId),
+        (!mercenaryWarId || w.id === mercenaryWarId) &&
+        (w.attackerVillageId === user.villageId ||
+          w.defenderVillageId === user.villageId ||
+          w.warAllies.some((a) => a.villageId === user.villageId)),
     );
     (user as NonNullable<UserWithRelations>).activeWars = userActiveWars;
   }

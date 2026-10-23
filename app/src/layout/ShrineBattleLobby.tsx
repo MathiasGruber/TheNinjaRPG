@@ -30,7 +30,7 @@ type ShrineBattleData =
 interface ShrineBattleLobbyProps {
   sectorNumber: number;
   userId: string;
-  userVillageId: string;
+  sideVillageId: string | null;
   defenderVillageId?: string | null;
   isProtected?: boolean;
 }
@@ -38,7 +38,7 @@ interface ShrineBattleLobbyProps {
 export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
   sectorNumber,
   userId,
-  userVillageId,
+  sideVillageId,
   defenderVillageId,
   isProtected = false,
 }) => {
@@ -108,7 +108,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
   // Determine if user can create a challenge
   const canCreateChallenge =
     defenderVillageId &&
-    userVillageId !== defenderVillageId &&
+    sideVillageId !== defenderVillageId &&
     !isChallenging &&
     !isProtected;
 
@@ -146,7 +146,6 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
               key={battle.id}
               battle={battle}
               userId={userId}
-              userVillageId={userVillageId}
               onJoin={(side) => joinBattle({ shrineBattleId: battle.id, side })}
               onLeave={() => leaveBattle({ shrineBattleId: battle.id })}
               onInitiate={() => initiateBattle({ shrineBattleId: battle.id })}
@@ -158,7 +157,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
         </div>
       ) : (
         <p className="text-center text-muted-foreground">
-          {userVillageId === defenderVillageId
+          {sideVillageId === defenderVillageId
             ? "No active attacks on your shrine. You can join as a defender when attackers start a team battle."
             : canCreateChallenge
               ? "No active shrine battles for this sector. Create an attack party to challenge the shrine!"
@@ -172,7 +171,6 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
 interface ShrineBattleCardProps {
   battle: ShrineBattleData;
   userId: string;
-  userVillageId: string;
   onJoin: (side: "ATTACKER" | "DEFENDER") => void;
   onLeave: () => void;
   onInitiate: () => void;
@@ -184,7 +182,6 @@ interface ShrineBattleCardProps {
 const ShrineBattleCard: React.FC<ShrineBattleCardProps> = ({
   battle,
   userId,
-  userVillageId,
   onJoin,
   onLeave,
   onInitiate,
@@ -201,11 +198,11 @@ const ShrineBattleCard: React.FC<ShrineBattleCardProps> = ({
   // Determine if user can join as attacker or defender
   const canJoinAsAttacker =
     !userInBattle &&
-    userVillageId !== battle.defenderEntityId &&
+    battle.viewerSide === "ATTACKER" &&
     attackers.length < SHRINE_BATTLE_MAX_USERS_PER_SIDE;
   const canJoinAsDefender =
     !userInBattle &&
-    userVillageId === battle.defenderEntityId &&
+    battle.viewerSide === "DEFENDER" &&
     defenders.length < SHRINE_BATTLE_MAX_USERS_PER_SIDE;
 
   return (

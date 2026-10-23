@@ -32,6 +32,8 @@ type TableProps<T, K extends keyof T> = {
   columns: Array<ColumnDefinitionType<T, K>>;
   linkColumn?: K;
   linkPrefix?: string;
+  /** Masked identities remain readable without exposing a profile through row navigation. */
+  linkDisabled?: (row: T) => boolean;
   buttons?: {
     id?: string | ((row: T) => string);
     label: string | React.ReactNode | ((row: T) => React.ReactNode);
@@ -87,12 +89,12 @@ const Table = <T, K extends keyof T>(props: TableProps<T, K>) => {
                   : `row-${i}`
               }
               ref={i === data.length - 1 ? props.setLastElement : null}
-              className={`border-gray-700 border-b ${i % 2 === 0 ? "bg-card" : "bg-popover"} ${props.linkColumn || props.onRowClick ? "cursor-pointer hover:bg-poppopover" : ""}`}
+              className={`border-gray-700 border-b ${i % 2 === 0 ? "bg-card" : "bg-popover"} ${(props.linkColumn && !props.linkDisabled?.(row)) || props.onRowClick ? "cursor-pointer hover:bg-poppopover" : ""}`}
               onClick={(e) => {
                 e.preventDefault();
                 if (props.onRowClick) {
                   props.onRowClick(row);
-                } else if (props.linkColumn) {
+                } else if (props.linkColumn && !props.linkDisabled?.(row)) {
                   let route = row[props.linkColumn] as string;
                   route = props.linkPrefix ? props.linkPrefix + route : route;
                   router.push(route);

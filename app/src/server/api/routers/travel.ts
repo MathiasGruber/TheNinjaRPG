@@ -47,7 +47,13 @@ import {
   war,
 } from "@/drizzle/schema";
 import { getQuestMapLocations } from "@/libs/mapLocations";
-import { maskWarObjectives } from "@/libs/objectiveWar";
+import {
+  getWarRelationship,
+  isObjectiveWarActive,
+  isObjectiveWarOpen,
+  maskWarObjectives,
+  withMercenaryParticipation,
+} from "@/libs/objectiveWar";
 import { placementToSectorUser } from "@/libs/overworldAi";
 import { calcActiveUserRegen, calcMaxEnergy, getEffectiveLevel } from "@/libs/profile";
 import { getServerPusher, updateUserOnMap } from "@/libs/pusher";
@@ -99,6 +105,10 @@ import {
   resolveSectorCrossing,
 } from "@/server/utils/sectorMap";
 import { activeWarAllyWhere } from "@/server/utils/warAlly";
+import {
+  activeWarMercenaryWhere,
+  canEnterWarCampSector,
+} from "@/server/utils/warMercenary";
 import { findRelationship } from "@/utils/alliance";
 import { groupBy } from "@/utils/grouping";
 import { secondsFromNow, secondsPassed } from "@/utils/time";
@@ -380,7 +390,7 @@ export const travelRouter = createTRPCRouter({
       if (!["AWAKE", "TRAVEL", "QUEUED"].includes(user.status)) {
         return { users: [], village: null, sectorData: null, warData: null };
       }
-      const [users, villageData, sectorData, warData, placements, liveBattles] =
+      const [users, villageData, sectorData, fetchedWarData, placements, liveBattles] =
         await Promise.all([
           ctx.drizzle.query.userData.findMany({
             columns: {
@@ -466,6 +476,7 @@ export const travelRouter = createTRPCRouter({
                   kageId: true,
                 },
               },
+              warMercenaries: { where: activeWarMercenaryWhere() },
               warAllies: {
                 where: activeWarAllyWhere(),
                 columns: { villageId: true, supportVillageId: true },
@@ -519,6 +530,7 @@ export const travelRouter = createTRPCRouter({
             .where(gte(battle.updatedAt, secondsFromNow(-SECTOR_BATTLE_STALE_SECONDS))),
         ]);
 
+      const warData = withMercenaryParticipation(fetchedWarData);
       // Only draw battle markers for fights that still exist and are being played
       const liveBattleIds = new Set(liveBattles.map((b) => b.id));
 
@@ -535,15 +547,33 @@ export const travelRouter = createTRPCRouter({
           return true;
         })
         .map((u) => {
+          const contract = warData
+            .filter((w) => isObjectiveWarOpen(w))
+            .flatMap((w) => w.warMercenaries ?? [])
+            .find((m) => m.userId === u.userId);
+          const warRelationship = getWarRelationship(
+            warData.filter((w) => isObjectiveWarActive(w)),
+            user,
+            u,
+          );
+          const isMasked = !!contract && u.userId !== ctx.userId;
+          const participant = { ...u, warRelationship, isMasked };
+          if (isMasked)
+            return {
+              ...participant,
+              username: "Mercenary",
+              avatar: IMG_AVATAR_DEFAULT,
+              avatarLight: IMG_AVATAR_DEFAULT,
+            };
           if (u.anbuSquad && u.anbuSquad.villageId !== user.villageId) {
             return {
-              ...u,
+              ...participant,
               username: `ANBU Member`,
               avatar: u.anbuSquad.image,
               avatarLight: u.anbuSquad.image,
             };
           }
-          return u;
+          return participant;
         });
 
       const overworldAis = placements
@@ -592,6 +622,7 @@ export const travelRouter = createTRPCRouter({
               [w.attackerVillage?.kageId, w.defenderVillage?.kageId].includes(
                 user.userId,
               ),
+            ctx.userId,
           ),
         ),
         overworldAis,
@@ -658,6 +689,10 @@ export const travelRouter = createTRPCRouter({
       if (user.status !== "AWAKE") {
         return { success: false, message: `Status is: ${user.status.toLowerCase()}` };
       }
+      if (!(await canEnterWarCampSector(ctx.drizzle, user, input.sector)))
+        return errorResponse(
+          "This sector is reserved for participants in an active war camp.",
+        );
       const departureSector = user.sector;
       const travelTime = calcGlobalTravelTime(
         departureSector,
@@ -935,6 +970,10 @@ export const travelRouter = createTRPCRouter({
         if (targetSector < 0) {
           return errorResponse("The polar wastes block your path");
         }
+        if (!(await canEnterWarCampSector(ctx.drizzle, moveUser, targetSector)))
+          return errorResponse(
+            "This sector is reserved for participants in an active war camp.",
+          );
         const neighbourMap =
           maps?.get(targetSector) ??
           (await fetchPublishedSectorMap(ctx.drizzle, targetSector).catch(() => null));

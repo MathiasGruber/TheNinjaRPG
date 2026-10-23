@@ -3984,3 +3984,8 @@ export const IMG_LAYOUT_THEME_ART = {
   "17-obsidian-council": "https://ui0arpl8sm.ufs.sh/f/Y2FQDnymspxiAsgd1Sz9F.webp",
   "20-eclipse-observatory": "https://ui0arpl8sm.ufs.sh/f/DChv6QwC43mEy6HAEWuq_.webp",
 } as const;
+
+// War mercenary contracts use village tokens and pay the player in Ryo.
+export const WAR_MERCENARY_LIMIT = 3;
+export const WAR_MERCENARY_RYO_PER_TOKEN = 1000;
+export const WAR_MERCENARY_MAX_TOKENS = 1_000_000;

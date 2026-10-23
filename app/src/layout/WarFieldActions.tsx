@@ -24,7 +24,7 @@ export const WarFieldActions = () => {
   const { data: user, timeDiff } = useRequiredUserData();
   const { data: wars } = api.war.getActiveWars.useQuery(
     { villageId: user?.villageId ?? "" },
-    { enabled: !!user?.villageId, staleTime: 10000, refetchInterval: 10000 },
+    { enabled: !!user, staleTime: 10000, refetchInterval: 10000 },
   );
   const objectiveWars = wars?.filter((war) => war.rules) ?? [];
   const camps = api.war.getWarCampNotices.useQuery(undefined, {

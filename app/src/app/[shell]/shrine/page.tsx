@@ -20,6 +20,7 @@ import RamenShop from "@/layout/RamenShop";
 import ShrineBattleLobby from "@/layout/ShrineBattleLobby";
 import StatusBar from "@/layout/StatusBar";
 import { WarFieldActions } from "@/layout/WarFieldActions";
+import { getWarSide } from "@/libs/objectiveWar";
 import { isRaidCurrentlyActive } from "@/libs/raids";
 import { showMutationToast } from "@/libs/toast";
 import { pushToCombat } from "@/utils/routing";
@@ -70,10 +71,11 @@ export default function Shrine() {
   // Loaders
   if (!userData) return <Loader explanation="Loading userdata" />;
   if (!sectorData) return <Loader explanation="Loading sector data" />;
-  if (!userData.villageId) return <Loader explanation="No village found" />;
-
-  // After the guard, villageId is guaranteed to be non-null
-  const userVillageId: string = userData.villageId;
+  if (
+    !userData.villageId &&
+    !sectorData.warData?.some((war) => getWarSide(war, null, userData.userId))
+  )
+    return <Loader explanation="No village found" />;
 
   // Check if there's an active war in this sector
   // For SECTOR_WAR: check war.sector
@@ -93,16 +95,18 @@ export default function Shrine() {
 
   // Determine if this sector is owned (for MPVP attacks/defends)
   const sectorOwnerVillageId = sectorData.sectorData?.villageId ?? null;
-  const userIsOwner = sectorOwnerVillageId === userData.villageId;
-  const isSyndicate = sectorOwnerVillageId === VILLAGE_SYNDICATE_ID;
-  const isAtWar = sectorData.warData?.some(
+  const sectorWar = sectorData.warData?.find(
     (war) =>
-      (war.attackerVillageId === userData.villageId ||
-        war.defenderVillageId === userData.villageId ||
-        war.warAllies?.some((a) => a.villageId === userData.villageId)) &&
+      !!getWarSide(war, userData.villageId, userData.userId) &&
       (war.attackerVillageId === sectorOwnerVillageId ||
         war.defenderVillageId === sectorOwnerVillageId),
   );
+  const userSideVillageId = sectorWar
+    ? getWarSide(sectorWar, userData.villageId, userData.userId)
+    : userData.villageId;
+  const userIsOwner = sectorOwnerVillageId === userSideVillageId;
+  const isSyndicate = sectorOwnerVillageId === VILLAGE_SYNDICATE_ID;
+  const isAtWar = !!sectorWar;
   const canShowMpvpOption =
     !!sectorOwnerVillageId && (isAtWar || (isSyndicate && !userIsOwner));
 
@@ -120,21 +124,9 @@ export default function Shrine() {
   const userCanBattleVillageWarShrine = sectorData.warData?.some((war) => {
     if (!["VILLAGE_WAR", "WAR_RAID"].includes(war.type)) return false;
 
-    const isUserOnAttackerSide =
-      war.attackerVillageId === userData.villageId ||
-      war.warAllies?.some(
-        (a) =>
-          a.villageId === userData.villageId &&
-          a.supportVillageId === war.attackerVillageId,
-      );
-
-    const isUserOnDefenderSide =
-      war.defenderVillageId === userData.villageId ||
-      war.warAllies?.some(
-        (a) =>
-          a.villageId === userData.villageId &&
-          a.supportVillageId === war.defenderVillageId,
-      );
+    const side = getWarSide(war, userData.villageId, userData.userId);
+    const isUserOnAttackerSide = side === war.attackerVillageId;
+    const isUserOnDefenderSide = side === war.defenderVillageId;
 
     const atDefenderVillage = war.defenderVillage?.sector === userData.sector;
     const atAttackerVillage = war.attackerVillage?.sector === userData.sector;
@@ -161,40 +153,21 @@ export default function Shrine() {
 
   // Split wars into user's wars and competing wars
   const userWars =
-    activeWars?.filter(
-      (war) =>
-        war.attackerVillageId === userData.villageId ||
-        war.defenderVillageId === userData.villageId ||
-        (war.warAllies?.some((wa) => wa.villageId === userData.villageId) ?? false),
-    ) ?? [];
+    activeWars?.filter((war) => getWarSide(war, userData.villageId, userData.userId)) ??
+    [];
   const competingWars =
     activeWars?.filter(
-      (war) =>
-        war.attackerVillageId !== userData.villageId &&
-        war.defenderVillageId !== userData.villageId &&
-        !(war.warAllies?.some((wa) => wa.villageId === userData.villageId) ?? false),
+      (war) => !getWarSide(war, userData.villageId, userData.userId),
     ) ?? [];
 
   // Check if user is an attacker in any of their wars (for Team Battle tab)
   const userIsAttacker = userWars.some(
     (war) =>
-      war.attackerVillageId === userData.villageId ||
-      (war.warAllies?.some(
-        (wa) =>
-          wa.villageId === userData.villageId &&
-          wa.supportVillageId === war.attackerVillageId,
-      ) ??
-        false),
+      getWarSide(war, userData.villageId, userData.userId) === war.attackerVillageId,
   );
   const userIsDefender = userWars.some(
     (war) =>
-      war.defenderVillageId === userData.villageId ||
-      (war.warAllies?.some(
-        (wa) =>
-          wa.villageId === userData.villageId &&
-          wa.supportVillageId === war.defenderVillageId,
-      ) ??
-        false),
+      getWarSide(war, userData.villageId, userData.userId) === war.defenderVillageId,
   );
 
   const hasNoActiveWars = !activeWars || activeWars.length === 0;
@@ -210,12 +183,7 @@ export default function Shrine() {
     (war) =>
       war.type === "SECTOR_WAR" &&
       war.defenderShrineHp <= 0 &&
-      (war.attackerVillageId === userData.villageId ||
-        war.warAllies?.some(
-          (wa) =>
-            wa.villageId === userData.villageId &&
-            wa.supportVillageId === war.attackerVillageId,
-        )),
+      getWarSide(war, userData.villageId, userData.userId) === war.attackerVillageId,
   );
 
   // Show exclusive raid flow when shrine is defeated and user is attacker
@@ -266,12 +234,12 @@ export default function Shrine() {
 
   return (
     <div className="space-y-8">
-      <WarFieldActions />
       {hasNoActiveWars && (
         <ContentBox
           title={`Lvl. ${sectorData.sectorData?.shrineLevel || 1} Shrine`}
           subtitle={sectorData.sectorData ? "Sector is Claimed" : "Unclaimed Sector"}
           defaultBackHref="/travel"
+          topRightContent={<WarFieldActions />}
         >
           {canShowMpvpOption || isUserQueuedForThisSector ? (
             <Tabs defaultValue="team" className="w-full">
@@ -312,7 +280,7 @@ export default function Shrine() {
                 <ShrineBattleLobby
                   sectorNumber={userData.sector}
                   userId={userData.userId}
-                  userVillageId={userData.villageId}
+                  sideVillageId={userSideVillageId}
                   defenderVillageId={sectorOwnerVillageId}
                   isProtected={isProtected}
                 />
@@ -386,6 +354,7 @@ export default function Shrine() {
           title="Your Wars"
           subtitle={`Sector ${userData.sector}`}
           defaultBackHref="/travel"
+          topRightContent={<WarFieldActions />}
         >
           <Tabs defaultValue="solo" className="w-full">
             <TabsList className="mb-4 grid w-full grid-cols-2">
@@ -404,7 +373,7 @@ export default function Shrine() {
                   <WarCard
                     key={war.id}
                     war={war}
-                    villageId={userVillageId}
+                    sideVillageId={getWarSide(war, userData.villageId, userData.userId)}
                     sector={userData.sector}
                     onAttack={() => attack({ sector: userData.sector })}
                     isAttacking={isAttacking}
@@ -421,7 +390,11 @@ export default function Shrine() {
                     <WarCard
                       key={war.id}
                       war={war}
-                      villageId={userVillageId}
+                      sideVillageId={getWarSide(
+                        war,
+                        userData.villageId,
+                        userData.userId,
+                      )}
                       sector={userData.sector}
                       onAttack={() => {}}
                       isAttacking={false}
@@ -450,7 +423,7 @@ export default function Shrine() {
                   <ShrineBattleLobby
                     sectorNumber={userData.sector}
                     userId={userData.userId}
-                    userVillageId={userData.villageId}
+                    sideVillageId={userSideVillageId}
                     defenderVillageId={sectorOwnerVillageId}
                     isProtected={isProtected}
                   />
@@ -464,7 +437,7 @@ export default function Shrine() {
                   <ShrineBattleLobby
                     sectorNumber={userData.sector}
                     userId={userData.userId}
-                    userVillageId={userData.villageId}
+                    sideVillageId={userSideVillageId}
                     defenderVillageId={sectorOwnerVillageId}
                     isProtected={isProtected}
                   />
@@ -483,13 +456,14 @@ export default function Shrine() {
         <ContentBox
           title="Competing Wars"
           subtitle="Other villages trying to claim sector"
+          topRightContent={userWars.length === 0 ? <WarFieldActions /> : undefined}
         >
           <div className="divide-y">
             {competingWars.map((war) => (
               <WarCard
                 key={war.id}
                 war={war}
-                villageId={userVillageId}
+                sideVillageId={getWarSide(war, userData.villageId, userData.userId)}
                 sector={userData.sector}
                 onAttack={() => attack({ sector: userData.sector })}
                 isAttacking={isAttacking}
@@ -509,7 +483,7 @@ export default function Shrine() {
 // Component to render a single war
 const WarCard = ({
   war,
-  villageId,
+  sideVillageId,
   sector,
   onAttack,
   isAttacking,
@@ -522,7 +496,7 @@ const WarCard = ({
     defenderVillage: { name: string; villageGraphic: string; sector?: number };
     warAllies: Array<{ villageId: string; supportVillageId: string }>;
   };
-  villageId: string;
+  sideVillageId: string | null;
   sector: number;
   onAttack: () => void;
   isAttacking: boolean;
@@ -530,19 +504,8 @@ const WarCard = ({
   isProtected?: boolean;
   hasActiveExclusiveRaid?: boolean;
 }) => {
-  // Check if user is attacker or defender (including via war allies)
-  const isUserAttacker =
-    war.attackerVillageId === villageId ||
-    war.warAllies.some(
-      (wa) =>
-        wa.villageId === villageId && wa.supportVillageId === war.attackerVillageId,
-    );
-  const isUserDefender =
-    war.defenderVillageId === villageId ||
-    war.warAllies.some(
-      (wa) =>
-        wa.villageId === villageId && wa.supportVillageId === war.defenderVillageId,
-    );
+  const isUserAttacker = sideVillageId === war.attackerVillageId;
+  const isUserDefender = sideVillageId === war.defenderVillageId;
   const isVillageWar = ["VILLAGE_WAR", "WAR_RAID"].includes(war.type);
 
   // Determine which village's shrine we're at

@@ -1559,7 +1559,10 @@ export const intersectUsers = (info: {
             userData.village &&
             findVillageUserRelationship(userData.village, user.villageId);
           const isAlly =
-            user.villageId === userData.villageId || relationship?.status === "ALLY";
+            user.allianceStatus === "ALLY" ||
+            (user.allianceStatus !== "ENEMY" &&
+              (user.villageId === userData.villageId ||
+                relationship?.status === "ALLY"));
           const showAttack =
             !RANKS_RESTRICTED_FROM_PVP.includes(user.rank) && (allyAttack || !isAlly);
           const showHeal =
@@ -1572,7 +1575,7 @@ export const intersectUsers = (info: {
           if (heal && userData.userId !== userId && showHeal) {
             heal.visible = true;
           }
-          if (details) details.visible = true;
+          if (details) details.visible = !user.isMasked;
           if (document.body.style.cursor !== "wait") {
             document.body.style.cursor = "pointer";
           }

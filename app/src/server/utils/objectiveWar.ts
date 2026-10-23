@@ -77,6 +77,8 @@ export const applyObjectiveWarAction = async (
     camp?: WarCamp;
     /** Persist PvP outcomes with the same receipt as their strategic contribution. */
     kills?: (typeof warKill.$inferInsert)[];
+    /** Mercenary allegiance frozen at combat initiation survives mid-battle dismissal. */
+    hasMercenarySnapshot?: boolean;
     /** Consume a mission with its own CAS on the same transaction as strategic delivery. */
     claim?: (tx: DrizzleClient) => Promise<boolean>;
   },
@@ -103,6 +105,7 @@ export const applyObjectiveWarAction = async (
       : sql`FALSE`;
   const damage = sql`LEAST(${enemyHp}, ${action.damage ?? 0} + CASE WHEN ${willDestroy} THEN ${rules.objectiveDamage} ELSE 0 END)`;
   const recovery = sql`LEAST(${ownMax} - ${ownHp}, ${action.recovery ?? 0})`;
+  const rejected = new Error("War action prerequisites changed");
   return retryOnDeadlock(() =>
     client.transaction(async (tx) => {
       if (action.claim && !(await action.claim(tx))) return false;
@@ -110,7 +113,7 @@ export const applyObjectiveWarAction = async (
         .insert(warActionReceipt)
         .ignore()
         .values({ id: action.id, warId: activeWar.id });
-      if (receipt.rowsAffected === 0) return false;
+      if (receipt.rowsAffected === 0) throw rejected;
       await tx
         .insert(warContribution)
         .values({ warId: activeWar.id, userId: action.userId })
@@ -129,13 +132,15 @@ export const applyObjectiveWarAction = async (
         AND SYSDATE(3) < DATE_ADD(${war.combatStartedAt}, INTERVAL ${rules.durationDays} DAY)
         AND ${war.attackerWarHealth} > 0 AND ${war.defenderWarHealth} > 0
         AND EXISTS (SELECT 1 FROM UserData actor WHERE actor.userId = ${action.userId} AND actor.isAi = FALSE AND actor.isBanned = FALSE AND
-          (actor.villageId = ${action.sideVillageId} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = ${war.id} AND membership.villageId = actor.villageId AND membership.supportVillageId = ${action.sideVillageId} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)))
+          (actor.villageId = ${action.sideVillageId} OR EXISTS (SELECT 1 FROM WarAlly membership WHERE membership.warId = ${war.id} AND membership.villageId = actor.villageId AND membership.supportVillageId = ${action.sideVillageId} AND membership.acceptedAt IS NOT NULL AND membership.endedAt IS NULL)
+            OR ${action.hasMercenarySnapshot ?? false}
+            OR EXISTS (SELECT 1 FROM WarMercenary merc WHERE merc.warId = ${war.id} AND merc.userId = actor.userId AND merc.sideVillageId = ${action.sideVillageId} AND merc.acceptedAt IS NOT NULL AND merc.endedAt IS NULL)))
         AND ${warActionReceipt.applied} = FALSE
         AND ${objectiveWarCombatGuard()}
         ${objective && action.damage === undefined ? sql`AND ${sector.sector} IS NOT NULL AND NOT (${destroyed}) AND ${hp} > 0 AND CAST(JSON_EXTRACT(${war.objectiveState}, ${spyPath}) AS UNSIGNED) >= ${WAR_ESPIONAGE_TARGET}` : sql``}
         ${action.camp ? sql`AND ${warCamp.resolvedAt} IS NULL AND ${warCamp.startsAt} <= SYSDATE(3) AND ${warCamp.endsAt} > SYSDATE(3)` : sql``}
     `);
-      if (!claimed.rowsAffected) return false;
+      if (!claimed.rowsAffected) throw rejected;
       await tx.execute(sql`
       UPDATE ${war} INNER JOIN ${warActionReceipt} ON ${warActionReceipt.id} = ${action.id}
       INNER JOIN ${warContribution} ON ${warContribution.warId} = ${war.id} AND ${warContribution.userId} = ${action.userId}
@@ -170,7 +175,11 @@ export const applyObjectiveWarAction = async (
       // The guarded receipt still proves this attempt completed successfully.
       return true;
     }),
-  );
+  ).catch((error: unknown) => {
+    // Roll back the consumed attempt and receipt together when strategic guards reject it.
+    if (error === rejected) return false;
+    throw error;
+  });
 };
 
 /** Advance each due day with a timestamp CAS; overlapping jobs cannot repeat decay. */

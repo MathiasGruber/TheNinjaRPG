@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { MAP_RESERVED_SECTORS, WAR_OBJECTIVES_PER_SIDE } from "@/drizzle/constants";
-import { getWarSide, maskWarObjectives, selectWarObjectives } from "@/libs/objectiveWar";
+import { getWarSide, maskWarObjectives, selectWarObjectives, withMercenaryParticipation } from "@/libs/objectiveWar";
 import { defaultWarRules, warRulesSchema } from "@/validators/war";
 import type { War } from "@/drizzle/schema";
 
@@ -51,4 +51,11 @@ describe("objective war rules", () => {
     expect(maskWarObjectives(activeWar, "outsider", true).objectiveState?.objectives).toEqual([]);
     expect(activeWar.objectiveState?.objectives).toHaveLength(2);
   });
+});
+
+it("removes expired contract identity and exclusivity before combat state is built", () => {
+  const closed = { id: "expired", status: "ACTIVE", endedAt: null, attackerWarHealth: 100, defenderWarHealth: 100, rules: defaultWarRules, combatStartedAt: new Date(Date.now() - (defaultWarRules.durationDays + 1) * 86400000), warMercenaries: [{ userId: "merc", sideVillageId: "a" }] } as War & { warMercenaries: { userId: string; sideVillageId: string }[] };
+  const [war] = withMercenaryParticipation([closed]);
+  expect(war?.warMercenaries).toEqual([]);
+  expect(war?.mercenaryWarIds).toEqual({});
 });

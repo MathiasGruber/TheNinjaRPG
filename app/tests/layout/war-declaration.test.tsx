@@ -1,6 +1,8 @@
-import { act, cleanup, fireEvent, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import * as dynamic from "next/dynamic";
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import * as navigation from "next/navigation";
 import {
   type ComponentProps,
   type Dispatch,
@@ -13,6 +15,7 @@ import { WAR_PURCHASE_SHRINE_TOKEN_COST } from "@/drizzle/constants";
 import type { Village, VillageAlliance, VillageStructure } from "@/drizzle/schema";
 import * as map from "@/hooks/map";
 import * as building from "@/layout/Building";
+import * as ContentBox from "@/layout/ContentBox";
 import * as Image from "@/layout/Image";
 import * as panel from "@/layout/ObjectiveWarPanel";
 import * as toast from "@/libs/toast";
@@ -39,7 +42,7 @@ vi.spyOn(dynamic, "default").mockImplementation(
       </>
     )) as never,
 );
-const { WarMap, SectorWar, VillageWar } = await import("@/layout/WarSystem");
+const { WarRoom, WarMap, SectorWar, VillageWar } = await import("@/layout/WarSystem");
 
 type MutationResult = { success: boolean; message: string };
 type MutationCallbacks = {
@@ -219,6 +222,51 @@ const mount = () =>
       ]}
     />,
   );
+
+describe("war room participation", () => {
+  it("loads active wars without village membership and keeps village history unavailable", () => {
+    vi.spyOn(ContentBox, "default").mockImplementation(
+      ({ title, children, topRightContent }) => (
+        <><h1>{title}</h1>{topRightContent}{children}</>
+      ),
+    );
+    user = { ...user, villageId: null, village: null };
+    const activeWars = vi.fn(() => ({ data: [] }));
+    const endedWars = vi.fn(() => ({ data: undefined }));
+    Object.assign(client.api.village, {
+      getAlliances: { useQuery: () => ({ data: { villages: [], relationships: [] } }) },
+    });
+    Object.assign(client.api.war, {
+      getActiveWars: { useQuery: activeWars },
+      getEndedWars: { useQuery: endedWars },
+      getAllyOffers: { useQuery: () => ({ data: [] }) },
+      acceptAllyOffer: declarations,
+      rejectAllyOffer: declarations,
+      cancelAllyOffer: declarations,
+    });
+    const view = render(
+      <AppRouterContext.Provider value={{
+        back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push: vi.fn(),
+        replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-room",
+      }}>
+        <WarRoom user={user} />
+      </AppRouterContext.Provider>,
+    );
+    expect(activeWars).toHaveBeenCalledWith(
+      { villageId: "" },
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(endedWars).toHaveBeenCalledWith(
+      { villageId: "" },
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(view.getByRole("heading", { name: "Active Wars" })).toBeDefined();
+    expect(view.getByRole("button", { name: "Active" })).toBeDefined();
+    expect(view.getByText("No active wars")).toBeDefined();
+    expect(view.queryByText("Join a village first")).toBeNull();
+    expect(view.queryByRole("button", { name: "Ended" })).toBeNull();
+  });
+});
 
 describe("war declaration targets", () => {
   it.each(["HIDEOUT", "STRONGHOLD"] as const)(
@@ -513,6 +561,58 @@ describe("objective war townhall health", () => {
     ["defender-ally", false],
   ] as const;
 
+  it("keeps masked kill history and statistics readable while preserving ordinary and self navigation", () => {
+    const push = vi.fn();
+    const router = {
+      back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), push,
+      replace: vi.fn(), prefetch: vi.fn(), bfcacheId: "war-history",
+    };
+    // Bun preserves module mocks across files, so bind the hook to this test's router.
+    vi.spyOn(navigation, "useRouter").mockReturnValue(router);
+    const identities = [
+      { userId: null, username: "Mercenary" },
+      { userId: "ordinary", username: "Ordinary" },
+      { userId: user.userId, username: "Self" },
+    ];
+    Object.assign(client.api.war, {
+      getWarKills: {
+        useQuery: () => ({ data: identities.map((identity, index) => ({
+          id: `kill-${index}`, killerId: identity.userId,
+          killer: { ...identity, avatar: "" },
+          victim: { userId: "victim", username: "Victim", avatar: "" },
+          killerVillage: { name: "Attacker" }, victimVillage: { name: "Defender" },
+          killedAt: new Date(), sector: 1, shrineHpChange: 0, townhallHpChange: 0,
+        })) }),
+      },
+      getWarKillStats: {
+        useQuery: () => ({ data: identities.map((identity) => ({
+          killerId: identity.userId, killerUsername: identity.username,
+          killerAvatar: "", villageName: null, count: 1,
+        })) }),
+      },
+    });
+    const view = render(
+      <AppRouterContext.Provider value={router}>
+        <VillageWar war={{ ...war, rules: null }} user={user} isKage={false} />
+      </AppRouterContext.Provider>,
+    );
+    for (const icon of ["swords", "trophy"]) {
+      fireEvent.click(view.container.querySelector(`.lucide-${icon}`)!.closest("button")!);
+      const rows = within(view.getByRole("dialog")).getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(3);
+      expect(rows[0]!.textContent).toContain("Mercenary");
+      expect(rows[0]!.classList.contains("cursor-pointer")).toBe(false);
+      fireEvent.click(rows[0]!);
+      expect(push).not.toHaveBeenCalled();
+      for (const index of [1, 2]) {
+        fireEvent.click(rows[index]!);
+        expect(push).toHaveBeenLastCalledWith(`/userid/${identities[index]!.userId}`);
+      }
+      push.mockClear();
+      fireEvent.click(within(view.getByRole("dialog")).getAllByRole("button", { name: "Close" })[0]!);
+    }
+  });
+
   it.each(viewers)(
     "shows the latest initial snapshot to %s",
     (villageId, isAttacker) => {
@@ -521,6 +621,33 @@ describe("objective war townhall health", () => {
         UserWithRelations
       >;
       const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
+    },
+  );
+
+  it.each([
+    ["neutral", "attacker", true],
+    [null, "attacker", true],
+    ["defender", "attacker", true],
+    ["neutral", "defender", false],
+    [null, "defender", false],
+  ] as const)(
+    "uses the hired %s player's %s side for the heading and health order",
+    (villageId, sideVillageId, isAttacker) => {
+      response = {
+        ...freshWar,
+        warMercenaries: [{
+          id: "contract", warId: war.id, sideVillageId, userId: "viewer",
+          invitedById: "kage", tokens: 4, slot: 1, createdAt: new Date(),
+          acceptedAt: new Date(), endedAt: null, activeSlot: 1,
+          activeUserId: "viewer", invitedUserId: "viewer",
+        }],
+      };
+      const user = { userId: "viewer", villageId, role: "USER" } as NonNullable<UserWithRelations>;
+      const view = render(<VillageWar war={war} user={user} isKage={false} />);
+      expect(view.getByRole("heading", {
+        name: `${isAttacker ? "Attacking Defender" : "Defending Against Attacker"} - Village war`,
+      })).toBeDefined();
       expectHealth(view, isAttacker ? [9700, 8200] : [8200, 9700]);
     },
   );
