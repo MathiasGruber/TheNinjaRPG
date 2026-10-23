@@ -2772,6 +2772,30 @@ export const IMG_BADGE_HUNTING_EXPERIENCE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJg0V017cU9cpECTimBdjaqbNn7vQsxGR1wLk4.webp";
 export const IMG_BADGE_CRAFTING_EXPERIENCE =
   "https://uploadthing.b-cdn.net/f/Hzww9EQvYURJIY2lVjxfOewksxBoS1HQCihpL7c42Ky9uUFv.webp";
+/** Dedicated artwork keeps the activity and completion achievement goals visually distinct. */
+export const IMG_BADGE_DUNGEONS_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/8NttzjW8jKBXSuVi712aQ.webp";
+export const IMG_BADGE_BATTLE_PYRAMIDS_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/Wo9L32H4UUVlIRkqveMsc.webp";
+export const IMG_BADGE_RAIDS_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/aXfB3WD_PRpAJIvbV7awR.webp";
+export const IMG_BADGE_STORIES_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/ADzFhkPeaQkEkXLHq0I_e.webp";
+export const IMG_BADGE_EVENTS_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/DzU8DRMlw4TWG8th5dkan.webp";
+export const IMG_BADGE_OVERWORLD_QUESTS_COMPLETED =
+  "https://ui0arpl8sm.ufs.sh/f/c1jjG9yPgEZoFe5B-Tcer.webp";
+export const IMG_BADGE_PVP_PARTICIPATED =
+  "https://ui0arpl8sm.ufs.sh/f/ssUlvljbDqxeDVIiUDUyy.webp";
+export const IMG_BADGE_SPARS_PARTICIPATED =
+  "https://ui0arpl8sm.ufs.sh/f/VUXvH2oDxQI_mmi593Tcc.webp";
+export const IMG_BADGE_RANKED_WINS =
+  "https://ui0arpl8sm.ufs.sh/f/DRDd2XdjGStpQFkcCg83Y.webp";
+export const IMG_BADGE_RANKED_PARTICIPATED =
+  "https://ui0arpl8sm.ufs.sh/f/RdngUH8_Kj7A0OC6A1sJn.webp";
+export const IMG_BADGE_OVERWORLD_AI_FOUGHT =
+  "https://ui0arpl8sm.ufs.sh/f/RjI036fqQtf2oO9Y1g9k0.webp";
+
 export const IMG_BADGE_ITEMS_CRAFTED = IMG_BADGE_CRAFTING_EXPERIENCE;
 export const IMG_BADGE_CREATURES_HUNTED = IMG_BADGE_HUNTING_EXPERIENCE;
 export const IMG_BADGE_HERBS_GATHERED = IMG_BADGE_GATHERING_EXPERIENCE;
