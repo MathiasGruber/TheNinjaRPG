@@ -13,7 +13,6 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { calcCP, calcHP, calcSP, levelUpBlockMessage } from "@/libs/profile";
 import { showMutationToast, triggerConfetti } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 interface LevelUpBtnProps {
@@ -60,10 +59,7 @@ const LevelUpBtn: React.FC<LevelUpBtnProps> = ({ id }) => {
       }
     },
     onError: async () => {
-      await invalidateUserQuery(
-        "mutation:profile.levelUp",
-        utils.profile.getUser.invalidate,
-      );
+      await utils.profile.getUser.invalidate();
     },
     onSettled: () => {
       document.body.style.cursor = "default";

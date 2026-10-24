@@ -13,8 +13,7 @@ import * as clientModule from "@/app/_trpc/client";
 import TrpcClientProvider from "@/app/_trpc/Provider";
 import * as toast from "@/libs/toast";
 import { SESSION_CHANGED_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/libs/trpcSession";
-import { invalidateUserQuery } from "@/libs/userRefresh";
-import { USER_REFRESH_CAUSE_HEADER } from "@/libs/userRefreshCauses";
+import { QUERY_METRICS_HEADER } from "@/libs/queryTelemetry";
 import { actualShowMutationToast } from "../setup/preload";
 
 const testApi = createTRPCReact<AppRouter>();
@@ -115,14 +114,14 @@ it("sends captured profile causes through the provider without replacing session
   const Player = () => {
     testApi.profile.getUser.useQuery(undefined, { retry: false });
     const utils = testApi.useUtils();
-    refresh = () => invalidateUserQuery("timer:energy_queue", utils.profile.getUser.invalidate);
+    refresh = () => utils.profile.getUser.invalidate();
     return null;
   };
   mountProvider(session("a"), <Player />);
   await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   await act(async () => { await refresh(); });
-  expect(requests.map((headers) => headers.get(USER_REFRESH_CAUSE_HEADER))).toEqual([
-    "initial:load", "timer:energy_queue",
+  expect(requests.map((headers) => JSON.parse(headers.get(QUERY_METRICS_HEADER)!)["profile.getUser"].trigger)).toEqual([
+    "initial", "invalidation",
   ]);
   expect(requests.every((headers) => headers.get("Authorization") === "Bearer a")).toBe(true);
 });

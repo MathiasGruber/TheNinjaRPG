@@ -14,7 +14,6 @@ import {
 import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
 import UserSearchSelect from "@/layout/UserSearchSelect";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserSearchResult } from "@/validators/register";
 
 /** Private hiring controls: identities are returned only to the employing Kage and the player. */
@@ -239,7 +238,7 @@ const useMercenaryFeedback = () => {
       utils.war.getObjectiveWarInfo.invalidate(),
       utils.war.getWarCampNotices.invalidate(),
       utils.travel.getSectorData.invalidate(),
-      invalidateUserQuery("feature:mercenary", utils.profile.getUser.invalidate),
+      utils.profile.getUser.invalidate(),
     ]);
   };
   return {

@@ -114,7 +114,6 @@ import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
 import { getBiomeAtSectorAnchor } from "@/libs/travel";
 import { isTutorialCaptureStep } from "@/libs/tutorial";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { isWarAllies } from "@/libs/war";
 import type { UserWithRelations } from "@/routers/profile";
 import { findVillageUserRelationship, getAllyStatus } from "@/utils/alliance";
@@ -524,10 +523,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       void utils.coop.dungeon.getAvailable.invalidate();
       // Active runs carry their private presentation in the profile snapshot.
       if (userRef.current?.userQuests.some((entry) => !entry.completed && !entry.endAt))
-        void invalidateUserQuery(
-          "realtime:map_content",
-          utils.profile.getUser.invalidate,
-        );
+        void utils.profile.getUser.invalidate();
     };
     channel.bind("updated", update);
     return () => {
@@ -1362,10 +1358,7 @@ const Sector: React.FC<SectorProps> = (props) => {
       // Attacked (success without data) or rejected: re-sync from the server
       setTarget(null);
       showMutationToast(res);
-      await invalidateUserQuery(
-        "recovery:sector_crossing",
-        utils.profile.getUser.invalidate,
-      );
+      await utils.profile.getUser.invalidate();
     }
   };
 
@@ -1642,10 +1635,7 @@ const Sector: React.FC<SectorProps> = (props) => {
         pendingCrossRef.current = null;
         setTarget(null);
         showMutationToast(res);
-        await invalidateUserQuery(
-          "mutation:travel.moveInSector",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       }
       // If success with data, then we moved
       const data = res.data;
@@ -1773,10 +1763,7 @@ const Sector: React.FC<SectorProps> = (props) => {
           // a completed bound objective or granted mission shows immediately in the logbook.
           await Promise.all([
             utils.travel.getSectorData.invalidate(),
-            invalidateUserQuery(
-              "mutation:overworldAi.interactWithOverworldAi",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
         if (data.rewardChoicePending) {

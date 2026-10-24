@@ -129,7 +129,6 @@ import {
   TAVERN_COLOR_STYLES,
 } from "@/libs/tavernColors";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import { round } from "@/utils/math";
@@ -1125,10 +1124,7 @@ const NewAiAvatar: React.FC = () => {
                 : undefined,
               { revision, delta: data.userDelta },
             )
-          : invalidateUserQuery(
-              "mutation:avatar.createAvatar",
-              utils.profile.getUser.invalidate,
-            ),
+          : utils.profile.getUser.invalidate(),
         utils.avatar.getHistoricalAvatars.invalidate(),
       ]);
     },
@@ -1263,11 +1259,7 @@ export const HistoricalAiAvatar: React.FC<HistoricalAiAvatarProps> = (props) => 
             avatar: data.userPatch.avatar,
             avatarLight: data.userPatch.avatarLight,
           });
-        else
-          await invalidateUserQuery(
-            "mutation:avatar.updateAvatar",
-            utils.profile.getUser.invalidate,
-          );
+        else await utils.profile.getUser.invalidate();
         if (
           props.onUpdate &&
           !disabledRef.current &&
@@ -1365,10 +1357,7 @@ const SwapVillage: React.FC = () => {
     onSuccess: async (data) => {
       showMutationToast(data);
       if (data.success) {
-        await invalidateUserQuery(
-          "mutation:village.swapVillage",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       }
     },
     onSettled: () => {
@@ -1460,10 +1449,7 @@ const SwapBloodline: React.FC = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         await Promise.all([
-          invalidateUserQuery(
-            "mutation:bloodline.swapBloodline",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
           utils.bloodline.getSwapInfo.invalidate(),
         ]);
       },
@@ -1734,11 +1720,7 @@ const AvatarChange: React.FC = () => {
             if (serverData?.fileUrl) {
               if ("userPatch" in serverData && serverData.userPatch)
                 void updateUser(serverData.userPatch);
-              else
-                void invalidateUserQuery(
-                  "upload:avatar",
-                  utils.profile.getUser.invalidate,
-                );
+              else void utils.profile.getUser.invalidate();
             }
           }}
           onUploadError={(error: Error) => {
@@ -2713,10 +2695,7 @@ const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
-            invalidateUserQuery(
-              "mutation:staff.unequipAllGear",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
             utils.item.getUserItems.invalidate(),
           ]);
         }
@@ -2729,10 +2708,7 @@ const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
-            invalidateUserQuery(
-              "mutation:staff.unequipAllJutsus",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
             utils.jutsu.getUserJutsus.invalidate(),
           ]);
         }
@@ -2769,10 +2745,7 @@ const ManagementCommands: React.FC<ManagementCommandsProps> = ({ user }) => {
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
-            invalidateUserQuery(
-              "mutation:skillTree.resetAllUsersSkillPoints",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
             utils.skillTree.getUserSkills.invalidate(),
           ]);
         }

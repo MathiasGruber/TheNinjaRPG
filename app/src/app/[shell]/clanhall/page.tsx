@@ -25,7 +25,6 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequireInVillage } from "@/utils/UserContext";
 import type { ClanCreateSchema } from "@/validators/clan";
 import { clanCreateSchema } from "@/validators/clan";
@@ -45,10 +44,7 @@ export default function Clans() {
         if (data.success) {
           await Promise.all([
             utils.clan.getAll.invalidate(),
-            invalidateUserQuery(
-              "mutation:clan.createClan",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
       },

@@ -14,7 +14,6 @@ import Loader from "@/layout/Loader";
 import { LogbookEntry } from "@/layout/Logbook";
 import { showMutationToast } from "@/libs/toast";
 import { availableQuestLetterRanks } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequireInVillage } from "@/utils/UserContext";
 
 export default function AdministrationBuilding() {
@@ -40,10 +39,7 @@ export default function AdministrationBuilding() {
     onSuccess: async (data) => {
       showMutationToast(data);
       await Promise.all([
-        invalidateUserQuery(
-          "mutation:quests.startQuest",
-          util.profile.getUser.invalidate,
-        ),
+        util.profile.getUser.invalidate(),
         util.quests.allianceBuilding.invalidate(),
       ]);
     },

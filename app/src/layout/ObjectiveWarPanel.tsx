@@ -19,7 +19,6 @@ import Loader from "@/layout/Loader";
 import Table from "@/layout/Table";
 import { WarMercenaries } from "@/layout/WarMercenaries";
 import { getWarEspionage, getWarSide } from "@/libs/objectiveWar";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { pushToCombat } from "@/utils/routing";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -57,7 +56,7 @@ export const ObjectiveWarPanel = ({
     setFeedback(result);
     void utils.war.getObjectiveWarInfo.invalidate({ warId });
     void utils.war.getActiveWars.invalidate();
-    void invalidateUserQuery("feature:objective_war", utils.profile.getUser.invalidate);
+    void utils.profile.getUser.invalidate();
   };
   /** Publish the claimed battle locally before navigation so route guards see BATTLE. */
   const onBattleSuccess = async (result: {

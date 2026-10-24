@@ -9,7 +9,6 @@ import { ToastAction } from "@/components/ui/toast";
 import { env } from "@/env/client.mjs";
 import Link from "@/layout/Link";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { pushToCombat, usePublicPathname } from "@/utils/routing";
 
 // Events sent to the user from websockets
@@ -98,10 +97,7 @@ export const usePusherHandler = (
           }
         } else if (data.type === "battleEnded") {
           await utils.profile.getUser.cancel();
-          await invalidateUserQuery(
-            "realtime:battle_ended",
-            utils.profile.getUser.invalidate,
-          );
+          await utils.profile.getUser.invalidate();
           void utils.combat.getBattle.invalidate();
           if (data.dungeonRunId) {
             void utils.coop.dungeon.getState.invalidate();
@@ -110,10 +106,7 @@ export const usePusherHandler = (
         } else if (data.type === "questTeam") {
           // Membership changes affect the roster, personal quest projection and reward offers.
           await Promise.all([
-            invalidateUserQuery(
-              "realtime:quest_team",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
             utils.coop.quest.overview.invalidate(),
             utils.quests.getPendingRewardChoices.invalidate(),
           ]);

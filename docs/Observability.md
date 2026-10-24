@@ -1,61 +1,73 @@
-# Database load attribution
+# Query and mutation load attribution
 
-Sentry Application Metrics record procedure counts independently of trace sampling.
-The existing Sentry Next.js request wrapper flushes buffered metrics after the response
-through the platform's `waitUntil`; no telemetry request is awaited by game logic.
+The shared tRPC provider instruments its QueryClient and query/mutation caches once.
+Existing and future callers use the ordinary tRPC/TanStack APIs without adding labels
+at invalidation sites. Sentry Application Metrics are independent of trace sampling.
 
-| Metric | Type | Attributes | Meaning |
+| Metric | Emitted by | Attributes | Meaning |
 | --- | --- | --- | --- |
-| `trpc.mutation` | Counter | `procedure` | Mutation invocations that reach the Sentry middleware after the existing authentication, isolation and BotID guards. Counts attempts, including rejected inputs/business outcomes and failed executions, rather than committed writes. |
-| `profile.get_user.fetch` | Counter | `cause`, `cause_type` | Actual `profile.getUser` invocations reaching that middleware, including initial loads and retries. Invalidations that reuse an unfinished fetch or never fetch add no server execution. |
-| `profile.get_user.duration` | Distribution, milliseconds | `cause`, `cause_type`, `outcome` | Server wall time inside the instrumented procedure. Includes application work and database latency; it is not database CPU time or the sum of SQL durations. |
+| `trpc.mutation` | Server | `procedure` | Mutation invocations reaching middleware after authentication, isolation and BotID guards; attempts rather than committed writes. |
+| `trpc.query.invalidation` | Client | `target`, `mutation_context` | Calls to `invalidateQueries`, including repeated calls against already-invalidated, inactive or missing queries. The target is a procedure, router prefix, `all` or `unknown`. |
+| `trpc.query.fetch` | Server | `procedure`, `trigger`, `mutation_context` | Actual query invocations reaching middleware, including retries, for every procedure. Cache hits and invalidations that reuse unfinished reads add no server execution. |
+| `trpc.query.duration` | Server | `procedure`, `trigger`, `mutation_context`, `outcome` | Procedure wall time in milliseconds, including application work and database latency; not SQL CPU time or the sum of SQL durations. |
+
+The existing Sentry Next.js request wrapper flushes server metrics after the response
+through the platform's `waitUntil`; game logic does not await a telemetry request.
+Client metrics use the existing browser SDK and can be absent when telemetry is blocked.
+CDN cache hits do not reach server middleware and produce no server execution metric.
 
 ## Finding optimization opportunities
 
-In Sentry, select **Explore → Metrics**, the `theninjarpg` project, the production
+In Sentry, select **Explore → Metrics**, project `theninjarpg`, the production
 environment and a consistent time window.
 
-1. Select `profile.get_user.fetch`, sum the counter values and group by `cause`.
-   Sort descending to find the causes producing the most server reads.
-2. Select `trpc.mutation`, sum the counter values and group by `procedure`.
-   Compare a mutation's volume with its attributed profile reads. A high mutation
-   count alone does not imply many invalidations or reads.
-3. Compare the profile duration distribution by the same cause. Fetch count times
-   average duration estimates total **procedure wall time**; use PlanetScale Insights
-   to establish the database cost of the underlying queries before estimating SQL
-   savings. Parallel SQL statements can overlap in wall time.
-4. Compare equal windows before and after an optimization, accounting for player
-   activity and release changes. Metrics begin on deployments containing this code;
-   they do not backfill historical traces.
+1. Sum `trpc.query.fetch`, group by `procedure`, and filter `trigger:invalidation` to
+   rank queries reloaded after invalidation. Filter `procedure:profile.getUser` for
+   the account query specifically.
+2. Sum `trpc.query.invalidation` and group by `target` to find frequent invalidation
+   calls, including router-wide and global calls. Compare with server executions:
+   invalidation counts alone overstate database load when reads are deduplicated,
+   queries are inactive or responses come from the CDN.
+3. Group profile executions by `mutation_context`, then compare with `trpc.mutation`
+   grouped by `procedure`. This provides mutation correlation, not proof of causality.
+4. Compare query duration by the same dimensions. Count times average duration
+   estimates total procedure wall time. Use PlanetScale Insights for the underlying
+   SQL cost; parallel statements overlap in wall time.
+5. Compare equal windows before and after an optimization, accounting for player
+   activity and release changes. Metrics begin on deployment and do not backfill traces.
 
-Counters are unsampled by the trace sampler, but telemetry delivery remains best
-effort. They are operational measurements, not an accounting ledger.
+## Trigger and mutation context
 
-## Refresh causes
+- `initial`: a query has no successful cached result.
+- `invalidation`: a fetch was scheduled by invalidation or follows a pending invalidation.
+- `refetch`: an explicit QueryClient/tRPC utility refetch outside invalidation.
+- `refresh`: other fetches of existing data, including polling, focus/reconnect,
+  observer refetches and imperative fetches.
+- `unknown`: older clients, direct callers or missing/unmatchable attribution.
+- `mixed`: duplicate procedure calls in one batch have conflicting attribution.
 
-`mutation:<procedure>` identifies a known mutation callback. `feature:<name>` identifies
-a refresh helper shared by several related mutation callbacks, without guessing which
-one ran. Timer, realtime, native-store, upload, manual retry and recovery paths have
-their own labels. `cache:*` labels identify fallback reconciliation after an unsafe
-or incomplete local patch; these labels identify the fallback reason rather than the
-mutation that supplied the patch.
+`mutation_context` records a single procedure whose success/error callbacks are
+settling, or that just completed in the same event-loop turn. It also covers the
+continuation immediately after `await mutateAsync()`. Different overlapping mutation
+paths produce `multiple`; no observed context produces `none`. `unknown` covers
+unrecognized mutation metadata. An unrelated timer or realtime event can fire while
+an async mutation callback awaits other work, so this field is a correlation hint.
+The generic hook cannot infer exact timer, websocket or caller identity.
 
-`initial:load` identifies a query with no successful cached result.
-`automatic:refresh` covers observer refreshes such as the five-minute polling interval,
-focus and reconnect. `unknown:invalidation` exposes an unlabelled cache invalidation.
-`unknown:request` includes older clients, direct callers and missing/invalid attribution.
-When a batch contains profile requests with conflicting causes, `unknown:mixed_batch`
-avoids assigning one request's label to another.
+## Collection contract
 
-Use `invalidateUserQuery(cause, utils.profile.getUser.invalidate)` for explicit
-profile invalidation. Use `withUserRefreshCause(cause, () => ...)` for direct fetches,
-observer refetches, global invalidation or cache reconciliation. Place the wrapper
-around the cache call itself, after any awaited work: attribution scopes only
-synchronous scheduling and never stays globally active across an `await`.
+The tracker scopes scheduling per QueryClient, retains pending invalidations and
+snapshots attribution into each tRPC operation before retrying and batching. Cache
+matching includes query inputs and handles infinite-query cursors, but inputs and
+query-key hashes are never sent to metrics. Router/global invalidations require no
+special handling at call sites. Predicates retain their existing evaluation behavior.
 
-The query tracker retains a deferred invalidation's cause until a fetch starts and
-snapshots the cause into the tRPC operation before retrying or batching. A diagnostic
-header conveys that snapshot to the server. Causes must be added to the fixed
-`USER_REFRESH_CAUSES` allowlist in `app/src/libs/userRefreshCauses.ts`; arbitrary header
-values are discarded. Attributes contain no player identifiers, routes with IDs,
-request inputs or response payloads. Attribution is diagnostic and grants no authority.
+A bounded diagnostic header carries attribution for batched query paths. Server
+validation uses the registered router's procedure types, with no manual allowlist.
+Unknown query names, mutation names, triggers and oversized/malformed headers cannot
+create arbitrary server metric labels or reject game requests. Attribution grants
+no authority and includes no player identifiers or request/response payloads.
+
+Counters are unsampled, but delivery remains best effort. Budget roughly one record
+per mutation, one per invalidation call and two per server query execution. Broader
+query coverage increases volume compared with observing only the account query.

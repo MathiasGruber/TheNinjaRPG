@@ -65,7 +65,6 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import { VillageMission, VillageStructureMaintenance } from "@/layout/VillageMission";
 import { WarRoom } from "@/layout/WarSystem";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { calculateEnemyConsequences, findRelationship } from "@/utils/alliance";
 import { canTakeKage } from "@/utils/permissions";
@@ -204,10 +203,7 @@ const ElderHall: React.FC<{
           refetchVotes(),
           apiUtils.kage.getElders.invalidate(),
           apiUtils.village.get.invalidate(),
-          invalidateUserQuery(
-            "mutation:kage.nominateKage",
-            apiUtils.profile.getUser.invalidate,
-          ),
+          apiUtils.profile.getUser.invalidate(),
         ]);
       }
     },
@@ -945,10 +941,7 @@ const KageChallenge = ({ user }: { user: NonNullable<UserWithRelations> }) => {
       if (data.success) {
         await Promise.all([
           utils.village.get.invalidate(),
-          invalidateUserQuery(
-            "mutation:kage.takeKage",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
           utils.kage.getDefenses.invalidate(),
         ]);
         setShowTakeKageModal(false);

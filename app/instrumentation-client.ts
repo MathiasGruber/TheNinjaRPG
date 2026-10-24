@@ -5,6 +5,7 @@
 import * as Sentry from "@sentry/nextjs";
 import { initBotId } from "botid/client/core";
 import { BOTID_PROTECTED_ROUTES } from "@/libs/botid";
+import { stripQueryMetricUserAttributes } from "@/libs/queryTelemetry";
 import {
   isNetworkError as isNetworkErrorPattern,
   isHtmlResponseError as isHtmlResponseErrorPattern,
@@ -27,6 +28,7 @@ Sentry.init({
 
   // Adjust this value in production, or use tracesSampler for greater control
   tracesSampleRate: 0.001,
+  beforeSendMetric: stripQueryMetricUserAttributes,
 
   // Keep diagnostics without sending account credentials or request/user data.
   dataCollection: {

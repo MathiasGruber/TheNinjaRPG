@@ -60,7 +60,6 @@ import {
   jutsuRequirementWarning,
   remainingXpToLevel,
 } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { canReskinFreely, canTransferJutsu } from "@/utils/permissions";
 import { DAY_S, secondsFromDate } from "@/utils/time";
@@ -263,10 +262,7 @@ export default function MyJutsu() {
               ? updateUser((current) =>
                   current?.jutsuLoadout === variables.loadoutId ? { loadout } : {},
                 )
-              : invalidateUserQuery(
-                  "mutation:jutsu.updateUserJutsuOrder",
-                  utils.profile.getUser.invalidate,
-                ),
+              : utils.profile.getUser.invalidate(),
           ]);
         }
       },
@@ -351,10 +347,7 @@ export default function MyJutsu() {
             utils.jutsu.getEvolutions.invalidate(),
             utils.jutsu.getUserJutsuOwnership.invalidate(),
             utils.jutsu.getLoadouts.invalidate(),
-            invalidateUserQuery(
-              "mutation:jutsu.evolveJutsu",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
           setIsOpen(false);
           setUserJutsu(undefined);

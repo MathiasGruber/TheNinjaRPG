@@ -106,7 +106,6 @@ import { showUserRank } from "@/libs/profile";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { ClanRouter } from "@/routers/clan";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import { parseHtml } from "@/utils/parse";
@@ -411,10 +410,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
       if (joinedBattleId === deletingBattleId) setJoinedBattleId(null);
       await Promise.all([
         utils.clan.getClanBattles.invalidate(),
-        invalidateUserQuery(
-          "mutation:clan.deleteClanBattle",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.combat.getBattle.invalidate(),
       ]);
     } catch (error) {
@@ -464,10 +460,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         return next;
       });
       void Promise.all([
-        invalidateUserQuery(
-          "mutation:clan.joinClanBattle",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.getClanBattles.invalidate(),
       ]).catch(() => undefined);
     } catch {
@@ -501,10 +494,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
       setLeftBattleIds((current) => new Set(current).add(clanBattleId));
       setJoinedBattleId(null);
       void Promise.all([
-        invalidateUserQuery(
-          "mutation:clan.leaveClanBattle",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.getClanBattles.invalidate(),
       ]).catch(() => undefined);
     } catch {
@@ -556,10 +546,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
       kickedTargets.current.add(targetKey);
       setKickedTargetKeys((current) => new Set(current).add(targetKey));
       void Promise.all([
-        invalidateUserQuery(
-          "mutation:clan.kickFromClanBattle",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.getClanBattles.invalidate(),
       ])
         .then(() => {
@@ -609,10 +596,7 @@ export const ClanBattles: React.FC<ClanBattlesProps> = (props) => {
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
-            invalidateUserQuery(
-              "mutation:clan.initiateClanBattle",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
             utils.clan.getClanBattles.invalidate(),
           ]);
           if (data.battleId) pushToCombat(router, data.battleId);
@@ -1306,10 +1290,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       void updateUser({ clanId: null });
       router.push("/clanhall");
       void Promise.allSettled([
-        invalidateUserQuery(
-          "mutation:clan.leaveClan",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.get.invalidate(),
         utils.clan.getRequests.invalidate(),
       ]);
@@ -1440,10 +1421,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       setIsStrongholdUpgradeModalOpen(false);
       void Promise.allSettled([
         utils.clan.get.invalidate(),
-        invalidateUserQuery(
-          "mutation:clan.upgradeHideoutToStronghold",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.village.getSectorOwnerships.invalidate(),
       ]);
     } catch {
@@ -1514,10 +1492,7 @@ export const ClanInfo: React.FC<ClanInfoProps> = (props) => {
       void updateUser({ clanId, villageId: clanData.village.id });
       router.push("/clanhall");
       void Promise.allSettled([
-        invalidateUserQuery(
-          "mutation:clan.instantJoinAndLead",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.get.invalidate(),
         utils.clan.getRequests.invalidate(),
       ]);
@@ -2760,10 +2735,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
       setKickTargetId(null);
 
       await Promise.allSettled([
-        invalidateUserQuery(
-          "mutation:clan.kickMember",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.get.invalidate({ clanId }),
         utils.clan.getRequests.invalidate(),
       ]);
@@ -2803,10 +2775,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
       setPromoteTargetId(null);
 
       await Promise.allSettled([
-        invalidateUserQuery(
-          "mutation:clan.promoteMember",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.get.invalidate({ clanId }),
         utils.clan.getRequests.invalidate(),
       ]);
@@ -2852,10 +2821,7 @@ export const ClanMembers: React.FC<ClanMembersProps> = (props) => {
       setDemoteTargetId(null);
 
       void Promise.allSettled([
-        invalidateUserQuery(
-          "mutation:clan.demoteMember",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
         utils.clan.get.invalidate({ clanId }),
         utils.clan.getRequests.invalidate(),
       ]);
@@ -3471,10 +3437,7 @@ function ClanPointConversion({ clanId, points }: { clanId: string; points: numbe
       // Profile data also embeds clan balances used outside the clan hall.
       await Promise.all([
         utils.clan.get.invalidate(),
-        invalidateUserQuery(
-          "mutation:clan.convertPointsToRyo",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
       ]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not convert points");

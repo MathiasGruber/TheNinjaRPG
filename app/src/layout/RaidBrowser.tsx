@@ -32,7 +32,6 @@ import { TeamChatPanel } from "@/layout/TeamChatPanel";
 import { getRewardArray } from "@/libs/objectives";
 import { cn } from "@/libs/shadui";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { calculatePercent } from "@/utils/math";
 import { secondsFromDate } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -115,10 +114,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
           void updateUser({ status: "QUEUED" }, { revision, delta: data.userDelta });
         } else {
           // Failed joins can roll back an already committed queue/status write.
-          void invalidateUserQuery(
-            "mutation:raids.joinRaidQueue",
-            util.profile.getUser.invalidate,
-          );
+          void util.profile.getUser.invalidate();
         }
       },
     });
@@ -131,10 +127,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
         void util.raids.getUserRaidQueue.invalidate();
         void util.raids.getActiveRaidTeams.invalidate();
         void util.raids.getRaidDetails.invalidate();
-        void invalidateUserQuery(
-          "mutation:raids.leaveRaidQueue",
-          util.profile.getUser.invalidate,
-        );
+        void util.profile.getUser.invalidate();
       },
     });
 
@@ -144,10 +137,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
         showMutationToast(data);
         void util.raids.getUserRaidQueue.invalidate();
         void util.raids.getRaidDetails.invalidate();
-        void invalidateUserQuery(
-          "mutation:raids.startRaidBattle",
-          util.profile.getUser.invalidate,
-        );
+        void util.profile.getUser.invalidate();
       },
     });
 
@@ -160,10 +150,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
           showMutationToast(data);
         }
         void util.raids.getRaidDetails.invalidate();
-        void invalidateUserQuery(
-          "mutation:raids.claimDamageReward",
-          util.profile.getUser.invalidate,
-        );
+        void util.profile.getUser.invalidate();
         if (data.success) void util.profile.getDashboard.invalidate();
       },
     });
@@ -175,10 +162,7 @@ const RaidBrowser: React.FC<RaidBrowserProps> = (props) => {
           setIsReadyToQueue(true);
           void util.raids.getUserRaidQueue.invalidate();
           void util.raids.getActiveRaidTeams.invalidate();
-          void invalidateUserQuery(
-            "mutation:raids.readyToQueue",
-            util.profile.getUser.invalidate,
-          );
+          void util.profile.getUser.invalidate();
         }
         showMutationToast(data);
       },

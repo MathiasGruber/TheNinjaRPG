@@ -49,7 +49,6 @@ import Link from "@/layout/Link";
 import Loader from "@/layout/Loader";
 import { readCampaignSource } from "@/libs/campaignSource";
 import { showFormErrorsToast, showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useUserData } from "@/utils/UserContext";
 import {
   attributes,
@@ -94,15 +93,7 @@ const Register: React.FC = () => {
     return (
       <ContentBox title="Connection interrupted">
         <p className="p-4">We couldn&apos;t load your account. Please try again.</p>
-        <Button
-          className="m-4"
-          onClick={() =>
-            void invalidateUserQuery(
-              "manual:account_retry",
-              utils.profile.getUser.invalidate,
-            )
-          }
-        >
+        <Button className="m-4" onClick={() => void utils.profile.getUser.invalidate()}>
           Try again
         </Button>
       </ContentBox>
@@ -142,10 +133,7 @@ const RegisterForm: React.FC<{ isLoading: boolean }> = ({ isLoading }) => {
     api.register.createCharacter.useMutation({
       onSuccess: async (data) => {
         if (data.success) {
-          await invalidateUserQuery(
-            "mutation:register.createCharacter",
-            utils.profile.getUser.invalidate,
-          );
+          await utils.profile.getUser.invalidate();
           createAvatar.mutate();
           sendGTMEvent({ event: "register", userId: userData?.userId ?? "" });
         } else {

@@ -93,7 +93,6 @@ import Table from "@/layout/Table";
 import { TransactionHistory } from "@/layout/TransactionHistory";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import {
   calcFedUgradeCost,
   dynamicMonthlyRepCap,
@@ -460,10 +459,7 @@ const PayPalSubscriptionButton = (props: {
     api.paypal.resolveSubscription.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await invalidateUserQuery(
-          "mutation:paypal.resolveSubscription",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
         if (data.success && props.onSuccess) props.onSuccess();
       },
       onError: (error) => {
@@ -478,10 +474,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await invalidateUserQuery(
-            "mutation:paypal.upgradeSubscription",
-            utils.profile.getUser.invalidate,
-          );
+          await utils.profile.getUser.invalidate();
           if (props.onSuccess) props.onSuccess();
         }
       },
@@ -497,10 +490,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await invalidateUserQuery(
-            "mutation:paypal.subscribeWithReps",
-            utils.profile.getUser.invalidate,
-          );
+          await utils.profile.getUser.invalidate();
           if (props.onSuccess) props.onSuccess();
         }
       },
@@ -978,10 +968,7 @@ const LookupTransaction = () => {
       showMutationToast(data);
       if (data.success) {
         await Promise.all([
-          invalidateUserQuery(
-            "mutation:paypal.resolveTransaction",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
           utils.item.getUserItems.invalidate(),
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.paypal.getRecentRepsCount.invalidate(),

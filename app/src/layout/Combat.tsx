@@ -86,7 +86,6 @@ import {
 } from "@/libs/threejs/util";
 import { showMutationToast } from "@/libs/toast";
 import { getTutorialBattleReturnPage } from "@/libs/tutorial";
-import { withUserRefreshCause } from "@/libs/userRefresh";
 import { preloadAudioBuffers, savedSfxVolume } from "@/utils/audio";
 import { secondsFromNow } from "@/utils/time";
 import {
@@ -1529,9 +1528,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     try {
       // Navigation must wait for the confirmed profile: a cached BATTLE status
       // otherwise makes the tutorial redirect back to the fight that just ended.
-      const profile = await withUserRefreshCause("recovery:combat_profile", () =>
-        utils.profile.getUser.fetch(undefined, { staleTime: 0 }),
-      );
+      const profile = await utils.profile.getUser.fetch(undefined, { staleTime: 0 });
       router.push(
         getTutorialBattleReturnPage(
           TUTORIAL_STEPS,

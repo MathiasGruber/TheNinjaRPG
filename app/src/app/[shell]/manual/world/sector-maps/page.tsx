@@ -28,7 +28,6 @@ import { mergeTerrainSpecs } from "@/libs/sector-map/terrains";
 import { normalizeTiledSectorMap } from "@/libs/sector-map/tiled";
 import { downloadSectorForTiled } from "@/libs/sector-map/tiled-download";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { canChangeContent } from "@/utils/permissions";
 import { parseJsonSafe } from "@/utils/typeutils";
 import { useUserData } from "@/utils/UserContext";
@@ -338,14 +337,7 @@ function SectorMapEditorContent() {
           utils.travel.getVillageInSector.invalidate(),
           utils.travel.getSectorData.invalidate(),
           utils.worldMap.getSectorWindow.invalidate(),
-          ...(data.success
-            ? [
-                invalidateUserQuery(
-                  "mutation:worldMap.moveStructure",
-                  utils.profile.getUser.invalidate,
-                ),
-              ]
-            : []),
+          ...(data.success ? [utils.profile.getUser.invalidate()] : []),
         ]);
       },
     });

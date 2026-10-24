@@ -9,7 +9,6 @@ import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import Welcome from "@/layout/Welcome";
 import { readCampaignSource } from "@/libs/campaignSource";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useUserData } from "@/utils/UserContext";
 
 /**
@@ -69,10 +68,7 @@ export const HomeLanding: React.FC = () => {
               onClick={async () => {
                 setIsRetrying(true);
                 try {
-                  await invalidateUserQuery(
-                    "manual:account_retry",
-                    utils.profile.getUser.invalidate,
-                  );
+                  await utils.profile.getUser.invalidate();
                 } finally {
                   setIsRetrying(false);
                 }

@@ -18,7 +18,6 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import NavTabs from "@/layout/NavTabs";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 /**
@@ -60,10 +59,7 @@ export const PurchaseBloodline: React.FC<PurchaseBloodlineProps> = (props) => {
     api.bloodline.purchaseBloodline.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await invalidateUserQuery(
-          "mutation:bloodline.purchaseBloodline",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       },
       onSettled: () => {
         setIsOpen(false);
@@ -190,10 +186,7 @@ export const CurrentBloodline: React.FC<CurrentBloodlineProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await invalidateUserQuery(
-            "mutation:bloodline.removeBloodline",
-            utils.profile.getUser.invalidate,
-          );
+          await utils.profile.getUser.invalidate();
         }
       },
     });
@@ -257,10 +250,7 @@ export const RollBloodline: React.FC<RollBloodlineProps> = (props) => {
       props.refetch();
       showMutationToast({ ...data, title: "Bloodline Roll" });
       if (data.success) {
-        await invalidateUserQuery(
-          "mutation:bloodline.roll",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       }
     },
   });

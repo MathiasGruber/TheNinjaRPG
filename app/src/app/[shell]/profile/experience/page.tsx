@@ -8,7 +8,6 @@ import Loader from "@/layout/Loader";
 import DistributeStatsForm from "@/layout/StatsDistributionForm";
 import { experienceAssignmentBlockMessage } from "@/libs/profile";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 export default function AssignExperience() {
@@ -25,17 +24,10 @@ export default function AssignExperience() {
         showMutationToast(result);
         if (result.success)
           await updateUser(result.userPatch, { revision: context?.userRevision });
-        else
-          await invalidateUserQuery(
-            "mutation:profile.useUnusedExperiencePoints",
-            utils.profile.getUser.invalidate,
-          );
+        else await utils.profile.getUser.invalidate();
       },
       onError: async () => {
-        await invalidateUserQuery(
-          "mutation:profile.useUnusedExperiencePoints",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       },
     });
 

@@ -16,7 +16,6 @@ import SliderField from "@/layout/SliderField";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { parseHtml } from "@/utils/parse";
 import {
   canModifyEventGains,
@@ -93,10 +92,7 @@ export const EventGainMultiplierPanel: React.FC<{
         if (data.success) {
           await Promise.all([
             utils.misc.getSetting.invalidate(),
-            invalidateUserQuery(
-              "mutation:misc.setEventGameSetting",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
       },
@@ -244,10 +240,7 @@ const NotificationSystem: React.FC = () => {
       onSuccess: async (data) => {
         showMutationToast(data);
         await Promise.all([
-          invalidateUserQuery(
-            "mutation:misc.submitNotification",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
           utils.misc.getPreviousNotifications.invalidate(),
         ]);
       },

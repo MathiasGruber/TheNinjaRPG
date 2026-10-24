@@ -28,7 +28,6 @@ import MenuBoxProfile from "@/layout/MenuBoxProfile";
 import { getGameLayout } from "@/libs/gameLayouts";
 import { getMainNavbarLinks, type NavBarDropdownLink } from "@/libs/menus";
 import { cn } from "@/libs/shadui";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { usePublicPathname } from "@/utils/routing";
 import { useUserData } from "@/utils/UserContext";
@@ -98,15 +97,7 @@ const AccountLoadError: React.FC = () => {
   return (
     <div className="p-2 text-sm">
       <p>We couldn&apos;t load your account.</p>
-      <Button
-        variant="outline"
-        onClick={() =>
-          void invalidateUserQuery(
-            "manual:account_retry",
-            utils.profile.getUser.invalidate,
-          )
-        }
-      >
+      <Button variant="outline" onClick={() => void utils.profile.getUser.invalidate()}>
         Try again
       </Button>
     </div>

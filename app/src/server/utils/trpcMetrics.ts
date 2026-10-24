@@ -1,9 +1,12 @@
 import * as Sentry from "@sentry/node";
-import { parseUserRefreshCause } from "@/libs/userRefreshCauses";
+import {
+  type QueryAttribution,
+  UNKNOWN_QUERY_ATTRIBUTION,
+} from "@/libs/queryTelemetry";
 
 /** Count executed procedures independently of trace sampling, with bounded attributes. */
 export const measureTrpcCall = async <T extends { ok: boolean }>(
-  call: { path: string; type: string; userRefreshCause?: string },
+  call: { path: string; type: string; attribution?: QueryAttribution },
   next: () => Promise<T>,
   metrics: Pick<typeof Sentry.metrics, "count" | "distribution"> = Sentry.metrics,
 ) => {
@@ -14,12 +17,15 @@ export const measureTrpcCall = async <T extends { ok: boolean }>(
       }),
     );
   }
-  if (call.path !== "profile.getUser" || call.type !== "query") return next();
+  if (call.type !== "query") return next();
 
-  const cause = parseUserRefreshCause(call.userRefreshCause);
-  const causeType = cause.split(":", 1)[0]!;
-  const attributes = { cause, cause_type: causeType };
-  recordMetric(() => metrics.count("profile.get_user.fetch", 1, { attributes }));
+  const attribution = call.attribution ?? UNKNOWN_QUERY_ATTRIBUTION;
+  const attributes = {
+    procedure: call.path,
+    trigger: attribution.trigger,
+    mutation_context: attribution.mutationContext,
+  };
+  recordMetric(() => metrics.count("trpc.query.fetch", 1, { attributes }));
   const started = performance.now();
   let outcome = "error";
   try {
@@ -28,7 +34,7 @@ export const measureTrpcCall = async <T extends { ok: boolean }>(
     return result;
   } finally {
     recordMetric(() =>
-      metrics.distribution("profile.get_user.duration", performance.now() - started, {
+      metrics.distribution("trpc.query.duration", performance.now() - started, {
         unit: "millisecond",
         attributes: { ...attributes, outcome },
       }),

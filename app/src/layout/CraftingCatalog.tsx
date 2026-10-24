@@ -32,7 +32,6 @@ import {
   getTotalItemQuantity,
 } from "@/libs/crafting";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { countBoostingShrines, getShrineBoost } from "@/utils/village";
@@ -119,10 +118,7 @@ export const CraftingCatalog: React.FC<CraftingCatalogProps> = ({
         void Promise.allSettled([
           utils.item.getUserItems.invalidate(),
           utils.profile.getSidebarTimers.invalidate(),
-          invalidateUserQuery(
-            "mutation:occupation.craftItem",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
           utils.occupation.getCraftingQueue.invalidate(),
         ]);
       }

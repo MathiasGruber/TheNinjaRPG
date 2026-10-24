@@ -45,7 +45,6 @@ import StatusBar from "@/layout/StatusBar";
 import Table, { type ColumnDefinitionType } from "@/layout/Table";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { getShrineHpByLevel } from "@/libs/war";
 import type { UserWithRelations } from "@/routers/profile";
 import {
@@ -368,7 +367,7 @@ const BoostsTab = ({ user, isActive }: TabProps) => {
   // can fire. Global tRPC uses staleTime: Infinity, so without this nothing refreshes.
   // Gated on template presence so the hot path scales with template users, not all viewers.
   const invalidateUser = useCallback(
-    () => invalidateUserQuery("timer:shrine_slot", utils.profile.getUser.invalidate),
+    () => utils.profile.getUser.invalidate(),
     [utils.profile.getUser],
   );
   useInvalidateOnSlotBoundary(

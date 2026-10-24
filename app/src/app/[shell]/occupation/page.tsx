@@ -27,7 +27,6 @@ import OccupationCrafting from "@/layout/OccupationCrafting";
 import OccupationGathering from "@/layout/OccupationGathering";
 import OccupationHunter from "@/layout/OccupationHunter";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { canChangeContent } from "@/utils/permissions";
 import { useRequiredUserData } from "@/utils/UserContext";
 
@@ -94,11 +93,7 @@ export default function Occupations() {
               occupation: data.userPatch.occupation,
               occupationSignupAt: data.userPatch.occupationSignupAt,
             });
-          } else
-            await invalidateUserQuery(
-              "mutation:occupation.selectOccupation",
-              utils.profile.getUser.invalidate,
-            );
+          } else await utils.profile.getUser.invalidate();
         }
       },
     });

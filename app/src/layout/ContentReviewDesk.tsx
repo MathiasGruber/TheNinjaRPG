@@ -19,7 +19,6 @@ import { ContentReviewStats } from "@/layout/ContentReviewStats";
 import Loader from "@/layout/Loader";
 import { CATEGORY_LABELS, STATUS_LABELS } from "@/libs/contentReview/labels";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { canChangeContent } from "@/utils/permissions";
 import { formatTimeAgo } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -56,10 +55,7 @@ export const ContentReviewDesk: React.FC = () => {
         utils.contentReview.getQueue.invalidate(),
         utils.contentReview.getCounts.invalidate(),
         utils.contentReview.getStats.invalidate(),
-        invalidateUserQuery(
-          "mutation:contentReview.bulkApprove",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
       ]);
     },
   });

@@ -15,7 +15,6 @@ import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { parseHtml } from "@/utils/parse";
 import { objectiveImageMap } from "@/validators/objectives";
 
@@ -39,10 +38,7 @@ export const VillageMission = ({
       await Promise.all([
         refetch(),
         utils.village.get.invalidate(),
-        invalidateUserQuery(
-          "feature:village_mission",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
       ]);
   };
   const onError = (error: { message: string }) => setMessage(error.message);
@@ -229,10 +225,7 @@ export const VillageStructureMaintenance = ({ villageId }: { villageId: string }
       if (result.success)
         await Promise.all([
           utils.village.get.invalidate(),
-          invalidateUserQuery(
-            "mutation:kage.payStructureMaintenance",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
         ]);
     },
     onError: (error) => setMessage(error.message),

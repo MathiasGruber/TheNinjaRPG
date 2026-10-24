@@ -4,58 +4,47 @@ import { measureTrpcCall } from "@/server/utils/trpcMetrics";
 
 const recorder = () => ({ count: mock<typeof Sentry.metrics.count>(() => {}), distribution: mock<typeof Sentry.metrics.distribution>(() => {}) });
 
-describe("tRPC load metrics", () => {
-  it("counts every executed mutation without putting arguments or results in attributes", async () => {
+describe("generic tRPC load metrics", () => {
+  it("counts mutations without putting arguments or results in attributes", async () => {
     const metrics = recorder();
-    const result = { ok: true, data: { success: false, message: "Rejected", userId: "private" } };
-    const next = mock(async () => result);
-    expect(await measureTrpcCall({ path: "item.consume", type: "mutation" }, next, metrics)).toBe(result);
-    expect(next).toHaveBeenCalledTimes(1);
+    const result = { ok: true, data: { success: false, userId: "private" } };
+    expect(await measureTrpcCall({ path: "item.consume", type: "mutation" }, async () => result, metrics)).toBe(result);
     expect(metrics.count).toHaveBeenCalledWith("trpc.mutation", 1, { attributes: { procedure: "item.consume" } });
     expect(metrics.distribution).not.toHaveBeenCalled();
   });
 
-  it("does not instrument unrelated queries", async () => {
+  it.each(["profile.getUser", "item.getUserItems", "combat.getBattle"])("counts actual executions and wall time for %s", async (path) => {
     const metrics = recorder();
-    await measureTrpcCall({ path: "profile.getDashboard", type: "query" }, async () => ({ ok: true }), metrics);
-    expect(metrics.count).not.toHaveBeenCalled();
-    expect(metrics.distribution).not.toHaveBeenCalled();
-  });
-
-  it("counts a getUser execution and measures wall time using its validated cause", async () => {
-    const metrics = recorder();
-    await measureTrpcCall({ path: "profile.getUser", type: "query", userRefreshCause: "timer:energy_queue" }, async () => ({ ok: true }), metrics);
-    expect(metrics.count).toHaveBeenCalledWith("profile.get_user.fetch", 1, {
-      attributes: { cause: "timer:energy_queue", cause_type: "timer" },
-    });
-    expect(metrics.distribution).toHaveBeenCalledWith("profile.get_user.duration", expect.any(Number), {
-      unit: "millisecond", attributes: { cause: "timer:energy_queue", cause_type: "timer", outcome: "success" },
+    await measureTrpcCall({ path, type: "query", attribution: { trigger: "invalidation", mutationContext: "item.consume" } }, async () => ({ ok: true }), metrics);
+    const attributes = { procedure: path, trigger: "invalidation", mutation_context: "item.consume" };
+    expect(metrics.count).toHaveBeenCalledWith("trpc.query.fetch", 1, { attributes });
+    expect(metrics.distribution).toHaveBeenCalledWith("trpc.query.duration", expect.any(Number), {
+      unit: "millisecond", attributes: { ...attributes, outcome: "success" },
     });
     expect(metrics.distribution.mock.calls[0]![1]).toBeGreaterThanOrEqual(0);
   });
 
-  it.each([undefined, "player-secret", "mutation:arbitrary.path"])("bounds untrusted and absent causes: %p", async (userRefreshCause) => {
+  it("keeps older clients and direct callers visible without fabricating attribution", async () => {
     const metrics = recorder();
-    await measureTrpcCall({ path: "profile.getUser", type: "query", userRefreshCause }, async () => ({ ok: false }), metrics);
-    expect(metrics.count).toHaveBeenCalledWith("profile.get_user.fetch", 1, {
-      attributes: { cause: "unknown:request", cause_type: "unknown" },
-    });
-    expect(metrics.distribution).toHaveBeenCalledWith("profile.get_user.duration", expect.any(Number), {
-      unit: "millisecond", attributes: { cause: "unknown:request", cause_type: "unknown", outcome: "error" },
+    await measureTrpcCall({ path: "profile.getUser", type: "query" }, async () => ({ ok: false }), metrics);
+    const attributes = { procedure: "profile.getUser", trigger: "unknown", mutation_context: "none" };
+    expect(metrics.count).toHaveBeenCalledWith("trpc.query.fetch", 1, { attributes });
+    expect(metrics.distribution).toHaveBeenCalledWith("trpc.query.duration", expect.any(Number), {
+      unit: "millisecond", attributes: { ...attributes, outcome: "error" },
     });
   });
 
-  it("retains the original exception while measuring failed getUser work", async () => {
-    const metrics = recorder();
-    const error = new Error("database unavailable");
+  it("preserves the original exception when measuring failed database work", async () => {
+    const metrics = recorder(); const error = new Error("database unavailable");
     await expect(measureTrpcCall({ path: "profile.getUser", type: "query" }, async () => { throw error; }, metrics)).rejects.toBe(error);
     expect(metrics.count).toHaveBeenCalledTimes(1);
     expect(metrics.distribution).toHaveBeenCalledTimes(1);
   });
 
-  it("never rejects a game action when telemetry fails", async () => {
+  it("isolates telemetry failures from mutations and queries", async () => {
     const metrics = { count: () => { throw new Error("telemetry"); }, distribution: () => { throw new Error("telemetry"); } };
-    await expect(measureTrpcCall({ path: "profile.getUser", type: "query" }, async () => ({ ok: true }), metrics)).resolves.toEqual({ ok: true });
-    await expect(measureTrpcCall({ path: "item.consume", type: "mutation" }, async () => ({ ok: true }), metrics)).resolves.toEqual({ ok: true });
+    for (const type of ["mutation", "query"]) {
+      await expect(measureTrpcCall({ path: "item.consume", type }, async () => ({ ok: true }), metrics)).resolves.toEqual({ ok: true });
+    }
   });
 });

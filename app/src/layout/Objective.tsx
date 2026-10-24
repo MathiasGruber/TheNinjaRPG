@@ -20,7 +20,6 @@ import {
 import { getIsolatedPyramid, isBetweenPyramidBattles } from "@/libs/questRun";
 import { collapseRewards } from "@/libs/rewards";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { parseHtml } from "@/utils/parse";
 import { secondsFromDate } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -66,10 +65,7 @@ export const Objective: React.FC<ObjectiveProps> = (props) => {
     api.quests.retryBattle.useMutation({
       onSuccess: async (data) => {
         showMutationToast(data);
-        await invalidateUserQuery(
-          "mutation:quests.retryBattle",
-          utils.profile.getUser.invalidate,
-        );
+        await utils.profile.getUser.invalidate();
       },
     });
 

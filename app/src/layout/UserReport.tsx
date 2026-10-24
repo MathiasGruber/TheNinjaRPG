@@ -36,7 +36,6 @@ import ParsedReportJson from "@/layout/ReportReason";
 import RichInput from "@/layout/RichInput";
 import SliderField from "@/layout/SliderField";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { BaseServerResponse } from "@/server/api/trpc";
 import { parseHtml } from "@/utils/parse";
 import {
@@ -130,14 +129,7 @@ const DisplayUserReport: React.FC<UserReportProps> = (props) => {
         utils.reports.getAll.invalidate(),
         utils.reports.get.invalidate(),
         utils.comments.getReportComments.invalidate(),
-        ...(refreshUser
-          ? [
-              invalidateUserQuery(
-                "feature:moderation",
-                utils.profile.getUser.invalidate,
-              ),
-            ]
-          : []),
+        ...(refreshUser ? [utils.profile.getUser.invalidate()] : []),
       ]);
       reset();
     }

@@ -32,7 +32,6 @@ import {
 } from "@/libs/jutsu";
 import { validateItemLoadout, validateJutsuLoadout } from "@/libs/ranked_pvp";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { isRetryableTrpcError } from "@/utils/error";
 import { useRequireInVillage } from "@/utils/UserContext";
 import type { RankedLoadoutSchema } from "@/validators/pvpRank";
@@ -84,10 +83,7 @@ export const RankedArenaMain: React.FC = () => {
       onSuccess: (data) => {
         showMutationToast(data);
         if (data.success) {
-          void invalidateUserQuery(
-            "mutation:pvpRank.enterRankedSeason",
-            utils.profile.getUser.invalidate,
-          );
+          void utils.profile.getUser.invalidate();
         }
       },
     });

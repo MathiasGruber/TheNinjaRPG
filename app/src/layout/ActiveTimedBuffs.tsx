@@ -4,7 +4,6 @@ import { api } from "@/app/_trpc/client";
 import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import ItemWithEffects from "@/layout/ItemWithEffects";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 
 /** Meals and raid rewards use the same visible timed-effect surface. */
 export const ActiveTimedBuffs = () => {
@@ -62,10 +61,7 @@ export const ActiveTimedBuffs = () => {
                 onEndShow="Expired"
                 onFinish={() => {
                   void refetch();
-                  void invalidateUserQuery(
-                    "timer:raid_buff_expired",
-                    utils.profile.getUser.invalidate,
-                  );
+                  void utils.profile.getUser.invalidate();
                 }}
               />
             </p>

@@ -19,7 +19,6 @@ import Loader from "@/layout/Loader";
 import { showUserRank } from "@/libs/profile";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { AppRouter } from "@/server/api/root";
 import { pushToCombat } from "@/utils/routing";
 import { capitalizeFirstLetter } from "@/utils/string";
@@ -60,10 +59,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
         if (data.success) {
           await Promise.all([
             utils.shrine.getShrineBattles.invalidate(),
-            invalidateUserQuery(
-              "mutation:shrine.challengeShrine",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
       },
@@ -76,10 +72,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
         if (data.success) {
           await Promise.all([
             utils.shrine.getShrineBattles.invalidate(),
-            invalidateUserQuery(
-              "mutation:shrine.joinShrineBattle",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
       },
@@ -92,10 +85,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
         if (data.success) {
           await Promise.all([
             utils.shrine.getShrineBattles.invalidate(),
-            invalidateUserQuery(
-              "mutation:shrine.leaveShrineBattle",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
         }
       },
@@ -108,10 +98,7 @@ export const ShrineBattleLobby: React.FC<ShrineBattleLobbyProps> = ({
         if (data.success) {
           await Promise.all([
             utils.shrine.getShrineBattles.invalidate(),
-            invalidateUserQuery(
-              "mutation:shrine.initiateShrineBattle",
-              utils.profile.getUser.invalidate,
-            ),
+            utils.profile.getUser.invalidate(),
           ]);
           if (data.battleId) pushToCombat(router, data.battleId);
         }

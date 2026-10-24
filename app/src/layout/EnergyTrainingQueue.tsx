@@ -10,7 +10,6 @@ import ContentBox from "@/layout/ContentBox";
 import { getEnergyQueue } from "@/libs/queue";
 import { showMutationToast } from "@/libs/toast";
 import { statTrainingBlockMessage } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { getQueueTotalCapacity } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -36,14 +35,7 @@ export const EnergyTrainingQueue = ({
   });
   useEffect(() => {
     if (!entries.length) return;
-    const timer = setInterval(
-      () =>
-        void invalidateUserQuery(
-          "timer:energy_queue",
-          utils.profile.getUser.invalidate,
-        ),
-      60_000,
-    );
+    const timer = setInterval(() => void utils.profile.getUser.invalidate(), 60_000);
     return () => clearInterval(timer);
   }, [entries.length, utils]);
 

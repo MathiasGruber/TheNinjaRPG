@@ -30,7 +30,6 @@ import {
 import { isBetweenPyramidBattles } from "@/libs/questRun";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import {
   combatActionIdAtom,
   useRequiredUserData,
@@ -68,10 +67,7 @@ export default function CombatPage() {
         if (result.message) showMutationToast(result);
         await Promise.all([
           utils.combat.getBattle.invalidate(),
-          invalidateUserQuery(
-            "mutation:combat.toggleAutoCombat",
-            utils.profile.getUser.invalidate,
-          ),
+          utils.profile.getUser.invalidate(),
         ]);
       },
       onError: (error) => setAutoCombatError(error.message),
@@ -171,11 +167,7 @@ export default function CombatPage() {
   // Reconcile from the server without clearing held results or a newer battle.
   useEffect(() => {
     if (isBattleMissing) {
-      if (userData?.battleId)
-        void invalidateUserQuery(
-          "recovery:battle_missing",
-          utils.profile.getUser.invalidate,
-        );
+      if (userData?.battleId) void utils.profile.getUser.invalidate();
       if (battle?.id === userData?.battleId && battle?.extraState.dungeon && !results) {
         router.push("/dungeon");
       }

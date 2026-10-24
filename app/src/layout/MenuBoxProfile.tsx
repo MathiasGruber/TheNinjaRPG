@@ -80,7 +80,6 @@ import { cn } from "@/libs/shadui";
 import { calcCovertTrainingFinishAt } from "@/libs/stealth";
 import { regenerationBuffs } from "@/libs/titles";
 import { masteryTrainingEndsAt } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { getDaysHoursMinutesSeconds, getGameTime } from "@/utils/time";
 import { userBattleAtom, useUserData } from "@/utils/UserContext";
 import { isNegativeUserEffect, isPositiveUserEffect } from "@/validators/combat";
@@ -458,10 +457,7 @@ const MenuBoxProfile: React.FC = () => {
                           setState((state) => state + 1);
                           await Promise.all([
                             utils.raids.getUserRaidBuffs.invalidate(),
-                            invalidateUserQuery(
-                              "timer:meal_expired",
-                              utils.profile.getUser.invalidate,
-                            ),
+                            utils.profile.getUser.invalidate(),
                           ]);
                         }}
                       />
@@ -593,10 +589,7 @@ const MenuBoxProfile: React.FC = () => {
                         targetDate={covertTrainingFinishAt}
                         timeDiff={timeDiff}
                         onFinish={async () => {
-                          await invalidateUserQuery(
-                            "timer:covert_training_finished",
-                            utils.profile.getUser.invalidate,
-                          );
+                          await utils.profile.getUser.invalidate();
                         }}
                       />
                     </Link>

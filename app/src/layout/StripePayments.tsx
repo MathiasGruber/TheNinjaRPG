@@ -8,7 +8,6 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import ContentBox from "@/layout/ContentBox";
 import Loader from "@/layout/Loader";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { stripePurchaseSchema } from "@/validators/stripe";
 
@@ -128,10 +127,7 @@ export const StripePaymentReturn = () => {
         utils.stripe.getPendingCheckouts.invalidate(),
         ...(result.success
           ? [
-              invalidateUserQuery(
-                "mutation:stripe.resolveSession",
-                utils.profile.getUser.invalidate,
-              ),
+              utils.profile.getUser.invalidate(),
               utils.paypal.getRecentRepsCount.invalidate(),
               utils.stripe.getSubscriptions.invalidate(),
             ]

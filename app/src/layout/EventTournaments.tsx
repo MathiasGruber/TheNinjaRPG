@@ -25,7 +25,6 @@ import Loader from "@/layout/Loader";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { getRewardArray } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { canManageTournaments } from "@/utils/permissions";
 import { formatLocalDateTimeInput } from "@/utils/time";
 import { useUserData } from "@/utils/UserContext";
@@ -66,7 +65,7 @@ export const EventTournaments = ({
       utils.tournament.getEvent.invalidate(),
       utils.tournament.listEvents.invalidate(),
       utils.tournament.getEventNotices.invalidate(),
-      invalidateUserQuery("feature:event_tournament", utils.profile.getUser.invalidate),
+      utils.profile.getUser.invalidate(),
     ]);
   };
   const [message, setMessage] = useState("");

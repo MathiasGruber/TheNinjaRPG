@@ -5,7 +5,6 @@ import { MutationObserver, type MutationObserverOptions, QueryClient, QueryObser
 import { describe, expect, it, vi } from "bun:test";
 import type { z } from "zod";
 import { finishItemConsumeRequest, getItemConsumeErrorMessage } from "@/libs/itemConsumption";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { consumeItemInputSchema } from "@/validators/cooking";
 
 const sourceRoot = join(import.meta.dirname, "../../src");
@@ -60,7 +59,7 @@ describe("inventory pages", () => {
       (value: boolean) => { isOpen = value; },
       (value: unknown) => { selected = value; },
     );
-    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", "getItemConsumeErrorMessage", "invalidateUserQuery", `return (${callbacks});`)(
+    const options = new Function("utils", "useritem", "showMutationToast", "showRewardToast", "onSettled", "finishItemConsumeRequest", "userData", "getItemConsumeErrorMessage", `return (${callbacks});`)(
       {
         profile: { getUser: { invalidate: () => client.invalidateQueries({ queryKey: ["profile"] }) } },
         item: { getUserItemsWithVariants: { invalidate: () => client.invalidateQueries({ queryKey: ["inventory"] }) } },
@@ -72,7 +71,6 @@ describe("inventory pages", () => {
       finishItemConsumeRequest,
       { userId: "user" },
       getItemConsumeErrorMessage,
-      invalidateUserQuery,
     ) as MutationObserverOptions<{ success: boolean; message: string }, Error, z.input<typeof consumeItemInputSchema>>;
     const consume = new MutationObserver(client, { ...options, mutationFn: async () => ({ success: false, message: "Your meal stack changed. Refresh your inventory and try again" }) });
     try {
@@ -148,8 +146,8 @@ describe("inventory pages", () => {
         item: { getUserItems: invalidate, getUserItemsWithVariants: invalidate },
         bloodline: { getItemRolls: invalidate }, raids: { getUserRaidBuffs: invalidate },
         pets: { getPet: { invalidate: refreshPets } } };
-      const options = new Function("utils", "showRewardToast", "showMutationToast", "finishItemConsumeRequest", "userData", "onSettled", "getItemConsumeErrorMessage", "invalidateUserQuery", `return (${callbacks});`)(
-        utils, rewardToast, vi.fn(), vi.fn(), { userId: "recipient" }, vi.fn(), getItemConsumeErrorMessage, invalidateUserQuery,
+      const options = new Function("utils", "showRewardToast", "showMutationToast", "finishItemConsumeRequest", "userData", "onSettled", "getItemConsumeErrorMessage", `return (${callbacks});`)(
+        utils, rewardToast, vi.fn(), vi.fn(), { userId: "recipient" }, vi.fn(), getItemConsumeErrorMessage,
       ) as { onSuccess: (data: unknown, variables: { userItemId: string }) => Promise<void> };
       const petRewards = [{ id: "new-pet", speciesId: "fox", name: "Nami" }];
       await options.onSuccess({ success: true, rewards: {}, message: "Used contract", notifications: [], cacheRewards: [], petRewards }, { userItemId: "contract" });

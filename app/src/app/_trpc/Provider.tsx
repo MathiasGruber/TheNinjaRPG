@@ -21,6 +21,11 @@ import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/components/ui/use-toast";
 import { BOTID_BLOCKED_MESSAGE, BOTID_RELOAD_REQUIRED_MESSAGE } from "@/libs/botid";
 import { BUILD_ID_HEADER, noteServerBuild } from "@/libs/buildVersion";
+import {
+  createQueryMetricsTracker,
+  queryMetricsHeaders,
+  queryMetricsLink,
+} from "@/libs/queryMetrics";
 import { showMutationToast } from "@/libs/toast";
 import { shouldLogTrpcOperation } from "@/libs/trpcLogging";
 import {
@@ -29,11 +34,6 @@ import {
   SESSION_EXPIRED_MESSAGE,
   trpcSessionLink,
 } from "@/libs/trpcSession";
-import {
-  createUserRefreshTracker,
-  userRefreshCauseLink,
-  userRefreshHeaders,
-} from "@/libs/userRefresh";
 import { isRetryableTrpcError } from "@/utils/error";
 import {
   api,
@@ -65,7 +65,7 @@ const TrpcClientProvider = (props: {
     };
   }, [clerk, session]);
   const onMutateCheck = useGlobalOnMutateProtect();
-  const [{ queryClient, userRefreshTracker }] = useState(() => {
+  const [{ queryClient, queryMetricsTracker }] = useState(() => {
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: {
@@ -96,13 +96,13 @@ const TrpcClientProvider = (props: {
         },
       }),
     });
-    return { queryClient, userRefreshTracker: createUserRefreshTracker(queryClient) };
+    return { queryClient, queryMetricsTracker: createQueryMetricsTracker(queryClient) };
   });
   const [trpcClient] = useState(() => {
     const cdnCachedQueries = new Set(props.cdnCachedQueryPaths);
     return api.createClient({
       links: [
-        userRefreshCauseLink(userRefreshTracker),
+        queryMetricsLink(queryMetricsTracker),
         trpcSessionLink(session),
         retryLink({
           retry(options) {
@@ -150,7 +150,7 @@ const TrpcClientProvider = (props: {
             // Cookies are shared by tabs; the token belongs to this tab's active session.
             headers: async ({ opList }) => ({
               ...(await session.headers()),
-              ...userRefreshHeaders(opList),
+              ...queryMetricsHeaders(opList),
             }),
             // Only uncached responses name the current deploy; a CDN copy can predate it.
             fetch: async (input, init) => {

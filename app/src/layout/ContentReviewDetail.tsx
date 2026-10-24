@@ -51,7 +51,6 @@ import {
 } from "@/libs/contentReview/paths";
 import { questSceneOf } from "@/libs/contentReview/questScene";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { formatSoundLength, formatTimeAgo } from "@/utils/time";
 import { flattenLeaves, wordDiff } from "@/utils/wordDiff";
 
@@ -110,7 +109,7 @@ const ProposalReview: React.FC<ContentReviewDetailProps & { proposal: Proposal }
       utils.contentReview.getCounts.invalidate(),
       utils.contentReview.getStats.invalidate(),
       utils.contentReview.getProposal.invalidate({ id }),
-      invalidateUserQuery("feature:content_review", utils.profile.getUser.invalidate),
+      utils.profile.getUser.invalidate(),
     ]);
   };
   const decisionOptions = {

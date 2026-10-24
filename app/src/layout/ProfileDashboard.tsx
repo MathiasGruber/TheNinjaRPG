@@ -69,7 +69,6 @@ import {
 } from "@/libs/profileDashboard";
 import { cn } from "@/libs/shadui";
 import { getMasteryTrainingState, masteryTrainingEndsAt } from "@/libs/train";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { calculatePercent } from "@/utils/math";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { nextUtcDayAt } from "@/utils/time";
@@ -235,10 +234,7 @@ export default function ProfileDashboard({ settings }: { settings?: React.ReactN
     () => {
       void Promise.allSettled([
         dashboard.refetch({ cancelRefetch: false }),
-        invalidateUserQuery(
-          "timer:dashboard_deadline",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
       ]);
     },
     timeDiff ?? 0,

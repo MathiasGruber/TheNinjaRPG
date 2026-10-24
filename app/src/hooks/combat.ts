@@ -9,7 +9,6 @@ import { type BattleMaps, computeBattleMaps } from "@/libs/combat/battleMaps";
 import { type BattleUpdate, mergeBattleEntries } from "@/libs/combat/log";
 import type { BattleState, ReturnedBattle } from "@/libs/combat/types";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useUserData } from "@/utils/UserContext";
 
 export type { BattleMaps } from "@/libs/combat/battleMaps";
@@ -398,16 +397,10 @@ export const useAutoCombatSetting = (): [boolean, (enabled: boolean) => void] =>
     onSuccess: async (data) => {
       if (data.success) return;
       showMutationToast(data);
-      await invalidateUserQuery(
-        "mutation:profile.updatePreferences",
-        utils.profile.getUser.invalidate,
-      );
+      await utils.profile.getUser.invalidate();
     },
     onError: async () => {
-      await invalidateUserQuery(
-        "mutation:profile.updatePreferences",
-        utils.profile.getUser.invalidate,
-      );
+      await utils.profile.getUser.invalidate();
     },
   });
   const enabled = userData?.defaultAutoCombat ?? true;

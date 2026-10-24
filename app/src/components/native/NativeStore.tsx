@@ -30,7 +30,6 @@ import {
   storeRestoreReconciliation,
 } from "@/libs/native/purchaseSettlement";
 import { showMutationToast } from "@/libs/toast";
-import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useUserData } from "@/utils/UserContext";
 
 /**
@@ -303,7 +302,7 @@ export default function NativeStore() {
               : current,
           );
           setBindingError(null);
-          await invalidateUserQuery("native:foreground", invalidateProfile);
+          await invalidateProfile();
         })
         .catch(() => {
           if (!disposed)
@@ -397,10 +396,7 @@ export default function NativeStore() {
           );
         }
         if (data && !data.some(isPendingStorePurchase)) {
-          void invalidateUserQuery(
-            "native:purchase_poll",
-            utils.profile.getUser.invalidate,
-          );
+          void utils.profile.getUser.invalidate();
         }
       });
     }, 5000);
@@ -441,10 +437,7 @@ export default function NativeStore() {
       // see whatever the truth currently is rather than a frozen screen.
       const [{ data }] = await Promise.all([
         refetchRecent(),
-        invalidateUserQuery(
-          "native:purchase_settled",
-          utils.profile.getUser.invalidate,
-        ),
+        utils.profile.getUser.invalidate(),
       ]);
       assertCurrent?.();
       if (data && observation === "pending") {
@@ -479,13 +472,7 @@ export default function NativeStore() {
       updateUnsettledAttempts((current) =>
         releaseStorePurchaseLock(current, accountId, attempt),
       );
-      await Promise.all([
-        refetchRecent(),
-        invalidateUserQuery(
-          "native:purchase_verified",
-          utils.profile.getUser.invalidate,
-        ),
-      ]);
+      await Promise.all([refetchRecent(), utils.profile.getUser.invalidate()]);
       return observation;
     },
     [fetchRecentFresh, refetchRecent, updateUnsettledAttempts, utils],
@@ -608,7 +595,7 @@ export default function NativeStore() {
       }
       const [{ data }] = await Promise.all([
         refetchRecent(),
-        invalidateUserQuery("native:restore_settled", utils.profile.getUser.invalidate),
+        utils.profile.getUser.invalidate(),
       ]);
       assertCurrent?.();
       newestId = data?.[0]?.id ?? newestId;
@@ -885,7 +872,7 @@ export default function NativeStore() {
         // There is no webhook to wait for. Refresh once and finish immediately.
         const [{ data }] = await Promise.all([
           refetchRecent(),
-          invalidateUserQuery("native:restore", utils.profile.getUser.invalidate),
+          utils.profile.getUser.invalidate(),
         ]);
         assertCurrentRestore();
         if (data) {

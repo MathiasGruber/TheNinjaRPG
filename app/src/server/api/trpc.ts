@@ -24,11 +24,15 @@ import { questHistory, userData } from "@/drizzle/schema";
 import { LEMU_EXPERIMENT, normalizeLemuVariant } from "@/libs/lemuExperiment";
 import type { McpMeta } from "@/libs/mcp";
 import {
+  parseQueryMetricsHeader,
+  QUERY_METRICS_HEADER,
+  type QueryAttribution,
+} from "@/libs/queryTelemetry";
+import {
   ISOLATED_PYRAMID_MESSAGE,
   isPyramidRestrictedProcedure,
 } from "@/libs/questRun";
 import { trpcSessionUserId } from "@/libs/trpcSession";
-import { USER_REFRESH_CAUSE_HEADER } from "@/libs/userRefreshCauses";
 import {
   parseWallpaperVariant,
   WALLPAPER_EXPERIMENT,
@@ -57,6 +61,7 @@ export const createAppTRPCContext = async (options: {
   req: NextRequest;
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
+  procedureTypes?: ReadonlyMap<string, string>;
 }) => {
   // Get user ID - SIMPLE
   const session = await auth();
@@ -67,8 +72,11 @@ export const createAppTRPCContext = async (options: {
   // Get agent
   const userAgent = readHeaders.get("user-agent") ?? undefined;
   // Optional for server-side callers and older clients, which have no browser attribution.
-  const telemetry: { userRefreshCause?: string } = {
-    userRefreshCause: readHeaders.get(USER_REFRESH_CAUSE_HEADER) ?? undefined,
+  const telemetry: { queryMetrics?: ReadonlyMap<string, QueryAttribution> } = {
+    queryMetrics: parseQueryMetricsHeader(
+      readHeaders.get(QUERY_METRICS_HEADER),
+      options.procedureTypes ?? new Map(),
+    ),
   };
   // AB testing cookies
   const abLemuReplacementVariant = normalizeLemuVariant(
@@ -151,7 +159,11 @@ const ratelimit = new Ratelimit({
 
 export const sentryMiddleware = t.middleware((opts) =>
   measureTrpcCall(
-    { path: opts.path, type: opts.type, userRefreshCause: opts.ctx.userRefreshCause },
+    {
+      path: opts.path,
+      type: opts.type,
+      attribution: opts.ctx.queryMetrics?.get(opts.path),
+    },
     () =>
       Sentry.trpcMiddleware({
         // Parental settings contain PIN credentials; keep them out of error telemetry.
