@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { TRPCClientError } from "@trpc/client";
 import { createTRPCReact } from "@trpc/react-query";
 import { observable } from "@trpc/server/observable";
 import { useEffect, useState } from "react";
@@ -48,7 +49,7 @@ const mount = (initial = stateAt(1)) => {
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
     if (op.path === "combat.performAction") {
       finishAction = (data) => { observer.next({ result: { data } }); observer.complete(); };
-      failAction = (error) => observer.error(error);
+      failAction = (error) => observer.error(TRPCClientError.from<AppRouter>(error));
     } else if (op.path === "combat.getBattle") {
       reads.push(op.path);
       if (reads.length === 1) { observer.next({ result: { data: initial } }); observer.complete(); }
