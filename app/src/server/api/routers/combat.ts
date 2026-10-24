@@ -3139,6 +3139,9 @@ export const initiateBattle = async (
       ? repeatOpponentScaling
       : undefined;
 
+  // Share raw summon reads across the opening wave and ordered future waves.
+  const summonTemplateCache = new Map<string, Promise<CombatQueryUser[]>>();
+
   // Create the users array to be inserted into the battle
   const processed = await processUsersForBattle(client, {
     users: dungeonEncounter
@@ -3156,6 +3159,7 @@ export const initiateBattle = async (
     leftSideUserIds: userIds,
     leftSideUserCount,
     isSummon: false,
+    summonTemplateCache,
     petPreload: {
       pets,
       ownerRanks: Object.fromEntries(
@@ -3199,6 +3203,7 @@ export const initiateBattle = async (
           hide: false,
           leftSideUserCount: 0,
           isSummon: false,
+          summonTemplateCache,
         });
         offset += wave.aiIds.length;
         return prepared;
@@ -4316,6 +4321,8 @@ export const processUsersForBattle = async (
     /** Ordered team boundary, allowing the same AI template on opposing teams. */
     leftSideUserCount?: number;
     isSummon: boolean;
+    /** Raw rows shared only within one preparation; every transformation receives a clone. */
+    summonTemplateCache?: Map<string, Promise<CombatQueryUser[]>>;
     width: number;
     height: number;
     petPreload?: Pick<
@@ -5028,6 +5035,9 @@ export const processUsersForBattle = async (
 
   assertAcyclicSummons(summonDependencies);
 
+  const summonTemplateCache =
+    info.summonTemplateCache ?? new Map<string, Promise<CombatQueryUser[]>>();
+
   // Track summon data to merge later
   let summonUsersState: BattleUserState[] = [];
   let summonExtraState: ExtraState | null = null;
@@ -5040,32 +5050,55 @@ export const processUsersForBattle = async (
     ...new Set(allSummons.filter((s) => !usersState.find((u) => u.controllerId === s))),
   ];
   if (summonsToProcess.length > 0) {
-    const summons = await client.query.userData.findMany({
-      with: {
-        bloodline: { with: { bloodrightTiers: true } },
-        sageMode: true,
-        village: true,
-        items: {
+    const missingSummonIds = summonsToProcess.filter(
+      (id) => !summonTemplateCache.has(id),
+    );
+    if (missingSummonIds.length > 0) {
+      // Cache a real promise: awaiting a Drizzle thenable again would execute another query.
+      const pending = (async () => {
+        const rows = await client.query.userData.findMany({
           with: {
-            item: { with: { variants: true } },
-            imbuements: {
-              with: { item: true },
-              where: (imbuements) => lt(imbuements.craftingFinishedAt, new Date()),
+            bloodline: { with: { bloodrightTiers: true } },
+            sageMode: true,
+            village: true,
+            items: {
+              with: {
+                item: { with: { variants: true } },
+                imbuements: {
+                  with: { item: true },
+                  where: (imbuements) => lt(imbuements.craftingFinishedAt, new Date()),
+                },
+              },
+              where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
             },
+            jutsus: {
+              with: { jutsu: true },
+              where: (jutsus) => eq(jutsus.equipped, true),
+            },
+            userSkills: {
+              with: { skill: true },
+            },
+            aiProfile: true,
           },
-          where: (items) => and(gt(items.quantity, 0), isNotNull(items.equipped)),
-        },
-        jutsus: {
-          with: { jutsu: true },
-          where: (jutsus) => eq(jutsus.equipped, true),
-        },
-        userSkills: {
-          with: { skill: true },
-        },
-        aiProfile: true,
-      },
-      where: inArray(userData.userId, summonsToProcess),
-    });
+          where: inArray(userData.userId, missingSummonIds),
+        });
+        return rows;
+      })();
+      for (const id of missingSummonIds) {
+        summonTemplateCache.set(id, pending);
+      }
+    }
+    // Preserve database row order within each cached batch, including its first use.
+    const requestedSummonIds = new Set(summonsToProcess);
+    const summons = structuredClone(
+      (
+        await Promise.all(
+          new Set(summonsToProcess.map((id) => summonTemplateCache.get(id))),
+        )
+      ).flatMap(
+        (rows) => rows?.filter((row) => requestedSummonIds.has(row.userId)) ?? [],
+      ),
+    );
     if (summons.length > 0) {
       const {
         userEffects: summonEffects,
@@ -5075,6 +5108,7 @@ export const processUsersForBattle = async (
         client,
         {
           users: summons,
+          summonTemplateCache,
           settings: info.settings,
           relations: info.relations,
           wars: info.wars,

@@ -101,7 +101,7 @@ describe("summon preload cycles", () => {
   it("allows shared descendants and gives each processed copy independent state and effects", async () => {
     const run = preload({ A: ["B", "C", "B"], B: ["D"], C: [], D: ["C"] });
     const result = await run.process();
-    expect(run.reads).toEqual(["B", "C", "D", "C"]);
+    expect(run.reads).toEqual(["B", "C", "D"]);
     const copies = result.usersState.filter((user) => user.controllerId === "C");
     expect(copies).toHaveLength(2);
     expect(new Set(copies.map((user) => user.userId)).size).toBe(2);
