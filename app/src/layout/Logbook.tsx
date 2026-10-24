@@ -5,7 +5,6 @@ import { api } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import {
   ADDITIONAL_MISSION_REWARD_MULTIPLIER,
-  IMG_AVATAR_DEFAULT,
   IMG_SCENE_BACKGROUND,
   TERMINAL_DIALOG_PREFIX,
 } from "@/drizzle/constants";
@@ -13,6 +12,7 @@ import type { UserQuest } from "@/drizzle/schema";
 import { useTutorialStep } from "@/hooks/tutorial";
 import { useAbVariant } from "@/hooks/useAbVariant";
 import Accordion from "@/layout/Accordion";
+import { BattleHistoryTable } from "@/layout/BattleHistoryTable";
 import ContentBox from "@/layout/ContentBox";
 import Image from "@/layout/Image";
 import Loader from "@/layout/Loader";
@@ -275,41 +275,9 @@ export const LogbookActive: React.FC = () => {
  * <LogbookBattles />
  * ```
  */
-export const LogbookBattles: React.FC = () => {
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery({
-    secondsBack: 3600 * 3,
-  });
-  const allHistory = history?.map((e) => ({
-    attackerUsername: e.attacker.username,
-    attackerUserId: e.attacker.userId,
-    attackerAvatar: e.attacker.avatar,
-    defenderUsername: e.defender?.username || "Deleted User",
-    defenderUserId: e.defender?.userId || "Deleted User",
-    defenderAvatar: e.defender?.avatar || IMG_AVATAR_DEFAULT,
-    battleId: e.battleId,
-    createdAt: e.createdAt,
-  }));
-
-  type Entry = ArrayElement<typeof allHistory>;
-
-  const columns: ColumnDefinitionType<Entry, keyof Entry>[] = [
-    { key: "attackerAvatar", header: "Attacker", type: "avatar" },
-    { key: "defenderAvatar", header: "Defender", type: "avatar" },
-    { key: "battleId", header: "Battle ID", type: "string" },
-    { key: "createdAt", header: "Date", type: "date" },
-  ];
-
-  if (isPending) return <Loader explanation="Loading battles..." />;
-
-  return (
-    <Table
-      data={allHistory}
-      columns={columns}
-      linkPrefix="/battlelog/"
-      linkColumn={"battleId"}
-    />
-  );
-};
+export const LogbookBattles: React.FC = () => (
+  <BattleHistoryTable secondsBack={3600 * 3} />
+);
 
 /**
  * Renders a logbook history component.
