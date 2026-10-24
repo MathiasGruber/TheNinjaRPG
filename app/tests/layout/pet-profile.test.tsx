@@ -273,7 +273,7 @@ it("keeps failed missing-art recovery visible above the activity tabs", async ()
   const retry = await view.findByRole("button", { name: "Create / retry appearance" });
   const overview = view.getByRole("region", { name: "Miso" });
   expect(overview.contains(retry)).toBe(true);
-  expect(overview.textContent).toContain("The last image attempt did not finish.");
+  expect(overview.textContent).toContain("The last image attempt did not finish, so it did not use an attempt.");
   expect(overview.textContent).toContain("3 / 3 image attempts remain for this rank");
   expect(mealButton(view).disabled).toBe(true);
   selectTab(view, "Training");
@@ -462,7 +462,7 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
     await waitFor(() => expect(getPet).toHaveBeenLastCalledWith({ petId: "second" }));
     expect(view.getAllByRole("alert").map((entry) => entry.textContent)).toEqual(["This companion cannot be renamed right now."]);
     if (outcome === "network error") {
-      expect(toast.showMutationToast).toHaveBeenCalledWith({ success: false, message: "Miso: Miso image response lost" });
+      expect(toast.showMutationToast).toHaveBeenCalledWith({ success: false, message: `Miso: Miso image response lost. The image may still finish; refresh in a few minutes. Failed generations do not use an attempt.` });
     }
     await selectCompanion("Miso");
     const retry = await view.findByRole("button", { name: "Regenerate appearance" }) as HTMLButtonElement;
@@ -471,7 +471,7 @@ it.each(["rejection", "network error", "success"])("allows routine activity and 
       expect(view.queryByRole("alert")).toBeNull();
       expect(toast.showMutationToast).toHaveBeenCalledWith({ success: true, message: "Miso: Appearance ready" });
     } else {
-      expect((await view.findByRole("alert")).textContent).toBe(outcome === "network error" ? "Miso image response lost" : "Miso image needs retry");
+      expect((await view.findByRole("alert")).textContent).toBe(outcome === "network error" ? "Miso image response lost. The image may still finish; refresh in a few minutes. Failed generations do not use an attempt." : "Miso image needs retry");
     }
   } finally {
     finishGeneration();

@@ -285,23 +285,25 @@ describe("companion provider pipeline", () => {
     expect(upload).not.toHaveBeenCalled();
   });
 
-  it("accepts an evolution whose repair fails only the strength comparison and reports a warning", async () => {
+  it("accepts an evolution whose repair fails only the strength comparison and logs it without a Sentry issue", async () => {
     stubDownload(await cutout());
     const edit = vi.spyOn(replicate, "generateSpriteGPT").mockResolvedValue(await cutout());
     const reason = "It does not look clearly stronger than the previous image";
     vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, evolutionStronger: false, reason });
-    const warning = vi.spyOn(Sentry, "captureMessage").mockImplementation(() => "");
+    const captured = vi.spyOn(Sentry, "captureMessage").mockImplementation(() => "");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(await generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, "GPT", async () => {})).toEqual({ avatar: avatarUrl, avatarFacing: "left" });
     expect(edit).toHaveBeenCalledTimes(2);
+    expect(captured).not.toHaveBeenCalled();
     expect(warning).toHaveBeenCalledTimes(1);
-    expect(warning).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ level: "warning", extra: expect.objectContaining({ rank: 2, reason }) }));
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining("not judged clearly stronger"), expect.stringContaining(reason));
   });
 
   it("still rejects a repair that fails the strength comparison and another check", async () => {
     stubDownload(await cutout());
     vi.spyOn(replicate, "generateSpriteGPT").mockResolvedValue(await cutout());
     vi.spyOn(quality, "classifyPetAppearanceImage").mockResolvedValue({ ...acceptedQuality, evolutionStronger: false, identityPreserved: false, reason: "A different animal" });
-    const warning = vi.spyOn(Sentry, "captureMessage").mockImplementation(() => "");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(generatePetAppearance({ ...pet, rank: 2, artRank: 1, avatar: sourceUrl }, "GPT", async () => {})).rejects.toThrow("different animal");
     expect(warning).not.toHaveBeenCalled();
   });

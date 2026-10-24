@@ -1,5 +1,4 @@
 /** Generate, inspect and bound companion artwork before the router accepts it. */
-import * as Sentry from "@sentry/nextjs";
 import sharp from "sharp";
 import { PET_GENERATION_TIMEOUT_MS, type PetArtProvider } from "@/drizzle/constants";
 import type { PetSpecies, UserPet } from "@/drizzle/schema";
@@ -131,17 +130,15 @@ export const generatePetAppearance = async (
     validatePetAppearanceQuality(candidate.verdict, {
       requireStrongerEvolution: false,
     });
+    // Expected and subjective, so a structured log line rather than a Sentry issue.
     if (!candidate.verdict.evolutionStronger)
-      Sentry.captureMessage(
-        "Accepted companion evolution not judged clearly stronger",
-        {
-          level: "warning",
-          extra: {
-            speciesId: pet.speciesId,
-            rank: pet.rank,
-            reason: candidate.verdict.reason,
-          },
-        },
+      console.warn(
+        "[pets] Accepted companion evolution not judged clearly stronger",
+        JSON.stringify({
+          speciesId: pet.speciesId,
+          rank: pet.rank,
+          reason: candidate.verdict.reason,
+        }),
       );
   }
   signal.throwIfAborted();
