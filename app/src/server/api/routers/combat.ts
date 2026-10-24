@@ -5113,7 +5113,6 @@ export const processUsersForBattle = async (
         (rows) => rows?.filter((row) => requestedSummonIds.has(row.userId)) ?? [],
       ),
     );
-
     if (summons.length > 0) {
       const {
         userEffects: summonEffects,

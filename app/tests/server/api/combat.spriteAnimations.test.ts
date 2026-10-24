@@ -251,7 +251,7 @@ const startBattle = async ({
   await insertUsers([
     { userId: "editor", username: "Editor", role: "CONTENT", rank: "JONIN", level: 50 },
     { userId: "player", username: "Player", rank: "JONIN", level: 50 },
-    { userId: "ai", username: "AI", isAi: true, rank: "JONIN", level: 50 },
+    { userId: "ai", username: "AI", isAi: true, inArena: true, rank: "JONIN", level: 50 },
   ]);
   await db.insert(aiProfile).values({
     id: "Default", userId: "ai", includeDefaultRules: false, rules: [
