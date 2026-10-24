@@ -556,7 +556,28 @@ export const combatRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const attacker = alias(userData, "attacker");
       const defender = alias(userData, "defender");
-      const results = await ctx.drizzle
+      const isDirectFight = or(
+        eq(battleHistory.attackedId, input.userId),
+        eq(battleHistory.defenderId, input.userId),
+      );
+      // Every direct opponent can expose a top second-hop edge, even when their
+      // own edge is below the display limit. Fetch the complete set as IDs only.
+      const neighbors = await ctx.drizzle
+        .selectDistinct({
+          userId: sql<string>`case when ${battleHistory.attackedId} = ${input.userId}
+            then ${battleHistory.defenderId} else ${battleHistory.attackedId} end`,
+        })
+        .from(battleHistory)
+        .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
+        .innerJoin(defender, eq(battleHistory.defenderId, defender.userId))
+        .where(and(eq(battleHistory.battleType, "COMBAT"), isDirectFight));
+      if (neighbors.length === 0) return [];
+      // Constant ID ranges let MySQL use the participant indexes rather than
+      // scanning unrelated history for membership in a subquery.
+      const userIds = [
+        ...new Set([input.userId, ...neighbors.map((row) => row.userId)]),
+      ];
+      return await ctx.drizzle
         .select({
           attackerId: battleHistory.attackedId,
           defenderId: battleHistory.defenderId,
@@ -573,52 +594,20 @@ export const combatRouter = createTRPCRouter({
           and(
             eq(battleHistory.battleType, "COMBAT"),
             or(
-              eq(battleHistory.attackedId, input.userId),
-              eq(battleHistory.defenderId, input.userId),
+              inArray(battleHistory.attackedId, userIds),
+              inArray(battleHistory.defenderId, userIds),
             ),
           ),
         )
-        .groupBy(battleHistory.attackedId, battleHistory.defenderId);
-      const userIds = results
-        .flatMap((x) => [x.attackerId, x.defenderId])
-        .filter((x) => x !== input.userId);
-      if (userIds.length > 0) {
-        const level2 = await ctx.drizzle
-          .select({
-            attackerId: battleHistory.attackedId,
-            defenderId: battleHistory.defenderId,
-            attackerUsername: attacker.username,
-            defenderUsername: defender.username,
-            attackerAvatar: attacker.avatar,
-            defenderAvatar: defender.avatar,
-            total: count(),
-          })
-          .from(battleHistory)
-          .innerJoin(attacker, eq(battleHistory.attackedId, attacker.userId))
-          .innerJoin(defender, eq(battleHistory.defenderId, defender.userId))
-          .where(
-            and(
-              eq(battleHistory.battleType, "COMBAT"),
-              or(
-                and(
-                  inArray(battleHistory.attackedId, userIds),
-                  ne(battleHistory.defenderId, input.userId),
-                ),
-                and(
-                  inArray(battleHistory.defenderId, userIds),
-                  ne(battleHistory.attackedId, input.userId),
-                ),
-              ),
-            ),
-          )
-          .groupBy(battleHistory.attackedId, battleHistory.defenderId);
-        if (level2) results.push(...level2);
-      }
-
-      // Filter the results to only include the top 50 edges
-      const topFights = results.sort((a, b) => b.total - a.total).slice(0, 100);
-
-      return topFights;
+        .groupBy(battleHistory.attackedId, battleHistory.defenderId)
+        .orderBy(
+          desc(count()),
+          // Prefer direct fights when counts tie, then use stable endpoint ordering.
+          desc(sql`case when ${isDirectFight} then 1 else 0 end`),
+          battleHistory.attackedId,
+          battleHistory.defenderId,
+        )
+        .limit(100);
     }),
   getBattleHistoryEntry: protectedProcedure
     .meta({ mcp: { description: "Get specific battle history entry" } })
