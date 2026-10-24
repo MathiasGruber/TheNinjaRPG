@@ -1478,23 +1478,22 @@ export const combatRouter = createTRPCRouter({
       };
 
       // Process only the single user
-      const { userEffects, usersState, extraState } = await processUsersForBattle(
-        ctx.drizzle,
-        {
-          users: [rawUserForProcessing],
-          settings: data.settings,
-          relations: data.relations,
-          // Loadout changes retain the allegiance and contribution roles captured at initiation.
-          wars: Object.values(userBattle.extraState.wars),
-          villages: data.villages,
-          defaultProfile: data.defaultProfile,
-          battleType: userBattle.battleType,
-          width: userBattle.width,
-          height: userBattle.height,
-          hide: false,
-          isSummon: false,
-        },
-      );
+      const processed = await processUsersForBattle(ctx.drizzle, {
+        users: [rawUserForProcessing],
+        settings: data.settings,
+        relations: data.relations,
+        // Loadout changes retain the allegiance and contribution roles captured at initiation.
+        wars: Object.values(userBattle.extraState.wars),
+        villages: data.villages,
+        defaultProfile: data.defaultProfile,
+        battleType: userBattle.battleType,
+        width: userBattle.width,
+        height: userBattle.height,
+        hide: false,
+        isSummon: false,
+      }).catch(handleSummonPreloadError);
+      if (processed instanceof Error) return errorResponse(processed.message);
+      const { userEffects, usersState, extraState } = processed;
 
       const completeUserEffects = [
         ...otherUserEffects,
@@ -3120,50 +3119,49 @@ export const initiateBattle = async (
       : undefined;
 
   // Create the users array to be inserted into the battle
+  const processed = await processUsersForBattle(client, {
+    users: dungeonEncounter
+      ? users.slice(0, userIds.length + (dungeonEncounter.waves[0]?.aiIds.length ?? 0))
+      : users,
+    settings,
+    relations,
+    wars: activeWars,
+    villages,
+    defaultProfile,
+    battleType,
+    width: gridSize.width,
+    height: gridSize.height,
+    hide: false,
+    leftSideUserIds: userIds,
+    leftSideUserCount,
+    isSummon: false,
+    petPreload: {
+      pets,
+      ownerRanks: Object.fromEntries(
+        fetchedUsers
+          .filter((user) => !user.isAi)
+          .map((user) => [user.userId, user.rank]),
+      ),
+      abilitiesByOwner: Object.fromEntries(
+        fetchedUsers
+          .filter((user) => !user.isAi)
+          .map((user) => [
+            user.userId,
+            {
+              jutsus: petJutsus,
+              skills: user.userSkills,
+            },
+          ]),
+      ),
+    },
+  }).catch(handleSummonPreloadError);
+  if (processed instanceof Error) return errorResponse(processed.message);
   const { userEffects, usersState, extraState, initialDurability, groundEffects } =
-    await processUsersForBattle(client, {
-      users: dungeonEncounter
-        ? users.slice(
-            0,
-            userIds.length + (dungeonEncounter.waves[0]?.aiIds.length ?? 0),
-          )
-        : users,
-      settings,
-      relations,
-      wars: activeWars,
-      villages,
-      defaultProfile,
-      battleType,
-      width: gridSize.width,
-      height: gridSize.height,
-      hide: false,
-      leftSideUserIds: userIds,
-      leftSideUserCount,
-      isSummon: false,
-      petPreload: {
-        pets,
-        ownerRanks: Object.fromEntries(
-          fetchedUsers
-            .filter((user) => !user.isAi)
-            .map((user) => [user.userId, user.rank]),
-        ),
-        abilitiesByOwner: Object.fromEntries(
-          fetchedUsers
-            .filter((user) => !user.isAi)
-            .map((user) => [
-              user.userId,
-              {
-                jutsus: petJutsus,
-                skills: user.userSkills,
-              },
-            ]),
-        ),
-      },
-    });
+    processed;
 
   if (dungeonEncounter) {
     let offset = userIds.length + (dungeonEncounter.waves[0]?.aiIds.length ?? 0);
-    extraState.encounter = await prepareEncounterWaves(
+    const encounter = await prepareEncounterWaves(
       dungeonEncounter.waves,
       { usersState, userEffects, extraState },
       async (wave) => {
@@ -3184,7 +3182,9 @@ export const initiateBattle = async (
         offset += wave.aiIds.length;
         return prepared;
       },
-    );
+    ).catch(handleSummonPreloadError);
+    if (encounter instanceof Error) return errorResponse(encounter.message);
+    extraState.encounter = encounter;
     extraState.dungeon = {
       runId: dungeonEncounter.runId,
       runVersion: dungeonEncounter.runVersion,
@@ -4234,6 +4234,38 @@ export const initiateBattle = async (
   return { success: true, message: "You have attacked", battleId };
 };
 
+const summonCycleCause = Symbol("summonCycle");
+
+/** Expected content failures use the mutation response contract; other failures still propagate. */
+const handleSummonPreloadError = (error: unknown) => {
+  if (error instanceof Error && error.cause === summonCycleCause) return error;
+  throw error;
+};
+
+/** Check recursive loads; references satisfied within a batch already terminate. */
+const assertAcyclicSummons = (dependencies: Map<string, Set<string>>) => {
+  const visited = new Set<string>();
+  const path: string[] = [];
+  const stack = new Map<string, number>();
+  const visit = (id: string) => {
+    const cycleStart = stack.get(id);
+    if (cycleStart !== undefined) {
+      throw new Error(
+        `Cannot start battle: cyclic summon definitions (${[...path.slice(cycleStart), id].join(" → ")}). Please report this to staff.`,
+        { cause: summonCycleCause },
+      );
+    }
+    if (visited.has(id)) return;
+    visited.add(id);
+    stack.set(id, path.length);
+    path.push(id);
+    for (const target of dependencies.get(id) ?? []) visit(target);
+    path.pop();
+    stack.delete(id);
+  };
+  for (const id of dependencies.keys()) visit(id);
+};
+
 /**
  * Transform preloaded combat participants into battle state and shared static data.
  * An ordered `leftSideUserCount` takes precedence over ID-based team membership,
@@ -4242,6 +4274,7 @@ export const initiateBattle = async (
  * initiation validates capacity before calling this function.
  * Companion species summons join initiation's preload so their effect dispatch needs no reads.
  * Ranked players normalize to endgame levels; other Elite players retain earned milestone levels.
+ * Recursive summon loads reject cycles; references satisfied by the same batch remain valid.
  *
  * @param client - Database client for participant processing that requires persisted state.
  * @param info - Preloaded users, combat relations, team boundary and battlefield dimensions.
@@ -4269,6 +4302,7 @@ export const processUsersForBattle = async (
       "pets" | "ownerRanks" | "abilitiesByOwner"
     >;
   },
+  summonDependencies = new Map<string, Set<string>>(),
 ) => {
   // Destructure
   const {
@@ -4318,9 +4352,17 @@ export const processUsersForBattle = async (
     level: number;
   }[] = [];
   const takenLocations: { x: number; y: number }[] = [];
+  const batchUserIds = new Set(users.map((user) => user.userId));
 
   // Loop through users and transform to ProcessingBattleUser
   const usersState: ProcessingBattleUser[] = users.map((inputUser, index) => {
+    const dependencies = summonDependencies.get(inputUser.userId) ?? new Set<string>();
+    const addSummon = (id: string) => {
+      allSummons.push(id);
+      // Self-summoning NPCs and references to this batch use its existing actors.
+      // Only edges that actually recurse can prevent preloading from completing.
+      if (!batchUserIds.has(id)) dependencies.add(id);
+    };
     // Build the processing user object with all required fields
     const user: ProcessingBattleUser = {
       ...inputUser,
@@ -4695,7 +4737,7 @@ export const processUsersForBattle = async (
               skill.effects,
             ) as NonNullable<ExtraState["enemySkills"]>[string];
             for (const effect of enemySkills[userSkill.skillId] ?? []) {
-              if (effect.type === "summon") allSummons.push(effect.aiId);
+              if (effect.type === "summon") addSummon(effect.aiId);
             }
           } else if (skill.target === "ALLIES") {
             pendingSkillEffects.push({
@@ -4802,7 +4844,7 @@ export const processUsersForBattle = async (
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => {
-            if ("aiId" in e) allSummons.push(e.aiId);
+            if ("aiId" in e) addSummon(e.aiId);
           });
         return true;
       });
@@ -4871,7 +4913,7 @@ export const processUsersForBattle = async (
         effects
           .filter((e) => e.type === "summon")
           .forEach((e) => {
-            if ("aiId" in e) allSummons.push(e.aiId);
+            if ("aiId" in e) addSummon(e.aiId);
           });
         // Add item effects to user
         if (
@@ -4959,8 +5001,11 @@ export const processUsersForBattle = async (
       user.isOriginal = false;
     }
 
+    summonDependencies.set(inputUser.userId, dependencies);
     return user;
   });
+
+  assertAcyclicSummons(summonDependencies);
 
   // Track summon data to merge later
   let summonUsersState: BattleUserState[] = [];
@@ -5005,19 +5050,23 @@ export const processUsersForBattle = async (
         userEffects: summonEffects,
         usersState: summonState,
         extraState: summonSD,
-      } = await processUsersForBattle(client, {
-        users: summons,
-        settings: info.settings,
-        relations: info.relations,
-        wars: info.wars,
-        villages: info.villages,
-        defaultProfile: info.defaultProfile,
-        battleType: info.battleType,
-        width: info.width,
-        height: info.height,
-        hide: true,
-        isSummon: true,
-      });
+      } = await processUsersForBattle(
+        client,
+        {
+          users: summons,
+          settings: info.settings,
+          relations: info.relations,
+          wars: info.wars,
+          villages: info.villages,
+          defaultProfile: info.defaultProfile,
+          battleType: info.battleType,
+          width: info.width,
+          height: info.height,
+          hide: true,
+          isSummon: true,
+        },
+        summonDependencies,
+      );
       summonState.forEach((u) => {
         u.iAmHere = true;
         u.isSummonTemplate = true; // mark hidden clone-source templates
