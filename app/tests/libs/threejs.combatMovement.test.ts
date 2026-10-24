@@ -8,6 +8,7 @@ import type { CharacterAnimations } from "@/libs/spriteAnimations";
 import { createAggroHalo } from "@/libs/threejs/aggroHalo";
 import { acquireAnimationTexture, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { AI_AVATAR_SPRITE, drawCombatUsers, resetCombatCaches } from "@/libs/threejs/combat";
+import { loadTexture } from "@/libs/threejs/util";
 
 let now = 0;
 let sequence = 0;
@@ -116,6 +117,24 @@ describe("combat walking playback", () => {
     draw(200);
     expect(actor.visible).toBe(true);
     expect(sprite.userData.characterAnimation.sources.size).toBeGreaterThan(0);
+  });
+  it.each(["disabled", "unassigned", "empty"])("restores a returning hidden actor's static image when animations are %s", (state) => {
+    const { actor, sprite, user, group, draw } = fixture();
+    draw(100, []);
+    expect(group.children).toContain(actor);
+    expect(actor.visible).toBe(false);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+    if (state !== "disabled") user.spriteAnimations = state === "empty" ? {} : undefined;
+    const staticMap = loadTexture(sprite.userData.avatarPath, 128, false);
+    const staticDisposed = vi.spyOn(staticMap, "dispose");
+    draw(200, [user], state !== "disabled");
+    expect(actor.visible).toBe(true);
+    expect(sprite.material.map).toBe(staticMap);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+    const material = sprite.material;
+    draw(300, [user], state !== "disabled");
+    expect(sprite.material).toBe(material);
+    expect(staticDisposed).not.toHaveBeenCalled();
   });
   it.each(["dead", "fled"])("reuses a living actor's idle atlas while a %s actor remains in battle state", (state) => {
     const { user, group, draw } = fixture();

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { Sprite, Texture, TextureLoader } from "three";
+import { Group, Sprite, Texture, TextureLoader } from "three";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { acquireAnimationTexture, animationTextureUrl, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { updateCharacterAnimation } from "@/libs/threejs/characterAnimation";
@@ -57,6 +57,36 @@ describe("character atlas cache", () => {
     const second = acquire(animation, 128)!;
     expect(second.texture).toBe(first.texture);
     expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+  it("detaches decoded atlases from hidden actors after cache eviction and clearing", () => {
+    vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
+      const texture = new Texture<HTMLImageElement>();
+      texture.image = document.createElement("img");
+      texture.image.width = texture.image.height = 8 * 256;
+      onLoad?.(texture);
+      return texture;
+    });
+    const group = new Group();
+    for (let index = 0; index < 5; index++) {
+      const sprite = new Sprite();
+      sprites.push(sprite);
+      group.add(sprite);
+      updateCharacterAnimation({ sprite, animations: { idle: sheet() }, event: undefined,
+        moving: false, facing: "left", staticMap: new Texture(), now: 0, cellSize: 256 });
+      expect(sprite.material.map?.image).toHaveProperty("width", 2048);
+      sprite.visible = false;
+      group.traverse((child) => child.userData.disposeCharacterAnimation?.());
+    }
+    clearUnusedAnimationTextures();
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(5);
+    expect(group.children).toHaveLength(5);
+    let retainedBytes = 0;
+    group.traverse((child) => {
+      if (!(child instanceof Sprite)) return;
+      const image = (child.material.map as Texture<HTMLImageElement> | null)?.image;
+      if (image) retainedBytes += image.width * image.height * 4;
+    });
+    expect(retainedBytes).toBe(0);
   });
   it("does not download legacy oversized loops", () => {
     expect(acquire(sheet({ frameCount: 160, rows: 27, columns: 6 }))).toBeUndefined();

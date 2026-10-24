@@ -34,10 +34,9 @@ export const updateCharacterAnimation = (info: {
   const { sprite, animations, event, moving, facing, staticMap, now } = info;
   let runtime = sprite.userData.characterAnimation as AnimationRuntime | undefined;
   if (info.enabled === false || !animations || Object.keys(animations).length === 0) {
-    if (runtime) {
-      sprite.userData.disposeCharacterAnimation();
+    if (runtime) sprite.userData.disposeCharacterAnimation();
+    if (sprite.material.map !== staticMap)
       sprite.material = createSpriteMaterial(staticMap);
-    }
     return;
   }
   if (!runtime) {
@@ -58,6 +57,8 @@ export const updateCharacterAnimation = (info: {
     sprite.userData.disposeCharacterAnimation = () => {
       owned.events.length = 0;
       if (owned.material.userData.ownsMap) owned.material.map?.dispose();
+      // Hidden actors stay in the scene; disposal alone retains the decoded image.
+      owned.material.map = null;
       for (const source of owned.sources.values()) source.release();
       owned.sources.clear();
       owned.material.dispose();
