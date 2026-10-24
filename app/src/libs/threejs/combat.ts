@@ -59,13 +59,13 @@ import {
   getBattleGrid,
   getClan,
   getEffectiveCurPool,
-  getEffectiveMaxPool,
   getFacingDirection,
   getVillage,
 } from "@/libs/combat/util";
 import { builtinTerrainDepression } from "@/libs/sector-map/terrains";
 import { createAggroHalo, updateAggroHalo } from "@/libs/threejs/aggroHalo";
 import { getTileInfo } from "@/libs/threejs/biome";
+import { createCombatMaxPoolCache } from "@/libs/threejs/combatMaxPools";
 import {
   calculateHexUVCoordinates,
   calculateTileOffset,
@@ -113,6 +113,7 @@ const effectMeshCache = new Map<string, Group>();
 
 // PERFORMANCE: Cache for user meshes to avoid getObjectByName calls
 const userMeshCache = new Map<string, Group>();
+let maxPoolCaches = new WeakMap<Group, ReturnType<typeof createCombatMaxPoolCache>>();
 
 /**
  * Reset combat caches - call this when combat component unmounts
@@ -121,6 +122,7 @@ const userMeshCache = new Map<string, Group>();
 export const resetCombatCaches = () => {
   effectMeshCache.clear();
   userMeshCache.clear();
+  maxPoolCaches = new WeakMap();
   pendingSfxQueue = [];
   wasMovingLastFrame = false;
 };
@@ -1266,6 +1268,11 @@ export const drawCombatUsers = (info: {
   } = info;
   // Cache or create a pathfinder for this group
   const pathFinder = getOrCreatePathFinder(group_users, grid);
+  let getMaxPools = maxPoolCaches.get(group_users);
+  if (!getMaxPools) {
+    getMaxPools = createCombatMaxPoolCache();
+    maxPoolCaches.set(group_users, getMaxPools);
+  }
 
   // Track if any user changed position (for asset opacity updates)
   let needsOpacityUpdate = false;
@@ -1369,18 +1376,16 @@ export const drawCombatUsers = (info: {
           user.hidden = true;
         }
         // Update status bars using effective pool values
-        const maxHealth = getEffectiveMaxPool(user, usersEffects, "Health");
+        const maxPools = getMaxPools(user, battle, usersEffects);
         const curHealth = getEffectiveCurPool(user, usersEffects, "Health");
-        updateStatusBar("hp_current", userMesh, curHealth / maxHealth);
-        if ("curStamina" in user && "maxStamina" in user) {
-          const maxStamina = getEffectiveMaxPool(user, usersEffects, "Stamina");
+        updateStatusBar("hp_current", userMesh, curHealth / maxPools.health);
+        if ("curStamina" in user && maxPools.stamina !== undefined) {
           const curStamina = getEffectiveCurPool(user, usersEffects, "Stamina");
-          updateStatusBar("sp_current", userMesh, curStamina / maxStamina);
+          updateStatusBar("sp_current", userMesh, curStamina / maxPools.stamina);
         }
-        if ("curChakra" in user && "maxChakra" in user) {
-          const maxChakra = getEffectiveMaxPool(user, usersEffects, "Chakra");
+        if ("curChakra" in user && maxPools.chakra !== undefined) {
           const curChakra = getEffectiveCurPool(user, usersEffects, "Chakra");
-          updateStatusBar("cp_current", userMesh, curChakra / maxChakra);
+          updateStatusBar("cp_current", userMesh, curChakra / maxPools.chakra);
         }
         const halo = userMesh.getObjectByName("aggro_halo") as Group;
         updateAggroHalo(
