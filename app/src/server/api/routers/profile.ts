@@ -3337,11 +3337,19 @@ const fetchUpdatedUserOnce = async (
     hideInformation?: boolean;
     /** Display reads may retain a loaded team snapshot; progression callers require synchronization. */
     allowQuestPartySyncFallback?: boolean;
+    /** Server actions can omit display-only alerts while retaining all readiness settlement. */
+    includeNotifications?: boolean;
   },
   settlement: { startedQueuedJobs: number; hasRejectedPassiveRegen: boolean },
 ) => {
   // Destructure
-  const { client, userId, userIp, hideInformation = false } = props;
+  const {
+    client,
+    userId,
+    userIp,
+    hideInformation = false,
+    includeNotifications = true,
+  } = props;
   let { forceRegen } = props;
   let hasQuestPartySyncFailure = false;
   // Partial mutation responses must reconcile automatic progression beyond passive pools.
@@ -3430,11 +3438,13 @@ const fetchUpdatedUserOnce = async (
     fetchAchievementCatalogue(client),
     fetchAllGameSettings(client),
     queryUpdatedUser(),
-    fetchHasUnvotedPolls(client, userId, now),
+    includeNotifications ? fetchHasUnvotedPolls(client, userId, now) : [],
     fetchAllActiveWars(client),
     fetchMercenaryWarId(client, userId),
-    fetchActiveShrineLobbies(client, shrineLobbyStaleBefore),
-    fetchActiveRaids(client, now),
+    includeNotifications
+      ? fetchActiveShrineLobbies(client, shrineLobbyStaleBefore)
+      : [],
+    includeNotifications ? fetchActiveRaids(client, now) : [],
     fetchQuestBootstrap(client, userId),
   ]);
   let user:

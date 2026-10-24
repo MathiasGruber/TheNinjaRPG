@@ -302,7 +302,12 @@ import {
 } from "@/validators/combat";
 import type { HuntingBattleState } from "@/validators/hunting";
 import { sectorIdSchema } from "@/validators/travel";
-import { fetchUpdatedUser, fetchUser, type UserWithRelations } from "./profile";
+import {
+  fetchAchievementCatalogue,
+  fetchUpdatedUser,
+  fetchUser,
+  type UserWithRelations,
+} from "./profile";
 
 // Debug flag when testing battle
 const debug = false;
@@ -1080,11 +1085,12 @@ export const combatRouter = createTRPCRouter({
     .output(baseServerResponse.extend({ battleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       // Get information
-      const { user } = await fetchUpdatedUser({
-        client: ctx.drizzle,
-        userId: ctx.userId,
-      });
-      const [selectedAI, sectorVillage] = await Promise.all([
+      const [{ user }, selectedAI] = await Promise.all([
+        fetchUpdatedUser({
+          client: ctx.drizzle,
+          userId: ctx.userId,
+          includeNotifications: false,
+        }),
         ctx.drizzle.query.userData.findFirst({
           where: and(
             eq(userData.userId, input.aiId),
@@ -1093,10 +1099,11 @@ export const combatRouter = createTRPCRouter({
             eq(userData.inArena, true),
           ),
         }),
-        fetchSectorVillage(ctx.drizzle, user?.sector ?? -1),
       ]);
       // Check that user was found
       if (!user) return errorResponse("Attacking user not found");
+      // Read the arena location after progression has settled the player's membership.
+      const sectorVillage = await fetchSectorVillage(ctx.drizzle, user.sector);
       if (!sectorVillage) return errorResponse("Arena village not found");
       if (user.isBanned) return errorResponse("No arena while banned");
       if (!input.stats && user.dailyArenaFights >= BATTLE_ARENA_DAILY_LIMIT) {
@@ -2205,10 +2212,7 @@ export const initiateBattle = async (
       where: and(eq(gameAsset.hidden, false), eq(gameAsset.onInitialBattleField, true)),
     }),
     // Fetch achievements
-    client
-      .select()
-      .from(quest)
-      .where(and(eq(quest.questType, "achievement"), eq(quest.hidden, false))),
+    fetchAchievementCatalogue(client),
     // Fetch user data
     queryBattleUsers(),
     PvpBattleTypes.includes(battleType) || battleType === "SHRINE_WAR"
@@ -2398,6 +2402,18 @@ export const initiateBattle = async (
         tags: { source: "battleCookingSettlement" },
       });
     }
+  }
+
+  // Arena selection overlaps readiness, so recheck its rules on the fresh combat
+  // participants. Shared AI templates are excluded from the final player claim.
+  if (
+    (battleType === "ARENA" || battleType === "TRAINING") &&
+    targetIds.some((id) => {
+      const target = fetchedUsers.find((user) => user.userId === id);
+      return !target?.isAi || target.isSummon || !target.inArena;
+    })
+  ) {
+    return errorResponse("No AI found");
   }
 
   // A newly adopted selection may not exist in the earlier collection snapshot.

@@ -41,7 +41,7 @@ describeWithDatabase("war participation requires deliberate war activity", () =>
   it.each(["ARENA", "QUEST", "TRAINING", "COMBAT"] as const)("winning %s against an enemy-village NPC preserves immunity and the participation timer", async (battleType) => {
     const db = await getTestDatabase();
     const immunityUntil = battleType === "COMBAT" ? new Date(0) : new Date(Date.now() + 3600000);
-    await db.update(userData).set({ isAi: true }).where(eq(userData.userId, defenderId));
+    await db.update(userData).set({ isAi: true, inArena: true }).where(eq(userData.userId, defenderId));
     await db.update(userData).set({ immunityUntil }).where(eq(userData.userId, attackerId));
     const started = await initiateBattle({ client: db, userIds: [attackerId], targetIds: [defenderId] }, battleType);
     expect(started.success, started.message).toBe(true);
@@ -80,7 +80,7 @@ describeWithDatabase("war participation requires deliberate war activity", () =>
   it("does not extend an existing participation timer after an arena win", async () => {
     const db = await getTestDatabase();
     const participation = new Date(Date.now() + 60000);
-    await db.update(userData).set({ isAi: true }).where(eq(userData.userId, defenderId));
+    await db.update(userData).set({ isAi: true, inArena: true }).where(eq(userData.userId, defenderId));
     await db.update(userData).set({ warParticipantUntil: participation }).where(eq(userData.userId, attackerId));
     const started = await initiateBattle({ client: db, userIds: [attackerId], targetIds: [defenderId] }, "ARENA");
     expect(started.success, started.message).toBe(true);
