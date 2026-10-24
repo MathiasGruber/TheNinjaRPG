@@ -53,3 +53,14 @@ it("plays exactly one native preview when re-enabling saved Off feedback and per
   expect(window.localStorage.getItem(haptics.HAPTICS_STORAGE_KEY)).toBe("false");
   expect(impact).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])("shows Lock Screen timer guidance only when the iOS shell exposes Live Activities: %s", (supported) => {
+  Object.assign(window, { Capacitor: {
+    isNativePlatform: () => true, getPlatform: () => "ios",
+    Plugins: { Haptics: { impact }, ...(supported ? { TNRLiveActivity: {} } : {}) },
+  } });
+  const view = render(<DeviceSettings />);
+  expect(view.queryByText("Lock Screen timers") !== null).toBe(supported);
+  expect(view.getByText("Add a widget")).toBeTruthy();
+  expect(view.getByRole("switch", { name: "Toggle haptic feedback" })).toBeTruthy();
+});

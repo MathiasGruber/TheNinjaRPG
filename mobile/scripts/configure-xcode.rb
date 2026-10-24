@@ -22,14 +22,18 @@ APP_TARGET = "App"
 WIDGET_TARGET = "TNRWidgets"
 BUNDLE_ID = ENV.fetch("TNR_APP_ID", "com.theninjarpg.app")
 APP_GROUP = "group.#{BUNDLE_ID}"
-# The embedded site and its authentication UI require a supported WebKit release.
-APP_DEPLOYMENT_TARGET = "18.1"
-WIDGET_DEPLOYMENT_TARGET = "18.1"
+# Newer system features are availability-gated; the shell and home-screen widgets
+# remain usable on iOS 15.
+APP_DEPLOYMENT_TARGET = "15.4"
+WIDGET_DEPLOYMENT_TARGET = "15.4"
 
 abort "No Xcode project at #{PROJECT_PATH}. Run `bun run add:ios` first." unless Dir.exist?(PROJECT_PATH)
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
 app = project.targets.find { |t| t.name == APP_TARGET } or abort "No #{APP_TARGET} target"
+project.build_configurations.each do |config|
+  config.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = APP_DEPLOYMENT_TARGET
+end
 
 def set_setting(target, key, value)
   target.build_configurations.each { |config| config.build_settings[key] = value }
@@ -214,8 +218,8 @@ SWIFT_PACKAGES.each do |spec|
   end
 end
 
-# Capacitor writes `.v18` while retaining Swift tools 5.9, which cannot parse that
-# enum case. The string form supports the exact deployment target on that toolchain.
+# Keep Capacitor's regenerated package aligned with the app target. A string also
+# preserves the exact minor version without depending on PackageDescription enum cases.
 package_path = File.join(ROOT, "ios/App/CapApp-SPM/Package.swift")
 if File.exist?(package_path)
   package = File.read(package_path)

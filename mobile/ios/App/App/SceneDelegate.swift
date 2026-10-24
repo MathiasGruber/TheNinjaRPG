@@ -54,7 +54,11 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(TNRWidgetSyncPlugin())
         bridge?.registerPluginInstance(TNRAudioSessionPlugin())
-        bridge?.registerPluginInstance(TNRLiveActivityPlugin())
+        // Plugin presence is the web bridge's capability check. Older systems retain
+        // ordinary push and widgets without advertising unavailable Live Activities.
+        if #available(iOS 16.2, *) {
+            bridge?.registerPluginInstance(TNRLiveActivityPlugin())
+        }
         bridge?.registerPluginInstance(TNRAppleAuthPlugin())
     }
 }

@@ -70,9 +70,9 @@ struct StatusWidgetView: View {
 
     @ViewBuilder
     private func footer(_ snapshot: TNRSnapshot) -> some View {
-        if snapshot.isHospitalised, let until = snapshot.hospitalUntil {
+        if let until = snapshot.hospitalUntil, until > entry.date {
             Label {
-                countdownText(until: until).monospacedDigit()
+                countdownText(until: until, now: entry.date).monospacedDigit()
             } icon: {
                 Image(systemName: "cross.case.fill")
             }

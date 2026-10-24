@@ -13,7 +13,7 @@ import { safeLocalStorageSetItem, useLocalStorage } from "@/hooks/localstorage";
 import { useNativePushPermission } from "@/hooks/useNativePush";
 import { useNativeShell } from "@/hooks/useNativeShell";
 import Link from "@/layout/Link";
-import { haptics, platform } from "@/libs/native";
+import { haptics, liveActivity, platform } from "@/libs/native";
 import { showMutationToast } from "@/libs/toast";
 
 /** Player-facing wording for each push category. */
@@ -301,7 +301,7 @@ export default function DeviceSettings({ onNavigate }: { onNavigate?: () => void
               : "Touch and hold an empty space on your home screen, choose Widgets and find TheNinja-RPG. Drag the Status widget onto your home screen."}
           </p>
         </details>
-        {platform() === "ios" && (
+        {platform() === "ios" && liveActivity.isSupported() && (
           <details className="rounded-md border border-primary/20 px-3">
             <summary className="min-h-[44px] cursor-pointer py-3 font-medium text-[14px]">
               Lock Screen timers

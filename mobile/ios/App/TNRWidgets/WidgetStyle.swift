@@ -19,8 +19,13 @@ enum TNRStyle {
 
 extension View {
     /// Lets the system style the widget background as a container.
+    @ViewBuilder
     func tnrWidgetBackground(_ color: Color) -> some View {
-        containerBackground(color, for: .widget)
+        if #available(iOS 17.0, *) {
+            containerBackground(color, for: .widget)
+        } else {
+            background(color)
+        }
     }
 }
 
@@ -28,7 +33,12 @@ extension View {
 /// A relative `.timer` date instead begins counting upward after the deadline passes.
 func countdownText(until deadline: Date, now: Date = Date()) -> Text {
     guard deadline > now else { return Text("0:00") }
-    return Text(timerInterval: now...deadline, countsDown: true)
+    if #available(iOS 16.0, *) {
+        return Text(timerInterval: now...deadline, countsDown: true)
+    }
+    // iOS 15 cannot bound the system's relative timer. An absolute finish time is
+    // honest while suspended and cannot turn into a count-up after expiry.
+    return Text("Until ") + Text(deadline, style: .time)
 }
 
 /// A labelled bar. Reads at a glance as a colour and a length, with the numbers there for
