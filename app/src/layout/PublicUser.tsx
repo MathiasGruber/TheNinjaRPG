@@ -1,5 +1,7 @@
 "use client";
+
 import { NumberInput } from "@/components/ui/number-input";
+import { getJutsuMaxLevel } from "@/libs/jutsuProgression";
 
 /**
  * WARNING: This page is loaded very frequently, so it is important to keep it as light as possible.
@@ -2901,7 +2903,10 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
                           rules={{
                             required: "A jutsu level is required",
                             min: { value: 0, message: "Level cannot be below 0" },
-                            max: { value: 25, message: "Level cannot exceed 25" },
+                            max: {
+                              value: getJutsuMaxLevel(jutsu),
+                              message: `Level cannot exceed ${getJutsuMaxLevel(jutsu)}`,
+                            },
                             validate: (value) =>
                               Number.isInteger(value) || "Level must be a whole number",
                           }}
@@ -2912,7 +2917,7 @@ const EditUserComponent: React.FC<EditUserComponentProps> = ({
                                 <NumberInput
                                   className="w-20"
                                   min={0}
-                                  max={25}
+                                  max={getJutsuMaxLevel(jutsu)}
                                   step={1}
                                   disabled={isJutsuAdjustmentPending}
                                   {...field}

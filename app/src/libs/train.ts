@@ -12,6 +12,7 @@ import {
   BasicElementName,
   CombatStatNames,
   DURABILITY_USABILITY_THR,
+  ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER,
   ElementNames,
   FED_GOLD_JUTSU_SLOTS,
   FED_NORMAL_JUTSU_SLOTS,
@@ -491,8 +492,13 @@ export const jutsuRequirementWarning = (
 
 export const SENSEI_JUTSU_TRAINING_BOOST_PERC = 5;
 
+/**
+ * Milliseconds to train from the current level to the next level.
+ * Apply the required-rank multiplier after capping the base duration so it raises
+ * both training time and its cap; the sensei discount applies to that final duration.
+ */
 export const calcJutsuTrainTime = (
-  jutsu: Pick<Jutsu, "jutsuRank">,
+  jutsu: Pick<Jutsu, "jutsuRank" | "requiredRank">,
   level: number,
   userdata: Pick<UserData, "senseiId" | "rank">,
 ) => {
@@ -508,8 +514,9 @@ export const calcJutsuTrainTime = (
   }
   const trainTime = (1 + level * lvlIncrement) * 60 * 1000;
 
-  // Cap training time at maximum allowed time (1 hour)
-  const cappedTrainTime = Math.min(trainTime, MAX_JUTSU_TRAIN_TIME_MS);
+  const multiplier =
+    jutsu.requiredRank === "ELITE JONIN" ? ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER : 1;
+  const cappedTrainTime = Math.min(trainTime, MAX_JUTSU_TRAIN_TIME_MS) * multiplier;
 
   if (userdata.senseiId && userdata.rank === "GENIN") {
     return cappedTrainTime * (1 - SENSEI_JUTSU_TRAINING_BOOST_PERC / 100);
@@ -542,7 +549,7 @@ export const findJutsuInTraining = <T extends { finishTraining: Date | null }>(
  */
 export const inferJutsuTrainingStartedAt = (
   finishTraining: Date,
-  jutsu: Pick<Jutsu, "jutsuRank">,
+  jutsu: Pick<Jutsu, "jutsuRank" | "requiredRank">,
   storedLevel: number,
   userdata: Pick<UserData, "senseiId" | "rank">,
 ) =>

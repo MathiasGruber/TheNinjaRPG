@@ -8,7 +8,19 @@ import {
   toUIMessageStream,
 } from "ai";
 import { and, eq, lte, sql } from "drizzle-orm";
-import { MAX_DAILY_AI_CALLS, OPENAI_CHAT_MODEL } from "@/drizzle/constants";
+import {
+  ELITE_JONIN_JUTSU_ADVANCED_XP_TO_LEVEL,
+  ELITE_JONIN_JUTSU_LEVEL_CAP,
+  ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER,
+  ELITE_JONIN_JUTSU_XP_TO_LEVEL,
+  JUTSU_LEVEL_CAP,
+  JUTSU_TRAIN_LEVEL_CAP,
+  JUTSU_TRANSFER_MAX_LEVEL,
+  JUTSU_XP_TO_LEVEL,
+  MAX_DAILY_AI_CALLS,
+  MAX_JUTSU_TRAIN_TIME_MS,
+  OPENAI_CHAT_MODEL,
+} from "@/drizzle/constants";
 import { userData } from "@/drizzle/schema";
 import { drizzleDB } from "@/server/db";
 
@@ -412,8 +424,12 @@ This document outlines various screens, menus, and gameplay systems available in
 - **Training Grounds (Genin+):**  
   - Learn and train jutsus by spending ryo; training costs and durations increase with rank and level.
 - **Jutsu Level Cap:**  
-  - **Soft Cap:** 20 (via training grounds).  
-  - **Hard Cap:** 25 (through combat-based jutsu experience).
+  - **Soft Cap:** ${JUTSU_LEVEL_CAP} (via training grounds).
+  - **Hard Cap:** ${JUTSU_TRAIN_LEVEL_CAP} through combat, or ${ELITE_JONIN_JUTSU_LEVEL_CAP} for jutsu requiring Elite Jonin.
+  - Elite Jonin jutsu require ${ELITE_JONIN_JUTSU_XP_TO_LEVEL.toLocaleString("en-US")} XP per level through level ${JUTSU_TRAIN_LEVEL_CAP}, then ${ELITE_JONIN_JUTSU_ADVANCED_XP_TO_LEVEL.toLocaleString("en-US")} XP per level to reach ${ELITE_JONIN_JUTSU_LEVEL_CAP}. Other jutsu require ${JUTSU_XP_TO_LEVEL.toLocaleString("en-US")} XP per level.
+  - Elite Jonin jutsu take ${ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER} times as long to train, capped at ${(MAX_JUTSU_TRAIN_TIME_MS * ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER) / 3_600_000} hours per level, and still cap at level ${JUTSU_LEVEL_CAP} in the Training Grounds.
+  - Transfers can raise a recipient only to level ${JUTSU_TRANSFER_MAX_LEVEL}, including Elite Jonin jutsu; levels can be transferred out of higher-level jutsu.
+  - Evolution requires the parent jutsu's maximum level (${ELITE_JONIN_JUTSU_LEVEL_CAP} for Elite Jonin jutsu, ${JUTSU_TRAIN_LEVEL_CAP} otherwise). Tournament mastery eligibility still counts level ${JUTSU_TRAIN_LEVEL_CAP}.
 - **Sensei Feature (Genin):**  
   - Pair with a Jonin+ sensei to reduce jutsu training timers.
 - **Jutsu Management (Jutsus Menu):**  

@@ -10,7 +10,7 @@ const finishTraining = new Date("2026-01-02T00:00:00.000Z");
 
 describe("inferJutsuTrainingStartedAt", () => {
   it("uses the duration of the level training began at, not the stored target level", () => {
-    const jutsu = { jutsuRank: "D" as const };
+    const jutsu = { jutsuRank: "D" as const, requiredRank: "CHUNIN" as const };
     const userdata = { senseiId: null, rank: "CHUNIN" as const };
     const startedAt = inferJutsuTrainingStartedAt(finishTraining, jutsu, 5, userdata);
 
@@ -20,7 +20,7 @@ describe("inferJutsuTrainingStartedAt", () => {
   });
 
   it("applies the genin sensei discount from the same rules as training start", () => {
-    const jutsu = { jutsuRank: "C" as const };
+    const jutsu = { jutsuRank: "C" as const, requiredRank: "GENIN" as const };
     const userdata = { senseiId: "sensei", rank: "GENIN" as const };
     const startedAt = inferJutsuTrainingStartedAt(finishTraining, jutsu, 1, userdata);
 
