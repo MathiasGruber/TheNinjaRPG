@@ -59,7 +59,14 @@ export const performAIaction = (
   const nextActionEffects: ActionEffect[] = [];
   const aiDescriptions: string[] = [];
   let nextBattle = battle;
-  const returnBattle = structuredClone(nextBattle);
+  // Action catalogs are read-only during turns; insertion realizes copies of their tags.
+  // Keep everything else isolated, including summon bloodlines and private wave/run state.
+  const returnBattle = structuredClone({
+    ...nextBattle,
+    extraState: { ...nextBattle.extraState, jutsus: {}, items: {} },
+  });
+  returnBattle.extraState.jutsus = nextBattle.extraState.jutsus;
+  returnBattle.extraState.items = nextBattle.extraState.items;
 
   // Find users whose turns are AI-driven: actual AIs, plus humans who handed
   // their turns to their own AI profile (auto combat)
