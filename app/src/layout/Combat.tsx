@@ -137,8 +137,7 @@ const Combat: React.FC<CombatProps> = (props) => {
   const [lightLayout] = useLocalStorage<boolean>(LIGHT_LAYOUT_STORAGE_KEY, false);
   const [storedZoom, setStoredZoom] = useLocalStorage<number>("combatZoom", 1.5);
 
-  // Performance monitoring (unbounded for max FPS testing in dev)
-  const performanceMonitor = usePerformanceMonitor(true);
+  const performanceMonitor = usePerformanceMonitor(false);
 
   // References which shouldn't update
   const [webglError, setWebglError] = useState<boolean>(false);
@@ -243,6 +242,8 @@ const Combat: React.FC<CombatProps> = (props) => {
   );
   const aggroRef = useRef(config.showAggro ? aggro : undefined);
   aggroRef.current = config.showAggro ? aggro : undefined;
+  const animateCharactersRef = useRef(config.animateCharacters);
+  animateCharactersRef.current = config.animateCharacters;
 
   // Get effects for hovered element (can include both user and ground effects)
   const hoveredEffects = useMemo(() => {
@@ -1028,6 +1029,7 @@ const Combat: React.FC<CombatProps> = (props) => {
         setWebglError(true);
         return;
       }
+      const animationPixelRatio = renderer.getPixelRatio();
 
       // Create scene
       sceneRef.appendChild(renderer.domElement);
@@ -1241,6 +1243,10 @@ const Combat: React.FC<CombatProps> = (props) => {
             sfxVolume: sfxVolume,
             gameAssets: gameAssetsRef.current.assets,
             aggro: aggroRef.current,
+            animateCharacters: animateCharactersRef.current,
+            animationPixelRatio:
+              camera.zoom * animationPixelRatio * (cachedWidth / WIDTH),
+            animationRenderer: renderer,
           });
           endDrawUsers();
 
