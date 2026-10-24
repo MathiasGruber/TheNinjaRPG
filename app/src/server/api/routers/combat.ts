@@ -3391,16 +3391,13 @@ export const initiateBattle = async (
     battleType === "COMBAT"
       ? userIds.filter((uid) => {
           const attacker = users.find((u) => u.userId === uid);
-          return targetIds.some((tid) => {
-            const target = users.find((u) => u.userId === tid);
-            return (
-              !!attacker &&
-              !!target &&
-              !attacker.isAi &&
-              !target.isAi &&
-              getWarRelationship(activeWars, attacker, target) === "ENEMY"
-            );
-          });
+          return (
+            !!attacker &&
+            !attacker.isAi &&
+            nonAiTargets.some(
+              (target) => getWarRelationship(activeWars, attacker, target) === "ENEMY",
+            )
+          );
         })
       : battleType === "SHRINE_WAR"
         ? userIds
