@@ -2311,10 +2311,13 @@ export const initiateBattle = async (
           where: and(eq(quest.questType, "raid"), eq(quest.hidden, false)),
         })
       : [],
-    // Fetch raid participation records for battleCount guard (if applicable)
+    // Preload these participants' battleCount guards for settlement.
     battleType === "RAID" && info.raidQuestId
       ? client.query.raidParticipation.findMany({
-          where: eq(raidParticipation.questId, info.raidQuestId),
+          where: and(
+            eq(raidParticipation.questId, info.raidQuestId),
+            inArray(raidParticipation.userId, [...new Set([...userIds, ...targetIds])]),
+          ),
           columns: { userId: true, battleCount: true },
         })
       : [],
