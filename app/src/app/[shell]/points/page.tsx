@@ -59,6 +59,7 @@ import {
   FED_SILVER_ITEM_LOADOUTS,
   FED_SILVER_JUTSU_LOADOUTS,
   FED_SILVER_JUTSU_SLOTS,
+  FEDERAL_MONTHLY_USD_CENTS,
   FederalStatuses,
   IMG_REPSHOP_BRONZE,
   IMG_REPSHOP_GOLD,
@@ -80,6 +81,13 @@ import ContentBox from "@/layout/ContentBox";
 import Image from "@/layout/Image";
 import Loader from "@/layout/Loader";
 import SliderField from "@/layout/SliderField";
+import {
+  StripeCheckoutButton,
+  StripePaymentHistory,
+  StripePaymentReturn,
+  StripePendingCheckouts,
+  StripeSubscriptions,
+} from "@/layout/StripePayments";
 import type { ColumnDefinitionType } from "@/layout/Table";
 import Table from "@/layout/Table";
 import { TransactionHistory } from "@/layout/TransactionHistory";
@@ -101,7 +109,7 @@ import { StoreCheckout } from "./StoreCheckout";
 
 const CURRENCY = "USD";
 const OPTIONS = {
-  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID,
+  clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ?? "",
   currency: CURRENCY,
   intent: "capture",
 };
@@ -136,34 +144,27 @@ export default function PaypalShop() {
 
   // App Store guideline 3.1.1 requires digital goods to be sold through in-app purchase,
   // and both stores treat a web checkout inside the app as a violation. The native shell
-  // therefore never sees the PayPal flow.
+  // therefore never sees web checkout.
   if (isNativeShell) {
     // Scoped to this branch on purpose. The native store is reached without passing through
     // the sub-components that carry this gate on the web, so without it a banned player
     // could still buy and the webhook would credit an account the game locks out. Gating
     // the whole page instead would take away the Subscriptions table below, and with it the
-    // only in-game way for a banned player to stop a recurring PayPal charge.
+    // only in-game way for a banned player to stop a recurring web charge.
     if (userData.isBanned) return <BanInfo />;
     return <NativeStore />;
   }
 
   return (
-    <>
-      {process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
-        <PayPalScriptProvider
-          options={{
-            ...OPTIONS,
-            vault: true,
-          }}
-        >
-          <PaypalShopContent userData={userData} />
-        </PayPalScriptProvider>
-      ) : (
-        <ContentBox title="Store">
-          <p>Checkout is temporarily unavailable. Please try again later.</p>
-        </ContentBox>
-      )}
-    </>
+    <PayPalScriptProvider
+      deferLoading={!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}
+      options={{
+        ...OPTIONS,
+        vault: true,
+      }}
+    >
+      <PaypalShopContent userData={userData} />
+    </PayPalScriptProvider>
   );
 }
 
@@ -186,6 +187,7 @@ const PaypalShopContent = ({
 
   // Properly update SDK options when tab changes
   useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) return;
     dispatch({
       type: DISPATCH_ACTION.RESET_OPTIONS,
       value: {
@@ -206,6 +208,8 @@ const PaypalShopContent = ({
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <StripePaymentReturn />
+
       <ContentBox
         title={activeTab}
         subtitle={
@@ -238,9 +242,12 @@ const PaypalShopContent = ({
           {isReady ? <FederalStore /> : <Loader />}
         </TabsContent>
       </ContentBox>
+      <StripePendingCheckouts />
+      {activeTab === "Reputation" && <StripePaymentHistory />}
       {activeTab !== "Federal" && <TransactionHistory />}
       {activeTab !== "Federal" && <LookupTransaction />}
       {activeTab === "Federal" && <SubscriptionsOverview />}
+      <StripeSubscriptions />
     </Tabs>
   );
 };
@@ -396,6 +403,13 @@ const ReputationStore = () => {
                 <span className="ml-1 font-normal text-sm">USD</span>
               </strong>
             </div>
+            {watchedUsers[0] && (
+              <StripeCheckoutButton
+                userId={watchedUsers[0].userId}
+                purchase={{ type: "reputation", reputationPoints: watchedPoints }}
+                disabled={!valid || isLoadingLimit || isError}
+              />
+            )}
             <StoreCheckout
               recipientId={watchedUsers[0]?.userId}
               selection={{
@@ -446,7 +460,7 @@ const PayPalSubscriptionButton = (props: {
       onSuccess: async (data) => {
         showMutationToast(data);
         await utils.profile.getUser.invalidate();
-        if (props.onSuccess) props.onSuccess();
+        if (data.success && props.onSuccess) props.onSuccess();
       },
       onError: (error) => {
         onError(error);
@@ -582,7 +596,7 @@ const PayPalSubscriptionButton = (props: {
 
   return (
     <div
-      className={`h-full rounded-lg border p-3 ${props.currentUserStatus === props.buttonStatus ? "border-primary bg-accent" : "bg-card"}`}
+      className={`flex h-full flex-col rounded-lg border p-3 ${props.currentUserStatus === props.buttonStatus ? "border-primary bg-accent" : "bg-card"}`}
     >
       <div className="relative">
         <Image
@@ -608,14 +622,15 @@ const PayPalSubscriptionButton = (props: {
             }}
           >
             You are about to upgrade your federal subscription. This can only be done if
-            you own the paypal subscription in question, and only for your own
-            character. Note that this action is permanent and will cost {upgradeCost}{" "}
-            reputation points. You currently have {userData?.reputationPoints}{" "}
-            reputation points. Are you sure?
+            you own the PayPal or Stripe subscription in question, and only for your own
+            character. This costs {upgradeCost} reputation points. For Stripe
+            subscriptions, the upgrade lasts for the rest of the current paid period;
+            renewals keep the original subscription tier. You currently have{" "}
+            {userData?.reputationPoints} reputation points. Are you sure?
           </Confirm>
         )}
       </div>
-      <div>
+      <div className="flex-1">
         {props.buttonStatus === "NORMAL" && normalBenefits}
         {props.buttonStatus === "SILVER" && silverBenefits}
         {props.buttonStatus === "GOLD" && goldBenefits}
@@ -690,24 +705,38 @@ const PayPalSubscriptionButton = (props: {
               });
             }}
           />
-        ) : (
+        ) : process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? (
           <Loader />
+        ) : (
+          <p>PayPal checkout is temporarily unavailable.</p>
         )}
         {props.buttonStatus === "NORMAL" && (
-          <h3 className="font-bold italic">$5 / Month</h3>
+          <h3 className="font-bold italic">
+            ${FEDERAL_MONTHLY_USD_CENTS.NORMAL / 100} USD / Month
+          </h3>
         )}
         {props.buttonStatus === "SILVER" && (
-          <h3 className="font-bold italic">$10 / Month</h3>
+          <h3 className="font-bold italic">
+            ${FEDERAL_MONTHLY_USD_CENTS.SILVER / 100} USD / Month
+          </h3>
         )}
         {props.buttonStatus === "GOLD" && (
-          <h3 className="font-bold italic">$15 / Month</h3>
+          <h3 className="font-bold italic">
+            ${FEDERAL_MONTHLY_USD_CENTS.GOLD / 100} USD / Month
+          </h3>
         )}
       </div>
+      {props.buttonStatus !== "NONE" && (
+        <StripeCheckoutButton
+          userId={props.userId}
+          purchase={{ type: "federal", federalStatus: props.buttonStatus }}
+        />
+      )}
       {!hasSubscription && (
         <Confirm
           title="Confirm Upgrade"
           button={
-            <div className="mt-2 rounded-lg border-2 border-black bg-amber-200 p-2 text-center text-black hover:cursor-pointer hover:bg-orange-200">
+            <div className="mt-2 w-full rounded-lg border-2 border-black bg-amber-200 p-2 text-center text-black hover:cursor-pointer hover:bg-orange-200">
               Or, buy with
               {props.buttonStatus === "NORMAL" && (
                 <h3 className="font-bold italic">
@@ -729,7 +758,12 @@ const PayPalSubscriptionButton = (props: {
           onAccept={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            buy({ userId: props.userId, status: props.buttonStatus });
+            if (userData)
+              buy({
+                userId: props.userId,
+                expectedUserId: userData.userId,
+                status: props.buttonStatus,
+              });
           }}
         >
           You are about to purchase a federal subscription with reputation points. You
@@ -788,8 +822,9 @@ const FederalStore = () => {
         <div className="my-3">
           This user already has federal support. If you are the creator of the
           subscription, you should be able to see it in a table below and cancel it.
-          Otherwise, please go to your paypal account directly to manage the
-          subscription.
+          Manage Stripe renewal below, or use your PayPal account to manage PayPal
+          subscriptions. Starting another provider subscription does not cancel the
+          existing one.
         </div>
       )}
 

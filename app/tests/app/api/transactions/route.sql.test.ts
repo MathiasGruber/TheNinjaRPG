@@ -2,9 +2,10 @@ import { afterEach, beforeEach, expect, it, spyOn } from "bun:test";
 import { eq } from "drizzle-orm";
 import * as headers from "next/headers";
 import { GET } from "@/app/api/transactions/route";
-import { paypalTransaction, recruitmentRewards, userData, webStoreOrder } from "@/drizzle/schema";
+import { paypalTransaction, recruitmentRewards, stripePayment, userData, webStoreOrder } from "@/drizzle/schema";
 import * as gamesettings from "@/libs/gamesettings";
 import type { syncTransactions } from "@/server/api/routers/paypal";
+import * as stripeClient from "@/server/utils/stripe/client";
 import { reserveStoreOrder } from "@/server/utils/webStore";
 import { dollars2reps } from "@/utils/paypal";
 import { insertUsers } from "../../../setup/factories";
@@ -14,8 +15,9 @@ import { describeWithDatabase, getTestDatabase, resetTables } from "../../../set
 describeWithDatabase("PayPal transaction reconciliation", () => {
   const spies: { mockRestore: () => void }[] = [];
   beforeEach(async () => {
-    await resetTables(webStoreOrder, paypalTransaction, recruitmentRewards, userData);
+    await resetTables(webStoreOrder, paypalTransaction, recruitmentRewards, stripePayment, userData);
     stubCronAuth(() => null);
+    spies.push(spyOn(stripeClient, "stripeIsLive").mockReturnValue(false));
     spies.push(spyOn(headers, "cookies").mockResolvedValue({} as never));
     spies.push(spyOn(gamesettings, "lockWithGameTimer").mockResolvedValue(false));
   });
@@ -80,4 +82,59 @@ describeWithDatabase("PayPal transaction reconciliation", () => {
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(4);
     expect(await db.query.recruitmentRewards.findMany()).toHaveLength(2);
   });
+
+  const seedStripeReferrals = async () => {
+    const db = await getTestDatabase();
+    const createdAt = new Date(Date.now() - 86400_000);
+    await insertUsers([
+      { userId: "recruiter", username: "Recruiter", createdAt, reputationPoints: 5000, reputationPointsTotal: 5000 },
+      { userId: "other-recruiter", username: "OtherRecruiter", createdAt, reputationPoints: 0, reputationPointsTotal: 0 },
+      { userId: "buyer", username: "Buyer", createdAt, recruiterId: "recruiter" },
+      { userId: "recipient", username: "Recipient", createdAt, recruiterId: "other-recruiter" },
+    ]);
+    spies.push(spyOn(globalThis, "fetch").mockImplementation(async url =>
+      Response.json(String(url).endsWith("/v1/oauth2/token")
+        ? { access_token: "test-only" } : { transaction_details: [] })));
+    return db;
+  };
+  const stripeReceipt = (id: string) => ({
+    id, checkoutId: `checkout-${id}`, createdById: "buyer", affectedUserId: "recipient",
+    amountCents: 2000, reputationPoints: 105, purchasedAt: new Date(), grantedAt: new Date(), isSandbox: true,
+  });
+
+  it("awards a gifted Stripe purchase to the buyer's recruiter exactly once under concurrent reconciliation", async () => {
+    const db = await seedStripeReferrals();
+    await db.insert(stripePayment).values(stripeReceipt("pi_gift"));
+    const responses = await Promise.all(Array.from({ length: 4 }, () => GET(new Request("https://example.com/api/transactions"))));
+    expect(responses.map(response => response.status)).toEqual([200, 200, 200, 200]);
+    await GET(new Request("https://example.com/api/transactions"));
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recruiter") })).toMatchObject({ reputationPoints: 5010, reputationPointsTotal: 5010 });
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "other-recruiter") })).toMatchObject({ reputationPoints: 0 });
+    expect(await db.query.recruitmentRewards.findMany()).toMatchObject([{ userId: "recruiter", recruitedUserId: "buyer", amount: 10, type: "REPUTATION" }]);
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+  });
+
+  it("excludes unpaid, held, Federal, other-environment, nonpositive and recreated-account Stripe receipts", async () => {
+    const db = await seedStripeReferrals();
+    const oldPurchase = new Date(Date.now() - 2 * 86400_000);
+    await db.insert(stripePayment).values([
+      { ...stripeReceipt("pi_pending"), grantedAt: null },
+      { ...stripeReceipt("pi_review"), reviewRequired: true },
+      { ...stripeReceipt("in_federal"), federalStatus: "GOLD" },
+      { ...stripeReceipt("pi_live"), isSandbox: false },
+      { ...stripeReceipt("pi_free"), amountCents: 0 },
+      { ...stripeReceipt("pi_zero"), reputationPoints: 0 },
+      { ...stripeReceipt("pi_recreated_buyer"), purchasedAt: oldPurchase },
+      { ...stripeReceipt("pi_recreated_recruiter"), createdById: "recipient", purchasedAt: oldPurchase },
+      stripeReceipt("pi_valid"),
+    ]);
+    // The buyer predates this receipt, but its recruiter was recreated after the payment.
+    await db.update(userData).set({ createdAt: new Date(Date.now() - 3 * 86400_000) }).where(eq(userData.userId, "recipient"));
+    const response = await GET(new Request("https://example.com/api/transactions"));
+    expect(response.status).toBe(200);
+    expect(await db.query.recruitmentRewards.findMany()).toMatchObject([{ userId: "recruiter", recruitedUserId: "buyer", amount: 10 }]);
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "recruiter") })).toMatchObject({ reputationPoints: 5010 });
+    expect(await db.query.userData.findFirst({ where: eq(userData.userId, "other-recruiter") })).toMatchObject({ reputationPoints: 0 });
+  });
+
 });

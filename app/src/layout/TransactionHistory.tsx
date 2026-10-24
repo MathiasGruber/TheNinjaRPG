@@ -52,6 +52,7 @@ export const TransactionHistory: React.FC<{ userId?: string }> = (props) => {
     { key: "reputationPoints", header: "Points", type: "string" },
     { key: "value", header: "Amount", type: "string" },
     { key: "type", header: "Type", type: "capitalized" },
+    { key: "status", header: "Status", type: "string" },
     { key: "transactionUpdatedDate", header: "Last Update", type: "string" },
   ];
 
@@ -61,7 +62,7 @@ export const TransactionHistory: React.FC<{ userId?: string }> = (props) => {
   return (
     <ContentBox
       title="Transaction History"
-      subtitle="Previous purchases"
+      subtitle="Payments. Points are delivered when payment is completed."
       initialBreak={true}
       padding={false}
     >
