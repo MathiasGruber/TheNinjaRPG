@@ -28,6 +28,8 @@ export const getTargetTiles = ({
 }): TerrainHex[] => {
   const radius = action.range;
   let tiles: Grid<TerrainHex> | undefined;
+  // Wall methods run along rows (vertical wall) or along columns (horizontal wall).
+  let horizontalWall = false;
   if (action.method === "SINGLE") {
     tiles = grid.traverse(fromCoordinates<TerrainHex>([b.q, b.r]));
   } else if (action.method === "AOE_CIRCLE_SPAWN") {
@@ -39,10 +41,11 @@ export const getTargetTiles = ({
     action.method === "AOE_LARGE_WALL_SHOOT"
   ) {
     const length = action.method === "AOE_WALL_SHOOT" ? 2 : 3;
-    const directions =
-      Math.abs(a.q - b.q) >= Math.abs(a.r - b.r)
-        ? [Direction.N, Direction.S]
-        : [Direction.W, Direction.E];
+    // Casting sideways builds a vertical wall; casting up/down builds a horizontal one.
+    horizontalWall = Math.abs(a.q - b.q) < Math.abs(a.r - b.r);
+    const directions = horizontalWall
+      ? [Direction.W, Direction.E]
+      : [Direction.N, Direction.S];
     tiles = grid.traverse(
       directions.map((direction) =>
         line<TerrainHex>({ start: [b.q, b.r], length, direction }),
@@ -76,8 +79,13 @@ export const getTargetTiles = ({
     });
   }
   const base = tiles?.toArray() ?? [];
-  const x = action.methodSize?.x ?? 0;
-  const y = action.methodSize?.y ?? 0;
+  // Wall sizes are authored for the sideways (vertical) wall: y lengthens it and x
+  // thickens it. Rotate them with the wall so an up/down cast stays one straight
+  // line instead of growing into a block.
+  const sizeX = action.methodSize?.x ?? 0;
+  const sizeY = action.methodSize?.y ?? 0;
+  const x = horizontalWall ? sizeY : sizeX;
+  const y = horizontalWall ? sizeX : sizeY;
   if (x === 0 && y === 0) return base;
   // Expand in battlefield column/row coordinates, clipping to the actual map.
   // Spiral expansion must preserve the caster's exclusion from its base footprint.

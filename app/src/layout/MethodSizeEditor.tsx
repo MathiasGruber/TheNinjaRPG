@@ -24,7 +24,7 @@ export const MethodSizeEditor = ({
   <div className="space-y-3">
     <p className="text-muted-foreground text-xs">
       Extra columns (X) and rows (Y) in each direction. Zero keeps the default
-      footprint.
+      footprint. Walls rotate with the cast: Y lengthens the wall and X thickens it.
     </p>
     <div className="flex flex-wrap items-end gap-3">
       {(["x", "y"] as const).map((axis) => (
