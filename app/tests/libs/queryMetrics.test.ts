@@ -249,5 +249,7 @@ describe("query telemetry header validation", () => {
     expect(original.attributes["user.id"]).toBe("private-id");
     const unrelated = { ...original, name: "other.metric" };
     expect(stripQueryMetricUserAttributes(unrelated)).toBe(unrelated);
+    const empty = { name: "trpc.mutation", value: 1 };
+    expect(stripQueryMetricUserAttributes(empty)).toBe(empty);
   });
 });

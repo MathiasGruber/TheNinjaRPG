@@ -18,11 +18,11 @@ export const UNKNOWN_QUERY_ATTRIBUTION: QueryAttribution = {
 
 /** The SDK inherits setUser() attributes; load metrics need only aggregate dimensions. */
 export const stripQueryMetricUserAttributes = <
-  T extends { name: string; attributes: Record<string, unknown> },
+  T extends { name: string; attributes?: Record<string, unknown> },
 >(
   metric: T,
-): T =>
-  metric.name.startsWith("trpc.")
+): Omit<T, "attributes"> & { attributes?: Record<string, unknown> } =>
+  metric.name.startsWith("trpc.") && metric.attributes
     ? {
         ...metric,
         attributes: Object.fromEntries(
