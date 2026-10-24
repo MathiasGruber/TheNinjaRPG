@@ -204,11 +204,13 @@ export function PetProfile() {
       await invalidatePetData();
     },
     onError: async (cause, { petId }, name) => {
-      setGenerationMessages((previous) => ({ ...previous, [petId]: cause.message }));
+      // A dropped connection says nothing about the server: the image may still be accepted.
+      const message = `${cause.message.replace(/[.!?]?\s*$/, ".")} The image may still finish; refresh in a few minutes. Failed generations do not use an attempt.`;
+      setGenerationMessages((previous) => ({ ...previous, [petId]: message }));
       // A local onError replaces the provider's default toast, so report background failures here.
       showMutationToast({
         success: false,
-        message: `${name ?? "Companion"}: ${cause.message}`,
+        message: `${name ?? "Companion"}: ${message}`,
       });
       await invalidatePetData();
     },
@@ -587,6 +589,9 @@ export function PetProfile() {
   const canRetryGeneration = retryAt
     ? retryAt.getTime() <= Date.now()
     : pet.generationStatus !== "GENERATING";
+  // A claim whose lease expired unsettled produced no image and is not charged.
+  const generationAbandoned =
+    pet.generationStatus === "GENERATING" && !!retryAt && canRetryGeneration;
   // The last attempt can still succeed while its request or server lease is active.
   const needsAppearanceSupport =
     !appearanceReady &&
@@ -598,7 +603,8 @@ export function PetProfile() {
     <div className="space-y-2" aria-live="polite">
       <p className="text-muted-foreground text-sm">
         {data.remainingGenerations} / {data.generationLimit} image attempts remain for
-        this rank. Regenerations keep your saved traits.
+        this rank. Only an accepted image uses an attempt. Regenerations keep your saved
+        traits.
       </p>
       {needsAppearanceSupport ? (
         <p className="text-sm">
@@ -871,7 +877,9 @@ export function PetProfile() {
           <div className="mt-5 space-y-3 rounded border bg-muted/30 p-4">
             <p className="font-semibold">
               {!needsAppearanceSupport &&
-              (pet.generationStatus === "GENERATING" || isGenerating || isEvolving)
+              ((pet.generationStatus === "GENERATING" && !generationAbandoned) ||
+                isGenerating ||
+                isEvolving)
                 ? "Your companion's appearance is being created"
                 : pet.artRank > 0
                   ? "Finish your companion's evolution"
@@ -882,11 +890,11 @@ export function PetProfile() {
                 "Your companion is saved, but its appearance is unfinished."
               ) : (
                 <>
-                  {pet.generationStatus === "FAILED" &&
+                  {(pet.generationStatus === "FAILED" || generationAbandoned) &&
                   data.remainingGenerations > 0 &&
                   !isGenerating &&
                   !isEvolving
-                    ? "The last image attempt did not finish. Retry this same companion for free."
+                    ? "The last image attempt did not finish, so it did not use an attempt. A retry only uses one if its image is accepted."
                     : "Your pet can train and earn experience after its appearance is ready."}{" "}
                   Creating the image can take a few minutes.
                 </>

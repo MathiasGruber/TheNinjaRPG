@@ -58,6 +58,27 @@ export const hasActiveGeneration = (
   (!pet.generationStartedAt ||
     now.getTime() - pet.generationStartedAt.getTime() < PET_GENERATION_LEASE_MS);
 
+/**
+ * A claim whose lease expired was never settled (timeout, crash or a failed settle write),
+ * so it produced no accepted image.
+ */
+export const isAbandonedGeneration = (
+  pet: Pick<UserPet, "generationStatus" | "generationStartedAt">,
+  now = new Date(),
+) => pet.generationStatus === "GENERATING" && !hasActiveGeneration(pet, now);
+
+/**
+ * Attempts limit accepted images: an abandoned claim's attempt is not charged, so the
+ * next claim replaces it instead of adding another.
+ */
+export const getChargedGenerationAttempts = (
+  pet: Pick<UserPet, "generationStatus" | "generationStartedAt" | "generationAttempts">,
+  now = new Date(),
+) =>
+  isAbandonedGeneration(pet, now)
+    ? Math.max(0, pet.generationAttempts - 1)
+    : pet.generationAttempts;
+
 /** Accepted current-rank art stays usable while a cosmetic replacement is generating. */
 export const isPetAppearanceReady = (
   pet: Pick<UserPet, "rank" | "generationStatus" | "artRank" | "avatar">,

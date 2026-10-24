@@ -1154,7 +1154,8 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     await readyPet(database, { generationStatus: "GENERATING", generationToken: "abandoned-redraw",
       generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
     const caller = callerForDatabase(petsRouter, userId, database);
-    expect(await caller.getPet()).toMatchObject({ canFeed: true, remainingGenerations: 0 });
+    // The abandoned claim produced no image, so its attempt is not charged.
+    expect(await caller.getPet()).toMatchObject({ canFeed: true, remainingGenerations: 1 });
     const before = await readPet(database);
     await database.update(userData).set({ petExperience: 100 }).where(eq(userData.userId, userId));
     expect((await caller.assignExperience({ ...stats, petId })).success).toBe(true);
@@ -1327,8 +1328,51 @@ describeWithDatabase("Companion ownership, economy and generation", () => {
     const caller = callerForDatabase(petsRouter, userId, database);
     expect((await caller.generateAppearance({ petId })).success).toBe(true);
     expect((await readPet(database))?.generationToken).toBeNull();
-    expect((await readPet(database))?.generationAttempts).toBe(2);
+    // The abandoned claim's attempt is replaced, not added to: one accepted image, one attempt.
+    expect((await readPet(database))?.generationAttempts).toBe(1);
     expect((await caller.getPet()).pet).not.toHaveProperty("generationToken");
+  });
+
+  it("does not charge a timed-out claim: its retry replaces the attempt and a failed retry refunds it", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { rank: 2, artRank: 1, generationStatus: "GENERATING", generationToken: "timed-out",
+      generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1000), generationAttempts: 1 });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.getPet()).remainingGenerations).toBe(PET_MAX_GENERATION_ATTEMPTS);
+    vi.spyOn(sentry, "logError").mockImplementation(() => {});
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockRejectedValueOnce(new Error("The generated pet did not pass visual quality review"));
+    // A failed retry after an abandoned evolution claim keeps the previous look, like a second failure.
+    expect(await caller.generateAppearance({ petId })).toMatchObject({ success: false, message: expect.stringContaining("No image attempt was used") });
+    expect(await readPet(database)).toMatchObject({ avatar, rank: 2, artRank: 2, generationStatus: "READY", generationToken: null, generationAttempts: 0 });
+    expect((await caller.getPet()).remainingGenerations).toBe(PET_MAX_GENERATION_ATTEMPTS);
+    setSystemTime(secondsFromNow(PET_GENERATION_RETRY_MS / 1000 + 1));
+    generate.mockResolvedValueOnce({ avatar, avatarFacing: "left" });
+    expect((await caller.generateAppearance({ petId })).success).toBe(true);
+    expect((await readPet(database))?.generationAttempts).toBe(1);
+  });
+
+  it("lets a player with every attempt held by abandoned or failed claims still generate", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "GENERATING", artRank: 0, avatar: null, generationToken: "timed-out",
+      generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1000), generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    const caller = callerForDatabase(petsRouter, userId, database);
+    expect((await caller.getPet()).remainingGenerations).toBe(1);
+    expect((await caller.generateAppearance({ petId })).success).toBe(true);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(await readPet(database)).toMatchObject({ artRank: 1, generationStatus: "READY", generationAttempts: PET_MAX_GENERATION_ATTEMPTS });
+  });
+
+  it("lets only one of two simultaneous retries of an abandoned claim spend its replaced attempt", async () => {
+    const database = await getTestDatabase();
+    await readyPet(database, { generationStatus: "GENERATING", artRank: 0, avatar: null, generationToken: "timed-out",
+      generationStartedAt: new Date(Date.now() - PET_GENERATION_LEASE_MS - 1000), generationAttempts: 1 });
+    const generate = vi.spyOn(appearance, "generatePetAppearance").mockResolvedValue({ avatar, avatarFacing: "left" });
+    const caller = callerForDatabase(petsRouter, userId, holdOwnerSnapshots(database, 2));
+    const results = await Promise.all([caller.generateAppearance({ petId }), caller.generateAppearance({ petId })]);
+    expect(results.filter((result) => result.success)).toHaveLength(1);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect((await readPet(database))?.generationAttempts).toBe(1);
   });
 
   it("does not let an old generation overwrite a replacement identity or new lease", async () => {

@@ -43,10 +43,12 @@ import { generatePetAppearance } from "@/libs/pets/appearance";
 import { getDailyPetOptions, isAvailablePetAppearance } from "@/libs/pets/catalogue";
 import { createPetFromSpecies } from "@/libs/pets/creation";
 import {
+  getChargedGenerationAttempts,
   getMaxPetRank,
   getPetCollectionCapacity,
   getPetStatCaps,
   hasActiveGeneration,
+  isAbandonedGeneration,
   isPetAppearanceReady,
   petRankUpBlockMessage,
 } from "@/libs/pets/progression";
@@ -354,7 +356,7 @@ export const petsRouter = createTRPCRouter({
       const rankUpReason = pet
         ? (petMutationBlockMessage(user, pet) ?? petRankUpBlockMessage(pet, user))
         : "Adopt a pet first.";
-      const attempts = pet?.generationAttempts ?? 0;
+      const attempts = pet ? getChargedGenerationAttempts(pet) : 0;
       // A generation token is server-only; the UI needs its status and retry time instead.
       const visiblePet = pet ? omitGenerationToken(pet) : null;
       return {
@@ -754,8 +756,10 @@ export const petsRouter = createTRPCRouter({
 
   /**
    * Claim one attempt atomically before calling the image provider, then accept only
-   * its matching lease; a failed generation refunds its attempt. Accepted artwork remains usable until replacement succeeds;
-   * redraws and evolutions retain the companion's saved appearance traits.
+   * its matching lease. Attempts count accepted images only: a failed generation refunds
+   * its attempt in the settle write, and an abandoned (expired, unsettled) claim's attempt
+   * is replaced by the next claim. Accepted artwork remains usable until replacement
+   * succeeds; redraws and evolutions retain the companion's saved appearance traits.
    */
   generateAppearance: protectedProcedure
     .input(generatePetAppearanceSchema)
@@ -787,7 +791,8 @@ export const petsRouter = createTRPCRouter({
         return errorResponse(
           "Please wait a moment before retrying your companion's appearance.",
         );
-      const attempts = pet.generationAttempts;
+      // An abandoned claim never produced an image; the new claim replaces its attempt.
+      const attempts = getChargedGenerationAttempts(pet, now);
       if (attempts >= PET_MAX_GENERATION_ATTEMPTS)
         return errorResponse(
           `You have used all ${PET_MAX_GENERATION_ATTEMPTS} image attempts for this rank. Your companion is still yours.`,
@@ -901,7 +906,9 @@ export const petsRouter = createTRPCRouter({
         // its previous look at the new rank so it can still fight and evolve; founders
         // still need art and may retry until an image is accepted.
         const keepsPreviousLook =
-          !!pet.avatar && pet.artRank < pet.rank && pet.generationStatus === "FAILED";
+          !!pet.avatar &&
+          pet.artRank < pet.rank &&
+          (pet.generationStatus === "FAILED" || isAbandonedGeneration(pet, now));
         const settled = await retryOnDeadlock(() =>
           ctx.drizzle
             .update(userPet)
@@ -931,7 +938,7 @@ export const petsRouter = createTRPCRouter({
             "The evolved image could not be verified, so we kept its previous look. No image attempt was used. Your companion can fight and evolve again; staff can redraw it.",
           );
         return errorResponse(
-          "The appearance could not be generated or verified. No image attempt was used, your companion is kept and retrying never charges adoption again.",
+          "The appearance could not be generated or verified. No image attempt was used and your companion is kept. A retry only uses an attempt if its image is accepted, and never charges adoption again.",
         );
       }
     }),

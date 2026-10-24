@@ -357,7 +357,8 @@ export function PetAcquisition() {
               <p className="text-sm">
                 {needsAppearanceSupport
                   ? "Your companion is saved, but its appearance is unfinished."
-                  : pet.generationStatus === "GENERATING" || generate.isPending
+                  : (pet.generationStatus === "GENERATING" && !canRetry) ||
+                      generate.isPending
                     ? "Your companion's image is being created. You can safely return to your pet profile while it finishes."
                     : "Your companion has been claimed. Its appearance must be ready to train and earn experience."}
               </p>
@@ -365,7 +366,8 @@ export function PetAcquisition() {
             {!appearanceReady && (
               <p className="text-muted-foreground text-sm">
                 {data.remainingGenerations} / {data.generationLimit} image attempts
-                remain for this rank.
+                remain for this rank. Only an accepted image uses an attempt, and
+                retrying never charges adoption again.
               </p>
             )}
             <div className="flex flex-wrap gap-2">
@@ -395,9 +397,7 @@ export function PetAcquisition() {
                   }
                   onGenerate={retryAppearance}
                 >
-                  {generate.isPending
-                    ? "Creating appearance..."
-                    : "Retry appearance for free"}
+                  {generate.isPending ? "Creating appearance..." : "Retry appearance"}
                 </PetAppearanceButton>
               ) : null}
             </div>
