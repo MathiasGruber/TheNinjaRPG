@@ -225,7 +225,7 @@ export const PLAYER_LEVEL_XP_HIGH_THRESHOLD = 80;
 /** Active seconds of bracket exposure after PvP, shrine attacks or war missions; paused in combat. */
 export const BRACKET_IMMUNITY_LIFT_SECS = 1800;
 
-/** How long (seconds) a player is flagged as a war participant after a war kill or war-quest acceptance */
+/** Seconds of war participation after starting a war mission, wartime PvP or a shrine attack. */
 export const WAR_PARTICIPANT_SECS = 7200; // 2 hours
 
 export const CoreVillages = [

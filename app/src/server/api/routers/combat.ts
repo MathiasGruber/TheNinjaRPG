@@ -3396,6 +3396,8 @@ export const initiateBattle = async (
             return (
               !!attacker &&
               !!target &&
+              !attacker.isAi &&
+              !target.isAi &&
               getWarRelationship(activeWars, attacker, target) === "ENEMY"
             );
           });
