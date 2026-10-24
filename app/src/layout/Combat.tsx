@@ -477,9 +477,11 @@ const Combat: React.FC<CombatProps> = (props) => {
     onSettled: () => {
       document.body.style.cursor = "default";
     },
-    onError: () => {
+    onError: async () => {
       setBattleState({ battle: battleRef.current, result: null, isPending: false });
-      void utils.combat.getBattle.invalidate();
+      // Keep recovery inside the mutation lifecycle so deferred realtime events
+      // reconcile against the recovered state before requesting another read.
+      await utils.combat.getBattle.invalidate();
     },
     onSuccess: async (data, _variables, revision) => {
       if (data.result && data.battleUpdate) {
@@ -513,7 +515,7 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
       if (!data.battleUpdate) {
         setBattleState({ battle: battleRef.current, result: null, isPending: false });
-        if (data.updateClient) void utils.combat.getBattle.invalidate();
+        if (data.updateClient) await utils.combat.getBattle.invalidate();
         return;
       }
       if (data?.result?.notifications.length !== 0) {

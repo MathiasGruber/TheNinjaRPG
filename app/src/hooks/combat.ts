@@ -1,5 +1,5 @@
-import { hashKey, useQueryClient } from "@tanstack/react-query";
-import { getQueryKey } from "@trpc/react-query";
+import { hashKey, useIsMutating, useQueryClient } from "@tanstack/react-query";
+import { getMutationKey, getQueryKey } from "@trpc/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import superjson from "superjson";
 import { api, type RouterInputs } from "@/app/_trpc/client";
@@ -40,6 +40,63 @@ export const useCombatUpdates = (state: BattleState) => {
   const stateRef = useRef(state);
   stateRef.current = state;
   const battleId = state.battle?.id;
+  const deferredVersionRef = useRef<{ battleId: string; version: number } | null>(null);
+  const actionFilters = useMemo(
+    () => ({
+      mutationKey: getMutationKey(api.combat.performAction),
+      predicate: (mutation: { state: { variables?: unknown } }) =>
+        (
+          mutation.state.variables as
+            | RouterInputs["combat"]["performAction"]
+            | undefined
+        )?.battleId === battleId,
+    }),
+    [battleId],
+  );
+  const pendingActions = useIsMutating(actionFilters);
+
+  const refreshBattle = useCallback(
+    (id: string, version: number) => {
+      const { battle, result, isPending } = stateRef.current;
+      if (!battle || battle.id !== id || result || version <= battle.version) return;
+      // Recovery queries can finish before the combat page renders their data.
+      // Their committed version already covers this event even in that gap.
+      const cached = utils.combat.getBattle.getData({ battleId: id });
+      if (cached?.battle?.id === id && version <= cached.battle.version) return;
+      // A poll can clear the displayed pending flag before onSuccess has applied
+      // the action response. Read the mutation cache synchronously in the event
+      // handler too, so even an event before React's next render is deferred.
+      if (isPending || queryClient.isMutating(actionFilters)) {
+        const previous = deferredVersionRef.current;
+        deferredVersionRef.current = {
+          battleId: id,
+          version: Math.max(previous?.battleId === id ? previous.version : 0, version),
+        };
+        return;
+      }
+      void utils.combat.getBattle.invalidate();
+    },
+    [actionFilters, queryClient, utils],
+  );
+
+  useEffect(() => {
+    const deferred = deferredVersionRef.current;
+    if (!deferred) return;
+    if (deferred.battleId !== battleId) {
+      deferredVersionRef.current = null;
+      return;
+    }
+    if (state.isPending || pendingActions) return;
+    deferredVersionRef.current = null;
+    refreshBattle(deferred.battleId, deferred.version);
+  }, [
+    battleId,
+    state.battle?.version,
+    state.result,
+    state.isPending,
+    pendingActions,
+    refreshBattle,
+  ]);
 
   const updateLogs = useCallback(
     async (
@@ -163,17 +220,14 @@ export const useCombatUpdates = (state: BattleState) => {
               data.version <= (stateRef.current.battle?.version ?? 0)),
         );
       }
-      const { battle, result } = stateRef.current;
-      if (battle && data.version > battle.version && !result) {
-        void utils.combat.getBattle.invalidate();
-      }
+      refreshBattle(battleId, data.version);
     };
     channel.bind("event", onUpdate);
     return () => {
       channel.unbind("event", onUpdate);
       pusher.unsubscribe(battleId);
     };
-  }, [battleId, pusher, utils, updateLogs]);
+  }, [battleId, pusher, refreshBattle, updateLogs]);
   return updateLogs;
 };
 
