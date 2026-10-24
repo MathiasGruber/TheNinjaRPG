@@ -9,9 +9,12 @@ import type { TRPCLink } from "@trpc/client";
 import type { AppRouter } from "@/api/root";
 import {
   MAX_QUERY_METRICS_HEADER_LENGTH,
+  QUERY_METRICS_COUNT_WEIGHT,
   QUERY_METRICS_HEADER,
+  QUERY_METRICS_SAMPLE_RATE,
   type QueryAttribution,
   type QueryTrigger,
+  shouldSampleQueryMetric,
   trpcPathFromKey,
   UNKNOWN_QUERY_ATTRIBUTION,
 } from "@/libs/queryTelemetry";
@@ -20,6 +23,7 @@ import {
 export const createQueryMetricsTracker = (
   client: QueryClient,
   metrics: Pick<typeof Sentry.metrics, "count"> = Sentry.metrics,
+  random: () => number = Math.random,
 ) => {
   const pending = new WeakMap<Query, QueryAttribution>();
   const fetching = new WeakMap<Query, QueryAttribution>();
@@ -108,22 +112,28 @@ export const createQueryMetricsTracker = (
     try {
       return run(value, () => invalidate(filters, options));
     } finally {
-      // Scheduling can register a hydrated query's first client-side operation.
-      const path = trpcPathFromKey(filters?.queryKey);
-      const target = !filters?.queryKey?.length
-        ? "all"
-        : path &&
-            [...knownQueries].some(
-              (known) => known === path || known.startsWith(`${path}.`),
-            )
-          ? path
-          : "unknown";
-      try {
-        metrics.count("trpc.query.invalidation", 1, {
-          attributes: { target, mutation_context: value.mutationContext },
-        });
-      } catch {
-        /* Diagnostics must not reject cache work. */
+      if (shouldSampleQueryMetric(random)) {
+        // Scheduling can register a hydrated query's first client-side operation.
+        const path = trpcPathFromKey(filters?.queryKey);
+        const target = !filters?.queryKey?.length
+          ? "all"
+          : path &&
+              [...knownQueries].some(
+                (known) => known === path || known.startsWith(`${path}.`),
+              )
+            ? path
+            : "unknown";
+        try {
+          metrics.count("trpc.query.invalidation", QUERY_METRICS_COUNT_WEIGHT, {
+            attributes: {
+              target,
+              mutation_context: value.mutationContext,
+              sample_rate: QUERY_METRICS_SAMPLE_RATE,
+            },
+          });
+        } catch {
+          /* Diagnostics must not reject cache work. */
+        }
       }
     }
   };

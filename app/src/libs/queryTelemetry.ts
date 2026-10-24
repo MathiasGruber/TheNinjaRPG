@@ -1,5 +1,11 @@
 export const QUERY_METRICS_HEADER = "x-tnr-query-metrics";
 export const MAX_QUERY_METRICS_HEADER_LENGTH = 4096;
+// Uniform event sampling preserves relative load while leaving ingestion headroom.
+export const QUERY_METRICS_SAMPLE_RATE = 0.02;
+export const QUERY_METRICS_COUNT_WEIGHT = 1 / QUERY_METRICS_SAMPLE_RATE;
+
+export const shouldSampleQueryMetric = (random: () => number = Math.random) =>
+  random() < QUERY_METRICS_SAMPLE_RATE;
 
 const QUERY_TRIGGERS = [
   "initial",

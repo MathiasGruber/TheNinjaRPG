@@ -1,19 +1,26 @@
 import * as Sentry from "@sentry/node";
 import {
+  QUERY_METRICS_COUNT_WEIGHT,
+  QUERY_METRICS_SAMPLE_RATE,
   type QueryAttribution,
+  shouldSampleQueryMetric,
   UNKNOWN_QUERY_ATTRIBUTION,
 } from "@/libs/queryTelemetry";
 
-/** Count executed procedures independently of trace sampling, with bounded attributes. */
+/** Sample executions independently of traces; keep each query's count and duration paired. */
 export const measureTrpcCall = async <T extends { ok: boolean }>(
   call: { path: string; type: string; attribution?: QueryAttribution },
   next: () => Promise<T>,
   metrics: Pick<typeof Sentry.metrics, "count" | "distribution"> = Sentry.metrics,
+  random: () => number = Math.random,
 ) => {
+  if (!["query", "mutation"].includes(call.type) || !shouldSampleQueryMetric(random))
+    return next();
+
   if (call.type === "mutation") {
     recordMetric(() =>
-      metrics.count("trpc.mutation", 1, {
-        attributes: { procedure: call.path },
+      metrics.count("trpc.mutation", QUERY_METRICS_COUNT_WEIGHT, {
+        attributes: { procedure: call.path, sample_rate: QUERY_METRICS_SAMPLE_RATE },
       }),
     );
   }
@@ -24,8 +31,11 @@ export const measureTrpcCall = async <T extends { ok: boolean }>(
     procedure: call.path,
     trigger: attribution.trigger,
     mutation_context: attribution.mutationContext,
+    sample_rate: QUERY_METRICS_SAMPLE_RATE,
   };
-  recordMetric(() => metrics.count("trpc.query.fetch", 1, { attributes }));
+  recordMetric(() =>
+    metrics.count("trpc.query.fetch", QUERY_METRICS_COUNT_WEIGHT, { attributes }),
+  );
   const started = performance.now();
   let outcome = "error";
   try {

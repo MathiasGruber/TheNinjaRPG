@@ -6,18 +6,18 @@ import type * as Sentry from "@sentry/nextjs";
 import superjson from "superjson";
 import type { AppRouter } from "@/api/root";
 import { createQueryMetricsTracker, queryMetricsHeaders, queryMetricsLink } from "@/libs/queryMetrics";
-import { MAX_QUERY_METRICS_HEADER_LENGTH, parseQueryMetricsHeader, QUERY_METRICS_HEADER, type QueryAttribution, stripQueryMetricUserAttributes } from "@/libs/queryTelemetry";
+import { MAX_QUERY_METRICS_HEADER_LENGTH, parseQueryMetricsHeader, QUERY_METRICS_HEADER, type QueryAttribution, shouldSampleQueryMetric, stripQueryMetricUserAttributes } from "@/libs/queryTelemetry";
 
 const close: (() => void)[] = [];
 const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const response = (url: RequestInfo | URL) => Response.json(
   new URL(String(url)).pathname.split("/").at(-1)!.split(",").map(() => ({ result: { data: superjson.serialize({ value: 1 }) } })),
 );
-const setup = (fetch?: (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>) => {
+const setup = (fetch?: (url: RequestInfo | URL, init?: RequestInit) => Promise<Response>, random: () => number = () => 0) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.mount();
   const count = mock<typeof Sentry.metrics.count>(() => {});
-  const tracker = createQueryMetricsTracker(client, { count });
+  const tracker = createQueryMetricsTracker(client, { count }, random);
   const requests: { path: string; attribution: Record<string, QueryAttribution>; header: string }[] = [];
   const trpc = createTRPCClient<AppRouter>({ links: [
     queryMetricsLink(tracker),
@@ -55,6 +55,29 @@ afterEach(() => {
 });
 
 describe("generic query instrumentation", () => {
+  it("samples invalidation calls independently while preserving attribution for unsampled calls", async () => {
+    const draws = [0.02, 0.019999];
+    const test = setup(undefined, () => draws.shift()!);
+    const { key } = test.query();
+    await test.client.invalidateQueries({ queryKey: key });
+    expect(test.count).not.toHaveBeenCalled();
+    expect(test.requests[0]?.attribution["profile.getUser"]).toEqual({ trigger: "invalidation", mutationContext: "none" });
+    await test.client.invalidateQueries({ queryKey: key });
+    expect(test.requests).toHaveLength(2);
+    expect(test.count).toHaveBeenCalledTimes(1);
+    expect(test.count).toHaveBeenCalledWith("trpc.query.invalidation", 50, {
+      attributes: { target: "profile.getUser", mutation_context: "none", sample_rate: 0.02 },
+    });
+  });
+
+  it("keeps mutation context even when the invalidation metric is not sampled", async () => {
+    const test = setup(undefined, () => 0.5);
+    const { key } = test.query();
+    await test.mutation("item.consume", { onSuccess: () => test.client.invalidateQueries({ queryKey: key }) }).execute(undefined);
+    expect(test.requests[0]?.attribution["profile.getUser"]).toEqual({ trigger: "invalidation", mutationContext: "item.consume" });
+    expect(test.count).not.toHaveBeenCalled();
+  });
+
   it("tracks initial reads for any procedure and sends no request for cache hits", async () => {
     const test = setup();
     const a = test.query("profile.getUser", undefined, false);
@@ -72,8 +95,8 @@ describe("generic query instrumentation", () => {
     await test.client.fetchQuery({ ...options, staleTime: 0 });
     await test.client.invalidateQueries({ queryKey: key });
     expect(test.requests.at(-1)?.attribution["item.getUserItems"]?.trigger).toBe("invalidation");
-    expect(test.count).toHaveBeenCalledWith("trpc.query.invalidation", 1, {
-      attributes: { target: "item.getUserItems", mutation_context: "none" },
+    expect(test.count).toHaveBeenCalledWith("trpc.query.invalidation", 50, {
+      attributes: { target: "item.getUserItems", mutation_context: "none", sample_rate: 0.02 },
     });
   });
 
@@ -226,6 +249,12 @@ describe("query telemetry header validation", () => {
   const procedures = new Map([["profile.getUser", "query"], ["item.getUserItems", "query"], ["item.consume", "mutation"]]);
   const value: QueryAttribution = { trigger: "invalidation", mutationContext: "item.consume" };
   const op = (path: string, attribution = value) => ({ path, type: "query", context: { queryTelemetry: attribution } });
+  it("uses the same event sampling boundary on client and server", () => {
+    expect(shouldSampleQueryMetric(() => 0)).toBe(true);
+    expect(shouldSampleQueryMetric(() => 0.019999)).toBe(true);
+    expect(shouldSampleQueryMetric(() => 0.02)).toBe(false);
+    expect(shouldSampleQueryMetric(() => 0.999999)).toBe(false);
+  });
   it("validates all query paths and mutation context against the current router", () => {
     const header = queryMetricsHeaders([op("profile.getUser"), op("item.getUserItems")])[QUERY_METRICS_HEADER]!;
     expect([...parseQueryMetricsHeader(header, procedures)]).toEqual([["profile.getUser", value], ["item.getUserItems", value]]);
