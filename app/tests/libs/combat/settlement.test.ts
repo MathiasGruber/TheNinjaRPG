@@ -29,15 +29,18 @@ import { prepareUserUpdate, updateUserCache } from "@/utils/userCache";
 import { getTagSchema } from "@/validators/combat";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { queueEnergy, readEnergyQueue } from "../../setup/queues";
+import { beforeStatements } from "../../setup/statements";
 import {
   callerFor,
   callerForDatabase,
   describeWithDatabase,
   getTestDatabase,
+  recordQueries,
   resetTables,
 } from "../../setup/testDatabase";
 import {
   makeBattleUser,
+  makeBattleUserItem,
   makeCompleteBattle,
   makeEffect,
 } from "./helpers/battleScenario";
@@ -167,6 +170,67 @@ describeWithDatabase("CAS combat settlement", () => {
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([0, 1, 8])("persists %s unchanged surviving items in one batch", async (count) => {
+    const database = await getTestDatabase();
+    const snapshot = scenario(false);
+    snapshot.battleType = "ARENA";
+    snapshot.usersState[1]!.isAi = true;
+    await insertItems([{ id: "carried", name: "Carried item" }]);
+    const carried = Array.from({ length: count }, (_, index) => ({
+      id: `carried-${index}`,
+      itemId: "carried",
+      userId: "winner",
+      quantity: index + 1,
+      durability: 100,
+    }));
+    if (carried.length) await insertUserItems(carried);
+    snapshot.usersState[0]!.items = carried.map((row) => makeBattleUserItem(row));
+    const result = calcBattleResult(snapshot, "winner")!;
+    const { statements } = await recordQueries(() => updateUser(database, pusher, snapshot, result, "winner"));
+    expect(statements.filter((statement) => /^update `UserItem` /i.test(statement))).toHaveLength(count > 0 ? 1 : 0);
+    expect(statements.filter((statement) => /^update `UserData` /i.test(statement))).toHaveLength(1);
+    const saved = await database.query.userItem.findMany();
+    for (const row of carried)
+      expect(saved.find((item) => item.id === row.id)).toMatchObject(row);
+  });
+
+  it("persists distinct item changes while respecting concurrent merge claims and ownership", async () => {
+    const database = await getTestDatabase();
+    const snapshot = scenario(false);
+    snapshot.battleType = "ARENA";
+    snapshot.usersState[1]!.isAi = true;
+    await insertItems([{ id: "carried", name: "Carried item" }]);
+    const carried = Array.from({ length: 8 }, (_, index) => ({
+      id: `carried-${index}`,
+      itemId: "carried",
+      userId: "winner",
+      quantity: index + 2,
+      durability: 100,
+      experience: 37,
+      level: 4,
+    }));
+    await insertUserItems([...carried, { id: "unrelated", itemId: "carried", userId: "winner", quantity: 22, durability: 91 }]);
+    snapshot.usersState[0]!.items = carried.map((row, index) => makeBattleUserItem({ ...row, quantity: row.quantity - 1, durability: 90 - index }));
+    snapshot.usersState[0]!.items.push(makeBattleUserItem({ id: "missing", itemId: "carried" }));
+    const result = calcBattleResult(snapshot, "winner")!;
+    const client = beforeStatements(database, userItem, [async () => {
+      await database.update(userItem).set({ quantity: 0 }).where(eq(userItem.id, "carried-0"));
+      await database.update(userItem).set({ quantity: -1 }).where(eq(userItem.id, "carried-1"));
+      await database.update(userItem).set({ userId: "loser" }).where(eq(userItem.id, "carried-2"));
+    }]);
+    await updateUser(client, pusher, snapshot, result, "winner");
+    const saved = await database.query.userItem.findMany();
+    for (const [index, row] of carried.entries())
+      expect(saved.find((item) => item.id === row.id)).toMatchObject({
+        ...row,
+        userId: index === 2 ? "loser" : "winner",
+        quantity: index === 0 ? 0 : index === 1 ? -1 : index === 2 ? row.quantity : row.quantity - 1,
+        durability: index < 3 ? 100 : 90 - index,
+      });
+    expect(saved.find((item) => item.id === "unrelated")).toMatchObject({ quantity: 22, durability: 91 });
+    expect(saved.find((item) => item.id === "missing")).toBeUndefined();
+  });
 
   it("increments unranked PvP records once across settlement retries", async () => {
     const snapshot = scenario(false);

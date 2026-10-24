@@ -1832,17 +1832,22 @@ export const updateUser = async (
                 .where(inArray(userItemImbuement.userItemId, deleteItems)),
           ]
         : []),
-      // Update items quantity. The quantity guard skips rows a stack merge has claimed or
-      // already folded away, so this absolute snapshot write can never resurrect a merge
-      // tombstone or stomp a claim.
+      // Persist all surviving items in one request. The owner and quantity guards skip
+      // transferred rows, merge claims and tombstones; settlement cannot resurrect them.
       ...(updateItems.length > 0
-        ? updateItems.map(
-            (ui) => () =>
+        ? [
+            () =>
               client
                 .update(userItem)
                 .set({
-                  quantity: ui.quantity,
-                  durability: ui.durability,
+                  quantity: sql`CASE ${userItem.id} ${sql.join(
+                    updateItems.map((ui) => sql`WHEN ${ui.id} THEN ${ui.quantity}`),
+                    sql` `,
+                  )} ELSE ${userItem.quantity} END`,
+                  durability: sql`CASE ${userItem.id} ${sql.join(
+                    updateItems.map((ui) => sql`WHEN ${ui.id} THEN ${ui.durability}`),
+                    sql` `,
+                  )} ELSE ${userItem.durability} END`,
                   // Hunting requires a changed-row acknowledgement even for unchanged carried items.
                   ...(settlingHunt
                     ? {
@@ -1850,12 +1855,23 @@ export const updateUser = async (
                       }
                     : {}),
                 })
-                .where(and(eq(userItem.id, ui.id), gt(userItem.quantity, 0)))
+                .where(
+                  and(
+                    eq(userItem.userId, userId),
+                    inArray(
+                      userItem.id,
+                      updateItems.map((ui) => ui.id),
+                    ),
+                    gt(userItem.quantity, 0),
+                  ),
+                )
                 .then((saved) => {
-                  // A zero-row write can mean the stack was tombstoned concurrently.
-                  if (saved.rowsAffected !== 1) itemSettlementCommitted = false;
+                  // Every expected row must acknowledge before hunting rewards can commit
+                  // or the completion response can safely replace the profile cache.
+                  if (saved.rowsAffected !== updateItems.length)
+                    itemSettlementCommitted = false;
                 }),
-          )
+          ]
         : []),
       // Jutsu experience & level from experience
       ...(jExp > 0
