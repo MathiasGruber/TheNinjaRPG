@@ -757,6 +757,13 @@
       "when": 1792732349795,
       "tag": "0108_empty_molly_hayes",
       "breakpoints": false
+    },
+    {
+      "idx": 109,
+      "version": "5",
+      "when": 1792822644642,
+      "tag": "0109_great_black_knight",
+      "breakpoints": false
     }
   ]
 }
