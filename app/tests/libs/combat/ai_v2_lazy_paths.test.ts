@@ -133,12 +133,13 @@ describe("AI prepares paths only for rules that consume them", () => {
   });
 
   it("retains zero distance for an unreachable target", () => {
-    const { grid, run } = setup([{
+    const { battle, grid, run } = setup([{
       conditions: [ConditionDistanceLowerThan.parse({ target: "CLOSEST_OPPONENT", value: 1 })],
-      action: ActionEndTurn.parse({}),
+      action: ActionWithEffectHighestPower.parse({ effect: "heal", target: "SELF" }),
     }]);
+    battle.usersState[0]!.curHealth = 1000;
     grid.getHex({ col: 3, row: 0 })!.blocked = true;
-    expect(run().nextActionId).toBe("wait");
+    expect(run().nextActionId).toBe("meditate");
   });
 
   it("keeps the last opponent on an equal-distance tie", () => {
