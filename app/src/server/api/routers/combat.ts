@@ -2404,6 +2404,18 @@ export const initiateBattle = async (
     }
   }
 
+  // Arena selection overlaps readiness, so recheck its rules on the fresh combat
+  // participants. Shared AI templates are excluded from the final player claim.
+  if (
+    (battleType === "ARENA" || battleType === "TRAINING") &&
+    targetIds.some((id) => {
+      const target = fetchedUsers.find((user) => user.userId === id);
+      return !target?.isAi || target.isSummon || !target.inArena;
+    })
+  ) {
+    return errorResponse("No AI found");
+  }
+
   // A newly adopted selection may not exist in the earlier collection snapshot.
   // Reject it before battle writes; the final participant CAS guards later swaps.
   if (

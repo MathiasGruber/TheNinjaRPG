@@ -37,6 +37,7 @@ const participant = (
     status: "AWAKE",
   }),
   defaultAutoCombat: opts.defaultAutoCombat ?? true,
+  inArena: opts.isAi ?? false,
   items: [],
   jutsus: [],
   userSkills: [],

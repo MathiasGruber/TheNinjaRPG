@@ -160,6 +160,7 @@ const startLethalBattle = async (battleType: "COMBAT" | "ARENA", auto = false) =
     await insertUsers(["killer", "victim"].map((userId, i) => ({
       userId, username: userId, status: "AWAKE", rank: "JONIN", level: 100,
       isAi: i === 1 && battleType === "ARENA", defaultAutoCombat: false,
+      inArena: i === 1 && battleType === "ARENA",
       villageId: i === 0 ? "red" : "blue", experience: 1000, pvpStreak: 0,
       sector: 335, curHealth: 5000, maxHealth: 5000, curChakra: 5000,
       maxChakra: 5000, curStamina: 5000, maxStamina: 5000,

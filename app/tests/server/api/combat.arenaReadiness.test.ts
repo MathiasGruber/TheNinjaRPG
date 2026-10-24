@@ -8,10 +8,11 @@ import {
   userCookingJob, userData, userJutsu, userQueue, userVote, village,
 } from "@/drizzle/schema";
 import { Pusher } from "@/libs/pusher";
-import { combatRouter } from "@/server/api/routers/combat";
+import { combatRouter, initiateBattle } from "@/server/api/routers/combat";
 import { fetchUpdatedUser } from "@/server/api/routers/profile";
 import type { DrizzleClient } from "@/server/db";
 import { withRequestScope } from "@/server/requestScope";
+import { statSchema } from "@/validators/combat";
 import { SimpleObjective } from "@/validators/objectives";
 import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuests, insertUsers } from "../../setup/factories";
@@ -33,7 +34,7 @@ type ArenaResolver = (options: {
 const arenaResolver = (combatRouter.startArenaBattle._def as unknown as {
   resolver: ArenaResolver;
 }).resolver;
-const launch = (client: DrizzleClient, input: { aiId: string; autoCombat?: boolean } = { aiId }) =>
+const launch = (client: DrizzleClient, input: inferProcedureInput<typeof combatRouter.startArenaBattle> = { aiId }) =>
   withRequestScope(() => arenaResolver({
     ctx: { drizzle: client, userId }, input, type: "mutation", path: "combat.startArenaBattle",
   }));
@@ -170,5 +171,69 @@ describeWithDatabase("arena readiness reads", () => {
     await client.update(userData).set({ inArena: false }).where(eq(userData.userId, aiId));
     expect(await launch(client)).toMatchObject({ success: false, message: "No AI found" });
     expect(await client.query.battle.findMany()).toEqual([]);
+  });
+
+  for (const battleType of ["ARENA", "TRAINING"] as const) {
+    it.each([{ inArena: false }, { isAi: false }, { isSummon: true }])(
+      `rejects a selected ${battleType} target changed during readiness: %j`, async (patch) => {
+        const client = await getTestDatabase();
+        let release = () => {};
+        const pending = new Promise<void>((resolve) => { release = resolve; });
+        let selected = () => {};
+        const selection = new Promise<void>((resolve) => { selected = resolve; });
+        const original = client.query.userData.findFirst.bind(client.query.userData);
+        vi.spyOn(client.query.userData, "findFirst").mockImplementation(((options: Parameters<typeof original>[0]) => {
+          if (options?.with)
+            return pending.then(() => original(options)) as ReturnType<typeof original>;
+          if (options?.where && typeof options.where !== "function" &&
+            new MySqlDialect().sqlToQuery(options.where).params.includes(aiId)) {
+            return Promise.resolve(original(options)).then((row) => {
+              expect(row?.userId).toBe(aiId);
+              selected();
+              return row;
+            }) as ReturnType<typeof original>;
+          }
+          return original(options);
+        }) as typeof original);
+        const started = launch(client, { aiId,
+          ...(battleType === "TRAINING" ? { stats: statSchema.parse({}) } : {}) });
+        try {
+          await selection;
+          await client.update(userData).set(patch).where(eq(userData.userId, aiId));
+        } finally {
+          release();
+        }
+        expect(await started).toMatchObject({ success: false, message: "No AI found" });
+        expect(await client.query.battle.findMany()).toEqual([]);
+        expect(await client.query.battleHistory.findMany()).toEqual([]);
+        expect(await original({ where: eq(userData.userId, userId) }))
+          .toMatchObject({ status: "AWAKE", battleId: null });
+      },
+    );
+
+    it.each([{ inArena: false }, { isAi: false }, { isSummon: true }])(
+      `rejects an unavailable ${battleType} target on direct initiation: %j`, async (patch) => {
+        const client = await getTestDatabase();
+        await client.update(userData).set(patch).where(eq(userData.userId, aiId));
+        const result = await initiateBattle({ client, userIds: [userId], targetIds: [aiId] }, battleType);
+        expect(result).toMatchObject({ success: false, message: "No AI found" });
+        expect(await client.query.battle.findMany()).toEqual([]);
+        expect(await client.query.battleHistory.findMany()).toEqual([]);
+      },
+    );
+
+    it(`rejects a missing ${battleType} target on direct initiation`, async () => {
+      const client = await getTestDatabase();
+      await client.delete(userData).where(eq(userData.userId, aiId));
+      expect(await initiateBattle({ client, userIds: [userId], targetIds: [aiId] }, battleType))
+        .toMatchObject({ success: false, message: "No AI found" });
+      expect(await client.query.battle.findMany()).toEqual([]);
+    });
+  }
+
+  it("starts training against an eligible arena template", async () => {
+    const client = await getTestDatabase();
+    expect((await launch(client, { aiId, stats: statSchema.parse({}) })).success).toBe(true);
+    expect(await client.query.battle.findFirst()).toMatchObject({ battleType: "TRAINING" });
   });
 });
