@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { ASSETS_LAYER, EFFECTS_LAYER } from "@/drizzle/constants";
 import type { GameAsset } from "@/drizzle/schema";
 import { defineHex } from "@/libs/hexgrid";
+import { applyEffects, expireGroundEffects } from "@/libs/combat/process";
 import {
   drawCombatBackground,
   drawCombatEffects,
@@ -11,6 +12,13 @@ import {
 } from "@/libs/threejs/combat";
 import { ActionSprite, SpriteMixer } from "@/libs/threejs/SpriteMixer";
 import { showAnimation } from "@/libs/threejs/util";
+import * as audio from "@/utils/audio";
+import {
+  makeBattleUser,
+  makeCompleteBattle,
+  makeDamageEffect,
+  makeEffect,
+} from "./combat/helpers/battleScenario";
 
 type DrawInfo = Parameters<typeof drawCombatEffects>[0];
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -174,4 +182,164 @@ describe("combat effect animation lifecycle", () => {
     drawCombatEffects(info);
     expect(removeListener).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("combat effect disappearance sounds", () => {
+  const createSoundInfo = () => {
+    const info = createInfo();
+    info.sfxEnabled = true;
+    info.sfxVolume = 0.4;
+    info.gameAssets.push(
+      { id: "appear", url: "https://example.com/appear.wav" } as GameAsset,
+      { id: "disappear", url: "https://example.com/disappear.wav" } as GameAsset,
+    );
+    info.battle.groundEffects = [
+      { ...effect("shield"), appearSfx: "appear", disappearSfx: "disappear" },
+    ];
+    return info;
+  };
+
+  it("plays once across 60 frames after combat damage depletes a retained shield", () => {
+    const playback = vi.spyOn(audio, "playPreloadedAudio").mockResolvedValue(undefined);
+    const info = createSoundInfo();
+    const shield = makeEffect(
+      "shield",
+      { power: 1, health: 1, rounds: 5, disappearSfx: "disappear" },
+      {
+        id: "shield",
+        creatorId: "defender",
+        targetId: "defender",
+        targetType: "user",
+        isNew: false,
+        createdRound: 0,
+      },
+    );
+    const battle = makeCompleteBattle({
+      round: 2,
+      usersState: [makeBattleUser("attacker"), makeBattleUser("defender")],
+      usersEffects: [
+        shield,
+        makeDamageEffect({
+          power: 100,
+          calculation: "static",
+          creatorId: "attacker",
+          targetId: "defender",
+          targetType: "user",
+          isNew: true,
+          createdRound: 2,
+          rounds: 0,
+        }),
+      ],
+    });
+    info.battle = battle as unknown as DrawInfo["battle"];
+    drawCombatEffects(info);
+    const group = info.groupEffects.children[0]!;
+    expect(group.visible).toBe(true);
+    expect(playback).not.toHaveBeenCalled();
+
+    const { newBattle } = applyEffects(battle, "attacker");
+    const spent = newBattle.usersEffects.find((entry) => entry.id === shield.id);
+    expect(spent?.power).toBe(0);
+    expect(spent?.rounds).toBe(5);
+    expect(spent?.disappearSfx).toBe("disappear");
+    info.battle = newBattle as unknown as DrawInfo["battle"];
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+
+    expect(info.groupEffects.children).toEqual([group]);
+    expect(group.visible).toBe(false);
+    expect(playback).toHaveBeenCalledTimes(1);
+    expect(playback).toHaveBeenCalledWith("https://example.com/disappear.wav", 0.4);
+  });
+
+  it("plays once for an initially depleted effect and resets when it reappears", () => {
+    const playback = vi.spyOn(audio, "playPreloadedAudio").mockResolvedValue(undefined);
+    const info = createSoundInfo();
+    const retained = info.battle.groundEffects[0]!;
+    retained.appearSfx = "";
+    retained.power = 0;
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+    const group = info.groupEffects.children[0]!;
+    expect(playback).toHaveBeenCalledTimes(1);
+
+    retained.power = 10;
+    drawCombatEffects(info);
+    expect(group.visible).toBe(true);
+    retained.power = 0;
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+    expect(info.groupEffects.children).toEqual([group]);
+    expect(playback).toHaveBeenCalledTimes(2);
+  });
+
+  it("queues one disappearance after the appearance sound until movement ends", async () => {
+    const playback = vi.spyOn(audio, "playPreloadedAudio").mockResolvedValue(undefined);
+    const info = createSoundInfo();
+    info.isAnyUserMoving = true;
+    drawCombatEffects(info);
+    info.battle.groundEffects[0]!.power = 0;
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+    expect(playback).not.toHaveBeenCalled();
+
+    info.isAnyUserMoving = false;
+    drawCombatEffects(info);
+    expect(playback).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 75));
+    expect(playback.mock.calls).toEqual([
+      ["https://example.com/appear.wav", 0.4],
+      ["https://example.com/disappear.wav", 0.4],
+    ]);
+    drawCombatEffects(info);
+    expect(playback).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps sounds independent per effect and preserves expiry visuals and audio", () => {
+    const playback = vi.spyOn(audio, "playPreloadedAudio").mockResolvedValue(undefined);
+    const info = createSoundInfo();
+    info.battle.groundEffects = ["first", "second"].map((id) => ({
+      ...effect(id),
+      power: 0,
+      disappearSfx: "disappear",
+    }));
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+    expect(playback).toHaveBeenCalledTimes(2);
+
+    const battle = makeCompleteBattle({
+      round: 2,
+      groundEffects: [
+        {
+          ...effect("expired"),
+          rounds: 0,
+          isNew: false,
+          disappearAnimation: "animation",
+          disappearSfx: "disappear",
+        },
+      ],
+    });
+    expireGroundEffects(battle, []);
+    info.battle = battle as unknown as DrawInfo["battle"];
+    drawCombatEffects(info);
+    expect(info.groupEffects.children).toHaveLength(1);
+    const expiry = info.groupEffects.children[0]!;
+    expect(expiry.visible).toBe(true);
+    expect(expiry.children.some((child) => child instanceof ActionSprite)).toBe(true);
+    for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+    expect(playback).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["muted", "initial snapshot"])(
+    "does not replay a suppressed disappearance after a %s transition",
+    (reason) => {
+      const playback = vi.spyOn(audio, "playPreloadedAudio").mockResolvedValue(undefined);
+      const info = createSoundInfo();
+      info.battle.groundEffects[0]!.appearSfx = "";
+      drawCombatEffects(info);
+      info.battle.groundEffects[0]!.power = 0;
+      info.sfxEnabled = reason !== "muted";
+      info.animationId = reason === "initial snapshot" ? 0 : 1;
+      drawCombatEffects(info);
+      info.sfxEnabled = true;
+      info.animationId = 2;
+      for (let frame = 0; frame < 60; frame++) drawCombatEffects(info);
+      expect(playback).not.toHaveBeenCalled();
+    },
+  );
 });
