@@ -179,18 +179,18 @@ describe("native purchase settlement", () => {
     ).toBe("credited");
     expect(
       reconcileInterruptedStoreAttempt(localAttempt, [
-        { transactionId: "0", productId: localAttempt.productId },
+        { transactionId: "0", productId: localAttempt.productId, transactionIdSource: "store" },
       ]),
     ).toEqual(localAttempt);
     expect(
       reconcileInterruptedStoreAttempt(localAttempt, [
-        { transactionId: "native-history-id", productId: localAttempt.productId },
+        { transactionId: "native-history-id", productId: localAttempt.productId, transactionIdSource: "store" },
       ]),
     ).toEqual(localAttempt);
     expect(
       reconcileInterruptedStoreAttempt(
         { ...localAttempt, phase: "sheet-open" },
-        [{ transactionId: "0", productId: localAttempt.productId }],
+        [{ transactionId: "0", productId: localAttempt.productId, transactionIdSource: "store" }],
       ),
     ).toMatchObject({ transactionId: "0", phase: "charged-or-pending" });
   });
@@ -220,12 +220,12 @@ describe("native purchase settlement", () => {
     });
     expect(
       reconcileInterruptedStoreAttempt(interrupted, [
-        { transactionId: "old-native", productId: interrupted.productId },
+        { transactionId: "old-native", productId: interrupted.productId, transactionIdSource: "store" },
       ]),
     ).toBeNull();
     expect(
       reconcileInterruptedStoreAttempt(interrupted, [
-        { transactionId: "new-native", productId: interrupted.productId },
+        { transactionId: "new-native", productId: interrupted.productId, transactionIdSource: "store" },
       ]),
     ).toMatchObject({
       transactionId: "new-native",
@@ -245,12 +245,44 @@ describe("native purchase settlement", () => {
     expect(storePurchaseReconciliation([], pending)).toBe("pending");
     expect(
       reconcileInterruptedStoreAttempt(pending, [
-        { transactionId: "approved-later", productId: pending.productId },
+        { transactionId: "approved-later", productId: pending.productId, transactionIdSource: "store" },
       ]),
     ).toMatchObject({
       transactionId: "approved-later",
       phase: "charged-or-pending",
     });
+  });
+
+  it("recovers RevenueCat history ids through the fresh receipt baseline, including old persisted locks", () => {
+    const interrupted = attempt({
+      phase: "sheet-open",
+      baselineReceiptIds: ["old-receipt"],
+      baselineNativeTransactionIds: ["old-rc-id"],
+    });
+    const history = [{
+      transactionId: "new-rc-id",
+      productId: interrupted.productId,
+      transactionIdSource: "revenuecat" as const,
+    }];
+    const recovered = reconcileInterruptedStoreAttempt(interrupted, history)!;
+    expect(recovered).toMatchObject({ phase: "charged-or-pending" });
+    expect(recovered.transactionId).toBeUndefined();
+    const granted = receipt({
+      id: "new-receipt",
+      transactionId: "apple-store-id",
+      grantedAt: new Date(),
+    });
+    expect(storePurchaseReconciliation([granted], recovered)).toBe("credited");
+    expect(storePurchaseReconciliation([
+      { ...granted, id: "old-receipt" },
+    ], recovered)).toBe("pending");
+    const persisted = attempt({ ...interrupted, phase: "charged-or-pending", transactionId: "new-rc-id" });
+    expect(reconcileInterruptedStoreAttempt(persisted, history)).toEqual(recovered);
+    const directCallback = { ...persisted, transactionId: "apple-store-id" };
+    expect(reconcileInterruptedStoreAttempt(directCallback, history)).toEqual(directCallback);
+    expect(reconcileInterruptedStoreAttempt(interrupted, [{
+      ...history[0]!, productId: "tnr_reps_tier2",
+    }])).toBeNull();
   });
 
   it("does not finish restore merely because no receipt is pending", () => {

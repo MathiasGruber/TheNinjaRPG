@@ -115,6 +115,7 @@ export const hasSettledStorePurchase = (
 export interface NativePurchaseHistory {
   transactionId: string;
   productId: string;
+  transactionIdSource: "store" | "revenuecat";
 }
 
 /**
@@ -127,6 +128,18 @@ export const reconcileInterruptedStoreAttempt = (
   attempt: StorePurchaseAttempt,
   history: readonly NativePurchaseHistory[],
 ): StorePurchaseAttempt | null => {
+  // Older clients persisted RevenueCat's non-subscription history id as though it
+  // were the store id used by the receipt webhook. Repair that durable lock too.
+  if (
+    history.some(
+      (entry) =>
+        entry.productId === attempt.productId &&
+        entry.transactionIdSource === "revenuecat" &&
+        entry.transactionId === attempt.transactionId,
+    )
+  ) {
+    return { ...attempt, transactionId: undefined, phase: "charged-or-pending" };
+  }
   if (attempt.phase !== "sheet-open" && attempt.transactionId !== undefined)
     return attempt;
   const transaction = history.find(
@@ -137,7 +150,12 @@ export const reconcileInterruptedStoreAttempt = (
   if (transaction) {
     return {
       ...attempt,
-      transactionId: transaction.transactionId,
+      // RevenueCat history ids prove a new purchase exists, but cannot identify
+      // a server receipt. Without a store id, retain the fresh receipt watermark.
+      transactionId:
+        transaction.transactionIdSource === "store"
+          ? transaction.transactionId
+          : undefined,
       phase: "charged-or-pending",
     };
   }

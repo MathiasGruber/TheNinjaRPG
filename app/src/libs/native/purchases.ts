@@ -9,6 +9,7 @@
  */
 
 import { hasPlugin, invoke, invokeSafe, isNative } from "./bridge";
+import type { NativePurchaseHistory } from "./purchaseSettlement";
 
 const PLUGIN = "Purchases";
 
@@ -80,8 +81,8 @@ export interface CustomerInfo {
   /** Store product ids for subscriptions currently active on this account. */
   activeSubscriptions: string[];
   originalAppUserId: string;
-  /** Store transactions used to reconcile a sheet whose JS callback was lost. */
-  transactions: { transactionId: string; productId: string }[];
+  /** SDK purchase history, with store ids distinguished from RevenueCat ids. */
+  transactions: NativePurchaseHistory[];
 }
 
 export type StoreReplacementMode =
@@ -423,6 +424,7 @@ const toCustomerInfo = (raw: unknown): CustomerInfo | undefined => {
               {
                 transactionId: transaction.transactionIdentifier,
                 productId: transaction.productIdentifier,
+                transactionIdSource: "revenuecat" as const,
               },
             ]
           : [];
@@ -435,7 +437,13 @@ const toCustomerInfo = (raw: unknown): CustomerInfo | undefined => {
           ([productId, value]) => {
             const subscription = value as { storeTransactionId?: unknown };
             return typeof subscription.storeTransactionId === "string"
-              ? [{ transactionId: subscription.storeTransactionId, productId }]
+              ? [
+                  {
+                    transactionId: subscription.storeTransactionId,
+                    productId,
+                    transactionIdSource: "store" as const,
+                  },
+                ]
               : [];
           },
         )
