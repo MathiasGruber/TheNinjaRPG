@@ -164,7 +164,7 @@ describeWithDatabase("quest team encounter location claims", () => {
       const actions = availableUserActions(fight, player.userId);
       expect(actions.map((action) => action.id)).toEqual(expect.arrayContaining(["jutsu-PVE", "jutsu-BOTH"]));
       expect(actions.map((action) => action.id)).not.toContain("jutsu-PVP");
-      expect((await (await callerFor(combatRouter, player.userId)).getBattleHistory({})).some((entry) => entry.battleId === fight.id)).toBe(true);
+      expect((await (await callerFor(combatRouter, player.userId)).getBattleHistory({})).data.some((entry) => entry.battleId === fight.id)).toBe(true);
       expect(player.curHealth).toBe(player.maxHealth / 4);
       expect(player.curChakra).toBe(player.maxChakra / 4);
       expect(player.curStamina).toBe(player.maxStamina / 4);

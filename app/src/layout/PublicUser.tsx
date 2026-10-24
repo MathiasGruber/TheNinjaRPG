@@ -75,7 +75,6 @@ import {
   type BattleType,
   BattleTypes,
   ELITE_JONIN_BRACKET,
-  IMG_AVATAR_DEFAULT,
   ITEM_LEVEL_CAP,
   MAX_PVP_BRACKET,
   PET_MAX_GENERATION_ATTEMPTS,
@@ -92,6 +91,7 @@ import ActionLogFiltering, {
   useFiltering,
 } from "@/layout/ActionLogFiltering";
 import AvatarImage from "@/layout/Avatar";
+import { BattleHistoryTable } from "@/layout/BattleHistoryTable";
 import { ActionSelector } from "@/layout/CombatActions";
 import Confirm from "@/layout/Confirm";
 import ContentBox from "@/layout/ContentBox";
@@ -4645,25 +4645,6 @@ const RankedMatchesTab: React.FC<TabComponentProps> = ({
   userId,
   isActive: _isActive,
 }) => {
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(
-    {
-      userId,
-      combatTypes: ["RANKED_PVP"],
-    },
-    { enabled: _isActive },
-  );
-
-  const rankedMatches = history?.map((e) => ({
-    attackerUsername: e.attacker?.username || "Deleted User",
-    attackerUserId: e.attacker?.userId || "Deleted User",
-    attackerAvatar: e.attacker?.avatar || IMG_AVATAR_DEFAULT,
-    defenderUsername: e.defender?.username || "Deleted User",
-    defenderUserId: e.defender?.userId || "Deleted User",
-    defenderAvatar: e.defender?.avatar || IMG_AVATAR_DEFAULT,
-    battleId: e.battleId,
-    createdAt: e.createdAt,
-  }));
-
   return (
     <ContentBox
       title="Ranked Match History"
@@ -4671,23 +4652,12 @@ const RankedMatchesTab: React.FC<TabComponentProps> = ({
       initialBreak={true}
       padding={false}
     >
-      {isPending && <Loader explanation="Loading ranked matches..." />}
-      {(!rankedMatches || rankedMatches.length === 0) && (
-        <p className="p-3">No ranked matches found</p>
-      )}
-      {rankedMatches && rankedMatches.length > 0 && (
-        <Table
-          data={rankedMatches}
-          columns={[
-            { key: "attackerAvatar", header: "Attacker", type: "avatar" },
-            { key: "defenderAvatar", header: "Defender", type: "avatar" },
-            { key: "battleId", header: "Battle ID", type: "string" },
-            { key: "createdAt", header: "Date", type: "date" },
-          ]}
-          linkPrefix="/battlelog/"
-          linkColumn={"battleId"}
-        />
-      )}
+      <BattleHistoryTable
+        userId={userId}
+        combatTypes={["RANKED_PVP"]}
+        enabled={_isActive}
+        emptyMessage="No ranked matches found"
+      />
     </ContentBox>
   );
 };
@@ -4699,26 +4669,6 @@ const CombatHistoryTab: React.FC<TabComponentProps> = ({
   isActive: _isActive,
 }) => {
   const [selectedType, setSelectedType] = useState<string>("all");
-
-  const { data: history, isPending } = api.combat.getBattleHistory.useQuery(
-    {
-      userId,
-      combatTypes: selectedType === "all" ? undefined : [selectedType as BattleType],
-    },
-    { enabled: _isActive },
-  );
-
-  const combatHistory = history?.map((e) => ({
-    attackerUsername: e.attacker?.username || "Deleted User",
-    attackerUserId: e.attacker?.userId || "Deleted User",
-    attackerAvatar: e.attacker?.avatar || IMG_AVATAR_DEFAULT,
-    defenderUsername: e.defender?.username || "Deleted User",
-    defenderUserId: e.defender?.userId || "Deleted User",
-    defenderAvatar: e.defender?.avatar || IMG_AVATAR_DEFAULT,
-    battleId: e.battleId,
-    battleType: e.battleType || "Unknown",
-    createdAt: e.createdAt,
-  }));
 
   return (
     <ContentBox
@@ -4742,23 +4692,12 @@ const CombatHistoryTab: React.FC<TabComponentProps> = ({
         </Select>
       }
     >
-      {isPending && <Loader explanation="Loading combat history..." />}
-      {!isPending && (!combatHistory || combatHistory.length === 0) && (
-        <p className="p-3">No combat history found</p>
-      )}
-      {combatHistory && combatHistory.length > 0 && (
-        <Table
-          data={combatHistory}
-          columns={[
-            { key: "attackerAvatar", header: "Attacker", type: "avatar" },
-            { key: "defenderAvatar", header: "Defender", type: "avatar" },
-            { key: "battleType", header: "Type", type: "capitalized" },
-            { key: "createdAt", header: "Date", type: "date" },
-          ]}
-          linkPrefix="/battlelog/"
-          linkColumn={"battleId"}
-        />
-      )}
+      <BattleHistoryTable
+        userId={userId}
+        combatTypes={selectedType === "all" ? undefined : [selectedType as BattleType]}
+        enabled={_isActive}
+        showBattleType
+      />
     </ContentBox>
   );
 };

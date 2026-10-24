@@ -660,8 +660,12 @@ export const combatRouter = createTRPCRouter({
     .input(
       z.object({
         userId: z.string().optional(),
-        secondsBack: z.number().optional(),
+        secondsBack: z.number().nonnegative().optional(),
         combatTypes: z.array(z.enum(BattleTypes)).optional(),
+        limit: z.number().int().min(1).max(100).default(20),
+        cursor: z
+          .object({ createdAt: z.date(), id: z.number().int().positive() })
+          .nullish(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -672,9 +676,18 @@ export const combatRouter = createTRPCRouter({
             eq(battleHistory.attackedId, userId),
             eq(battleHistory.defenderId, userId),
           ),
-          ...(input.secondsBack
-            ? [gt(battleHistory.createdAt, secondsFromNow(-3600 * 3))]
-            : []),
+          input.secondsBack !== undefined
+            ? gt(battleHistory.createdAt, secondsFromNow(-input.secondsBack))
+            : undefined,
+          input.cursor
+            ? or(
+                lt(battleHistory.createdAt, input.cursor.createdAt),
+                and(
+                  eq(battleHistory.createdAt, input.cursor.createdAt),
+                  lt(battleHistory.id, input.cursor.id),
+                ),
+              )
+            : undefined,
           ...(input.combatTypes
             ? [inArray(battleHistory.battleType, input.combatTypes)]
             : []),
@@ -683,9 +696,17 @@ export const combatRouter = createTRPCRouter({
           attacker: { columns: { username: true, userId: true, avatar: true } },
           defender: { columns: { username: true, userId: true, avatar: true } },
         },
-        orderBy: [desc(battleHistory.createdAt)],
+        orderBy: [desc(battleHistory.createdAt), desc(battleHistory.id)],
+        limit: input.limit + 1,
       });
-      return results;
+      const hasMore = results.length > input.limit;
+      const data = results.slice(0, input.limit);
+      const last = data.at(-1);
+      return {
+        data,
+        nextCursor:
+          hasMore && last ? { createdAt: last.createdAt, id: last.id } : undefined,
+      };
     }),
 
   performAction: protectedProcedure
