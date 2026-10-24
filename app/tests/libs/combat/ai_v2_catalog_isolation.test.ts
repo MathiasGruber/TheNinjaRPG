@@ -150,7 +150,7 @@ const scenario = (action: ZodAllAiAction): CompleteBattle => {
       keystoneItems: {}, wars: {}, relations: {}, userQuests: {}, completedQuests: {},
       questData: {}, bounties: {}, bountySignups: {},
       revealedActions: { jutsuIds: [], itemIds: [] },
-      aiProfiles: { profile: { id: "profile", includeDefaultRules: false, rules: [{ conditions: [], action }] } as CompleteBattle["extraState"]["aiProfiles"][string] },
+      aiProfiles: { profile: { id: "profile", userId: "actor", includeDefaultRules: false, rules: [{ conditions: [], action }] } },
     },
   });
 };
