@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   STORE_BUNDLE_MAX_ITEMS,
   STORE_BUNDLE_MAX_PRICE_CENTS,
+  STORE_BUNDLE_MAX_PURCHASE_LIMIT,
   STORE_BUNDLE_MAX_QUANTITY,
   STORE_BUNDLE_MAX_RYO,
   STORE_BUNDLE_MIN_PRICE_CENTS,
@@ -103,6 +104,7 @@ export function StoreBundles() {
                   description: "",
                   priceCents: STORE_BUNDLE_MIN_PRICE_CENTS,
                   isActive: false,
+                  purchaseLimit: 0,
                   contents: { reputationPoints: 0, money: 0, items: [] },
                 },
               });
@@ -152,6 +154,12 @@ export function StoreBundles() {
                 {!bundle.isActive && <Badge variant="secondary">Hidden</Badge>}
               </div>
               <CardDescription>{bundle.description}</CardDescription>
+              {bundle.purchaseLimit > 0 && (
+                <p className="text-sm">
+                  Limit {bundle.purchaseLimit.toLocaleString()} per account ·{" "}
+                  {bundle.purchaseCount.toLocaleString()} purchased
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-1 text-sm">
@@ -178,14 +186,23 @@ export function StoreBundles() {
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
-                  disabled={!bundle.isActive}
+                  disabled={
+                    !bundle.isActive ||
+                    (bundle.purchaseLimit > 0 &&
+                      bundle.purchaseCount >= bundle.purchaseLimit)
+                  }
                   variant={selected === bundle.id ? "default" : "outline"}
                   onClick={(event) => {
                     returnFocusRef.current = event.currentTarget;
                     setSelected(bundle.id);
                   }}
                 >
-                  {selected === bundle.id ? "Selected" : "Select bundle"}
+                  {bundle.purchaseLimit > 0 &&
+                  bundle.purchaseCount >= bundle.purchaseLimit
+                    ? "Purchase limit reached"
+                    : selected === bundle.id
+                      ? "Selected"
+                      : "Select bundle"}
                 </Button>
                 {canManage && (
                   <Button
@@ -200,6 +217,7 @@ export function StoreBundles() {
                           description: bundle.description,
                           priceCents: bundle.priceCents,
                           isActive: bundle.isActive,
+                          purchaseLimit: bundle.purchaseLimit,
                           contents: bundle.contents,
                         },
                       });
@@ -243,6 +261,9 @@ export function StoreBundles() {
               selection={{ type: "bundle", bundleId: offer.id }}
               recipientId={users[0]?.userId}
               onPendingChange={setIsCheckoutPending}
+              disabled={
+                offer.purchaseLimit > 0 && offer.purchaseCount >= offer.purchaseLimit
+              }
             />
           </>
         )}
@@ -336,6 +357,30 @@ function StoreBundleEditor({
                   <FormControl>
                     <Input {...field} required maxLength={100} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="purchaseLimit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Purchase limit per account</FormLabel>
+                  <FormControl>
+                    <NumberInput
+                      {...field}
+                      min={0}
+                      max={STORE_BUNDLE_MAX_PURCHASE_LIMIT}
+                      step={1}
+                      onValueChange={field.onChange}
+                      required
+                    />
+                  </FormControl>
+                  <p className="text-muted-foreground text-sm">
+                    0 means unlimited. 1 allows one lifetime purchase per buyer account,
+                    including gifts.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

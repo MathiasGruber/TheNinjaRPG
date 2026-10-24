@@ -1,4 +1,15 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  count,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  isNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { STORE_ORDER_RESERVATION_MINUTES } from "@/drizzle/constants";
 import {
@@ -7,6 +18,7 @@ import {
   storeUserIdAlias,
   userData,
   userItem,
+  webStoreBundle,
   webStoreOrder,
 } from "@/drizzle/schema";
 import type { DrizzleClient } from "@/server/db";
@@ -25,9 +37,14 @@ export const reserveStoreOrder = async (
   client: DrizzleClient,
   buyerId: string,
   recipientId: string,
-  offer: { name: string; priceCents: number; contents: StoreContents },
+  offer: {
+    name: string;
+    priceCents: number;
+    contents: StoreContents;
+    bundleId?: string;
+  },
 ) => {
-  const needsBuyerLock = offer.contents.reputationPoints > 0;
+  const needsBuyerLock = offer.contents.reputationPoints > 0 || !!offer.bundleId;
   const reserve = async (db: DrizzleClient) => {
     const buyerQuery = db.select().from(userData).where(eq(userData.userId, buyerId));
     const [buyer] = await (needsBuyerLock ? buyerQuery.for("update") : buyerQuery);
@@ -36,6 +53,10 @@ export const reserveStoreOrder = async (
         success: false as const,
         message: "This account cannot make purchases",
       };
+    const bundleError = offer.bundleId
+      ? await checkBundlePurchaseLimit(db, buyerId, offer.bundleId)
+      : null;
+    if (bundleError) return { success: false as const, message: bundleError };
     const allowanceError = await checkStoreAllowance(
       db,
       buyer,
@@ -46,6 +67,7 @@ export const reserveStoreOrder = async (
       id: nanoid(),
       buyerId,
       recipientId,
+      bundleId: offer.bundleId,
       name: offer.name,
       priceCents: offer.priceCents,
       contents: offer.contents,
@@ -55,7 +77,8 @@ export const reserveStoreOrder = async (
     return { success: true as const, message: "Checkout ready", order };
   };
   // A positive reservation INSERT cannot share one guarded UPDATE with the SUM over
-  // receipts and other orders. Zero-reputation offers cannot increase that aggregate.
+  // receipts and other orders, or the lifetime bundle count. All bundle reservations
+  // share this buyer lock, including unlimited offers whose limit may later change.
   return retryOnDeadlock(() =>
     needsBuyerLock ? client.transaction(reserve) : reserve(client),
   );
@@ -206,12 +229,13 @@ export const authorizeStoreCapture = async (
   client: DrizzleClient,
   snapshotId: string,
   buyerId: string,
+  captureAttemptId = nanoid(),
 ) => {
   const snapshot = await client.query.webStoreOrder.findFirst({
     where: eq(webStoreOrder.id, snapshotId),
   });
   if (!snapshot) return "This checkout is not available for your account";
-  const needsBuyerLock = snapshot.contents.reputationPoints > 0;
+  const needsBuyerLock = snapshot.contents.reputationPoints > 0 || !!snapshot.bundleId;
   const authorize = async (db: DrizzleClient) => {
     const buyerQuery = db.select().from(userData).where(eq(userData.userId, buyerId));
     // Acquire the lock before consistent reads so queued captures see prior refreshes.
@@ -220,6 +244,10 @@ export const authorizeStoreCapture = async (
     if (!buyer || buyer.isBanned || order.buyerId !== buyerId)
       return "This checkout is not available for your account";
     if (order.grantedAt) return null;
+    const bundleError = order.bundleId
+      ? await checkBundlePurchaseLimit(db, buyerId, order.bundleId, order.id)
+      : null;
+    if (bundleError) return bundleError;
     if (isDeletedStoreUserId(order.recipientId))
       return "The recipient account was deleted. No payment was captured.";
     const recipientQuery = db.query.userData.findFirst({
@@ -269,6 +297,7 @@ export const authorizeStoreCapture = async (
       .update(webStoreOrder)
       .set({
         expiresAt: new Date(Date.now() + STORE_ORDER_RESERVATION_MINUTES * 60_000),
+        captureAttemptId,
       })
       .where(
         and(
@@ -289,10 +318,66 @@ export const authorizeStoreCapture = async (
     return null;
   };
   // The SUM spans receipts and other orders, so one guarded refresh cannot protect
-  // a positive reservation. Recheck even live orders: legacy receipts can arrive later.
+  // a positive reservation or bundle slot. Recheck even live orders: legacy receipts
+  // can arrive later and staff can change a bundle's limit before payment.
   return retryOnDeadlock(() =>
     needsBuyerLock ? client.transaction(authorize) : authorize(client),
   );
+};
+
+/** A declined attempt may release only its own unpaid slot, never a newer capture attempt. */
+export const releaseDeclinedStoreCapture = async (
+  client: DrizzleClient,
+  snapshotId: string,
+  buyerId: string,
+  captureAttemptId: string,
+) =>
+  client
+    .update(webStoreOrder)
+    .set({ captureAttemptId: null, expiresAt: new Date(0) })
+    .where(
+      and(
+        eq(webStoreOrder.id, snapshotId),
+        eq(webStoreOrder.buyerId, buyerId),
+        eq(webStoreOrder.captureAttemptId, captureAttemptId),
+        isNull(webStoreOrder.grantedAt),
+      ),
+    );
+
+/** The buyer lock serializes the count and reservation INSERT/refresh across recipients. */
+const checkBundlePurchaseLimit = async (
+  client: DrizzleClient,
+  buyerId: string,
+  bundleId: string,
+  excludeOrderId?: string,
+) => {
+  const bundle = await client.query.webStoreBundle.findFirst({
+    columns: { purchaseLimit: true, isActive: true },
+    where: eq(webStoreBundle.id, bundleId),
+  });
+  if (!bundle?.isActive)
+    return "This bundle is no longer available. No payment was captured.";
+  if (bundle.purchaseLimit === 0) return null;
+  const [usage] = await client
+    .select({ count: count() })
+    .from(webStoreOrder)
+    .where(
+      and(
+        eq(webStoreOrder.buyerId, buyerId),
+        eq(webStoreOrder.bundleId, bundleId),
+        excludeOrderId ? ne(webStoreOrder.id, excludeOrderId) : undefined,
+        // A provider capture can stay pending or need delivery recovery beyond quote expiry.
+        // Keep its slot until delivery; only never-authorized checkouts may expire.
+        or(
+          isNotNull(webStoreOrder.grantedAt),
+          isNotNull(webStoreOrder.captureAttemptId),
+          gt(webStoreOrder.expiresAt, new Date()),
+        ),
+      ),
+    );
+  return (usage?.count ?? 0) >= bundle.purchaseLimit
+    ? "This account has reached this bundle's purchase limit, including other open checkouts. No payment was captured."
+    : null;
 };
 
 /** Count paid reputation and live reservations; positive reservations hold the buyer lock. */

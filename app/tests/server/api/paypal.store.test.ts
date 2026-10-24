@@ -4,7 +4,7 @@ import { actionLog, item, paypalTransaction, recruitmentRewards, userData, userI
 import { staffRouter, deleteUser } from "@/server/api/routers/staff";
 import { paypalRouter, syncTransactions } from "@/server/api/routers/paypal";
 import { itemRouter } from "@/server/api/routers/item";
-import { authorizeStoreCapture, deliverStoreOrder, reserveStoreOrder } from "@/server/utils/webStore";
+import { authorizeStoreCapture, deliverStoreOrder, releaseDeclinedStoreCapture, reserveStoreOrder } from "@/server/utils/webStore";
 import * as sentry from "@/server/utils/sentry";
 import { buyRepsSchema, storeBundleSchema, storeBundleSchemaForItems } from "@/validators/points";
 import { dynamicMonthlyRepCap, getStoreBundleMinimumPriceCents, reps2dollars } from "@/utils/paypal";
@@ -13,7 +13,7 @@ import { beforeStatements } from "../../setup/statements";
 import { callerFor, describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 const contents = {reputationPoints:20, money:500, items:[{id:"store-item",quantity:7}]};
-const offer = {name:"Seichi supplies", priceCents:1250, contents};
+const offer = {name:"Seichi supplies", priceCents:1250, contents, purchaseLimit:0};
 const capture = (id:string) => ({snapshotId:id, captureId:`capture-${id}`, orderId:`provider-${id}`, invoiceId:id, currency:"USD", value:"12.50", raw:{status:"COMPLETED"}});
 const reportingTransaction = (id: string): Parameters<typeof syncTransactions>[1][number] => ({
   transaction_info: {
@@ -64,6 +64,11 @@ describe("web store validation", () => {
     expect(storeBundleSchema.safeParse({...input, contents:{reputationPoints:0,money:0,items:[]}}).success).toBe(false);
     expect(storeBundleSchema.safeParse({...input, contents:{...contents,items:[...contents.items,...contents.items]}}).success).toBe(false);
   });
+  it("accepts unlimited or whole account limits and rejects invalid limits", () => {
+    const input = {...offer, description:"", isActive:true};
+    for (const purchaseLimit of [0, 1, 3]) expect(storeBundleSchema.safeParse({...input, purchaseLimit}).success).toBe(true);
+    for (const purchaseLimit of [-1, 0.5, Infinity, 1000001]) expect(storeBundleSchema.safeParse({...input, purchaseLimit}).success).toBe(false);
+  });
 });
 
 describeWithDatabase("web store payments", () => {
@@ -71,6 +76,139 @@ describeWithDatabase("web store payments", () => {
     await resetTables(webStoreOrder, webStoreBundle, paypalTransaction, recruitmentRewards, userItem, item, userData, actionLog, storeUserIdAlias);
     await insertUsers([{userId:"buyer",username:"Buyer",role:"OWNER", reputationPoints:0, money:0}, {userId:"recipient",username:"Recipient",reputationPoints:0,reputationPointsTotal:0,money:0}]);
     await insertItems([{id:"store-item",name:"Supplies",canStack:true,stackSize:3}]);
+  });
+  it("reserves one lifetime purchase atomically across concurrent gift recipients, including zero-reputation offers", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer, contents:{...contents,reputationPoints:0}, bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...limited,description:"",isActive:true,purchaseLimit:1});
+    const attempts = await Promise.all(Array.from({length:6},(_,index) => reserveStoreOrder(db,"buyer",index % 2 ? "buyer" : "recipient",limited)));
+    expect(attempts.filter(result => result.success)).toHaveLength(1);
+    expect(attempts.filter(result => !result.success).every(result => result.message.includes("purchase limit"))).toBe(true);
+    const order = (await db.query.webStoreOrder.findFirst())!;
+    expect(order.bundleId).toBe(limited.bundleId);
+    expect(await authorizeStoreCapture(db,order.id,"buyer")).toBeNull();
+    await deliverStoreOrder(db,capture(order.id));
+    await db.update(webStoreOrder).set({expiresAt:new Date(0)}).where(eq(webStoreOrder.id,order.id));
+    expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(false);
+    const catalog = await (await callerFor(paypalRouter,"buyer")).getStoreBundles();
+    expect(catalog.bundles[0]).toMatchObject({purchaseLimit:1,purchaseCount:1});
+    const recipientCatalog = await (await callerFor(paypalRouter,"recipient")).getStoreBundles();
+    expect(recipientCatalog.bundles[0]?.purchaseCount).toBe(0);
+    expect((await reserveStoreOrder(db,"recipient","recipient",limited)).success).toBe(true);
+    // Provider recovery always honors a paid snapshot, even after staff hide or edit the offer.
+    await db.update(webStoreBundle).set({isActive:false,purchaseLimit:0}).where(eq(webStoreBundle.id,limited.bundleId));
+    expect((await deliverStoreOrder(db,capture(order.id))).message).toBe("Purchase already delivered");
+  });
+  it("counts earlier purchases after staff enable a limit and keeps counts through bundle edits", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true});
+    for (let index=0;index<2;index++) {
+      const result = await reserveStoreOrder(db,"buyer","recipient",limited);
+      if (!result.success) throw new Error(result.message);
+      await deliverStoreOrder(db,capture(result.order.id));
+    }
+    const owner = await callerFor(paypalRouter,"buyer");
+    expect((await owner.saveStoreBundle({id:limited.bundleId,data:{...offer,description:"Edited",name:"Renamed",purchaseLimit:2,isActive:true}})).success).toBe(true);
+    expect((await owner.getStoreBundles()).bundles[0]).toMatchObject({name:"Renamed",purchaseCount:2,purchaseLimit:2});
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async () => {throw new Error("Must not open PayPal");});
+    try {
+      const result = await owner.createStoreOrder({recipientId:"buyer",selection:{type:"bundle",bundleId:limited.bundleId}});
+      expect(result).toMatchObject({success:false});
+      expect(result.message).toContain("purchase limit");
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {fetchMock.mockRestore();}
+    expect((await reserve()).bundleId).toBeUndefined();
+  });
+  it("releases expired bundle slots and rechecks them before capturing stale checkouts", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true,purchaseLimit:1});
+    const first = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!first.success) throw new Error(first.message);
+    await db.update(webStoreOrder).set({expiresAt:new Date(0)}).where(eq(webStoreOrder.id,first.order.id));
+    const second = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!second.success) throw new Error(second.message);
+    expect(await authorizeStoreCapture(db,first.order.id,"buyer")).toContain("purchase limit");
+    expect(await authorizeStoreCapture(db,second.order.id,"buyer")).toBeNull();
+    await db.update(webStoreOrder).set({expiresAt:new Date(0)});
+    expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(false);
+    const captures = await Promise.all([first,second].map(result => authorizeStoreCapture(db,result.order.id,"buyer")));
+    expect(captures.filter(result => result === null)).toHaveLength(1);
+    expect(captures.filter(result => result?.includes("purchase limit"))).toHaveLength(1);
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+  });
+  it("releases definitive funding failures while preserving pending and newer capture attempts", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true,purchaseLimit:1});
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!reserved.success) throw new Error(reserved.message);
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer","old-attempt")).toBeNull();
+    expect(await authorizeStoreCapture(db,reserved.order.id,"buyer","new-attempt")).toBeNull();
+    await releaseDeclinedStoreCapture(db,reserved.order.id,"buyer","old-attempt");
+    expect((await db.query.webStoreOrder.findFirst())?.captureAttemptId).toBe("new-attempt");
+    const owner = await callerFor(paypalRouter,"buyer");
+    let declined = false;
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async url => {
+      const path = String(url);
+      if (path.endsWith("/v1/oauth2/token")) return Response.json({access_token:"test-only"});
+      if (path.endsWith("/capture")) return declined
+        ? Response.json({details:[{issue:"INSTRUMENT_DECLINED"}]},{status:422})
+        : Response.json({status:"COMPLETED",purchase_units:[{payments:{captures:[{status:"PENDING"}]}}]});
+      return Response.json({status:"APPROVED",purchase_units:[{custom_id:`store:${reserved.order.id}`,invoice_id:reserved.order.id,amount:{currency_code:"USD",value:"12.50"}}]});
+    });
+    try {
+      expect((await owner.captureStoreOrder({orderId:"TESTORDER123456789"})).message).toContain("awaiting confirmation");
+      await db.update(webStoreOrder).set({expiresAt:new Date(0)});
+      expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(false);
+      declined = true;
+      const result = await owner.captureStoreOrder({orderId:"TESTORDER123456789"});
+      expect(result).toMatchObject({success:false});
+      expect(result.message).toContain("declined");
+      expect((await db.query.webStoreOrder.findFirst())?.captureAttemptId).toBeNull();
+      expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(true);
+    } finally {fetchMock.mockRestore();}
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+  });
+  it("rechecks current limits before capture but still delivers a completed provider payment", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true});
+    const first = await reserveStoreOrder(db,"buyer","recipient",limited);
+    const second = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!first.success || !second.success) throw new Error("Reservations failed");
+    await deliverStoreOrder(db,capture(first.order.id));
+    await db.update(webStoreBundle).set({purchaseLimit:1}).where(eq(webStoreBundle.id,limited.bundleId));
+    expect(await authorizeStoreCapture(db,second.order.id,"buyer")).toContain("purchase limit");
+    expect((await deliverStoreOrder(db,capture(second.order.id))).success).toBe(true);
+    expect((await deliverStoreOrder(db,capture(second.order.id))).message).toBe("Purchase already delivered");
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(2);
+  });
+  it("releases a previously pending capture after PayPal reports a terminal failure", async () => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true,purchaseLimit:1});
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!reserved.success) throw new Error(reserved.message);
+    const owner = await callerFor(paypalRouter,"buyer");
+    let status = "DECLINED";
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async url => String(url).endsWith("/v1/oauth2/token")
+      ? Response.json({access_token:"test-only"})
+      : Response.json({status:"COMPLETED",purchase_units:[{custom_id:`store:${reserved.order.id}`,invoice_id:reserved.order.id,amount:{currency_code:"USD",value:"12.50"},payments:{captures:[{status}]}}]}));
+    try {
+      for (const endpoint of ["captureStoreOrder","resolveOrder"] as const) {
+        for (status of ["DECLINED","DENIED","FAILED"]) {
+          expect(await authorizeStoreCapture(db,reserved.order.id,"buyer")).toBeNull();
+          const result = await owner[endpoint]({orderId:"TESTORDER123456789"});
+          expect(result.success).toBe(false);
+          expect(result.message).toContain("declined");
+          expect((await db.query.webStoreOrder.findFirst())?.captureAttemptId).toBeNull();
+        }
+      }
+      expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(true);
+    } finally {fetchMock.mockRestore();}
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
   });
   it("delivers the saved snapshot once under concurrent capture retries", async () => {
     const order = await reserve();

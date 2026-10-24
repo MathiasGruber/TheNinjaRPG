@@ -55,6 +55,7 @@ export function StoreCheckout({
           utils.profile.getUser.invalidate(),
           utils.paypal.getRecentRepsCount.invalidate(),
           utils.paypal.getPaypalTransactions.invalidate(),
+          utils.paypal.getStoreBundles.invalidate(),
           utils.item.getUserItems.invalidate(),
           utils.item.getUserItemsWithVariants.invalidate(),
         ]);
