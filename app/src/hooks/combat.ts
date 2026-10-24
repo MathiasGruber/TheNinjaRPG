@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { hashKey, useQueryClient } from "@tanstack/react-query";
 import { getQueryKey } from "@trpc/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import superjson from "superjson";
@@ -52,32 +52,63 @@ export const useCombatUpdates = (state: BattleState) => {
       const queries = queryClient.getQueryCache().findAll({
         queryKey: getQueryKey(api.combat.getBattleEntries, { battleId: id }, "query"),
       });
+      const groups = new Map<
+        string,
+        {
+          target: RouterInputs["combat"]["getBattleEntries"] & { refreshKey: number };
+          sources: {
+            input: RouterInputs["combat"]["getBattleEntries"];
+            query: (typeof queries)[number];
+          }[];
+        }
+      >();
       for (const query of queries) {
         const { input } = query.queryKey[1] as {
           input: RouterInputs["combat"]["getBattleEntries"];
         };
-        const entries =
-          logEntries &&
-          mergeBattleEntries(
-            utils.combat.getBattleEntries.getData(input),
-            logEntries,
-            input,
-            version,
-          );
+        const target = {
+          ...input,
+          refreshKey: Math.max(input.refreshKey ?? 0, version),
+        };
+        const key = hashKey([target]);
+        const group = groups.get(key) ?? { target, sources: [] };
+        group.sources.push({ input, query });
+        groups.set(key, group);
+      }
+      for (const { target, sources } of groups.values()) {
+        let entries: BattleAction[] | undefined;
+        if (logEntries) {
+          // Try the freshest page first, falling back only when it has gaps or
+          // no data. Obsolete versions must not each re-merge the same delta.
+          sources.sort((a, b) => (b.input.refreshKey ?? 0) - (a.input.refreshKey ?? 0));
+          for (const { input } of sources) {
+            entries = mergeBattleEntries(
+              utils.combat.getBattleEntries.getData(input),
+              logEntries,
+              input,
+              version,
+            );
+            if (entries) break;
+          }
+        }
         if (entries) {
-          const target = {
-            ...input,
-            refreshKey: Math.max(input.refreshKey ?? 0, version),
-          };
           // refreshKey is a cache key, not a SQL cutoff: this page may already
           // contain later committed rows. Never replace them with an older delta.
           const isNewer = (rows: BattleAction[] | undefined) =>
             rows?.some((row) => row.battleVersion >= target.refreshKey);
           // An ended observer may keep this older key after battle deletion.
-          const keys =
-            finished && target.refreshKey !== input.refreshKey
-              ? [target, input]
-              : [target];
+          const keys = [
+            target,
+            ...sources
+              .filter(
+                ({ input, query }) =>
+                  finished &&
+                  query.getObserversCount() > 0 &&
+                  !!input.refreshKey &&
+                  target.refreshKey !== input.refreshKey,
+              )
+              .map(({ input }) => input),
+          ];
           for (const key of keys) {
             if (isNewer(utils.combat.getBattleEntries.getData(key))) continue;
             // A pre-insert response must not overwrite the committed delta.
@@ -86,7 +117,24 @@ export const useCombatUpdates = (state: BattleState) => {
               isNewer(current) ? current : entries,
             );
           }
-        } else if (!input.refreshKey || finished) {
+        }
+        for (const { input, query } of sources) {
+          if (input.refreshKey && entries) {
+            if (
+              finished &&
+              query.getObserversCount() === 0 &&
+              input.refreshKey !== target.refreshKey
+            ) {
+              // Retired keys need fresh data if a held result later remounts.
+              // Mark them stale without scanning or rewriting their old rows.
+              if (query.state.fetchStatus !== "idle") {
+                await utils.combat.getBattleEntries.cancel(input);
+              }
+              query.invalidate();
+            }
+            continue;
+          }
+          if (input.refreshKey && !finished) continue;
           // Ordinary version changes load their new history key naturally. At
           // settlement the battle may be deleted, leaving an older key mounted.
           await utils.combat.getBattleEntries.cancel(input);

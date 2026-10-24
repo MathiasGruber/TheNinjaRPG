@@ -248,3 +248,97 @@ it.each([{ userFilter: "opponents" as const }, { showBasicActions: false }, { of
   await waitFor(() => expect(queryClient.getQueryData<BattleAction[]>(filteredKey)).toEqual(entries));
   expect(readEntries).toHaveBeenCalledTimes(4);
 });
+
+it.each([5, 30, 1000])("merges only the freshest retained page for limit %i", async (limit) => {
+  let sourceVisits = 0;
+  const versions = 300;
+  const row = (version: number) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version });
+  const input = { battleId: "battle", limit };
+  for (let version = 2; version <= versions + 1; version++) {
+    const rows = Array.from({ length: Math.min(version - 1, limit) }, (_, i) => new Proxy(row(version - 1 - i), {
+      get(target, key) {
+        if (key === "battleId") sourceVisits++;
+        return Reflect.get(target, key);
+      },
+    }));
+    queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: version }, "query"), rows);
+  }
+  mount();
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  await act(async () => { await applyLogs("battle", versions + 2, [row(versions + 1)]); });
+  expect(sourceVisits).toBe(Math.min(versions, limit));
+  const latest = queryClient.getQueryData<BattleAction[]>(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: versions + 2 }, "query"));
+  expect(latest?.map((entry) => entry.battleVersion)).toEqual(Array.from({ length: Math.min(versions + 1, limit) }, (_, i) => versions + 1 - i));
+});
+
+it.each([{ latest: undefined }, { latest: [2, 1] }])("falls back to complete history when the latest key has missing data or gaps (%j)", async ({ latest }) => {
+  const row = (version: number) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version });
+  const input = { battleId: "battle", limit: 5 };
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 4 }, "query"), [3, 2, 1].map(row));
+  // A mounted version may have an in-flight read without any cached data yet.
+  queryClient.getQueryCache().build(queryClient, { queryKey: getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 5 }, "query"), initialData: latest?.map(row) });
+  mount();
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  await act(async () => { await applyLogs("battle", 5, [row(4)]); });
+  const repaired = queryClient.getQueryData<BattleAction[]>(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 5 }, "query"));
+  expect(repaired?.map((entry) => entry.battleVersion)).toEqual([4, 3, 2, 1]);
+});
+
+it("repairs multiple mounted terminal keys from the freshest complete page", async () => {
+  const row = (version: number) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version });
+  const input = { battleId: "battle", checkBattle: true, limit: 30 };
+  const oldest = { ...input, refreshKey: 2 };
+  const held = { ...input, refreshKey: 3 };
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, oldest, "query"), [row(1)]);
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, held, "query"), [row(2), row(1)]);
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 4 }, "query"), [row(3), row(2), row(1)]);
+  const state = { ...finalState, battle: { ...finalState.battle!, version: 2 } };
+  const view = mount(true, state, held);
+  await act(async () => { await applyLogs("battle", 5, [row(4)], true); });
+  await waitFor(() => expect(view.getAllByText(/Victim takes 100 damage/)).toHaveLength(4));
+  expect(queryClient.getQueryData<BattleAction[]>(getQueryKey(testApi.combat.getBattleEntries, held, "query"))?.map((entry) => entry.battleVersion)).toEqual([4, 3, 2, 1]);
+  expect(readEntries).not.toHaveBeenCalled();
+});
+
+it("recovers an inactive terminal key if a held result later remounts", async () => {
+  const row = (version: number) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version });
+  const input = { battleId: "battle", checkBattle: true, limit: 30 };
+  const heldKey = getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 2 }, "query");
+  queryClient.setQueryData(heldKey, [row(1)]);
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 4 }, "query"), [row(3), row(2), row(1)]);
+  const view = mount();
+  await act(async () => { await applyLogs("battle", 5, [row(4)], true); });
+  expect(queryClient.getQueryState(heldKey)?.isInvalidated).toBe(true);
+  entries = [4, 3, 2, 1].map(row);
+  view.changeState({ ...finalState, battle: { ...finalState.battle!, version: 2 } });
+  await waitFor(() => expect(view.getAllByText(/Victim takes 100 damage/)).toHaveLength(4));
+  expect(readEntries).toHaveBeenCalledTimes(1);
+});
+
+it("keeps saved unversioned logs on recovery reads even when a versioned source is complete", async () => {
+  const input = { battleId: "battle", checkBattle: false, limit: 30 };
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 3 }, "query"), [2, 1].map((version) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version })));
+  const view = mount(false);
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  entries = [lethalEntry];
+  await act(async () => { await applyLogs("battle", 4, [lethalEntry]); });
+  await view.findByText(/Victim takes 100 damage/);
+  expect(readEntries).toHaveBeenCalledTimes(2);
+});
+
+it("does not overwrite a newer page committed while cancellation is pending", async () => {
+  const input = { battleId: "battle", limit: 5 };
+  const row = (version: number) => ({ ...lethalEntry, id: `hit-${version}`, battleVersion: version });
+  queryClient.setQueryData(getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 3 }, "query"), [row(2), row(1)]);
+  mount();
+  await waitFor(() => expect(readEntries).toHaveBeenCalledTimes(1));
+  let finishCancellation!: () => void;
+  const pendingCancellation = new Promise<void>((resolve) => { finishCancellation = resolve; });
+  const cancel = vi.spyOn(queryClient, "cancelQueries").mockImplementationOnce(() => pendingCancellation);
+  const pendingUpdate = applyLogs("battle", 4, [row(3)]);
+  expect(cancel).toHaveBeenCalledTimes(1);
+  const targetKey = getQueryKey(testApi.combat.getBattleEntries, { ...input, refreshKey: 4 }, "query");
+  queryClient.setQueryData(targetKey, [row(4), row(3), row(2), row(1)]);
+  await act(async () => { finishCancellation(); await pendingUpdate; });
+  expect(queryClient.getQueryData<BattleAction[]>(targetKey)?.map((entry) => entry.battleVersion)).toEqual([4, 3, 2, 1]);
+});
