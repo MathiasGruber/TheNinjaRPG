@@ -17,6 +17,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   STORE_BUNDLE_MAX_ITEMS,
   STORE_BUNDLE_MAX_PRICE_CENTS,
+  STORE_BUNDLE_MAX_PURCHASE_LIMIT,
   STORE_BUNDLE_MAX_QUANTITY,
   STORE_BUNDLE_MAX_RYO,
   STORE_BUNDLE_MIN_PRICE_CENTS,
@@ -45,7 +47,7 @@ import { type StoreBundleInput, storeBundleSchemaForItems } from "@/validators/p
 import { getSearchValidator } from "@/validators/register";
 import { StoreCheckout } from "./StoreCheckout";
 
-/** The public catalog and staff editor share the same validated offer payload. */
+/** Show per-buyer availability and staff editing through the shared validated bundle catalog. */
 export function StoreBundles() {
   const { data: user } = useRequiredUserData();
   const canManage = canManageStore(user?.role);
@@ -54,7 +56,8 @@ export function StoreBundles() {
   const [isCheckoutPending, setIsCheckoutPending] = useState(false);
   const [editing, setEditing] = useState<{ id?: string; data: StoreBundleInput }>();
   const [message, setMessage] = useState<string>();
-  const returnFocusRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement>(null);
+  const selectedBundleRef = useRef<HTMLDivElement>(null);
   const userSearchSchema = getSearchValidator({ max: 1 });
   const methods = useForm<z.infer<typeof userSearchSchema>>({
     defaultValues: { username: "", users: [] },
@@ -103,6 +106,7 @@ export function StoreBundles() {
                   description: "",
                   priceCents: STORE_BUNDLE_MIN_PRICE_CENTS,
                   isActive: false,
+                  purchaseLimit: 0,
                   contents: { reputationPoints: 0, money: 0, items: [] },
                 },
               });
@@ -142,6 +146,8 @@ export function StoreBundles() {
         {query.data?.bundles.map((bundle) => (
           <Card
             key={bundle.id}
+            ref={selected === bundle.id ? selectedBundleRef : undefined}
+            tabIndex={-1}
             className={
               selected === bundle.id ? "border-primary ring-1 ring-primary" : ""
             }
@@ -152,6 +158,12 @@ export function StoreBundles() {
                 {!bundle.isActive && <Badge variant="secondary">Hidden</Badge>}
               </div>
               <CardDescription>{bundle.description}</CardDescription>
+              {bundle.purchaseLimit > 0 && (
+                <p className="text-sm">
+                  Limit {bundle.purchaseLimit.toLocaleString()} per account ·{" "}
+                  {bundle.purchaseCount.toLocaleString()} purchased
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="space-y-1 text-sm">
@@ -178,14 +190,23 @@ export function StoreBundles() {
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
-                  disabled={!bundle.isActive}
+                  disabled={
+                    !bundle.isActive ||
+                    (bundle.purchaseLimit > 0 &&
+                      bundle.purchaseCount >= bundle.purchaseLimit)
+                  }
                   variant={selected === bundle.id ? "default" : "outline"}
                   onClick={(event) => {
                     returnFocusRef.current = event.currentTarget;
                     setSelected(bundle.id);
                   }}
                 >
-                  {selected === bundle.id ? "Selected" : "Select bundle"}
+                  {bundle.purchaseLimit > 0 &&
+                  bundle.purchaseCount >= bundle.purchaseLimit
+                    ? "Purchase limit reached"
+                    : selected === bundle.id
+                      ? "Selected"
+                      : "Select bundle"}
                 </Button>
                 {canManage && (
                   <Button
@@ -200,6 +221,7 @@ export function StoreBundles() {
                           description: bundle.description,
                           priceCents: bundle.priceCents,
                           isActive: bundle.isActive,
+                          purchaseLimit: bundle.purchaseLimit,
                           contents: bundle.contents,
                         },
                       });
@@ -218,7 +240,12 @@ export function StoreBundles() {
         isOpen={!!offer}
         isLoading={isCheckoutPending}
         setIsOpen={(open) => {
-          if (!open) setSelected(undefined);
+          if (!open) {
+            // Delivery can disable the opener; keep focus on the purchased bundle.
+            if (returnFocusRef.current?.matches(":disabled"))
+              returnFocusRef.current = selectedBundleRef.current;
+            setSelected(undefined);
+          }
         }}
         returnFocusRef={returnFocusRef}
         bodyClassName="space-y-3 py-2"
@@ -243,6 +270,9 @@ export function StoreBundles() {
               selection={{ type: "bundle", bundleId: offer.id }}
               recipientId={users[0]?.userId}
               onPendingChange={setIsCheckoutPending}
+              disabled={
+                offer.purchaseLimit > 0 && offer.purchaseCount >= offer.purchaseLimit
+              }
             />
           </>
         )}
@@ -267,7 +297,7 @@ function StoreBundleEditor({
   items: { id: string; name: string; repsCost: number }[];
   isPending: boolean;
   message?: string;
-  returnFocusRef: RefObject<HTMLButtonElement | null>;
+  returnFocusRef: RefObject<HTMLElement | null>;
   onSave: (data: StoreBundleInput) => void;
   onClose: () => void;
 }) {
@@ -336,6 +366,30 @@ function StoreBundleEditor({
                   <FormControl>
                     <Input {...field} required maxLength={100} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="purchaseLimit"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Purchase limit per account</FormLabel>
+                  <FormControl>
+                    <NumberInput
+                      {...field}
+                      min={0}
+                      max={STORE_BUNDLE_MAX_PURCHASE_LIMIT}
+                      step={1}
+                      onValueChange={field.onChange}
+                      required
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    0 means unlimited. 1 allows one lifetime purchase per buyer account,
+                    including gifts.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

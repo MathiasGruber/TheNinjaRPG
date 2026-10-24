@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 import type { TransactionType } from "@/drizzle/constants";
@@ -40,6 +40,7 @@ import {
   authorizeStoreCapture,
   deliverStoreOrder,
   readStoreCustomId,
+  releaseDeclinedStoreCapture,
   reserveStoreOrder,
 } from "@/server/utils/webStore";
 import { calculateContentDiff } from "@/utils/diff";
@@ -125,7 +126,7 @@ type PaypalTransaction = {
 };
 
 export const paypalRouter = createTRPCRouter({
-  /** List published offers; store managers may also request unpublished drafts. */
+  /** List offers with the caller's lifetime buyer counts; managers may include drafts. */
   getStoreBundles: protectedProcedure
     .input(z.object({ includeInactive: z.boolean().optional() }).nullish())
     .query(async ({ ctx, input }) => {
@@ -137,7 +138,7 @@ export const paypalRouter = createTRPCRouter({
           "FORBIDDEN",
           "Only the owner and content administrators can manage store bundles",
         );
-      const [bundles, items] = await Promise.all([
+      const [bundles, items, purchases] = await Promise.all([
         ctx.drizzle.query.webStoreBundle.findMany({
           where: input?.includeInactive ? undefined : eq(webStoreBundle.isActive, true),
           orderBy: (table, { asc }) => [asc(table.priceCents), asc(table.name)],
@@ -145,8 +146,28 @@ export const paypalRouter = createTRPCRouter({
         ctx.drizzle.query.item.findMany({
           columns: { id: true, name: true, image: true, repsCost: true },
         }),
+        ctx.drizzle
+          .select({ bundleId: webStoreOrder.bundleId, count: count() })
+          .from(webStoreOrder)
+          .where(
+            and(
+              eq(webStoreOrder.buyerId, ctx.userId),
+              isNotNull(webStoreOrder.bundleId),
+              isNotNull(webStoreOrder.grantedAt),
+            ),
+          )
+          .groupBy(webStoreOrder.bundleId),
       ]);
-      return { bundles, items };
+      const purchaseCounts = new Map(
+        purchases.map((purchase) => [purchase.bundleId, purchase.count]),
+      );
+      return {
+        bundles: bundles.map((bundle) => ({
+          ...bundle,
+          purchaseCount: purchaseCounts.get(bundle.id) ?? 0,
+        })),
+        items,
+      };
     }),
   /** Save a validated offer and its content diff using the content-editor audit convention. */
   saveStoreBundle: protectedProcedure
@@ -197,7 +218,7 @@ export const paypalRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Store bundle saved" };
     }),
-  /** Freeze the server-priced contents and reserve allowance before creating PayPal checkout. */
+  /** Freeze server-priced contents and reserve buyer allowance/bundle capacity before checkout. */
   createStoreOrder: protectedProcedure
     .input(storeCheckoutSchema)
     .mutation(async ({ ctx, input }) => {
@@ -279,15 +300,29 @@ export const paypalRouter = createTRPCRouter({
         return errorResponse(
           "Payment does not match this checkout. No payment was captured.",
         );
+      // A completed order can still contain a failed capture: recovery releases the
+      // saved attempt, while a new capture POST below must claim a fresh token.
+      let captureAttemptId = snapshot.captureAttemptId;
+      const releaseDeclinedCapture = () =>
+        captureAttemptId
+          ? releaseDeclinedStoreCapture(
+              ctx.drizzle,
+              snapshotId,
+              ctx.userId,
+              captureAttemptId,
+            )
+          : Promise.resolve();
       if (order?.status !== "COMPLETED") {
         if (order?.status !== "APPROVED")
           return errorResponse(
             "Approve this checkout with PayPal before capturing payment. No payment was captured.",
           );
+        captureAttemptId = nanoid();
         const allowanceError = await authorizeStoreCapture(
           ctx.drizzle,
           snapshotId,
           ctx.userId,
+          captureAttemptId,
         );
         if (allowanceError) return errorResponse(allowanceError);
         order = await requestStorePaypalOrder(
@@ -295,12 +330,23 @@ export const paypalRouter = createTRPCRouter({
           `/v2/checkout/orders/${input.orderId}/capture`,
           `capture:${snapshotId}`,
           {},
+          releaseDeclinedCapture,
         );
+        if (!order)
+          return errorResponse(
+            "PayPal declined the payment. No payment was captured. Start a new checkout with another payment method.",
+          );
       }
       // Some provider responses are minimal; fetch the completed representation before delivery.
       if (!order?.purchase_units?.[0]?.payments?.captures?.length)
         order = await getPaypalOrder({ orderId: input.orderId, token });
       const capture = order?.purchase_units?.[0]?.payments?.captures?.[0];
+      if (isDeclinedStoreCapture(capture?.status)) {
+        await releaseDeclinedCapture();
+        return errorResponse(
+          "PayPal declined the payment. No payment was captured. Start a new checkout with another payment method.",
+        );
+      }
       if (capture?.status !== "COMPLETED")
         return errorResponse(
           "Payment is awaiting confirmation. Use Lookup Transaction after it clears.",
@@ -332,6 +378,31 @@ export const paypalRouter = createTRPCRouter({
       const snapshotId = readStoreCustomId(unit?.custom_id);
       if (snapshotId) {
         const capture = unit?.payments?.captures?.[0];
+        if (isDeclinedStoreCapture(capture?.status)) {
+          const snapshot = await ctx.drizzle.query.webStoreOrder.findFirst({
+            where: eq(webStoreOrder.id, snapshotId),
+          });
+          if (
+            snapshot?.buyerId === ctx.userId &&
+            snapshot.captureAttemptId &&
+            order.purchase_units?.length === 1 &&
+            unit?.invoice_id === snapshot.id &&
+            unit.amount?.currency_code === "USD" &&
+            unit.amount.value &&
+            /^\d+(?:\.\d{1,2})?$/.test(unit.amount.value) &&
+            Math.round(Number(unit.amount.value) * 100) === snapshot.priceCents
+          ) {
+            await releaseDeclinedStoreCapture(
+              ctx.drizzle,
+              snapshotId,
+              ctx.userId,
+              snapshot.captureAttemptId,
+            );
+          }
+          return errorResponse(
+            "PayPal declined the payment. No payment was captured. Start a new checkout with another payment method.",
+          );
+        }
         if (capture?.status !== "COMPLETED")
           return errorResponse(
             "Payment is not completed yet. Retry using Lookup Transaction after it clears.",
@@ -1410,15 +1481,27 @@ const prepareWebCheckout = async (
   // Recheck published offers against current item prices and the direct-purchase rate.
   if (offer.priceCents < getStoreBundleMinimumPriceCents(offer.contents, items))
     return errorResponse("This bundle's price needs updating. Contact staff.");
-  return reserveStoreOrder(ctx.drizzle, ctx.userId, recipient.userId, offer);
+  return reserveStoreOrder(ctx.drizzle, ctx.userId, recipient.userId, {
+    ...offer,
+    bundleId: input.selection.type === "bundle" ? input.selection.bundleId : undefined,
+  });
 };
 
-/** Use a stable provider request ID so a retried create/capture cannot charge twice. */
+/** Classify terminal capture failures independently of the provider order's overall status. */
+const isDeclinedStoreCapture = (status?: string) =>
+  status === "DECLINED" || status === "DENIED" || status === "FAILED";
+
+/**
+ * Send an idempotent provider request so retries cannot create or capture twice.
+ * Returns undefined only after a recognized funding decline and its release callback;
+ * ambiguous errors leave reservations intact for payment reconciliation.
+ */
 const requestStorePaypalOrder = async (
   token: string,
   path: string,
   requestId: string,
   body: unknown,
+  onDeclined?: () => Promise<unknown>,
 ): Promise<PaypalOrder> => {
   const response = await fetch(`${process.env.NEXT_PUBLIC_PAYPAL_URL}${path}`, {
     method: "POST",
@@ -1430,10 +1513,53 @@ const requestStorePaypalOrder = async (
     },
     body: JSON.stringify(body),
   });
-  if (!response.ok)
+  if (!response.ok) {
+    if (response.status === 422 && onDeclined) {
+      const failure = z
+        .object({
+          details: z
+            .array(
+              z.object({
+                issue: z.enum([
+                  "INSTRUMENT_DECLINED",
+                  "PAYER_CANNOT_PAY",
+                  "TRANSACTION_REFUSED",
+                  "MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED",
+                  "REDIRECT_PAYER_FOR_ALTERNATE_FUNDING",
+                  "CARD_EXPIRED",
+                  "CARD_CLOSED",
+                  "COMPLIANCE_VIOLATION",
+                  "DOMESTIC_TRANSACTION_REQUIRED",
+                  "PAYEE_BLOCKED_TRANSACTION",
+                  "PAYER_ACCOUNT_LOCKED_OR_CLOSED",
+                  "PAYER_ACCOUNT_RESTRICTED",
+                  "TRANSACTION_LIMIT_EXCEEDED",
+                  "TRANSACTION_RECEIVING_LIMIT_EXCEEDED",
+                  "TRANSACTION_BLOCKED_BY_PAYEE",
+                  "PAYMENT_DENIED",
+                  "CONTINGENCY_NOT_SUCCESSFUL",
+                  "REFERENCED_CARD_EXPIRED",
+                  "CARD_BRAND_NOT_SUPPORTED",
+                  "CARD_COUNTRY_NOT_SUPPORTED",
+                  "CARD_DATA_NOT_FOUND",
+                  "PREFERRED_BRAND_NOT_SUPPORTED",
+                ]),
+              }),
+            )
+            .min(1),
+        })
+        .safeParse(await response.json().catch(() => null));
+      // Only explicit funding failures release a slot. Timeouts, pending payments and
+      // ORDER_ALREADY_CAPTURED may still be paid and must remain reserved for recovery.
+      if (failure.success) {
+        await onDeclined();
+        return undefined;
+      }
+    }
     throw serverError(
       "BAD_GATEWAY",
       "PayPal could not complete checkout. Retry, or use Lookup Transaction if payment cleared.",
     );
+  }
   return (await response.json()) as PaypalOrder;
 };

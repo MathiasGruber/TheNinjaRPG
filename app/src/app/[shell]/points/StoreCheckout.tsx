@@ -10,7 +10,10 @@ import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
 import type { storeCheckoutSchema } from "@/validators/points";
 
-/** Every web checkout is quoted by the server and resolved against a provider capture. */
+/**
+ * Drive server-priced checkout with recoverable feedback beside the payment controls.
+ * Report pending work to the dialog and refresh buyer limits/inventory after delivery.
+ */
 export function StoreCheckout({
   selection,
   recipientId,
@@ -55,6 +58,7 @@ export function StoreCheckout({
           utils.profile.getUser.invalidate(),
           utils.paypal.getRecentRepsCount.invalidate(),
           utils.paypal.getPaypalTransactions.invalidate(),
+          utils.paypal.getStoreBundles.invalidate(),
           utils.item.getUserItems.invalidate(),
           utils.item.getUserItemsWithVariants.invalidate(),
         ]);
@@ -102,7 +106,7 @@ export function StoreCheckout({
           }}
           onCancel={() =>
             setMessage(
-              `Checkout cancelled. No purchase was delivered. Any reserved monthly allowance is released within ${STORE_ORDER_RESERVATION_MINUTES} minutes.`,
+              `Checkout cancelled. No purchase was delivered. Unused reservations for bundle slots or monthly allowance expire within ${STORE_ORDER_RESERVATION_MINUTES} minutes; retry then if blocked.`,
             )
           }
           onError={() =>
