@@ -1425,11 +1425,11 @@ export const updateRaidProgress = async (
 };
 
 /**
- * Single-statement battle XP grant shared by jutsu and item ownership leveling:
+ * Single-statement battle XP grant for item ownership leveling:
  * rows at/over the level-up threshold gain a level and reset XP to 0, all other
- * rows gain `gain` XP. One atomic UPDATE per table prevents separate level and
- * XP writes from racing each other.
- * MySQL applies SET assignments left to right, so `level` must be assigned
+ * rows gain `gain` XP. One atomic UPDATE keeps level and XP writes together.
+ * The threshold must be independent of level. MySQL applies SET assignments
+ * left to right, so `level` must be assigned
  * before `experience` to read the pre-update XP value.
  */
 const xpGainOrLevelUpSet = (

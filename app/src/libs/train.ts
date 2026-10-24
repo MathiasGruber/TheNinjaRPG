@@ -492,6 +492,11 @@ export const jutsuRequirementWarning = (
 
 export const SENSEI_JUTSU_TRAINING_BOOST_PERC = 5;
 
+/**
+ * Milliseconds to train from the current level to the next level.
+ * Apply the required-rank multiplier after capping the base duration so it raises
+ * both training time and its cap; the sensei discount applies to that final duration.
+ */
 export const calcJutsuTrainTime = (
   jutsu: Pick<Jutsu, "jutsuRank" | "requiredRank">,
   level: number,

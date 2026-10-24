@@ -278,8 +278,9 @@ export const jutsuRouter = createTRPCRouter({
       const cost = needsReputation ? transferCost : 0;
       if (user.reputationPoints < cost)
         return errorResponse("Not enough reputation points");
-      // One guarded statement moves both levels and pays the fee together. Snapshot
-      // guards prevent stale transfers from overwriting combat XP or another transfer.
+      // Drizzle's update builder cannot change both ownership rows and the fee together.
+      // This joined statement commits all three atomically; level and owner snapshot
+      // guards reject stale transfers after concurrent progression or account changes.
       const transferred = await retryOnDeadlock(() =>
         ctx.drizzle.execute(sql`
         UPDATE ${userJutsu} source

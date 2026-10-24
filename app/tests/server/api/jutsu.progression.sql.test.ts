@@ -11,6 +11,7 @@ import { callerFor, describeWithDatabase, getTestDatabase, resetTables } from ".
 import { makeBattleUser, makeCompleteBattle } from "../../libs/combat/helpers/battleScenario";
 
 const USER = "elite-progression";
+/** Minimal catalog definition shared by training, evolution and combat fixtures. */
 const definition = (id: string, requiredRank: "JONIN" | "ELITE JONIN" = "ELITE JONIN") => ({
   id, name: id, description: id, battleDescription: id, image: "/jutsu.webp",
   effects: [], target: "SELF" as const, range: 0, jutsuType: "NORMAL" as const,
