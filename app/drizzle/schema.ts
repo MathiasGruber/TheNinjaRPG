@@ -6985,6 +6985,7 @@ export const webStoreBundle = mysqlTable("WebStoreBundle", {
   description: text("description").notNull(),
   priceCents: int("priceCents").notNull(),
   isActive: boolean("isActive").default(false).notNull(),
+  /** Maximum lifetime purchases per buyer; zero means unlimited. */
   purchaseLimit: int("purchaseLimit").default(0).notNull(),
   contents: json("contents").$type<StoreContents>().notNull(),
   updatedAt: datetime("updatedAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
@@ -6996,11 +6997,13 @@ export const webStoreOrder = mysqlTable("WebStoreOrder", {
   buyerId: varchar("buyerId", { length: 191 }).notNull(),
   recipientId: varchar("recipientId", { length: 191 }).notNull(),
   name: varchar("name", { length: 100 }).notNull(),
+  /** Published offer identity; null for custom or unattributed historical quotes. */
   bundleId: varchar("bundleId", { length: 191 }),
   priceCents: int("priceCents").notNull(),
   contents: json("contents").$type<StoreContents>().notNull(),
   createdAt: datetime("createdAt", { mode: "date", fsp: 3 }).default(sql`(CURRENT_TIMESTAMP(3))`).notNull(),
   expiresAt: datetime("expiresAt", { mode: "date", fsp: 3 }).notNull(),
+  /** Attempt CAS token; keeps pending captures reserved beyond quote expiry. */
   captureAttemptId: varchar("captureAttemptId", { length: 191 }),
   grantedAt: datetime("grantedAt", { mode: "date", fsp: 3 }),
   captureId: varchar("captureId", { length: 191 }),

@@ -4053,5 +4053,6 @@ export const STORE_BUNDLE_MAX_QUANTITY = 100;
 export const STORE_BUNDLE_MAX_RYO = 10000000;
 export const STORE_BUNDLE_MIN_PRICE_CENTS = 100;
 export const STORE_BUNDLE_MAX_PRICE_CENTS = 100000;
+/** Upper bound for staff-configured lifetime purchase limits; zero is unlimited. */
 export const STORE_BUNDLE_MAX_PURCHASE_LIMIT = 1000000;
 export const STORE_ORDER_RESERVATION_MINUTES = 30;

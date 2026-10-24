@@ -47,7 +47,7 @@ import { type StoreBundleInput, storeBundleSchemaForItems } from "@/validators/p
 import { getSearchValidator } from "@/validators/register";
 import { StoreCheckout } from "./StoreCheckout";
 
-/** The public catalog and staff editor share the same validated offer payload. */
+/** Show per-buyer availability and staff editing through the shared validated bundle catalog. */
 export function StoreBundles() {
   const { data: user } = useRequiredUserData();
   const canManage = canManageStore(user?.role);

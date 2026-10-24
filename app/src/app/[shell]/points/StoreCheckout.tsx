@@ -10,7 +10,10 @@ import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
 import type { storeCheckoutSchema } from "@/validators/points";
 
-/** Every web checkout is quoted by the server and resolved against a provider capture. */
+/**
+ * Drive server-priced checkout with recoverable feedback beside the payment controls.
+ * Report pending work to the dialog and refresh buyer limits/inventory after delivery.
+ */
 export function StoreCheckout({
   selection,
   recipientId,

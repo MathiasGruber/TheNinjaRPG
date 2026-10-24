@@ -126,7 +126,7 @@ type PaypalTransaction = {
 };
 
 export const paypalRouter = createTRPCRouter({
-  /** List published offers; store managers may also request unpublished drafts. */
+  /** List offers with the caller's lifetime buyer counts; managers may include drafts. */
   getStoreBundles: protectedProcedure
     .input(z.object({ includeInactive: z.boolean().optional() }).nullish())
     .query(async ({ ctx, input }) => {
@@ -218,7 +218,7 @@ export const paypalRouter = createTRPCRouter({
       ]);
       return { success: true, message: "Store bundle saved" };
     }),
-  /** Freeze the server-priced contents and reserve allowance before creating PayPal checkout. */
+  /** Freeze server-priced contents and reserve buyer allowance/bundle capacity before checkout. */
   createStoreOrder: protectedProcedure
     .input(storeCheckoutSchema)
     .mutation(async ({ ctx, input }) => {
@@ -300,6 +300,8 @@ export const paypalRouter = createTRPCRouter({
         return errorResponse(
           "Payment does not match this checkout. No payment was captured.",
         );
+      // A completed order can still contain a failed capture: recovery releases the
+      // saved attempt, while a new capture POST below must claim a fresh token.
       let captureAttemptId = snapshot.captureAttemptId;
       const releaseDeclinedCapture = () =>
         captureAttemptId
@@ -1485,11 +1487,15 @@ const prepareWebCheckout = async (
   });
 };
 
-/** Terminal funding failures cannot later complete and may release their unpaid reservation. */
+/** Classify terminal capture failures independently of the provider order's overall status. */
 const isDeclinedStoreCapture = (status?: string) =>
   status === "DECLINED" || status === "DENIED" || status === "FAILED";
 
-/** Use a stable provider request ID so a retried create/capture cannot charge twice. */
+/**
+ * Send an idempotent provider request so retries cannot create or capture twice.
+ * Returns undefined only after a recognized funding decline and its release callback;
+ * ambiguous errors leave reservations intact for payment reconciliation.
+ */
 const requestStorePaypalOrder = async (
   token: string,
   path: string,

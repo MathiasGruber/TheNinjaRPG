@@ -71,6 +71,7 @@ export const storeBundleSchema = z.object({
     .min(STORE_BUNDLE_MIN_PRICE_CENTS)
     .max(STORE_BUNDLE_MAX_PRICE_CENTS),
   isActive: z.boolean(),
+  /** Lifetime purchases by the buyer, including gifts; zero means unlimited. */
   purchaseLimit: z.number().int().min(0).max(STORE_BUNDLE_MAX_PURCHASE_LIMIT),
   contents: storeContentsSchema,
 });
