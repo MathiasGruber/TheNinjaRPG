@@ -65,6 +65,7 @@ import {
 import { builtinTerrainDepression } from "@/libs/sector-map/terrains";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { createAggroHalo, updateAggroHalo } from "@/libs/threejs/aggroHalo";
+import { clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { getTileInfo } from "@/libs/threejs/biome";
 import { updateCharacterAnimation } from "@/libs/threejs/characterAnimation";
 import { createCombatMaxPoolCache } from "@/libs/threejs/combatMaxPools";
@@ -1444,6 +1445,9 @@ export const drawCombatUsers = (info: {
       userMeshCache.delete(object.name);
     }
   });
+
+  // Release decoded sheets only after every actor has left animation mode.
+  if (info.animateCharacters === false) clearUnusedAnimationTextures();
 
   // Store current positions for next frame comparison
   userGroupData.lastUserPositions = currentPositions;

@@ -6,24 +6,29 @@ import type { ReturnedBattle, ReturnedUserState } from "@/libs/combat/types";
 import { defineHex } from "@/libs/hexgrid";
 import type { CharacterAnimations } from "@/libs/spriteAnimations";
 import { createAggroHalo } from "@/libs/threejs/aggroHalo";
+import { acquireAnimationTexture, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { AI_AVATAR_SPRITE, drawCombatUsers, resetCombatCaches } from "@/libs/threejs/combat";
 
 let now = 0;
 let sequence = 0;
+let load: ReturnType<typeof vi.spyOn<TextureLoader, "load">>;
 const sprites = new Set<Sprite>();
 beforeEach(() => {
   now = 0;
   resetCombatCaches();
   vi.spyOn(performance, "now").mockImplementation(() => now);
-  const atlas = new Texture<HTMLImageElement>();
-  atlas.image = document.createElement("img");
-  atlas.image.width = 3072;
-  atlas.image.height = 2048;
-  vi.spyOn(TextureLoader.prototype, "load").mockReturnValue(atlas);
+  load = vi.spyOn(TextureLoader.prototype, "load").mockImplementation(() => {
+    const atlas = new Texture<HTMLImageElement>();
+    atlas.image = document.createElement("img");
+    atlas.image.width = 3072;
+    atlas.image.height = 2048;
+    return atlas;
+  });
 });
 afterEach(() => {
   for (const sprite of sprites) sprite.userData.disposeCharacterAnimation?.();
   sprites.clear();
+  clearUnusedAnimationTextures();
   vi.restoreAllMocks();
   resetCombatCaches();
 });
@@ -52,17 +57,17 @@ const fixture = (animated = true) => {
   const group = new Group();
   group.add(actor);
   const battle = { usersState: [user], usersEffects: [] } as unknown as ReturnedBattle;
-  const draw = (ms: number, users = [user]) => {
+  const draw = (ms: number, users = [user], animateCharacters = true) => {
     now = ms;
     return drawCombatUsers({ group_users: group, users, usersEffects: [], grid,
-      playerId: "viewer", userData: { userId: "viewer" } as UserData, battle, sfxEnabled: false });
+      playerId: "viewer", userData: { userId: "viewer" } as UserData, battle, sfxEnabled: false, animateCharacters });
   };
   draw(0);
   const start = actor.position.clone();
   user.longitude = 1;
   draw(0);
   const target = grid.getHex({ col: 1, row: 0 })!;
-  return { actor, sprite, user, grid, draw, start, target };
+  return { actor, sprite, user, group, grid, draw, start, target };
 };
 
 describe("combat walking playback", () => {
@@ -111,5 +116,36 @@ describe("combat walking playback", () => {
     draw(200);
     expect(actor.visible).toBe(true);
     expect(sprite.userData.characterAnimation.sources.size).toBeGreaterThan(0);
+  });
+  it.each(["dead", "fled"])("reuses a living actor's idle atlas while a %s actor remains in battle state", (state) => {
+    const { user, group, draw } = fixture();
+    const inactive = { ...user, userId: `${user.userId}-inactive`, isOriginal: false,
+      curHealth: state === "dead" ? 0 : 100, fledBattle: state === "fled" };
+    const actor = new Group();
+    actor.name = inactive.userId;
+    const sprite = new Sprite();
+    sprites.add(sprite);
+    sprite.name = AI_AVATAR_SPRITE;
+    sprite.userData = { avatarFacing: "left", avatarPath: "https://example.com/inactive.png", mirrored: false };
+    actor.add(sprite, createAggroHalo(20, 20, false));
+    group.add(actor);
+    for (let ms = 50; ms <= 1050; ms += 50) draw(ms, [user, inactive]);
+    const animationUrls = new Set(Object.values(user.spriteAnimations!).map((animation) => animation.url));
+    const loads = load.mock.calls
+      .map(([url]) => url).filter((url) => animationUrls.has(url));
+    expect(loads).toEqual([user.spriteAnimations!.idle!.url, user.spriteAnimations!.move!.url]);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+  });
+  it("releases all decoded sheets when the global animation preference is disabled", () => {
+    const { user, sprite, draw } = fixture();
+    const idle = acquireAnimationTexture(user.spriteAnimations!.idle!, 128)!;
+    idle.release();
+    const idleDisposed = vi.spyOn(idle.texture, "dispose");
+    const move = sprite.userData.characterAnimation.sources.values().next().value;
+    const moveDisposed = vi.spyOn(move.texture, "dispose");
+    draw(100, [user], false);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+    expect(idleDisposed).toHaveBeenCalledTimes(1);
+    expect(moveDisposed).toHaveBeenCalledTimes(1);
   });
 });

@@ -206,7 +206,8 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
           top to bottom. Use at most {SPRITE_ANIMATION_LIMITS.frames} frames,{" "}
           {SPRITE_ANIMATION_LIMITS.cells} cells and {SPRITE_ANIMATION_LIMITS.seconds}{" "}
           seconds per loop. Battles request 128- or 256-pixel cells to match the
-          displayed size. New sheets stay in the library when assignments change.
+          displayed size. Uploaded sheets use CDN resizing; external URLs need 128-pixel
+          cells for mobile. New sheets stay in the library when assignments change.
         </p>
         <form
           onSubmit={form.handleSubmit((values) => create.mutate(values))}

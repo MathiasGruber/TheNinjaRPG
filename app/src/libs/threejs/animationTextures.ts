@@ -32,8 +32,12 @@ export const animationTextureUrl = (
   return url.toString();
 };
 
+/** External URLs can share an HTTP response while requiring different decode budgets. */
+export const animationTextureKey = (animation: CharacterAnimation, cellSize: number) =>
+  `${cellSize}:${animationTextureUrl(animation, cellSize)}`;
+
 /**
- * Share a pending/decoded atlas across actors. Idle and the current action stay
+ * Share a pending/decoded atlas across actors. Pending and active sheets stay
  * pinned; unused sheets are evicted oldest-first before admitting another load.
  * Stable URLs leave compressed files in the browser's HTTP cache after eviction.
  */
@@ -49,7 +53,8 @@ export const acquireAnimationTexture = (
   )
     return undefined;
   const url = animationTextureUrl(animation, cellSize);
-  let entry = atlases.get(url);
+  const key = animationTextureKey(animation, cellSize);
+  let entry = atlases.get(key);
   if (!entry) {
     const bytes = animation.columns * animation.rows * cellSize ** 2 * 4;
     if (bytes > MAX_BYTES) return undefined;
@@ -87,7 +92,7 @@ export const acquireAnimationTexture = (
     texture.generateMipmaps = false;
     texture.minFilter = texture.magFilter = NearestFilter;
     entry = { texture, bytes, users: 0 };
-    atlases.set(url, entry);
+    atlases.set(key, entry);
   }
   entry.users++;
   const owned = entry;
@@ -96,8 +101,8 @@ export const acquireAnimationTexture = (
     release: () => {
       owned.users--;
       // Map insertion order is the eviction order, refreshed when a sheet becomes unused.
-      atlases.delete(url);
-      atlases.set(url, owned);
+      atlases.delete(key);
+      atlases.set(key, owned);
     },
   };
 };

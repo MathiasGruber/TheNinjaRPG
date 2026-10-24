@@ -8,8 +8,7 @@ import type {
 import { resolveSpriteAnimation, spriteAnimationFrame } from "@/libs/spriteAnimations";
 import {
   acquireAnimationTexture,
-  animationTextureUrl,
-  clearUnusedAnimationTextures,
+  animationTextureKey,
 } from "@/libs/threejs/animationTextures";
 import { createSpriteMaterial, type loadTexture } from "@/libs/threejs/util";
 
@@ -39,7 +38,6 @@ export const updateCharacterAnimation = (info: {
       sprite.userData.disposeCharacterAnimation();
       sprite.material = createSpriteMaterial(staticMap);
     }
-    if (info.enabled === false) clearUnusedAnimationTextures();
     return;
   }
   if (!runtime) {
@@ -99,9 +97,9 @@ export const updateCharacterAnimation = (info: {
   const cellSize = info.cellSize ?? 128;
   const needed = new Set<string>();
   const textureForAnimation = (sheet: CharacterAnimation) => {
-    const url = animationTextureUrl(sheet, cellSize);
-    needed.add(url);
-    let source = runtime.sources.get(url);
+    const sourceKey = animationTextureKey(sheet, cellSize);
+    needed.add(sourceKey);
+    let source = runtime.sources.get(sourceKey);
     if (!source) {
       source = info.textureForPath
         ? {
@@ -109,7 +107,7 @@ export const updateCharacterAnimation = (info: {
             release: () => {},
           }
         : acquireAnimationTexture(sheet, cellSize);
-      if (source) runtime.sources.set(url, source);
+      if (source) runtime.sources.set(sourceKey, source);
     }
     return source?.texture;
   };
@@ -123,10 +121,10 @@ export const updateCharacterAnimation = (info: {
     animation = animations.idle;
     source = animation ? textureForAnimation(animation) : undefined;
   }
-  for (const [url, lease] of runtime.sources) {
-    if (needed.has(url)) continue;
+  for (const [sourceKey, lease] of runtime.sources) {
+    if (needed.has(sourceKey)) continue;
     lease.release();
-    runtime.sources.delete(url);
+    runtime.sources.delete(sourceKey);
   }
   if (!animation || !source?.image || source.userData.failed) {
     if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
@@ -141,7 +139,7 @@ export const updateCharacterAnimation = (info: {
     sprite.material = runtime.material;
     return;
   }
-  const sourceKey = animationTextureUrl(animation, cellSize);
+  const sourceKey = animationTextureKey(animation, cellSize);
   if (runtime.sourceKey !== sourceKey) {
     if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
     const map = source.clone();
