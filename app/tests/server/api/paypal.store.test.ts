@@ -138,7 +138,13 @@ describeWithDatabase("web store payments", () => {
     expect(captures.filter(result => result?.includes("purchase limit"))).toHaveLength(1);
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
   });
-  it("releases definitive funding failures while preserving pending and newer capture attempts", async () => {
+  it.each([
+    "INSTRUMENT_DECLINED", "PAYER_CANNOT_PAY", "TRANSACTION_REFUSED",
+    "MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED", "REDIRECT_PAYER_FOR_ALTERNATE_FUNDING",
+    "CARD_EXPIRED", "CARD_CLOSED", "COMPLIANCE_VIOLATION", "DOMESTIC_TRANSACTION_REQUIRED",
+    "PAYEE_BLOCKED_TRANSACTION", "PAYER_ACCOUNT_LOCKED_OR_CLOSED", "PAYER_ACCOUNT_RESTRICTED",
+    "TRANSACTION_LIMIT_EXCEEDED", "TRANSACTION_RECEIVING_LIMIT_EXCEEDED", "TRANSACTION_BLOCKED_BY_PAYEE",
+  ])("releases definitive funding failure %s while preserving pending and newer capture attempts", async issue => {
     const db = await getTestDatabase();
     const limited = {...offer,bundleId:"limited"};
     await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true,purchaseLimit:1});
@@ -153,8 +159,9 @@ describeWithDatabase("web store payments", () => {
     const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async url => {
       const path = String(url);
       if (path.endsWith("/v1/oauth2/token")) return Response.json({access_token:"test-only"});
+      if (path.endsWith("/v2/checkout/orders")) return Response.json({id:"NEXTORDER123456789"});
       if (path.endsWith("/capture")) return declined
-        ? Response.json({details:[{issue:"INSTRUMENT_DECLINED"}]},{status:422})
+        ? Response.json({details:[{issue}]},{status:422})
         : Response.json({status:"COMPLETED",purchase_units:[{payments:{captures:[{status:"PENDING"}]}}]});
       return Response.json({status:"APPROVED",purchase_units:[{custom_id:`store:${reserved.order.id}`,invoice_id:reserved.order.id,amount:{currency_code:"USD",value:"12.50"}}]});
     });
@@ -166,8 +173,38 @@ describeWithDatabase("web store payments", () => {
       const result = await owner.captureStoreOrder({orderId:"TESTORDER123456789"});
       expect(result).toMatchObject({success:false});
       expect(result.message).toContain("declined");
-      expect((await db.query.webStoreOrder.findFirst())?.captureAttemptId).toBeNull();
-      expect((await reserveStoreOrder(db,"buyer","recipient",limited)).success).toBe(true);
+      expect(await db.query.webStoreOrder.findFirst()).toMatchObject({captureAttemptId:null,expiresAt:new Date(0),grantedAt:null});
+      expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:limited.bundleId}})).success).toBe(true);
+    } finally {fetchMock.mockRestore();}
+    expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
+    expect(await db.query.userItem.findMany()).toHaveLength(0);
+    expect(await db.query.userData.findFirst({where:eq(userData.userId,"recipient")})).toMatchObject({reputationPoints:0,money:0});
+  });
+  it.each([
+    {status:422,details:[{issue:"ORDER_ALREADY_CAPTURED"}]},
+    {status:422,details:[{issue:"UNKNOWN_FAILURE"}]},
+    {status:422,details:[{issue:"CARD_EXPIRED"},{issue:"ORDER_ALREADY_CAPTURED"}]},
+    {status:422,details:[]},
+    {status:500,details:[{issue:"CARD_EXPIRED"}]},
+  ])("keeps the purchase slot after an ambiguous capture error (%j)", async failure => {
+    const db = await getTestDatabase();
+    const limited = {...offer,bundleId:"limited"};
+    await db.insert(webStoreBundle).values({id:limited.bundleId,...offer,description:"",isActive:true,purchaseLimit:1});
+    const reserved = await reserveStoreOrder(db,"buyer","recipient",limited);
+    if (!reserved.success) throw new Error(reserved.message);
+    const owner = await callerFor(paypalRouter,"buyer");
+    const fetchMock = spyOn(globalThis,"fetch").mockImplementation(async url => {
+      const path = String(url);
+      if (path.endsWith("/v1/oauth2/token")) return Response.json({access_token:"test-only"});
+      if (path.endsWith("/capture")) return Response.json({details:failure.details},{status:failure.status});
+      return Response.json({status:"APPROVED",purchase_units:[{custom_id:`store:${reserved.order.id}`,invoice_id:reserved.order.id,amount:{currency_code:"USD",value:"12.50"}}]});
+    });
+    try {
+      await expect(owner.captureStoreOrder({orderId:"TESTORDER123456789"})).rejects.toThrow("PayPal could not complete checkout");
+      expect((await db.query.webStoreOrder.findFirst())?.captureAttemptId).not.toBeNull();
+      await db.update(webStoreOrder).set({expiresAt:new Date(0)});
+      expect((await owner.resolveOrder({orderId:"TESTORDER123456789"})).message).toContain("not completed");
+      expect((await owner.createStoreOrder({recipientId:"recipient",selection:{type:"bundle",bundleId:limited.bundleId}})).message).toContain("purchase limit");
     } finally {fetchMock.mockRestore();}
     expect(await db.query.paypalTransaction.findMany()).toHaveLength(0);
   });
