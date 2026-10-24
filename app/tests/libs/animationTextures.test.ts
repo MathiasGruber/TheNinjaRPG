@@ -205,6 +205,23 @@ describe("character atlas cache", () => {
     expect(acquire(sheet({ frameCount: 160, rows: 27, columns: 6 }))).toBeUndefined();
     expect(TextureLoader.prototype.load).not.toHaveBeenCalled();
   });
+  it("validates external sheets separately when their grids differ", () => {
+    const animation = sheet({ url: "https://example.com/shared-grid.png" });
+    vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
+      const texture = new Texture<HTMLImageElement>();
+      texture.image = document.createElement("img");
+      texture.image.width = texture.image.height = 1024;
+      onLoad?.(texture);
+      return texture;
+    });
+    const rejected = acquire({ ...animation, columns: 4, rows: 4, frameCount: 16 }, 128)!;
+    expect(rejected.texture.userData.failed).toBe(true);
+    const accepted = acquire(animation, 128)!;
+    expect(accepted.texture).not.toBe(rejected.texture);
+    expect(accepted.texture.userData.failed).not.toBe(true);
+    expect(accepted.texture.image).toHaveProperty("width", 1024);
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(2);
+  });
   it("can render an external desktop sheet after the mobile budget rejects it", () => {
     const animation = sheet({ url: "https://example.com/desktop.png", columns: 6, rows: 4, frameCount: 24 });
     const load = vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {

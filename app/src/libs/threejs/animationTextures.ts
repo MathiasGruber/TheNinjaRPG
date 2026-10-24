@@ -32,9 +32,9 @@ export const animationTextureUrl = (
   return url.toString();
 };
 
-/** External URLs can share an HTTP response while requiring different decode budgets. */
+/** External URLs can share an HTTP response with different grids and decode budgets. */
 export const animationTextureKey = (animation: CharacterAnimation, cellSize: number) =>
-  `${cellSize}:${animationTextureUrl(animation, cellSize)}`;
+  `${animation.columns}x${animation.rows}:${cellSize}:${animationTextureUrl(animation, cellSize)}`;
 
 /**
  * Share a pending/decoded atlas across actors. Pending and active sheets stay
