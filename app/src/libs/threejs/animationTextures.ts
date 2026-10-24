@@ -38,7 +38,7 @@ export const animationTextureKey = (
   cellSize: number,
   renderer?: WebGLRenderer,
 ) =>
-  `${animation.columns}x${animation.rows}:${cellSize}:${animationTextureUrl(animation, cellSize)}${canUseEtc2(renderer, cellSize) ? ":etc2" : ""}`;
+  `${animation.columns}x${animation.rows}:${cellSize}:${animationTextureUrl(animation, cellSize)}${canUseEtc2(animation, cellSize, renderer) ? ":etc2" : ""}`;
 
 /**
  * Share a pending/decoded atlas across actors. Pending and active sheets stay
@@ -105,7 +105,7 @@ export const acquireAnimationTexture = (
       );
       configureAtlas(owned.texture);
     };
-    if (renderer && canUseEtc2(renderer, cellSize)) {
+    if (renderer && canUseEtc2(animation, cellSize, renderer)) {
       // Keep the RGBA reservation so simultaneous WebP fallbacks fit the same budget.
       // Static art stays visible during decoding; a stalled decoder cannot hold an action forever.
       let settled = false;
@@ -163,11 +163,20 @@ export const acquireAnimationTexture = (
   };
 };
 
-/** Desktop Linux drivers may emulate ETC2; unsupported/unlisted devices keep WebP. */
-const canUseEtc2 = (renderer: WebGLRenderer | undefined, cellSize: number) =>
+/**
+ * Desktop Linux drivers may emulate ETC2; unsupported/unlisted devices keep WebP.
+ * Compressed mipmaps cannot be resized to fit the renderer's texture limit.
+ */
+const canUseEtc2 = (
+  animation: CharacterAnimation,
+  cellSize: number,
+  renderer: WebGLRenderer | undefined,
+) =>
   (cellSize === 128 || cellSize === 256) &&
   typeof WebAssembly !== "undefined" &&
   !!renderer?.extensions.has("WEBGL_compressed_texture_etc") &&
+  animation.columns * cellSize <= renderer.capabilities.maxTextureSize &&
+  animation.rows * cellSize <= renderer.capabilities.maxTextureSize &&
   !(
     typeof navigator !== "undefined" &&
     /Linux/.test(navigator.platform) &&

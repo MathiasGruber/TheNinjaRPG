@@ -2,7 +2,7 @@ import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { CompressedTexture, Group, NearestFilter, RGBA_ETC2_EAC_Format, RGBA_S3TC_DXT5_Format, Sprite, SRGBColorSpace, Texture, TextureLoader, type WebGLRenderer } from "three";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
-import { acquireAnimationTexture, animationTextureUrl, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
+import { acquireAnimationTexture, animationTextureKey, animationTextureUrl, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { updateCharacterAnimation } from "@/libs/threejs/characterAnimation";
 import * as compressedAtlases from "@/libs/threejs/compressedAnimationTextures";
 import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
@@ -39,10 +39,10 @@ beforeEach(() => {
 });
 
 describe("compressed character atlases", () => {
-  const renderer = { extensions: { has: () => true } } as unknown as WebGLRenderer;
-  const compressed = () => new CompressedTexture(
-    [{ data: new Uint8Array(128 * 128 * 16), width: 1024, height: 1024 }],
-    1024, 1024, RGBA_ETC2_EAC_Format,
+  const renderer = { capabilities: { maxTextureSize: 4096 }, extensions: { has: () => true } } as unknown as WebGLRenderer;
+  const compressed = (width = 1024, height = 1024) => new CompressedTexture(
+    [{ data: new Uint8Array(width * height), width, height }],
+    width, height, RGBA_ETC2_EAC_Format,
   );
   const readyWebp = () => {
     vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
@@ -74,6 +74,52 @@ describe("compressed character atlases", () => {
     const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture");
     acquire(sheet(), 128, { extensions: { has: () => false } } as unknown as WebGLRenderer);
     expect(load).not.toHaveBeenCalled();
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([{ columns: 9, rows: 6 }, { columns: 6, rows: 9 }])("uses WebP without a KTX2 request when the $columns by $rows atlas exceeds the renderer limit", async (grid) => {
+    const animation = sheet({ ...grid, frameCount: 54 });
+    const key = animationTextureKey(animation, 256);
+    const manifest = variants as Record<string, string>;
+    manifest[key] = "https://uploadthing.b-cdn.net/f/oversized-test.ktx2";
+    vi.spyOn(KTX2Loader.prototype, "detectSupport").mockReturnThis();
+    const texture = compressed(grid.columns * 256, grid.rows * 256);
+    texture.colorSpace = SRGBColorSpace;
+    const request = vi.spyOn(KTX2Loader.prototype, "loadAsync").mockResolvedValue(texture);
+    try {
+      const lease = acquire(animation, 256, { ...renderer, capabilities: { maxTextureSize: 2048 } } as WebGLRenderer)!;
+      await waitFor(() => expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1));
+      expect(request).not.toHaveBeenCalled();
+      expect(lease.texture).not.toBeInstanceOf(CompressedTexture);
+      expect(TextureLoader.prototype.load).toHaveBeenCalledWith(animationTextureUrl(animation, 256), expect.any(Function), undefined, expect.any(Function));
+    } finally {
+      delete manifest[key];
+    }
+  });
+
+  it("keeps a compressed atlas that fits exactly at the renderer limit", async () => {
+    const texture = compressed(1536, 2048);
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockResolvedValue(texture);
+    const animation = sheet({ columns: 6, rows: 8, frameCount: 48 });
+    const lease = acquire(animation, 256, { ...renderer, capabilities: { maxTextureSize: 2048 } } as WebGLRenderer)!;
+    await waitFor(() => expect(lease.texture).toBe(texture));
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(TextureLoader.prototype.load).not.toHaveBeenCalled();
+  });
+
+  it.each(["pending", "ready"])("keeps a %s compressed atlas separate from the smaller renderer's WebP cache", async (state) => {
+    const texture = compressed(1536, 2304);
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockResolvedValue(texture);
+    const animation = sheet({ columns: 6, rows: 9, frameCount: 54 });
+    const first = acquire(animation, 256, renderer)!;
+    if (state === "ready") await waitFor(() => expect(first.texture).toBe(texture));
+    const smaller = { ...renderer, capabilities: { maxTextureSize: 2048 } } as WebGLRenderer;
+    const fallback = acquire(animation, 256, smaller)!;
+    await waitFor(() => expect(first.texture).toBe(texture));
+    expect(fallback.texture).not.toBe(texture);
+    expect(acquire(animation, 256, smaller)!.texture).toBe(fallback.texture);
+    expect(acquire(animation, 256, renderer)!.texture).toBe(texture);
+    expect(load).toHaveBeenCalledTimes(1);
     expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
   });
 
