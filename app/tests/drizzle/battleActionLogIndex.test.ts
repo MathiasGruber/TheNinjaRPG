@@ -36,7 +36,7 @@ describeWithDatabase("battle action log index", () => {
       await query("INSERT INTO `BattleAction` (id,battleId,battleVersion,battleRound,actionId,userId,description,appliedEffects) VALUES ?", [values]);
       await query("ANALYZE TABLE `BattleAction`");
       const latest = "SELECT * FROM `BattleAction` WHERE battleId = 'fight' ORDER BY battleRound DESC,battleVersion DESC LIMIT 30";
-      const [beforePlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN ${latest}`);
+      const [beforePlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN FORMAT=TRADITIONAL ${latest}`);
       expect(beforePlan[0]!.Extra).toContain("Using filesort");
       const variants = ["", " AND userId = 'hero'", " AND userId <> 'hero'"].flatMap((filter) =>
         ["", " AND actionId NOT IN ('wait', 'move', 'flee')"].flatMap((basic) =>
@@ -52,7 +52,7 @@ describeWithDatabase("battle action log index", () => {
       for (const [index, statement] of variants.entries()) {
         expect((await query<mysql.RowDataPacket[]>(statement))[0]).toEqual(before[index]!);
       }
-      const [afterPlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN ${latest}`);
+      const [afterPlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN FORMAT=TRADITIONAL ${latest}`);
       expect(afterPlan[0]!.key).toBe(logIndex);
       expect(afterPlan[0]!.Extra).not.toContain("filesort");
       // Distinct primary keys must still collide on the same battle/version/round receipt.
