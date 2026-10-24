@@ -188,7 +188,7 @@ for (const collectionUnavailable of [false, true]) {
       expect(profile.getAttribute("href")).toBe("/profile?tab=pet&petId=new-companion");
       expect(acquire).toHaveBeenCalledTimes(1);
       expect(acquire).toHaveBeenCalledWith(expect.objectContaining({ currency }));
-      fireEvent.click(await view.findByRole("button", { name: "Retry appearance for free" }));
+      fireEvent.click(await view.findByRole("button", { name: "Retry appearance" }));
       const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
       fireEvent.click(within(dialog).getByRole("button", { name: "Generate appearance" }));
       await waitFor(() => expect(generate).toHaveBeenCalledTimes(1));
@@ -369,9 +369,9 @@ for (const generationStatus of ["PENDING", "FAILED", "GENERATING"]) {
       expect(view.queryByRole("button", { name: /Release/ })).toBeNull();
       if (generationStatus === "GENERATING") {
         expect(view.getByText(/Your companion's image is being created/)).toBeDefined();
-        expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+        expect(view.queryByRole("button", { name: "Retry appearance" })).toBeNull();
       } else {
-        fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
+        fireEvent.click(view.getByRole("button", { name: "Retry appearance" }));
         const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
         expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
         expect(mutations).not.toHaveBeenCalled();
@@ -397,12 +397,12 @@ it.each([1, 2])("offers support for an exhausted rank %s appearance and restores
     expect(support.getAttribute("href")).toBe("/support");
     expect(view.getByText(/request an image attempt reset for this companion/)).toBeDefined();
     expect(view.queryByText(/Finish its appearance for free/)).toBeNull();
-    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance" })).toBeNull();
     expect(view.queryByText(/Appearance retry available in/)).toBeNull();
     expect(mutations).not.toHaveBeenCalled();
 
     await updateData({ remainingGenerations: 1, generationRetryAt: null });
-    const retry = await view.findByRole("button", { name: "Retry appearance for free" }) as HTMLButtonElement;
+    const retry = await view.findByRole("button", { name: "Retry appearance" }) as HTMLButtonElement;
     expect(retry.disabled).toBe(false);
     expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
     fireEvent.click(retry);
@@ -425,7 +425,7 @@ it.each(["FAILED", "READY"])("keeps the final active attempt pending until its %
   try {
     await view.findByText(/Your companion's image is being created/);
     expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
-    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance" })).toBeNull();
     expect(view.queryByText(/Appearance retry available in/)).toBeNull();
 
     const completed = { ...pet, generationStatus, artRank: generationStatus === "READY" ? 1 : 0, avatar: generationStatus === "READY" ? "/miso.webp" : null };
@@ -435,7 +435,7 @@ it.each(["FAILED", "READY"])("keeps the final active attempt pending until its %
     } else {
       await waitFor(() => expect(view.queryByText(/Your companion's image is being created/)).toBeNull());
       expect(view.queryByRole("link", { name: "Contact support" })).toBeNull();
-      expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+      expect(view.queryByRole("button", { name: "Retry appearance" })).toBeNull();
     }
   } finally { queryClient.clear(); }
 });
@@ -449,7 +449,7 @@ it("offers support once an exhausted generation lease has expired", async () => 
   try {
     await view.findByRole("link", { name: "Contact support" });
     expect(view.queryByText(/Your companion's image is being created/)).toBeNull();
-    expect(view.queryByRole("button", { name: "Retry appearance for free" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Retry appearance" })).toBeNull();
   } finally { queryClient.clear(); }
 });
 
@@ -467,7 +467,7 @@ it.each([1, 6])("preserves exhausted daily-offer guidance and free appearance re
     expect(view.queryByText(/Release a companion before adopting/)).toBeNull();
     expect(view.queryByRole("group", { name: "Species" })).toBeNull();
     expect(view.queryByRole("button", { name: "Preview today's choices" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Retry appearance for free" }));
+    fireEvent.click(view.getByRole("button", { name: "Retry appearance" }));
     const dialog = await view.findByRole("dialog", { name: "Choose companion appearance" });
     expect(within(dialog).getAllByRole("combobox")).toHaveLength(3);
     expect(mutations).not.toHaveBeenCalled();
