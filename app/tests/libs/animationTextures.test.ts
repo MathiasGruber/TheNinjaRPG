@@ -16,6 +16,20 @@ const acquire = (animation: CharacterAnimation, cellSize = 256) => {
   if (lease) leases.push(lease);
   return lease;
 };
+const pendingLargeSheets = () => {
+  const loads: Array<{ texture: Texture<HTMLImageElement>; finish: () => void; fail: () => void }> = [];
+  vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad, _progress, onError) => {
+    const texture = new Texture<HTMLImageElement>();
+    loads.push({ texture, finish: () => {
+      texture.image = document.createElement("img");
+      texture.image.width = 8 * 256;
+      texture.image.height = 9 * 256;
+      onLoad?.(texture);
+    }, fail: () => onError?.(new Error("Unavailable atlas")) });
+    return texture;
+  });
+  return loads;
+};
 beforeEach(() => {
   vi.spyOn(TextureLoader.prototype, "load").mockImplementation(() => new Texture());
 });
@@ -57,6 +71,105 @@ describe("character atlas cache", () => {
     const second = acquire(animation, 128)!;
     expect(second.texture).toBe(first.texture);
     expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+  it("swaps individually admissible atlases through static art and starts a lazy action at its first frame", () => {
+    const loads = pendingLargeSheets();
+    const idle = sheet({ id: "idle", rows: 9 });
+    const attack = sheet({ id: "attack", rows: 9 });
+    const sprite = new Sprite();
+    sprites.push(sprite);
+    const staticMap = new Texture();
+    const info = { sprite, animations: { idle, "jutsu:fire": attack }, event: undefined,
+      moving: false, facing: "left" as const, staticMap, now: 0, cellSize: 256 };
+    updateCharacterAnimation(info);
+    loads[0]!.finish();
+    updateCharacterAnimation({ ...info, now: 100 });
+    const idleMap = sprite.material.map!;
+    const cloneDisposed = vi.spyOn(idleMap, "dispose");
+    const idleDisposed = vi.spyOn(loads[0]!.texture, "dispose").mockImplementation(() => {
+      // A released source must not survive eviction through this actor's cloned map.
+      expect(sprite.material.map?.image).not.toBe(loads[0]!.texture.image);
+    });
+    const event = { id: "cast", actionKey: "jutsu:fire" };
+    updateCharacterAnimation({ ...info, event, now: 200 });
+    expect(loads).toHaveLength(2); // Each atlas is 18 MiB; together they exceed 32 MiB.
+    expect(sprite.material.map).toBe(staticMap);
+    expect(cloneDisposed).toHaveBeenCalledTimes(1);
+    expect(idleDisposed).toHaveBeenCalledTimes(1);
+    expect(sprite.userData.characterAnimation.events).toEqual([event]);
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBeUndefined();
+    updateCharacterAnimation({ ...info, event, now: 9000 });
+    expect(loads).toHaveLength(2);
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBeUndefined();
+    loads[1]!.finish();
+    updateCharacterAnimation({ ...info, event, now: 10000 });
+    expect(sprite.material.map?.image).toBe(loads[1]!.texture.image);
+    expect(sprite.material.map?.offset.x).toBe(0);
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBe(10000);
+    updateCharacterAnimation({ ...info, event, now: 15120 });
+    expect(loads).toHaveLength(3);
+    expect(sprite.material.map).toBe(staticMap);
+    expect(sprite.userData.characterAnimation.events).toEqual([]);
+    loads[2]!.finish();
+    updateCharacterAnimation({ ...info, event, now: 15200 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("idle");
+    expect(sprite.material.map?.image).toBe(loads[2]!.texture.image);
+    expect(sprite.userData.characterAnimation.sources.size).toBe(1);
+  });
+  it("keeps another actor's shared idle pinned when a large action cannot fit", () => {
+    const loads = pendingLargeSheets();
+    const idle = sheet({ id: "idle", rows: 9 });
+    const attack = sheet({ id: "attack", rows: 9 });
+    const first = new Sprite(); const second = new Sprite();
+    sprites.push(first, second);
+    const info = { animations: { idle, "jutsu:fire": attack }, event: undefined,
+      moving: false, facing: "left" as const, staticMap: new Texture(), now: 0, cellSize: 256 };
+    updateCharacterAnimation({ ...info, sprite: first });
+    updateCharacterAnimation({ ...info, sprite: second });
+    loads[0]!.finish();
+    updateCharacterAnimation({ ...info, sprite: first, now: 100 });
+    updateCharacterAnimation({ ...info, sprite: second, now: 100 });
+    const secondMap = second.material.map;
+    const disposed = vi.spyOn(loads[0]!.texture, "dispose");
+    updateCharacterAnimation({ ...info, sprite: first, event: { id: "cast", actionKey: "jutsu:fire" }, now: 200 });
+    expect(loads).toHaveLength(1);
+    expect(disposed).not.toHaveBeenCalled();
+    expect(first.material.map?.image).toBe(loads[0]!.texture.image);
+    expect(second.material.map).toBe(secondMap);
+    expect(first.userData.characterAnimation.events).toEqual([]);
+    first.userData.disposeCharacterAnimation();
+    clearUnusedAnimationTextures();
+    expect(disposed).not.toHaveBeenCalled();
+    expect(second.material.map).toBe(secondMap);
+  });
+  it("advances past a failed large sheet to another action without retaining its lease", () => {
+    const loads = pendingLargeSheets();
+    const idle = sheet({ id: "idle", rows: 9 });
+    const bad = sheet({ id: "bad", rows: 9 });
+    const good = sheet({ id: "good", rows: 9 });
+    const sprite = new Sprite();
+    sprites.push(sprite);
+    const info = { sprite, animations: { idle, "jutsu:bad": bad, "jutsu:good": good },
+      moving: false, facing: "left" as const, staticMap: new Texture(), cellSize: 256 };
+    updateCharacterAnimation({ ...info, event: undefined, now: 0 });
+    loads[0]!.finish();
+    updateCharacterAnimation({ ...info, event: undefined, now: 100 });
+    updateCharacterAnimation({ ...info, event: { id: "bad", actionKey: "jutsu:bad" }, now: 200 });
+    expect(loads).toHaveLength(2);
+    loads[1]!.fail();
+    updateCharacterAnimation({ ...info, event: { id: "good", actionKey: "jutsu:good" }, now: 300 });
+    expect(sprite.userData.characterAnimation.events).toEqual([{ id: "good", actionKey: "jutsu:good" }]);
+    const failedDisposed = vi.spyOn(loads[1]!.texture, "dispose");
+    updateCharacterAnimation({ ...info, event: undefined, now: 400 });
+    expect(loads).toHaveLength(3);
+    expect(failedDisposed).toHaveBeenCalledTimes(1);
+    clearUnusedAnimationTextures();
+    expect(failedDisposed).toHaveBeenCalledTimes(1);
+    loads[2]!.finish();
+    updateCharacterAnimation({ ...info, event: undefined, now: 9000 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("good");
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBe(9000);
+    expect(sprite.userData.characterAnimation.sources.size).toBe(1);
   });
   it("detaches decoded atlases from hidden actors after cache eviction and clearing", () => {
     vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {

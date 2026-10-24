@@ -114,6 +114,17 @@ export const updateCharacterAnimation = (info: {
   };
   // Failed or still-loading action atlases also fall back through idle to the image.
   let source = animation ? textureForAnimation(animation) : undefined;
+  if (animation && !source && runtime.sources.size > 0) {
+    // The outgoing sheet may prevent an otherwise admissible replacement from fitting.
+    // Detach its private map before eviction; use static art if the new sheet is pending.
+    if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
+    runtime.material.map = null;
+    runtime.material.userData.ownsMap = false;
+    runtime.sourceKey = undefined;
+    for (const lease of runtime.sources.values()) lease.release();
+    runtime.sources.clear();
+    source = textureForAnimation(animation);
+  }
   if (animation === action && (!source || source.userData.failed)) {
     runtime.events.shift();
     runtime.eventStartedAt = undefined;
