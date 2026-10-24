@@ -47,6 +47,14 @@ describeWithDatabase("vote claims", () => {
     expect(await readVote()).toMatchObject({ claimed: true, totalClaims: 1 });
   });
 
+  it("credits a claim when the retired bbogd site was never voted on", async () => {
+    const database = await getTestDatabase();
+    await database.update(userVote).set({ bbogd: false }).where(eq(userVote.userId, VOTER));
+    const result = await (await callerFor(profileRouter, VOTER)).claimVotes();
+    expect(result.success).toBe(true);
+    expect(await readVoter()).toMatchObject({ reputationPoints: 1, reputationPointsTotal: 1 });
+  });
+
   it("credits nothing when the votes were claimed after the read", async () => {
     const database = await getTestDatabase();
     // Another request claims the votes after this one has read them as unclaimed

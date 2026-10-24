@@ -54,12 +54,8 @@ export const STARTER_VILLAGES = [
 ] as const;
 export type StarterVillage = (typeof STARTER_VILLAGES)[number];
 
-export const ACTIVE_VOTING_SITES = [
-  "mmoHub",
-  "arenaTop100",
-  "bbogd",
-  "topWebGames",
-] as const;
+// bbogd.com stopped resolving (Oct 2026); its UserVote column is kept but no longer active
+export const ACTIVE_VOTING_SITES = ["mmoHub", "arenaTop100", "topWebGames"] as const;
 
 export const GameAssetTypes = [
   "STATIC",
