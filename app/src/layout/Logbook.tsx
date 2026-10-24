@@ -29,7 +29,7 @@ import {
   isQuestObjectiveAvailable,
 } from "@/libs/objectives";
 import { useInfinitePagination } from "@/libs/pagination";
-import { isReducedMissionReward } from "@/libs/quest";
+import { isReducedMissionReward, questProgressBlockedMessage } from "@/libs/quest";
 import {
   getIsolatedPyramid,
   hasQuestContentChanged,
@@ -504,6 +504,14 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
   // - If no background or scene, use default background & scene from quest
   // - For starter quests, use the A/B tested assistant image instead of quest characters
   const activeObjective = getActiveObjective(quest, tracker);
+  // Explain hidden dialog choices or reward collection instead of showing no actions at all.
+  const awaitsPlayerAction =
+    (activeObjective?.task === "dialog" && !activeObjective.overworldPlacementId) ||
+    (allDone && !userQuest.completed && quest.questType !== "achievement");
+  const progressBlockedMessage =
+    !canProgress && !isPaused && awaitsPlayerAction
+      ? questProgressBlockedMessage(userData?.status)
+      : null;
   const assetIds: string[] = [];
   let shownText = quest.description;
   if (quest.consecutiveObjectives) {
@@ -786,6 +794,14 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
             characters={characters}
             description={shownText}
           />
+        )}
+        {progressBlockedMessage && (
+          <p
+            role="status"
+            className={cn("font-semibold text-orange-500", showScene ? "px-3" : "")}
+          >
+            {progressBlockedMessage}
+          </p>
         )}
         {/* Dialog options */}
         {canProgress &&

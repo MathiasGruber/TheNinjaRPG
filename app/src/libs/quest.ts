@@ -34,6 +34,7 @@ import {
   SENSEI_MAX_STUDENT_LEVEL,
   SENSEI_STUDENT_MISSION_EXP_BOOST_PERC,
   TERMINAL_DIALOG_PREFIX,
+  type UserStatus,
   VILLAGE_SYNDICATE_ID,
   WAR_MISSION_REQUIRED_RANK,
   WAR_MISSIONS_PER_DAY,
@@ -2933,6 +2934,52 @@ export const questTypeConcurrentBlockMessage = (
       return null;
   }
 };
+
+/** Daily-capped assignments accepted at the Mission Hall. */
+const MISSION_HALL_QUEST_TYPES: readonly QuestType[] = [
+  "mission",
+  "crime",
+  "errand",
+  "medical",
+  "pvp",
+  "war",
+];
+
+/**
+ * Explains why a player cannot act on quest steps right now. Dialog choices and reward
+ * claims require an awake player, so the UI must say so instead of hiding every action.
+ */
+export const questProgressBlockedMessage = (
+  status: UserStatus | undefined,
+): string | null => {
+  switch (status) {
+    case undefined:
+    case "AWAKE":
+      return null;
+    case "ASLEEP":
+      return "You are asleep. Wake up at your home to continue this quest.";
+    case "HOSPITALIZED":
+      return "You are hospitalized. Heal at the hospital to continue this quest.";
+    case "TRAVEL":
+      return "You are travelling. Arrive at your destination to continue this quest.";
+    case "BATTLE":
+      return "You are in battle. Finish the battle to continue this quest.";
+    case "QUEUED":
+      return "You are queued for battle. Leave the queue to continue this quest.";
+  }
+};
+
+/**
+ * Mission Hall starts consume a daily slot (and single-attempt missions forever), but their
+ * steps can only be progressed while awake. Reject the start instead of stranding the player.
+ */
+export const missionHallStartBlockedMessage = (
+  questType: QuestType,
+  status: UserStatus,
+): string | null =>
+  MISSION_HALL_QUEST_TYPES.includes(questType) && status !== "AWAKE"
+    ? "You must be awake to accept missions. Wake up first, then try again."
+    : null;
 
 /**
  * Structure and occupation guards that only apply when a player starts a quest

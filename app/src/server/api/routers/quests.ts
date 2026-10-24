@@ -119,6 +119,7 @@ import {
   isAvailableUserQuests,
   isQuestRankAllowed,
   isWarMissionAvailable,
+  missionHallStartBlockedMessage,
   postProcessRewards,
   questAlreadyActiveBlockMessage,
   questDailyLimitMessage,
@@ -593,6 +594,8 @@ export const questsRouter = createTRPCRouter({
       // Guards
       if (!setting) return errorResponse("Setting not found");
       if (user.isBanned) return errorResponse("You are banned");
+      const asleepBlock = missionHallStartBlockedMessage(input.type, user.status);
+      if (asleepBlock) return errorResponse(asleepBlock);
 
       const quota = questDailyQuota(input.type, user);
       if (quota && quota.current >= quota.limit) {
@@ -690,6 +693,11 @@ export const questsRouter = createTRPCRouter({
       if (!questData) return errorResponse("Quest does not exist");
       if (user.sector !== input.userSector) return errorResponse("Sector mismatch");
       if (user.isBanned) return errorResponse("You are banned");
+      const asleepBlock = missionHallStartBlockedMessage(
+        questData.questType,
+        user.status,
+      );
+      if (asleepBlock) return errorResponse(asleepBlock);
 
       const { userCacheEligible, ...result } = await assignQuestToUser({
         client: ctx.drizzle,
