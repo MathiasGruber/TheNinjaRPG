@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { getTableColumns, type SQL } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
-import { aiProfile, battle, jutsu, userData, userJutsu } from "@/drizzle/schema";
+import { aiProfile, battle, dungeon, dungeonRun, jutsu, userData, userJutsu } from "@/drizzle/schema";
 import { prepareEncounterWaves } from "@/libs/combat/encounters";
 import type { CombatQueryUser } from "@/libs/combat/types";
 import { Pusher } from "@/libs/pusher";
@@ -9,7 +9,7 @@ import { SAGE_MODE_ACTIVATION_JUTSU } from "@/libs/sageMode";
 import { initiateBattle, processUsersForBattle } from "@/server/api/routers/combat";
 import type { DrizzleClient } from "@/server/db";
 import { makeTag, makeUser } from "../../libs/combat/helpers/battleScenario";
-import { dungeonBattleState } from "../../setup/dungeon";
+import { dungeonBattleState, dungeonContent } from "../../setup/dungeon";
 import { insertUsers } from "../../setup/factories";
 import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
 
@@ -130,7 +130,7 @@ describe("summon template preparation scope", () => {
 
 describeWithDatabase("initiated wave summon preloads", () => {
   beforeEach(async () => {
-    await resetTables(battle, aiProfile, userData, jutsu, userJutsu);
+    await resetTables(battle, aiProfile, dungeon, dungeonRun, userData, jutsu, userJutsu);
     vi.spyOn(Pusher.prototype, "trigger").mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -151,10 +151,20 @@ describeWithDatabase("initiated wave summon preloads", () => {
     await client.insert(aiProfile).values({ id: "Default", userId: "caster", rules: [] });
     const reads = vi.spyOn(client.query.userData, "findMany");
     const waves = Array.from({ length: 5 }, (_, index) => ({ aiIds: ["caster"], delayRounds: index ? 1 : 0 }));
-    expect((await initiateBattle({
+    const meta = dungeonBattleState({ runState: { ...dungeonBattleState().runState, memberIds: members } });
+    const content = dungeonContent();
+    content.tiers[0]![0]!.waves = waves;
+    await client.insert(dungeon).values({ id: "preload-definition", content, updatedAt: new Date() });
+    await client.insert(dungeonRun).values({
+      id: meta.runId, dungeonId: "preload-definition", leaderId: members[0]!, content,
+      state: meta.runState, status: "FIGHTING", version: meta.runVersion,
+      battleId: "preload-battle", expiresAt: new Date(meta.expiresAt), createdAt: new Date(),
+    });
+    const result = await initiateBattle({
       client, userIds: members, targetIds: waves.flatMap((wave) => wave.aiIds),
-      coop: { kind: "dungeon", ...dungeonBattleState(), battleId: "preload-battle", waves },
-    }, "QUEST")).success).toBe(true);
+      coop: { kind: "dungeon", ...meta, battleId: "preload-battle", waves },
+    }, "QUEST");
+    expect(result).toMatchObject({ success: true });
     // One participant query and one summon query, rather than a summon query per wave.
     expect(reads).toHaveBeenCalledTimes(2);
     const saved = (await client.query.battle.findFirst())!;
