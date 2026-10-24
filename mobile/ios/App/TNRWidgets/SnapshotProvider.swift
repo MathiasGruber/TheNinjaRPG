@@ -88,9 +88,13 @@ struct SnapshotProvider: TimelineProvider {
         let fallback = now.addingTimeInterval(30 * 60)
         let refreshAt = min(nextChange ?? fallback, fallback)
 
-        completion(
-            Timeline(entries: [SnapshotEntry(date: now, snapshot: snapshot)], policy: .after(refreshAt))
-        )
+        var entries = [SnapshotEntry(date: now, snapshot: snapshot)]
+        if let deadline = nextChange {
+            // Pre-render expiry instead of relying on a budgeted extension wake-up.
+            // This also replaces iOS 15's absolute finish time with the recovered view.
+            entries.append(SnapshotEntry(date: deadline, snapshot: snapshot))
+        }
+        completion(Timeline(entries: entries, policy: .after(refreshAt)))
     }
 }
 

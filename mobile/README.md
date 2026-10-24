@@ -112,6 +112,17 @@ settings, and validates the result by reopening the project. It is idempotent.
 
 ## Running
 
+The iOS shell and home-screen widgets target iOS 15.4 and later. Live Activities are registered
+only on iOS 16.2 and later; remote push-to-start additionally needs iOS 17.2. On iOS 15,
+hospital widgets show the finish time rather than a running relative timer, and include
+an expiry timeline entry so the old system cannot turn the countdown into a count-up.
+Ordinary notifications, audio, Apple sign-in and purchases remain separate capabilities.
+RevenueCat uses its StoreKit 1 fallback on iOS 15, so billing acceptance must identify
+the OS and StoreKit path rather than treating all supported versions as equivalent.
+
+The web bundle also targets Safari and iOS 15.4 through `app/package.json`'s Browserslist
+configuration, so client chunks do not retain unsupported class static blocks.
+
 ```bash
 bun run run:ios            # or `bun run open:ios` to drive it from Xcode
 bun run run:android

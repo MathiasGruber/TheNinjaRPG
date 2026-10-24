@@ -1,9 +1,24 @@
 import { describe, expect, it } from "bun:test";
-import { preferredMerchImage, selectedMerchImage, selectedMerchVariant } from "@/libs/merch/catalog";
+import { merchDescriptionLead, preferredMerchImage, selectedMerchImage, selectedMerchVariant } from "@/libs/merch/catalog";
 import { merchProductSchema } from "@/validators/merch";
 
 const black = { url: "https://example.com/black.jpg", alt: "Black back print" };
 const navy = { url: "https://example.com/navy.jpg", alt: "Navy back print" };
+
+describe("merch description lead", () => {
+  it.each([
+    ["A shirt. More detail.", "A shirt."],
+    ["A shirt!\nMore detail.", "A shirt!"],
+    ["A shirt?\tMore detail.", "A shirt?"],
+    ["A shirt...  More detail.", "A shirt..."],
+    ["A shirt.No space", "A shirt.No space"],
+    ["Line one\nline two. More detail", "Line one\nline two."],
+    ["No sentence ending", "No sentence ending"],
+    ["", ""],
+  ])("retains the first sentence of %j", (description, expected) => {
+    expect(merchDescriptionLead(description)).toBe(expected);
+  });
+});
 const product = merchProductSchema.parse({
   id: "shirt", handle: "shirt", title: "Shirt", designKey: "monarch",
   designName: "Monarch", category: "S-ranks", kind: "Organic T-Shirt",

@@ -603,6 +603,17 @@ describe("native push ownership", () => {
 });
 
 describe("native Live Activity lifecycle", () => {
+  it("does not start or register activities when the shell omits the unsupported plugin", async () => {
+    Object.assign(window, { Capacitor: {
+      isNativePlatform: () => true, getPlatform: () => "ios", Plugins: {},
+    } });
+    renderHook(() => useLiveActivity(profile("HOSPITALIZED"), 0));
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.liveStart).not.toHaveBeenCalled();
+    expect(mocks.registerActivity).not.toHaveBeenCalled();
+    expect(mocks.liveTokenListeners).toHaveLength(0);
+  });
+
   it("retains a failed activity token and retries it when the app resumes", async () => {
     mocks.registerActivity
       .mockRejectedValueOnce(new Error("offline"))

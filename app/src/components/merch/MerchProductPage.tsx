@@ -8,6 +8,7 @@ import Table from "@/layout/Table";
 import {
   formatMerchMoney,
   getMerchDesign,
+  merchDescriptionLead,
   productFromPrice,
   selectedMerchImage,
   selectedMerchVariant,
@@ -109,7 +110,7 @@ export function MerchProductPage({ handle }: { handle: string }) {
             {formatMerchMoney(variant?.price ?? startingPrice)}
             {(variant?.price ?? startingPrice) && " per item"}
           </p>
-          <p>{(design?.graphic ?? product.description).split(/(?<=[.!?])\s+/)[0]}</p>
+          <p>{merchDescriptionLead(design?.graphic ?? product.description)}</p>
           {product.options
             .filter((option) => option.values.length > 1)
             .map((option) => (

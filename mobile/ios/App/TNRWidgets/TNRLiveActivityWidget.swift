@@ -8,6 +8,7 @@ import WidgetKit
 /// One widget covers all three because `TNRActivityAttributes` carries the kind: the
 /// layout is the same countdown either way, only the icon and wording differ, and three
 /// near-identical widgets would be three places to fix a spacing bug.
+@available(iOS 16.1, *)
 struct TNRLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TNRActivityAttributes.self) { context in
@@ -57,6 +58,7 @@ struct TNRLiveActivityWidget: Widget {
     }
 }
 
+@available(iOS 16.1, *)
 private struct LockScreenView: View {
     let context: ActivityViewContext<TNRActivityAttributes>
 

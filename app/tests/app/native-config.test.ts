@@ -6,17 +6,17 @@ const REPO_ROOT = join(import.meta.dirname, "../../..");
 const readRepoFile = (path: string) => readFileSync(join(REPO_ROOT, path), "utf8");
 
 describe("native release configuration", () => {
-  it("requires iOS 18.1 for the app and widgets", () => {
+  it("keeps the app, widgets and generated package on iOS 15", () => {
     const configuration = readRepoFile("mobile/scripts/configure-xcode.rb");
     const project = readRepoFile("mobile/ios/App/App.xcodeproj/project.pbxproj");
     const packageManifest = readRepoFile("mobile/ios/App/CapApp-SPM/Package.swift");
 
-    expect(configuration).toContain('APP_DEPLOYMENT_TARGET = "18.1"');
-    expect(configuration).toContain('WIDGET_DEPLOYMENT_TARGET = "18.1"');
+    expect(configuration).toContain('APP_DEPLOYMENT_TARGET = "15.4"');
+    expect(configuration).toContain('WIDGET_DEPLOYMENT_TARGET = "15.4"');
     expect(project.match(/IPHONEOS_DEPLOYMENT_TARGET = [^;]+;/g)).toEqual<string[]>(
-      Array(6).fill("IPHONEOS_DEPLOYMENT_TARGET = 18.1;"),
+      Array(6).fill("IPHONEOS_DEPLOYMENT_TARGET = 15.4;"),
     );
-    expect(packageManifest).toContain('platforms: [.iOS("18.1")]');
+    expect(packageManifest).toContain('platforms: [.iOS("15.4")]');
   });
 
   it("does not back up device credentials", () => {

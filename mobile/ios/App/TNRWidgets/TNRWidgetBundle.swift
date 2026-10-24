@@ -7,6 +7,8 @@ struct TNRWidgetBundle: WidgetBundle {
         StatusWidget()
         VillageWidget()
         QuestWidget()
-        TNRLiveActivityWidget()
+        if #available(iOS 16.2, *) {
+            TNRLiveActivityWidget()
+        }
     }
 }

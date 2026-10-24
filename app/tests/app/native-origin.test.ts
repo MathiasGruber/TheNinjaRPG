@@ -61,14 +61,17 @@ function readConfiguration(rawOrigin: string | undefined) {
   }
 }
 
-async function loadEntry(entryConfig: string) {
+async function loadEntry(
+  entryConfig: string,
+  { supportsColorMix = true, supportsSelectors = true, userAgent = "Android" } = {},
+) {
   const requested: string[] = [];
   const navigated: string[] = [];
   const context = {
     URL,
     AbortController,
-    CSS: { supports: () => true },
-    navigator: { userAgent: "Android" },
+    CSS: { supports: (property: string) => property === "color" ? supportsColorMix : supportsSelectors },
+    navigator: { userAgent },
     document: { getElementById: () => ({ addEventListener() {} }) },
     window: {
       CSS: {},
@@ -95,6 +98,29 @@ async function loadEntry(entryConfig: string) {
 }
 
 describe("native origin configuration", () => {
+  it("lets the iOS shell reach login without color-mix while keeping Android's update guard", async () => {
+    const entryConfig = `window.TNR_ORIGIN = ${JSON.stringify(PRODUCTION)};`;
+    const ios = await loadEntry(entryConfig, {
+      supportsColorMix: false,
+      userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 15_8 like Mac OS X) TNR-Native/1.0.0 (ios)",
+    });
+    expect(ios.navigated).toEqual([PRODUCTION]);
+    expect(ios.requested).toHaveLength(1);
+    const android = await loadEntry(entryConfig, {
+      supportsColorMix: false,
+      userAgent: "Android TNR-Native/1.0.0 (android)",
+    });
+    expect(android.navigated).toEqual([]);
+    expect(android.requested).toEqual([]);
+    const olderIos = await loadEntry(entryConfig, {
+      supportsColorMix: false,
+      supportsSelectors: false,
+      userAgent: "iPhone TNR-Native/1.0.0 (ios)",
+    });
+    expect(olderIos.navigated).toEqual([]);
+    expect(olderIos.requested).toEqual([]);
+  });
+
   for (const rawOrigin of [
     undefined,
     PRODUCTION,
