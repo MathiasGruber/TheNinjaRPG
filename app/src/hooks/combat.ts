@@ -40,6 +40,41 @@ export const useCombatUpdates = (state: BattleState) => {
   const stateRef = useRef(state);
   stateRef.current = state;
   const battleId = state.battle?.id;
+  const pendingActionRef = useRef<{ battleId: string; version: number } | null>(null);
+  const responseVersionRef = useRef<{ battle: ReturnedBattle; version: number } | null>(
+    null,
+  );
+
+  const startAction = useCallback((id: string) => {
+    if (pendingActionRef.current) return false;
+    pendingActionRef.current = { battleId: id, version: 0 };
+    return true;
+  }, []);
+
+  const settleAction = useCallback(
+    (
+      id: string,
+      response: Pick<BattleState, "battle" | "result">,
+      shouldRefresh: boolean,
+    ) => {
+      const pending = pendingActionRef.current;
+      if (pending?.battleId === id) pendingActionRef.current = null;
+      const { battle, result } = stateRef.current;
+      if (!battle || battle.id !== id) return;
+      // onSettled runs before React necessarily renders onSuccess's state update.
+      // Retain its version only for this snapshot; a later poll may replace it.
+      const version =
+        response.battle?.id === id ? response.battle.version : battle.version;
+      responseVersionRef.current = { battle, version };
+      if (result || response.result) return;
+      // Compare with the response being applied, even if an independent poll
+      // already rendered a newer state that onSuccess is about to replace.
+      if (shouldRefresh || (pending?.battleId === id && pending.version > version)) {
+        void utils.combat.getBattle.invalidate();
+      }
+    },
+    [utils],
+  );
 
   const updateLogs = useCallback(
     async (
@@ -164,9 +199,18 @@ export const useCombatUpdates = (state: BattleState) => {
         );
       }
       const { battle, result } = stateRef.current;
-      if (battle && data.version > battle.version && !result) {
-        void utils.combat.getBattle.invalidate();
+      if (!battle || battle.id !== battleId || result) return;
+      const pending = pendingActionRef.current;
+      if (pending?.battleId === battleId) {
+        pending.version = Math.max(pending.version, data.version);
+        return;
       }
+      const response = responseVersionRef.current;
+      const version = Math.max(
+        battle.version,
+        response?.battle === battle ? response.version : 0,
+      );
+      if (data.version > version) void utils.combat.getBattle.invalidate();
     };
     channel.bind("event", onUpdate);
     return () => {
@@ -174,7 +218,7 @@ export const useCombatUpdates = (state: BattleState) => {
       pusher.unsubscribe(battleId);
     };
   }, [battleId, pusher, utils, updateLogs]);
-  return updateLogs;
+  return { updateLogs, startAction, settleAction };
 };
 
 /**

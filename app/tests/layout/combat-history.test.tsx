@@ -21,7 +21,7 @@ const testApi = createTRPCReact<AppRouter>();
 let queryClient: QueryClient;
 let entries: BattleAction[];
 let onEvent: ((event: BattleUpdate) => Promise<void>) | undefined;
-let applyLogs: ReturnType<typeof useCombatUpdates>;
+let applyLogs: ReturnType<typeof useCombatUpdates>["updateLogs"];
 let readEntries: ReturnType<typeof vi.fn>;
 const unsubscribe = vi.fn();
 const unbind = vi.fn();
@@ -53,7 +53,7 @@ afterEach(() => { cleanup(); queryClient.clear(); vi.restoreAllMocks(); });
 
 /** Exercise history as either a live battle subscriber or a reopened saved log. */
 const History = ({ state, listen }: { state: BattleState; listen: boolean }) => {
-  applyLogs = useCombatUpdates(listen ? state : { battle: null, result: null, isPending: false });
+  applyLogs = useCombatUpdates(listen ? state : { battle: null, result: null, isPending: false }).updateLogs;
   return <CombatHistory battleId="battle" battleVersion={listen ? state.battle?.version : undefined} results={state.result} />;
 };
 
