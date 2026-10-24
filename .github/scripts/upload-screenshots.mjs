@@ -69,7 +69,17 @@ const main = async () => {
     console.log(`  Blob for ${file.name}: ${blob.sha}`);
   }
 
-  // Step 2: Create a tree containing all blobs
+  // Image-only branches need their own deployment opt-out at both project roots.
+  for (const path of ["vercel.json", "app/vercel.json"]) {
+    treeEntries.push({
+      path,
+      mode: "100644",
+      type: "blob",
+      content: `${JSON.stringify({ git: { deploymentEnabled: false } })}\n`,
+    });
+  }
+
+  // Step 2: Create a tree containing the images and deployment configuration
   const tree = await apiRequest(`/repos/${repo}/git/trees`, {
     method: "POST",
     body: JSON.stringify({ tree: treeEntries }),
