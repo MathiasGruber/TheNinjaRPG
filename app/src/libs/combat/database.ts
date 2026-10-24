@@ -64,6 +64,7 @@ import {
   calcBattleResult,
   didKageChallengerWin,
   didUserTakeKageSeat,
+  earnsWarParticipation,
   getBattleTeamWars,
   getItem,
   getKageChallengeParticipants,
@@ -1513,8 +1514,13 @@ export const updateUser = async (
     // target isn't credited just because a war foe shared the battle.
     const isWarBattleParticipant = curBattle.usersState.some(isOpposingWarFoe);
     // A winning war participant earns ~2h of cross-bracket targetability; folded into the main
-    // userData update below so it costs no extra roundtrip.
-    const isWinningWarParticipant = result.didWin > 0 && isWarBattleParticipant;
+    // userData update below so it costs no extra roundtrip. Only real war fights (PvP / war
+    // camp) count — arena, quests, encounters etc. must not flag the player (#2124).
+    const isWinningWarParticipant = earnsWarParticipation(
+      curBattle.battleType,
+      result.didWin,
+      isWarBattleParticipant,
+    );
 
     // Accumulate all tracker tasks into a single array for one getNewTrackers call
     const trackerTasks: Parameters<typeof getNewTrackers>[1] = [];

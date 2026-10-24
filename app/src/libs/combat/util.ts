@@ -292,6 +292,27 @@ export const getOpposingBattleWars = (
 };
 
 /**
+ * Battle types that count as actively taking part in a war: PvP attacks (COMBAT) and
+ * war camp / shrine assaults (SHRINE_WAR). Arena, quest/mission AI fights, random
+ * encounters, hunting etc. never flag a player as a war participant, even when an
+ * opponent happens to belong to an enemy war side (#2124).
+ */
+export const WarParticipationBattleTypes: BattleType[] = ["COMBAT", "SHRINE_WAR"];
+
+/**
+ * Whether a battle result should stamp `warParticipantUntil` (the war flag that lifts
+ * bracket protection against opposing war participants).
+ */
+export const earnsWarParticipation = (
+  battleType: BattleType,
+  didWin: number,
+  isWarBattleParticipant: boolean,
+) =>
+  didWin > 0 &&
+  isWarBattleParticipant &&
+  WarParticipationBattleTypes.includes(battleType);
+
+/**
  * Get all relations for a user as array
  */
 export const getRelationsArray = (
