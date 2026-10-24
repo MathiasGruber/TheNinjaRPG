@@ -22,7 +22,6 @@ import {
   COST_RESKIN_JUTSU,
   IMG_AVATAR_DEFAULT,
   JUTSU_LEVEL_CAP,
-  JUTSU_TRAIN_LEVEL_CAP,
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
@@ -74,6 +73,7 @@ import {
   inheritJutsuReskinEffects,
 } from "@/libs/jutsu/reskins";
 import { jutsuMasteryTypes } from "@/libs/jutsuMastery";
+import { getJutsuMaxLevel } from "@/libs/jutsuProgression";
 import {
   buildMissingLoadouts,
   decideRename,
@@ -200,7 +200,7 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         fromJutsuId: z.string(),
         toJutsuId: z.string(),
-        transferLevels: z.number().min(1, "Must transfer at least 1 level"),
+        transferLevels: z.number().int().min(1, "Must transfer at least 1 level"),
       }),
     )
     .output(userDeltaResponseSchema)
@@ -251,11 +251,15 @@ export const jutsuRouter = createTRPCRouter({
           `Source jutsu must be at least ${JUTSU_TRANSFER_MINIMUM_LEVEL} to transfer levels`,
         );
       }
-      if (fromUserJutsu.level > JUTSU_TRANSFER_MAX_LEVEL) {
+      if (fromUserJutsu.id === toUserJutsu.id)
+        return errorResponse("Choose two different jutsu");
+      if (
+        isJutsuInTraining(fromUserJutsu, Date.now()) ||
+        isJutsuInTraining(toUserJutsu, Date.now())
+      )
         return errorResponse(
-          `Cannot transfer levels above ${JUTSU_TRANSFER_MAX_LEVEL}`,
+          "Wait for training to complete before transferring levels",
         );
-      }
 
       // Guard: Check that source has enough levels and target won't exceed maximum
       if (fromUserJutsu.level - transfer < 1) {
@@ -271,49 +275,44 @@ export const jutsuRouter = createTRPCRouter({
       const usedTransfers = prevFreeTransfers.length;
       const needsReputation = usedTransfers >= availFreeTransfers;
 
-      // If needs reputation, check and deduct
-      if (needsReputation) {
-        if (user.reputationPoints < transferCost) {
-          return errorResponse("Not enough reputation points");
-        }
-        const reputationUpdate = await ctx.drizzle
-          .update(userData)
-          .set({
-            reputationPoints: sql`${userData.reputationPoints} - ${transferCost}`,
-          })
-          .where(
-            and(
-              eq(userData.userId, ctx.userId),
-              gte(userData.reputationPoints, transferCost),
-            ),
-          );
-        if (reputationUpdate.rowsAffected !== 1) {
-          return errorResponse("Not enough reputation points");
-        }
-      }
-
-      // Perform the transfer
-      await Promise.all([
-        ctx.drizzle
-          .update(userJutsu)
-          .set({ level: toUserJutsu.level + transfer })
-          .where(eq(userJutsu.id, toUserJutsu.id)),
-        ctx.drizzle
-          .update(userJutsu)
-          .set({ level: fromUserJutsu.level - transfer })
-          .where(eq(userJutsu.id, fromUserJutsu.id)),
-        ctx.drizzle.insert(actionLog).values({
-          id: nanoid(),
-          userId: ctx.userId,
-          tableName: "userjutsu",
-          changes: [
-            `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer}). ${!needsReputation ? ` Used free transfer.` : ""}`,
-          ],
-          relatedId: ctx.userId,
-          relatedMsg: "JutsuLevelTransfer",
-          relatedImage: user.avatarLight,
-        }),
-      ]);
+      const cost = needsReputation ? transferCost : 0;
+      if (user.reputationPoints < cost)
+        return errorResponse("Not enough reputation points");
+      // One guarded statement moves both levels and pays the fee together. Snapshot
+      // guards prevent stale transfers from overwriting combat XP or another transfer.
+      const transferred = await retryOnDeadlock(() =>
+        ctx.drizzle.execute(sql`
+        UPDATE ${userJutsu} source
+        INNER JOIN ${userJutsu} target ON target.id = ${toUserJutsu.id}
+        INNER JOIN ${userData} owner ON owner.userId = source.userId
+        SET source.level = source.level - ${transfer},
+            target.level = target.level + ${transfer},
+            owner.reputationPoints = owner.reputationPoints - ${cost},
+            owner.updatedAt = ${getNextUserSnapshotAt(user.updatedAt)}
+        WHERE source.id = ${fromUserJutsu.id}
+          AND source.userId = ${ctx.userId} AND target.userId = ${ctx.userId}
+          AND source.level = ${fromUserJutsu.level} AND target.level = ${toUserJutsu.level}
+          AND source.level - ${transfer} >= 1
+          AND target.level + ${transfer} <= ${JUTSU_TRANSFER_MAX_LEVEL}
+          AND (source.finishTraining IS NULL OR source.finishTraining <= NOW(3))
+          AND (target.finishTraining IS NULL OR target.finishTraining <= NOW(3))
+          AND owner.updatedAt = ${user.updatedAt}
+          AND owner.reputationPoints >= ${cost}
+      `),
+      );
+      if (transferred.rowsAffected === 0)
+        return errorResponse("Your jutsu or balance changed. Please try again.");
+      await ctx.drizzle.insert(actionLog).values({
+        id: nanoid(),
+        userId: ctx.userId,
+        tableName: "userjutsu",
+        changes: [
+          `Transferred ${transfer} level(s) from ${fromJutsu.name} (new level: ${fromUserJutsu.level - transfer}) to ${toJutsu.name} (new level: ${toUserJutsu.level + transfer}). ${!needsReputation ? ` Used free transfer.` : ""}`,
+        ],
+        relatedId: ctx.userId,
+        relatedMsg: "JutsuLevelTransfer",
+        relatedImage: user.avatarLight,
+      });
 
       return {
         success: true,
@@ -901,9 +900,10 @@ export const jutsuRouter = createTRPCRouter({
         return errorResponse(
           "This jutsu is currently being trained. Wait for training to complete before evolving.",
         );
-      if (userJutsuObj.level < JUTSU_TRAIN_LEVEL_CAP)
+      const evolutionLevel = getJutsuMaxLevel(userJutsuObj.jutsu);
+      if (userJutsuObj.level < evolutionLevel)
         return errorResponse(
-          `Jutsu must be at max level (${JUTSU_TRAIN_LEVEL_CAP}) to evolve`,
+          `Jutsu must be at max level (${evolutionLevel}) to evolve`,
         );
       if (userJutsuObj.jutsuId !== evolutionJutsu.parentJutsuId)
         return errorResponse("This jutsu cannot evolve into the target evolution");
@@ -1313,7 +1313,7 @@ export const jutsuRouter = createTRPCRouter({
       z.object({
         userId: z.string(),
         jutsuId: z.string(),
-        level: z.number(),
+        level: z.number().int().min(0),
         reskinId: z.string().nullable().optional(),
       }),
     )
@@ -1346,6 +1346,10 @@ export const jutsuRouter = createTRPCRouter({
       if (!userjutsu) {
         return errorResponse("Jutsu not found for user");
       }
+      if (input.level > getJutsuMaxLevel(userjutsu.jutsu))
+        return errorResponse(
+          `Jutsu level cannot exceed ${getJutsuMaxLevel(userjutsu.jutsu)}`,
+        );
       if (input.reskinId && !reskin) {
         return errorResponse("Reskin not found for this jutsu");
       }

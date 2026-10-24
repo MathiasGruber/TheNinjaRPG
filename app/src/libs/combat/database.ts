@@ -3,6 +3,9 @@ import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
 import { nanoid } from "nanoid";
 import type { BattleDataEntryType, BattleTypes } from "@/drizzle/constants";
 import {
+  ELITE_JONIN_JUTSU_ADVANCED_XP_TO_LEVEL,
+  ELITE_JONIN_JUTSU_LEVEL_CAP,
+  ELITE_JONIN_JUTSU_XP_TO_LEVEL,
   ENERGY_PVP_LOSS_REWARD,
   ENERGY_PVP_WIN_REWARD,
   HOSPITAL_LAT,
@@ -66,6 +69,7 @@ import {
   didUserTakeKageSeat,
   getBattleTeamWars,
   getItem,
+  getJutsu,
   getKageChallengeParticipants,
   getOpposingBattleWars,
   getVillage,
@@ -74,6 +78,7 @@ import {
 } from "@/libs/combat/util";
 import { claimVillageMissionCombatEvents } from "@/libs/combat/villageMission";
 import { getPvpFarmActivityReductionSeconds } from "@/libs/farming";
+import { getJutsuMaxLevel } from "@/libs/jutsuProgression";
 import { allocateMasteryGains } from "@/libs/masteryProgression";
 import { petExperienceGainSql } from "@/libs/pets/experience";
 import type { PusherClient } from "@/libs/pusher";
@@ -1694,6 +1699,16 @@ export const updateUser = async (
         user.pvpBoostPercent ?? 0,
       ),
     );
+    // Definitions are already preloaded in battle state; group by progression cap.
+    const jutsuXpGroups = new Map<number, string[]>();
+    for (const id of jUnique) {
+      const definition = getJutsu(curBattle, id);
+      if (!definition) continue;
+      const cap = getJutsuMaxLevel(definition);
+      const ids = jutsuXpGroups.get(cap) ?? [];
+      ids.push(id);
+      jutsuXpGroups.set(cap, ids);
+    }
     // Equipped items gain XP from eligible PvP battles (win vs loss amounts + event multiplier)
     const iExp = Math.floor(
       boostPvpGain(
@@ -1843,20 +1858,25 @@ export const updateUser = async (
           )
         : []),
       // Jutsu experience & level from experience
-      ...(jUnique.length > 0 && jExp > 0
-        ? [
-            () =>
-              client
-                .update(userJutsu)
-                .set(xpGainOrLevelUpSet(userJutsu, JUTSU_XP_TO_LEVEL, jExp))
-                .where(
-                  and(
-                    eq(userJutsu.userId, user.userId),
-                    lt(userJutsu.level, JUTSU_TRAIN_LEVEL_CAP),
-                    inArray(userJutsu.jutsuId, jUnique),
-                  ),
-                ),
-          ]
+      ...(jExp > 0
+        ? [...jutsuXpGroups.entries()].map(([cap, ids]) => {
+            const xpToLevel =
+              cap === ELITE_JONIN_JUTSU_LEVEL_CAP
+                ? sql`IF(${userJutsu.level} < ${JUTSU_TRAIN_LEVEL_CAP}, ${ELITE_JONIN_JUTSU_XP_TO_LEVEL}, ${ELITE_JONIN_JUTSU_ADVANCED_XP_TO_LEVEL})`
+                : sql`${JUTSU_XP_TO_LEVEL}`;
+            // Drizzle orders SET by schema columns (level first). This single-table
+            // statement must reset XP using the old level before changing that level.
+            // With a positive gain, only a level-up leaves experience at zero.
+            return () =>
+              client.execute(sql`
+              UPDATE ${userJutsu}
+              SET ${userJutsu.experience} = IF(${userJutsu.experience} + ${jExp} >= ${xpToLevel}, 0, ${userJutsu.experience} + ${jExp}),
+                  ${userJutsu.level} = ${userJutsu.level} + (${userJutsu.experience} = 0)
+              WHERE ${userJutsu.userId} = ${user.userId}
+                AND ${userJutsu.level} < ${cap}
+                AND ${inArray(userJutsu.jutsuId, ids)}
+            `);
+          })
         : []),
       // Item experience & level from PvP (equipped items only; per-item xpToLevel)
       ...(iExp > 0

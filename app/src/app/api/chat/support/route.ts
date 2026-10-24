@@ -413,7 +413,11 @@ This document outlines various screens, menus, and gameplay systems available in
   - Learn and train jutsus by spending ryo; training costs and durations increase with rank and level.
 - **Jutsu Level Cap:**  
   - **Soft Cap:** 20 (via training grounds).  
-  - **Hard Cap:** 25 (through combat-based jutsu experience).
+  - **Hard Cap:** 25 through combat, or 30 for jutsu requiring Elite Jonin.
+  - Elite Jonin jutsu require 5,000 XP per level through level 25, then 10,000 XP per level to reach 30. Other jutsu require 1,000 XP per level.
+  - Elite Jonin jutsu take five times as long to train, capped at five hours per level, and still cap at level 20 in the Training Grounds.
+  - Transfers can raise a recipient only to level 25, including Elite Jonin jutsu; levels can be transferred out of level 26–30 jutsu.
+  - Evolution requires the parent jutsu's maximum level (30 for Elite Jonin jutsu, 25 otherwise). Tournament mastery eligibility still counts level 25.
 - **Sensei Feature (Genin):**  
   - Pair with a Jonin+ sensei to reduce jutsu training timers.
 - **Jutsu Management (Jutsus Menu):**  

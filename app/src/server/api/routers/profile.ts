@@ -386,6 +386,7 @@ export const profileRouter = createTRPCRouter({
             name: sql<string>`COALESCE(${jutsuReskin.name}, ${jutsu.name})`,
             level: userJutsu.level,
             jutsuRank: jutsu.jutsuRank,
+            requiredRank: jutsu.requiredRank,
             finishTraining: userJutsu.finishTraining,
             senseiId: userData.senseiId,
             rank: userData.rank,
@@ -464,7 +465,10 @@ export const profileRouter = createTRPCRouter({
           level: jutsuTrainingRow.level,
           trainingStartedAt: inferJutsuTrainingStartedAt(
             jutsuTrainingRow.finishTraining,
-            { jutsuRank: jutsuTrainingRow.jutsuRank },
+            {
+              jutsuRank: jutsuTrainingRow.jutsuRank,
+              requiredRank: jutsuTrainingRow.requiredRank,
+            },
             jutsuTrainingRow.level,
             { senseiId: jutsuTrainingRow.senseiId, rank: jutsuTrainingRow.rank },
           ),

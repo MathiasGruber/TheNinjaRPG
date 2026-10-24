@@ -24,12 +24,10 @@ import {
   COST_EXTRA_JUTSU_SLOT,
   COST_RESKIN_JUTSU,
   JUTSU_LEVEL_CAP,
-  JUTSU_TRAIN_LEVEL_CAP,
   JUTSU_TRANSFER_COST,
   JUTSU_TRANSFER_DAYS,
   JUTSU_TRANSFER_MAX_LEVEL,
   JUTSU_TRANSFER_MINIMUM_LEVEL,
-  JUTSU_XP_TO_LEVEL,
   MAX_EXTRA_JUTSU_SLOTS,
   RESKIN_LIMIT,
 } from "@/drizzle/constants";
@@ -51,6 +49,7 @@ import Loader from "@/layout/Loader";
 import Modal from "@/layout/Modal";
 import { EVOLUTION_STAT_FIELDS } from "@/libs/evolution";
 import { getFreeTransfers } from "@/libs/jutsu";
+import { getJutsuMaxLevel, getJutsuXpToLevel } from "@/libs/jutsuProgression";
 import type { MasterySources } from "@/libs/mastery";
 import { showUserRank } from "@/libs/profile";
 import { showMutationToast } from "@/libs/toast";
@@ -635,8 +634,9 @@ export default function MyJutsu() {
             <div>
               <p>- You have {userData.money.toLocaleString()} ryo in your pocket</p>
               <p>
-                - Need {remainingXpToLevel(JUTSU_XP_TO_LEVEL, userjutsu.experience)} XP
-                more to level
+                {userjutsu.level >= getJutsuMaxLevel(userjutsu.jutsu)
+                  ? `- Maximum level (${getJutsuMaxLevel(userjutsu.jutsu)}) reached`
+                  : `- Need ${remainingXpToLevel(getJutsuXpToLevel(userjutsu.jutsu, userjutsu.level), userjutsu.experience).toLocaleString()} XP more to level`}
               </p>
             </div>
             {!isPending && (
@@ -708,7 +708,7 @@ export default function MyJutsu() {
 
                   <div className="grow"></div>
                   {userjutsu.level >= JUTSU_TRANSFER_MINIMUM_LEVEL &&
-                    userjutsu.level <= JUTSU_TRANSFER_MAX_LEVEL && (
+                    !userjutsu.jutsu.parentJutsuId && (
                       <Confirm
                         title="Transfer Level"
                         button={
@@ -781,7 +781,10 @@ export default function MyJutsu() {
                           </>
                         ) : (
                           <div className="flex flex-col gap-2">
-                            <p>Select a jutsu to transfer the level to.</p>
+                            <p>
+                              Select a jutsu to transfer the level to. Transfers can
+                              raise a jutsu to level {JUTSU_TRANSFER_MAX_LEVEL}.
+                            </p>
                             <ActionSelector
                               gridClassNameOverwrite="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))]"
                               items={userJutsus
@@ -789,7 +792,10 @@ export default function MyJutsu() {
                                   (uj) =>
                                     uj.jutsu.jutsuType === userjutsu.jutsu.jutsuType &&
                                     uj.jutsu.jutsuRank === userjutsu.jutsu.jutsuRank &&
-                                    uj.id !== userjutsu.id,
+                                    uj.id !== userjutsu.id &&
+                                    !uj.jutsu.parentJutsuId &&
+                                    uj.level < JUTSU_TRANSFER_MAX_LEVEL &&
+                                    !isJutsuInTraining(uj, serverNow),
                                 )
                                 ?.map((uj) => ({
                                   id: uj.id,
@@ -831,9 +837,10 @@ export default function MyJutsu() {
                           (canEvolveJutsu(evo, userData)
                             ? ""
                             : "You do not meet the stat requirements for this evolution.");
+                      const evolutionLevel = getJutsuMaxLevel(userjutsu.jutsu);
                       const canEvolve =
                         !!userData &&
-                        effectiveLevel >= JUTSU_TRAIN_LEVEL_CAP &&
+                        effectiveLevel >= evolutionLevel &&
                         !evolveWarning;
                       return (
                         <Confirm
@@ -866,12 +873,12 @@ export default function MyJutsu() {
                             This will replace your current jutsu. The evolved jutsu
                             starts at level 1, can be trained to level {JUTSU_LEVEL_CAP}{" "}
                             in the Training Grounds, and reaches level{" "}
-                            {JUTSU_TRAIN_LEVEL_CAP} through combat.
+                            {getJutsuMaxLevel(evo)} through combat.
                           </p>
-                          {effectiveLevel < JUTSU_TRAIN_LEVEL_CAP && (
+                          {effectiveLevel < evolutionLevel && (
                             <p className="text-destructive text-sm">
-                              Required Jutsu Level: <b>{JUTSU_TRAIN_LEVEL_CAP}</b>{" "}
-                              (current: {effectiveLevel})
+                              Required Jutsu Level: <b>{evolutionLevel}</b> (current:{" "}
+                              {effectiveLevel})
                             </p>
                           )}
                           {evo.requiredRank && (

@@ -48,6 +48,7 @@ import {
   CombatStatNames,
   ELEMENTAL_MASTERY_BOOST,
   ELEMENTAL_MASTERY_CAP,
+  ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER,
   IMG_TRAIN_BUKI_DEF,
   IMG_TRAIN_BUKI_OFF,
   IMG_TRAIN_GEN_DEF,
@@ -63,6 +64,7 @@ import {
   JUTSU_LEVEL_CAP,
   MASTERY_RANK_CAPS,
   MAX_DAILY_TRAININGS,
+  MAX_JUTSU_TRAIN_TIME_MS,
   MasteryNames,
   SENSEI_RANKS,
   STATS_PER_ENERGY,
@@ -1552,6 +1554,16 @@ const JutsuTraining: React.FC<TrainingProps> = (props) => {
                   <p className="pb-3">
                     You have {userData.money.toLocaleString()} ryo in your pocket
                   </p>
+                  {jutsu.requiredRank === "ELITE JONIN" && (
+                    <p className="pb-3 text-muted-foreground text-sm">
+                      Elite Jonin jutsu take {ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER}×
+                      as long to train, up to{" "}
+                      {(MAX_JUTSU_TRAIN_TIME_MS *
+                        ELITE_JONIN_JUTSU_TRAIN_TIME_MULTIPLIER) /
+                        3_600_000}{" "}
+                      hours per level. Training Grounds cap: level {JUTSU_LEVEL_CAP}.
+                    </p>
+                  )}
                   {!isPending && maxLevelCount > 1 && (
                     <div className="mb-3 rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
                       <label
