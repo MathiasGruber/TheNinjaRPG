@@ -1,4 +1,5 @@
 import { expect, it } from "bun:test";
+import { Transpiler } from "bun";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -18,7 +19,7 @@ const lifecycle = [
   sourceBetween("  useEffect(() => {\n    resultRef.current = result;", "\n\n  // Precompute maps"),
   sourceBetween("  useEffect(() => {\n    const wasActive = wasPageActiveRef.current;", "\n\n  // Departed players"),
 ].join("\n");
-const transpiler = new Bun.Transpiler({ loader: "ts" });
+const transpiler = new Transpiler({ loader: "ts" });
 const initialize = new Function("scope", `with (scope) { ${transpiler.transformSync(scheduler)}; return render; }`) as (scope: object) => () => void;
 const updateLifecycle = new Function("scope", `with (scope) { ${lifecycle} }`) as (scope: object) => void;
 
