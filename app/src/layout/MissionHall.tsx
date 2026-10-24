@@ -33,6 +33,7 @@ import {
   fallbackQuestsFilter,
   getMissionHallSettings,
   isReducedMissionReward,
+  missionHallStartBlockedMessage,
   questDailyQuota,
 } from "@/libs/quest";
 import { cn } from "@/libs/shadui";
@@ -202,10 +203,18 @@ export default function MissionHall({ userData }: MissionHallProps) {
     !!committedStart &&
     committedStart.context === activeContext &&
     !committedStartIsReflected;
+  // The server rejects starts while not awake; say why before a player taps a tile.
+  const startBlockedMessage = missionHallStartBlockedMessage(
+    "mission",
+    userData.status,
+  );
   // Mission/crime/medical/PvP/war starts are mutually exclusive on the server. Lock every start
   // entry point while one is pending or committed; leaving siblings active would invite a race.
   const isSpecificStartBlocked =
-    isPending || pendingQuestId !== null || hasUnrefreshedCommittedStart;
+    isPending ||
+    pendingQuestId !== null ||
+    hasUnrefreshedCommittedStart ||
+    !!startBlockedMessage;
 
   return (
     <>
@@ -231,6 +240,11 @@ export default function MissionHall({ userData }: MissionHallProps) {
             {PVP_MISSIONS_PER_DAY}] - War [{userData.dailyWarMissions ?? 0} /{" "}
             {WAR_MISSIONS_PER_DAY}]
           </p>
+          {startBlockedMessage && (
+            <p role="status" className="px-3 text-center font-semibold text-orange-500">
+              {startBlockedMessage}
+            </p>
+          )}
         </>
       )}
 
