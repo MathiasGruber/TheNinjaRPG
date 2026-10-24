@@ -120,6 +120,9 @@ Ordinary notifications, audio, Apple sign-in and purchases remain separate capab
 RevenueCat uses its StoreKit 1 fallback on iOS 15, so billing acceptance must identify
 the OS and StoreKit path rather than treating all supported versions as equivalent.
 
+The web bundle also targets Safari and iOS 15.4 through `app/package.json`'s Browserslist
+configuration, so client chunks do not retain unsupported class static blocks.
+
 ```bash
 bun run run:ios            # or `bun run open:ios` to drive it from Xcode
 bun run run:android
