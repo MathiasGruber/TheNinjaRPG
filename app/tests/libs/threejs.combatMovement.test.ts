@@ -10,6 +10,7 @@ import { AI_AVATAR_SPRITE, drawCombatUsers, resetCombatCaches } from "@/libs/thr
 
 let now = 0;
 let sequence = 0;
+const sprites = new Set<Sprite>();
 beforeEach(() => {
   now = 0;
   resetCombatCaches();
@@ -21,6 +22,8 @@ beforeEach(() => {
   vi.spyOn(TextureLoader.prototype, "load").mockReturnValue(atlas);
 });
 afterEach(() => {
+  for (const sprite of sprites) sprite.userData.disposeCharacterAnimation?.();
+  sprites.clear();
   vi.restoreAllMocks();
   resetCombatCaches();
 });
@@ -42,15 +45,16 @@ const fixture = (animated = true) => {
   const actor = new Group();
   actor.name = id;
   const sprite = new Sprite();
+  sprites.add(sprite);
   sprite.name = AI_AVATAR_SPRITE;
   sprite.userData = { avatarFacing: "left", avatarPath: `https://example.com/${id}.png`, mirrored: false };
   actor.add(sprite, createAggroHalo(20, 20, false));
   const group = new Group();
   group.add(actor);
   const battle = { usersState: [user], usersEffects: [] } as unknown as ReturnedBattle;
-  const draw = (ms: number) => {
+  const draw = (ms: number, users = [user]) => {
     now = ms;
-    return drawCombatUsers({ group_users: group, users: [user], usersEffects: [], grid,
+    return drawCombatUsers({ group_users: group, users, usersEffects: [], grid,
       playerId: "viewer", userData: { userId: "viewer" } as UserData, battle, sfxEnabled: false });
   };
   draw(0);
@@ -97,5 +101,15 @@ describe("combat walking playback", () => {
     for (let time = 25; time <= 250; time += 25) draw(time);
     expect(actor.position.x).toBe(-target.center.x);
     expect(actor.position.y).toBe(-target.center.y);
+  });
+  it("releases a removed actor's atlases and can initialize it again", () => {
+    const { actor, sprite, draw } = fixture();
+    expect(sprite.userData.characterAnimation.sources.size).toBeGreaterThan(0);
+    draw(100, []);
+    expect(actor.visible).toBe(false);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+    draw(200);
+    expect(actor.visible).toBe(true);
+    expect(sprite.userData.characterAnimation.sources.size).toBeGreaterThan(0);
   });
 });

@@ -89,6 +89,10 @@ export const spriteAnimationRouter = createTRPCRouter({
         return errorResponse("This AI does not have that action");
       if (input.animationId && !animation)
         return errorResponse("Sprite animation not found");
+      if (animation && !spriteAnimationSchema.safeParse(animation).success)
+        return errorResponse(
+          "This sheet exceeds the playback limits. Add a compact animation before assigning it.",
+        );
       // The binding changes in one atomic statement; concurrent staff edits are
       // last-write-wins and can be reapplied. Review versions hash the bindings,
       // so timestamp/audit writes need no cross-row transaction or locking read.

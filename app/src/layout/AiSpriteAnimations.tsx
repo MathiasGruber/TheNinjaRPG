@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumberInput } from "@/components/ui/number-input";
+import { SPRITE_ANIMATION_LIMITS } from "@/drizzle/constants";
 import ContentBox from "@/layout/ContentBox";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { showMutationToast } from "@/libs/toast";
@@ -201,9 +202,11 @@ export const AiSpriteAnimations = ({ userId }: { userId: string }) => {
           Add a sprite animation
         </summary>
         <p className="my-3 text-muted-foreground text-sm">
-          Upload a transparent PNG sprite sheet with equal square cells, read left to
-          right, then top to bottom. New sheets are kept in the library when assignments
-          change.
+          Upload a transparent sheet with equal square cells, read left to right, then
+          top to bottom. Use at most {SPRITE_ANIMATION_LIMITS.frames} frames,{" "}
+          {SPRITE_ANIMATION_LIMITS.cells} cells and {SPRITE_ANIMATION_LIMITS.seconds}{" "}
+          seconds per loop. Battles request 128- or 256-pixel cells to match the
+          displayed size. New sheets stay in the library when assignments change.
         </p>
         <form
           onSubmit={form.handleSubmit((values) => create.mutate(values))}

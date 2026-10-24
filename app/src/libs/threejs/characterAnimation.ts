@@ -6,7 +6,12 @@ import type {
   SpriteAnimationEvent,
 } from "@/libs/spriteAnimations";
 import { resolveSpriteAnimation, spriteAnimationFrame } from "@/libs/spriteAnimations";
-import { loadTexture } from "@/libs/threejs/util";
+import {
+  acquireAnimationTexture,
+  animationTextureUrl,
+  clearUnusedAnimationTextures,
+} from "@/libs/threejs/animationTextures";
+import { createSpriteMaterial, type loadTexture } from "@/libs/threejs/util";
 
 /**
  * Characters retain their existing Sprite while swapping sheets with different grids.
@@ -23,12 +28,20 @@ export const updateCharacterAnimation = (info: {
   facing: AvatarFacing;
   staticMap: Texture;
   now: number;
+  enabled?: boolean;
+  cellSize?: number;
   textureForPath?: typeof loadTexture;
 }) => {
   const { sprite, animations, event, moving, facing, staticMap, now } = info;
-  const textureForPath = info.textureForPath ?? loadTexture;
-  if (!animations || Object.keys(animations).length === 0) return;
   let runtime = sprite.userData.characterAnimation as AnimationRuntime | undefined;
+  if (info.enabled === false || !animations || Object.keys(animations).length === 0) {
+    if (runtime) {
+      sprite.userData.disposeCharacterAnimation();
+      sprite.material = createSpriteMaterial(staticMap);
+    }
+    if (info.enabled === false) clearUnusedAnimationTextures();
+    return;
+  }
   if (!runtime) {
     // A newly mounted scene starts idle instead of replaying an old persisted action.
     runtime = {
@@ -40,13 +53,18 @@ export const updateCharacterAnimation = (info: {
       startedAt: now,
       eventId: event?.id,
       events: [],
+      sources: new Map(),
     };
     sprite.userData.characterAnimation = runtime;
     const owned = runtime;
     sprite.userData.disposeCharacterAnimation = () => {
       owned.events.length = 0;
       if (owned.material.userData.ownsMap) owned.material.map?.dispose();
+      for (const source of owned.sources.values()) source.release();
+      owned.sources.clear();
       owned.material.dispose();
+      delete sprite.userData.characterAnimation;
+      delete sprite.userData.disposeCharacterAnimation;
     };
   }
   if (event && runtime.eventId !== event.id) {
@@ -68,26 +86,49 @@ export const updateCharacterAnimation = (info: {
   }
   // Travel can outlast several delivered actions. Start each assigned one-shot
   // in order after travel, so a later action or wait cannot erase an unseen cast.
-  if (!moving && actionEvent && runtime.eventStartedAt === undefined) {
-    runtime.eventStartedAt = now;
-  }
   const actionPlaying =
     action &&
-    runtime.eventStartedAt !== undefined &&
-    now - runtime.eventStartedAt < (action.frameCount / action.fps) * 1000;
+    (runtime.eventStartedAt === undefined ||
+      now - runtime.eventStartedAt < (action.frameCount / action.fps) * 1000);
   const key = moving
     ? "move"
     : actionPlaying
       ? (actionEvent?.actionKey ?? "idle")
       : "idle";
   let animation = resolveSpriteAnimation(animations, key);
+  const cellSize = info.cellSize ?? 128;
+  const needed = new Set<string>();
+  const textureForAnimation = (sheet: CharacterAnimation) => {
+    const url = animationTextureUrl(sheet, cellSize);
+    needed.add(url);
+    let source = runtime.sources.get(url);
+    if (!source) {
+      source = info.textureForPath
+        ? {
+            texture: info.textureForPath(sheet.url, sheet.columns * cellSize),
+            release: () => {},
+          }
+        : acquireAnimationTexture(sheet, cellSize);
+      if (source) runtime.sources.set(url, source);
+    }
+    return source?.texture;
+  };
   // Failed or still-loading action atlases also fall back through idle to the image.
-  let source = animation ? textureForPath(animation.url, 0) : undefined;
-  if (!source?.image) {
-    animation = animations.idle;
-    source = animation ? textureForPath(animation.url, 0) : undefined;
+  let source = animation ? textureForAnimation(animation) : undefined;
+  if (animation === action && (!source || source.userData.failed)) {
+    runtime.events.shift();
+    runtime.eventStartedAt = undefined;
   }
-  if (!animation || !source?.image) {
+  if (!source?.image || source.userData.failed) {
+    animation = animations.idle;
+    source = animation ? textureForAnimation(animation) : undefined;
+  }
+  for (const [url, lease] of runtime.sources) {
+    if (needed.has(url)) continue;
+    lease.release();
+    runtime.sources.delete(url);
+  }
+  if (!animation || !source?.image || source.userData.failed) {
     if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
     runtime.material.userData.ownsMap = false;
     if (runtime.material.map !== staticMap) {
@@ -95,11 +136,13 @@ export const updateCharacterAnimation = (info: {
       runtime.material.needsUpdate = true;
     }
     runtime.animationId = undefined;
+    runtime.sourceKey = undefined;
     runtime.stateKey = undefined;
     sprite.material = runtime.material;
     return;
   }
-  if (runtime.animationId !== animation.id) {
+  const sourceKey = animationTextureUrl(animation, cellSize);
+  if (runtime.sourceKey !== sourceKey) {
     if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
     const map = source.clone();
     map.generateMipmaps = false;
@@ -109,9 +152,13 @@ export const updateCharacterAnimation = (info: {
     runtime.material.userData.ownsMap = true;
     runtime.material.needsUpdate = true;
     runtime.animationId = animation.id;
+    runtime.sourceKey = sourceKey;
   }
   // Event identity restarts repeated casts even when they share the same atlas.
   const isActionAnimation = !moving && actionPlaying && animation === action;
+  // Network latency must not consume a one-shot's playback before its first frame.
+  if (isActionAnimation && runtime.eventStartedAt === undefined)
+    runtime.eventStartedAt = now;
   const stateKey = isActionAnimation ? actionEvent?.id : key;
   if (runtime.stateKey !== stateKey) {
     runtime.stateKey = stateKey;
@@ -148,6 +195,8 @@ export const applySpriteAnimationFrame = (
 type AnimationRuntime = {
   material: SpriteMaterial;
   animationId?: string;
+  sourceKey?: string;
+  sources: Map<string, { texture: Texture; release: () => void }>;
   stateKey?: string;
   startedAt: number;
   eventId?: string;

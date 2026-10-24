@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AvatarFacings } from "@/drizzle/constants";
+import { AvatarFacings, SPRITE_ANIMATION_LIMITS } from "@/drizzle/constants";
 
 /** Row-major sheets contain equally sized cells, with no gutters or padding. */
 export const spriteAnimationSchema = z
@@ -11,13 +11,21 @@ export const spriteAnimationSchema = z
       .refine((url) => /^https?:\/\//.test(url), "Use an HTTP image URL"),
     columns: z.coerce.number().int().min(1).max(32),
     rows: z.coerce.number().int().min(1).max(32),
-    frameCount: z.coerce.number().int().min(2).max(256),
+    frameCount: z.coerce.number().int().min(2).max(SPRITE_ANIMATION_LIMITS.frames),
     fps: z.coerce.number().min(1).max(60),
     facing: z.enum(AvatarFacings),
   })
   .refine((value) => value.frameCount <= value.columns * value.rows, {
     message: "Frame count exceeds the sheet grid",
     path: ["frameCount"],
+  })
+  .refine((value) => value.columns * value.rows <= SPRITE_ANIMATION_LIMITS.cells, {
+    message: `Use a compact sheet with at most ${SPRITE_ANIMATION_LIMITS.cells} cells`,
+    path: ["rows"],
+  })
+  .refine((value) => value.frameCount / value.fps <= SPRITE_ANIMATION_LIMITS.seconds, {
+    message: `Keep animation loops within ${SPRITE_ANIMATION_LIMITS.seconds} seconds`,
+    path: ["fps"],
   });
 
 /** Select an AI; the router also checks that it exists and that the caller can edit content. */

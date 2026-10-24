@@ -764,7 +764,7 @@ type AiAvatarData = {
  * columns, so a negative `scale.x` on a Sprite is silently ignored.
  */
 const aiAvatarMaterial = (avatarPath: string, mirrored: boolean) => {
-  const map = loadTexture(avatarPath, 50, mirrored);
+  const map = loadTexture(avatarPath, 128, mirrored);
   map.generateMipmaps = false;
   map.minFilter = LinearFilter;
   const material = createSpriteMaterial(map);
@@ -823,9 +823,6 @@ export const createUserSprite = (
     userData.isAi &&
     (userData.isOriginal || Object.keys(userData.spriteAnimations ?? {}).length > 0);
   if (noMarker) {
-    for (const animation of Object.values(userData.spriteAnimations ?? {})) {
-      loadTexture(animation.url, 0);
-    }
     const avatarPath = userData.avatar ? `${userData.avatar}?1=1` : IMG_AVATAR_DEFAULT;
     const sprite = new Sprite(aiAvatarMaterial(avatarPath, false));
     sprite.name = AI_AVATAR_SPRITE;
@@ -1241,6 +1238,8 @@ export const drawCombatUsers = (info: {
   sfxVolume?: number;
   gameAssets?: GameAsset[];
   aggro?: AggroDisplay;
+  animateCharacters?: boolean;
+  animationPixelRatio?: number;
 }): boolean => {
   const endMark = profiler.mark("drawCombatUsers");
 
@@ -1337,7 +1336,9 @@ export const drawCombatUsers = (info: {
         const targetTile: TerrainHex = hex;
         const meshData = getOrInitUserMeshData(userMesh, targetTile);
         computePathIfNeeded(meshData, pathFinder, targetTile);
-        const durationMs = getTileTravelMs(user.spriteAnimations?.move);
+        const durationMs = getTileTravelMs(
+          info.animateCharacters === false ? undefined : user.spriteAnimations?.move,
+        );
         const onTileStep = () => {
           if (info.sfxEnabled) {
             try {
@@ -1379,7 +1380,13 @@ export const drawCombatUsers = (info: {
                 ? "right"
                 : "left"
               : avatarData.avatarFacing,
-            staticMap: loadTexture(avatarData.avatarPath, 50, avatarData.mirrored),
+            staticMap: loadTexture(avatarData.avatarPath, 128, avatarData.mirrored),
+            enabled:
+              info.animateCharacters !== false && stillInBattle(user, usersEffects),
+            // 128 px covers typical mobile sprites; allow modest upsampling before
+            // upgrading for a large field/zoom, capped at 256 px on retina screens.
+            cellSize:
+              1.6 * hex.height * (info.animationPixelRatio ?? 1) > 192 ? 256 : 128,
             now,
           });
         }
@@ -1431,6 +1438,8 @@ export const drawCombatUsers = (info: {
   group_users.children.forEach((object) => {
     if (!drawnIds.has(object.name)) {
       object.visible = false;
+      // Unsummoned actors must release their pinned sheets before another spawn.
+      object.traverse((child) => child.userData.disposeCharacterAnimation?.());
       // PERFORMANCE: Remove from cache when hidden
       userMeshCache.delete(object.name);
     }

@@ -114,4 +114,44 @@ describe("AI sprite animation selection", () => {
     expect(spriteAnimationSchema.safeParse({ ...idle, frameCount: 25 }).success).toBe(false);
     expect(spriteAnimationSchema.safeParse(idle).success).toBe(true);
   });
+  it("loads only idle initially, and skips all sheets when animations are disabled", () => {
+    const sprite = new Sprite(); const fetch = () => loaded();
+    const urls: string[] = [];
+    const base = { sprite, animations: { idle, move, "jutsu:fire": attack }, event: undefined,
+      moving: false, facing: "left" as const, staticMap: loaded(), now: 0,
+      textureForPath: (url: string) => { urls.push(url); return fetch(); } };
+    updateCharacterAnimation({ ...base, enabled: false });
+    expect(urls).toEqual([]);
+    updateCharacterAnimation(base);
+    expect(urls).toEqual([idle.url]);
+    updateCharacterAnimation({ ...base, moving: true, now: 100 });
+    expect(urls).toEqual([idle.url, move.url]);
+    updateCharacterAnimation({ ...base, enabled: false, now: 200 });
+    expect(sprite.material.map).toBe(base.staticMap);
+    expect(sprite.userData.characterAnimation).toBeUndefined();
+    updateCharacterAnimation({ ...base, enabled: false, now: 300 });
+    expect(urls).toHaveLength(2);
+  });
+  it("starts a lazy action when loaded, and advances past failures to the next action", () => {
+    const pending = new Texture(); const bad = new Texture(); bad.userData.failed = true;
+    const sprite = new Sprite();
+    const base = { sprite, animations: { idle, "jutsu:fire": attack, "jutsu:bad": { ...attack, id: "bad", url: "bad" } },
+      moving: false, facing: "left" as const, staticMap: loaded(),
+      textureForPath: (url: string) => url === attack.url ? pending : url === "bad" ? bad : loaded() };
+    updateCharacterAnimation({ ...base, event: undefined, now: 0 });
+    updateCharacterAnimation({ ...base, event: { id: "bad", actionKey: "jutsu:bad" }, now: 100 });
+    updateCharacterAnimation({ ...base, event: { id: "good", actionKey: "jutsu:fire" }, now: 200 });
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBeUndefined();
+    pending.image = loaded().image;
+    updateCharacterAnimation({ ...base, event: { id: "good", actionKey: "jutsu:fire" }, now: 5000 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("attack");
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBe(5000);
+    updateCharacterAnimation({ ...base, event: undefined, now: 6000 });
+    expect(sprite.userData.characterAnimation.animationId).toBe("idle");
+  });
+  it("rejects excessive frame counts, padded grids and long loops", () => {
+    expect(spriteAnimationSchema.safeParse({ ...idle, columns: 8, rows: 9, frameCount: 65 }).success).toBe(false);
+    expect(spriteAnimationSchema.safeParse({ ...idle, columns: 9, rows: 9 }).success).toBe(false);
+    expect(spriteAnimationSchema.safeParse({ ...idle, fps: 1 }).success).toBe(false);
+  });
 });
