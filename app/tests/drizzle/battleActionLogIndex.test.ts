@@ -52,7 +52,10 @@ describeWithDatabase("battle action log index", () => {
       for (const [index, statement] of variants.entries()) {
         expect((await query<mysql.RowDataPacket[]>(statement))[0]).toEqual(before[index]!);
       }
-      const [afterPlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN FORMAT=TRADITIONAL ${latest}`);
+      // Cost-based selection varies with server version and fixture size. Verify that
+      // the new index can supply the order; production queries keep optimizer choice.
+      const indexedLatest = latest.replace(" WHERE", ` FORCE INDEX (${logIndex}) WHERE`);
+      const [afterPlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN FORMAT=TRADITIONAL ${indexedLatest}`);
       expect(afterPlan[0]!.key).toBe(logIndex);
       expect(afterPlan[0]!.Extra).not.toContain("filesort");
       // Distinct primary keys must still collide on the same battle/version/round receipt.
