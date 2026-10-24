@@ -973,6 +973,7 @@ const LookupTransaction = () => {
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.paypal.getRecentRepsCount.invalidate(),
           utils.paypal.getPaypalTransactions.invalidate(),
+          utils.paypal.getStoreBundles.invalidate(),
         ]);
       }
     },
