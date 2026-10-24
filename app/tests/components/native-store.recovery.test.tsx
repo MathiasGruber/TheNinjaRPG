@@ -437,6 +437,42 @@ describe("NativeStore purchase recovery", () => {
     );
   });
 
+  it.each(["sheet-open", "charged-or-pending"] as const)(
+    "settles a %s consumable from RevenueCat history without confusing its id with Apple's",
+    async (phase) => {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify([{
+        accountId: "player-1",
+        attempt: {
+          productId: "tnr_reps_tier1",
+          baselineReceiptIds: ["old-receipt"],
+          baselineNativeTransactionIds: ["old-rc-id"],
+          phase,
+          ...(phase === "charged-or-pending" ? { transactionId: "new-rc-id" } : {}),
+          startedAt: "2026-09-01T12:00:00.000Z",
+        },
+      }]));
+      testMocks().syncCustomerInfo.mockResolvedValue({
+        activeEntitlements: [], activeSubscriptions: [], originalAppUserId: "player-1",
+        transactions: [{ transactionId: "new-rc-id", productId: "tnr_reps_tier1" }],
+      });
+      const receipt = {
+        id: "new-receipt", productId: "tnr_reps_tier1", transactionId: "apple-store-id",
+        acceptedAt: new Date(), grantedAt: new Date(), revokedAt: null,
+        expiresAt: null, createdAt: new Date(),
+      };
+      testMocks().fetchRecent.mockImplementation(async (input) => {
+        const filter = input as { transactionId?: string };
+        return filter.transactionId && filter.transactionId !== receipt.transactionId ? [] : [receipt];
+      });
+      const view = render(<NativeStore />);
+      await waitFor(() => expect(JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]")).toEqual([]));
+      expect(testMocks().invalidateProfile).toHaveBeenCalled();
+      expect(view.queryByRole("button", { name: "Retry verification" })).toBeNull();
+      expect((await view.findByRole("button", { name: "Buy" }) as HTMLButtonElement).disabled).toBe(false);
+      expect(testMocks().purchase).not.toHaveBeenCalled();
+    },
+  );
+
   it("safely abandons a killed sheet only after synced history shows no charge", async () => {
     window.localStorage.setItem(
       STORAGE_KEY,

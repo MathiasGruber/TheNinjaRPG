@@ -38,7 +38,13 @@ describe("RevenueCat identity queue", () => {
                 entitlements: { active: {} },
                 activeSubscriptions: [],
                 originalAppUserId: "player-a",
-                nonSubscriptionTransactions: [],
+                nonSubscriptionTransactions: [{
+                  transactionIdentifier: "rc-history-id",
+                  productIdentifier: "tnr_reps_tier1",
+                }],
+                subscriptionsByProductIdentifier: {
+                  tnr_federal_normal: { storeTransactionId: "apple-subscription-id" },
+                },
               },
             };
           },
@@ -68,6 +74,10 @@ describe("RevenueCat identity queue", () => {
     );
 
     expect(result.outcome.status).toBe("cancelled");
+    expect(result.customerInfo.transactions).toEqual([
+      { transactionId: "rc-history-id", productId: "tnr_reps_tier1", transactionIdSource: "revenuecat" },
+      { transactionId: "apple-subscription-id", productId: "tnr_federal_normal", transactionIdSource: "store" },
+    ]);
     expect(events).toEqual(["invalidate", "customer-info", "prepare", "purchase"]);
     expect(syncPurchases).not.toHaveBeenCalled();
   });
