@@ -457,6 +457,11 @@ export const battleAction = mysqlTable(
       ),
       createdAtIdx: index("BattleAction_createdAt_idx").on(table.createdAt),
       battleIdIdx: index("BattleAction_battleId_idx").on(table.battleId),
+      battleIdRoundVersionIdx: index("BattleAction_battleId_battleRound_battleVersion_idx").on(
+        table.battleId,
+        table.battleRound,
+        table.battleVersion,
+      ),
       updatedAtBattleIdIdx: index("BattleAction_updatedAt_battleId_idx").on(
         table.updatedAt,
         table.battleId,
