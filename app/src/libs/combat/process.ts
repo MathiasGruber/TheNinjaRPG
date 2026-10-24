@@ -1353,10 +1353,6 @@ export const applySingleEffect = (
   // Get the round information for the effect
   const { startRound, curRound } = calcEffectRoundInfo(effect, battle);
   effect.castThisRound = startRound === curRound;
-  // Fetch any active sealing effects
-  const sealEffects = usersEffects.filter(
-    (e) => e.type === "seal" && !e.isNew && isEffectActive(e),
-  );
   // Bookkeeping
   let longitude: number | undefined;
   let latitude: number | undefined;
@@ -1390,7 +1386,9 @@ export const applySingleEffect = (
     // Get the user && effect details
     const curTarget = usersState.find((u) => u.userId === effect.targetId);
     const newTarget = newUsersState.find((u) => u.userId === effect.targetId);
-    const isSealed = sealCheck(effect, sealEffects);
+    const isSealed =
+      effect.fromType === "bloodline" &&
+      sealCheck(effect, getActiveSealEffects(usersEffects));
     const isTargetOrNew = effect.targetId === actorId || effect.isNew;
     if (curUser && newUser && curTarget && newTarget && !isSealed) {
       appliedEffects.add(idx);
@@ -1400,13 +1398,15 @@ export const applySingleEffect = (
       // Figure if tag should be applied
       const ratio = calcApplyRatio(effect, battle, effect.targetId, isTargetOrNew);
       if (ratio > 0) {
-        // Prefer resolved effects so newly activated Sage protections apply immediately.
-        // Retain unprocessed originals so seals are visible regardless of effect order.
-        const resolvedEffectIds = new Set(newUsersEffects.map((e) => e.id));
-        const preventionEffects = [
-          ...newUsersEffects,
-          ...usersEffects.filter((e) => !resolvedEffectIds.has(e.id)),
-        ];
+        // Build only for handlers that check prevention, using the current resolution state.
+        // Prefer resolved Sage protections and retain unprocessed originals for seal checks.
+        const getPreventionEffects = () => {
+          const resolvedEffectIds = new Set(newUsersEffects.map((e) => e.id));
+          return [
+            ...newUsersEffects,
+            ...usersEffects.filter((e) => !resolvedEffectIds.has(e.id)),
+          ];
+        };
         // Record the APPLIED (resolved, ratio>0) tag type for the tag_usage_win tracker.
         // The damage-modifier loop in applyEffects records the same way past its preventInfo
         // guard, so both write sites share recordUsedTag's single definition of "applied".
@@ -1434,13 +1434,13 @@ export const applySingleEffect = (
               config,
             );
           } else if (effect.type === "heal" && isTargetOrNew) {
-            info = heal(effect, preventionEffects, curTarget, consequences, ratio);
+            info = heal(effect, getPreventionEffects(), curTarget, consequences, ratio);
           } else if (
             effect.type === "flee" &&
             isTargetOrNew &&
             !battle.extraState.dungeon
           ) {
-            info = flee(effect, preventionEffects, newTarget);
+            info = flee(effect, getPreventionEffects(), newTarget);
           } else if (effect.type === "increasepoolcost" && isTargetOrNew) {
             info = increasepoolcost(effect, curTarget);
           } else if (effect.type === "decreasepoolcost" && isTargetOrNew) {
@@ -1462,7 +1462,7 @@ export const applySingleEffect = (
             info = adjustAggro(effect, usersEffects, newTarget);
           } else if (effect.type === "onehitkill") {
             const healthBefore = newTarget.curHealth;
-            info = onehitkill(effect, preventionEffects, newTarget);
+            info = onehitkill(effect, getPreventionEffects(), newTarget);
             creditDamageEnmity(
               newUser,
               newTarget,
@@ -1472,15 +1472,15 @@ export const applySingleEffect = (
           } else if (effect.type === "rob") {
             info = rob(
               effect,
-              preventionEffects,
+              getPreventionEffects(),
               newUser,
               newTarget,
               battle.battleType,
             );
           } else if (effect.type === "seal") {
-            info = seal(effect, preventionEffects, curTarget);
+            info = seal(effect, getPreventionEffects(), curTarget);
           } else if (effect.type === "stun") {
-            info = stun(effect, preventionEffects, curTarget);
+            info = stun(effect, getPreventionEffects(), curTarget);
           } else if (effect.type === "wound") {
             info = wound(effect, usersEffects, consequences, curTarget);
           }
@@ -1496,15 +1496,15 @@ export const applySingleEffect = (
             curTarget,
           );
           if (timedEffect)
-            info = increaseStats(timedEffect, preventionEffects, curTarget);
+            info = increaseStats(timedEffect, getPreventionEffects(), curTarget);
         } else if (effect.type === "increasemastery") {
-          info = increaseMastery(effect, preventionEffects, newTarget);
+          info = increaseMastery(effect, getPreventionEffects(), newTarget);
         } else if (effect.type === "decreasemastery") {
-          info = decreaseMastery(effect, preventionEffects, newTarget);
+          info = decreaseMastery(effect, getPreventionEffects(), newTarget);
         } else if (effect.type === "increasemaxpools") {
-          info = increaseMaxPools(effect, preventionEffects, newTarget);
+          info = increaseMaxPools(effect, getPreventionEffects(), newTarget);
         } else if (effect.type === "decreasemaxpools") {
-          info = decreaseMaxPools(effect, preventionEffects, newTarget);
+          info = decreaseMaxPools(effect, getPreventionEffects(), newTarget);
         } else if (effect.type === "increasecooldown") {
           info = increaseCooldown(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasecooldown") {
@@ -1512,7 +1512,7 @@ export const applySingleEffect = (
         } else if (effect.type === "increaserange") {
           info = increaseRange(effect, usersEffects, curTarget);
         } else if (effect.type === "decreasestat") {
-          info = decreaseStats(effect, preventionEffects, curTarget);
+          info = decreaseStats(effect, getPreventionEffects(), curTarget);
         } else if (effect.type === "increasedamagetaken") {
           info = increaseDamageTaken(effect, usersEffects, consequences, curTarget);
         } else if (effect.type === "decreasedamagetaken") {
