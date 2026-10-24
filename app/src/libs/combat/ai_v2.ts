@@ -70,8 +70,22 @@ export const performAIaction = (
   // Next action bookkeeping
   let nextAction: ActionWithTarget | undefined;
 
-  // Path finder on grid in path lines
-  let astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
+  // Rule sets that only inspect pools or end the turn need no paths.
+  let astar: PathCalculator | undefined;
+  const getAstar = () =>
+    (astar ??= new PathCalculator(updateGridWithObstacles(grid, nextBattle)));
+  let hasActionGrid = false;
+  const getActionAstar = () => {
+    if (!hasActionGrid) {
+      resetGridFromObstacles(grid);
+      astar = undefined;
+      hasActionGrid = true;
+    }
+    return getAstar();
+  };
+  const hasBarriers = nextBattle.groundEffects.some(
+    (effect) => effect.type === "barrier",
+  );
 
   // Find the AI user
   const user = aiUsers.find((user) => user.userId === aiUserId);
@@ -107,28 +121,38 @@ export const performAIaction = (
     // Prepare living combatants once from the state after earlier actions.
     const combatants = nextBattle.usersState
       .filter((u) => stillInBattle(u, nextBattle.usersEffects))
-      .map((u) => mapDistancesToTarget(grid, astar, u, origin));
+      .map((u) => ({ ...u, hex: findHex(grid, u) }));
     const enemies = combatants.filter((u) => !areBattleAllies(u, user));
     const allies = combatants.filter((u) => areBattleAllies(u, user));
     // Derived for convenience
     const userWithDistance = { ...user, path: undefined, distance: 0 };
     const randomEnemy = enemies[Math.floor(Math.random() * enemies.length)];
+    const randomAlly = allies[Math.floor(Math.random() * allies.length)];
+    const distances = new Map<TerrainHex, number>();
+    const getDistance = (target: { hex?: TerrainHex; distance?: number }) => {
+      if (target.distance !== undefined) return target.distance;
+      if (!origin || !target.hex) return 0;
+      const cached = distances.get(target.hex);
+      if (cached !== undefined) return cached;
+      const distance = getAstar().getShortestPath(origin, target.hex)?.length ?? 0;
+      distances.set(target.hex, distance);
+      return distance;
+    };
     // Length-guarded rather than bare reduces: a turn still routes through here
     // once the last opponent has fallen -- the caller settles the battle on the
     // same tick -- and reducing the now-empty list would throw instead. The
     // targeting below already treats a missing closest-* as "no target", the
     // same way it treats the random-* picks.
-    const closestEnemy = enemies.length
-      ? enemies.reduce((prev, current) =>
-          prev.distance < current.distance ? prev : current,
-        )
-      : undefined;
-    const randomAlly = allies[Math.floor(Math.random() * allies.length)];
-    const closestAlly = allies.length
-      ? allies.reduce((prev, current) =>
-          prev.distance < current.distance ? prev : current,
-        )
-      : undefined;
+    const closestTarget = (candidates: typeof combatants) =>
+      candidates.length
+        ? candidates.reduce((prev, current) =>
+            getDistance(prev) < getDistance(current) ? prev : current,
+          )
+        : undefined;
+    let closestEnemy: (typeof enemies)[number] | undefined;
+    let closestAlly: (typeof allies)[number] | undefined;
+    const getClosestEnemy = () => (closestEnemy ??= closestTarget(enemies));
+    const getClosestAlly = () => (closestAlly ??= closestTarget(allies));
     const metricTarget = (
       candidates: typeof allies,
       metric: "current" | "max" | "enmity",
@@ -150,13 +174,27 @@ export const performAIaction = (
           ? candidate
           : best;
       }, undefined);
-    // Get barriers between user and closest enemy
-    astar = new PathCalculator(resetGridFromObstacles(grid));
-    const tHex = closestEnemy ? findHex(grid, closestEnemy) : undefined;
-    const barriers = getBarriers(astar, nextBattle.groundEffects, origin, tHex).map(
-      (b) => mapDistancesToTarget(grid, astar, b, origin),
-    );
-    astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
+    let barriers: ReturnType<typeof mapDistancesToTarget<GroundEffect>>[] | undefined;
+    const getBlockingBarriers = () => {
+      if (barriers) return barriers;
+      if (!hasBarriers) {
+        barriers = [];
+        return barriers;
+      }
+      const targetHex = getClosestEnemy()?.hex;
+      const clearAstar = new PathCalculator(resetGridFromObstacles(grid));
+      barriers = getBarriers(
+        clearAstar,
+        nextBattle.groundEffects,
+        origin,
+        targetHex,
+      ).map((barrier) => mapDistancesToTarget(grid, clearAstar, barrier, origin));
+      // Calculators snapshot both paths and a cost-based heuristic. Rebuild after
+      // changing costs; barrier distances above deliberately use the cleared grid.
+      astar = new PathCalculator(updateGridWithObstacles(grid, nextBattle));
+      hasActionGrid = true;
+      return barriers;
+    };
 
     // Get AI profile from static data - clone to avoid mutating the shared reference.
     // A summon whose profile is missing from extraState (e.g. a template loaded by
@@ -201,7 +239,11 @@ export const performAIaction = (
 
     // Convenience for getting path to target
     const getPath = (origin?: TerrainHex, target?: { hex?: TerrainHex }) => {
-      return origin && target?.hex && astar.getShortestPath(origin, target.hex);
+      // Movement uses the normalized combat costs, after distance-based rule
+      // selection. A new calculator is required whenever costs are lowered.
+      return (
+        origin && target?.hex && getActionAstar().getShortestPath(origin, target.hex)
+      );
     };
 
     // Convenience for getting targetable tiles
@@ -212,7 +254,7 @@ export const performAIaction = (
     ) => {
       if (!origin) return undefined;
       if (!action) return undefined;
-      const targetHex = nearestSelf ? origin : closestEnemy?.hex;
+      const targetHex = nearestSelf ? origin : getClosestEnemy()?.hex;
       if (!targetHex) return undefined;
       const f = spiral<TerrainHex>({
         start: [origin.q, origin.r],
@@ -248,16 +290,16 @@ export const performAIaction = (
             return undefined;
           const hex = grid.getHex({ col: longitude, row: latitude });
           if (!hex) return undefined;
-          return mapDistancesToTarget(grid, astar, { longitude, latitude }, origin);
+          return { longitude, latitude, hex };
         }
         case "RANDOM_OPPONENT":
           return randomEnemy;
         case "CLOSEST_OPPONENT":
-          return closestEnemy;
+          return getClosestEnemy();
         case "RANDOM_ALLY":
           return randomAlly;
         case "CLOSEST_ALLY":
-          return closestAlly;
+          return getClosestAlly();
         case "HIGHEST_ENMITY_OPPONENT":
         case "LOWEST_ENMITY_OPPONENT":
           return metricTarget(
@@ -274,7 +316,7 @@ export const performAIaction = (
         case "LOWEST_MAX_HEALTH_ALLY":
           return metricTarget(allies, "max", false);
         case "BARRIER_BLOCKING_CLOSEST_OPPONENT":
-          return barriers[0];
+          return getBlockingBarriers()[0];
         case "SELF":
           return userWithDistance;
         case "EMPTY_GROUND_CLOSEST_TO_OPPONENT":
@@ -313,9 +355,9 @@ export const performAIaction = (
             return (curHealth / maxHealth) * 100 < condition.value;
           }
           case "distance_higher_than":
-            return target ? target.distance >= condition.value : false;
+            return target ? getDistance(target) >= condition.value : false;
           case "distance_lower_than":
-            return target ? target.distance <= condition.value : false;
+            return target ? getDistance(target) <= condition.value : false;
           case "player_within_range":
           case "summon_within_range":
             return (
@@ -495,6 +537,9 @@ export const performAIaction = (
       /** ************************ */
       if (nextAction) {
         const check = actionPointsAfterAction(user, nextBattle, nextAction?.action);
+        // Action insertion uses the weighted grid to determine barrier interception,
+        // even when the selected rule itself needed no paths.
+        if (hasBarriers) getActionAstar();
         const result = attemptBattleAction({
           battle: returnBattle,
           action: nextAction.action,
