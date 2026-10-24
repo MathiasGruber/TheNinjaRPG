@@ -3385,22 +3385,19 @@ export const initiateBattle = async (
     }
   }
 
-  // Identify COMBAT attackers engaging war enemies — stamp them as war participants for 2 hours
-  // inside the main userData update below. Covers attacking enemy village members and their war allies.
+  // Identify COMBAT aggressors against preloaded human war enemies, including enemy war allies.
+  // Stamp participation in the guarded battle-start update so the claim and timer are atomic.
   const warAggressorIds =
     battleType === "COMBAT"
       ? userIds.filter((uid) => {
           const attacker = users.find((u) => u.userId === uid);
-          return targetIds.some((tid) => {
-            const target = users.find((u) => u.userId === tid);
-            return (
-              !!attacker &&
-              !!target &&
-              !attacker.isAi &&
-              !target.isAi &&
-              getWarRelationship(activeWars, attacker, target) === "ENEMY"
-            );
-          });
+          return (
+            !!attacker &&
+            !attacker.isAi &&
+            nonAiTargets.some(
+              (target) => getWarRelationship(activeWars, attacker, target) === "ENEMY",
+            )
+          );
         })
       : battleType === "SHRINE_WAR"
         ? userIds
