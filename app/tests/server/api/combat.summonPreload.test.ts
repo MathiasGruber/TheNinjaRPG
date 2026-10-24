@@ -126,6 +126,20 @@ describe("summon template preparation scope", () => {
     await prepare(client, ["parent"], cache);
     expect(reads).toEqual([["parent"], ["child"]]);
   });
+
+  it("retains cached database order while selecting only the current wave's templates", async () => {
+    const { client, reads } = database([participant("b"), participant("a")]);
+    const cache: TemplateCache = new Map();
+    const first = await prepare(client, ["a", "b", "absent"], cache);
+    const repeated = await prepare(client, ["a", "b"], cache);
+    const subset = await prepare(client, ["a"], cache);
+    const absent = await prepare(client, ["absent"], cache);
+    expect(reads).toEqual([["a", "b", "absent"]]);
+    expect(first.usersState.map((user) => user.controllerId)).toEqual(["caster", "b", "a"]);
+    expect(repeated.usersState.map((user) => user.controllerId)).toEqual(["caster", "b", "a"]);
+    expect(subset.usersState.map((user) => user.controllerId)).toEqual(["caster", "a"]);
+    expect(absent.usersState.map((user) => user.controllerId)).toEqual(["caster"]);
+  });
 });
 
 describeWithDatabase("initiated wave summon preloads", () => {
