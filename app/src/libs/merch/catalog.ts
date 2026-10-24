@@ -12,6 +12,12 @@ export const findMerchDesign = (title: string, tags: string[] = []) =>
   MERCH_DESIGNS.find((d) => tags.includes(`design:${d.key}`)) ??
   MERCH_DESIGNS.find((d) => title.toLowerCase().includes(d.name.toLowerCase()));
 
+export const merchDescriptionLead = (description: string) => {
+  // Keep the sentence-ending punctuation without requiring RegExp lookbehind on iOS 15.
+  const boundary = description.search(/[.!?]\s/);
+  return boundary < 0 ? description : description.slice(0, boundary + 1);
+};
+
 export const formatMerchMoney = (money: MerchMoney | null) =>
   money
     ? new Intl.NumberFormat("en-US", {

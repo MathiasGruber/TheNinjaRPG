@@ -1,5 +1,5 @@
 import { merchProductSchema } from "@/validators/merch";
-import { getMerchDesign } from "./catalog";
+import { getMerchDesign, merchDescriptionLead } from "./catalog";
 import mockups from "./preview-catalog.json";
 
 /** Development selections are review options, not a live stock or sizing guarantee. */
@@ -24,7 +24,7 @@ export function createMerchPreviewCatalog() {
       designName: design.name,
       category: design.category,
       kind: mockup.kind,
-      description: design.graphic.split(/(?<=[.!?])\s+/)[0],
+      description: merchDescriptionLead(design.graphic),
       images: [{ url: mockup.image, alt: `${design.name} on ${mockup.kind}` }],
       options: [
         { name: "Color", values: [colour] },
