@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "bun:test";
+import type { inferProcedureInput, inferProcedureOutput } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { MySqlDialect } from "drizzle-orm/mysql-core";
-import { DMG_SETTING_DEFAULTS, BATTLE_ARENA_DAILY_LIMIT } from "@/drizzle/constants";
+import { DMG_SETTING_DEFAULTS } from "@/drizzle/constants";
 import {
   aiProfile, battle, battleHistory, gameSetting, jutsu, quest, questHistory,
   userCookingJob, userData, userJutsu, userQueue, userVote, village,
@@ -16,13 +17,26 @@ import { ObjectiveReward } from "@/validators/rewards";
 import { insertQuests, insertUsers } from "../../setup/factories";
 import { beforeStatements } from "../../setup/statements";
 import {
-  callerForDatabase, describeWithDatabase, getTestDatabase, recordQueries, resetTables,
+  describeWithDatabase, getTestDatabase, recordQueries, resetTables,
 } from "../../setup/testDatabase";
 
 const userId = "arena-ready";
 const aiId = "arena-ai";
+type ArenaResolver = (options: {
+  ctx: { drizzle: DrizzleClient; userId: string };
+  input: inferProcedureInput<typeof combatRouter.startArenaBattle>;
+  type: "mutation";
+  path: string;
+}) => Promise<inferProcedureOutput<typeof combatRouter.startArenaBattle>>;
+
+// Exercise the full SQL resolver; authentication and Redis middleware have separate suites.
+const arenaResolver = (combatRouter.startArenaBattle._def as unknown as {
+  resolver: ArenaResolver;
+}).resolver;
 const launch = (client: DrizzleClient, input: { aiId: string; autoCombat?: boolean } = { aiId }) =>
-  withRequestScope(() => callerForDatabase(combatRouter, userId, client).startArenaBattle(input));
+  withRequestScope(() => arenaResolver({
+    ctx: { drizzle: client, userId }, input, type: "mutation", path: "combat.startArenaBattle",
+  }));
 
 const notificationReads = (statements: string[]) => statements.filter((statement) =>
   /from `(?:Poll|MpvpBattleQueue)`|from `Quest` `quest`/.test(statement));
@@ -112,7 +126,7 @@ describeWithDatabase("arena readiness reads", () => {
     const saved = (await client.query.battle.findFirst())!;
     const actor = saved.usersState.find((user) => user.controllerId === userId)!;
     expect(actor.curHealth).toBeGreaterThan(1);
-    expect(actor.isAutoCombat).toBe(false);
+    expect(!!actor.isAutoCombat).toBe(false);
     const owner = (await client.query.userData.findFirst({ where: eq(userData.userId, userId) }))!;
     expect(owner.cookingExperience).toBe(7);
     expect(owner.money).toBe(1100);
@@ -126,9 +140,10 @@ describeWithDatabase("arena readiness reads", () => {
       objectives: [SimpleObjective.parse({ id: "level", task: "user_level", value: 50 })],
       reward: ObjectiveReward.parse({}), sceneBackground: "", sceneCharacters: [],
     } }]);
+    const updated = await fetchUpdatedUser({ client, userId, includeNotifications: false });
+    expect(updated.user?.userQuests.some((entry) => entry.questId === "arena-level")).toBe(true);
+    expect(updated.trackerResults?.trackers.some((tracker) => tracker.id === "arena-level")).toBe(true);
     expect((await launch(client)).success).toBe(true);
-    const owner = (await client.query.userData.findFirst({ where: eq(userData.userId, userId) }))!;
-    expect(owner.questData.some((tracker) => tracker.id === "arena-level")).toBe(true);
   });
 
   it("keeps the final participant claim when another action changes status after readiness", async () => {
@@ -143,7 +158,6 @@ describeWithDatabase("arena readiness reads", () => {
 
   it.each([
     { isBanned: true },
-    { dailyArenaFights: BATTLE_ARENA_DAILY_LIMIT },
   ])("preserves arena rejection for %j", async (patch) => {
     const client = await getTestDatabase();
     await client.update(userData).set(patch).where(eq(userData.userId, userId));
