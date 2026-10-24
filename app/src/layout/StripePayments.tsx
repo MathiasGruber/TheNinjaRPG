@@ -296,12 +296,29 @@ export const StripeSubscriptions = () => {
       {subscriptions.data.map((subscription) => (
         <div className="my-2 rounded border p-3" key={subscription.checkoutId}>
           <p>
-            {subscription.federalStatus} — {subscription.status}
+            {subscription.federalStatus} —{" "}
+            {subscription.status === "unavailable"
+              ? "Status unavailable"
+              : subscription.status}
             {subscription.cancelAtPeriodEnd ? " (renewal cancelled)" : ""}
           </p>
           <p className="text-xs">
             Recipient: {subscription.recipientUsername ?? "Deleted character"}
           </p>
+          {subscription.status === "unavailable" && (
+            <p role="alert" className="text-xs">
+              Renewal status could not be checked. You can still try cancelling below.{" "}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                disabled={subscriptions.isFetching}
+                onClick={() => void subscriptions.refetch()}
+              >
+                Retry
+              </Button>
+            </p>
+          )}
           {!subscription.cancelAtPeriodEnd &&
             !["canceled", "incomplete_expired"].includes(subscription.status) && (
               <Button

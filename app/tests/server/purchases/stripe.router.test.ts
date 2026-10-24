@@ -37,6 +37,22 @@ describeWithDatabase("Stripe router guards and durable checkout terms", () => {
     vi.spyOn(stripeClient, "getStripe").mockReturnValue(api);
   });
   afterEach(() => { vi.restoreAllMocks(); Object.assign(env, original); });
+  it("keeps healthy subscriptions and unavailable rows manageable after an isolated lookup failure", async () => {
+    const db = await getTestDatabase();
+    await db.insert(stripeCheckout).values(["healthy", "unavailable"].map(id => ({ id, createdById: BUYER, affectedUserId: RECIPIENT, amountCents: 1500, federalStatus: "GOLD" as const, subscriptionId: `sub_${id}` })));
+    const lookup = vi.spyOn(api.subscriptions, "retrieve").mockImplementation((async (id: string) => {
+      if (id === "sub_unavailable") throw new Error("Stripe rate limited this lookup");
+      return { status: "active", cancel_at_period_end: false };
+    }) as never);
+    const caller = await callerFor(stripeRouter, BUYER);
+    expect(await caller.getSubscriptions()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ checkoutId: "healthy", status: "active", cancelAtPeriodEnd: false }),
+      expect.objectContaining({ checkoutId: "unavailable", status: "unavailable", cancelAtPeriodEnd: false }),
+    ]));
+    lookup.mockResolvedValue({ status: "active", cancel_at_period_end: false } as never);
+    expect((await caller.getSubscriptions()).every(row => row.status === "active")).toBe(true);
+    expect((await caller.cancelSubscription({ checkoutId: "unavailable" })).success).toBe(true);
+  });
   it("creates server-priced inclusive USD checkout with Stripe as merchant of record", async () => {
     const caller = await callerFor(stripeRouter, BUYER);
     const purchase = input();

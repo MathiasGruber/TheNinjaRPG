@@ -13,6 +13,7 @@ import {
   STRIPE_CHECKOUT_RESERVATION_SECONDS,
   STRIPE_CHECKOUT_RETRY_SECONDS,
 } from "@/server/utils/purchases/allowance";
+import { logError } from "@/server/utils/sentry";
 import {
   getStripe,
   isStripeConfigured,
@@ -391,17 +392,24 @@ export const stripeRouter = createTRPCRouter({
     const stripe = getStripe();
     return Promise.all(
       checkouts.map(async ({ checkout, recipientUsername }) => {
-        const subscription = await stripe.subscriptions.retrieve(
-          checkout.subscriptionId as string,
-        );
+        // One missing or rate-limited object must not hide healthy renewal controls.
+        // Keep the failed row visible as unknown so its own retry/cancellation stays available.
+        const subscription = await stripe.subscriptions
+          .retrieve(checkout.subscriptionId as string)
+          .catch((error: unknown) => {
+            logError(error, "Could not load Stripe subscription", {
+              checkoutId: checkout.id,
+            });
+            return null;
+          });
         return {
           checkoutId: checkout.id,
           federalStatus: checkout.federalStatus,
           affectedUserId: checkout.affectedUserId,
           recipientUsername,
           createdById: checkout.createdById,
-          status: subscription.status,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          status: subscription?.status ?? "unavailable",
+          cancelAtPeriodEnd: subscription?.cancel_at_period_end ?? false,
         };
       }),
     );

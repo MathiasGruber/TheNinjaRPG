@@ -1022,7 +1022,13 @@ export const getPaypalSubscription = async (subscriptionId: string, token: strin
       },
     },
   )
-    .then((response) => (response.ok ? response.json() : undefined))
+    .then((response) => {
+      if (response.status === 404) return undefined;
+      // An outage is not proof that paid support ended; leave reconciliation retryable.
+      if (!response.ok)
+        throw new Error(`PayPal subscription lookup failed (${response.status})`);
+      return response.json();
+    })
     .then((data: PaypalSubscription | undefined) => {
       return data;
     });

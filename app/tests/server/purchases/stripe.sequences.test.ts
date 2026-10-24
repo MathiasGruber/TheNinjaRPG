@@ -115,6 +115,29 @@ describeWithDatabase("Stripe receipt delivery and federal provider coexistence",
     expect((await upgradeStripeFederalWithReps(db, USER, "NORMAL", "SILVER")).success).toBe(false);
     expect((await user())?.reputationPoints).toBe(100);
   });
+  it("leaves a failed receipt pending while settlement continues and can retry later", async () => {
+    const db = await getTestDatabase();
+    await db.insert(stripePayment).values([receipt({ id: "pi_first" }), receipt({ id: "pi_second" })]);
+    let failFirst = true;
+    const faulty = withTransactionFault(db, tx => {
+      if (!failFirst) return tx;
+      failFirst = false;
+      return failStatements(tx, userData);
+    });
+    await settleStripePayments(faulty, USER);
+    const rows = await db.query.stripePayment.findMany();
+    expect(rows.filter(row => row.grantedAt)).toHaveLength(1);
+    expect((await user())?.reputationPoints).toBe(20);
+    await settleStripePayments(db, USER);
+    expect((await user())?.reputationPoints).toBe(40);
+    expect((await db.query.stripePayment.findMany()).every(row => row.grantedAt)).toBe(true);
+  });
+  it("does not interrupt character setup when the derived federal reconciliation fails", async () => {
+    const db = await getTestDatabase();
+    await expect(settleStripePayments(failStatements(db, userData), USER)).resolves.toBeUndefined();
+    await settleStripePayments(db, USER);
+    expect((await user())?.federalStatus).toBe("NONE");
+  });
   it("restores federal coverage when a character returns without delivering old points twice", async () => {
     const db = await getTestDatabase();
     await grantStripeReceipt(db, receipt());

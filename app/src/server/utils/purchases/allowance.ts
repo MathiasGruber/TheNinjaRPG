@@ -29,6 +29,7 @@ export const reputationAllowanceUsed = async (
       total: sql<number>`
     COALESCE((SELECT SUM(p.reputationPoints) FROM ${paypalTransaction} p
       WHERE p.createdById = ${buyerId} AND p.id != ${excludedPaypalId}
+        AND p.type = 'REP_PURCHASE'
         AND p.createdAt >= NOW() - INTERVAL 30 DAY
         AND p.status NOT IN ('CANCELLED', 'REVIEW_REQUIRED')
         AND (p.status != 'RESERVED' OR p.createdAt >= NOW() - INTERVAL 3 HOUR)), 0)

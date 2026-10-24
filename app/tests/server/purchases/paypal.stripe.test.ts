@@ -77,6 +77,14 @@ describeWithDatabase("Shared PayPal and Stripe reputation reservations", () => {
     Object.assign(session ?? {}, { status: "complete", payment_status: "paid", mode: "payment", payment_intent: `pi_${input.requestId}`, livemode: false, currency: "usd", amount_total: Math.round(reps2dollars(input.purchase.reputationPoints) * 100), client_reference_id: input.requestId, managed_payments: { enabled: true }, automatic_tax: { enabled: true, status: "complete" }, created: Math.floor(created / 1000) });
     return `cs_test_${input.requestId}`;
   };
+  it("does not charge the buyer's allowance for recruiter rewards recorded against that buyer", async () => {
+    const db = await getTestDatabase();
+    await paid(20);
+    await db.insert(paypalTransaction).values({ id: "referral_receipt", createdById: BUYER, affectedUserId: OTHER, transactionId: "referral_tx", transactionUpdatedDate: new Date().toISOString(), amount: 0, reputationPoints: MAX_REPS_PER_MONTH, currency: "USD", status: "COMPLETED", type: "REFERRAL", rawData: {} });
+    expect(await (await callerFor(paypalRouter, BUYER)).getRecentRepsCount({ userId: BUYER })).toBe(20);
+    expect((await (await callerFor(stripeRouter, BUYER)).createCheckout(stripeRequest(20))).success).toBe(true);
+    expect((await (await callerFor(paypalRouter, BUYER)).createStoreOrder(storeRequest(20))).success).toBe(true);
+  });
   it.each(["insert", "update", "unchanged"])("repairs derived support after an interrupted subscription %s without a transaction", async (mode) => {
     const db = await getTestDatabase();
     const paidAt = new Date(Date.now() - 3600000);

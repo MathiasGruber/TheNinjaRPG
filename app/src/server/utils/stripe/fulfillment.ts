@@ -15,6 +15,7 @@ import {
   isRetiredStoreUserId,
   setFederalStatusWithStoreFloor,
 } from "@/server/utils/purchases/grant";
+import { logError } from "@/server/utils/sentry";
 import { calcFedUgradeCost, dynamicMonthlyRepCap } from "@/utils/paypal";
 import { getStripe, stripeIsLive } from "./client";
 
@@ -268,14 +269,30 @@ export const fulfillStripeSession = async (
 
 /** Restore retained paid coverage and finish pending deliveries when a character returns. */
 export const settleStripePayments = async (client: DrizzleClient, userId: string) => {
-  const receipts = await client.query.stripePayment.findMany({
-    where: eq(stripePayment.affectedUserId, userId),
-  });
-  for (const receipt of receipts) {
-    if (!receipt.grantedAt && (!receipt.isSandbox || env.NODE_ENV !== "production"))
-      await grantStripeReceipt(client, receipt);
+  // Settlement is recoverable background work: a failed payment must not interrupt
+  // registration after the character row exists but before starter data is created.
+  try {
+    const receipts = await client.query.stripePayment.findMany({
+      where: eq(stripePayment.affectedUserId, userId),
+    });
+    for (const receipt of receipts) {
+      if (!receipt.grantedAt && (!receipt.isSandbox || env.NODE_ENV !== "production")) {
+        try {
+          await grantStripeReceipt(client, receipt);
+        } catch (error) {
+          logError(error, "Stripe receipt remains pending for settlement", {
+            receiptId: receipt.id,
+            userId,
+          });
+        }
+      }
+    }
+    await setFederalStatusWithStoreFloor(client, userId, "NONE");
+  } catch (error) {
+    logError(error, "Stripe settlement will retry after character registration", {
+      userId,
+    });
   }
-  await setFederalStatusWithStoreFloor(client, userId, "NONE");
 };
 
 /** Reputation upgrades apply to the current paid period; renewals retain the billed tier. */
