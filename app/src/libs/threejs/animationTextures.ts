@@ -1,4 +1,4 @@
-import { NearestFilter, SRGBColorSpace, type Texture } from "three";
+import { NearestFilter, SRGBColorSpace, Texture, type WebGLRenderer } from "three";
 import { SPRITE_ANIMATION_LIMITS } from "@/drizzle/constants";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { getTextureLoader } from "@/libs/threejs/util";
@@ -7,13 +7,13 @@ import { isBunnyCdnUrl, textureImageUrl } from "@/utils/image";
 // Include pinned atlases in the budget; crowded battles fall back to static art.
 const MAX_BYTES = 32 * 1024 * 1024;
 const MAX_SHEETS = 16;
-const atlases = new Map<string, { texture: Texture; bytes: number; users: number }>();
+const atlases = new Map<string, AnimationAtlas>();
 
 /** Static-only mode releases decoded sheets while preserving the HTTP disk cache. */
 export const clearUnusedAnimationTextures = () => {
   for (const [key, atlas] of atlases) {
     if (atlas.users) continue;
-    atlas.texture.dispose();
+    disposeAtlas(atlas);
     atlases.delete(key);
   }
 };
@@ -33,8 +33,12 @@ export const animationTextureUrl = (
 };
 
 /** External URLs can share an HTTP response with different grids and decode budgets. */
-export const animationTextureKey = (animation: CharacterAnimation, cellSize: number) =>
-  `${animation.columns}x${animation.rows}:${cellSize}:${animationTextureUrl(animation, cellSize)}`;
+export const animationTextureKey = (
+  animation: CharacterAnimation,
+  cellSize: number,
+  renderer?: WebGLRenderer,
+) =>
+  `${animation.columns}x${animation.rows}:${cellSize}:${animationTextureUrl(animation, cellSize)}${canUseEtc2(renderer, cellSize) ? ":etc2" : ""}`;
 
 /**
  * Share a pending/decoded atlas across actors. Pending and active sheets stay
@@ -44,6 +48,7 @@ export const animationTextureKey = (animation: CharacterAnimation, cellSize: num
 export const acquireAnimationTexture = (
   animation: CharacterAnimation,
   cellSize: number,
+  renderer?: WebGLRenderer,
 ) => {
   // Old battle snapshots may predate the editor's short-loop limits.
   if (
@@ -53,7 +58,7 @@ export const acquireAnimationTexture = (
   )
     return undefined;
   const url = animationTextureUrl(animation, cellSize);
-  const key = animationTextureKey(animation, cellSize);
+  const key = animationTextureKey(animation, cellSize, renderer);
   let entry = atlases.get(key);
   if (!entry) {
     const bytes = animation.columns * animation.rows * cellSize ** 2 * 4;
@@ -62,42 +67,93 @@ export const acquireAnimationTexture = (
     for (const [key, atlas] of atlases) {
       if (used + bytes <= MAX_BYTES && atlases.size < MAX_SHEETS) break;
       if (atlas.users) continue;
-      atlas.texture.dispose();
+      disposeAtlas(atlas);
       atlases.delete(key);
       used -= atlas.bytes;
     }
     if (used + bytes > MAX_BYTES || atlases.size >= MAX_SHEETS) return undefined;
-    const texture = getTextureLoader().load(
-      url,
-      (loaded) => {
-        // External URLs may ignore resizing. Never upload an oversized atlas to WebGL.
-        const { width, height } = loaded.image;
-        if (
-          width * height * 4 > bytes ||
-          width % animation.columns !== 0 ||
-          height % animation.rows !== 0 ||
-          width / animation.columns !== height / animation.rows
-        ) {
-          loaded.userData.failed = true;
-          loaded.image = document.createElement("img");
-          loaded.dispose();
-        }
-      },
-      undefined,
-      () => {
-        texture.userData.failed = true;
-      },
-    );
-    texture.colorSpace = SRGBColorSpace;
-    texture.generateMipmaps = false;
-    texture.minFilter = texture.magFilter = NearestFilter;
-    entry = { texture, bytes, users: 0 };
-    atlases.set(key, entry);
+    const owned: AnimationAtlas = { texture: new Texture(), bytes, users: 0 };
+    entry = owned;
+    atlases.set(key, owned);
+    const loadWebp = () => {
+      if (atlases.get(key) !== owned) return;
+      owned.texture.dispose();
+      owned.texture = getTextureLoader().load(
+        url,
+        (loaded) => {
+          if (atlases.get(key) !== owned) {
+            loaded.dispose();
+            return;
+          }
+          // External URLs may ignore resizing. Never upload an oversized atlas to WebGL.
+          const { width, height } = loaded.image;
+          if (
+            width * height * 4 > bytes ||
+            width % animation.columns !== 0 ||
+            height % animation.rows !== 0 ||
+            width / animation.columns !== height / animation.rows
+          ) {
+            loaded.userData.failed = true;
+            loaded.image = document.createElement("img");
+            loaded.dispose();
+          }
+        },
+        undefined,
+        () => {
+          owned.texture.userData.failed = true;
+        },
+      );
+      configureAtlas(owned.texture);
+    };
+    if (renderer && canUseEtc2(renderer, cellSize)) {
+      // Keep the RGBA reservation so simultaneous WebP fallbacks fit the same budget.
+      // Static art stays visible during decoding; a stalled decoder cannot hold an action forever.
+      let settled = false;
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        loadWebp();
+      };
+      const timer = setTimeout(fallback, 8000);
+      owned.cancel = () => {
+        settled = true;
+        clearTimeout(timer);
+      };
+      void import("./compressedAnimationTextures")
+        .then((module) =>
+          module.loadCompressedAnimationTexture(
+            animationTextureKey(animation, cellSize),
+            renderer,
+            animation.columns * cellSize,
+            animation.rows * cellSize,
+          ),
+        )
+        .then((texture) => {
+          if (!texture) {
+            fallback();
+            return;
+          }
+          if (settled || atlases.get(key) !== owned) {
+            texture.dispose();
+            return;
+          }
+          settled = true;
+          clearTimeout(timer);
+          configureAtlas(texture);
+          owned.texture.dispose();
+          owned.texture = texture;
+        })
+        .catch(fallback);
+    } else loadWebp();
   }
   entry.users++;
   const owned = entry;
   return {
-    texture: owned.texture,
+    // The ready compressed texture or ordinary WebP replaces an image-less pending texture.
+    get texture() {
+      return owned.texture;
+    },
     release: () => {
       owned.users--;
       // Map insertion order is the eviction order, refreshed when a sheet becomes unused.
@@ -105,4 +161,36 @@ export const acquireAnimationTexture = (
       atlases.set(key, owned);
     },
   };
+};
+
+/** Desktop Linux drivers may emulate ETC2; unsupported/unlisted devices keep WebP. */
+const canUseEtc2 = (renderer: WebGLRenderer | undefined, cellSize: number) =>
+  (cellSize === 128 || cellSize === 256) &&
+  typeof WebAssembly !== "undefined" &&
+  !!renderer?.extensions.has("WEBGL_compressed_texture_etc") &&
+  !(
+    typeof navigator !== "undefined" &&
+    /Linux/.test(navigator.platform) &&
+    !/Android/.test(navigator.userAgent)
+  );
+
+/** Atlas sampling is identical for compressed and ordinary images, with actor-owned UVs. */
+const configureAtlas = (texture: Texture) => {
+  texture.colorSpace = SRGBColorSpace;
+  texture.generateMipmaps = false;
+  texture.minFilter = texture.magFilter = NearestFilter;
+};
+
+/** Cancel a pending fallback and dispose late completions without reviving an evicted entry. */
+const disposeAtlas = (atlas: AnimationAtlas) => {
+  atlas.cancel?.();
+  atlas.texture.dispose();
+};
+
+/** Reserve fallback RGBA storage even when the ready texture uses GPU compression. */
+type AnimationAtlas = {
+  texture: Texture;
+  bytes: number;
+  users: number;
+  cancel?: () => void;
 };

@@ -1,4 +1,10 @@
-import { NearestFilter, type Sprite, SpriteMaterial, type Texture } from "three";
+import {
+  NearestFilter,
+  type Sprite,
+  SpriteMaterial,
+  type Texture,
+  type WebGLRenderer,
+} from "three";
 import type { AvatarFacing } from "@/drizzle/constants";
 import type {
   CharacterAnimation,
@@ -29,6 +35,7 @@ export const updateCharacterAnimation = (info: {
   now: number;
   enabled?: boolean;
   cellSize?: number;
+  renderer?: WebGLRenderer;
   textureForPath?: typeof loadTexture;
 }) => {
   const { sprite, animations, event, moving, facing, staticMap, now } = info;
@@ -98,7 +105,7 @@ export const updateCharacterAnimation = (info: {
   const cellSize = info.cellSize ?? 128;
   const needed = new Set<string>();
   const textureForAnimation = (sheet: CharacterAnimation) => {
-    const sourceKey = animationTextureKey(sheet, cellSize);
+    const sourceKey = animationTextureKey(sheet, cellSize, info.renderer);
     needed.add(sourceKey);
     let source = runtime.sources.get(sourceKey);
     if (!source) {
@@ -107,7 +114,7 @@ export const updateCharacterAnimation = (info: {
             texture: info.textureForPath(sheet.url, sheet.columns * cellSize),
             release: () => {},
           }
-        : acquireAnimationTexture(sheet, cellSize);
+        : acquireAnimationTexture(sheet, cellSize, info.renderer);
       if (source) runtime.sources.set(sourceKey, source);
     }
     return source?.texture;
@@ -151,7 +158,7 @@ export const updateCharacterAnimation = (info: {
     sprite.material = runtime.material;
     return;
   }
-  const sourceKey = animationTextureKey(animation, cellSize);
+  const sourceKey = animationTextureKey(animation, cellSize, info.renderer);
   if (runtime.sourceKey !== sourceKey) {
     if (runtime.material.userData.ownsMap) runtime.material.map?.dispose();
     const map = source.clone();

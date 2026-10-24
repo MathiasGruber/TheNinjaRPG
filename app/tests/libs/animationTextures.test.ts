@@ -1,8 +1,12 @@
+import { waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
-import { Group, Sprite, Texture, TextureLoader } from "three";
+import { CompressedTexture, Group, NearestFilter, RGBA_ETC2_EAC_Format, RGBA_S3TC_DXT5_Format, Sprite, SRGBColorSpace, Texture, TextureLoader, type WebGLRenderer } from "three";
 import type { CharacterAnimation } from "@/libs/spriteAnimations";
 import { acquireAnimationTexture, animationTextureUrl, clearUnusedAnimationTextures } from "@/libs/threejs/animationTextures";
 import { updateCharacterAnimation } from "@/libs/threejs/characterAnimation";
+import * as compressedAtlases from "@/libs/threejs/compressedAnimationTextures";
+import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
+import variants from "@/libs/threejs/animationTextureVariants.json";
 
 const leases: Array<{ release: () => void }> = [];
 const sprites: Sprite[] = [];
@@ -11,8 +15,8 @@ const sheet = (patch: Partial<CharacterAnimation> = {}): CharacterAnimation => (
   id: "atlas", name: "Atlas", url: `https://uploadthing.b-cdn.net/f/test-${sequence++}.png`,
   columns: 8, rows: 8, frameCount: 64, fps: 12.5, facing: "left", ...patch,
 });
-const acquire = (animation: CharacterAnimation, cellSize = 256) => {
-  const lease = acquireAnimationTexture(animation, cellSize);
+const acquire = (animation: CharacterAnimation, cellSize = 256, renderer?: WebGLRenderer) => {
+  const lease = acquireAnimationTexture(animation, cellSize, renderer);
   if (lease) leases.push(lease);
   return lease;
 };
@@ -32,6 +36,203 @@ const pendingLargeSheets = () => {
 };
 beforeEach(() => {
   vi.spyOn(TextureLoader.prototype, "load").mockImplementation(() => new Texture());
+});
+
+describe("compressed character atlases", () => {
+  const renderer = { extensions: { has: () => true } } as unknown as WebGLRenderer;
+  const compressed = () => new CompressedTexture(
+    [{ data: new Uint8Array(128 * 128 * 16), width: 1024, height: 1024 }],
+    1024, 1024, RGBA_ETC2_EAC_Format,
+  );
+  const readyWebp = () => {
+    vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
+      const texture = new Texture<HTMLImageElement>();
+      texture.image = document.createElement("img");
+      texture.image.width = texture.image.height = 1024;
+      onLoad?.(texture);
+      return texture;
+    });
+  };
+
+  it("shares a pending request and publishes the compressed texture through existing leases", async () => {
+    const texture = compressed();
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockResolvedValue(texture);
+    const animation = sheet();
+    const first = acquire(animation, 128, renderer)!;
+    const second = acquire(animation, 128, renderer)!;
+    expect(first.texture.image).toBeNull();
+    await waitFor(() => expect(first.texture).toBe(texture));
+    expect(second.texture).toBe(texture);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(TextureLoader.prototype.load).not.toHaveBeenCalled();
+    expect(texture.minFilter).toBe(NearestFilter);
+    expect(texture.generateMipmaps).toBe(false);
+    expect(texture.colorSpace).toBe(SRGBColorSpace);
+  });
+
+  it("uses WebP without requesting a compressed sheet on unsupported devices", () => {
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture");
+    acquire(sheet(), 128, { extensions: { has: () => false } } as unknown as WebGLRenderer);
+    expect(load).not.toHaveBeenCalled();
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps supported and unsupported renderers in separate cache entries", async () => {
+    const texture = compressed();
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockResolvedValue(texture);
+    const animation = sheet();
+    const first = acquire(animation, 128, renderer)!;
+    const fallback = acquire(animation, 128)!;
+    await waitFor(() => expect(first.texture).toBe(texture));
+    expect(fallback.texture).not.toBe(texture);
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses WebP immediately when the browser has no WASM decoder support", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "WebAssembly")!;
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture");
+    try {
+      Object.defineProperty(globalThis, "WebAssembly", { value: undefined });
+      acquire(sheet(), 128, renderer);
+      expect(load).not.toHaveBeenCalled();
+      expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+    } finally {
+      Object.defineProperty(globalThis, "WebAssembly", descriptor);
+    }
+  });
+
+  it("falls back to the normal image after a missing or corrupt compressed sheet", async () => {
+    readyWebp();
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockRejectedValue(new Error("Bad derivative"));
+    const lease = acquire(sheet(), 128, renderer)!;
+    await waitFor(() => expect(lease.texture.image).toHaveProperty("width", 1024));
+    expect(lease.texture).not.toBeInstanceOf(CompressedTexture);
+    expect(lease.texture.userData.failed).not.toBe(true);
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("disposes a late compressed load after static-only cleanup without reviving the cache", async () => {
+    let finish: ((texture: CompressedTexture) => void) | undefined;
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockImplementation(() =>
+      new Promise((resolve) => { finish = resolve; }));
+    const lease = acquire(sheet(), 128, renderer)!;
+    await waitFor(() => expect(finish).toBeDefined());
+    lease.release(); leases.splice(leases.indexOf(lease), 1);
+    clearUnusedAnimationTextures();
+    const texture = compressed(); const disposed = vi.spyOn(texture, "dispose");
+    finish!(texture);
+    await waitFor(() => expect(disposed).toHaveBeenCalledTimes(1));
+    expect(TextureLoader.prototype.load).not.toHaveBeenCalled();
+  });
+
+  it("falls back when decoding stalls and disposes a later compressed result", async () => {
+    let finish: ((texture: CompressedTexture) => void) | undefined;
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockImplementation(() =>
+      new Promise((resolve) => { finish = resolve; }));
+    // Capture the deadline without waiting eight seconds or mocking library decoding.
+    let timeout: (() => void) | undefined;
+    const original = globalThis.setTimeout;
+    const deadline = vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback: () => void, delay?: number, ...args: unknown[]) => {
+      if (delay === 8000) timeout = callback as () => void;
+      return original(callback, delay, ...args);
+    }) as typeof setTimeout);
+    readyWebp();
+    const lease = acquire(sheet(), 128, renderer)!;
+    deadline.mockRestore();
+    await waitFor(() => expect(finish).toBeDefined());
+    timeout!();
+    expect(lease.texture).not.toBeInstanceOf(CompressedTexture);
+    const fallback = lease.texture;
+    const texture = compressed(); const disposed = vi.spyOn(texture, "dispose");
+    finish!(texture);
+    await waitFor(() => expect(disposed).toHaveBeenCalledTimes(1));
+    expect(lease.texture).toBe(fallback);
+    expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps compressed frames and mirroring private to each actor", async () => {
+    const texture = compressed();
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockResolvedValue(texture);
+    const animation = sheet();
+    const first = new Sprite(); const second = new Sprite(); sprites.push(first, second);
+    const info = { animations: { idle: animation }, event: undefined, moving: false,
+      staticMap: new Texture(), cellSize: 128, renderer };
+    updateCharacterAnimation({ ...info, sprite: first, facing: "left", now: 0 });
+    await waitFor(() => expect(compressedAtlases.loadCompressedAnimationTexture).toHaveBeenCalled());
+    await Promise.resolve();
+    updateCharacterAnimation({ ...info, sprite: first, facing: "left", now: 10 });
+    updateCharacterAnimation({ ...info, sprite: second, facing: "right", now: 10 });
+    updateCharacterAnimation({ ...info, sprite: first, facing: "left", now: 210 });
+    const a = first.material.map!; const b = second.material.map!;
+    expect(a).toBeInstanceOf(CompressedTexture); expect(b).toBeInstanceOf(CompressedTexture);
+    expect(a).not.toBe(b); expect(a).not.toBe(texture);
+    expect(a.image).toBe(texture.image); expect(b.image).toBe(texture.image);
+    expect(a.offset.x).toBe(2 / 8); expect(b.offset.x).toBe(1 / 8);
+    expect(a.repeat.x).toBe(1 / 8); expect(b.repeat.x).toBe(-1 / 8);
+    expect(texture.repeat.x).toBe(1); expect(texture.offset.x).toBe(0);
+  });
+
+  it("retains queued actions until WebP fallback is ready", async () => {
+    let fail: ((error: Error) => void) | undefined;
+    vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture").mockImplementation(() =>
+      new Promise((_resolve, reject) => { fail = reject; }));
+    const sprite = new Sprite(); sprites.push(sprite);
+    const action = sheet();
+    const info = { sprite, animations: { "jutsu:fire": action }, moving: false,
+      facing: "left" as const, staticMap: new Texture(), cellSize: 128, renderer };
+    const event = { id: "cast", actionKey: "jutsu:fire" };
+    updateCharacterAnimation({ ...info, event: undefined, now: 0 });
+    updateCharacterAnimation({ ...info, event, now: 10 });
+    await waitFor(() => expect(fail).toBeDefined());
+    fail!(new Error("Unavailable"));
+    await waitFor(() => expect(TextureLoader.prototype.load).toHaveBeenCalledTimes(1));
+    updateCharacterAnimation({ ...info, event, now: 100 });
+    expect(sprite.userData.characterAnimation.events).toEqual([event]);
+    expect(sprite.userData.characterAnimation.eventStartedAt).toBeUndefined();
+  });
+
+  it("skips the compressed path entirely when character animations are disabled", () => {
+    const load = vi.spyOn(compressedAtlases, "loadCompressedAnimationTexture");
+    const sprite = new Sprite(); sprites.push(sprite);
+    updateCharacterAnimation({ sprite, animations: { idle: sheet() }, event: undefined,
+      moving: false, facing: "left", staticMap: new Texture(), now: 0, renderer, enabled: false });
+    expect(load).not.toHaveBeenCalled();
+    expect(TextureLoader.prototype.load).not.toHaveBeenCalled();
+  });
+});
+
+describe("published compressed rendition contract", () => {
+  const key = "test-published-rendition";
+  const manifest = variants as Record<string, string>;
+  const renderer = {} as WebGLRenderer;
+  afterEach(() => { delete manifest[key]; });
+
+  it("requests only exact published keys and leaves unknown grids to WebP", async () => {
+    manifest[key] = "https://uploadthing.b-cdn.net/f/immutable-test.ktx2";
+    vi.spyOn(KTX2Loader.prototype, "detectSupport").mockReturnThis();
+    const texture = new CompressedTexture([{ data: new Uint8Array(16), width: 4, height: 4 }], 4, 4, RGBA_ETC2_EAC_Format);
+    texture.colorSpace = SRGBColorSpace;
+    const load = vi.spyOn(KTX2Loader.prototype, "loadAsync").mockResolvedValue(texture);
+    expect(await compressedAtlases.loadCompressedAnimationTexture(`${key}:wrong-grid`, renderer, 4, 4)).toBeUndefined();
+    expect(load).not.toHaveBeenCalled();
+    expect(await compressedAtlases.loadCompressedAnimationTexture(key, renderer, 4, 4)).toBe(texture);
+    expect(load).toHaveBeenCalledWith(manifest[key]);
+  });
+
+  it.each(["dimensions", "format", "color", "mipmaps"])("rejects and disposes an invalid derivative: %s", async (invalid) => {
+    manifest[key] = "https://uploadthing.b-cdn.net/f/invalid-test.ktx2";
+    vi.spyOn(KTX2Loader.prototype, "detectSupport").mockReturnThis();
+    const texture = new CompressedTexture([{ data: new Uint8Array(16), width: 4, height: 4 }], 4, 4, RGBA_ETC2_EAC_Format);
+    texture.colorSpace = SRGBColorSpace;
+    if (invalid === "dimensions") texture.image.width = 8;
+    if (invalid === "format") texture.format = RGBA_S3TC_DXT5_Format;
+    if (invalid === "color") texture.colorSpace = "";
+    if (invalid === "mipmaps") texture.mipmaps = [];
+    vi.spyOn(KTX2Loader.prototype, "loadAsync").mockResolvedValue(texture);
+    const disposed = vi.spyOn(texture, "dispose");
+    await expect(compressedAtlases.loadCompressedAnimationTexture(key, renderer, 4, 4)).rejects.toThrow("Invalid compressed animation rendition");
+    expect(disposed).toHaveBeenCalledTimes(1);
+  });
 });
 afterEach(() => {
   for (const sprite of sprites.splice(0)) sprite.userData.disposeCharacterAnimation?.();

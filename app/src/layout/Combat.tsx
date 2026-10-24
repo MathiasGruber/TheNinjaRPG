@@ -1246,6 +1246,7 @@ const Combat: React.FC<CombatProps> = (props) => {
             animateCharacters: animateCharactersRef.current,
             animationPixelRatio:
               camera.zoom * animationPixelRatio * (cachedWidth / WIDTH),
+            animationRenderer: renderer,
           });
           endDrawUsers();
 

@@ -1,7 +1,7 @@
 import type { Grid } from "honeycomb-grid";
 import { ring } from "honeycomb-grid";
 import { createNoise2D } from "simplex-noise";
-import type { Object3D } from "three";
+import type { Object3D, WebGLRenderer } from "three";
 import {
   type BufferGeometry,
   Color,
@@ -1241,6 +1241,7 @@ export const drawCombatUsers = (info: {
   aggro?: AggroDisplay;
   animateCharacters?: boolean;
   animationPixelRatio?: number;
+  animationRenderer?: WebGLRenderer;
 }): boolean => {
   const endMark = profiler.mark("drawCombatUsers");
 
@@ -1388,6 +1389,7 @@ export const drawCombatUsers = (info: {
             // upgrading for a large field/zoom, capped at 256 px on retina screens.
             cellSize:
               1.6 * hex.height * (info.animationPixelRatio ?? 1) > 192 ? 256 : 128,
+            renderer: info.animationRenderer,
             now,
           });
         }
