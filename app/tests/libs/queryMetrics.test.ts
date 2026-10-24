@@ -89,6 +89,37 @@ describe("generic query instrumentation", () => {
     expect(test.requests).toHaveLength(2);
   });
 
+  it("classifies observer refreshes of seeded queries as refreshes", async () => {
+    const test = setup();
+    const key = [["profile", "getUser"], { type: "query" }];
+    const observer = new QueryObserver(test.client, {
+      queryKey: key, initialData: { value: 0 }, refetchOnMount: false,
+      queryFn: () => getUntypedClient(test.trpc).query("profile.getUser"),
+    });
+    close.push(observer.subscribe(() => {}));
+    expect(test.client.getQueryState(key)).toMatchObject({ status: "success", dataUpdateCount: 0 });
+    expect(test.requests).toHaveLength(0);
+    await observer.refetch();
+    expect(test.requests[0]?.attribution["profile.getUser"]).toEqual({ trigger: "refresh", mutationContext: "none" });
+  });
+
+  it("classifies pagination of seeded infinite queries as refreshes", async () => {
+    const test = setup();
+    const key = [["forum", "getThreads"], { type: "infinite", input: { boardName: "seeded" } }];
+    const observer = new InfiniteQueryObserver(test.client, {
+      queryKey: key, initialPageParam: "cursor-one", getNextPageParam: () => "cursor-two",
+      initialData: () => ({ pages: [{ value: 0 }], pageParams: ["cursor-one"] }),
+      refetchOnMount: false,
+      queryFn: ({ pageParam, direction }) => getUntypedClient(test.trpc).query("forum.getThreads", { boardName: "seeded", cursor: pageParam, direction }),
+    });
+    close.push(observer.subscribe(() => {}));
+    expect(test.client.getQueryState(key)).toMatchObject({ status: "success", dataUpdateCount: 0 });
+    expect(test.requests).toHaveLength(0);
+    await observer.fetchNextPage();
+    expect(observer.getCurrentResult().data?.pages).toHaveLength(2);
+    expect(test.requests[0]?.attribution["forum.getThreads"]).toEqual({ trigger: "refresh", mutationContext: "none" });
+  });
+
   it("observes ordinary tRPC invalidations without call-site annotations", async () => {
     const test = setup();
     const { key, options } = test.query("item.getUserItems");

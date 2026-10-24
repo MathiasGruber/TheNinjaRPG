@@ -97,7 +97,7 @@ export const createQueryMetricsTracker = (
         query,
         scope ??
           pending.get(query) ??
-          attribution(query.state.dataUpdateCount === 0 ? "initial" : "refresh"),
+          attribution(query.state.data === undefined ? "initial" : "refresh"),
       );
       pending.delete(query);
     } else if (action.type === "success") {
