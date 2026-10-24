@@ -817,14 +817,14 @@ const Combat: React.FC<CombatProps> = (props) => {
     }
   };
 
-  // Resume the existing scene and refresh battle data without reloading the page.
+  // Keep held rewards paused; refresh battle data only when the page resumes.
   useEffect(() => {
     const wasActive = wasPageActiveRef.current;
     wasPageActiveRef.current = isPageActive;
-    setRenderActiveRef.current?.(isPageActive);
+    setRenderActiveRef.current?.(isPageActive && !result);
     if (!isPageActive || wasActive) return;
     void utils.combat.getBattle.invalidate();
-  }, [isPageActive, utils]);
+  }, [isPageActive, result, utils]);
 
   // Departed players and their summons can retain auto flags; only humans still
   // fighting keep optional auto combat active, matching the server's batch gate.
@@ -1188,9 +1188,10 @@ const Combat: React.FC<CombatProps> = (props) => {
       const clock = new Clock();
       clock.start();
       function render() {
-        // Guard against stale render callbacks after unmount
+        // A queued callback must not draw a hidden or settled battlefield.
         animationId = null;
-        if (!isMountedRef.current || !isPageActiveRef.current) return;
+        if (!isMountedRef.current || !isPageActiveRef.current || resultRef.current)
+          return;
 
         // Performance profiling
         profiler?.beginFrame();
