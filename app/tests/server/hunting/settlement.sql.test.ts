@@ -8,7 +8,7 @@ import { settleHuntingBattle } from "@/server/utils/hunting";
 import { makeBattleUserItem, makeCompleteBattle, makeUser } from "../../libs/combat/helpers/battleScenario";
 import { insertItems, insertUserItems, insertUsers } from "../../setup/factories";
 import { huntingBattleState } from "../../setup/hunting";
-import { describeWithDatabase, getTestDatabase, resetTables } from "../../setup/testDatabase";
+import { describeWithDatabase, getTestDatabase, recordQueries, resetTables } from "../../setup/testDatabase";
 
 describeWithDatabase("Atomic hunting settlement", () => {
   const pusher = { trigger: async () => {} } as unknown as PusherClient;
@@ -98,12 +98,18 @@ describeWithDatabase("Atomic hunting settlement", () => {
   it("settles unchanged carried items with an acknowledged inventory write", async () => {
     const { db, current, result, version } = await setup();
     const updatedAt = new Date(Date.now() + 86400000);
-    await insertUserItems([{ id: "carried", itemId: "hide", userId: "hunter", quantity: 1, durability: 100, updatedAt }]);
-    current.usersState[0]!.items = [makeBattleUserItem({ id: "carried", itemId: "hide", equipped: "NONE", quantity: 1, durability: 100 })];
-    expect(await updateBattle(db, result, "hunter", current, version, pusher)).not.toBeNull();
-    const carried = await db.query.userItem.findFirst({ where: eq(userItem.id, "carried") });
-    expect(carried).toMatchObject({ quantity: 1, durability: 100 });
-    expect(carried?.updatedAt.getTime()).toBeGreaterThan(updatedAt.getTime());
+    const carried = Array.from({ length: 8 }, (_, index) => ({ id: `carried-${index}`, itemId: "hide", userId: "hunter", quantity: index + 1, durability: 100, updatedAt }));
+    await insertUserItems(carried);
+    current.usersState[0]!.items = carried.map((row) => makeBattleUserItem({ ...row, equipped: "NONE" }));
+    const recorded = await recordQueries(() => updateBattle(db, result, "hunter", current, version, pusher));
+    expect(recorded.result).not.toBeNull();
+    expect(recorded.statements.filter((statement) => /^update `UserItem` /i.test(statement))).toHaveLength(1);
+    const saved = await db.query.userItem.findMany();
+    for (const row of carried) {
+      const actual = saved.find((item) => item.id === row.id);
+      expect(actual).toMatchObject({ quantity: row.quantity, durability: row.durability });
+      expect(actual?.updatedAt.getTime()).toBeGreaterThan(updatedAt.getTime());
+    }
     expect((await db.query.userData.findFirst())?.status).toBe("AWAKE");
   });
   it("rolls back hunting rewards when a carried inventory row is missing", async () => {
@@ -115,6 +121,33 @@ describeWithDatabase("Atomic hunting settlement", () => {
     expect(await db.query.huntingReceipt.findMany()).toHaveLength(0);
     expect(await db.query.userItem.findMany()).toHaveLength(0);
     expect((await db.query.huntingProgress.findFirst())?.used).toBe(0);
+  });
+  it.each(["missing", "tombstoned", "claimed", "transferred"])("rolls back the entire item batch when a carried row is %s", async (conflict) => {
+    const { db, current, result, version } = await setup();
+    const updatedAt = new Date(0);
+    await insertUserItems([
+      { id: "carried-a", itemId: "hide", userId: "hunter", quantity: 4, durability: 100, updatedAt },
+      { id: "carried-b", itemId: "hide", userId: "hunter", quantity: 2, durability: 100, updatedAt },
+    ]);
+    current.usersState[0]!.items = [
+      makeBattleUserItem({ id: "carried-a", itemId: "hide", equipped: "NONE", quantity: 3, durability: 80 }),
+      makeBattleUserItem({ id: "carried-b", itemId: "hide", equipped: "NONE", quantity: 1, durability: 70 }),
+    ];
+    await expect(settleHuntingBattle(db, current, result, version, async (tx, playerBattle, playerResult) => {
+      if (conflict === "missing") await tx.delete(userItem).where(eq(userItem.id, "carried-b"));
+      else await tx.update(userItem).set(conflict === "transferred" ? { userId: "other-owner" } : { quantity: conflict === "claimed" ? -1 : 0 }).where(eq(userItem.id, "carried-b"));
+      await updateUser(tx, pusher, playerBattle, playerResult, "hunter", true);
+    })).rejects.toThrow("Hunting character or inventory changed during settlement");
+    const inventory = await db.query.userItem.findMany();
+    expect(inventory).toHaveLength(2);
+    expect(inventory.find((item) => item.id === "carried-a")).toMatchObject({ userId: "hunter", quantity: 4, durability: 100, updatedAt });
+    expect(inventory.find((item) => item.id === "carried-b")).toMatchObject({ userId: "hunter", quantity: 2, durability: 100, updatedAt });
+    expect(await db.query.huntingReceipt.findMany()).toHaveLength(0);
+    expect((await db.query.huntingProgress.findFirst())?.used).toBe(0);
+    expect((await db.query.userData.findFirst())?.huntingExperience).toBe(123);
+    expect((await db.query.userData.findFirst())?.battleId).toBe("hunt");
+    expect((await db.query.huntingSession.findFirst())?.battleId).toBe("hunt");
+    expect(await db.query.battle.findFirst()).toBeDefined();
   });
   it.each(["Lost", "Fled"] as const)("keeps preparation and allowance after %s", async (outcome) => {
     const { db, current, result, version } = await setup(outcome);
