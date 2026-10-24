@@ -12,6 +12,7 @@ import ContentBox from "@/layout/ContentBox";
 import Countdown from "@/layout/Countdown";
 import Link from "@/layout/Link";
 import { MercenaryOffers } from "@/layout/WarMercenaries";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 /** Surface open camps and expiring claims in the dashboard's standard themed container. */
@@ -33,7 +34,11 @@ export const WarDashboardNotices = () => {
     onSuccess: (result) => {
       setFeedback(result);
       void utils.war.getWarPointClaims.invalidate();
-      if (result.success) void utils.profile.getUser.invalidate();
+      if (result.success)
+        void invalidateUserQuery(
+          "mutation:war.convertWarPoints",
+          utils.profile.getUser.invalidate,
+        );
     },
     onError: (error) => setFeedback({ success: false, message: error.message }),
   });

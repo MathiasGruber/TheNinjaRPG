@@ -36,6 +36,7 @@ import { getSageMasteryDisplayRank } from "@/libs/sageMode";
 import { getStealthStatus } from "@/libs/stealth";
 import { getEffectiveThemeTextColor } from "@/libs/themePreference";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { useActiveLayout } from "@/utils/LayoutContext";
 import { canAccessHiddenSkillTree } from "@/utils/permissions";
@@ -527,7 +528,10 @@ export const SkillsTab: React.FC<SkillsTabProps> = ({ userData }) => {
             utils.skillTree.getUserSkills.invalidate(),
             utils.skillTree.getAll.invalidate(),
             utils.skillTree.getFolderStats.invalidate(),
-            utils.profile.getUser.invalidate(),
+            invalidateUserQuery(
+              "mutation:skillTree.purchaseSkill",
+              utils.profile.getUser.invalidate,
+            ),
           ]);
         }
       },

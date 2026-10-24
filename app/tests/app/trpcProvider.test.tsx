@@ -13,6 +13,8 @@ import * as clientModule from "@/app/_trpc/client";
 import TrpcClientProvider from "@/app/_trpc/Provider";
 import * as toast from "@/libs/toast";
 import { SESSION_CHANGED_MESSAGE, SESSION_EXPIRED_MESSAGE } from "@/libs/trpcSession";
+import { invalidateUserQuery } from "@/libs/userRefresh";
+import { USER_REFRESH_CAUSE_HEADER } from "@/libs/userRefreshCauses";
 import { actualShowMutationToast } from "../setup/preload";
 
 const testApi = createTRPCReact<AppRouter>();
@@ -101,6 +103,28 @@ it("leaves a same-session mutation successful", async () => {
   expect(onSuccess).toHaveBeenCalledTimes(1);
   expect(onError).not.toHaveBeenCalled();
   expect(toastMessages()).toEqual([]);
+});
+
+it("sends captured profile causes through the provider without replacing session headers", async () => {
+  const requests: Headers[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
+    requests.push(new Headers(init?.headers));
+    return Response.json([{ result: { data: superjson.serialize({ userData: { money: 100 } }) } }]);
+  });
+  let refresh!: () => Promise<void>;
+  const Player = () => {
+    testApi.profile.getUser.useQuery(undefined, { retry: false });
+    const utils = testApi.useUtils();
+    refresh = () => invalidateUserQuery("timer:energy_queue", utils.profile.getUser.invalidate);
+    return null;
+  };
+  mountProvider(session("a"), <Player />);
+  await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  await act(async () => { await refresh(); });
+  expect(requests.map((headers) => headers.get(USER_REFRESH_CAUSE_HEADER))).toEqual([
+    "initial:load", "timer:energy_queue",
+  ]);
+  expect(requests.every((headers) => headers.get("Authorization") === "Bearer a")).toBe(true);
 });
 
 it("coalesces a retired account's late batch while every query and mutation settles as failed", async () => {

@@ -25,6 +25,7 @@ import type { JutsuLoadout } from "@/drizzle/schema";
 import { modalScrollableBodyClassName, modalViewportClassName } from "@/layout/Modal";
 import type { computeJutsuLoadoutPreview } from "@/libs/jutsu";
 import { exportJutsuLoadout } from "@/libs/loadout";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { LOADOUT_SHARE_MAX_LENGTH } from "@/validators/loadout";
@@ -50,7 +51,10 @@ export const JutsuLoadoutSharing = () => {
         await Promise.all([
           utils.jutsu.getLoadouts.invalidate(),
           utils.jutsu.getUserJutsus.invalidate(),
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:jutsu.importJutsuLoadout",
+            utils.profile.getUser.invalidate,
+          ),
         ]);
       }}
     />

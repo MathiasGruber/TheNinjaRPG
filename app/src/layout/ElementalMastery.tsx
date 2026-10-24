@@ -19,6 +19,7 @@ import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
 import { activeTrainedElement, providedElements } from "@/libs/elementalMastery";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 export const ElementalMastery = () => {
@@ -29,13 +30,19 @@ export const ElementalMastery = () => {
     setMessage(result.message);
     showMutationToast(result);
     await Promise.all([
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery(
+        "mutation:train.selectTrainedElement",
+        utils.profile.getUser.invalidate,
+      ),
       utils.profile.getPublicUser.invalidate(),
     ]);
   };
   const onError = () => {
     setMessage("Could not save. Please try again.");
-    void utils.profile.getUser.invalidate();
+    void invalidateUserQuery(
+      "mutation:train.selectTrainedElement",
+      utils.profile.getUser.invalidate,
+    );
   };
   const select = api.train.selectTrainedElement.useMutation({ onSuccess, onError });
   const isPending = select.isPending;

@@ -21,6 +21,7 @@ import {
 } from "@/libs/cooking";
 import { getTotalItemQuantity } from "@/libs/crafting";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { countBoostingShrines, getShrineBoost } from "@/utils/village";
@@ -45,7 +46,7 @@ export default function Kitchen({ image }: { image?: string }) {
       utils.item.getUserItems.invalidate(),
       utils.item.getUserItemsWithVariants.invalidate(),
       utils.occupation.getCraftingQueue.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:cooking", utils.profile.getUser.invalidate),
       utils.profile.getSidebarTimers.invalidate(),
     ]);
   };

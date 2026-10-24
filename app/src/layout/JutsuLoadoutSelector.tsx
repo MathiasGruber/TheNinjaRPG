@@ -4,6 +4,7 @@ import type React from "react";
 import { api } from "@/app/_trpc/client";
 import LoadoutSelector from "@/layout/LoadoutSelector";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { fedJutsuLoadouts } from "@/utils/paypal";
 import { useRequiredUserData } from "@/utils/UserContext";
 
@@ -42,7 +43,10 @@ const JutsuLoadoutSelector: React.FC<JutsuLoadoutSelectorProps> = (props) => {
                 jutsuLoadout: data.userPatch.jutsuLoadout,
                 loadout: data.userPatch.loadout,
               })
-            : utils.profile.getUser.invalidate(),
+            : invalidateUserQuery(
+                "mutation:jutsu.selectJutsuLoadout",
+                utils.profile.getUser.invalidate,
+              ),
           utils.item.getUserItems.invalidate(),
           utils.jutsu.getUserJutsus.invalidate(),
         ]);

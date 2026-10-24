@@ -18,7 +18,7 @@ const SOURCE_ROOT = join(REPO_ROOT, "app/src");
 
 /** Any receiver, since `api.useUtils()` is stored as both `utils` and `util` across the app. */
 const CACHE_CALL =
-  /^await\s+[\w$]+(?:\.[\w$]+)+\.(?:invalidate|refetch|prefetch|reset|fetch|ensureData)\(/;
+  /^await\s+(?:invalidateUserQuery|[\w$]+(?:\.[\w$]+)+\.(?:invalidate|refetch|prefetch|reset|fetch|ensureData))\(/;
 const IGNORABLE = /^\s*(\/\/|\/\*|\*|$)/;
 const OPT_OUT = "serial-invalidation-ok";
 /** Enough for any real call; a bracket inside a string literal must not swallow the file. */
@@ -119,6 +119,8 @@ describe("client cache invalidation", () => {
   it.each([
     ["back to back", `${user}\n${clan}`],
     ["under the `util` alias", `await util.profile.getUser.invalidate();\n${clan}`],
+    ["with refresh attribution", `await invalidateUserQuery("mutation:item.consume", utils.profile.getUser.invalidate);\n${clan}`],
+    ["with wrapped refresh attribution", `await invalidateUserQuery(\n "mutation:item.consume",\n utils.profile.getUser.invalidate,\n);\n${clan}`],
     ["with a blank line between", `${user}\n\n${clan}`],
     ["with a comment between", `${user}\n// why\n${clan}`],
     ["with a wrapped argument list", `await utils.clan.get.invalidate({\n  id,\n});\n${clan}`],

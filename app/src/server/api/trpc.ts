@@ -28,6 +28,7 @@ import {
   isPyramidRestrictedProcedure,
 } from "@/libs/questRun";
 import { trpcSessionUserId } from "@/libs/trpcSession";
+import { USER_REFRESH_CAUSE_HEADER } from "@/libs/userRefreshCauses";
 import {
   parseWallpaperVariant,
   WALLPAPER_EXPERIMENT,
@@ -44,6 +45,7 @@ import {
 import { drizzleDB } from "@/server/db";
 import { enforceBotId } from "@/server/utils/botid";
 import { hasSensitiveTrpcInput } from "@/server/utils/trpcInput";
+import { measureTrpcCall } from "@/server/utils/trpcMetrics";
 import { getClientIp } from "@/utils/network";
 
 /**
@@ -64,11 +66,16 @@ export const createAppTRPCContext = async (options: {
   const userIp = getClientIp(readHeaders);
   // Get agent
   const userAgent = readHeaders.get("user-agent") ?? undefined;
+  // Optional for server-side callers and older clients, which have no browser attribution.
+  const telemetry: { userRefreshCause?: string } = {
+    userRefreshCause: readHeaders.get(USER_REFRESH_CAUSE_HEADER) ?? undefined,
+  };
   // AB testing cookies
   const abLemuReplacementVariant = normalizeLemuVariant(
     options.readCookies.get(LEMU_EXPERIMENT)?.value,
   );
   return {
+    ...telemetry,
     drizzle: drizzleDB,
     userIp,
     userId,
@@ -143,10 +150,14 @@ const ratelimit = new Ratelimit({
 });
 
 export const sentryMiddleware = t.middleware((opts) =>
-  Sentry.trpcMiddleware({
-    // Parental settings contain PIN credentials; keep them out of error telemetry.
-    attachRpcInput: !hasSensitiveTrpcInput(opts.path),
-  })(opts),
+  measureTrpcCall(
+    { path: opts.path, type: opts.type, userRefreshCause: opts.ctx.userRefreshCause },
+    () =>
+      Sentry.trpcMiddleware({
+        // Parental settings contain PIN credentials; keep them out of error telemetry.
+        attachRpcInput: !hasSensitiveTrpcInput(opts.path),
+      })(opts),
+  ),
 );
 
 /**

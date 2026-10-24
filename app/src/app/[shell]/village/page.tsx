@@ -36,6 +36,7 @@ import Loader from "@/layout/Loader";
 import RichInput from "@/layout/RichInput";
 import { showMutationToast } from "@/libs/toast";
 import { hasRequiredRank } from "@/libs/train";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { parseHtml } from "@/utils/parse";
 import { prettyNumber } from "@/utils/string";
 import { useRequireInVillage } from "@/utils/UserContext";
@@ -94,7 +95,10 @@ export default function VillageOverview() {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.profile.getUser.invalidate();
+          await invalidateUserQuery(
+            "mutation:village.leaveVillage",
+            utils.profile.getUser.invalidate,
+          );
         }
       },
     });

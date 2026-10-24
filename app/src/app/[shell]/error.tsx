@@ -9,6 +9,7 @@ import ContentBox from "@/layout/ContentBox";
 import Link from "@/layout/Link";
 import { reloadIfOutdated } from "@/libs/buildVersion";
 import { cn } from "@/libs/shadui";
+import { withUserRefreshCause } from "@/libs/userRefresh";
 
 interface ErrorBoundaryProps {
   error: Error & { digest?: string };
@@ -32,7 +33,7 @@ const ErrorBoundary: React.FC<ErrorBoundaryProps> = ({ error, reset }) => {
   const retry = async () => {
     setIsRetrying(true);
     try {
-      await utils.invalidate();
+      await withUserRefreshCause("recovery:error_boundary", () => utils.invalidate());
     } finally {
       setIsRetrying(false);
       reset();

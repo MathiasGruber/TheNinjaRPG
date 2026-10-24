@@ -34,6 +34,7 @@ import { PartyRoster } from "@/layout/PartyRoster";
 import UserSearchSelect from "@/layout/UserSearchSelect";
 import { getRewardArray } from "@/libs/objectives";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { pushToCombat } from "@/utils/routing";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -72,7 +73,10 @@ export default function DungeonPage() {
     setMessage(response.success ? "" : response.message);
     if (response.success) setAbandonId(null);
     showMutationToast(response);
-    await Promise.all([state.refetch(), utils.profile.getUser.invalidate()]);
+    await Promise.all([
+      state.refetch(),
+      invalidateUserQuery("feature:dungeon", utils.profile.getUser.invalidate),
+    ]);
   };
   const create = api.coop.dungeon.create.useMutation({
     onSuccess: refresh,

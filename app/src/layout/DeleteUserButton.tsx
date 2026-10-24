@@ -8,6 +8,7 @@ import Confirm from "@/layout/Confirm";
 import Countdown from "@/layout/Countdown";
 import { cn } from "@/libs/shadui";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 
 interface DeleteUserButtonProps {
@@ -46,7 +47,10 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
             current ? { ...current, userData: undefined } : current,
           );
           await Promise.all([
-            utils.profile.getUser.invalidate(),
+            invalidateUserQuery(
+              "mutation:profile.confirmDeletion",
+              utils.profile.getUser.invalidate,
+            ),
             utils.profile.getPublicUser.invalidate(),
           ]);
           router.push("/");
@@ -64,7 +68,10 @@ const DeleteUserButton: React.FC<DeleteUserButtonProps> = (props) => {
             character: userData.userId,
           });
           await Promise.all([
-            utils.profile.getUser.invalidate(),
+            invalidateUserQuery(
+              "mutation:profile.toggleDeletionTimer",
+              utils.profile.getUser.invalidate,
+            ),
             utils.profile.getPublicUser.invalidate(),
           ]);
         }

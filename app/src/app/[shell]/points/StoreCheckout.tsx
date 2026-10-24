@@ -8,6 +8,7 @@ import { api } from "@/app/_trpc/client";
 import { STORE_ORDER_RESERVATION_MINUTES } from "@/drizzle/constants";
 import Loader from "@/layout/Loader";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { storeCheckoutSchema } from "@/validators/points";
 
 /**
@@ -55,7 +56,10 @@ export function StoreCheckout({
       }
       if (result.success)
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:paypal.captureStoreOrder",
+            utils.profile.getUser.invalidate,
+          ),
           utils.paypal.getRecentRepsCount.invalidate(),
           utils.paypal.getPaypalTransactions.invalidate(),
           utils.paypal.getStoreBundles.invalidate(),

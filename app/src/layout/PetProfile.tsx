@@ -67,6 +67,7 @@ import {
   isPetAppearanceReady,
 } from "@/libs/pets/progression";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { canAccessStructure } from "@/utils/village";
@@ -172,7 +173,7 @@ export function PetProfile() {
     await Promise.all([
       utils.pets.getPet.invalidate(),
       utils.pets.getCollection.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:pet_profile", utils.profile.getUser.invalidate),
     ]);
   };
   const finishMutation = async (result: { success: boolean; message: string }) => {

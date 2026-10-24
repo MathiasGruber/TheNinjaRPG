@@ -17,6 +17,7 @@ import {
   huntingEligibility,
   huntingSessionStage,
 } from "@/libs/hunting/contracts";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useUserData } from "@/utils/UserContext";
 import type { HuntingReceipt } from "@/validators/hunting";
 
@@ -56,7 +57,7 @@ export function HuntingBoard({
       await Promise.all([
         board.refetch(),
         utils.hunting.getSession.invalidate(),
-        utils.profile.getUser.invalidate(),
+        invalidateUserQuery("feature:hunting", utils.profile.getUser.invalidate),
       ]);
   };
   const accept = api.hunting.accept.useMutation({

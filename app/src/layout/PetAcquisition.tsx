@@ -19,6 +19,7 @@ import { PetAppearanceButton } from "@/layout/PetAppearanceButton";
 import type { PetAppearanceOption, PetSpeciesOption } from "@/libs/pets/catalogue";
 import { getPetRank, isPetAppearanceReady } from "@/libs/pets/progression";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { acquirePetSchema } from "@/validators/pets";
 
@@ -116,7 +117,7 @@ export function PetAcquisition() {
     await Promise.all([
       utils.pets.getPet.invalidate(),
       utils.pets.getCollection.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:pet_acquisition", utils.profile.getUser.invalidate),
     ]);
   };
   const failMutation = async (cause: { message: string }) => {
@@ -125,7 +126,7 @@ export function PetAcquisition() {
     await Promise.all([
       utils.pets.getPet.invalidate(),
       utils.pets.getCollection.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:pet_acquisition", utils.profile.getUser.invalidate),
     ]);
   };
   const acquire = api.pets.acquirePet.useMutation({

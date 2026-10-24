@@ -67,6 +67,7 @@ import {
   getItemConsumeErrorMessage,
   getItemConsumeInput,
 } from "@/libs/itemConsumption";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { MAP_LOCATION_REFRESH_MS } from "@/validators/mapLocation";
 
 type RevealedPlayer = {
@@ -624,7 +625,10 @@ function Travel() {
                 true,
               ).includes(userData.sector))
           ) {
-            await utils.profile.getUser.invalidate();
+            await invalidateUserQuery(
+              "mutation:travel.finishGlobalMove",
+              utils.profile.getUser.invalidate,
+            );
           }
           setActiveTab(sectorLink);
         }
@@ -636,7 +640,10 @@ function Travel() {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.profile.getUser.invalidate();
+          await invalidateUserQuery(
+            "mutation:village.joinVillage",
+            utils.profile.getUser.invalidate,
+          );
         }
       },
     });
@@ -648,7 +655,10 @@ function Travel() {
         if (data.success) {
           await Promise.all([
             utils.village.getAll.invalidate(),
-            utils.profile.getUser.invalidate(),
+            invalidateUserQuery(
+              "mutation:clan.purchaseHideout",
+              utils.profile.getUser.invalidate,
+            ),
             utils.travel.getSectorData.invalidate(),
           ]);
         }
@@ -674,7 +684,10 @@ function Travel() {
       }
       if (data.success) {
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:item.consume",
+            utils.profile.getUser.invalidate,
+          ),
           utils.item.getUserItems.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
           utils.raids.getUserRaidBuffs.invalidate(),
@@ -685,7 +698,10 @@ function Travel() {
       } else if (useritem?.item.itemType === "MEAL") {
         // A rejected snapshot must refresh the next modal's quantity and account state.
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:item.consume",
+            utils.profile.getUser.invalidate,
+          ),
           utils.item.getUserItems.invalidate(),
         ]);
       }

@@ -9,6 +9,7 @@ import {
   dashboardContentGroupLabels,
   getDashboardContentPriority,
 } from "@/libs/profileDashboard";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/server/api/routers/profile";
 
 export function DashboardSettings({
@@ -35,7 +36,11 @@ export function DashboardSettings({
         return;
       }
       if (updateUser) await updateUser(input);
-      else await utils.profile.getUser.invalidate();
+      else
+        await invalidateUserQuery(
+          "mutation:profile.updatePreferences",
+          utils.profile.getUser.invalidate,
+        );
       setMessage("Dashboard preferences saved.");
     },
     onError: (error) => setMessage(error.message),

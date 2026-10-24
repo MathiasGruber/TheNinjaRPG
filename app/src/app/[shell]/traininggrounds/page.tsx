@@ -139,6 +139,7 @@ import {
   trainingEnergyMessage,
 } from "@/libs/train";
 import { isTutorialJutsuPickStep } from "@/libs/tutorial";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { isInArray } from "@/utils/array";
 import { getQueueTotalCapacity, getQueueWaitingSlots } from "@/utils/paypal";
@@ -354,7 +355,14 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
         showMutationToast(data);
         if (data.success) {
           await Promise.all([
-            ...(userData.rank === "GENIN" ? [utils.profile.getUser.invalidate()] : []),
+            ...(userData.rank === "GENIN"
+              ? [
+                  invalidateUserQuery(
+                    "mutation:sensei.acceptRequest",
+                    utils.profile.getUser.invalidate,
+                  ),
+                ]
+              : []),
             utils.sensei.getRequests.invalidate(),
             utils.sensei.getStudents.invalidate(),
           ]);
@@ -387,7 +395,10 @@ const SenseiSystem: React.FC<TrainingProps> = (props) => {
       onSuccess: async (data) => {
         showMutationToast(data);
         if (data.success) {
-          await utils.profile.getUser.invalidate();
+          await invalidateUserQuery(
+            "mutation:sensei.leaveSensei",
+            utils.profile.getUser.invalidate,
+          );
         }
       },
     });
@@ -592,7 +603,10 @@ const StatsTraining: React.FC<
       },
       onError: async () => {
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:train.startTraining",
+            utils.profile.getUser.invalidate,
+          ),
           utils.misc.getCaptcha.invalidate(),
         ]);
       },
@@ -619,7 +633,11 @@ const StatsTraining: React.FC<
           sendGTMEvent({ event: "mastery_training" });
         }
       },
-      onError: () => utils.profile.getUser.invalidate(),
+      onError: () =>
+        invalidateUserQuery(
+          "mutation:train.startMasteryTraining",
+          utils.profile.getUser.invalidate,
+        ),
     });
 
   const { mutate: queueMasteryTraining, isPending: isQueueingMastery } =
@@ -648,7 +666,10 @@ const StatsTraining: React.FC<
       },
       onError: async () => {
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:train.stopMasteryTraining",
+            utils.profile.getUser.invalidate,
+          ),
           utils.misc.getCaptcha.invalidate(),
         ]);
       },

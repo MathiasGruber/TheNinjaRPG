@@ -8,6 +8,7 @@ import {
 } from "@/drizzle/constants";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import { canAssignExperience } from "@/libs/profile";
+import { withUserRefreshCause } from "@/libs/userRefresh";
 import type {
   AchievementProgress,
   UserWithRelations,
@@ -69,7 +70,10 @@ export const updateUserCache = async (
       return mergeUserCache(old, user);
     });
     // A local patch must preserve reconciliation of unrelated fields.
-    if (needsRefresh) await client.invalidateQueries({ queryKey: key, exact: true });
+    if (needsRefresh)
+      await withUserRefreshCause("cache:local_patch", () =>
+        client.invalidateQueries({ queryKey: key, exact: true }),
+      );
     return;
   }
   const { revision } = mutation;
@@ -79,7 +83,9 @@ export const updateUserCache = async (
     // Invalidation reuses an initial fetch without cached data. Cancel it first so
     // a snapshot taken before the mutation cannot satisfy this reconciliation.
     await client.cancelQueries({ queryKey: key, exact: true });
-    await client.invalidateQueries({ queryKey: key, exact: true });
+    await withUserRefreshCause("cache:missing_delta_or_revision", () =>
+      client.invalidateQueries({ queryKey: key, exact: true }),
+    );
     return;
   }
   const wasFetching = client.getQueryState(key)?.fetchStatus !== "idle";
@@ -87,7 +93,9 @@ export const updateUserCache = async (
   // Another action may have requested this unfinished read to reconcile its own changes.
   // Preserve that refresh instead of cancelling it and clearing the invalidation with a delta.
   if (wasFetching) {
-    await client.invalidateQueries({ queryKey: key, exact: true });
+    await withUserRefreshCause("cache:inflight_read", () =>
+      client.invalidateQueries({ queryKey: key, exact: true }),
+    );
     return;
   }
   let applied = false;
@@ -110,7 +118,10 @@ export const updateUserCache = async (
     applied = true;
     return mergeUserCache(old, user, mutation.achievementProgress);
   });
-  if (!applied) await client.invalidateQueries({ queryKey: key, exact: true });
+  if (!applied)
+    await withUserRefreshCause("cache:patch_conflict", () =>
+      client.invalidateQueries({ queryKey: key, exact: true }),
+    );
 };
 
 const USER_DELTA_CAPS = {

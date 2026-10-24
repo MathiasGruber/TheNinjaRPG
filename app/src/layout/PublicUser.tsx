@@ -2,6 +2,7 @@
 
 import { NumberInput } from "@/components/ui/number-input";
 import { getJutsuMaxLevel } from "@/libs/jutsuProgression";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 
 /**
  * WARNING: This page is loaded very frequently, so it is important to keep it as light as possible.
@@ -255,7 +256,10 @@ const DebugUserCloneControl: React.FC<{
         // refresh/navigation so another copy always requires a new explicit confirmation.
         setConfirmedSource(null);
         void Promise.allSettled([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:staff.cloneUserForDebug",
+            utils.profile.getUser.invalidate,
+          ),
           utils.profile.getPublicUser.invalidate({ userId: cloneUserId }),
         ]);
         router.push("/profile");
@@ -638,7 +642,10 @@ const PublicUserComponent: React.FC<PublicUserComponentProps> = (props) => {
       setForceAwakeReason("");
       void Promise.allSettled([
         utils.profile.getPublicUser.invalidate({ userId: target.userId }),
-        utils.profile.getUser.invalidate(),
+        invalidateUserQuery(
+          "mutation:staff.forceAwake",
+          utils.profile.getUser.invalidate,
+        ),
       ]);
     } catch (error) {
       // Non-network tRPC failures are already rendered exactly once by the global handler.
@@ -3386,7 +3393,10 @@ const UpdateUserIdButton: React.FC<UpdateUserIdButtonProps> = ({
         utils.profile.getPublicUser.invalidate({ userId: request.userId }),
         utils.profile.getPublicUser.invalidate({ userId: request.newUserId }),
         utils.profile.getPublicUsers.invalidate(),
-        utils.profile.getUser.invalidate(),
+        invalidateUserQuery(
+          "mutation:staff.updateUserId",
+          utils.profile.getUser.invalidate,
+        ),
       ]);
       router.replace(`/userid/${encodeURIComponent(request.newUserId)}`);
     } catch (error) {

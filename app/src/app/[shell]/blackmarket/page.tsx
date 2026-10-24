@@ -46,6 +46,7 @@ import UserSearchSelect from "@/layout/UserSearchSelect";
 import { filterRollableBloodlines } from "@/libs/bloodline";
 import { useInfinitePagination } from "@/libs/pagination";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import type { UserWithRelations } from "@/routers/profile";
 import { round } from "@/utils/math";
 import { secondsFromDate } from "@/utils/time";
@@ -191,7 +192,10 @@ const PityBloodlineRoll: React.FC<{
       showMutationToast(data);
       if (data.success) {
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:bloodline.pityRoll",
+            utils.profile.getUser.invalidate,
+          ),
           utils.bloodline.getItemRolls.invalidate(),
         ]);
       }

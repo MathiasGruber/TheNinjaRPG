@@ -26,6 +26,7 @@ import { usePusherHandler } from "@/layout/PusherHandler";
 import type { ReturnedBattle } from "@/libs/combat/types";
 import type { NavBarDropdownLink } from "@/libs/menus";
 import { showMutationToast } from "@/libs/toast";
+import { withUserRefreshCause } from "@/libs/userRefresh";
 import { parseHtml } from "@/utils/parse";
 import { secondsFromDate } from "@/utils/time";
 import {
@@ -145,7 +146,9 @@ export function UserContextProvider(props: {
   useMasteryQueueRefresh(
     data?.userData,
     () => {
-      void refetch({ cancelRefetch: false });
+      void withUserRefreshCause("timer:mastery_finished", () =>
+        refetch({ cancelRefetch: false }),
+      );
     },
     timeDiff,
     !!userId && !!isSignedIn && isLoaded,
@@ -162,7 +165,9 @@ export function UserContextProvider(props: {
   useRefreshAt(
     timedDeadlines,
     () => {
-      void refetch({ cancelRefetch: false });
+      void withUserRefreshCause("timer:buff_or_cooking_finished", () =>
+        refetch({ cancelRefetch: false }),
+      );
     },
     timeDiff,
     !!userId && !!isSignedIn && isLoaded,

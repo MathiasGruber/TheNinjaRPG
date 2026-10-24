@@ -38,6 +38,7 @@ import {
 import { getRewardPickCount, isRewardChoiceQuest } from "@/libs/rewardChoice";
 import { cn } from "@/libs/shadui";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { isRetryableTrpcError } from "@/utils/error";
 import { parseHtml } from "@/utils/parse";
 import { canPlayHiddenQuests } from "@/utils/permissions";
@@ -609,7 +610,10 @@ export const LogbookEntry: React.FC<LogbookEntryProps> = (props) => {
       setAbandonDialogIdentity(null);
       await Promise.allSettled([
         utils.quests.allianceBuilding.invalidate(),
-        utils.profile.getUser.invalidate(),
+        invalidateUserQuery(
+          "mutation:quests.abandon",
+          utils.profile.getUser.invalidate,
+        ),
       ]);
     } catch (error) {
       // This caller owns transport recovery feedback; other tRPC failures use the global handler.

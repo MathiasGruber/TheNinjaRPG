@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getRewardArray } from "@/libs/objectives";
 import { showRewardToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 
 export function UnclaimedSeasonRewards() {
   // Fetch unclaimed rewards for the logged-in user
@@ -22,7 +23,10 @@ export function UnclaimedSeasonRewards() {
           showRewardToast([data.message], data.rewards, "Claimed!");
           await Promise.all([
             utils.pvpRank.getUnclaimedUserSeasonRewards.invalidate(),
-            utils.profile.getUser.invalidate(),
+            invalidateUserQuery(
+              "mutation:pvpRank.claimSeasonRewards",
+              utils.profile.getUser.invalidate,
+            ),
           ]);
         }
       }

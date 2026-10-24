@@ -48,6 +48,7 @@ import ItemWithEffects from "@/layout/ItemWithEffects";
 import Loader from "@/layout/Loader";
 import { isEquippableUserItem, isImbuing } from "@/libs/item";
 import { showMutationToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { capitalizeFirstLetter } from "@/utils/string";
 import { useRequiredUserData } from "@/utils/UserContext";
 import { createAuctionOfferSchema } from "@/validators/auction";
@@ -179,7 +180,10 @@ export function NewOfferDialog({
         await Promise.all([
           utils.auction.getAuctionOffers.invalidate(),
           utils.item.getUserItems.invalidate(),
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:auction.createAuctionOffer",
+            utils.profile.getUser.invalidate,
+          ),
         ]);
       } else setError(result.message);
     },
@@ -403,7 +407,7 @@ function OfferCard({
     await Promise.all([
       utils.auction.getAuctionOffers.invalidate(),
       utils.item.getUserItems.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:auction_offer", utils.profile.getUser.invalidate),
     ]);
   };
   const accept = api.auction.acceptAuctionOffer.useMutation({

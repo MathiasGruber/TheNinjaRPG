@@ -79,6 +79,7 @@ import { calculateKitsToUse, getRepairKits, needsInventoryRepair } from "@/libs/
 import { hasRequiredSkill } from "@/libs/skillRequirements";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
 import { hasRequiredLevel, remainingXpToLevel } from "@/libs/train";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { getVillageLoyaltyShopCost } from "@/libs/villageLoyalty";
 import type { UserWithRelations } from "@/routers/profile";
 import { useRequiredUserData } from "@/utils/UserContext";
@@ -886,7 +887,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       }
       if (data.success) {
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:item.consume",
+            utils.profile.getUser.invalidate,
+          ),
           utils.item.getUserItemsWithVariants.invalidate(),
           utils.bloodline.getItemRolls.invalidate(),
           utils.raids.getUserRaidBuffs.invalidate(),
@@ -897,7 +901,10 @@ const Backpack: React.FC<BackpackProps> = (props) => {
       } else if (useritem?.item.itemType === "MEAL") {
         // A rejected snapshot must refresh the next modal's quantity and account state.
         await Promise.all([
-          utils.profile.getUser.invalidate(),
+          invalidateUserQuery(
+            "mutation:item.consume",
+            utils.profile.getUser.invalidate,
+          ),
           utils.item.getUserItemsWithVariants.invalidate(),
         ]);
       }

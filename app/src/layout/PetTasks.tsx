@@ -18,6 +18,7 @@ import { useOpenRewardChoice } from "@/layout/RewardChoice";
 import { isPetTaskContract, petTaskDispatchBlockMessage } from "@/libs/pets/tasks";
 import { formatQuestEntryCost } from "@/libs/questRun";
 import { showMutationToast, showRewardToast } from "@/libs/toast";
+import { invalidateUserQuery } from "@/libs/userRefresh";
 import { formatSecondsToTimeDisplay } from "@/utils/time";
 import { useRequiredUserData } from "@/utils/UserContext";
 import type { PostProcessedRewards } from "@/validators/rewards";
@@ -309,7 +310,7 @@ const usePetTaskFeedback = () => {
       utils.quests.getPendingRewardChoices.invalidate(),
       utils.pets.getPet.invalidate(),
       utils.pets.getCollection.invalidate(),
-      utils.profile.getUser.invalidate(),
+      invalidateUserQuery("feature:pet_task", utils.profile.getUser.invalidate),
       utils.item.getUserItems.invalidate(),
     ]);
   return {
