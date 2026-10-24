@@ -50,7 +50,7 @@ describeWithDatabase("battle action log index", () => {
       await query(migration);
       await query("ANALYZE TABLE `BattleAction`");
       for (const [index, statement] of variants.entries()) {
-        expect((await query<mysql.RowDataPacket[]>(statement))[0]).toEqual(before[index]);
+        expect((await query<mysql.RowDataPacket[]>(statement))[0]).toEqual(before[index]!);
       }
       const [afterPlan] = await query<mysql.RowDataPacket[]>(`EXPLAIN ${latest}`);
       expect(afterPlan[0]!.key).toBe(logIndex);
