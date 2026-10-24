@@ -104,7 +104,7 @@ import {
   applyVillageMissionShrineDamage,
   recordVillageMissionProgress,
 } from "@/server/utils/villageMission";
-import { extendWarParticipantSql, warRaidCombatGuard } from "@/server/utils/war";
+import { warRaidCombatGuard } from "@/server/utils/war";
 import { periodStart } from "@/utils/time";
 
 type DataBattleAction = {
@@ -1512,9 +1512,6 @@ export const updateUser = async (
     // counter for war quests. Per-opponent `warFoe` (below) gates defeat_opponents so a non-war
     // target isn't credited just because a war foe shared the battle.
     const isWarBattleParticipant = curBattle.usersState.some(isOpposingWarFoe);
-    // A winning war participant earns ~2h of cross-bracket targetability; folded into the main
-    // userData update below so it costs no extra roundtrip.
-    const isWinningWarParticipant = result.didWin > 0 && isWarBattleParticipant;
 
     // Accumulate all tracker tasks into a single array for one getNewTrackers call
     const trackerTasks: Parameters<typeof getNewTrackers>[1] = [];
@@ -1946,11 +1943,8 @@ export const updateUser = async (
             battleId: null,
             // Only Energy recovers in combat; reset the shared clock for other pools.
             regenAt: settledAt,
-            // Stamp the winning war participant in the same row update (no extra roundtrip).
-            // GREATEST() inside extendWarParticipantSql never shortens a longer existing stamp.
-            ...(isWinningWarParticipant
-              ? { warParticipantUntil: extendWarParticipantSql() }
-              : {}),
+            // War participation is stamped when starting a war action; winning an unrelated
+            // battle or defending against an attack must not start or extend that window.
             ...(curBattle.battleType === "RANKED_PVP"
               ? {
                   rankedLp: sql`GREATEST(rankedLp + ${result.lpDiff}, 0)`,
