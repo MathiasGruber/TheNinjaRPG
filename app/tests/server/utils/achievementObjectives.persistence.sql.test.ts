@@ -380,7 +380,7 @@ describeWithDatabase("achievement persistence through sparse quest updates", () 
           })
           .where(eq(userData.userId, userId));
         await insertUsers([
-          { userId: "enemy", username: "Enemy", isAi: true, rank: "NONE", level: 1 },
+          { userId: "enemy", username: "Enemy", isAi: true, inArena: true, rank: "NONE", level: 1 },
         ]);
         await db
           .insert(aiProfile)
