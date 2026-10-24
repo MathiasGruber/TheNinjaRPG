@@ -1530,6 +1530,13 @@ const requestStorePaypalOrder = async (
                   "TRANSACTION_LIMIT_EXCEEDED",
                   "TRANSACTION_RECEIVING_LIMIT_EXCEEDED",
                   "TRANSACTION_BLOCKED_BY_PAYEE",
+                  "PAYMENT_DENIED",
+                  "CONTINGENCY_NOT_SUCCESSFUL",
+                  "REFERENCED_CARD_EXPIRED",
+                  "CARD_BRAND_NOT_SUPPORTED",
+                  "CARD_COUNTRY_NOT_SUPPORTED",
+                  "CARD_DATA_NOT_FOUND",
+                  "PREFERRED_BRAND_NOT_SUPPORTED",
                 ]),
               }),
             )

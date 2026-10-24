@@ -144,6 +144,8 @@ describeWithDatabase("web store payments", () => {
     "CARD_EXPIRED", "CARD_CLOSED", "COMPLIANCE_VIOLATION", "DOMESTIC_TRANSACTION_REQUIRED",
     "PAYEE_BLOCKED_TRANSACTION", "PAYER_ACCOUNT_LOCKED_OR_CLOSED", "PAYER_ACCOUNT_RESTRICTED",
     "TRANSACTION_LIMIT_EXCEEDED", "TRANSACTION_RECEIVING_LIMIT_EXCEEDED", "TRANSACTION_BLOCKED_BY_PAYEE",
+    "PAYMENT_DENIED", "CONTINGENCY_NOT_SUCCESSFUL", "REFERENCED_CARD_EXPIRED",
+    "CARD_BRAND_NOT_SUPPORTED", "CARD_COUNTRY_NOT_SUPPORTED", "CARD_DATA_NOT_FOUND", "PREFERRED_BRAND_NOT_SUPPORTED",
   ])("releases definitive funding failure %s while preserving pending and newer capture attempts", async issue => {
     const db = await getTestDatabase();
     const limited = {...offer,bundleId:"limited"};
