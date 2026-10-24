@@ -58,23 +58,24 @@ const mount = (initial = stateAt(1)) => {
   function Hook() {
     const [state, updateState] = useState(initial);
     setState = updateState;
-    useCombatUpdates(state);
+    const { startAction, settleAction } = useCombatUpdates(state);
     const { data } = testApi.combat.getBattle.useQuery({ battleId: state.battle?.id });
     // The combat page applies query responses independently of the mutation.
     useEffect(() => { if (data?.battle) updateState({ ...data, isPending: false }); }, [data]);
     const action = testApi.combat.performAction.useMutation({
-      onMutate: () => updateState((current) => ({ ...current, isPending: true })),
+      onMutate: (variables) => { startAction(variables.battleId); updateState((current) => ({ ...current, isPending: true })); },
       onSuccess: async (data) => {
         await pauseSuccess;
         updateState((current) => data.battleUpdate && data.updateClient
           ? { battle: data.battleUpdate, result: data.result, isPending: false }
           : { ...current, isPending: false });
-        if (data.updateClient && !data.battleUpdate) await queryClient.invalidateQueries({ queryKey: [["combat", "getBattle"]] });
       },
-      onError: async () => {
+      onError: () => {
         updateState((current) => ({ ...current, isPending: false }));
-        await queryClient.invalidateQueries({ queryKey: [["combat", "getBattle"]] });
       },
+      onSettled: (data, error, variables) => settleAction(variables.battleId, {
+        battle: data?.updateClient ? data.battleUpdate : undefined, result: data?.result,
+      }, !!error || (!!data?.updateClient && !data.battleUpdate)),
     });
     performAction = () => action.mutate({ battleId: "battle" } as never);
     return null;
@@ -82,13 +83,15 @@ const mount = (initial = stateAt(1)) => {
   return render(<testApi.Provider client={trpcClient} queryClient={queryClient}><QueryClientProvider client={queryClient}><Hook /></QueryClientProvider></testApi.Provider>);
 };
 
+const actionResponse = (version: number) => ({ updateClient: true, battleUpdate: stateAt(version).battle!, result: null, logEntries: [], updatedQuestIds: [] });
+
 const beginAction = async () => {
   await waitFor(() => expect(reads).toHaveLength(1));
   await act(async () => performAction());
   await waitFor(() => expect(queryClient.isMutating()).toBe(1));
 };
 const respond = async (version = 2) => {
-  await act(async () => finishAction({ updateClient: true, battleUpdate: stateAt(version).battle! }));
+  await act(async () => finishAction(actionResponse(version)));
   await waitFor(() => expect(queryClient.isMutating()).toBe(0));
 };
 
@@ -148,7 +151,7 @@ it("does not refresh held results after a pending final action", async () => {
   mount();
   await beginAction();
   await act(async () => onEvent({ version: 3, finished: true }));
-  await act(async () => finishAction({ updateClient: true, battleUpdate: stateAt(2).battle!, result: { outcome: "Won" } as never }));
+  await act(async () => finishAction({ ...actionResponse(2), result: { outcome: "Won" } as never }));
   await waitFor(() => expect(queryClient.isMutating()).toBe(0));
   expect(reads).toHaveLength(1);
 });
@@ -163,13 +166,24 @@ it("waits for the actual mutation when a poll clears the displayed pending flag"
   expect(reads).toHaveLength(1);
 });
 
+it("recovers a newer opponent event even when a poll already rendered it before the older action response", async () => {
+  mount();
+  await beginAction();
+  await act(async () => setState(stateAt(3)));
+  await act(async () => onEvent({ version: 3 }));
+  await respond(2);
+  await waitFor(() => expect(reads).toHaveLength(2));
+  await act(async () => finishRead?.(stateAt(3)));
+  expect(reads).toHaveLength(2);
+});
+
 it("retains events while asynchronous success processing has not applied the response", async () => {
   let resume!: () => void;
   pauseSuccess = new Promise<void>((resolve) => { resume = resolve; });
   mount();
   await beginAction();
   await act(async () => setState(stateAt(1)));
-  await act(async () => finishAction({ updateClient: true, battleUpdate: stateAt(2).battle! }));
+  await act(async () => finishAction(actionResponse(2)));
   await act(async () => onEvent({ version: 2 }));
   expect(reads).toHaveLength(1);
   await act(async () => resume());
@@ -184,7 +198,6 @@ it("fetches a newer event that arrived after an error recovery request began", a
   await act(async () => failAction(new Error("Connection lost")));
   await waitFor(() => expect(reads).toHaveLength(2));
   await act(async () => onEvent({ version: 3 }));
-  await act(async () => finishRead?.(stateAt(2)));
   await waitFor(() => expect(queryClient.isMutating()).toBe(0));
   await waitFor(() => expect(reads).toHaveLength(3));
   await act(async () => finishRead?.(stateAt(3)));

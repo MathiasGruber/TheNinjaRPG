@@ -201,7 +201,7 @@ const Combat: React.FC<CombatProps> = (props) => {
     updateUser,
     prepareUserUpdate,
   } = useRequiredUserData();
-  const updateLogs = useCombatUpdates(battleState);
+  const { updateLogs, startAction, settleAction } = useCombatUpdates(battleState);
   const [statDistribution] = useLocalStorage<StatSchemaType | undefined>(
     "statDistribution",
     undefined,
@@ -468,20 +468,26 @@ const Combat: React.FC<CombatProps> = (props) => {
 
   // User Action
   const { mutate: performAction, isPending } = api.combat.performAction.useMutation({
-    onMutate: () => {
+    onMutate: (variables) => {
       onMutateCheck();
+      startAction(variables.battleId);
       document.body.style.cursor = "wait";
       setBattleState({ battle: battleRef.current, result: null, isPending: true });
       return prepareUserUpdate();
     },
-    onSettled: () => {
+    onSettled: (data, error, variables) => {
       document.body.style.cursor = "default";
+      settleAction(
+        variables.battleId,
+        {
+          battle: data?.updateClient ? data.battleUpdate : undefined,
+          result: data?.result,
+        },
+        !!error || (!!data?.updateClient && !data.battleUpdate),
+      );
     },
-    onError: async () => {
+    onError: () => {
       setBattleState({ battle: battleRef.current, result: null, isPending: false });
-      // Keep recovery inside the mutation lifecycle so deferred realtime events
-      // reconcile against the recovered state before requesting another read.
-      await utils.combat.getBattle.invalidate();
     },
     onSuccess: async (data, _variables, revision) => {
       if (data.result && data.battleUpdate) {
@@ -515,7 +521,6 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
       if (!data.battleUpdate) {
         setBattleState({ battle: battleRef.current, result: null, isPending: false });
-        if (data.updateClient) await utils.combat.getBattle.invalidate();
         return;
       }
       if (data?.result?.notifications.length !== 0) {
