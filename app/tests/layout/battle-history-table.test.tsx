@@ -36,9 +36,11 @@ afterEach(() => { cleanup(); queryClient.clear(); vi.restoreAllMocks(); });
 
 const row = (id: number): Row => ({
   id, createdAt: new Date("2026-01-01T12:00:00.123Z"), battleId: `battle-${id}`,
-  attackedId: "deleted", defenderId: "actor", battleType: "COMBAT", attacker: null,
+  attackedId: "deleted", defenderId: "actor", battleType: "COMBAT",
+  // A deleted relation is null at runtime despite Drizzle inferring a required attacker.
+  attacker: null as unknown as Row["attacker"],
   defender: { userId: "actor", username: "Actor", avatar: null },
-}) as Row;
+});
 
 const mount = (props: Parameters<typeof BattleHistoryTable>[0] = {}) => {
   const trpcClient = testApi.createClient({ links: [() => ({ op }) => observable((observer) => {
