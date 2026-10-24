@@ -41,10 +41,14 @@ export const useCombatUpdates = (state: BattleState) => {
   stateRef.current = state;
   const battleId = state.battle?.id;
   const pendingActionRef = useRef<{ battleId: string; version: number } | null>(null);
-  const responseVersionRef = useRef<{ battleId: string; version: number } | null>(null);
+  const responseVersionRef = useRef<{ battle: ReturnedBattle; version: number } | null>(
+    null,
+  );
 
   const startAction = useCallback((id: string) => {
+    if (pendingActionRef.current) return false;
     pendingActionRef.current = { battleId: id, version: 0 };
+    return true;
   }, []);
 
   const settleAction = useCallback(
@@ -58,10 +62,10 @@ export const useCombatUpdates = (state: BattleState) => {
       const { battle, result } = stateRef.current;
       if (!battle || battle.id !== id) return;
       // onSettled runs before React necessarily renders onSuccess's state update.
-      // Retain its version so a trailing own event cannot refresh that gap.
+      // Retain its version only for this snapshot; a later poll may replace it.
       const version =
         response.battle?.id === id ? response.battle.version : battle.version;
-      responseVersionRef.current = { battleId: id, version };
+      responseVersionRef.current = { battle, version };
       if (result || response.result) return;
       // Compare with the response being applied, even if an independent poll
       // already rendered a newer state that onSuccess is about to replace.
@@ -204,7 +208,7 @@ export const useCombatUpdates = (state: BattleState) => {
       const response = responseVersionRef.current;
       const version = Math.max(
         battle.version,
-        response?.battleId === battleId ? response.version : 0,
+        response?.battle === battle ? response.version : 0,
       );
       if (data.version > version) void utils.combat.getBattle.invalidate();
     };

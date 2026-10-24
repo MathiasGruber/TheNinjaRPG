@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type React from "react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Clock, Group, OrthographicCamera, Vector2 } from "three";
-import { api, useGlobalOnMutateProtect } from "@/app/_trpc/client";
+import { api, type RouterInputs, useGlobalOnMutateProtect } from "@/app/_trpc/client";
 import { Button } from "@/components/ui/button";
 import {
   AutoBattleTypes,
@@ -467,10 +467,9 @@ const Combat: React.FC<CombatProps> = (props) => {
   };
 
   // User Action
-  const { mutate: performAction, isPending } = api.combat.performAction.useMutation({
-    onMutate: (variables) => {
+  const { mutate: mutateAction, isPending } = api.combat.performAction.useMutation({
+    onMutate: () => {
       onMutateCheck();
-      startAction(variables.battleId);
       document.body.style.cursor = "wait";
       setBattleState({ battle: battleRef.current, result: null, isPending: true });
       return prepareUserUpdate();
@@ -589,6 +588,12 @@ const Combat: React.FC<CombatProps> = (props) => {
       }
     },
   });
+
+  const performAction = (input: RouterInputs["combat"]["performAction"]) => {
+    // Reserve synchronously for keyboard, pointer and automatic submissions.
+    if (!startAction(input.battleId)) return;
+    mutateAction(input);
+  };
 
   // I am here call
   const { mutate: iAmHere, isPending: isMarkingReady } = api.combat.iAmHere.useMutation(
