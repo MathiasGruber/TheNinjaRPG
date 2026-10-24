@@ -17,6 +17,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -55,7 +56,8 @@ export function StoreBundles() {
   const [isCheckoutPending, setIsCheckoutPending] = useState(false);
   const [editing, setEditing] = useState<{ id?: string; data: StoreBundleInput }>();
   const [message, setMessage] = useState<string>();
-  const returnFocusRef = useRef<HTMLButtonElement>(null);
+  const returnFocusRef = useRef<HTMLElement>(null);
+  const selectedBundleRef = useRef<HTMLDivElement>(null);
   const userSearchSchema = getSearchValidator({ max: 1 });
   const methods = useForm<z.infer<typeof userSearchSchema>>({
     defaultValues: { username: "", users: [] },
@@ -144,6 +146,8 @@ export function StoreBundles() {
         {query.data?.bundles.map((bundle) => (
           <Card
             key={bundle.id}
+            ref={selected === bundle.id ? selectedBundleRef : undefined}
+            tabIndex={-1}
             className={
               selected === bundle.id ? "border-primary ring-1 ring-primary" : ""
             }
@@ -236,7 +240,12 @@ export function StoreBundles() {
         isOpen={!!offer}
         isLoading={isCheckoutPending}
         setIsOpen={(open) => {
-          if (!open) setSelected(undefined);
+          if (!open) {
+            // Delivery can disable the opener; keep focus on the purchased bundle.
+            if (returnFocusRef.current?.matches(":disabled"))
+              returnFocusRef.current = selectedBundleRef.current;
+            setSelected(undefined);
+          }
         }}
         returnFocusRef={returnFocusRef}
         bodyClassName="space-y-3 py-2"
@@ -288,7 +297,7 @@ function StoreBundleEditor({
   items: { id: string; name: string; repsCost: number }[];
   isPending: boolean;
   message?: string;
-  returnFocusRef: RefObject<HTMLButtonElement | null>;
+  returnFocusRef: RefObject<HTMLElement | null>;
   onSave: (data: StoreBundleInput) => void;
   onClose: () => void;
 }) {
@@ -377,10 +386,10 @@ function StoreBundleEditor({
                       required
                     />
                   </FormControl>
-                  <p className="text-muted-foreground text-sm">
+                  <FormDescription>
                     0 means unlimited. 1 allows one lifetime purchase per buyer account,
                     including gifts.
-                  </p>
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -103,7 +103,7 @@ export function StoreCheckout({
           }}
           onCancel={() =>
             setMessage(
-              `Checkout cancelled. No purchase was delivered. Any reserved monthly allowance is released within ${STORE_ORDER_RESERVATION_MINUTES} minutes.`,
+              `Checkout cancelled. No purchase was delivered. Unused reservations for bundle slots or monthly allowance expire within ${STORE_ORDER_RESERVATION_MINUTES} minutes; retry then if blocked.`,
             )
           }
           onError={() =>
