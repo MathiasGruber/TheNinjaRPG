@@ -713,9 +713,16 @@ export const drawCombatEffect = (info: {
       // Set visibility
       if (asset) {
         if (effect.power !== undefined && effect.power <= 0) {
+          const wasVisible = asset.visible;
           asset.visible = false;
-          // Play or queue disappear SFX when hiding
-          if (effect.disappearSfx && info.sfxEnabled && animationId !== 0) {
+          // Retained depleted effects stay hidden across frames. Reappearing
+          // makes the next visible-to-hidden transition eligible again.
+          if (
+            wasVisible &&
+            effect.disappearSfx &&
+            info.sfxEnabled &&
+            animationId !== 0
+          ) {
             try {
               const sfx = gameAssets.find((a) => a.id === effect.disappearSfx);
               const url = sfx?.url;
