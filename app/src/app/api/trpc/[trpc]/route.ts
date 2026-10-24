@@ -20,6 +20,13 @@ export const runtime = "nodejs";
 // Pet provider calls stop before this deadline so their failure remains retryable.
 export const maxDuration = 300;
 
+const procedureTypes = new Map(
+  Object.entries(appRouter._def.procedures).map(([path, procedure]) => {
+    const def = (procedure as { _def?: { type?: string } })._def;
+    return [path, def?.type ?? "unknown"];
+  }),
+);
+
 const handler = async (req: NextRequest) => {
   // Mutations wait for BotID's verdict (see @/server/utils/botid). Starting the check
   // here overlaps its round trip with the session lookup in createContext.
@@ -48,7 +55,12 @@ const handler = async (req: NextRequest) => {
         req,
         router: appRouter,
         createContext() {
-          return createAppTRPCContext({ req, readHeaders, readCookies });
+          return createAppTRPCContext({
+            req,
+            readHeaders,
+            readCookies,
+            procedureTypes,
+          });
         },
         // Lets a tab running an older bundle notice the deploy and reload onto it.
         responseMeta: () => ({ headers: { [BUILD_ID_HEADER]: BUILD_ID } }),

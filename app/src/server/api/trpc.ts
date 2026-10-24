@@ -24,6 +24,11 @@ import { questHistory, userData } from "@/drizzle/schema";
 import { LEMU_EXPERIMENT, normalizeLemuVariant } from "@/libs/lemuExperiment";
 import type { McpMeta } from "@/libs/mcp";
 import {
+  parseQueryMetricsHeader,
+  QUERY_METRICS_HEADER,
+  type QueryAttribution,
+} from "@/libs/queryTelemetry";
+import {
   ISOLATED_PYRAMID_MESSAGE,
   isPyramidRestrictedProcedure,
 } from "@/libs/questRun";
@@ -44,6 +49,7 @@ import {
 import { drizzleDB } from "@/server/db";
 import { enforceBotId } from "@/server/utils/botid";
 import { hasSensitiveTrpcInput } from "@/server/utils/trpcInput";
+import { measureTrpcCall } from "@/server/utils/trpcMetrics";
 import { getClientIp } from "@/utils/network";
 
 /**
@@ -55,6 +61,7 @@ export const createAppTRPCContext = async (options: {
   req: NextRequest;
   readHeaders: ReadonlyHeaders;
   readCookies: ReadonlyRequestCookies;
+  procedureTypes?: ReadonlyMap<string, string>;
 }) => {
   // Get user ID - SIMPLE
   const session = await auth();
@@ -64,11 +71,19 @@ export const createAppTRPCContext = async (options: {
   const userIp = getClientIp(readHeaders);
   // Get agent
   const userAgent = readHeaders.get("user-agent") ?? undefined;
+  // Optional for server-side callers and older clients, which have no browser attribution.
+  const telemetry: { queryMetrics?: ReadonlyMap<string, QueryAttribution> } = {
+    queryMetrics: parseQueryMetricsHeader(
+      readHeaders.get(QUERY_METRICS_HEADER),
+      options.procedureTypes ?? new Map(),
+    ),
+  };
   // AB testing cookies
   const abLemuReplacementVariant = normalizeLemuVariant(
     options.readCookies.get(LEMU_EXPERIMENT)?.value,
   );
   return {
+    ...telemetry,
     drizzle: drizzleDB,
     userIp,
     userId,
@@ -143,10 +158,18 @@ const ratelimit = new Ratelimit({
 });
 
 export const sentryMiddleware = t.middleware((opts) =>
-  Sentry.trpcMiddleware({
-    // Parental settings contain PIN credentials; keep them out of error telemetry.
-    attachRpcInput: !hasSensitiveTrpcInput(opts.path),
-  })(opts),
+  measureTrpcCall(
+    {
+      path: opts.path,
+      type: opts.type,
+      attribution: opts.ctx.queryMetrics?.get(opts.path),
+    },
+    () =>
+      Sentry.trpcMiddleware({
+        // Parental settings contain PIN credentials; keep them out of error telemetry.
+        attachRpcInput: !hasSensitiveTrpcInput(opts.path),
+      })(opts),
+  ),
 );
 
 /**

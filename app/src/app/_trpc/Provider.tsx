@@ -21,6 +21,11 @@ import { ToastAction } from "@/components/ui/toast";
 import { toast } from "@/components/ui/use-toast";
 import { BOTID_BLOCKED_MESSAGE, BOTID_RELOAD_REQUIRED_MESSAGE } from "@/libs/botid";
 import { BUILD_ID_HEADER, noteServerBuild } from "@/libs/buildVersion";
+import {
+  createQueryMetricsTracker,
+  queryMetricsHeaders,
+  queryMetricsLink,
+} from "@/libs/queryMetrics";
 import { showMutationToast } from "@/libs/toast";
 import { shouldLogTrpcOperation } from "@/libs/trpcLogging";
 import {
@@ -60,45 +65,44 @@ const TrpcClientProvider = (props: {
     };
   }, [clerk, session]);
   const onMutateCheck = useGlobalOnMutateProtect();
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: Infinity,
-          },
-          mutations: {
-            // A caller's onError replaces this fallback, preserving its recovery UX.
-            onError: (error, _variables, _result, context) =>
-              handleTrpcError(
-                error,
-                "mutation",
-                context.meta?.handlesTransportError === true,
-              ),
-          },
+  const [{ queryClient, queryMetricsTracker }] = useState(() => {
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          staleTime: Infinity,
         },
-        queryCache: new QueryCache({
-          onError: (error, _query) => handleTrpcError(error, "query"),
-        }),
-        mutationCache: new MutationCache({
-          onMutate: (_variables, mutation) => {
-            // Reject before a local onMutate callback can apply optimistic changes.
-            session.assertCurrent();
-            // Extract tRPC mutation path from mutation key (e.g., [["towerDefense", "initiateGuestSession"]])
-            const key = mutation.options.mutationKey;
-            const mutationPath =
-              Array.isArray(key) && Array.isArray(key[0])
-                ? key[0].join(".")
-                : undefined;
-            onMutateCheck(mutationPath);
-          },
-        }),
+        mutations: {
+          // A caller's onError replaces this fallback, preserving its recovery UX.
+          onError: (error, _variables, _result, context) =>
+            handleTrpcError(
+              error,
+              "mutation",
+              context.meta?.handlesTransportError === true,
+            ),
+        },
+      },
+      queryCache: new QueryCache({
+        onError: (error, _query) => handleTrpcError(error, "query"),
       }),
-  );
+      mutationCache: new MutationCache({
+        onMutate: (_variables, mutation) => {
+          // Reject before a local onMutate callback can apply optimistic changes.
+          session.assertCurrent();
+          // Extract tRPC mutation path from mutation key (e.g., [["towerDefense", "initiateGuestSession"]])
+          const key = mutation.options.mutationKey;
+          const mutationPath =
+            Array.isArray(key) && Array.isArray(key[0]) ? key[0].join(".") : undefined;
+          onMutateCheck(mutationPath);
+        },
+      }),
+    });
+    return { queryClient, queryMetricsTracker: createQueryMetricsTracker(queryClient) };
+  });
   const [trpcClient] = useState(() => {
     const cdnCachedQueries = new Set(props.cdnCachedQueryPaths);
     return api.createClient({
       links: [
+        queryMetricsLink(queryMetricsTracker),
         trpcSessionLink(session),
         retryLink({
           retry(options) {
@@ -144,7 +148,10 @@ const TrpcClientProvider = (props: {
             url: `${getBaseUrl()}/api/trpc`,
             transformer: superjson,
             // Cookies are shared by tabs; the token belongs to this tab's active session.
-            headers: session.headers,
+            headers: async ({ opList }) => ({
+              ...(await session.headers()),
+              ...queryMetricsHeaders(opList),
+            }),
             // Only uncached responses name the current deploy; a CDN copy can predate it.
             fetch: async (input, init) => {
               const response = await fetch(input, init);
