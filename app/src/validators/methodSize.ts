@@ -3,6 +3,7 @@ import { MAX_METHOD_SIZE } from "@/drizzle/constants";
 
 /**
  * Extra battlefield columns/rows on either side of each tile in the default footprint.
+ * Wall methods rotate the axes with the wall (y lengthens it, x thickens it).
  * Callers accept a missing or null field as zero expansion for existing content.
  */
 export const methodSizeSchema = z.object({
