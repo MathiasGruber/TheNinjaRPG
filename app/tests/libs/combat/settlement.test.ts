@@ -260,7 +260,7 @@ describeWithDatabase("CAS combat settlement", () => {
     const database = await getTestDatabase();
     await insertUsers([
       { userId: "imbue-player", username: "ImbuePlayer", rank: "JONIN", level: 10, status: "AWAKE", isOutlaw: true, pveFights: 10, curHealth: 100, curChakra: 100, curStamina: 100, curEnergy: 10, regeneration: 0, ninjutsuMastery: 100 },
-      { userId: "imbue-ai", username: "ImbueAI", isAi: true, isSummon: false, rank: "NONE", level: 1, curHealth: 100 },
+      { userId: "imbue-ai", username: "ImbueAI", isAi: true, isSummon: false, inArena: true, rank: "NONE", level: 1, curHealth: 100 },
     ]);
     await insertItems([
       { id: "imbue-chest", itemType: "ARMOR", slot: "CHEST", canBeImbued: true, maxDurability: 100, effects: [] },
@@ -320,7 +320,7 @@ describeWithDatabase("CAS combat settlement", () => {
     const database = await getTestDatabase();
     await insertUsers([
       { userId: "counter-player", username: "CounterPlayer", rank: "NONE", level: 1, status: "AWAKE", isOutlaw: true, pveFights: 10, curHealth: 100, curChakra: 100, curStamina: 100, curEnergy: 10, regeneration: 0 },
-      { userId: "counter-ai", username: "CounterAI", isAi: true, isSummon: false, rank: "NONE", level: 1, curHealth: 100 },
+      { userId: "counter-ai", username: "CounterAI", isAi: true, isSummon: false, inArena: true, rank: "NONE", level: 1, curHealth: 100 },
     ]);
     await database.insert(aiProfile).values({ id: "Default", userId: "default-ai", rules: [] });
     const original = (await database.query.userData.findFirst({ where: eq(userData.userId, "counter-player") }))!;

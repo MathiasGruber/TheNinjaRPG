@@ -30,7 +30,7 @@ describeWithDatabase("raid participation battle snapshots", () => {
     );
     await insertUsers([
       { userId: "human", username: "Human", rank: "GENIN", level: 5, status: "QUEUED" },
-      { userId: "enemy", username: "Boss", rank: "GENIN", level: 5, status: "AWAKE", isAi: true },
+      { userId: "enemy", username: "Boss", rank: "GENIN", level: 5, status: "AWAKE", isAi: true, inArena: true },
     ]);
     await insertQuests([{
       id: raidId, questType: "raid", raidBossCurrentHealth: 1000, raidBossMaxHealth: 1000,
